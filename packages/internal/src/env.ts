@@ -20,6 +20,8 @@ if (isCI) {
   ensureEnvDefault('DATABASE_URL', 'postgres://user:pass@localhost:5432/db')
   ensureEnvDefault('CODEBUFF_GITHUB_ID', 'test-id')
   ensureEnvDefault('CODEBUFF_GITHUB_SECRET', 'test-secret')
+  ensureEnvDefault('FREEBUFF_GITHUB_ID', 'test-id')
+  ensureEnvDefault('FREEBUFF_GITHUB_SECRET', 'test-secret')
   ensureEnvDefault('NEXTAUTH_SECRET', 'test-secret')
   ensureEnvDefault('STRIPE_SECRET_KEY', 'sk_test_dummy')
   ensureEnvDefault('STRIPE_WEBHOOK_SECRET_KEY', 'whsec_dummy')

@@ -9,7 +9,10 @@ const nextConfig = {
     // In development, override the app URL to point to the Freebuff dev server port.
     // In production, NEXT_PUBLIC_CODEBUFF_APP_URL is set via deployment env vars.
     ...(process.env.NODE_ENV === 'development'
-      ? { NEXT_PUBLIC_CODEBUFF_APP_URL: `http://localhost:${FREEBUFF_PORT}` }
+      ? {
+          NEXT_PUBLIC_CODEBUFF_APP_URL: `http://localhost:${FREEBUFF_PORT}`,
+          NEXTAUTH_URL: `http://localhost:${FREEBUFF_PORT}`,
+        }
       : {}),
   },
   eslint: {

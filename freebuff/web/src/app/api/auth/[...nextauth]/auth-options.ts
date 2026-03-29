@@ -134,8 +134,8 @@ export const authOptions: NextAuthOptions = {
   }) as Adapter,
   providers: [
     GitHubProvider({
-      clientId: env.CODEBUFF_GITHUB_ID,
-      clientSecret: env.CODEBUFF_GITHUB_SECRET,
+      clientId: env.FREEBUFF_GITHUB_ID ?? env.CODEBUFF_GITHUB_ID,
+      clientSecret: env.FREEBUFF_GITHUB_SECRET ?? env.CODEBUFF_GITHUB_SECRET,
     }),
   ],
   session: {
