@@ -46,3 +46,4 @@ Make an efficient learning agent that can do anything.
 - [docs/patterns/task-completion-validation.md](docs/patterns/task-completion-validation.md)
 - [docs/patterns/terminal-alternate-screen-buffer.md](docs/patterns/terminal-alternate-screen-buffer.md)
 - [docs/patterns/template-literal-escaping.md](docs/patterns/template-literal-escaping.md)
+- [docs/patterns/task-scope-adherence.md](docs/patterns/task-scope-adherence.md)
