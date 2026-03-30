@@ -47,3 +47,4 @@ Make an efficient learning agent that can do anything.
 - [docs/patterns/terminal-alternate-screen-buffer.md](docs/patterns/terminal-alternate-screen-buffer.md)
 - [docs/patterns/template-literal-escaping.md](docs/patterns/template-literal-escaping.md)
 - [docs/patterns/task-scope-adherence.md](docs/patterns/task-scope-adherence.md)
+- [docs/patterns/task-type-identification.md](docs/patterns/task-type-identification.md)
