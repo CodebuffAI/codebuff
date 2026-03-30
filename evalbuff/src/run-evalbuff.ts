@@ -473,8 +473,7 @@ async function improveDocs(opts: {
 
     if (comparison === 'improved' || comparison === 'same') {
       // 'improved' = clear signal the doc helps
-      // 'same' = within noise range — keep it (benefit of the doubt,
-      //   especially at low parallelism where variance is high)
+      // 'same' = within noise range — keep it (benefit of the doubt)
       const reason = comparison === 'improved' ? 'score improved' : 'within noise range, keeping'
       console.log(`  Keeping doc: ${docSuggestion.suggestedDocPath} (${reason})`)
       docsKept.push({

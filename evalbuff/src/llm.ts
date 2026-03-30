@@ -12,7 +12,7 @@ import { generateText } from 'ai'
 
 const anthropic = createAnthropic()
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6-20250415'
+const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 /**
  * Generate a task prompt from a commit diff using the LLM API directly.

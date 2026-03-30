@@ -340,13 +340,8 @@ export function revertDocEdit(
 /**
  * Compare scores to determine if a doc edit improved things.
  *
- * With parallelism=1, score variance is very high (often 3+ points on
- * the same task). To avoid rejecting good docs due to noise:
- * - Require only small improvement to accept (0.3 threshold)
- * - Require large decline to reject (1.5 threshold) — benefit of the doubt
- *
- * With higher parallelism, averages are more stable so we can use
- * tighter thresholds.
+ * With parallelism=5, averages are reasonably stable. A 0.3 threshold
+ * catches real improvements without being too sensitive to noise.
  */
 export function compareScores(
   oldScore: number,
