@@ -35,6 +35,7 @@ const { createBatchedMessageUpdater } = await import(
   '../../../utils/message-updater'
 )
 import { createPaymentRequiredError } from '@codebuff/sdk'
+import type { RunState } from '@codebuff/sdk'
 
 const createMockTimerController = (): SendMessageTimerController & {
   startCalls: string[]
@@ -348,7 +349,7 @@ describe('handleRunCompletion', () => {
       let hasReceivedPlanResponse = false
 
       const runState = {
-        sessionState: null,
+        sessionState: undefined,
         output: { type: 'lastMessage' as const, value: [] },
       }
 
@@ -372,7 +373,7 @@ describe('handleRunCompletion', () => {
       expect(chainInProgress).toBe(false)
       expect(canProcessQueue).toBe(true)
       expect(isProcessingQueueRef.current).toBe(false)
-      expect(streamStatus).toBe('idle')
+      expect(streamStatus as StreamStatus).toBe('idle')
     })
 
     test('does not process server response when wasAbortedByUser is true', () => {
@@ -388,7 +389,7 @@ describe('handleRunCompletion', () => {
       let hasReceivedPlanResponse = false
 
       const runState = {
-        sessionState: null,
+        sessionState: undefined,
         output: {
           type: 'lastMessage' as const,
           value: [{ type: 'text' as const, text: 'Server response that should be ignored' }],
@@ -431,7 +432,7 @@ describe('handleRunCompletion', () => {
       let canProcessQueueCalled = false
 
       const runState = {
-        sessionState: null,
+        sessionState: undefined,
         output: { type: 'lastMessage' as const, value: [] },
       }
 
@@ -929,7 +930,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
 
     // Abort handler fires synchronously: UI is updated, but chain lock stays held
     expect(streamRefsA.state.wasAbortedByUser).toBe(true)
-    expect(streamStatus).toBe('idle')  // UI shows idle
+    expect(streamStatus as StreamStatus).toBe('idle')  // UI shows idle
     expect(chainInProgress).toBe(true) // But chain lock is still held!
 
     // --- PHASE 3: User types run B — verify it's BLOCKED ---
@@ -952,8 +953,8 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     // Simulate what happens in useSendMessage after `await client.run(runConfig)`:
     // 1. previousRunStateRef.current = runState (state saved)
     // 2. handleRunCompletion is called
-    const runStateFromA = {
-      sessionState: { conversationId: 'conv-123', history: ['user msg A', 'partial assistant response'] },
+    const runStateFromA: RunState = {
+      sessionState: { conversationId: 'conv-123', history: ['user msg A', 'partial assistant response'] } as any,
       output: { type: 'lastMessage' as const, value: [{ type: 'text' as const, text: 'partial' }] },
     }
 
@@ -991,11 +992,11 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     expect(chainInProgress).toBe(false)
     expect(canProcessQueue).toBe(true)
     expect(isProcessingQueueRef.current).toBe(false)
-    expect(streamStatus).toBe('idle')
+    expect(streamStatus as StreamStatus).toBe('idle')
 
     // The crucial state continuity: previousRunState from A is available for B
     expect(previousRunState).toBe(runStateFromA)
-    expect(previousRunState.sessionState).toEqual({
+    expect(previousRunState.sessionState as any).toEqual({
       conversationId: 'conv-123',
       history: ['user msg A', 'partial assistant response'],
     })
@@ -1049,7 +1050,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     let chainInProgress = true
     const isProcessingQueueRef = { current: false }
     const isQueuePausedRef = { current: false }
-    let previousRunState: { sessionState: unknown; output: unknown } | null = null
+    let previousRunState: RunState | null = null
 
     const setStreamStatus = (status: StreamStatus) => { streamStatus = status }
     const setCanProcessQueue = (can: boolean) => { canProcessQueue = can }
@@ -1083,14 +1084,14 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     expect(chainInProgress).toBe(true) // Lock held
 
     // client.run() resolves for run A
-    const runStateA = {
+    const runStateA: RunState = {
       sessionState: {
         id: 'session-abc',
         messages: [
           { role: 'user', content: 'first message' },
           { role: 'assistant', content: 'partial response before cancel' },
         ],
-      },
+      } as any,
       output: { type: 'lastMessage' as const, value: [] },
     }
     previousRunState = runStateA
@@ -1146,7 +1147,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     // In the real code, this is: previousRunState: previousRunStateRef.current
     // passed to createRunConfig
     expect(previousRunState).toBe(runStateA)
-    expect(previousRunState!.sessionState).toEqual({
+    expect(previousRunState!.sessionState as any).toEqual({
       id: 'session-abc',
       messages: [
         { role: 'user', content: 'first message' },
@@ -1155,7 +1156,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     })
 
     // Simulate run B completing normally
-    const runStateB = {
+    const runStateB: RunState = {
       sessionState: {
         id: 'session-abc',
         messages: [
@@ -1164,7 +1165,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
           { role: 'user', content: 'second message' },
           { role: 'assistant', content: 'full response to second message' },
         ],
-      },
+      } as any,
       output: { type: 'lastMessage' as const, value: [{ type: 'text' as const, text: 'full response' }] },
     }
     previousRunState = runStateB
@@ -1186,7 +1187,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     })
 
     // Final state: both runs' messages are preserved in session history
-    expect(previousRunState!.sessionState).toEqual({
+    expect(previousRunState!.sessionState as any).toEqual({
       id: 'session-abc',
       messages: [
         { role: 'user', content: 'first message' },
