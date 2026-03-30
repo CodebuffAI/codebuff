@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   processBlocks,
+  splitAgentsBySize,
   isReasoningTextBlock,
   type BlockProcessorHandlers,
 } from '../block-processor'
@@ -447,11 +448,11 @@ describe('processBlocks', () => {
       expect(calls[0].handler).toBe('onAgentGroup')
     })
 
-    test('groups consecutive non-implementor agents', () => {
+    test('groups consecutive small (collapsed-by-default) agents together', () => {
       const { handlers, calls } = createMockHandlers()
       const blocks: ContentBlock[] = [
         createNonImplementorAgent('fp-1', 'file-picker'),
-        createNonImplementorAgent('cmd-1', 'commander'),
+        createNonImplementorAgent('b-1', 'basher'),
         createNonImplementorAgent('cs-1', 'code-searcher'),
       ]
 
@@ -463,7 +464,28 @@ describe('processBlocks', () => {
       const agentBlocks = calls[0].args[0] as AgentContentBlock[]
       expect(agentBlocks).toHaveLength(3)
       expect(agentBlocks[0].agentType).toBe('file-picker')
-      expect(agentBlocks[1].agentType).toBe('commander')
+      expect(agentBlocks[1].agentType).toBe('basher')
+      expect(agentBlocks[2].agentType).toBe('code-searcher')
+    })
+
+    test('groups consecutive non-implementor agents including mixed sizes', () => {
+      const { handlers, calls } = createMockHandlers()
+      const blocks: ContentBlock[] = [
+        createNonImplementorAgent('fp-1', 'file-picker'),
+        createNonImplementorAgent('cr-1', 'code-reviewer'),
+        createNonImplementorAgent('cs-1', 'code-searcher'),
+      ]
+
+      const result = processBlocks(blocks, handlers)
+
+      // All consecutive non-implementor agents go into a single onAgentGroup call
+      expect(result).toEqual(['agents-0-3'])
+      expect(calls).toHaveLength(1)
+      expect(calls[0].handler).toBe('onAgentGroup')
+      const agentBlocks = calls[0].args[0] as AgentContentBlock[]
+      expect(agentBlocks).toHaveLength(3)
+      expect(agentBlocks[0].agentType).toBe('file-picker')
+      expect(agentBlocks[1].agentType).toBe('code-reviewer')
       expect(agentBlocks[2].agentType).toBe('code-searcher')
     })
 
@@ -687,8 +709,8 @@ describe('processBlocks', () => {
         createToolBlock('tool-2', 't2'),
         createToolBlock('tool-3', 't3'), // group ends, nextIndex = 4
         createTextBlock('text at 4'),
-        createNonImplementorAgent('a1'), // group starts at 5
-        createNonImplementorAgent('a2'), // group ends, nextIndex = 7
+        createNonImplementorAgent('a1'), // group starts at 5 (file-picker = small)
+        createNonImplementorAgent('a2'), // group ends, nextIndex = 7 (file-picker = small)
         createTextBlock('text at 7'),
       ]
 
@@ -703,5 +725,86 @@ describe('processBlocks', () => {
       expect(calls[3].args[2]).toBe(7) // agents next at 7
       expect(calls[4].args[1]).toBe(7) // single text at 7
     })
+
+    test('maintains correct indices for mixed-size agent groups', () => {
+      const { handlers, calls } = createMockHandlers()
+      const blocks: ContentBlock[] = [
+        createTextBlock('text at 0'),
+        createNonImplementorAgent('fp-1', 'file-picker'),   // index 1
+        createNonImplementorAgent('b-1', 'basher'),          // index 2
+        createNonImplementorAgent('cr-1', 'code-reviewer'),  // index 3
+        createNonImplementorAgent('cs-1', 'code-searcher'),  // index 4
+        createTextBlock('text at 5'),
+      ]
+
+      processBlocks(blocks, handlers)
+
+      // text at 0
+      expect(calls[0].handler).toBe('onSingleBlock')
+      expect(calls[0].args[1]).toBe(0)
+      // All non-implementor agents grouped together
+      expect(calls[1].handler).toBe('onAgentGroup')
+      expect(calls[1].args[1]).toBe(1)
+      expect(calls[1].args[2]).toBe(5)
+      expect((calls[1].args[0] as AgentContentBlock[]).length).toBe(4)
+      // text at 5
+      expect(calls[2].handler).toBe('onSingleBlock')
+      expect(calls[2].args[1]).toBe(5)
+    })
+  })
+})
+
+// ============================================================================
+// Tests: splitAgentsBySize
+// ============================================================================
+
+describe('splitAgentsBySize', () => {
+  test('returns single group for empty array', () => {
+    const result = splitAgentsBySize([])
+    expect(result).toEqual([[]])
+  })
+
+  test('returns single group for one agent', () => {
+    const agent = createNonImplementorAgent('cr-1', 'code-reviewer')
+    const result = splitAgentsBySize([agent])
+    expect(result).toEqual([[agent]])
+  })
+
+  test('groups all small agents together', () => {
+    const agents = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createNonImplementorAgent('b-1', 'basher'),
+      createNonImplementorAgent('cs-1', 'code-searcher'),
+    ]
+    const result = splitAgentsBySize(agents)
+    expect(result).toEqual([agents])
+  })
+
+  test('gives each large agent its own group', () => {
+    const agents = [
+      createNonImplementorAgent('cr-1', 'code-reviewer'),
+      createNonImplementorAgent('ed-1', 'editor'),
+    ]
+    const result = splitAgentsBySize(agents)
+    expect(result).toEqual([[agents[0]], [agents[1]]])
+  })
+
+  test('splits small and large agents correctly', () => {
+    const agents = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createNonImplementorAgent('cr-1', 'code-reviewer'),
+      createNonImplementorAgent('b-1', 'basher'),
+      createNonImplementorAgent('b-2', 'basher'),
+      createNonImplementorAgent('ed-1', 'editor'),
+      createNonImplementorAgent('rw-1', 'researcher-web'),
+    ]
+    const result = splitAgentsBySize(agents)
+    expect(result).toEqual([
+      [agents[0]],          // file-picker (small)
+      [agents[1]],          // code-reviewer (large)
+      [agents[2], agents[3]], // basher + basher (small)
+      [agents[4]],          // editor (large)
+      [agents[5]],          // researcher-web (small)
+    ])
   })
 })

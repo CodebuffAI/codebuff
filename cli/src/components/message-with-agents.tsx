@@ -10,6 +10,7 @@ import { MessageBlock } from './message-block'
 import { ModeDivider } from './mode-divider'
 import { useChatStore } from '../state/chat-store'
 import { useMessageBlockStore } from '../state/message-block-store'
+import { splitByAgentSize } from '../utils/block-processor'
 import { getCliEnv } from '../utils/env'
 import {
   AGENT_CONTENT_HORIZONTAL_PADDING,
@@ -69,14 +70,24 @@ const AgentChildrenGrid = memo(
       <text fg={theme?.error}>Error rendering agent children</text>
     )
 
+    const subGroups = useMemo(
+      () => splitByAgentSize(agentChildren, (m) => m.agent?.agentType ?? ''),
+      [agentChildren],
+    )
+
     return (
       <ErrorBoundary fallback={errorFallback} componentName="AgentChildrenGrid">
-        <GridLayout
-          items={agentChildren}
-          availableWidth={availableWidth}
-          getItemKey={getItemKey}
-          renderItem={renderAgentChild}
-        />
+        <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+          {subGroups.map((group) => (
+            <GridLayout
+              key={getItemKey(group[0])}
+              items={group}
+              availableWidth={availableWidth}
+              getItemKey={getItemKey}
+              renderItem={renderAgentChild}
+            />
+          ))}
+        </box>
       </ErrorBoundary>
     )
   },
