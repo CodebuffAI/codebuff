@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -15,17 +15,21 @@ export const questionSchema = z.object({
       'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
     ),
   options: z
-    .object({
-      label: z.string().describe('The display text for this option'),
-      description: z
-        .string()
-        .optional()
-        .describe('Explanation shown when option is focused'),
-    })
-    .array()
-    .refine((opts) => opts.length >= 2, {
-      message: 'Each question must have at least 2 options',
-    })
+    .preprocess(
+      coerceToArray,
+      z
+        .object({
+          label: z.string().describe('The display text for this option'),
+          description: z
+            .string()
+            .optional()
+            .describe('Explanation shown when option is focused'),
+        })
+        .array()
+        .refine((opts) => opts.length >= 2, {
+          message: 'Each question must have at least 2 options',
+        }),
+    )
     .describe('Array of answer options with label and optional description.'),
 
   multiSelect: z
@@ -64,8 +68,12 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     questions: z
-      .array(questionSchema)
-      .min(1, 'Must provide at least one question')
+      .preprocess(
+        coerceToArray,
+        z
+          .array(questionSchema)
+          .min(1, 'Must provide at least one question'),
+      )
       .describe('List of multiple choice questions to ask the user'),
   })
   .describe(

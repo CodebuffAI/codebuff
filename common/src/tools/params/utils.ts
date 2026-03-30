@@ -10,6 +10,28 @@ import {
 import type { JSONValue } from '../../types/json'
 import type { ToolResultOutput } from '../../types/messages/content-part'
 
+/**
+ * Coerces a value into an array if it isn't one already.
+ * Handles common LLM mistakes:
+ * - Single object/string passed instead of an array → wraps in array
+ * - Stringified JSON array passed as a string → parses it
+ * - Already an array → passes through
+ * - null/undefined → passes through (let Zod handle it)
+ */
+export function coerceToArray(val: unknown): unknown {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Not valid JSON — fall through to wrap
+    }
+  }
+  if (val != null) return [val]
+  return val
+}
+
 /** Only used for generating tool call strings before all tools are defined.
  *
  * @param toolName - The name of the tool to call

@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -26,31 +26,35 @@ const inputSchema = z
       .min(1, 'Path cannot be empty')
       .describe(`The path to the file to edit.`),
     replacements: z
-      .array(
+      .preprocess(
+        coerceToArray,
         z
-          .object({
-            old: z
-              .string()
-              .min(1, 'Old cannot be empty')
-              .describe(
-                `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`,
-              ),
-            new: z
-              .string()
-              .describe(
-                `The string to replace the corresponding old string with. Can be empty to delete.`,
-              ),
-            allowMultiple: z
-              .boolean()
-              .optional()
-              .default(false)
-              .describe(
-                'Whether to allow multiple replacements of old string.',
-              ),
-          })
-          .describe('Pair of old and new strings.'),
+          .array(
+            z
+              .object({
+                old: z
+                  .string()
+                  .min(1, 'Old cannot be empty')
+                  .describe(
+                    `The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation.`,
+                  ),
+                new: z
+                  .string()
+                  .describe(
+                    `The string to replace the corresponding old string with. Can be empty to delete.`,
+                  ),
+                allowMultiple: z
+                  .boolean()
+                  .optional()
+                  .default(false)
+                  .describe(
+                    'Whether to allow multiple replacements of old string.',
+                  ),
+              })
+              .describe('Pair of old and new strings.'),
+          )
+          .min(1, 'Replacements cannot be empty'),
       )
-      .min(1, 'Replacements cannot be empty')
       .describe('Array of replacements to make.'),
   })
   .describe(`Replace strings in a file with new strings.`)

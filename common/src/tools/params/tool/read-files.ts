@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -21,13 +21,16 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     paths: z
-      .array(
-        z
-          .string()
-          .min(1, 'Paths cannot be empty')
-          .describe(
-            `File path to read relative to the **project root**. Absolute file paths will not work.`,
-          ),
+      .preprocess(
+        coerceToArray,
+        z.array(
+          z
+            .string()
+            .min(1, 'Paths cannot be empty')
+            .describe(
+              `File path to read relative to the **project root**. Absolute file paths will not work.`,
+            ),
+        ),
       )
       .describe('List of file paths to read.'),
   })

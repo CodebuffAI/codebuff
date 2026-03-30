@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -24,8 +24,12 @@ export type SuggestFollowup = z.infer<typeof followupSchema>
 const inputSchema = z
   .object({
     followups: z
-      .array(followupSchema)
-      .min(1, 'Must provide at least one followup')
+      .preprocess(
+        coerceToArray,
+        z
+          .array(followupSchema)
+          .min(1, 'Must provide at least one followup'),
+      )
       .describe(
         'List of suggested followup prompts the user can click to send',
       ),
