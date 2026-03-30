@@ -48,3 +48,4 @@ Make an efficient learning agent that can do anything.
 - [docs/patterns/template-literal-escaping.md](docs/patterns/template-literal-escaping.md)
 - [docs/patterns/task-scope-adherence.md](docs/patterns/task-scope-adherence.md)
 - [docs/patterns/task-type-identification.md](docs/patterns/task-type-identification.md)
+- [docs/patterns/implementation-validation.md](docs/patterns/implementation-validation.md)
