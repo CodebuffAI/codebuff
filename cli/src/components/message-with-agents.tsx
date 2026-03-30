@@ -49,6 +49,11 @@ const AgentChildrenGrid = memo(
       [depth],
     )
 
+    const subGroups = useMemo(
+      () => splitByAgentSize(agentChildren, (m) => m.agent?.agentType ?? ''),
+      [agentChildren],
+    )
+
     if (agentChildren.length === 0) return null
 
     if (depth >= MAX_AGENT_DEPTH) {
@@ -68,11 +73,6 @@ const AgentChildrenGrid = memo(
 
     const errorFallback = (
       <text fg={theme?.error}>Error rendering agent children</text>
-    )
-
-    const subGroups = useMemo(
-      () => splitByAgentSize(agentChildren, (m) => m.agent?.agentType ?? ''),
-      [agentChildren],
     )
 
     return (
