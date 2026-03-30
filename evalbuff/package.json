@@ -18,6 +18,7 @@
     "@codebuff/common": "workspace:*",
     "@codebuff/sdk": "workspace:*",
     "ai": "^5.0.0",
+    "openai": "^6.33.0",
     "zod": "^4.2.1"
   }
 }
