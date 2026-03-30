@@ -43,3 +43,4 @@ Make an efficient learning agent that can do anything.
 - [`docs/agents-and-tools.md`](docs/agents-and-tools.md) — Agent system, shell shims, tool definitions
 - [`docs/patterns/handle-steps-generators.md`](docs/patterns/handle-steps-generators.md) — handleSteps generator patterns and spawn_agents tool calls
 - [docs/evalbuff/interpreting-task-prompts.md](docs/evalbuff/interpreting-task-prompts.md)
+- [docs/patterns/discover-before-implement.md](docs/patterns/discover-before-implement.md)
