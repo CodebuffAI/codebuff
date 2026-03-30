@@ -468,7 +468,7 @@ async function improveDocs(opts: {
       break
     }
 
-    const comparison = compareScores(currentScore, rerun.avgScore, parallelism)
+    const comparison = compareScores(currentScore, rerun.avgScore)
     console.log(`  New score: ${rerun.avgScore.toFixed(1)}/10 (${comparison}) (scores: ${rerun.scores.map((s) => s.toFixed(1)).join(', ')})`)
 
     if (comparison === 'improved' || comparison === 'same') {

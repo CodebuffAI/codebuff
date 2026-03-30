@@ -351,20 +351,12 @@ export function revertDocEdit(
 export function compareScores(
   oldScore: number,
   newScore: number,
-  parallelism: number = 1,
 ): 'improved' | 'same' | 'worse' {
   const delta = newScore - oldScore
-  const improveThreshold = 0.3
-  // With parallelism=1, require a bigger drop before rejecting
-  const worseThreshold = parallelism <= 1 ? 1.5 : 0.3
+  const threshold = 0.3
 
-  if (delta >= improveThreshold) return 'improved'
-  if (delta <= -worseThreshold) return 'worse'
-
-  // Don't give benefit of the doubt when score is very low —
-  // if the doc didn't produce a clear improvement from near-zero,
-  // it's not helping. Require actual improvement.
-  if (oldScore < 2.0 && delta < improveThreshold) return 'worse'
+  if (delta >= threshold) return 'improved'
+  if (delta <= -threshold) return 'worse'
 
   return 'same'
 }
