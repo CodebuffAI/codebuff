@@ -5,7 +5,7 @@ When given a specific technical task, implement ONLY what is explicitly requeste
 ## The Problem
 
 Agents often interpret tasks broadly and add related work they think would be helpful:
-- Task: "Remove the wait-for command" → Agent also creates 3 new documentation files
+- Task: "Remove the wait-for command" → Agent also creates 4 new documentation files (548 lines)
 - Task: "Fix the redirect" → Agent also refactors related code and adds tests
 - Task: "Update the config" → Agent also adds validation and error handling
 
