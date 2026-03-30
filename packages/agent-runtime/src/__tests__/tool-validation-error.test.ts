@@ -101,6 +101,8 @@ describe('tool validation error handling', () => {
     )
     expect(errorEvents.length).toBe(1)
     expect(errorEvents[0].message).toContain('Invalid parameters for spawn_agents')
+    expect(errorEvents[0].message).toContain('Original tool call input:')
+    expect(errorEvents[0].message).toContain('this should be an array not a string')
 
     // Verify hadToolCallError is true so the agent loop continues
     expect(result.hadToolCallError).toBe(true)

@@ -180,9 +180,13 @@ export async function executeToolCall<T extends ToolName>(
   }
 
   if ('error' in toolCall) {
+    const inputStr = JSON.stringify(input, null, 2)
+    const truncatedInput = inputStr.length > 500
+      ? inputStr.slice(0, 500) + '...(truncated)'
+      : inputStr
     onResponseChunk({
       type: 'error',
-      message: toolCall.error,
+      message: `${toolCall.error}\n\nOriginal tool call input:\n${truncatedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -487,9 +491,13 @@ export async function executeCustomToolCall(
   }
 
   if ('error' in toolCall) {
+    const inputStr = JSON.stringify(input, null, 2)
+    const truncatedInput = inputStr.length > 500
+      ? inputStr.slice(0, 500) + '...(truncated)'
+      : inputStr
     onResponseChunk({
       type: 'error',
-      message: toolCall.error,
+      message: `${toolCall.error}\n\nOriginal tool call input:\n${truncatedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
