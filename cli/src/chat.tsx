@@ -1440,6 +1440,7 @@ export const Chat = ({
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
+            onStop={chatKeyboardHandlers.onInterruptStream}
           />
         )}
 

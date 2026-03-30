@@ -277,17 +277,17 @@ export const setupStreamingContext = (params: {
   abortControllerRef.current = abortController
 
   abortController.signal.addEventListener('abort', () => {
-    // Abort means the user stopped streaming; finalize with an interruption notice.
+    // Abort means the user stopped streaming; update UI with an interruption notice.
+    // IMPORTANT: Do NOT call finalizeQueueState here. The chain lock must stay held
+    // until client.run() resolves and previousRunStateRef is updated. Otherwise, the
+    // user can send a new message with stale state before the cancelled run's state
+    // is saved, causing message history loss. The lock is released in handleRunCompletion.
     streamRefs.setters.setWasAbortedByUser(true)
-    finalizeQueueState({
-      setStreamStatus,
-      setCanProcessQueue,
-      updateChainInProgress,
-      isProcessingQueueRef,
-      isQueuePausedRef,
-    })
     setIsRetrying(false)
     timerController.stop('aborted')
+
+    // Update stream status so the UI reflects cancellation visually
+    setStreamStatus('idle')
 
     // Clear streaming agents so cancelled status displays correctly in UI
     setStreamingAgents(() => new Set())
@@ -336,7 +336,17 @@ export const handleRunCompletion = (params: {
 
   // If user aborted, the abort handler already handled UI updates (interruption notice, etc.)
   // Don't process the server response as it would interfere with the abort handler's work.
+  // But we DO need to finalize queue state here (release the chain lock) since the abort
+  // handler intentionally defers this until client.run() resolves and state is saved.
   if (streamRefs.state.wasAbortedByUser) {
+    finalizeQueueState({
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+      resumeQueue,
+    })
     return
   }
 
