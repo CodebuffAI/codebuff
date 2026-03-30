@@ -44,3 +44,5 @@ Make an efficient learning agent that can do anything.
 - [`docs/patterns/handle-steps-generators.md`](docs/patterns/handle-steps-generators.md) — handleSteps generator patterns and spawn_agents tool calls
 - [docs/evalbuff/interpreting-task-prompts.md](docs/evalbuff/interpreting-task-prompts.md)
 - [docs/patterns/task-completion-validation.md](docs/patterns/task-completion-validation.md)
+- [docs/patterns/terminal-alternate-screen-buffer.md](docs/patterns/terminal-alternate-screen-buffer.md)
+- [docs/patterns/template-literal-escaping.md](docs/patterns/template-literal-escaping.md)
