@@ -128,7 +128,7 @@ const judgeAgents: Record<string, AgentDefinition> = {
   },
   'judge-gemini': {
     id: 'judge-gemini',
-    model: 'google/gemini-3-pro-preview',
+    model: 'google/gemini-3.1-pro-preview',
     ...judgeAgentBase,
   },
   'judge-sonnet': {

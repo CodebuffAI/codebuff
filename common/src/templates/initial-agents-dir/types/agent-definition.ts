@@ -386,6 +386,7 @@ export type ModelName =
   | 'anthropic/claude-opus-4.1'
 
   // Gemini
+  | 'google/gemini-3.1-pro-preview'
   | 'google/gemini-3-pro-preview'
   | 'google/gemini-3-flash-preview'
   | 'google/gemini-3.1-flash-lite-preview'
