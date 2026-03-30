@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
+import { StopButton } from './stop-button'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
@@ -15,6 +16,7 @@ interface StatusBarProps {
   isAtBottom: boolean
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
+  onStop?: () => void
 }
 
 export const StatusBar = ({
@@ -22,6 +24,7 @@ export const StatusBar = ({
   isAtBottom,
   scrollToLatest,
   statusIndicatorState,
+  onStop,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -161,9 +164,14 @@ export const StatusBar = ({
           flexBasis: 0,
           flexDirection: 'row',
           justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 1,
         }}
       >
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
+        {onStop && (statusIndicatorState.kind === 'waiting' || statusIndicatorState.kind === 'streaming') && (
+          <StopButton onClick={onStop} />
+        )}
       </box>
     </box>
   )
