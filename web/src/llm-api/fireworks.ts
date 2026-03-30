@@ -106,6 +106,19 @@ function createFireworksRequest(params: {
   delete fireworksBody.codebuff_metadata
   delete fireworksBody.usage
 
+  // Add strict: true to tool definitions to prevent hallucinated tool call formats
+  if (Array.isArray(fireworksBody.tools)) {
+    fireworksBody.tools = (fireworksBody.tools as Array<Record<string, unknown>>).map((tool) => {
+      if (tool.type === 'function' && typeof tool.function === 'object' && tool.function !== null) {
+        return {
+          ...tool,
+          function: { ...(tool.function as Record<string, unknown>), strict: true },
+        }
+      }
+      return tool
+    })
+  }
+
   // For streaming, request usage in the final chunk
   if (fireworksBody.stream) {
     fireworksBody.stream_options = { include_usage: true }
