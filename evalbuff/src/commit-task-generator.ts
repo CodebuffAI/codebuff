@@ -1,7 +1,8 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
+
+import { generatePrompt } from './llm'
 
 export interface CommitTask {
   sha: string
@@ -13,6 +14,55 @@ export interface CommitTask {
 }
 
 const MAX_DIFF_CHARS = 200_000
+
+/**
+ * Commit message patterns that indicate trivial/automated commits not worth
+ * running agents on. Saves ~10 agent+judge invocations per skipped commit.
+ */
+const TRIVIAL_COMMIT_PATTERNS = [
+  /^bump\b.*\bversion\b/i,
+  /^v?\d+\.\d+\.\d+$/,           // version-only messages like "1.0.635"
+  /^release\s+v?\d+/i,
+  /^chore\(release\)/i,
+  /^update\s+(change|changelog)/i,
+  /^merge\s+(branch|pull request)/i,
+]
+
+/**
+ * Returns true if a commit is trivial and should be skipped.
+ * Checks commit message patterns and whether only package.json version fields changed.
+ */
+function isTrivialCommit(
+  message: string,
+  filesChanged: string[],
+  diff: string,
+): boolean {
+  const firstLine = message.split('\n')[0].trim()
+
+  // Check message patterns
+  if (TRIVIAL_COMMIT_PATTERNS.some((p) => p.test(firstLine))) return true
+
+  // Single package.json change that only touches "version" field
+  if (
+    filesChanged.length === 1 &&
+    filesChanged[0].endsWith('package.json') &&
+    diff.length < 1000
+  ) {
+    const addedLines = diff
+      .split('\n')
+      .filter((l) => l.startsWith('+') && !l.startsWith('+++'))
+    const removedLines = diff
+      .split('\n')
+      .filter((l) => l.startsWith('-') && !l.startsWith('---'))
+    const allVersionChanges =
+      [...addedLines, ...removedLines].every((l) =>
+        /^\s*[+-]\s*"version"/.test(l),
+      )
+    if (allVersionChanges) return true
+  }
+
+  return false
+}
 
 /**
  * Files that add noise to diffs without useful signal.
@@ -231,31 +281,14 @@ ${filesSection}## Diff
 ${diff}
 \`\`\``
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-promptgen-'))
-  const promptFile = path.join(tmpDir, 'PROMPT_GEN.md')
-
   try {
-    fs.writeFileSync(promptFile, `${PROMPT_GEN_SYSTEM}\n\n---\n\n${userPrompt}`)
-
-    // IMPORTANT: Run in tmpDir to avoid Claude reading the repo's CLAUDE.md/AGENTS.md,
-    // which can confuse prompt generation (e.g., generating prompts about evalbuff itself).
-    const output = execSync(
-      `claude --dangerously-skip-permissions -p "Read ${promptFile} and follow all instructions. Respond with ONLY the task prompt text."`,
-      {
-        cwd: tmpDir,
-        encoding: 'utf-8',
-        timeout: 2 * 60 * 1000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        maxBuffer: 10 * 1024 * 1024,
-      },
-    ).trim()
-
+    // Use API directly — faster than spawning Claude CLI (~3s vs ~15s)
+    // and avoids CLAUDE.md/AGENTS.md context pollution
+    const output = await generatePrompt(PROMPT_GEN_SYSTEM, userPrompt)
     return output || message
   } catch {
     // Fallback to the commit message itself
     return message
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true })
   }
 }
 
@@ -269,6 +302,12 @@ export async function buildCommitTask(
 ): Promise<CommitTask | null> {
   const info = getCommitInfo(repoPath, sha)
   if (!info) return null
+
+  // Skip trivial/automated commits (version bumps, releases, etc.)
+  if (isTrivialCommit(info.message, info.filesChanged, info.diff)) {
+    console.log(`Skipping ${sha.slice(0, 8)}: trivial commit (${info.message.split('\n')[0].slice(0, 50)})`)
+    return null
+  }
 
   // Skip commits with diffs that exceed our limit
   if (info.diff.length > MAX_DIFF_CHARS) {

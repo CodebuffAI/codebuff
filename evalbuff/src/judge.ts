@@ -509,6 +509,10 @@ async function runReviewersAndAggregate(
     }
   }
 
+  // Use median for qualitative analysis (pick the most representative reviewer)
+  // but average for scores. Averaging is better because models have consistent
+  // scoring biases (e.g. GPT-5 scores lower) — median would always pick the
+  // same model's score, while average blends them.
   const sorted = validResults.sort(
     (a, b) => a.overallScore - b.overallScore,
   )

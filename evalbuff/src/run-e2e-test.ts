@@ -236,7 +236,7 @@ async function main() {
     await runLearnMode({
       mode: 'learn',
       repoPath: PROJECT_DIR,
-      agentCommand: 'codebuff --agent base2-free',
+      agentId: 'base2-free-evals',
       parallelism: 2,
       maxCostUsd: 10,
       agentTimeoutMs: 5 * 60 * 1000,

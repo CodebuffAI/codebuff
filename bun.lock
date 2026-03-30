@@ -111,8 +111,10 @@
       "name": "@codebuff/evalbuff",
       "version": "1.0.0",
       "dependencies": {
+        "@ai-sdk/anthropic": "^2.0.50",
         "@codebuff/common": "workspace:*",
         "@codebuff/sdk": "workspace:*",
+        "ai": "^5.0.0",
         "zod": "^4.2.1",
       },
     },

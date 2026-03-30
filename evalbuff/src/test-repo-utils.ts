@@ -7,11 +7,16 @@ import { getErrorObject } from '@codebuff/common/util/error'
 
 /**
  * Helper function to manage test repository lifecycle
- * Sets up a test repo, runs a function with the repo cwd, then cleans up
+ * Sets up a test repo, runs a function with the repo cwd, then cleans up.
+ *
+ * When localRepoPath is provided, uses a local clone (near-instant via hardlinks)
+ * instead of a remote clone (5-30s per clone). This is the single biggest
+ * speedup in evalbuff — with parallelism=5, saves 10-30 remote clones per commit.
  */
 export const withTestRepo = async <T>(
   repoConfig: {
     repoUrl: string
+    localRepoPath?: string
     // The sha of the commit to checkout. If you have a commit with changes to replicate, you would check out the parent commit.
     parentSha: string
     initCommand?: string
@@ -19,20 +24,27 @@ export const withTestRepo = async <T>(
   },
   fn: (cwd: string) => Promise<T>,
 ): Promise<T> => {
-  const { repoUrl, parentSha, initCommand, env } = repoConfig
+  const { repoUrl, localRepoPath, parentSha, initCommand, env } = repoConfig
 
   // Create a temporary directory for the test repo
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
   const repoDir = path.join(tempDir, 'repo')
 
   try {
-    execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
+    if (localRepoPath) {
+      // Local clone: uses hardlinks for objects, nearly instant
+      execSync(`git clone --no-checkout "${localRepoPath}" "${repoDir}"`, { stdio: 'ignore' })
+      execSync(`git checkout ${parentSha}`, { cwd: repoDir, stdio: 'ignore' })
+    } else {
+      // Remote clone: slow but works without local repo
+      execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
 
-    execSync(`git fetch --depth 1 origin ${parentSha}`, {
-      cwd: repoDir,
-      stdio: 'ignore',
-    })
-    execSync(`git checkout ${parentSha}`, { cwd: repoDir, stdio: 'ignore' })
+      execSync(`git fetch --depth 1 origin ${parentSha}`, {
+        cwd: repoDir,
+        stdio: 'ignore',
+      })
+      execSync(`git checkout ${parentSha}`, { cwd: repoDir, stdio: 'ignore' })
+    }
 
     if (initCommand) {
       console.log(`Running init command: ${initCommand}...`)
