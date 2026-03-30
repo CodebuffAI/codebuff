@@ -1,8 +1,8 @@
-import { execSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { analyzeFailureViaApi } from './llm'
 import { compressTrace, cleanupTraceDir } from './trace-compressor'
 
 import type { JudgingResult } from './judge'
@@ -26,6 +26,20 @@ The docs you write must be **generic enough to be useful across many future task
 
 DO NOT write docs that only help with one specific task. If the failure is too task-specific and doesn't reveal a general pattern, respond with: {"skip": true, "reasoning": "Too task-specific to generalize"}
 
+## What Makes Good Agent Docs
+
+The best docs for AI coding agents are:
+1. **Maps, not essays** — tell the agent WHERE things are and HOW they connect. "Feature X lives in src/x/, uses the Y pattern from src/shared/y.ts, and must be registered in src/registry.ts"
+2. **Decision trees, not philosophy** — "If modifying auth, check src/middleware/auth.ts AND update tests in __tests__/auth.test.ts. If adding a new route, register it in routes.ts."
+3. **Anti-patterns with fixes** — "DON'T create new files in the root. DO put utilities in src/shared/. DON'T import from '../../../', DO use the path alias @/"
+4. **Concrete examples** — Show a before/after or a correct pattern from the actual codebase.
+
+Bad docs that HURT agent performance (avoid these):
+- Vague principles like "keep code clean" or "follow SOLID"
+- Long explanations without actionable takeaways
+- Docs that duplicate what's already in the code (comments, types, etc.)
+- Over-scoped docs that try to cover everything
+
 ## Using the Agent Trace
 
 You may be given the agent's trace (stdout) showing its reasoning process, tool calls, and decisions. This is the most valuable signal — it shows you WHY the agent went wrong, not just WHAT it got wrong. Look for:
@@ -33,10 +47,6 @@ You may be given the agent's trace (stdout) showing its reasoning process, tool 
 - **Misunderstood patterns** — the agent tried something that doesn't match how this codebase works
 - **Missing context** — the agent didn't know about a key file, config, or convention
 - **Wrong approach** — the agent took a fundamentally different approach than needed
-
-The trace shows the full agent reasoning inline, but large tool results (file contents, command output) have been extracted to separate files. You'll see markers like:
-  [Stored in: /tmp/evalbuff-traces-xxx/result-003.txt (2847 chars) — file content, 84 lines]
-You can read these files if you need the full content to understand what the agent saw.
 
 Write docs that address the ROOT CAUSE visible in the trace, not just the symptom visible in the diff.
 
@@ -46,10 +56,11 @@ Write docs that address the ROOT CAUSE visible in the trace, not just the sympto
 2. Do NOT write generic advice like "follow best practices" or "write clean code."
 3. Focus on the general PATTERN behind the gap, not the specific gap itself.
 4. Write docs that a coding agent will read and immediately know what to do differently on any similar task.
-5. Keep docs concise — under 200 lines. Dense information beats verbose explanations.
+5. Keep docs concise — under 100 lines. Dense information beats verbose explanations. Every line should be actionable.
 6. Use a logical file path that groups related docs together (e.g., "patterns/", "conventions/", "architecture/").
 7. Include examples of correct patterns from the codebase when possible.
 8. If a doc already exists on a similar topic, suggest UPDATING it (use the same path) rather than creating a new one.
+9. Start the doc with a 1-2 sentence TL;DR that tells the agent the key rule.
 
 ## Output Format
 
@@ -102,6 +113,7 @@ export async function analyzeFailure({
   groundTruthDiff,
   currentDocs,
   editHistory,
+  commitMessage,
 }: {
   judgeResult: JudgingResult
   taskPrompt: string
@@ -110,6 +122,7 @@ export async function analyzeFailure({
   groundTruthDiff?: string // optional — not available in prompt mode
   currentDocs: Record<string, string>
   editHistory?: DocEditHistoryEntry[]
+  commitMessage?: string // original commit message — helps identify patterns
 }): Promise<DocSuggestion | null> {
   const docsContent = Object.entries(currentDocs)
     .map(([docPath, content]) => `### ${docPath}\n\`\`\`\n${content}\n\`\`\``)
@@ -123,7 +136,7 @@ ${groundTruthDiff}
     : '## Ground Truth\n(Not available — judge should have tested the output directly)'
 
   // Compress agent trace: keep reasoning inline, extract large tool results to files
-  // The doc writer agent can read those files if it needs the full content
+  // We inline the extracted files into the prompt to avoid extra tool-call roundtrips
   let compressed: ReturnType<typeof compressTrace> | null = null
   let traceSection = ''
 
@@ -131,26 +144,44 @@ ${groundTruthDiff}
     const traceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-traces-'))
     compressed = compressTrace(agentTrace, traceDir)
 
+    // Inline extracted trace files to avoid tool-call roundtrips
     const resultFiles = fs.readdirSync(traceDir).filter((f) => f.endsWith('.txt'))
+    let inlinedResults = ''
+    for (const file of resultFiles) {
+      const content = fs.readFileSync(path.join(traceDir, file), 'utf-8')
+      // Cap each file to 5KB to avoid bloating the prompt
+      const capped = content.length > 5000 ? content.slice(0, 5000) + '\n... (truncated)' : content
+      inlinedResults += `\n### ${file}\n\`\`\`\n${capped}\n\`\`\`\n`
+    }
 
     traceSection = `## Agent Trace (reasoning, tool calls, and decisions)
 
 This is the agent's stdout showing its reasoning process, tool calls, and decisions.
-Large tool results have been extracted to separate files — you can read them if needed.
 Look for: what the agent misunderstood, wrong assumptions it made, where it went off track.
 
-${resultFiles.length > 0 ? `**${resultFiles.length} tool result(s) stored in ${traceDir}/** — read any file for full content.\n` : ''}
 \`\`\`
 ${compressed.inline}
-\`\`\``
+\`\`\`
+${inlinedResults ? `\n## Extracted Tool Results\n${inlinedResults}` : ''}`
+
+    // Clean up trace dir immediately since we've inlined everything
+    cleanupTraceDir(compressed.traceDir)
+    compressed = null
   }
+
+  const commitSection = commitMessage
+    ? `## Original Commit Message (for pattern context)
+${commitMessage}
+
+`
+    : ''
 
   const prompt = `${DOC_WRITER_SYSTEM_PROMPT}
 
 ## Task Prompt
 ${taskPrompt}
 
-## Judge Analysis
+${commitSection}## Judge Analysis
 ${judgeResult.analysis}
 
 ## Judge Weaknesses Found
@@ -180,31 +211,8 @@ Based on the agent's trace (if available), the gap between what the agent did an
 Respond with ONLY the JSON object.`
 
   try {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-docwriter-'))
-    const promptFile = path.join(tmpDir, 'DOC_WRITER_PROMPT.md')
-    fs.writeFileSync(promptFile, prompt)
-
-    let output: string
-    try {
-      // IMPORTANT: Run in tmpDir to avoid Claude reading the repo's CLAUDE.md/AGENTS.md,
-      // which can pollute the doc writer's analysis with unrelated project context.
-      output = execSync(
-        `claude --dangerously-skip-permissions -p "Read the file ${promptFile} and follow all instructions in it. Respond with ONLY the JSON object as specified."`,
-        {
-          cwd: tmpDir,
-          encoding: 'utf-8',
-          timeout: 5 * 60 * 1000,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          maxBuffer: 10 * 1024 * 1024,
-        },
-      ).trim()
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true })
-      // Clean up trace files after doc writer is done
-      if (compressed) {
-        cleanupTraceDir(compressed.traceDir)
-      }
-    }
+    // Use API directly — faster than spawning Claude CLI and avoids cwd/CLAUDE.md pollution
+    const output = await analyzeFailureViaApi(prompt)
 
     // Try to extract JSON from the output
     let jsonStr = output
@@ -331,18 +339,20 @@ export function revertDocEdit(
 
 /**
  * Compare scores to determine if a doc edit improved things.
- * Requires a minimum improvement of 0.3 points to count as "improved"
- * to avoid accepting docs based on noise (especially with low parallelism).
+ *
+ * With parallelism=5, averages are reasonably stable. A 0.3 threshold
+ * catches real improvements without being too sensitive to noise.
  */
-const MIN_IMPROVEMENT_THRESHOLD = 0.3
-
 export function compareScores(
   oldScore: number,
   newScore: number,
 ): 'improved' | 'same' | 'worse' {
   const delta = newScore - oldScore
-  if (delta >= MIN_IMPROVEMENT_THRESHOLD) return 'improved'
-  if (delta <= -MIN_IMPROVEMENT_THRESHOLD) return 'worse'
+  const threshold = 0.3
+
+  if (delta >= threshold) return 'improved'
+  if (delta <= -threshold) return 'worse'
+
   return 'same'
 }
 

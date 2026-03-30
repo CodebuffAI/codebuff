@@ -32,18 +32,28 @@ mock.module('../test-repo-utils', () => ({
   },
 }))
 
-// Mock CLI runner to return a fake result
-mock.module('../cli-runner', () => ({
-  runCliAgent: async () => {
-    cliRunnerCallCount++
-    return {
-      diff: 'mock diff content',
-      durationMs: 1000,
-      exitCode: 0,
-      stdout: 'mock stdout',
-      stderr: '',
+// Mock CodebuffRunner to return a fake result
+mock.module('../runners/codebuff', () => ({
+  CodebuffRunner: class {
+    constructor() {}
+    async run() {
+      cliRunnerCallCount++
+      return {
+        steps: [{ type: 'text', content: 'mock trace' }],
+        totalCostUsd: 0.01,
+        diff: 'mock diff content',
+      }
     }
   },
+}))
+
+// Mock SDK client and loadLocalAgents
+mock.module('@codebuff/sdk', () => ({
+  CodebuffClient: class {
+    constructor() {}
+    async run() { return { output: { type: 'success' }, sessionState: null } }
+  },
+  loadLocalAgents: async () => ({}),
 }))
 
 // Mock judge to return configurable scores
@@ -144,7 +154,7 @@ describe('runLearnMode integration', () => {
     await runLearnMode({
       mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 100,
       agentTimeoutMs: 10_000,
@@ -190,7 +200,7 @@ describe('runLearnMode integration', () => {
     await runLearnMode({
       mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 100,
       agentTimeoutMs: 10_000,
@@ -233,7 +243,7 @@ describe('runLearnMode integration', () => {
     await runLearnMode({
       mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 100,
       agentTimeoutMs: 10_000,
@@ -245,10 +255,10 @@ describe('runLearnMode integration', () => {
     expect(fs.existsSync(logPath)).toBe(false)
   })
 
-  it('rejects doc edit when score does not improve', async () => {
-    // Commit1: baseline 4.0, rerun 3.0 (worse) — doc rejected, loop stops.
+  it('rejects doc edit when score drops significantly', async () => {
+    // Commit1: baseline 5.0, rerun 2.0 (3-point drop, past 1.5 threshold) — doc rejected.
     // Commit2: baseline 8.0, analyze returns null. Commit3: baseline 8.0, null.
-    judgeScores = [4.0, 3.0, 8.0, 8.0]
+    judgeScores = [5.0, 2.0, 8.0, 8.0]
     analyzeFailureResults = [
       {
         reasoning: 'Tried to help',
@@ -262,7 +272,7 @@ describe('runLearnMode integration', () => {
     await runLearnMode({
       mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 100,
       agentTimeoutMs: 10_000,
@@ -290,7 +300,7 @@ describe('runPromptMode integration', () => {
     await runPromptMode({
       mode: 'prompt',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 100,
       agentTimeoutMs: 10_000,

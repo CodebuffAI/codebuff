@@ -40,14 +40,25 @@ mock.module('../test-repo-utils', () => ({
   },
 }))
 
-mock.module('../cli-runner', () => ({
-  runCliAgent: async () => ({
-    diff: 'mock diff content',
-    durationMs: 1000,
-    exitCode: 0,
-    stdout: 'mock stdout',
-    stderr: '',
-  }),
+mock.module('../runners/codebuff', () => ({
+  CodebuffRunner: class {
+    constructor() {}
+    async run() {
+      return {
+        steps: [{ type: 'text', content: 'mock trace' }],
+        totalCostUsd: 0.01,
+        diff: 'mock diff content',
+      }
+    }
+  },
+}))
+
+mock.module('@codebuff/sdk', () => ({
+  CodebuffClient: class {
+    constructor() {}
+    async run() { return { output: { type: 'success' }, sessionState: null } }
+  },
+  loadLocalAgents: async () => ({}),
 }))
 
 // Judge returns alternating scores: low (triggers doc edit), then higher (confirms improvement)
@@ -126,7 +137,7 @@ describe('evalbuff E2E', () => {
     await runLearnMode({
       mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo',
+      agentId: 'base2-free-evals',
       parallelism: 1,
       maxCostUsd: 50,
       agentTimeoutMs: 10_000,
