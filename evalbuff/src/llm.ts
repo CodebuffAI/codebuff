@@ -12,7 +12,7 @@ import { generateText } from 'ai'
 
 const anthropic = createAnthropic()
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const DEFAULT_MODEL = 'claude-sonnet-4-6-20250415'
 
 /**
  * Generate a task prompt from a commit diff using the LLM API directly.
@@ -26,8 +26,6 @@ export async function generatePrompt(
     model: anthropic(DEFAULT_MODEL),
     system: systemPrompt,
     prompt: userPrompt,
-    maxOutputTokens: 500,
-    temperature: 0.3,
   })
 
   return result.text.trim()
@@ -45,8 +43,6 @@ export async function analyzeFailureViaApi(
   const result = await generateText({
     model: anthropic(DEFAULT_MODEL),
     prompt,
-    maxOutputTokens: 4096,
-    temperature: 0.2,
   })
 
   return result.text.trim()
