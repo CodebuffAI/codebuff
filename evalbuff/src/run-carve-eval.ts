@@ -10,8 +10,6 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
-
 import {
   analyzeFailure,
   applyDocEdit,
@@ -20,10 +18,11 @@ import {
   revertDocEdit,
 } from './docs-optimizer'
 import { judgeTaskResult } from './judge'
-import { CodebuffRunner } from './runners/codebuff'
+import { ClaudeRunner } from './runners/claude'
 
 import type { CarvedFeature, CarveResult, FileOperation } from './carve-features'
 import type { JudgingResult, ReviewerAgentType } from './judge'
+import type { RunnerResult } from './runners/runner'
 
 // --- Apply carve operations to a repo directory ---
 
@@ -140,9 +139,7 @@ async function runAgentOnCarve(opts: {
   repoPath: string
   feature: CarvedFeature
   initCommand?: string
-  client: CodebuffClient
-  agentId: string
-  agentDefinitions: any[]
+  model: string
   agentTimeoutMs: number
   groundTruthDiff: string
   reviewerAgents: ReviewerAgentType[]
@@ -160,9 +157,7 @@ async function runAgentOnCarve(opts: {
     repoPath,
     feature,
     initCommand,
-    client,
-    agentId,
-    agentDefinitions,
+    model,
     agentTimeoutMs,
     groundTruthDiff,
     reviewerAgents,
@@ -173,18 +168,10 @@ async function runAgentOnCarve(opts: {
     // Copy docs into the carved repo
     copyDocsIntoRepo(docsSourcePath, repoDir)
 
-    console.log(`  [Run ${idx + 1}/${total}] Running agent on carved repo...`)
-    const runner = new CodebuffRunner({
-      cwd: repoDir,
-      client,
-      agentId,
-      localAgentDefinitions: agentDefinitions,
-      printEvents: false,
-      commitId: feature.id.slice(0, 8),
-      parentSha: carveSha,
-    })
+    console.log(`  [Run ${idx + 1}/${total}] Running claude (${model}) on carved repo...`)
+    const runner = new ClaudeRunner(repoDir, {}, model)
 
-    let result: Awaited<ReturnType<typeof runner.run>>
+    let result: RunnerResult
     try {
       result = await runner.run(feature.prompt)
     } catch (runError) {
@@ -271,7 +258,7 @@ interface CarveEvalOptions {
   repoPath: string
   carveFile: string
   featureId?: string // run only this feature (default: all)
-  agentId: string
+  model: string
   parallelism: number
   agentTimeoutMs: number
   reviewerAgents: ReviewerAgentType[]
@@ -294,7 +281,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
     repoPath,
     carveFile,
     featureId,
-    agentId,
+    model,
     parallelism,
     agentTimeoutMs,
     reviewerAgents,
@@ -319,16 +306,9 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
     }
   }
 
-  // Init SDK client
-  const client = new CodebuffClient({ cwd: repoPath })
-  const agentsDir = path.resolve(__dirname, '../../agents')
-  const loadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
-  const agentDefinitions = Object.values(loadedAgents)
-  console.log(`Loaded ${agentDefinitions.length} agent definitions`)
-
   console.log(`\nCarve Eval:`)
   console.log(`  Repo: ${repoPath}`)
-  console.log(`  Agent: ${agentId}`)
+  console.log(`  Model: ${model}`)
   console.log(`  Parallelism: ${parallelism}`)
   console.log(`  Reviewers: ${reviewerAgents.join(', ')}`)
   console.log(`  Features: ${features.length}`)
@@ -355,9 +335,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
           repoPath,
           feature,
           initCommand,
-          client,
-          agentId,
-          agentDefinitions,
+          model,
           agentTimeoutMs,
           groundTruthDiff,
           reviewerAgents,
@@ -450,9 +428,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
               repoPath,
               feature,
               initCommand,
-              client,
-              agentId,
-              agentDefinitions,
+              model,
               agentTimeoutMs,
               groundTruthDiff,
               reviewerAgents,
@@ -587,8 +563,8 @@ if (import.meta.main) {
   const repoPath = getArg('repo')
   const carveFile = getArg('carve-file')
   const featureId = hasArg('feature') ? getArg('feature') : undefined
-  const agentId = getArg('agent', 'base2-free-evals')
-  const parallelism = parseInt(getArg('parallelism', '5'))
+  const model = getArg('model', 'sonnet')
+  const parallelism = parseInt(getArg('parallelism', '3'))
   const agentTimeoutMs = parseInt(getArg('agent-timeout', '300000'))
   const reviewerAgentsArg = hasArg('reviewers') ? getArg('reviewers') : undefined
   const reviewerAgents: ReviewerAgentType[] = reviewerAgentsArg
@@ -601,7 +577,7 @@ if (import.meta.main) {
     repoPath,
     carveFile,
     featureId,
-    agentId,
+    model,
     parallelism,
     agentTimeoutMs,
     reviewerAgents,
