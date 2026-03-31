@@ -24,6 +24,40 @@ import type { CarvedFeature, CarveResult, FileOperation } from './carve-features
 import type { JudgingResult, ReviewerAgentType } from './judge'
 import type { RunnerResult } from './runners/runner'
 
+// --- Doc read stats ---
+
+/** Extract doc file reads from an agent trace (JSONL of PrintModeEvents). */
+function extractDocReads(agentTrace: string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const line of agentTrace.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const event = JSON.parse(line)
+      if (event.type !== 'tool_call' || event.toolName !== 'Read') continue
+      const filePath: string = event.input?.file_path ?? ''
+      // Normalize to repo-relative path
+      const match = filePath.match(/(?:^|\/)(?:docs\/.*|AGENTS\.md|CLAUDE\.md)$/)
+      if (!match) continue
+      const relPath = match[0].startsWith('/') ? match[0].slice(1) : match[0]
+      counts[relPath] = (counts[relPath] || 0) + 1
+    } catch {
+      // not JSON
+    }
+  }
+  return counts
+}
+
+/** Merge multiple doc-read count maps into one (summing counts). */
+function mergeDocReads(maps: Record<string, number>[]): Record<string, number> {
+  const merged: Record<string, number> = {}
+  for (const m of maps) {
+    for (const [k, v] of Object.entries(m)) {
+      merged[k] = (merged[k] || 0) + v
+    }
+  }
+  return merged
+}
+
 // --- Apply carve operations to a repo directory ---
 
 function applyCarveOperations(repoDir: string, operations: FileOperation[]): void {
@@ -274,6 +308,8 @@ interface CarveEvalResult {
   docsKept: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }>
   docsRejected: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }>
   totalCost: number
+  /** Which doc files agents read and how many times (summed across all parallel runs). */
+  docsRead: Record<string, number>
 }
 
 async function runCarveEval(options: CarveEvalOptions): Promise<void> {
@@ -357,6 +393,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
         docsKept: [],
         docsRejected: [],
         totalCost,
+        docsRead: {},
       })
       continue
     }
@@ -367,6 +404,15 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
     console.log(
       `  Baseline: ${currentScore.toFixed(1)}/10 (${baselineScores.map((s) => s.toFixed(1)).join(', ')})`,
     )
+
+    // Track which docs agents read across all runs for this feature
+    const baselineDocReads = mergeDocReads(validBaseline.map((r) => extractDocReads(r.agentTrace)))
+    const docReadEntries = Object.entries(baselineDocReads).sort((a, b) => b[1] - a[1])
+    if (docReadEntries.length > 0) {
+      console.log(`  Docs read (baseline): ${docReadEntries.map(([p, n]) => `${p} (${n}x)`).join(', ')}`)
+    } else {
+      console.log(`  Docs read (baseline): none`)
+    }
 
     const docsKept: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
     const docsRejected: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
@@ -510,6 +556,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
       docsKept,
       docsRejected,
       totalCost,
+      docsRead: baselineDocReads,
     })
   }
 
@@ -525,6 +572,12 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
     console.log(`    Baseline: ${r.baselineScore.toFixed(1)}/10`)
     console.log(`    Final:    ${r.finalScore.toFixed(1)}/10`)
     console.log(`    Docs kept: ${r.docsKept.length}, rejected: ${r.docsRejected.length}`)
+    const readEntries = Object.entries(r.docsRead).sort((a, b) => b[1] - a[1])
+    if (readEntries.length > 0) {
+      console.log(`    Docs read: ${readEntries.map(([p, n]) => `${p} (${n}x)`).join(', ')}`)
+    } else {
+      console.log(`    Docs read: none`)
+    }
     console.log(`    Cost: $${r.totalCost.toFixed(2)}`)
     totalCostAll += r.totalCost
   }
@@ -537,6 +590,18 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
   console.log(`\n  Average baseline: ${avgBaseline.toFixed(1)}/10`)
   console.log(`  Average final:    ${avgFinal.toFixed(1)}/10`)
   console.log(`  Total cost: $${totalCostAll.toFixed(2)}`)
+
+  // Aggregate doc read stats across all features
+  const allDocReads = mergeDocReads(results.map((r) => r.docsRead))
+  const allReadEntries = Object.entries(allDocReads).sort((a, b) => b[1] - a[1])
+  if (allReadEntries.length > 0) {
+    console.log(`\n  Doc read stats (all features):`)
+    for (const [docPath, count] of allReadEntries) {
+      console.log(`    ${docPath}: ${count} reads`)
+    }
+  } else {
+    console.log(`\n  No docs were read by any agent.`)
+  }
 
   // Save results
   const outputPath = path.join(

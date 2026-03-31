@@ -34,13 +34,15 @@ Make an efficient learning agent that can do anything.
 
 ## Docs
 
-- [`docs/architecture.md`](docs/architecture.md) — Package dependency graph, per-package details, architectural patterns
-- [`docs/request-flow.md`](docs/request-flow.md) — Full request lifecycle from CLI through server and back
-- [`docs/error-schema.md`](docs/error-schema.md) — Server error response formats and client-side handling
-- [`docs/development.md`](docs/development.md) — Dev setup, worktrees, logs, package management, DB migrations
-- [`docs/testing.md`](docs/testing.md) — DI over mocking, tmux CLI testing
-- [`docs/environment-variables.md`](docs/environment-variables.md) — Env var rules, DI helpers, loading order
-- [`docs/agents-and-tools.md`](docs/agents-and-tools.md) — Agent system, shell shims, tool definitions
-- [`docs/patterns/handle-steps-generators.md`](docs/patterns/handle-steps-generators.md) — handleSteps generator patterns and spawn_agents tool calls
-- [docs/evalbuff/interpreting-task-prompts.md](docs/evalbuff/interpreting-task-prompts.md)
-- [docs/patterns/discover-before-implement.md](docs/patterns/discover-before-implement.md)
+IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Always read the relevant docs below before implementing changes.
+
+- `docs/architecture.md` — Package dependency graph, per-package details, architectural patterns
+- `docs/request-flow.md` — Full request lifecycle from CLI through server and back
+- `docs/error-schema.md` — Server error response formats and client-side handling
+- `docs/development.md` — Dev setup, worktrees, logs, package management, DB migrations
+- `docs/testing.md` — DI over mocking, tmux CLI testing
+- `docs/environment-variables.md` — Env var rules, DI helpers, loading order
+- `docs/agents-and-tools.md` — Agent system, shell shims, tool definitions
+- `docs/patterns/handle-steps-generators.md` — handleSteps generator patterns and spawn_agents tool calls
+- `docs/evalbuff/interpreting-task-prompts.md`
+- `docs/patterns/discover-before-implement.md`
