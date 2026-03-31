@@ -33,7 +33,7 @@ import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
-import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
+import { installProcessCleanupHandlers, TERMINAL_RESET_SEQUENCES } from './utils/renderer-cleanup'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -363,11 +363,43 @@ async function main(): Promise<void> {
     )
   }
 
+  // Install early error handlers BEFORE renderer creation.
+  // If the renderer crashes during init, these ensure the error is visible
+  // by exiting the alternate screen buffer before printing the error.
+  const earlyFatalHandler = (error: unknown) => {
+    try {
+      if (process.stdin.isTTY && process.stdin.setRawMode) {
+        process.stdin.setRawMode(false)
+      }
+    } catch {
+      // stdin may be closed
+    }
+    try {
+      if (process.stdout.isTTY) {
+        process.stdout.write(TERMINAL_RESET_SEQUENCES)
+      }
+    } catch {
+      // stdout may be closed
+    }
+    try {
+      console.error('Fatal error during startup:', error)
+    } catch {
+      // stderr may be closed
+    }
+    process.exit(1)
+  }
+  process.on('uncaughtException', earlyFatalHandler)
+  process.on('unhandledRejection', earlyFatalHandler)
+
   const renderer = await createCliRenderer({
     backgroundColor: 'transparent',
     exitOnCtrlC: false,
     useAlternateScreen: true,
   })
+
+  // Remove early handlers — proper cleanup handlers (with renderer access) take over
+  process.removeListener('uncaughtException', earlyFatalHandler)
+  process.removeListener('unhandledRejection', earlyFatalHandler)
   installProcessCleanupHandlers(renderer)
   createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>

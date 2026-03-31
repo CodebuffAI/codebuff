@@ -13,6 +13,40 @@ const tar = require('tar')
 
 const packageName = 'codebuff'
 
+/**
+ * Terminal escape sequences to reset terminal state after the child process exits.
+ * When the binary is SIGKILL'd, it can't clean up its own terminal state.
+ * The wrapper (this process) survives and must reset these modes.
+ *
+ * Keep in sync with TERMINAL_RESET_SEQUENCES in cli/src/utils/renderer-cleanup.ts
+ */
+const TERMINAL_RESET_SEQUENCES =
+  '\x1b[?1049l' + // Exit alternate screen buffer
+  '\x1b[?1000l' + // Disable X10 mouse mode
+  '\x1b[?1002l' + // Disable button event mouse mode
+  '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
+  '\x1b[?1006l' + // Disable SGR extended mouse mode
+  '\x1b[?1004l' + // Disable focus reporting
+  '\x1b[?2004l' + // Disable bracketed paste mode
+  '\x1b[?25h' // Show cursor
+
+function resetTerminal() {
+  try {
+    if (process.stdin.isTTY && process.stdin.setRawMode) {
+      process.stdin.setRawMode(false)
+    }
+  } catch {
+    // stdin may be closed
+  }
+  try {
+    if (process.stdout.isTTY) {
+      process.stdout.write(TERMINAL_RESET_SEQUENCES)
+    }
+  } catch {
+    // stdout may be closed
+  }
+}
+
 function createConfig(packageName) {
   const homeDir = os.homedir()
   const configDir = path.join(homeDir, '.config', 'manicode')
@@ -526,18 +560,24 @@ async function checkForUpdates(runningProcess, exitListener) {
       term.clearLine()
 
       runningProcess.removeListener('exit', exitListener)
-      runningProcess.kill('SIGTERM')
 
       await new Promise((resolve) => {
-        runningProcess.on('exit', resolve)
-        setTimeout(() => {
-          if (!runningProcess.killed) {
-            runningProcess.kill('SIGKILL')
-          }
+        let exited = false
+        runningProcess.once('exit', () => {
+          exited = true
           resolve()
+        })
+        runningProcess.kill('SIGTERM')
+        setTimeout(() => {
+          if (!exited) {
+            runningProcess.kill('SIGKILL')
+            // Safety: resolve after giving SIGKILL time to take effect
+            setTimeout(() => resolve(), 1000)
+          }
         }, 5000)
       })
 
+      resetTerminal()
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
@@ -547,8 +587,14 @@ async function checkForUpdates(runningProcess, exitListener) {
         detached: false,
       })
 
-      newChild.on('exit', (code) => {
-        process.exit(code || 0)
+      newChild.on('exit', (code, signal) => {
+        resetTerminal()
+        process.exit(signal ? 1 : (code || 0))
+      })
+
+      newChild.on('error', (err) => {
+        console.error('Failed to start codebuff:', err.message)
+        process.exit(1)
       })
 
       return new Promise(() => {})
@@ -565,11 +611,17 @@ async function main() {
     stdio: 'inherit',
   })
 
-  const exitListener = (code) => {
-    process.exit(code || 0)
+  const exitListener = (code, signal) => {
+    resetTerminal()
+    process.exit(signal ? 1 : (code || 0))
   }
 
   child.on('exit', exitListener)
+
+  child.on('error', (err) => {
+    console.error('Failed to start codebuff:', err.message)
+    process.exit(1)
+  })
 
   setTimeout(() => {
     checkForUpdates(child, exitListener)
