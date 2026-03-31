@@ -9,10 +9,16 @@ import type {
 export class ClaudeRunner implements Runner {
   private cwd: string
   private env: Record<string, string>
+  private model: string
 
-  constructor(cwd: string, env: Record<string, string> = {}) {
+  constructor(
+    cwd: string,
+    env: Record<string, string> = {},
+    model: string = 'claude-opus-4-5-20251101',
+  ) {
     this.cwd = cwd
     this.env = env
+    this.model = model
   }
 
   async run(prompt: string): Promise<RunnerResult> {
@@ -28,7 +34,7 @@ export class ClaudeRunner implements Runner {
         '--verbose',
         '--dangerously-skip-permissions',
         '--model',
-        'claude-opus-4-5-20251101',
+        this.model,
       ]
 
       console.log(`[ClaudeRunner] Running: claude ${args.join(' ')}`)
