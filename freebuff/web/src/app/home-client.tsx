@@ -26,7 +26,7 @@ const faqs = [
   {
     question: 'How can it be free?',
     answer:
-      'Freebuff is supported by ads shown in the CLI.',
+      'Freebuff is supported by text ads shown in the CLI.',
   },
   {
     question: 'What models do you use?',
@@ -344,7 +344,7 @@ function FAQList() {
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
   { word: 'FAST', description: '5–10× speed up via fast models and quick context gathering.' },
-  { word: 'LOADED', description: '9 specialized subagents for code review, browser use, and deep thinking with your ChatGPT subscription.' },
+  { word: 'LOADED', description: '9 specialized subagents: code review, browser use, deep thinking with your ChatGPT subscription, and more.' },
 ]
 
 function PhilosophySection() {
