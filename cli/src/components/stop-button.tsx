@@ -22,7 +22,7 @@ export const StopButton = ({ onClick }: StopButtonProps) => {
       <text>
         <span
           fg={theme.secondary}
-          attributes={hovered ? TextAttributes.BOLD : TextAttributes.DIM}
+          attributes={hovered ? TextAttributes.BOLD : TextAttributes.NONE}
         >
           ■ Stop
         </span>
