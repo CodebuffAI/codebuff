@@ -51,7 +51,16 @@ const faqs = [
   {
     question: 'What else is cool in Freebuff?',
     answer:
-      'Freebuff comes with specialized subagents: file-picker finds relevant files across your codebase, code-reviewer gives critical feedback on your changes, and browser-use lets the AI control a real browser to test your app.\n\nAfter every response, it generates 3 clickable follow-up suggestions so you always know what to do next.\n\nFor big tasks, try the /interview → /plan → implement → /review workflow to go from idea to polished code.',
+      `Freebuff comes with 9 specialized subagents:
+- file-picker finds relevant files across your codebase
+- code-reviewer gives critical feedback on your changes
+- browser-use lets the AI control a real browser to test your app
+- thinker-gpt does deep reasoning (connect your ChatGPT subscription)
+- and more.
+
+After every response, it generates 3 clickable follow-up suggestions so you always know what to do next.
+
+For big tasks, try the commands /interview → /plan → (implement) → /review to go from idea to polished code.`,
   },
 ]
 
@@ -335,7 +344,7 @@ function FAQList() {
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
   { word: 'FAST', description: '5–10× speed up via fast models and quick context gathering.' },
-  { word: 'LOADED', description: 'Built in web research, browser use, plan/review using your ChatGPT subscription, and more.' },
+  { word: 'LOADED', description: '9 specialized subagents for code review, browser use, and deep thinking with your ChatGPT subscription.' },
 ]
 
 function PhilosophySection() {
@@ -379,7 +388,7 @@ function PhilosophySection() {
           >
             {item.word}
           </motion.div>
-          <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
+          <p className="mt-3 md:mt-4 text-zinc-400 text-sm md:text-base font-mono tracking-wide">
             {item.description}
           </p>
         </motion.div>
