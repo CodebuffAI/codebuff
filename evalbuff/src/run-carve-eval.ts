@@ -259,6 +259,7 @@ function copyDocsIntoRepo(sourceRepoPath: string, targetRepoPath: string): void 
   const sourceAgentsMd = path.join(sourceRepoPath, 'AGENTS.md')
   const targetDocsDir = path.join(targetRepoPath, 'docs')
   const targetAgentsMd = path.join(targetRepoPath, 'AGENTS.md')
+  const targetClaudeMd = path.join(targetRepoPath, 'CLAUDE.md')
 
   let copied = false
   if (fs.existsSync(sourceDocsDir)) {
@@ -267,13 +268,17 @@ function copyDocsIntoRepo(sourceRepoPath: string, targetRepoPath: string): void 
   }
   if (fs.existsSync(sourceAgentsMd)) {
     fs.cpSync(sourceAgentsMd, targetAgentsMd)
+    // Ensure CLAUDE.md symlink exists so Claude Code auto-loads the same content
+    if (!fs.existsSync(targetClaudeMd)) {
+      fs.symlinkSync('AGENTS.md', targetClaudeMd)
+    }
     copied = true
   }
 
   if (copied) {
     try {
       execSync(
-        'git add docs/ AGENTS.md 2>/dev/null; git add -u docs/ AGENTS.md 2>/dev/null',
+        'git add docs/ AGENTS.md CLAUDE.md 2>/dev/null; git add -u docs/ AGENTS.md CLAUDE.md 2>/dev/null',
         { cwd: targetRepoPath, stdio: 'ignore' },
       )
       execSync('git commit -m "evalbuff: pre-load docs" --allow-empty', {
@@ -406,10 +411,10 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
     )
 
     // Track which docs agents read across all runs for this feature
-    const baselineDocReads = mergeDocReads(validBaseline.map((r) => extractDocReads(r.agentTrace)))
-    const docReadEntries = Object.entries(baselineDocReads).sort((a, b) => b[1] - a[1])
-    if (docReadEntries.length > 0) {
-      console.log(`  Docs read (baseline): ${docReadEntries.map(([p, n]) => `${p} (${n}x)`).join(', ')}`)
+    let allDocReadsForFeature = mergeDocReads(validBaseline.map((r) => extractDocReads(r.agentTrace)))
+    const baselineDocReadEntries = Object.entries(allDocReadsForFeature).sort((a, b) => b[1] - a[1])
+    if (baselineDocReadEntries.length > 0) {
+      console.log(`  Docs read (baseline): ${baselineDocReadEntries.map(([p, n]) => `${p} (${n}x)`).join(', ')}`)
     } else {
       console.log(`  Docs read (baseline): none`)
     }
@@ -486,6 +491,14 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
         const validRerun = rerunResults.filter((r) => r.score >= 0)
         totalCost += rerunResults.reduce((a, r) => a + r.costEstimate, 0)
 
+        // Accumulate doc reads from re-run
+        const rerunDocReads = mergeDocReads(validRerun.map((r) => extractDocReads(r.agentTrace)))
+        allDocReadsForFeature = mergeDocReads([allDocReadsForFeature, rerunDocReads])
+        const rerunDocEntries = Object.entries(rerunDocReads).sort((a, b) => b[1] - a[1])
+        if (rerunDocEntries.length > 0) {
+          console.log(`  Docs read (iteration ${iter + 1}): ${rerunDocEntries.map(([p, n]) => `${p} (${n}x)`).join(', ')}`)
+        }
+
         if (validRerun.length === 0) {
           console.log(`  Re-run failed. Reverting doc.`)
           if (previousContent !== null) {
@@ -556,7 +569,7 @@ async function runCarveEval(options: CarveEvalOptions): Promise<void> {
       docsKept,
       docsRejected,
       totalCost,
-      docsRead: baselineDocReads,
+      docsRead: allDocReadsForFeature,
     })
   }
 
