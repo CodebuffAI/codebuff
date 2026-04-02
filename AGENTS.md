@@ -2,7 +2,6 @@
 
 Codebuff is an advanced coding agent with a composable agent framework. It also includes:
 - freebuff, the free coding agent
-- evalbuff, a project to improve an agent through evals
 
 ## Goal
 
@@ -25,7 +24,6 @@ Make an efficient learning agent that can do anything.
 - `agents/` — main agents shipped with codebuff
 - `.agents/` — local agent templates (prompt + programmatic agents)
 - `freebuff/` - a free coding agent built from configuring codebuff cli
-- `evalbuff/` — automated docs optimization loop (run agent → judge → analyze → improve docs)
 
 ## Conventions
 
@@ -44,5 +42,4 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Alway
 - `docs/environment-variables.md` — Env var rules, DI helpers, loading order
 - `docs/agents-and-tools.md` — Agent system, shell shims, tool definitions
 - `docs/patterns/handle-steps-generators.md` — handleSteps generator patterns and spawn_agents tool calls
-- `docs/evalbuff/interpreting-task-prompts.md`
 - `docs/patterns/discover-before-implement.md`
