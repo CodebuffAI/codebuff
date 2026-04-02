@@ -168,8 +168,6 @@ describe('getPathCompletion', () => {
       // Create a test directory structure we can control
       // Note: This test is tricky because we can't easily create dirs in home
       // So we'll test with the actual home directory if it has subdirs
-      const homeDir = os.homedir()
-
       // Try completing from home directory with tilde
       const result = getPathCompletion('~/')
 
