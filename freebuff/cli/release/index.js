@@ -576,6 +576,7 @@ async function checkForUpdates(runningProcess, exitListener) {
 
       newChild.on('exit', (code, signal) => {
         resetTerminal()
+        printCrashDiagnostics(code, signal)
         process.exit(signal ? 1 : (code || 0))
       })
 
@@ -591,6 +592,54 @@ async function checkForUpdates(runningProcess, exitListener) {
   }
 }
 
+function printCrashDiagnostics(code, signal) {
+  // Windows NTSTATUS codes (unsigned DWORD)
+  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
+  const isIllegalInstruction =
+    signal === 'SIGILL' ||
+    (process.platform === 'win32' && unsignedCode === 0xC000001D)
+  const isAccessViolation =
+    signal === 'SIGSEGV' ||
+    (process.platform === 'win32' && unsignedCode === 0xC0000005)
+  const isBusError = signal === 'SIGBUS'
+  const isAbort =
+    signal === 'SIGABRT' ||
+    (process.platform === 'win32' && unsignedCode === 0xC0000409)
+
+  if (!isIllegalInstruction && !isAccessViolation && !isBusError && !isAbort) return
+
+  const exitInfo = signal ? `signal ${signal}` : `code ${code}`
+  console.error('')
+  console.error(`❌ ${packageName} exited immediately (${exitInfo})`)
+  console.error('')
+
+  if (isIllegalInstruction) {
+    console.error('Your CPU may not support the required instruction set (AVX2).')
+    console.error('This typically affects CPUs from before 2013.')
+    console.error('Unfortunately, this binary is not compatible with your system.')
+    console.error('')
+  } else if (isAccessViolation) {
+    console.error('The binary crashed with an access violation.')
+    console.error('')
+  } else if (isBusError) {
+    console.error('The binary crashed with a bus error.')
+    console.error('This may indicate a platform compatibility issue.')
+    console.error('')
+  } else if (isAbort) {
+    console.error('The binary crashed with an abort signal.')
+    console.error('')
+  }
+
+  console.error('System info:')
+  console.error(`  Platform: ${process.platform} ${process.arch}`)
+  console.error(`  Node:     ${process.version}`)
+  console.error(`  Binary:   ${CONFIG.binaryPath}`)
+  console.error('')
+  console.error('Please report this issue at:')
+  console.error('  https://github.com/CodebuffAI/codebuff/issues')
+  console.error('')
+}
+
 async function main() {
   await ensureBinaryExists()
 
@@ -600,6 +649,7 @@ async function main() {
 
   const exitListener = (code, signal) => {
     resetTerminal()
+    printCrashDiagnostics(code, signal)
     process.exit(signal ? 1 : (code || 0))
   }
 

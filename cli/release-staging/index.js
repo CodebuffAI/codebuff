@@ -13,6 +13,40 @@ const tar = require('tar')
 
 const packageName = 'codecane'
 
+/**
+ * Terminal escape sequences to reset terminal state after the child process exits.
+ * When the binary is SIGKILL'd, it can't clean up its own terminal state.
+ * The wrapper (this process) survives and must reset these modes.
+ *
+ * Keep in sync with TERMINAL_RESET_SEQUENCES in cli/src/utils/renderer-cleanup.ts
+ */
+const TERMINAL_RESET_SEQUENCES =
+  '\x1b[?1049l' + // Exit alternate screen buffer
+  '\x1b[?1000l' + // Disable X10 mouse mode
+  '\x1b[?1002l' + // Disable button event mouse mode
+  '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
+  '\x1b[?1006l' + // Disable SGR extended mouse mode
+  '\x1b[?1004l' + // Disable focus reporting
+  '\x1b[?2004l' + // Disable bracketed paste mode
+  '\x1b[?25h' // Show cursor
+
+function resetTerminal() {
+  try {
+    if (process.stdin.isTTY && process.stdin.setRawMode) {
+      process.stdin.setRawMode(false)
+    }
+  } catch {
+    // stdin may be closed
+  }
+  try {
+    if (process.stdout.isTTY) {
+      process.stdout.write(TERMINAL_RESET_SEQUENCES)
+    }
+  } catch {
+    // stdout may be closed
+  }
+}
+
 function createConfig(packageName) {
   const homeDir = os.homedir()
   const configDir = path.join(homeDir, '.config', 'manicode')
@@ -527,18 +561,24 @@ async function checkForUpdates(runningProcess, exitListener) {
       term.clearLine()
 
       runningProcess.removeListener('exit', exitListener)
-      runningProcess.kill('SIGTERM')
 
       await new Promise((resolve) => {
-        runningProcess.on('exit', resolve)
-        setTimeout(() => {
-          if (!runningProcess.killed) {
-            runningProcess.kill('SIGKILL')
-          }
+        let exited = false
+        runningProcess.once('exit', () => {
+          exited = true
           resolve()
+        })
+        runningProcess.kill('SIGTERM')
+        setTimeout(() => {
+          if (!exited) {
+            runningProcess.kill('SIGKILL')
+            // Safety: resolve after giving SIGKILL time to take effect
+            setTimeout(() => resolve(), 1000)
+          }
         }, 5000)
       })
 
+      resetTerminal()
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
@@ -548,8 +588,15 @@ async function checkForUpdates(runningProcess, exitListener) {
         detached: false,
       })
 
-      newChild.on('exit', (code) => {
-        process.exit(code || 0)
+      newChild.on('exit', (code, signal) => {
+        resetTerminal()
+        printCrashDiagnostics(code, signal)
+        process.exit(signal ? 1 : (code || 0))
+      })
+
+      newChild.on('error', (err) => {
+        console.error('Failed to start codecane:', err.message)
+        process.exit(1)
       })
 
       return new Promise(() => {})
@@ -557,6 +604,54 @@ async function checkForUpdates(runningProcess, exitListener) {
   } catch (error) {
     // Ignore update failures
   }
+}
+
+function printCrashDiagnostics(code, signal) {
+  // Windows NTSTATUS codes (unsigned DWORD)
+  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
+  const isIllegalInstruction =
+    signal === 'SIGILL' ||
+    (process.platform === 'win32' && unsignedCode === 0xC000001D)
+  const isAccessViolation =
+    signal === 'SIGSEGV' ||
+    (process.platform === 'win32' && unsignedCode === 0xC0000005)
+  const isBusError = signal === 'SIGBUS'
+  const isAbort =
+    signal === 'SIGABRT' ||
+    (process.platform === 'win32' && unsignedCode === 0xC0000409)
+
+  if (!isIllegalInstruction && !isAccessViolation && !isBusError && !isAbort) return
+
+  const exitInfo = signal ? `signal ${signal}` : `code ${code}`
+  console.error('')
+  console.error(`❌ ${packageName} exited immediately (${exitInfo})`)
+  console.error('')
+
+  if (isIllegalInstruction) {
+    console.error('Your CPU may not support the required instruction set (AVX2).')
+    console.error('This typically affects CPUs from before 2013.')
+    console.error('Unfortunately, this binary is not compatible with your system.')
+    console.error('')
+  } else if (isAccessViolation) {
+    console.error('The binary crashed with an access violation.')
+    console.error('')
+  } else if (isBusError) {
+    console.error('The binary crashed with a bus error.')
+    console.error('This may indicate a platform compatibility issue.')
+    console.error('')
+  } else if (isAbort) {
+    console.error('The binary crashed with an abort signal.')
+    console.error('')
+  }
+
+  console.error('System info:')
+  console.error(`  Platform: ${process.platform} ${process.arch}`)
+  console.error(`  Node:     ${process.version}`)
+  console.error(`  Binary:   ${CONFIG.binaryPath}`)
+  console.error('')
+  console.error('Please report this issue at:')
+  console.error('  https://github.com/CodebuffAI/codebuff/issues')
+  console.error('')
 }
 
 async function main() {
@@ -574,11 +669,18 @@ async function main() {
     stdio: 'inherit',
   })
 
-  const exitListener = (code) => {
-    process.exit(code || 0)
+  const exitListener = (code, signal) => {
+    resetTerminal()
+    printCrashDiagnostics(code, signal)
+    process.exit(signal ? 1 : (code || 0))
   }
 
   child.on('exit', exitListener)
+
+  child.on('error', (err) => {
+    console.error('Failed to start codecane:', err.message)
+    process.exit(1)
+  })
 
   setTimeout(() => {
     checkForUpdates(child, exitListener)
