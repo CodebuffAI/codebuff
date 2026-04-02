@@ -13,7 +13,6 @@
     "packages/*",
     "scripts",
     "evals",
-    "evalbuff",
     "sdk",
     "agents",
     "cli"
