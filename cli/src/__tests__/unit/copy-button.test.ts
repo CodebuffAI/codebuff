@@ -138,18 +138,14 @@ describe('CopyButton - copied state reset timing', () => {
   })
 
   test('multiple rapid clicks only create one active timer', () => {
-    let isCopied = false
     let currentTimerId: number | null = null
 
     const handleCopy = () => {
       if (currentTimerId !== null) {
         clearTimeout(currentTimerId)
       }
-      const newState = copyButtonHandlers.handleCopy()
-      isCopied = newState.isCopied
-      currentTimerId = setTimeout(() => {
-        isCopied = false
-      }, COPIED_RESET_DELAY_MS) as unknown as number
+      copyButtonHandlers.handleCopy()
+      currentTimerId = setTimeout(() => {}, COPIED_RESET_DELAY_MS) as unknown as number
     }
 
     handleCopy()
