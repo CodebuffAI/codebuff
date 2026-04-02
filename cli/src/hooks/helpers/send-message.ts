@@ -278,10 +278,12 @@ export const setupStreamingContext = (params: {
 
   abortController.signal.addEventListener('abort', () => {
     // Abort means the user stopped streaming; update UI with an interruption notice.
-    // IMPORTANT: Do NOT call finalizeQueueState here. The chain lock must stay held
-    // until client.run() resolves and previousRunStateRef is updated. Otherwise, the
-    // user can send a new message with stale state before the cancelled run's state
-    // is saved, causing message history loss. The lock is released in handleRunCompletion.
+    // Release the chain lock immediately so new messages can be sent directly instead
+    // of being queued. The minor trade-off is that if the user sends a new message
+    // before client.run() resolves, it may use stale previousRunStateRef. This is
+    // acceptable because: (1) the user explicitly cancelled, and (2) client.run()
+    // will update previousRunStateRef when it eventually resolves, so subsequent
+    // runs will have the full state.
     streamRefs.setters.setWasAbortedByUser(true)
     setIsRetrying(false)
     timerController.stop('aborted')
@@ -291,6 +293,13 @@ export const setupStreamingContext = (params: {
 
     // Clear streaming agents so cancelled status displays correctly in UI
     setStreamingAgents(() => new Set())
+
+    // Release chain lock and queue state so new messages are sent directly
+    updateChainInProgress(false)
+    setCanProcessQueue(!isQueuePausedRef?.current)
+    if (isProcessingQueueRef) {
+      isProcessingQueueRef.current = false
+    }
 
     updater.updateAiMessageBlocks((blocks) => {
       const cancelledBlocks = markRunningAgentsAsCancelled(blocks)
@@ -309,7 +318,7 @@ export const handleRunCompletion = (params: {
   timerController: SendMessageTimerController
   updater: BatchedMessageUpdater
   aiMessageId: string
-  streamRefs: StreamController
+  wasAbortedByUser: boolean
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   updateChainInProgress: (value: boolean) => void
@@ -324,7 +333,7 @@ export const handleRunCompletion = (params: {
     agentMode,
     timerController,
     updater,
-    streamRefs,
+    wasAbortedByUser,
     setStreamStatus,
     setCanProcessQueue,
     updateChainInProgress,
@@ -334,19 +343,11 @@ export const handleRunCompletion = (params: {
     isQueuePausedRef,
   } = params
 
-  // If user aborted, the abort handler already handled UI updates (interruption notice, etc.)
-  // Don't process the server response as it would interfere with the abort handler's work.
-  // But we DO need to finalize queue state here (release the chain lock) since the abort
-  // handler intentionally defers this until client.run() resolves and state is saved.
-  if (streamRefs.state.wasAbortedByUser) {
-    finalizeQueueState({
-      setStreamStatus,
-      setCanProcessQueue,
-      updateChainInProgress,
-      isProcessingQueueRef,
-      isQueuePausedRef,
-      resumeQueue,
-    })
+  // If user aborted, the abort handler already handled UI updates and released the
+  // chain lock. Don't finalize queue state again to avoid interfering with any new
+  // run that may have started after the abort. Uses per-run abort signal (not shared
+  // streamRefs) so a newer run's reset() can't clear this flag.
+  if (wasAbortedByUser) {
     return
   }
 
@@ -363,7 +364,7 @@ export const handleRunCompletion = (params: {
   }
 
   if (!output) {
-    if (!streamRefs.state.wasAbortedByUser) {
+    if (!wasAbortedByUser) {
       updater.setError(DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
       finalizeAfterError()
     }

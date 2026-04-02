@@ -476,7 +476,7 @@ export const useSendMessage = ({
           timerController,
           updater,
           aiMessageId,
-          streamRefs,
+          wasAbortedByUser: abortController.signal.aborted,
           setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
@@ -486,31 +486,46 @@ export const useSendMessage = ({
           isQueuePausedRef,
         })
       } catch (error) {
-        handleRunError({
-          error,
-          timerController,
-          updater,
-          setIsRetrying,
-          setStreamStatus,
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
-      } finally {
-        if (isChainInProgressRef.current) {
-          logger.warn(
-            {},
-            '[send-message] Chain still in progress after try/catch, forcing reset',
-          )
-          updateChainInProgress(false)
-          setStreamStatus('idle')
-          setCanProcessQueue(!isQueuePausedRef?.current)
+        // If this run was aborted, the abort handler already handled cleanup.
+        // Don't run error handling to avoid interfering with any new run that
+        // may have started. Uses per-run abortController.signal (not shared
+        // streamRefs) so a newer run's reset() can't clear this flag.
+        if (!abortController.signal.aborted) {
+          handleRunError({
+            error,
+            timerController,
+            updater,
+            setIsRetrying,
+            setStreamStatus,
+            setCanProcessQueue,
+            updateChainInProgress,
+            isProcessingQueueRef,
+            isQueuePausedRef,
+          })
+        } else {
+          logger.debug({ error }, '[send-message] Ignoring error after abort')
         }
-        // Safety net: ensure lock is always released even if handleRunCompletion/handleRunError
-        // didn't run (e.g., due to unexpected early return). Redundant releases are safe (idempotent).
-        if (isProcessingQueueRef) {
-          isProcessingQueueRef.current = false
+      } finally {
+        // If this run was aborted, the abort handler already released the chain lock
+        // and queue processing state. Don't touch shared state here to avoid
+        // interfering with any new run that may have started after the abort.
+        // Uses per-run abortController.signal (not shared streamRefs) so a newer
+        // run's reset() can't clear this flag.
+        if (!abortController.signal.aborted) {
+          if (isChainInProgressRef.current) {
+            logger.warn(
+              {},
+              '[send-message] Chain still in progress after try/catch, forcing reset',
+            )
+            updateChainInProgress(false)
+            setStreamStatus('idle')
+            setCanProcessQueue(!isQueuePausedRef?.current)
+          }
+          // Safety net: ensure lock is always released even if handleRunCompletion/handleRunError
+          // didn't run (e.g., due to unexpected early return). Redundant releases are safe (idempotent).
+          if (isProcessingQueueRef) {
+            isProcessingQueueRef.current = false
+          }
         }
         updater.dispose()
       }

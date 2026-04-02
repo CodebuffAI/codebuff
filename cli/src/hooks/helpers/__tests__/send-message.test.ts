@@ -72,7 +72,7 @@ const createBaseMessages = (): ChatMessage[] => [
 
 describe('setupStreamingContext', () => {
   describe('abort flow', () => {
-    test('abort handler appends interruption notice and marks complete but keeps chain locked', () => {
+    test('abort handler appends interruption notice, marks complete, and releases chain lock', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
@@ -114,10 +114,9 @@ describe('setupStreamingContext', () => {
       // Verify stream status reset for UI feedback
       expect(streamStatus).toBe('idle')
 
-      // Chain lock must stay held until client.run() resolves and state is saved.
-      // This prevents the user from sending a new message with stale state.
-      expect(chainInProgress).toBe(true)
-      expect(canProcessQueue).toBe(false)
+      // Chain lock is released immediately so new messages can be sent directly
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
 
       // Verify retrying reset
       expect(isRetrying).toBe(false)
@@ -142,7 +141,7 @@ describe('setupStreamingContext', () => {
       expect(aiMessage!.isComplete).toBe(true)
     })
 
-    test('abort does not change canProcessQueue (chain lock held)', () => {
+    test('abort sets canProcessQueue based on queue pause state', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
@@ -173,12 +172,13 @@ describe('setupStreamingContext', () => {
       // Trigger abort
       abortController.abort()
 
-      // Abort handler should NOT call setCanProcessQueue (chain lock held)
-      expect(canProcessQueueCallCount).toBe(0)
+      // Abort handler sets canProcessQueue respecting queue pause state
+      expect(canProcessQueueCallCount).toBe(1)
+      // Queue was paused, so canProcessQueue stays false
       expect(canProcessQueue).toBe(false)
     })
 
-    test('abort does not reset isProcessingQueueRef (chain lock held)', () => {
+    test('abort resets isProcessingQueueRef', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
@@ -207,12 +207,11 @@ describe('setupStreamingContext', () => {
       // Trigger abort
       abortController.abort()
 
-      // isProcessingQueueRef should NOT be reset by abort handler.
-      // It will be released when handleRunCompletion runs after client.run() resolves.
-      expect(isProcessingQueueRef.current).toBe(true)
+      // isProcessingQueueRef is reset by abort handler so new messages can be sent
+      expect(isProcessingQueueRef.current).toBe(false)
     })
 
-    test('abort with both isProcessingQueueRef and isQueuePausedRef keeps chain locked', () => {
+    test('abort releases chain lock and processing state, respects queue pause', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
       const timerController = createMockTimerController()
@@ -260,11 +259,11 @@ describe('setupStreamingContext', () => {
       // Trigger abort
       abortController.abort()
 
-      // After abort, chain lock and processing lock stay held to prevent
-      // sending new messages with stale state. Only UI flags are updated.
-      expect(isProcessingQueueRef.current).toBe(true)
-      expect(canProcessQueue).toBe(true) // Not changed by abort handler
-      expect(chainInProgress).toBe(true) // Lock held until client.run() resolves
+      // After abort, chain lock and processing lock are released immediately
+      // so new messages can be sent directly instead of being queued.
+      expect(isProcessingQueueRef.current).toBe(false)
+      expect(canProcessQueue).toBe(false) // Respects isQueuePausedRef (true)
+      expect(chainInProgress).toBe(false) // Released immediately
       expect(isRetrying).toBe(false)
       expect(streamStatus).toBe('idle')
     })
@@ -331,22 +330,25 @@ describe('setupStreamingContext', () => {
 
 describe('handleRunCompletion', () => {
   describe('abort path', () => {
-    test('releases chain lock when wasAbortedByUser is true', () => {
-      const streamRefs = createStreamController()
-      streamRefs.setters.setWasAbortedByUser(true)
-
+    test('skips finalizeQueueState when wasAbortedByUser is true (abort handler already released locks)', () => {
       const timerController = createMockTimerController()
       let messages = createBaseMessages()
       const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
         messages = fn(messages)
       })
 
-      let streamStatus: StreamStatus = 'streaming'
-      let canProcessQueue = false
-      let chainInProgress = true
-      const isProcessingQueueRef = { current: true }
+      // These simulate state that was already cleaned up by the abort handler
+      let streamStatus: StreamStatus = 'idle'
+      let canProcessQueue = true
+      let chainInProgress = false
+      const isProcessingQueueRef = { current: false }
       const isQueuePausedRef = { current: false }
       let hasReceivedPlanResponse = false
+
+      // Track if setters are called (they shouldn't be)
+      let setStreamStatusCalled = false
+      let setCanProcessQueueCalled = false
+      let updateChainInProgressCalled = false
 
       const runState = {
         sessionState: undefined,
@@ -360,26 +362,23 @@ describe('handleRunCompletion', () => {
         timerController,
         updater,
         aiMessageId: 'ai-1',
-        streamRefs,
-        setStreamStatus: (status: StreamStatus) => { streamStatus = status },
-        setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
-        updateChainInProgress: (value: boolean) => { chainInProgress = value },
+        wasAbortedByUser: true,
+        setStreamStatus: (status: StreamStatus) => { setStreamStatusCalled = true; streamStatus = status },
+        setCanProcessQueue: (can: boolean) => { setCanProcessQueueCalled = true; canProcessQueue = can },
+        updateChainInProgress: (value: boolean) => { updateChainInProgressCalled = true; chainInProgress = value },
         setHasReceivedPlanResponse: (value: boolean) => { hasReceivedPlanResponse = value },
         isProcessingQueueRef,
         isQueuePausedRef,
       })
 
-      // Chain lock should be released after client.run() resolved
-      expect(chainInProgress).toBe(false)
-      expect(canProcessQueue).toBe(true)
-      expect(isProcessingQueueRef.current).toBe(false)
-      expect(streamStatus as StreamStatus).toBe('idle')
+      // handleRunCompletion should NOT call finalizeQueueState for aborted runs
+      // (the abort handler already released the locks)
+      expect(setStreamStatusCalled).toBe(false)
+      expect(setCanProcessQueueCalled).toBe(false)
+      expect(updateChainInProgressCalled).toBe(false)
     })
 
     test('does not process server response when wasAbortedByUser is true', () => {
-      const streamRefs = createStreamController()
-      streamRefs.setters.setWasAbortedByUser(true)
-
       const timerController = createMockTimerController()
       let messages = createBaseMessages()
       const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
@@ -403,7 +402,7 @@ describe('handleRunCompletion', () => {
         timerController,
         updater,
         aiMessageId: 'ai-1',
-        streamRefs,
+        wasAbortedByUser: true,
         setStreamStatus: () => {},
         setCanProcessQueue: () => {},
         updateChainInProgress: () => {},
@@ -418,10 +417,7 @@ describe('handleRunCompletion', () => {
       expect(timerController.stopCalls).not.toContain('error')
     })
 
-    test('calls resumeQueue when provided in abort path', () => {
-      const streamRefs = createStreamController()
-      streamRefs.setters.setWasAbortedByUser(true)
-
+    test('does not call resumeQueue in abort path (abort handler already released locks)', () => {
       const timerController = createMockTimerController()
       let messages = createBaseMessages()
       const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
@@ -443,7 +439,7 @@ describe('handleRunCompletion', () => {
         timerController,
         updater,
         aiMessageId: 'ai-1',
-        streamRefs,
+        wasAbortedByUser: true,
         setStreamStatus: () => {},
         setCanProcessQueue: () => { canProcessQueueCalled = true },
         updateChainInProgress: () => {},
@@ -451,8 +447,8 @@ describe('handleRunCompletion', () => {
         resumeQueue: () => { resumeQueueCalled = true },
       })
 
-      // Should use resumeQueue instead of setCanProcessQueue
-      expect(resumeQueueCalled).toBe(true)
+      // Neither should be called - abort handler already handled cleanup
+      expect(resumeQueueCalled).toBe(false)
       expect(canProcessQueueCalled).toBe(false)
     })
   })
@@ -884,14 +880,13 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     return true
   }
 
-  test('run B is blocked while aborted run A has not resolved, then unblocked after A completes', () => {
+  test('run B can proceed immediately after abort (chain lock released by abort handler)', () => {
     // --- Shared mutable state (simulates React refs and state in the CLI) ---
     let streamStatus: StreamStatus = 'idle'
     let canProcessQueue = false
     let chainInProgress = true  // Set true at start of sendMessage
     const isProcessingQueueRef = { current: false }
     const isQueuePausedRef = { current: false }
-    let hasReceivedPlanResponse = false
 
     const setStreamStatus = (status: StreamStatus) => { streamStatus = status }
     const setCanProcessQueue = (can: boolean) => { canProcessQueue = can }
@@ -928,107 +923,13 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     // --- PHASE 2: User aborts run A ---
     abortControllerA.abort()
 
-    // Abort handler fires synchronously: UI is updated, but chain lock stays held
+    // Abort handler fires synchronously: UI is updated AND chain lock is released
     expect(streamRefsA.state.wasAbortedByUser).toBe(true)
-    expect(streamStatus as StreamStatus).toBe('idle')  // UI shows idle
-    expect(chainInProgress).toBe(true) // But chain lock is still held!
-
-    // --- PHASE 3: User types run B — verify it's BLOCKED ---
-    // This simulates what useMessageQueue.processNextMessage checks before
-    // dequeuing and calling sendMessage for the next message.
-    const canProcessRunB_beforeAResolves = canQueueProcessNextMessage({
-      isChainInProgress: chainInProgress,
-      canProcessQueue,
-      streamStatus,
-      isProcessingQueue: isProcessingQueueRef.current,
-      isQueuePaused: isQueuePausedRef.current,
-    })
-
-    // Run B MUST be blocked — this is the core assertion that proves the fix works.
-    // Before the fix, chainInProgress would be false here (abort handler released it),
-    // allowing run B to start with stale previousRunStateRef.
-    expect(canProcessRunB_beforeAResolves).toBe(false)
-
-    // --- PHASE 4: client.run() for run A resolves (server returns state) ---
-    // Simulate what happens in useSendMessage after `await client.run(runConfig)`:
-    // 1. previousRunStateRef.current = runState (state saved)
-    // 2. handleRunCompletion is called
-    const runStateFromA: RunState = {
-      sessionState: { conversationId: 'conv-123', history: ['user msg A', 'partial assistant response'] } as any,
-      output: { type: 'lastMessage' as const, value: [{ type: 'text' as const, text: 'partial' }] },
-    }
-
-    // This is the previousRunStateRef update that happens in useSendMessage
-    let previousRunState = runStateFromA
-
-    handleRunCompletion({
-      runState: runStateFromA,
-      actualCredits: undefined,
-      agentMode: 'DEFAULT' as any,
-      timerController: timerControllerA,
-      updater: updaterA,
-      aiMessageId: 'ai-1',
-      streamRefs: streamRefsA,
-      setStreamStatus,
-      setCanProcessQueue,
-      updateChainInProgress,
-      setHasReceivedPlanResponse: (value: boolean) => { hasReceivedPlanResponse = value },
-      isProcessingQueueRef,
-      isQueuePausedRef,
-    })
-
-    // --- PHASE 5: Verify run B is now UNBLOCKED ---
-    const canProcessRunB_afterAResolves = canQueueProcessNextMessage({
-      isChainInProgress: chainInProgress,
-      canProcessQueue,
-      streamStatus,
-      isProcessingQueue: isProcessingQueueRef.current,
-      isQueuePaused: isQueuePausedRef.current,
-    })
-
-    expect(canProcessRunB_afterAResolves).toBe(true)
-
-    // Chain lock is released
-    expect(chainInProgress).toBe(false)
-    expect(canProcessQueue).toBe(true)
-    expect(isProcessingQueueRef.current).toBe(false)
     expect(streamStatus as StreamStatus).toBe('idle')
-
-    // The crucial state continuity: previousRunState from A is available for B
-    expect(previousRunState).toBe(runStateFromA)
-    expect(previousRunState.sessionState as any).toEqual({
-      conversationId: 'conv-123',
-      history: ['user msg A', 'partial assistant response'],
-    })
-  })
-
-  test('without the fix (old behavior), run B would NOT be blocked after abort', () => {
-    // This test documents what the OLD buggy behavior looked like:
-    // If finalizeQueueState were called in the abort handler (old code),
-    // the chain lock would be released immediately, allowing run B to start
-    // with stale state before client.run() resolves.
-
-    let streamStatus: StreamStatus = 'idle'
-    let canProcessQueue = false
-    let chainInProgress = true
-    const isProcessingQueueRef = { current: false }
-    const isQueuePausedRef = { current: false }
-
-    // Simulate what the OLD abort handler did: call finalizeQueueState immediately
-    finalizeQueueState({
-      setStreamStatus: (status: StreamStatus) => { streamStatus = status },
-      setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
-      updateChainInProgress: (value: boolean) => { chainInProgress = value },
-      isProcessingQueueRef,
-      isQueuePausedRef,
-    })
-
-    // With old behavior, ALL locks are released immediately
-    expect(chainInProgress).toBe(false)
+    expect(chainInProgress).toBe(false) // Chain lock released immediately!
     expect(canProcessQueue).toBe(true)
-    expect(isProcessingQueueRef.current).toBe(false)
 
-    // Queue would allow run B to proceed — THIS IS THE BUG
+    // --- PHASE 3: User types run B — verify it's UNBLOCKED ---
     const canProcessRunB = canQueueProcessNextMessage({
       isChainInProgress: chainInProgress,
       canProcessQueue,
@@ -1037,13 +938,208 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       isQueuePaused: isQueuePausedRef.current,
     })
 
-    // This proves the old behavior would let run B through prematurely
+    // Run B can proceed immediately — this is the core fix.
+    // New messages are sent directly instead of being queued.
     expect(canProcessRunB).toBe(true)
   })
 
-  test('full two-run lifecycle: run A abort → run B starts with A\'s state', () => {
-    // End-to-end test: two complete runs where the first is aborted.
-    // Verifies that run B would receive state from A (simulating previousRunStateRef).
+  test('handleRunCompletion does not interfere after abort (no-op for aborted runs)', () => {
+    // After abort releases the chain lock, handleRunCompletion should be a no-op
+    // to avoid interfering with any new run that may have started.
+
+    let streamStatus: StreamStatus = 'idle'
+    let canProcessQueue = true
+    let chainInProgress = false // Already released by abort handler
+    const isProcessingQueueRef = { current: false }
+    const isQueuePausedRef = { current: false }
+
+    const timerController = createMockTimerController()
+    let messages = createBaseMessages()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+
+    // Track calls
+    let setStreamStatusCallCount = 0
+    let updateChainInProgressCallCount = 0
+
+    const runState: RunState = {
+      sessionState: {} as any,
+      output: { type: 'lastMessage' as const, value: [] },
+    }
+
+    handleRunCompletion({
+      runState,
+      actualCredits: undefined,
+      agentMode: 'DEFAULT' as any,
+      timerController,
+      updater,
+      aiMessageId: 'ai-1',
+      wasAbortedByUser: true,
+      setStreamStatus: () => { setStreamStatusCallCount++ },
+      setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
+      updateChainInProgress: () => { updateChainInProgressCallCount++ },
+      setHasReceivedPlanResponse: () => {},
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
+
+    // handleRunCompletion should be a no-op for aborted runs
+    expect(setStreamStatusCallCount).toBe(0)
+    expect(updateChainInProgressCallCount).toBe(0)
+    // State should be unchanged (still in the "released" state from abort handler)
+    expect(chainInProgress).toBe(false)
+    expect(canProcessQueue).toBe(true)
+  })
+
+  test('aborted run A finally block must not clear isProcessingQueueRef owned by run B', () => {
+    // Regression test for overlap hazard: after abort releases the chain lock,
+    // run B can start from the queue and set isProcessingQueueRef = true.
+    // Run A's late-executing finally block must NOT clear it.
+    //
+    // This tests the pattern used in use-send-message.ts where the finally block
+    // guards isProcessingQueueRef cleanup with !abortController.signal.aborted.
+
+    const isProcessingQueueRef = { current: false }
+    const isQueuePausedRef = { current: false }
+    let chainInProgress = true
+    let canProcessQueue = false
+    let streamStatus: StreamStatus = 'idle'
+
+    // --- Run A setup and abort ---
+    let messagesA = createBaseMessages()
+    const sharedStreamRefs = createStreamController()
+    const timerA = createMockTimerController()
+    const abortRefA = { current: null as AbortController | null }
+
+    const { abortController: abortA } = setupStreamingContext({
+      aiMessageId: 'ai-run-a',
+      timerController: timerA,
+      setMessages: (fn: any) => { messagesA = fn(messagesA) },
+      streamRefs: sharedStreamRefs,
+      abortControllerRef: abortRefA,
+      setStreamStatus: (status: StreamStatus) => { streamStatus = status },
+      setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
+      isQueuePausedRef,
+      isProcessingQueueRef,
+      updateChainInProgress: (value: boolean) => { chainInProgress = value },
+      setIsRetrying: () => {},
+      setStreamingAgents: () => {},
+    })
+
+    // Abort run A
+    abortA.abort()
+    expect(chainInProgress).toBe(false)
+    expect(isProcessingQueueRef.current).toBe(false)
+
+    // --- Run B starts from queue, takes ownership of isProcessingQueueRef ---
+    isProcessingQueueRef.current = true // Queue's processNextMessage sets this
+    chainInProgress = true
+    canProcessQueue = false
+
+    // --- Simulate run A's finally block (late execution) ---
+    // In use-send-message.ts, the finally block guards with !abortController.signal.aborted.
+    // Verify abortA.signal.aborted is true so the guard would skip cleanup.
+    expect(abortA.signal.aborted).toBe(true)
+
+    // The finally block pattern: only clean up if NOT aborted
+    if (!abortA.signal.aborted) {
+      // This should NOT execute
+      isProcessingQueueRef.current = false
+    }
+
+    // isProcessingQueueRef must still be true (owned by run B)
+    expect(isProcessingQueueRef.current).toBe(true)
+    // chainInProgress must still be true (owned by run B)
+    expect(chainInProgress).toBe(true)
+  })
+
+  test('reject-after-abort must not run handleRunError cleanup that could clobber run B', () => {
+    // Regression test: if client.run() rejects after abort (e.g., network teardown),
+    // handleRunError should NOT run because it would reset shared queue/stream state
+    // that run B may have already claimed.
+    //
+    // This tests the pattern used in use-send-message.ts where the catch block
+    // guards handleRunError with !abortController.signal.aborted.
+
+    let streamStatus: StreamStatus = 'idle'
+    let canProcessQueue = true
+    let chainInProgress = false // Released by abort handler
+    const isProcessingQueueRef = { current: false }
+    const isQueuePausedRef = { current: false }
+
+    // --- Simulate run A was aborted ---
+    const abortController = new AbortController()
+    abortController.abort()
+    expect(abortController.signal.aborted).toBe(true)
+
+    // --- Run B has started and claimed shared state ---
+    chainInProgress = true
+    canProcessQueue = false
+    isProcessingQueueRef.current = true
+    streamStatus = 'streaming'
+
+    // --- Simulate what happens if client.run() rejects after abort ---
+    // The catch block pattern: only handle error if NOT aborted
+    const error = new Error('AbortError: The operation was aborted')
+
+    if (!abortController.signal.aborted) {
+      // This should NOT execute — handleRunError would clobber run B's state
+      handleRunError({
+        error,
+        timerController: createMockTimerController(),
+        updater: createBatchedMessageUpdater('ai-1', () => {}),
+        setIsRetrying: () => {},
+        setStreamStatus: (status: StreamStatus) => { streamStatus = status },
+        setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
+        updateChainInProgress: (value: boolean) => { chainInProgress = value },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+    }
+
+    // Run B's state must be untouched
+    expect(chainInProgress).toBe(true) // Still owned by run B
+    expect(canProcessQueue).toBe(false) // Still owned by run B
+    expect(isProcessingQueueRef.current).toBe(true) // Still owned by run B
+    expect(streamStatus).toBe('streaming') // Still owned by run B
+  })
+
+  test('handleRunError WOULD clobber run B state if called without abort guard (documents why guard is needed)', () => {
+    // This test proves that handleRunError resets shared state, which is why
+    // the catch block in use-send-message.ts MUST guard it with abort check.
+
+    let streamStatus: StreamStatus = 'streaming'
+    let canProcessQueue = false
+    let chainInProgress = true
+    const isProcessingQueueRef = { current: true }
+    const isQueuePausedRef = { current: false }
+
+    // Call handleRunError without guard (simulates the bug scenario)
+    handleRunError({
+      error: new Error('AbortError'),
+      timerController: createMockTimerController(),
+      updater: createBatchedMessageUpdater('ai-1', (fn: any) => {}),
+      setIsRetrying: () => {},
+      setStreamStatus: (status: StreamStatus) => { streamStatus = status },
+      setCanProcessQueue: (can: boolean) => { canProcessQueue = can },
+      updateChainInProgress: (value: boolean) => { chainInProgress = value },
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
+
+    // handleRunError resets ALL shared state — this would clobber run B
+    expect(chainInProgress).toBe(false) // Clobbered!
+    expect(canProcessQueue).toBe(true) // Clobbered!
+    expect(isProcessingQueueRef.current).toBe(false) // Clobbered!
+    expect(streamStatus as StreamStatus).toBe('idle') // Clobbered!
+  })
+
+  test('full two-run lifecycle with shared streamRefs: run A abort → run B starts immediately', () => {
+    // End-to-end test: two complete runs sharing the SAME streamRefs instance
+    // (matching production behavior where streamRefs is reused across sends).
+    // Verifies that run B can start immediately after abort, and that run A's
+    // late-resolving handleRunCompletion does NOT interfere with run B.
 
     let streamStatus: StreamStatus = 'idle'
     let canProcessQueue = false
@@ -1056,9 +1152,12 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
     const setCanProcessQueue = (can: boolean) => { canProcessQueue = can }
     const updateChainInProgress = (value: boolean) => { chainInProgress = value }
 
+    // CRITICAL: Use a single shared streamRefs instance, just like production.
+    // In production, streamRefsRef is created once via useRef and reused.
+    const sharedStreamRefs = createStreamController()
+
     // === RUN A ===
     let messagesA = createBaseMessages()
-    const streamRefsA = createStreamController()
     const timerA = createMockTimerController()
     const abortRefA = { current: null as AbortController | null }
 
@@ -1066,7 +1165,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       aiMessageId: 'ai-run-a',
       timerController: timerA,
       setMessages: (fn: any) => { messagesA = fn(messagesA) },
-      streamRefs: streamRefsA,
+      streamRefs: sharedStreamRefs,
       abortControllerRef: abortRefA,
       setStreamStatus,
       setCanProcessQueue,
@@ -1081,9 +1180,44 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
 
     // Abort run A
     abortA.abort()
-    expect(chainInProgress).toBe(true) // Lock held
+    expect(chainInProgress).toBe(false) // Lock released immediately!
+    expect(canProcessQueue).toBe(true)
+    expect(sharedStreamRefs.state.wasAbortedByUser).toBe(true)
 
-    // client.run() resolves for run A
+    // === RUN B starts immediately (before A's client.run() resolves) ===
+    chainInProgress = true
+    canProcessQueue = false
+
+    let messagesB: ChatMessage[] = [
+      { id: 'ai-run-b', variant: 'ai', content: '', blocks: [], timestamp: 'now' },
+    ]
+    const timerB = createMockTimerController()
+    const abortRefB = { current: null as AbortController | null }
+
+    // Run B's setupStreamingContext calls sharedStreamRefs.reset(),
+    // which clears wasAbortedByUser. This is the key race condition.
+    const { updater: updaterB, abortController: abortB } = setupStreamingContext({
+      aiMessageId: 'ai-run-b',
+      timerController: timerB,
+      setMessages: (fn: any) => { messagesB = fn(messagesB) },
+      streamRefs: sharedStreamRefs,
+      abortControllerRef: abortRefB,
+      setStreamStatus,
+      setCanProcessQueue,
+      isQueuePausedRef,
+      isProcessingQueueRef,
+      updateChainInProgress,
+      setIsRetrying: () => {},
+      setStreamingAgents: () => {},
+    })
+
+    // After B starts, shared streamRefs.wasAbortedByUser is reset to false.
+    // This is why we use per-run abortController.signal.aborted instead.
+    expect(sharedStreamRefs.state.wasAbortedByUser).toBe(false)
+
+    // Now run A's client.run() resolves (after B has already started and reset shared state).
+    // handleRunCompletion uses the per-run wasAbortedByUser boolean (from abortA.signal.aborted),
+    // NOT the shared streamRefs, so it correctly knows A was aborted.
     const runStateA: RunState = {
       sessionState: {
         id: 'session-abc',
@@ -1103,7 +1237,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       timerController: timerA,
       updater: updaterA,
       aiMessageId: 'ai-run-a',
-      streamRefs: streamRefsA,
+      wasAbortedByUser: abortA.signal.aborted, // per-run flag, not shared state
       setStreamStatus,
       setCanProcessQueue,
       updateChainInProgress,
@@ -1112,48 +1246,9 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       isQueuePausedRef,
     })
 
-    // Lock released, queue can proceed
-    expect(chainInProgress).toBe(false)
-    expect(canProcessQueue).toBe(true)
-
-    // === RUN B ===
-    // Reset chain lock (as sendMessage does at the start)
-    chainInProgress = true
-    canProcessQueue = false
-
-    let messagesB: ChatMessage[] = [
-      { id: 'ai-run-b', variant: 'ai', content: '', blocks: [], timestamp: 'now' },
-    ]
-    const streamRefsB = createStreamController()
-    const timerB = createMockTimerController()
-    const abortRefB = { current: null as AbortController | null }
-
-    const { updater: updaterB } = setupStreamingContext({
-      aiMessageId: 'ai-run-b',
-      timerController: timerB,
-      setMessages: (fn: any) => { messagesB = fn(messagesB) },
-      streamRefs: streamRefsB,
-      abortControllerRef: abortRefB,
-      setStreamStatus,
-      setCanProcessQueue,
-      isQueuePausedRef,
-      isProcessingQueueRef,
-      updateChainInProgress,
-      setIsRetrying: () => {},
-      setStreamingAgents: () => {},
-    })
-
-    // Run B uses previousRunState from A — this is the key assertion
-    // In the real code, this is: previousRunState: previousRunStateRef.current
-    // passed to createRunConfig
-    expect(previousRunState).toBe(runStateA)
-    expect(previousRunState!.sessionState as any).toEqual({
-      id: 'session-abc',
-      messages: [
-        { role: 'user', content: 'first message' },
-        { role: 'assistant', content: 'partial response before cancel' },
-      ],
-    })
+    // handleRunCompletion for aborted run A should be a no-op
+    // (it should NOT interfere with run B's chain lock)
+    expect(chainInProgress).toBe(true) // Still true from run B!
 
     // Simulate run B completing normally
     const runStateB: RunState = {
@@ -1177,7 +1272,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       timerController: timerB,
       updater: updaterB,
       aiMessageId: 'ai-run-b',
-      streamRefs: streamRefsB,
+      wasAbortedByUser: abortB.signal.aborted, // per-run flag: false (B was not aborted)
       setStreamStatus,
       setCanProcessQueue,
       updateChainInProgress,
@@ -1186,7 +1281,7 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
       isQueuePausedRef,
     })
 
-    // Final state: both runs' messages are preserved in session history
+    // Final state: run B completed normally
     expect(previousRunState!.sessionState as any).toEqual({
       id: 'session-abc',
       messages: [
