@@ -202,33 +202,88 @@ describe('Fireworks deployment routing', () => {
       }
     })
 
-    it('throws FireworksError on non-scaling 503 from deployment', async () => {
+    it('falls back to standard API on non-scaling 503 from deployment', async () => {
       const spy = spyDeploymentHours(true)
+      const fetchCalls: string[] = []
+      let callCount = 0
 
-      const mockFetch = mock(async () => {
-        return new Response(
-          JSON.stringify({
-            error: {
-              message: 'Service temporarily unavailable',
-              code: 'SERVICE_UNAVAILABLE',
-              type: 'error',
-            },
-          }),
-          { status: 503, statusText: 'Service Unavailable' },
-        )
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        callCount++
+
+        if (callCount === 1) {
+          return new Response(
+            JSON.stringify({
+              error: {
+                message: 'Service temporarily unavailable',
+                code: 'SERVICE_UNAVAILABLE',
+                type: 'error',
+              },
+            }),
+            { status: 503, statusText: 'Service Unavailable' },
+          )
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
       }) as unknown as typeof globalThis.fetch
 
       try {
-        await expect(
-          createFireworksRequestWithFallback({
-            body: minimalBody as never,
-            originalModel: 'minimax/minimax-m2.5',
-            fetch: mockFetch,
-            logger,
-            useCustomDeployment: true,
-            sessionId: 'test-user-id',
-          }),
-        ).rejects.toBeInstanceOf(FireworksError)
+        const response = await createFireworksRequestWithFallback({
+          body: minimalBody as never,
+          originalModel: 'minimax/minimax-m2.5',
+          fetch: mockFetch,
+          logger,
+          useCustomDeployment: true,
+          sessionId: 'test-user-id',
+        })
+
+        expect(response.status).toBe(200)
+        expect(fetchCalls).toHaveLength(2)
+        expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
+        expect(fetchCalls[1]).toBe(STANDARD_MODEL_ID)
+        // Non-scaling 503 should NOT activate the cooldown
+        expect(isDeploymentCoolingDown()).toBe(false)
+      } finally {
+        spy.restore()
+      }
+    })
+
+    it('falls back to standard API on 500 Internal Error from deployment', async () => {
+      const spy = spyDeploymentHours(true)
+      const fetchCalls: string[] = []
+      let callCount = 0
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        callCount++
+
+        if (callCount === 1) {
+          return new Response(
+            JSON.stringify({ error: 'Internal error' }),
+            { status: 500, statusText: 'Internal Server Error' },
+          )
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      try {
+        const response = await createFireworksRequestWithFallback({
+          body: minimalBody as never,
+          originalModel: 'minimax/minimax-m2.5',
+          fetch: mockFetch,
+          logger,
+          useCustomDeployment: true,
+          sessionId: 'test-user-id',
+        })
+
+        expect(response.status).toBe(200)
+        expect(fetchCalls).toHaveLength(2)
+        expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
+        expect(fetchCalls[1]).toBe(STANDARD_MODEL_ID)
+        expect(isDeploymentCoolingDown()).toBe(false)
       } finally {
         spy.restore()
       }
@@ -292,7 +347,7 @@ describe('Fireworks deployment routing', () => {
       }
     })
 
-    it('returns non-200 responses from deployment without fallback (non-503)', async () => {
+    it('returns non-5xx responses from deployment without fallback (e.g. 429)', async () => {
       const spy = spyDeploymentHours(true)
       const fetchCalls: string[] = []
 
@@ -315,7 +370,7 @@ describe('Fireworks deployment routing', () => {
           sessionId: 'test-user-id',
         })
 
-        // Non-503 errors from deployment are returned as-is (caller handles them)
+        // Non-5xx errors from deployment are returned as-is (caller handles them)
         expect(response.status).toBe(429)
         expect(fetchCalls).toHaveLength(1)
         expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
@@ -324,7 +379,7 @@ describe('Fireworks deployment routing', () => {
       }
     })
 
-    it('logs when trying deployment and when falling back', async () => {
+    it('logs when trying deployment and when falling back on 5xx', async () => {
       const spy = spyDeploymentHours(true)
       let callCount = 0
 

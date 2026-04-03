@@ -707,19 +707,16 @@ export async function createFireworksRequestWithFallback(params: {
       sessionId,
     })
 
-    if (response.status === 503) {
+    if (response.status >= 500) {
       const errorText = await response.text()
+      logger.info(
+        { model: originalModel, status: response.status, errorText: errorText.slice(0, 200) },
+        'Fireworks custom deployment returned 5xx, falling back to standard API',
+      )
       if (errorText.includes('DEPLOYMENT_SCALING_UP')) {
-        logger.info(
-          { model: originalModel },
-          'Fireworks deployment scaling up, falling back to standard API',
-        )
         markDeploymentScalingUp()
-        // Fall through to standard API request below
-      } else {
-        // Non-scaling 503 — treat as a real error
-        throw parseFireworksErrorFromText(response.status, response.statusText, errorText)
       }
+      // Fall through to standard API request below
     } else {
       return response
     }
