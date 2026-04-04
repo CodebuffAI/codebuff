@@ -3,6 +3,7 @@ import { isExplicitlyDefinedModel } from '../util/model-utils'
 // Allowed model prefixes for validation
 export const ALLOWED_MODEL_PREFIXES = [
   'anthropic',
+  'avian',
   'openai',
   'google',
   'x-ai',
@@ -51,6 +52,14 @@ export const openrouterModels = {
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
 
+export const avianModels = {
+  avian_deepseek_v3_2: 'avian/deepseek-v3.2',
+  avian_kimi_k2_5: 'avian/kimi-k2.5',
+  avian_glm_5: 'avian/glm-5',
+  avian_minimax_m2_5: 'avian/minimax-m2.5',
+} as const
+export type AvianModel = (typeof avianModels)[keyof typeof avianModels]
+
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
@@ -86,6 +95,7 @@ export type FinetunedVertexModel =
 
 export const models = {
   ...openaiModels,
+  ...avianModels,
   ...deepseekModels,
   ...openrouterModels,
   ...finetunedVertexModels,
@@ -112,6 +122,12 @@ export const providerModelNames = {
     Object.entries(openaiModels).map(([name, model]) => [
       model,
       'openai' as const,
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(avianModels).map(([name, model]) => [
+      model,
+      'avian' as const,
     ]),
   ),
   ...Object.fromEntries(
@@ -166,6 +182,7 @@ export function getModelFromShortName(
 }
 
 export const providerDomains = {
+  avian: 'avian.io',
   google: 'google.com',
   anthropic: 'anthropic.com',
   openai: 'chatgpt.com',
@@ -178,6 +195,8 @@ export function getLogoForModel(modelName: string): string | undefined {
 
   if (Object.values(openaiModels).includes(modelName as OpenAIModel))
     domain = providerDomains.openai
+  else if (Object.values(avianModels).includes(modelName as AvianModel))
+    domain = providerDomains.avian
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
   else if (modelName.includes('claude')) domain = providerDomains.anthropic

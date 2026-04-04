@@ -36,6 +36,12 @@ import type { NextRequest } from 'next/server'
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
 import {
+  AvianError,
+  handleAvianNonStream,
+  handleAvianStream,
+  isAvianModel,
+} from '@/llm-api/avian'
+import {
   CanopyWaveError,
   handleCanopyWaveNonStream,
   handleCanopyWaveStream,
@@ -469,11 +475,12 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Streaming request — route to provider for supported models
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
-        const useFireworks = isFireworksModel(typedBody.model)
-        const useOpenAIDirect = !useFireworks && isOpenAIDirectModel(typedBody.model)
+        const useAvian = isAvianModel(typedBody.model)
+        const useFireworks = !useAvian && isFireworksModel(typedBody.model)
+        const useOpenAIDirect = !useAvian && !useFireworks && isOpenAIDirectModel(typedBody.model)
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream({
               body: typedBody,
@@ -486,6 +493,16 @@ export async function postChatCompletions(params: {
             })
           : useCanopyWave
           ? await handleCanopyWaveStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useAvian
+          ? await handleAvianStream({
               body: typedBody,
               userId,
               stripeCustomerId,
@@ -544,13 +561,14 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Non-streaming request — route to provider for supported models
         // TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)
-        const useFireworks = isFireworksModel(model)
-        const shouldUseOpenAIEndpoint = !useFireworks && isOpenAIDirectModel(model)
+        const useAvianNonStream = isAvianModel(model)
+        const useFireworks = !useAvianNonStream && isFireworksModel(model)
+        const shouldUseOpenAIEndpoint = !useAvianNonStream && !useFireworks && isOpenAIDirectModel(model)
 
         const nonStreamRequest = useSiliconFlow
           ? handleSiliconFlowNonStream({
@@ -564,6 +582,16 @@ export async function postChatCompletions(params: {
             })
           : useCanopyWave
           ? handleCanopyWaveNonStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useAvianNonStream
+          ? handleAvianNonStream({
               body: typedBody,
               userId,
               stripeCustomerId,
@@ -622,6 +650,10 @@ export async function postChatCompletions(params: {
       if (error instanceof OpenRouterError) {
         openrouterError = error
       }
+      let avianError: AvianError | undefined
+      if (error instanceof AvianError) {
+        avianError = error
+      }
       let fireworksError: FireworksError | undefined
       if (error instanceof FireworksError) {
         fireworksError = error
@@ -641,7 +673,7 @@ export async function postChatCompletions(params: {
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : openaiError ? 'OpenAI' : 'OpenRouter'
+      const providerLabel = avianError ? 'Avian' : siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : openaiError ? 'OpenAI' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -655,8 +687,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusText,
+          providerStatusCode: (openrouterError ?? avianError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusCode,
+          providerStatusText: (openrouterError ?? avianError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -679,6 +711,9 @@ export async function postChatCompletions(params: {
 
       // Pass through provider-specific errors
       if (error instanceof OpenRouterError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof AvianError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof FireworksError) {

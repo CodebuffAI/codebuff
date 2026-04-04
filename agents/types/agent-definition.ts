@@ -418,6 +418,12 @@ export type ModelName =
   | 'deepseek/deepseek-r1-0528'
   | 'deepseek/deepseek-r1-0528:nitro'
 
+  // Avian (OpenAI-compatible inference API at api.avian.io)
+  | 'avian/deepseek-v3.2'
+  | 'avian/kimi-k2.5'
+  | 'avian/glm-5'
+  | 'avian/minimax-m2.5'
+
   // Other open source models
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'
