@@ -711,20 +711,19 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
-      for (const provider of ['openrouter', 'codebuff'] as const) {
-        if (
+      const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
+        (p) =>
           (
-            params.providerOptions?.[provider] as
+            params.providerOptions?.[p] as
             | OpenRouterProviderOptions
             | undefined
-          )?.reasoning?.exclude
-        ) {
-          continue
+          )?.reasoning?.exclude,
+      )
+      if (!reasoningExcluded) {
+        yield {
+          type: 'reasoning',
+          text: chunkValue.text,
         }
-      }
-      yield {
-        type: 'reasoning',
-        text: chunkValue.text,
       }
     }
     if (chunkValue.type === 'text-delta') {
