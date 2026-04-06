@@ -192,10 +192,10 @@ const definition: AgentDefinition = {
         case 'spawn_agent_inline': {
           const agents = input.agents as
             | Array<{
-                agent_type: string
-                prompt?: string
-                params?: Record<string, unknown>
-              }>
+              agent_type: string
+              prompt?: string
+              params?: Record<string, unknown>
+            }>
             | undefined
           const agentType = input.agent_type as string | undefined
           const prompt = input.prompt as string | undefined
@@ -513,7 +513,7 @@ const definition: AgentDefinition = {
           parts.push(combinedText)
         }
         if (toolSummaries.length > 0) {
-          parts.push(`Tools: ${toolSummaries.join('; ')}`)
+          parts.push(toolSummaries.join('; '))
         }
 
         if (parts.length > 0) {
@@ -557,10 +557,10 @@ const definition: AgentDefinition = {
                 } else if ('answers' in value) {
                   const answers = value.answers as
                     | Array<{
-                        selectedOption?: string
-                        selectedOptions?: string[]
-                        otherText?: string
-                      }>
+                      selectedOption?: string
+                      selectedOptions?: string[]
+                      otherText?: string
+                    }>
                     | undefined
                   if (answers && answers.length > 0) {
                     const answerTexts = answers
@@ -714,6 +714,8 @@ This is a summary of the conversation so far. The original messages have been co
 
 ${summaryText}
 </conversation_summary>
+
+IMPORTANT: The summary above uses a condensed format with markers like "[USER]", "[ASSISTANT]", "Read files:", "Edited file:", "Spawned agents:", etc. This is ONLY a human-readable log of what happened earlier — it is NOT a format for you to use or imitate in your responses. When you need to perform actions, you MUST use actual tool calls. Never write tool actions as plain text.
 
 Please continue the conversation from here. In particular, try to address the user's latest request detailed in the summary above. You may need to re-gather context (e.g. read some files) to get up to speed and then tackle the user's request.`,
     }
