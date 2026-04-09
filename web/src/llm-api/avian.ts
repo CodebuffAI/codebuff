@@ -52,7 +52,7 @@ function getAvianModelId(openrouterModel: string): string {
   return AVIAN_MODEL_MAP[openrouterModel] ?? openrouterModel
 }
 
-type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null }
+type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null; billedAlready: boolean }
 
 type LineResult = {
   state: StreamState
@@ -232,7 +232,7 @@ export async function handleAvianStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '', ttftMs: null }
+  let state: StreamState = { responseText: '', reasoningText: '', ttftMs: null, billedAlready: false }
   let clientDisconnected = false
 
   const stream = new ReadableStream({
@@ -421,6 +421,12 @@ async function handleLine({
   return { state: result.state, billedCredits: result.billedCredits, patchedLine }
 }
 
+function isFinalChunk(data: Record<string, unknown>): boolean {
+  const choices = data.choices as Array<Record<string, unknown>> | undefined
+  if (!choices || choices.length === 0) return true
+  return choices.some(c => c.finish_reason != null)
+}
+
 async function handleResponse({
   userId,
   stripeCustomerId,
@@ -454,12 +460,21 @@ async function handleResponse({
 }): Promise<{ state: StreamState; billedCredits?: number }> {
   state = handleStreamChunk({ data, state, startTime, logger, userId, agentId, model: originalModel })
 
-  if ('error' in data || !data.usage) {
+  // Some providers send cumulative usage on EVERY chunk (not just the final one),
+  // so we must only bill once on the final chunk to avoid charging N times.
+  if ('error' in data || !data.usage || state.billedAlready || !isFinalChunk(data)) {
+    // Strip usage from non-final chunks and duplicate final chunks
+    // so the SDK doesn't see multiple usage objects
+    if (data.usage && (!isFinalChunk(data) || state.billedAlready)) {
+      delete data.usage
+    }
     return { state }
   }
 
   const usageData = extractUsageAndCost(data.usage as Record<string, unknown>, avianModelId)
   const messageId = typeof data.id === 'string' ? data.id : 'unknown'
+
+  state.billedAlready = true
 
   insertMessageToBigQuery({
     messageId,
