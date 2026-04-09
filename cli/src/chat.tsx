@@ -14,6 +14,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { getAdsEnabled, handleAdsDisable } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
+import { ChoiceAdBanner } from './components/choice-ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
@@ -168,7 +169,7 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ad } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
+  const { ad, adData } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
   const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
 
   const handleDisableAds = useCallback(() => {
@@ -1445,11 +1446,19 @@ export const Chat = ({
         )}
 
         {ad && (IS_FREEBUFF || (!adsManuallyDisabled && getAdsEnabled())) && (
-          <AdBanner
-            ad={ad}
-            onDisableAds={handleDisableAds}
-            isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
-          />
+          adData?.variant === 'choice' ? (
+            <ChoiceAdBanner
+              ads={adData.ads}
+              onDisableAds={handleDisableAds}
+              isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
+            />
+          ) : (
+            <AdBanner
+              ad={ad}
+              onDisableAds={handleDisableAds}
+              isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
+            />
+          )
         )}
 
         {reviewMode ? (
