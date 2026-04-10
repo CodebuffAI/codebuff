@@ -34,8 +34,10 @@ export const AVAILABLE_SKILLS_PLACEHOLDER = '{{AVAILABLE_SKILLS}}'
 // Base description - the full description with available skills is generated dynamically
 const baseDescription = `Load a skill by name to get its full instructions. Skills provide reusable behaviors and domain-specific knowledge that you can use to complete tasks.
 
-The following are the only skills that are currently available (do not try to use any other skills):
+The following are the pre-loaded skills available at session start:
 ${AVAILABLE_SKILLS_PLACEHOLDER}
+
+Note: You can also load any skill that was created during this session by specifying its name. The skill will be loaded dynamically from disk.
 
 Example:
 ${$getNativeToolCallExampleString({
