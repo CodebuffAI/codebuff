@@ -10,7 +10,7 @@ async function main() {
   // Use 'external:codex' for OpenAI Codex CLI
   await runBuffBench({
     evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
-    agents: ['base2-free'],
+    agents: ['base2-free-evals'],
     taskConcurrency: 5,
     saveTraces,
   })
