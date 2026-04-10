@@ -11,7 +11,7 @@ const basher: AgentDefinition = {
   model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Basher',
   spawnerPrompt:
-    'Runs a single terminal command and describes its output using an LLM. A lightweight shell command executor.',
+    'Runs a single terminal command and describes its output using an LLM. A lightweight shell command executor. Requires both a shell command and a prompt.',
 
   inputSchema: {
     prompt: {
@@ -24,7 +24,7 @@ const basher: AgentDefinition = {
       properties: {
         command: {
           type: 'string',
-          description: 'Terminal command to run',
+          description: 'Terminal command to run in bash shell',
         },
         timeout_seconds: {
           type: 'number',
