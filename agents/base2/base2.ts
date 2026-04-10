@@ -87,6 +87,7 @@ export function createBase2(
       isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
+      isFree && 'thinker-gemini',
       'thinker-gpt',
       'context-pruner',
     ),
@@ -142,6 +143,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
         '- Spawn context-gathering agents (file pickers and web/docs researchers) before making edits. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase.',
         isFree && 'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
+        isFree && 'You should spawn the thinker-gemini agent whenever you encounter a complex problem or the user asks you to think about a problem. This agent is extremely useful as it is very smart. You must take advantage of it and spawn it often!',
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
         (isDefault || isMax) &&
@@ -331,6 +333,8 @@ ${buildArray(
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
     (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+    isFree &&
+    `- For complex problems, spawn the thinker-gemini agent to help find the best solution. This agent is extremely useful as it is very smart. You must take advantage of it and spawn it often!`,
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
     isDefault &&
