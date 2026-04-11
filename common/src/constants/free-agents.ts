@@ -37,6 +37,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Code reviewer for free mode
   'code-reviewer-lite': new Set(['minimax/minimax-m2.5']),
+
+  // Thinker for free mode
+  'thinker-with-files-gemini': new Set(['google/gemini-3.1-pro-preview']),
 }
 
 /**
