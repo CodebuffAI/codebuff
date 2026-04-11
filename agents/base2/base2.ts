@@ -28,7 +28,7 @@ export function createBase2(
 
   return {
     publisher,
-    model: isFree ? 'minimax/minimax-m2.5' : 'anthropic/claude-opus-4.6',
+    model: isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.6',
     providerOptions: isFree ? {
       data_collection: 'deny',
     } : {
