@@ -186,12 +186,13 @@ describe('getFiles', () => {
   })
 
   describe('file too large', () => {
-    test('should return TOO_LARGE for files over 1MB', async () => {
+    test('should truncate files over 100k chars to 1k chars with message', async () => {
+      const largeContent = 'x'.repeat(101_000) // 101k chars - over limit
       const mockFs = createMockFs({
         files: {
           '/project/large.bin': {
-            content: 'x',
-            size: 2 * 1024 * 1024, // 2MB
+            content: largeContent,
+            size: largeContent.length,
           },
         },
       })
@@ -202,28 +203,75 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(result['large.bin']).toContain(FILE_READ_STATUS.TOO_LARGE)
-      expect(result['large.bin']).toContain('2.00MB')
+      // Should contain first 1k chars
+      expect(result['large.bin']).toContain('x'.repeat(1000))
+      // Should contain truncation message
+      expect(result['large.bin']).toContain('FILE_TOO_LARGE')
+      expect(result['large.bin']).toContain('101,000 chars')
     })
 
-    test('should read files exactly at 1MB limit', async () => {
-      const oneMBContent = 'x'.repeat(1024 * 1024)
+    test('should read files at exactly 100k chars', async () => {
+      const exactly100kContent = 'x'.repeat(100_000) // exactly 100k chars
       const mockFs = createMockFs({
         files: {
-          '/project/exactly1mb.bin': {
-            content: oneMBContent,
-            size: 1024 * 1024, // exactly 1MB
+          '/project/exactly100k.bin': {
+            content: exactly100kContent,
+            size: exactly100kContent.length,
           },
         },
       })
 
       const result = await getFiles({
-        filePaths: ['exactly1mb.bin'],
+        filePaths: ['exactly100k.bin'],
         cwd: '/project',
         fs: mockFs,
       })
 
-      expect(result['exactly1mb.bin']).toBe(oneMBContent)
+      // Should be read fully (no truncation message)
+      expect(result['exactly100k.bin']).toBe(exactly100kContent)
+      expect(result['exactly100k.bin']).not.toContain('FILE_TOO_LARGE')
+    })
+
+    test('should reject files over 10MB without reading them', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/huge.bin': {
+            content: 'x',
+            size: 15 * 1024 * 1024, // 15MB
+          },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['huge.bin'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['huge.bin']).toContain(FILE_READ_STATUS.TOO_LARGE)
+      expect(result['huge.bin']).toContain('15.0MB')
+    })
+
+    test('should read files just under 100k chars', async () => {
+      const justUnder100k = 'x'.repeat(99_000) // under limit
+      const mockFs = createMockFs({
+        files: {
+          '/project/underlimit.bin': {
+            content: justUnder100k,
+            size: justUnder100k.length,
+          },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['underlimit.bin'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      // Should be read fully (no truncation message)
+      expect(result['underlimit.bin']).toBe(justUnder100k)
+      expect(result['underlimit.bin']).not.toContain('FILE_TOO_LARGE')
     })
   })
 
@@ -344,18 +392,6 @@ describe('getFiles', () => {
         files: {},
         errors: {
           '/project/broken.ts': { code: 'EACCES', message: 'Permission denied' },
-        },
-      })
-
-      // Need to also make stat fail with same error
-      const originalStat = mockFs.stat
-      Object.assign(mockFs, {
-        stat: async (filePath: PathLike) => {
-          const pathStr = String(filePath)
-          if (pathStr === '/project/broken.ts') {
-            throw createNodeError('Permission denied', 'EACCES')
-          }
-          return originalStat(pathStr)
         },
       })
 
