@@ -186,8 +186,8 @@ describe('getFiles', () => {
   })
 
   describe('file too large', () => {
-    test('should truncate files over 100k chars to 1k chars with message', async () => {
-      const largeContent = 'x'.repeat(101_000) // 101k chars - over limit
+    test('should truncate files over 100k chars to first 100k chars with message', async () => {
+      const largeContent = 'x'.repeat(100_001) + 'y'.repeat(1000) // over limit
       const mockFs = createMockFs({
         files: {
           '/project/large.bin': {
@@ -203,11 +203,13 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      // Should contain first 1k chars
-      expect(result['large.bin']).toContain('x'.repeat(1000))
+      // Should contain first 100k chars
+      expect(result['large.bin']).toContain('x'.repeat(100_000))
+      // Should NOT contain content beyond the limit
+      expect(result['large.bin']).not.toContain('y')
       // Should contain truncation message
       expect(result['large.bin']).toContain('FILE_TOO_LARGE')
-      expect(result['large.bin']).toContain('101,000 chars')
+      expect(result['large.bin']).toContain('101,001 chars')
     })
 
     test('should read files at exactly 100k chars', async () => {

@@ -30,7 +30,6 @@ export async function getFiles(params: {
   const result: Record<string, string | null> = {}
   const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
   const MAX_CHARS = 100_000 // 100k characters threshold
-  const TRUNCATE_TO_CHARS = 1_000 // Show first 1k chars when over limit
   const numFmt = new Intl.NumberFormat('en-US')
   const fmtNum = (n: number) => numFmt.format(n)
 
@@ -84,14 +83,14 @@ export async function getFiles(params: {
       const content = await fs.readFile(fullPath, 'utf8')
 
       if (content.length > MAX_CHARS) {
-        const truncated = content.slice(0, TRUNCATE_TO_CHARS)
+        const truncated = content.slice(0, MAX_CHARS)
         result[relativePath] =
           truncated +
           '\n\n[FILE_TOO_LARGE: This file is ' +
           fmtNum(content.length) +
-          ' chars, exceeding the 100k char limit. Only the first ' +
-          fmtNum(TRUNCATE_TO_CHARS) +
-          ' chars are shown. Use other tools to read sections of the file.]'
+          ' chars, exceeding the ' +
+          fmtNum(MAX_CHARS) +
+          ' char limit. The content above has been truncated. Use other tools to read other sections of the file.]'
       } else {
         // Prepend TEMPLATE marker for example files
         result[relativePath] = isExampleFile
