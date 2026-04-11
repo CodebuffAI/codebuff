@@ -243,23 +243,38 @@ export async function postAds(params: {
     }
 
     // Store all returned ads in the database (skip duplicates via imp_url unique constraint)
-    for (const ad of ads) {
-      const payout = ad.payout || DEFAULT_PAYOUT
-      await db
-        .insert(schema.adImpression)
-        .values({
-          user_id: userId,
-          ad_text: ad.adText,
-          title: ad.title,
-          cta: ad.cta,
-          url: ad.url,
-          favicon: ad.favicon,
-          click_url: ad.clickUrl,
-          imp_url: ad.impUrl,
-          payout: String(payout),
-          credits_granted: 0,
-        })
-        .onConflictDoNothing()
+    // Wrapped in try/catch so DB failures don't prevent serving ads to the client
+    try {
+      for (const ad of ads) {
+        const payout = ad.payout || DEFAULT_PAYOUT
+        await db
+          .insert(schema.adImpression)
+          .values({
+            user_id: userId,
+            ad_text: ad.adText,
+            title: ad.title,
+            cta: ad.cta,
+            url: ad.url,
+            favicon: ad.favicon,
+            click_url: ad.clickUrl,
+            imp_url: ad.impUrl,
+            payout: String(payout),
+            credits_granted: 0,
+          })
+          .onConflictDoNothing()
+      }
+    } catch (dbError) {
+      logger.warn(
+        {
+          userId,
+          adCount: ads.length,
+          error:
+            dbError instanceof Error
+              ? { name: dbError.name, message: dbError.message }
+              : dbError,
+        },
+        '[ads] Failed to persist ad_impression rows, serving ads anyway',
+      )
     }
 
     // Strip payout from all ads before returning to client
