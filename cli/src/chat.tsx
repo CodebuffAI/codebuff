@@ -169,7 +169,7 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ad, adData } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
+  const { ad, adData, recordImpression } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
   const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
 
   const handleDisableAds = useCallback(() => {
@@ -1451,6 +1451,7 @@ export const Chat = ({
               ads={adData.ads}
               onDisableAds={handleDisableAds}
               isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
+              onImpression={recordImpression}
             />
           ) : (
             <AdBanner

@@ -37,6 +37,7 @@ export type GravityAdState = {
   ad: AdResponse | null
   adData: AdData | null
   isLoading: boolean
+  recordImpression: (impUrl: string) => void
 }
 
 // Consolidated controller state for the ad rotation logic
@@ -206,13 +207,10 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
     recordImpressionOnce(next.impUrl)
   }
 
-  // Show a choice ad set and fire impressions for all
+  // Show a choice ad set (impressions are fired by the component for visible ads only)
   const showChoiceAds = (ads: AdResponse[]): void => {
     setAd(ads[0] ?? null) // Keep backwards compat for ad field
     setAdData({ variant: 'choice', ads })
-    for (const choiceAd of ads) {
-      recordImpressionOnce(choiceAd.impUrl)
-    }
   }
 
   type FetchAdResult =
@@ -400,6 +398,7 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
     ad: visible ? ad : null,
     adData: visible ? adData : null,
     isLoading,
+    recordImpression: recordImpressionOnce,
   }
 }
 
