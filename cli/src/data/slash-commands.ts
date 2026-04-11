@@ -83,12 +83,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:enable',
     label: 'ads:enable',
-    description: 'Enable contextual ads and earn credits',
+    description: 'Enable contextual ads',
   },
   {
     id: 'ads:disable',
     label: 'ads:disable',
-    description: 'Disable contextual ads and stop earning credits',
+    description: 'Disable contextual ads',
   },
   {
     id: 'refer-friends',

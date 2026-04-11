@@ -5,6 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { AdResponse } from '../hooks/use-gravity-ad'
 
@@ -106,6 +107,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 height: CARD_HEIGHT,
                 borderStyle: 'single',
                 borderColor: isHovered ? hoverBorderColor : theme.muted,
+                customBorderChars: BORDER_CHARS,
                 paddingLeft: 1,
                 paddingRight: 1,
                 flexDirection: 'column',

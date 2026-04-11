@@ -1449,8 +1449,6 @@ export const Chat = ({
           adData?.variant === 'choice' ? (
             <ChoiceAdBanner
               ads={adData.ads}
-              onDisableAds={handleDisableAds}
-              isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
               onImpression={recordImpression}
             />
           ) : (

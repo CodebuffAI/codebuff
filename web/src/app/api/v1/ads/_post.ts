@@ -183,7 +183,7 @@ export async function postAds(params: {
       sessionId: sessionId ?? userId,
       placements,
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
-      relevancy: 0.1,
+      relevancy: 0,
       ...(device ? { device } : {}),
       user: {
         id: userId,

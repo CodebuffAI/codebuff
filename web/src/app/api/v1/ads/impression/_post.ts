@@ -1,5 +1,3 @@
-import { createHash } from 'crypto'
-
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -9,7 +7,6 @@ import { z } from 'zod'
 
 import { requireUserFromApiKey } from '../../_helpers'
 
-import type { processAndGrantCredit as ProcessAndGrantCreditFn } from '@codebuff/billing/grant-credits'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type {
@@ -17,10 +14,6 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
-
-// Revenue share: users get 75% of payout as credits
-const AD_REVENUE_SHARE = 0.75
-const MINIMUM_CREDITS_GRANTED = 2
 
 // Rate limiting: max impressions per user per hour
 const MAX_IMPRESSIONS_PER_HOUR = 60
@@ -78,22 +71,8 @@ function checkRateLimit(userId: string): boolean {
   return true
 }
 
-/**
- * Generate a deterministic operation ID for deduplication.
- * Same user + same impUrl = same operationId, preventing duplicate credits.
- */
-function generateImpressionOperationId(userId: string, impUrl: string): string {
-  const hash = createHash('sha256')
-    .update(`${userId}:${impUrl}`)
-    .digest('hex')
-    .slice(0, 16)
-  return `ad-imp-${hash}`
-}
-
 const bodySchema = z.object({
-  // Only impUrl needed - we look up the ad data from our database
   impUrl: z.url(),
-  // Mode to determine if credits should be granted (FREE mode gets no credits)
   mode: z.string().optional(),
 })
 
@@ -103,7 +82,6 @@ export async function postAdImpression(params: {
   logger: Logger
   loggerWithContext: LoggerWithContextFn
   trackEvent: TrackEventFn
-  processAndGrantCredit: typeof ProcessAndGrantCreditFn
   fetch: typeof globalThis.fetch
 }) {
   const {
@@ -111,14 +89,12 @@ export async function postAdImpression(params: {
     getUserInfoFromApiKey,
     loggerWithContext,
     trackEvent,
-    processAndGrantCredit,
     fetch,
   } = params
   const baseLogger = params.logger
 
   // Parse and validate request body
   let impUrl: string
-  let mode: string | undefined
   try {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
@@ -129,7 +105,6 @@ export async function postAdImpression(params: {
       )
     }
     impUrl = parsed.data.impUrl
-    mode = parsed.data.mode
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON in request body' },
@@ -203,16 +178,10 @@ export async function postAdImpression(params: {
     )
   }
 
-  // Get payout from the trusted database record
-  const payout = parseFloat(adRecord.payout)
-
-  // Generate deterministic operation ID for deduplication
-  const operationId = generateImpressionOperationId(userId, impUrl)
-
   // Fire the impression pixel to Gravity
   try {
     await fetch(impUrl)
-    logger.info({ userId, operationId, impUrl }, '[ads] Fired impression pixel')
+    logger.info({ userId, impUrl }, '[ads] Fired impression pixel')
   } catch (error) {
     logger.warn(
       {
@@ -224,68 +193,11 @@ export async function postAdImpression(params: {
       },
       '[ads] Failed to fire impression pixel',
     )
-    // Continue anyway - we still want to grant credits
+    // Continue anyway - we still want to record the impression
   }
 
-  // Calculate credits to grant (75% of payout, converted to credits)
-  // Payout is in dollars, credits are 1:1 with cents, so multiply by 100
-  const userShareDollars = payout * AD_REVENUE_SHARE
-  const creditsToGrant = Math.max(
-    MINIMUM_CREDITS_GRANTED + Math.floor(3 * Math.random()),
-    Math.floor(userShareDollars * 100),
-  )
-
-  let creditsGranted = 0
-  // FREE mode should not grant any credits
-  if (mode !== 'FREE' && creditsToGrant > 0) {
-    try {
-      await processAndGrantCredit({
-        userId,
-        amount: creditsToGrant,
-        type: 'ad',
-        description: `Ad impression credit (${(userShareDollars * 100).toFixed(1)}¢ from $${payout.toFixed(4)} payout)`,
-        expiresAt: null, // Ad credits don't expire
-        operationId,
-        logger,
-      })
-
-      creditsGranted = creditsToGrant
-
-      logger.info(
-        {
-          userId,
-          payout,
-          creditsGranted,
-          operationId,
-        },
-        '[ads] Granted ad impression credits',
-      )
-
-      trackEvent({
-        event: AnalyticsEvent.CREDIT_GRANT,
-        userId,
-        properties: {
-          type: 'ad',
-          amount: creditsGranted,
-          payout,
-        },
-        logger,
-      })
-    } catch (error) {
-      logger.error(
-        {
-          userId,
-          payout,
-          error:
-            error instanceof Error
-              ? { name: error.name, message: error.message }
-              : error,
-        },
-        '[ads] Failed to grant ad impression credits',
-      )
-      // Don't fail the request - we still want to update the impression record
-    }
-  }
+  // No credits granted for ad impressions
+  const creditsGranted = 0
 
   // Update the ad_impression record with impression details (for ALL modes)
   try {
@@ -293,13 +205,13 @@ export async function postAdImpression(params: {
       .update(schema.adImpression)
       .set({
         impression_fired_at: new Date(),
-        credits_granted: creditsGranted,
-        grant_operation_id: creditsGranted > 0 ? operationId : null,
+        credits_granted: 0,
+        grant_operation_id: null,
       })
       .where(eq(schema.adImpression.id, adRecord.id))
 
     logger.info(
-      { userId, impUrl, creditsGranted, creditsToGrant },
+      { userId, impUrl },
       '[ads] Updated ad impression record',
     )
   } catch (error) {
