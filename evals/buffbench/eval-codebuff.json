@@ -28,6 +28,7 @@
     "STRIPE_SECRET_KEY": "test-stripe-key",
     "STRIPE_WEBHOOK_SECRET_KEY": "test-stripe-webhook",
     "STRIPE_TEAM_FEE_PRICE_ID": "test-team-price-id",
+    "STRIPE_USAGE_PRICE_ID": "test-usage-price-id",
     "LOOPS_API_KEY": "test-loops",
     "DISCORD_PUBLIC_KEY": "test-discord-public",
     "DISCORD_BOT_TOKEN": "test-discord-bot",
