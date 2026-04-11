@@ -242,11 +242,12 @@ export async function postAds(params: {
       return NextResponse.json({ ad: null, variant }, { status: 200 })
     }
 
-    // Store all returned ads in the database
+    // Store all returned ads in the database (skip duplicates via imp_url unique constraint)
     for (const ad of ads) {
       const payout = ad.payout || DEFAULT_PAYOUT
-      try {
-        await db.insert(schema.adImpression).values({
+      await db
+        .insert(schema.adImpression)
+        .values({
           user_id: userId,
           ad_text: ad.adText,
           title: ad.title,
@@ -258,20 +259,7 @@ export async function postAds(params: {
           payout: String(payout),
           credits_granted: 0,
         })
-      } catch (error) {
-        logger.warn(
-          {
-            userId,
-            impUrl: ad.impUrl,
-            status: response.status,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : error,
-          },
-          '[ads] Failed to create ad_impression record (likely duplicate)',
-        )
-      }
+        .onConflictDoNothing()
     }
 
     // Strip payout from all ads before returning to client
