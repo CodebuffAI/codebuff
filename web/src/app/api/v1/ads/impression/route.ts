@@ -1,4 +1,3 @@
-import { processAndGrantCredit } from '@codebuff/billing/grant-credits'
 import { trackEvent } from '@codebuff/common/analytics'
 
 import { postAdImpression } from './_post'
@@ -15,7 +14,6 @@ export async function POST(req: NextRequest) {
     logger,
     loggerWithContext,
     trackEvent,
-    processAndGrantCredit,
     fetch,
   })
 }

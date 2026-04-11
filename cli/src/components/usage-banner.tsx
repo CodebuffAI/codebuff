@@ -110,7 +110,6 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   }
 
   const colorLevel = getBannerColorLevel(activeData.remainingBalance)
-  const adCredits = activeData.balanceBreakdown?.ad
   const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
 
   const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
@@ -152,9 +151,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
                   {activeData.remainingBalance?.toLocaleString() ?? '?'} credits
                 </text>
               )}
-              {adCredits != null && adCredits > 0 && (
-                <text style={{ fg: theme.muted }}>{`(${adCredits} from ads)`}</text>
-              )}
+
               {!activeSubscription && renewalDate && (
                 <>
                   <text style={{ fg: theme.muted }}>· Renews:</text>

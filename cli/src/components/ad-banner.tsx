@@ -150,10 +150,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
               {domain}
             </text>
           )}
-          <box style={{ flexGrow: 1 }} />
-          {!IS_FREEBUFF && ad.credits != null && ad.credits > 0 && (
-            <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
-          )}
+
         </box>
       </Button>
       {/* Info panel: shown when Ad label is clicked, below the ad */}
@@ -179,7 +176,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
             <text style={{ fg: theme.muted, flexShrink: 1 }}>
               {IS_FREEBUFF
                 ? 'Ads help keep Freebuff free.'
-                : 'Ads are optional and earn you credits on each impression. Feel free to hide them anytime.'}
+                : 'Ads are optional. Feel free to hide them anytime.'}
             </text>
             <Button
               onClick={() => setShowInfoPanel(false)}

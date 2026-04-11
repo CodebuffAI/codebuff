@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -17,6 +19,26 @@ import type {
 import type { NextRequest } from 'next/server'
 
 const DEFAULT_PAYOUT = 0.04
+
+// A/B test: 50% of users see the "choice" ad variant (4 ads as bullet points)
+type AdVariant = 'banner' | 'choice'
+
+const CHOICE_AD_PLACEMENT_IDS = [
+  'choice-ad-1',
+  'choice-ad-2',
+  'choice-ad-3',
+  'choice-ad-4',
+]
+
+/**
+ * Deterministically assign a user to an ad variant based on their userId.
+ * Uses a hash so the assignment is stable across requests.
+ */
+function getAdVariant(userId: string): AdVariant {
+  const hash = createHash('sha256').update(`ad-variant:${userId}`).digest()
+  // Use first byte: even = banner, odd = choice (50/50 split)
+  return hash[0] % 2 === 0 ? 'banner' : 'choice'
+}
 
 const messageSchema = z.object({
   role: z.string(),
@@ -143,15 +165,25 @@ export async function postAds(params: {
     }
     : undefined
 
+  // Determine A/B test variant for this user
+  const variant = getAdVariant(userId)
+
+  // Build placements based on variant
+  const placements =
+    variant === 'choice'
+      ? CHOICE_AD_PLACEMENT_IDS.map((id) => ({
+          placement: 'below_response',
+          placement_id: id,
+        }))
+      : [{ placement: 'below_response', placement_id: 'code-assist-ad' }]
+
   try {
     const requestBody = {
       messages: filteredMessages,
       sessionId: sessionId ?? userId,
-      placements: [
-        { placement: 'below_response', placement_id: 'code-assist-ad' },
-      ],
+      placements,
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
-      relevancy: 0.3,
+      relevancy: 0,
       ...(device ? { device } : {}),
       user: {
         id: userId,
@@ -174,7 +206,7 @@ export async function postAds(params: {
         { request: requestBody, status: response.status },
         '[ads] No ad available from Gravity API',
       )
-      return NextResponse.json({ ad: null }, { status: 200 })
+      return NextResponse.json({ ad: null, variant }, { status: 200 })
     }
 
     // Check response.ok BEFORE parsing JSON to handle HTML error pages gracefully
@@ -196,7 +228,7 @@ export async function postAds(params: {
         { request: requestBody, response: errorBody, status: response.status },
         '[ads] Gravity API returned error',
       )
-      return NextResponse.json({ ad: null }, { status: 200 })
+      return NextResponse.json({ ad: null, variant }, { status: 200 })
     }
 
     // Now safe to parse JSON body since response.ok is true
@@ -207,16 +239,75 @@ export async function postAds(params: {
         { request: requestBody, response: ads, status: response.status },
         '[ads] No ads returned from Gravity API',
       )
-      return NextResponse.json({ ad: null }, { status: 200 })
+      return NextResponse.json({ ad: null, variant }, { status: 200 })
     }
 
-    const ad = ads[0]
+    // Store all returned ads in the database (skip duplicates via imp_url unique constraint)
+    // Wrapped in try/catch so DB failures don't prevent serving ads to the client
+    try {
+      for (const ad of ads) {
+        const payout = ad.payout || DEFAULT_PAYOUT
+        await db
+          .insert(schema.adImpression)
+          .values({
+            user_id: userId,
+            ad_text: ad.adText,
+            title: ad.title,
+            cta: ad.cta,
+            url: ad.url,
+            favicon: ad.favicon,
+            click_url: ad.clickUrl,
+            imp_url: ad.impUrl,
+            payout: String(payout),
+            credits_granted: 0,
+          })
+          .onConflictDoNothing()
+      }
+    } catch (dbError) {
+      logger.warn(
+        {
+          userId,
+          adCount: ads.length,
+          error:
+            dbError instanceof Error
+              ? { name: dbError.name, message: dbError.message }
+              : dbError,
+        },
+        '[ads] Failed to persist ad_impression rows, serving ads anyway',
+      )
+    }
 
+    // Strip payout from all ads before returning to client
+    const sanitizeAd = (ad: Record<string, unknown>) => {
+      const { payout: _payout, ...rest } = ad
+      return rest
+    }
+
+    if (variant === 'choice') {
+      // Return all ads for the choice variant (up to 4)
+      const sanitizedAds = ads.map(sanitizeAd)
+
+      logger.info(
+        {
+          variant,
+          adCount: sanitizedAds.length,
+          request: requestBody,
+          status: response.status,
+        },
+        '[ads] Fetched choice ads from Gravity API',
+      )
+
+      return NextResponse.json({ ads: sanitizedAds, variant })
+    }
+
+    // Banner variant: return single ad (existing behavior)
+    const ad = ads[0]
     const payout = ad.payout || DEFAULT_PAYOUT
 
     logger.info(
       {
         ad,
+        variant,
         request: requestBody,
         status: response.status,
         payout: {
@@ -229,41 +320,7 @@ export async function postAds(params: {
       '[ads] Fetched ad from Gravity API',
     )
 
-    // Insert ad_impression row to database (served_at = now)
-    // This stores the trusted ad data server-side so we don't have to trust the client later
-    try {
-      await db.insert(schema.adImpression).values({
-        user_id: userId,
-        ad_text: ad.adText,
-        title: ad.title,
-        cta: ad.cta,
-        url: ad.url,
-        favicon: ad.favicon,
-        click_url: ad.clickUrl,
-        imp_url: ad.impUrl,
-        payout: String(payout),
-        credits_granted: 0, // Will be updated when impression is fired
-      })
-    } catch (error) {
-      // If insert fails (e.g., duplicate impUrl), log but continue
-      // The ad can still be shown, it just won't be tracked
-      logger.warn(
-        {
-          userId,
-          impUrl: ad.impUrl,
-          status: response.status,
-          error:
-            error instanceof Error
-              ? { name: error.name, message: error.message }
-              : error,
-        },
-        '[ads] Failed to create ad_impression record (likely duplicate)',
-      )
-    }
-
-    // Return ad to client without payout (credits will come from impression endpoint)
-    const { payout: _payout, ...adWithoutPayout } = ad
-    return NextResponse.json({ ad: adWithoutPayout })
+    return NextResponse.json({ ad: sanitizeAd(ad), variant })
   } catch (error) {
     logger.error(
       {
@@ -278,7 +335,7 @@ export async function postAds(params: {
       '[ads] Failed to fetch ad from Gravity API',
     )
     return NextResponse.json(
-      { ad: null, error: getErrorObject(error) },
+      { ad: null, variant, error: getErrorObject(error) },
       { status: 500 },
     )
   }

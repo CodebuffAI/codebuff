@@ -27,15 +27,26 @@ export type AdResponse = {
   credits?: number // Set after impression is recorded (in cents)
 }
 
+export type AdVariant = 'banner' | 'choice'
+
+export type AdData =
+  | { variant: 'banner'; ad: AdResponse }
+  | { variant: 'choice'; ads: AdResponse[] }
+
 export type GravityAdState = {
   ad: AdResponse | null
+  adData: AdData | null
   isLoading: boolean
+  recordImpression: (impUrl: string) => void
 }
 
 // Consolidated controller state for the ad rotation logic
 type GravityController = {
   cache: AdResponse[]
   cacheIndex: number
+  choiceCache: AdResponse[][] // Cache of choice ad sets (each entry is 4 ads)
+  choiceCacheIndex: number
+  variant: AdVariant | null // Assigned variant from backend
   impressionsFired: Set<string>
   adsShownSinceActivity: number
   tickInFlight: boolean
@@ -57,6 +68,23 @@ function nextFromCache(ctrl: GravityController): AdResponse | null {
   return ad
 }
 
+// Pure helper: add a choice ad set to the choice cache
+function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
+  // Deduplicate by checking if any set has the same first impUrl
+  const key = ads[0]?.impUrl
+  if (key && ctrl.choiceCache.some((set) => set[0]?.impUrl === key)) return
+  if (ctrl.choiceCache.length >= MAX_AD_CACHE_SIZE) ctrl.choiceCache.shift()
+  ctrl.choiceCache.push(ads)
+}
+
+// Pure helper: get the next cached choice ad set
+function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
+  if (ctrl.choiceCache.length === 0) return null
+  const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!
+  ctrl.choiceCacheIndex = (ctrl.choiceCacheIndex + 1) % ctrl.choiceCache.length
+  return set
+}
+
 /**
  * Hook for fetching and rotating Gravity ads.
  *
@@ -71,6 +99,7 @@ function nextFromCache(ctrl: GravityController): AdResponse | null {
 export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const [ad, setAd] = useState<AdResponse | null>(null)
+  const [adData, setAdData] = useState<AdData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   // Check if terminal height is too small to show ads
@@ -94,6 +123,9 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
   const ctrlRef = useRef<GravityController>({
     cache: [],
     cacheIndex: 0,
+    choiceCache: [],
+    choiceCacheIndex: 0,
+    variant: null,
     impressionsFired: new Set(),
     adsShownSinceActivity: 0,
     tickInFlight: false,
@@ -145,6 +177,22 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
               ? { ...cur, credits: data.creditsGranted }
               : cur,
           )
+          // Also update credits in adData for choice ads
+          setAdData((cur) => {
+            if (!cur) return cur
+            if (cur.variant === 'choice') {
+              return {
+                ...cur,
+                ads: cur.ads.map((a) =>
+                  a.impUrl === impUrl ? { ...a, credits: data.creditsGranted } : a,
+                ),
+              }
+            }
+            if (cur.variant === 'banner' && cur.ad.impUrl === impUrl) {
+              return { ...cur, ad: { ...cur.ad, credits: data.creditsGranted } }
+            }
+            return cur
+          })
         }
       })
       .catch((err) => {
@@ -152,14 +200,26 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
       })
   }
 
-  // Show an ad and fire impression
+  // Show a single banner ad and fire impression
   const showAd = (next: AdResponse): void => {
     setAd(next)
+    setAdData({ variant: 'banner', ad: next })
     recordImpressionOnce(next.impUrl)
   }
 
+  // Show a choice ad set (impressions are fired by the component for visible ads only)
+  const showChoiceAds = (ads: AdResponse[]): void => {
+    setAd(ads[0] ?? null) // Keep backwards compat for ad field
+    setAdData({ variant: 'choice', ads })
+  }
+
+  type FetchAdResult =
+    | { variant: 'banner'; ad: AdResponse }
+    | { variant: 'choice'; ads: AdResponse[] }
+    | null
+
   // Fetch an ad via web API
-  const fetchAd = async (): Promise<AdResponse | null> => {
+  const fetchAd = async (): Promise<FetchAdResult> => {
     // Don't fetch ads when they should be hidden
     if (shouldHideAdsRef.current) return null
     if (!getAdsEnabled()) return null
@@ -223,7 +283,17 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
       }
 
       const data = await response.json()
-      return data.ad as AdResponse | null
+      const variant = data.variant ?? 'banner'
+
+      if (variant === 'choice' && Array.isArray(data.ads) && data.ads.length > 0) {
+        return { variant: 'choice', ads: data.ads as AdResponse[] }
+      }
+
+      if (data.ad) {
+        return { variant: 'banner', ad: data.ad as AdResponse }
+      }
+
+      return null
     } catch (err) {
       logger.error({ err }, '[gravity] Failed to fetch ad')
       return null
@@ -245,21 +315,34 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
           ctrl.adsShownSinceActivity < MAX_ADS_AFTER_ACTIVITY &&
           isUserActive(ACTIVITY_THRESHOLD_MS)
 
-        let next: AdResponse | null = null
+        const result = canFetchNew ? await fetchAd() : null
 
-        if (canFetchNew) {
-          next = await fetchAd()
-          if (next) addToCache(ctrl, next)
-        }
-
-        // Fall back to cached ads if no new ad
-        if (!next) {
-          next = nextFromCache(ctrl)
-        }
-
-        if (next) {
-          ctrl.adsShownSinceActivity += 1
-          showAd(next)
+        if (result) {
+          ctrl.variant = result.variant
+          if (result.variant === 'choice') {
+            addToChoiceCache(ctrl, result.ads)
+            ctrl.adsShownSinceActivity += 1
+            showChoiceAds(result.ads)
+          } else {
+            addToCache(ctrl, result.ad)
+            ctrl.adsShownSinceActivity += 1
+            showAd(result.ad)
+          }
+        } else {
+          // Fall back to cached ads
+          if (ctrl.variant === 'choice') {
+            const cachedSet = nextFromChoiceCache(ctrl)
+            if (cachedSet) {
+              ctrl.adsShownSinceActivity += 1
+              showChoiceAds(cachedSet)
+            }
+          } else {
+            const next = nextFromCache(ctrl)
+            if (next) {
+              ctrl.adsShownSinceActivity += 1
+              showAd(next)
+            }
+          }
         }
       } finally {
         ctrl.tickInFlight = false
@@ -283,11 +366,18 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
 
     // Fetch first ad immediately
     void (async () => {
-      const firstAd = await fetchAd()
-      if (firstAd) {
-        addToCache(ctrlRef.current, firstAd)
-        showAd(firstAd)
-        ctrlRef.current.adsShownSinceActivity = 1
+      const result = await fetchAd()
+      if (result) {
+        const ctrl = ctrlRef.current
+        ctrl.variant = result.variant
+        if (result.variant === 'choice') {
+          addToChoiceCache(ctrl, result.ads)
+          showChoiceAds(result.ads)
+        } else {
+          addToCache(ctrl, result.ad)
+          showAd(result.ad)
+        }
+        ctrl.adsShownSinceActivity = 1
       }
       setIsLoading(false)
     })()
@@ -303,7 +393,13 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
   }, [hasUserMessaged, shouldHideAds])
 
   // Don't return ad when ads should be hidden
-  return { ad: hasUserMessaged && !shouldHideAds ? ad : null, isLoading }
+  const visible = hasUserMessaged && !shouldHideAds
+  return {
+    ad: visible ? ad : null,
+    adData: visible ? adData : null,
+    isLoading,
+    recordImpression: recordImpressionOnce,
+  }
 }
 
 type AdMessage = { role: 'user' | 'assistant'; content: string }
