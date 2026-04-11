@@ -70,9 +70,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
     }
   }, [visibleAds, onImpression])
 
-  // Hover colors
   const hoverBorderColor = theme.link
-  const hoverBgColor = theme.name === 'light' ? '#e8f0fe' : '#1a2332'
 
   return (
     <box
@@ -111,10 +109,10 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 paddingLeft: 1,
                 paddingRight: 1,
                 flexDirection: 'column',
-                backgroundColor: isHovered ? hoverBgColor : undefined,
+
               }}
             >
-              <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', height: MAX_DESC_LINES, overflow: 'hidden' }}>
                 <text style={{ fg: theme.muted, flexShrink: 1 }}>
                   {truncateToLines(ad.adText, widths[i] - 8, MAX_DESC_LINES)}
                 </text>
