@@ -7,8 +7,8 @@ async function main() {
 
   await runBuffBench({
     evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
-    agents: ['base2'],
-    taskIds: ['filter-system-history'],
+    agents: ['base2-free-evals'],
+    taskIds: ['server-agent-validation'],
     saveTraces,
   })
 
