@@ -58,7 +58,7 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      !isFast && !isFree && 'write_todos',
+      !isFast && 'write_todos',
       !isFast && !noAskUser && 'suggest_followups',
       'str_replace',
       'write_file',
@@ -331,7 +331,7 @@ ${buildArray(
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
     !noAskUser &&
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
-    (isDefault || isMax) &&
+    (isDefault || isMax || isFree) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
     isFree &&
     `- For most requests, spawn the thinker-with-files-gemini agent to think through and plan the best response. This agent is extremely useful as it is very smart. You must take advantage of it and spawn it about once per user request. Gather all the necessary context *before* spawning it, and pass the relevant filePaths since it does not have access to the conversation history.`,
