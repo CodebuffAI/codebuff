@@ -5,6 +5,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
+import { formatValueForError } from '../../../util/format-value'
 import {
   filterUnfinishedToolCalls,
   withSystemTags,
@@ -221,12 +222,8 @@ export function validateAgentInput(
   if (inputSchema.prompt) {
     const result = inputSchema.prompt.safeParse(prompt ?? '')
     if (!result.success) {
-      const promptStr = JSON.stringify(prompt ?? '', null, 2)
-      const truncatedPrompt = promptStr.length > 500
-        ? promptStr.slice(0, 500) + '...(truncated)'
-        : promptStr
       throw new Error(
-        `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal prompt value:\n${truncatedPrompt}`,
+        `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal prompt value:\n${formatValueForError(prompt ?? '')}`,
       )
     }
   }
@@ -235,12 +232,8 @@ export function validateAgentInput(
   if (inputSchema.params) {
     const result = inputSchema.params.safeParse(params ?? {})
     if (!result.success) {
-      const paramsStr = JSON.stringify(params ?? {}, null, 2)
-      const truncatedParams = paramsStr.length > 500
-        ? paramsStr.slice(0, 500) + '...(truncated)'
-        : paramsStr
       throw new Error(
-        `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal params value:\n${truncatedParams}`,
+        `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
       )
     }
   }
