@@ -23,9 +23,25 @@ const inputSchema = z
           agent_type: z.string().describe('Agent to spawn'),
           prompt: z.string().optional().describe('Prompt to send to the agent'),
           params: z
-            .record(z.string(), z.any())
+            .object({
+              // Common agent fields (all optional hints — each agent validates its own required fields)
+              command: z.string().optional().describe('Terminal command to run (basher, tmux-cli)'),
+              what_to_summarize: z.string().optional().describe('What information from the command output is desired (basher)'),
+              timeout_seconds: z.number().optional().describe('Timeout for command. Set to -1 for no timeout. Default 30 (basher)'),
+              searchQueries: z.array(z.object({
+                pattern: z.string().describe('The pattern to search for'),
+                flags: z.string().optional().describe('Optional ripgrep flags (e.g., "-i", "-g *.ts")'),
+                cwd: z.string().optional().describe('Optional working directory relative to project root'),
+                maxResults: z.number().optional().describe('Max results per file. Default 15'),
+              })).optional().describe('Array of code search queries (code-searcher)'),
+              filePaths: z.array(z.string()).optional().describe('Relevant file paths to read (opus-agent, gpt-5-agent, thinker-with-files-gemini)'),
+              directories: z.array(z.string()).optional().describe('Directories to search within (file-picker)'),
+              url: z.string().optional().describe('Starting URL to navigate to (browser-use)'),
+              prompts: z.array(z.string()).optional().describe('Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt)'),
+            })
+            .catchall(z.any())
             .optional()
-            .describe('Parameters object for the agent (if any)'),
+            .describe('Parameters object for the agent'),
         })
         .array(),
     ),
