@@ -67,13 +67,13 @@ export function createBase2(
       !noAskUser && 'ask_user',
       'skill',
       'set_output',
-      'code_search',
       'list_directory',
       'glob',
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
       isMax && 'file-picker-max',
+      'code-searcher',
       'researcher-web',
       'researcher-docs',
       'basher',
@@ -124,7 +124,7 @@ export function createBase2(
     - Add thoughtful details like hover states, transitions, and micro-interactions
     - Apply design principles: hierarchy, contrast, balance, and movement
     - Create an impressive demonstration showcasing web development capabilities
--  **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, you should find and update all the references to it appropriately using the code_search tool.
+-  **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, you should find and update all the references to it appropriately by spawning a code-searcher agent.
 -  **Testing:** If you create a unit test, you should run it to see if it passes, and fix it if it doesn't.
 -  **Package Management:** When adding new packages, use the basher agent to install the package rather than editing the package.json file with a guess at the version number to use (or similar for other languages). This way, you will be sure to have the latest version of the package. Do not install packages globally unless asked by the user (e.g. Don't run \`npm install -g <package-name>\`). Always try to use the package manager associated with the project (e.g. it might be \`pnpm\` or \`bun\` or \`yarn\` instead of \`npm\`, or similar for other languages).
 -  **Code Hygiene:** Make sure to leave things in a good state:
@@ -141,7 +141,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
-        '- Spawn context-gathering agents (file pickers and web/docs researchers) before making edits. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase.',
+        '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
         isFree && 'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
         isFree && `Spawn the thinker-with-files-gemini agent for complex problems — it's very smart. Skip it for routine edits and clearly-scoped changes. Pass the relevant filePaths since it has no conversation history.`,
         isDefault &&
@@ -197,11 +197,11 @@ ${buildArray(
 <user>please implement [a complex new feature]</user>
 
 <response>
-[ You spawn 3 file-pickers and a docs researcher in parallel to find relevant files and do research online. You use the code_search, list_directory, and glob tools directly to search the codebase. ]
+[ You spawn 3 file-pickers, 2 code-searchers, and a docs researcher in parallel to find relevant files and do research online. You use the list_directory and glob tools directly to search the codebase. ]
 
 [ You read a few of the relevant files using the read_files tool in two separate tool calls ]
 
-[ You use code_search and glob tools, and spawn another file-picker to find more relevant files ]
+[ You spawn another file-picker and code-searcher to find more relevant files, and use glob tools ]
 
 [ You read a few other relevant files using the read_files tool ]${!noAskUser
         ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
@@ -300,7 +300,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively spawn file pickers, bashers, and web/docs researchers to gather context as needed. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code searchers, bashers, and web/docs researchers to gather context as needed. Use the list_directory and glob tools directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful to find relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers and 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,
