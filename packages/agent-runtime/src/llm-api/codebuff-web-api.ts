@@ -230,13 +230,14 @@ export async function callTokenCountAPI(params: {
   messages: unknown[]
   system?: string
   model?: string
+  tools?: Array<{ name: string; description?: string; input_schema?: unknown }>
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
 }): Promise<{ inputTokens?: number; error?: string }> {
-  const { messages, system, model, fetch, logger, env } = params
+  const { messages, system, model, tools, fetch, logger, env } = params
   const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
   const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
 
@@ -248,6 +249,7 @@ export async function callTokenCountAPI(params: {
   const payload: Record<string, unknown> = { messages }
   if (system) payload.system = system
   if (model) payload.model = model
+  if (tools) payload.tools = tools
 
   try {
     const res = await withTimeout(

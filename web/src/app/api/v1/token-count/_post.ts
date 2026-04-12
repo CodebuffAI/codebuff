@@ -3,6 +3,7 @@ import {
   isClaudeModel,
   toAnthropicModelId,
 } from '@codebuff/common/constants/claude-oauth'
+import { isOpenAIProviderModel } from '@codebuff/common/constants/chatgpt-oauth'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
@@ -22,6 +23,11 @@ const tokenCountRequestSchema = z.object({
   messages: z.array(z.any()),
   system: z.string().optional(),
   model: z.string().optional(),
+  tools: z.array(z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    input_schema: z.any().optional(),
+  })).optional(),
 })
 
 type TokenCountRequest = z.infer<typeof tokenCountRequestSchema>
@@ -74,24 +80,27 @@ export async function postTokenCount(params: {
     return bodyResult.response
   }
 
-  const { messages, system, model } = bodyResult.data
+  const { messages, system, model, tools } = bodyResult.data
 
   try {
     const useOpenAI = model != null && false // isOpenAIProviderModel(model)
     const inputTokens = useOpenAI
       ? await countTokensViaOpenAI({ messages, system, model, fetch, logger })
       : await countTokensViaAnthropic({
-          messages,
-          system,
-          model,
-          fetch,
-          logger,
-        })
+        messages,
+        system,
+        model,
+        tools,
+        fetch,
+        logger,
+      })
 
     logger.info({
       userId,
       messageCount: messages.length,
       hasSystem: !!system,
+      hasTools: !!tools,
+      toolCount: tools?.length,
       model: model ?? DEFAULT_ANTHROPIC_MODEL,
       tokenCount: inputTokens,
       provider: useOpenAI ? 'openai' : 'anthropic',
@@ -285,10 +294,11 @@ async function countTokensViaAnthropic(params: {
   messages: TokenCountRequest['messages']
   system: string | undefined
   model: string | undefined
+  tools: TokenCountRequest['tools']
   fetch: typeof globalThis.fetch
   logger: Logger
 }): Promise<number> {
-  const { messages, system, model, fetch, logger } = params
+  const { messages, system, model, tools, fetch, logger } = params
 
   // Convert messages to Anthropic format
   const anthropicMessages = convertToAnthropicMessages(messages)
@@ -315,6 +325,7 @@ async function countTokensViaAnthropic(params: {
         model: anthropicModelId,
         messages: anthropicMessages,
         ...(system && { system }),
+        ...(tools && { tools }),
       }),
     },
   )
@@ -337,8 +348,12 @@ async function countTokensViaAnthropic(params: {
   const data = await response.json()
   const baseTokens = data.input_tokens
 
-  // Add 30% buffer for non-Anthropic models since tokenizers differ
-  if (isNonAnthropicModel) {
+  // Add 30% buffer for OpenAI and Gemini models since their tokenizers differ from Anthropic's
+  // Other non-Anthropic models (x-ai, qwen, deepseek, etc.) are routed through providers that
+  // use similar tokenization, so the buffer is not needed and was causing premature context pruning.
+  const isOpenAIModel = model ? isOpenAIProviderModel(model) : false
+  const isGeminiModel = model?.startsWith('google/') ?? false
+  if (isOpenAIModel || isGeminiModel) {
     return Math.ceil(baseTokens * (1 + NON_ANTHROPIC_TOKEN_BUFFER))
   }
 

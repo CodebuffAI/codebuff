@@ -806,6 +806,18 @@ export async function loopAgentSteps(
     systemPrompt: system,
     toolDefinitions,
   }
+
+  // Convert tool definitions to Anthropic format for accurate token counting
+  // Tool definitions are stored as { [name]: { description, inputSchema } }
+  // Anthropic count_tokens API expects [{ name, description, input_schema }]
+  const toolsForTokenCount = Object.entries(toolDefinitions).map(
+    ([name, def]) => ({
+      name,
+      ...(def.description && { description: def.description }),
+      ...(def.inputSchema && { input_schema: def.inputSchema }),
+    }),
+  )
+
   let shouldEndTurn = false
   let hasRetriedOutputSchema = false
   let currentPrompt = prompt
@@ -845,6 +857,7 @@ export async function loopAgentSteps(
         messages: messagesWithStepPrompt,
         system,
         model: agentTemplate.model,
+        tools: toolsForTokenCount,
         fetch,
         logger,
         env: { clientEnv, ciEnv },
