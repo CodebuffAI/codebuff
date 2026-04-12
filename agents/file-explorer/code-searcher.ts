@@ -49,7 +49,7 @@ const codeSearcher: SecretAgentDefinition = {
   id: 'code-searcher',
   displayName: 'Code Searcher',
   spawnerPrompt:
-    'Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns up to 250 results across all source files, showing each line that matches the search pattern. Excludes git-ignored files.',
+    `Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns up to 250 results across all source files, showing each line that matches the search pattern. Excludes git-ignored files. You MUST pass searchQueries in params. Example input: { "params": { "searchQueries": [{ "pattern": "createUser", "flags": "-g *.ts" }, { "pattern": "deleteUser", "flags": "-g *.ts" }, { "pattern": "UserSchema", "maxResults": 5 }] } }`,
   model: 'anthropic/claude-sonnet-4.5',
   publisher,
   includeMessageHistory: false,
