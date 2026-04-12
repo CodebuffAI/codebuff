@@ -143,7 +143,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
         '- Spawn context-gathering agents (file pickers and web/docs researchers) before making edits. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase.',
         isFree && 'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
-        isFree && 'You must spawn the thinker-with-files-gemini agent to think through and plan the reponse to most requests, unless the request is trivial. This agent is extremely useful as it is very smart! You must pass the relevant filePaths when spawning it, since it does not have access to the conversation history.',
+        isFree && `Spawn the thinker-with-files-gemini agent for complex problems — it's very smart. Skip it for routine edits and clearly-scoped changes. Pass the relevant filePaths since it has no conversation history.`,
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
         (isDefault || isMax) &&
@@ -206,7 +206,7 @@ ${buildArray(
 [ You read a few other relevant files using the read_files tool ]${!noAskUser
         ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
         : ''
-      }${isFree ? `\n\n[ You spawn the thinker-with-files-gemini agent with the relevant filePaths to plan the best response ]` : ''}
+      }
 ${isDefault
         ? `[ You implement the changes using the editor agent ]`
         : isFast || isFree
@@ -334,7 +334,7 @@ ${buildArray(
     (isDefault || isMax || isFree) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
     isFree &&
-    `- For most requests, spawn the thinker-with-files-gemini agent to think through and plan the best response. This agent is extremely useful as it is very smart. You must take advantage of it and spawn it about once per user request. Gather all the necessary context *before* spawning it, and pass the relevant filePaths since it does not have access to the conversation history.`,
+    `- For complex problems, spawn the thinker-with-files-gemini agent after gathering context. Skip it for routine edits and clearly-scoped changes. Pass the relevant filePaths.`,
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
     isDefault &&
@@ -380,7 +380,7 @@ function buildImplementationStepPrompt({
     `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     'You must use the skill tool to load any potentially relevant skills.',
     isFree &&
-    `You must spawn the thinker-with-files-gemini agent once per user request to plan the best response. Pass the relevant filePaths since it does not have access to the conversation history.`,
+    `Spawn the thinker-with-files-gemini agent for complex problems, not routine edits. Pass the relevant filePaths.`,
     isMax &&
     `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&

@@ -8,7 +8,7 @@ const definition: SecretAgentDefinition = {
   model: 'google/gemini-3.1-pro-preview',
   displayName: 'Theo the Theorizer with Files (Gemini)',
   reasoningOptions: {
-    effort: 'low',
+    effort: 'medium',
   },
   spawnerPrompt:
     'Does deep thinking given the prompt and provided files using Gemini. Use this to help you solve a specific problem. This agent has no context on the conversation history so it cannot see files you have read or previous discussion. Instead, you must provide all the relevant context via the prompt or filePaths for this agent to work well.',
