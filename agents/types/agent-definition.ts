@@ -424,6 +424,7 @@ export type ModelName =
   | 'moonshotai/kimi-k2.5'
   | 'moonshotai/kimi-k2.5:nitro'
   | 'z-ai/glm-5'
+  | 'z-ai/glm-5.1'
   | 'z-ai/glm-4.6'
   | 'z-ai/glm-4.6:nitro'
   | 'z-ai/glm-4.7'

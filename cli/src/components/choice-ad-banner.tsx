@@ -70,7 +70,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
     }
   }, [visibleAds, onImpression])
 
-  const hoverBorderColor = theme.link
+  const hoverBorderColor = theme.primary
 
   return (
     <box
@@ -124,7 +124,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 <text
                   style={{
                     fg: theme.name === 'light' ? '#ffffff' : theme.background,
-                    bg: isHovered ? theme.link : theme.muted,
+                    bg: isHovered ? theme.primary : theme.muted,
                     attributes: TextAttributes.BOLD,
                   }}
                 >

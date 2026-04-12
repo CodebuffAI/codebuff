@@ -7,19 +7,70 @@
  * to measure how well Fireworks caches the shared prefix across turns.
  *
  * Usage:
- *   bun scripts/test-fireworks-long.ts
+ *   bun scripts/test-fireworks-long.ts [model] [--deployment]
+ *
+ * Models:
+ *   glm-5.1   (default) — z-ai/glm-5.1
+ *   minimax             — minimax/minimax-m2.5
+ *
+ * Flags:
+ *   --deployment   Use custom deployment instead of serverless (standard API)
+ *                  Serverless is the default
  */
 
 export { }
 
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
-const FIREWORKS_MODEL = 'accounts/james-65d217/deployments/lnfid5h9'
-// const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
 
-// Pricing constants — https://fireworks.ai/pricing
-const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+type ModelConfig = {
+  id: string              // OpenRouter-style ID (for display)
+  standardModel: string  // Fireworks standard API model ID
+  deploymentModel: string // Fireworks custom deployment model ID
+  inputCostPerToken: number
+  cachedInputCostPerToken: number
+  outputCostPerToken: number
+}
+
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  'glm-5.1': {
+    id: 'z-ai/glm-5.1',
+    standardModel: 'accounts/fireworks/models/glm-5p1',
+    deploymentModel: 'accounts/james-65d217/deployments/mjb4i7ea',
+    inputCostPerToken: 1.40 / 1_000_000,
+    cachedInputCostPerToken: 0.26 / 1_000_000,
+    outputCostPerToken: 4.40 / 1_000_000,
+  },
+  minimax: {
+    id: 'minimax/minimax-m2.5',
+    standardModel: 'accounts/fireworks/models/minimax-m2p5',
+    deploymentModel: 'accounts/james-65d217/deployments/lnfid5h9',
+    inputCostPerToken: 0.30 / 1_000_000,
+    cachedInputCostPerToken: 0.03 / 1_000_000,
+    outputCostPerToken: 1.20 / 1_000_000,
+  },
+}
+
+const DEFAULT_MODEL = 'glm-5.1'
+
+function getModelConfig(modelArg?: string): ModelConfig {
+  const key = modelArg ?? DEFAULT_MODEL
+  const config = MODEL_CONFIGS[key]
+  if (!config) {
+    console.error(`❌ Unknown model: "${key}". Available models: ${Object.keys(MODEL_CONFIGS).join(', ')}`)
+    process.exit(1)
+  }
+  return config
+}
+
+const USE_DEPLOYMENT = process.argv.includes('--deployment')
+const modelArg = process.argv.find((a, i) => i > 1 && !a.startsWith('-') && a !== 'long')
+const MODEL = getModelConfig(modelArg)
+
+// Default to serverless (standard API); use --deployment for custom deployment
+const FIREWORKS_MODEL = USE_DEPLOYMENT ? MODEL.deploymentModel : MODEL.standardModel
+const INPUT_COST_PER_TOKEN = MODEL.inputCostPerToken
+const CACHED_INPUT_COST_PER_TOKEN = MODEL.cachedInputCostPerToken
+const OUTPUT_COST_PER_TOKEN = MODEL.outputCostPerToken
 
 const MAX_TOKENS = 100
 
@@ -39,9 +90,9 @@ function computeCost(usage: Record<string, unknown>): { cost: number; breakdown:
   const totalCost = inputCost + cachedCost + outputCost
 
   const breakdown = [
-    `${nonCachedInput} non-cached input × $0.30/M = $${inputCost.toFixed(8)}`,
-    `${cachedTokens} cached input × $0.03/M = $${cachedCost.toFixed(8)}`,
-    `${outputTokens} output × $1.20/M = $${outputCost.toFixed(8)}`,
+    `${nonCachedInput} non-cached input × $${(INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${inputCost.toFixed(8)}`,
+    `${cachedTokens} cached input × $${(CACHED_INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${cachedCost.toFixed(8)}`,
+    `${outputTokens} output × $${(OUTPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${outputCost.toFixed(8)}`,
     `Total: $${totalCost.toFixed(8)}`,
   ].join('\n         ')
 
@@ -270,11 +321,11 @@ async function main() {
 
   console.log('🧪 Fireworks 10-Turn Conversation Caching Test')
   console.log('='.repeat(60))
-  console.log(`Model:       ${FIREWORKS_MODEL}`)
+  console.log(`Model:       ${MODEL.id} (${FIREWORKS_MODEL}) [${USE_DEPLOYMENT ? 'deployment' : 'serverless'}]`)
   console.log(`Base URL:    ${FIREWORKS_BASE_URL}`)
   console.log(`Max tokens:  ${MAX_TOKENS} (low output per turn)`)
   console.log(`Turns:       ${TURN_PROMPTS.length}`)
-  console.log(`Pricing:     $0.30/M input, $0.03/M cached, $1.20/M output`)
+  console.log(`Pricing:     $${(INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M input, $${(CACHED_INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M cached, $${(OUTPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M output`)
   console.log(`Session ID:  ${SESSION_ID} (x-session-affinity header)`)
   console.log('='.repeat(60))
   console.log()

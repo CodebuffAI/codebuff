@@ -62,9 +62,9 @@ describe('editor agent', () => {
       expect(gpt5Editor.model).toBe('openai/gpt-5.1')
     })
 
-    test('creates minimax editor', () => {
-      const minimaxEditor = createCodeEditor({ model: 'minimax' })
-      expect(minimaxEditor.model).toBe('minimax/minimax-m2.5')
+    test('creates glm editor', () => {
+      const glmEditor = createCodeEditor({ model: 'glm' })
+      expect(glmEditor.model).toBe('z-ai/glm-5.1')
     })
 
     test('gpt-5 editor does not include think tags in instructions', () => {
@@ -74,9 +74,9 @@ describe('editor agent', () => {
     })
 
     test('glm editor does not include think tags in instructions', () => {
-      const minimaxEditor = createCodeEditor({ model: 'minimax' })
-      expect(minimaxEditor.instructionsPrompt).not.toContain('<think>')
-      expect(minimaxEditor.instructionsPrompt).not.toContain('</think>')
+      const glmEditor = createCodeEditor({ model: 'glm' })
+      expect(glmEditor.instructionsPrompt).not.toContain('<think>')
+      expect(glmEditor.instructionsPrompt).not.toContain('</think>')
     })
 
     test('opus editor includes think tags in instructions', () => {
@@ -88,17 +88,17 @@ describe('editor agent', () => {
     test('all variants have same base properties', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
-      const minimaxEditor = createCodeEditor({ model: 'minimax' })
+      const glmEditor = createCodeEditor({ model: 'glm' })
 
       // All should have same basic structure
       expect(opusEditor.displayName).toBe(gpt5Editor.displayName)
-      expect(gpt5Editor.displayName).toBe(minimaxEditor.displayName)
+      expect(gpt5Editor.displayName).toBe(glmEditor.displayName)
 
       expect(opusEditor.outputMode).toBe(gpt5Editor.outputMode)
-      expect(gpt5Editor.outputMode).toBe(minimaxEditor.outputMode)
+      expect(gpt5Editor.outputMode).toBe(glmEditor.outputMode)
 
       expect(opusEditor.toolNames).toEqual(gpt5Editor.toolNames)
-      expect(gpt5Editor.toolNames).toEqual(minimaxEditor.toolNames)
+      expect(gpt5Editor.toolNames).toEqual(glmEditor.toolNames)
     })
   })
 

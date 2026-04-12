@@ -29,6 +29,7 @@ const fireworksAgent = new Agent({
 /** Map from OpenRouter model IDs to Fireworks standard API model IDs */
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
+  'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
@@ -37,6 +38,7 @@ const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 /** Custom deployment IDs for models with dedicated Fireworks deployments */
 const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/lnfid5h9',
+  'z-ai/glm-5.1': 'accounts/james-65d217/deployments/mjb4i7ea',
 }
 
 /** Check if current time is within deployment hours (10am–8pm ET) */
@@ -137,12 +139,31 @@ function createFireworksRequest(params: {
   })
 }
 
-// Fireworks per-token pricing (dollars per token)
-const FIREWORKS_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const FIREWORKS_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+// Fireworks per-token pricing (dollars per token), keyed by OpenRouter model ID
+interface FireworksPricing {
+  inputCostPerToken: number
+  cachedInputCostPerToken: number
+  outputCostPerToken: number
+}
 
-function extractUsageAndCost(usage: Record<string, unknown> | undefined | null): UsageData {
+const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
+  'minimax/minimax-m2.5': {
+    inputCostPerToken: 0.30 / 1_000_000,
+    cachedInputCostPerToken: 0.03 / 1_000_000,
+    outputCostPerToken: 1.20 / 1_000_000,
+  },
+  'z-ai/glm-5.1': {
+    inputCostPerToken: 1.40 / 1_000_000,
+    cachedInputCostPerToken: 0.26 / 1_000_000,
+    outputCostPerToken: 4.40 / 1_000_000,
+  },
+}
+
+function getFireworksPricing(model: string): FireworksPricing {
+  return FIREWORKS_PRICING_MAP[model] ?? FIREWORKS_MODEL_MAP['z-ai/glm-5.1']
+}
+
+function extractUsageAndCost(usage: Record<string, unknown> | undefined | null, model: string): UsageData {
   if (!usage) return { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, reasoningTokens: 0, cost: 0 }
   const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined | null
   const completionDetails = usage.completion_tokens_details as Record<string, unknown> | undefined | null
@@ -153,11 +174,12 @@ function extractUsageAndCost(usage: Record<string, unknown> | undefined | null):
   const reasoningTokens = typeof completionDetails?.reasoning_tokens === 'number' ? completionDetails.reasoning_tokens : 0
 
   // Fireworks doesn't return cost — compute from token counts and known pricing
+  const pricing = getFireworksPricing(model)
   const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadInputTokens)
   const cost =
-    nonCachedInputTokens * FIREWORKS_INPUT_COST_PER_TOKEN +
-    cacheReadInputTokens * FIREWORKS_CACHED_INPUT_COST_PER_TOKEN +
-    outputTokens * FIREWORKS_OUTPUT_COST_PER_TOKEN
+    nonCachedInputTokens * pricing.inputCostPerToken +
+    cacheReadInputTokens * pricing.cachedInputCostPerToken +
+    outputTokens * pricing.outputCostPerToken
 
   return { inputTokens, outputTokens, cacheReadInputTokens, reasoningTokens, cost }
 }
@@ -192,7 +214,7 @@ export async function handleFireworksNonStream({
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content ?? ''
   const reasoningText = data.choices?.[0]?.message?.reasoning_content ?? data.choices?.[0]?.message?.reasoning ?? ''
-  const usageData = extractUsageAndCost(data.usage)
+  const usageData = extractUsageAndCost(data.usage, originalModel)
 
   insertMessageToBigQuery({
     messageId: data.id,
@@ -493,7 +515,7 @@ async function handleResponse({
     return { state }
   }
 
-  const usageData = extractUsageAndCost(data.usage as Record<string, unknown>)
+  const usageData = extractUsageAndCost(data.usage as Record<string, unknown>, originalModel)
   const messageId = typeof data.id === 'string' ? data.id : 'unknown'
 
   insertMessageToBigQuery({
