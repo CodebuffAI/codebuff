@@ -11,8 +11,8 @@ import {
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const STANDARD_MODEL_ID = 'accounts/fireworks/models/minimax-m2p5'
-const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/lnfid5h9'
+const STANDARD_MODEL_ID = 'accounts/fireworks/models/glm-5p1'
+const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/mjb4i7ea'
 
 function createMockLogger(): Logger {
   return {
@@ -78,7 +78,7 @@ describe('Fireworks deployment routing', () => {
     })
 
     const minimalBody = {
-      model: 'minimax/minimax-m2.5',
+      model: 'z-ai/glm-5.1',
       messages: [{ role: 'user' as const, content: 'test' }],
     }
 
@@ -115,7 +115,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'minimax/minimax-m2.5',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -140,7 +140,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -184,7 +184,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -231,7 +231,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -272,7 +272,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -303,7 +303,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -363,7 +363,7 @@ describe('Fireworks deployment routing', () => {
       try {
         const response = await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
@@ -403,7 +403,7 @@ describe('Fireworks deployment routing', () => {
       try {
         await createFireworksRequestWithFallback({
           body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
+          originalModel: 'z-ai/glm-5.1',
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
