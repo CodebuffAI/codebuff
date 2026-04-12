@@ -14,7 +14,7 @@ const definition: AgentDefinition = {
   id: 'context-pruner',
   publisher,
   displayName: 'Context Pruner',
-  model: 'openai/gpt-5-mini',
+  model: 'anthropic/claude-sonnet-4.6',
 
   spawnerPrompt: `Spawn this agent between steps to prune context, summarizing the conversation into a condensed format when context exceeds the limit.`,
 
