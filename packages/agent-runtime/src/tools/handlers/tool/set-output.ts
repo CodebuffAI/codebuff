@@ -61,7 +61,11 @@ export const handleSetOutput = (async (params: {
         const prefix = usedData
           ? 'Output validation error: Your output was found inside the `data` field but still failed validation. Please fix the issues and try again without wrapping in `data`. Issues: '
           : 'Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: '
-        const errorMessage = `${prefix}${bestError}`
+        const outputStr = JSON.stringify(output, null, 2)
+        const truncatedOutput = outputStr.length > 500
+          ? outputStr.slice(0, 500) + '...(truncated)'
+          : outputStr
+        const errorMessage = `${prefix}${bestError}\n\nOriginal output value:\n${truncatedOutput}`
         logger.error(
           {
             output,
