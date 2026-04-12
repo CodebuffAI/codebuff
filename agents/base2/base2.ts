@@ -131,8 +131,8 @@ export function createBase2(
     - Don't forget to add any imports that might be needed
     - Remove unused variables, functions, and files as a result of your changes.
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.
-- **Minimal new code comments:** Do not add many new comments while writing code, unless they were preexisting comments (keep those!) or unless the user asks you to add comments!
-- **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. The code is more robust when every expression is typed.
+- **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
+- **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
 
 # Spawning agents guidelines
 
@@ -217,7 +217,7 @@ ${isDefault
 ${isDefault
         ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
         : isFree
-          ? `[ You spawn a code-reviewer-lite to review the changes, and a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
+          ? `[ You spawn a code-reviewer-lite to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
           : isMax
             ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
             : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
