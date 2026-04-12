@@ -71,6 +71,7 @@ interface ChatInputBarProps {
   // Handlers
   handleSubmit: () => Promise<void>
   onPaste: (fallbackText?: string) => void
+  onInterruptStream: () => void
 }
 
 export const ChatInputBar = ({
@@ -108,6 +109,7 @@ export const ChatInputBar = ({
   handlePublish,
   handleSubmit,
   onPaste,
+  onInterruptStream,
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -290,6 +292,7 @@ export const ChatInputBar = ({
   const handleFormSkip = () => {
     if (!askUserState) return
     skip()
+    onInterruptStream()
   }
 
   const effectivePlaceholder =

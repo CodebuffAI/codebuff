@@ -1525,6 +1525,7 @@ export const Chat = ({
               },
               cwd: getProjectRoot() ?? process.cwd(),
             })}
+            onInterruptStream={chatKeyboardHandlers.onInterruptStream}
           />
         )}
       </box>
