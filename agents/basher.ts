@@ -11,7 +11,7 @@ const basher: AgentDefinition = {
   model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Basher',
   spawnerPrompt:
-    'Runs a single terminal command and describes its output using an LLM. A lightweight shell command executor. You must specifiy also the command to run within the params object.',
+    'Runs a single terminal command and describes its output using an LLM. A lightweight shell command executor. Every basher spawn MUST include params: { command: "<shell>" }. NEVER spawn basher with only a prompt — it will fail validation. The prompt field describes what to extract from the output, not the command itself.',
 
   inputSchema: {
     prompt: {
