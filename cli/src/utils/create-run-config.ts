@@ -1,5 +1,7 @@
 import path from 'path'
 
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+
 import {
   createEventHandler,
   createStreamChunkHandler,
@@ -109,7 +111,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     content,
     previousRun: previousRunState ?? undefined,
     agentDefinitions,
-    maxAgentSteps: 100,
+    maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
     signal: params.signal,
