@@ -6,6 +6,7 @@ import { cloneDeep } from 'lodash'
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName } from '../templates/prompts'
+import { formatValueForError } from '../util/format-value'
 import { codebuffToolHandlers } from './handlers/list'
 import {
   getMatchingSpawn,
@@ -180,13 +181,10 @@ export async function executeToolCall<T extends ToolName>(
   }
 
   if ('error' in toolCall) {
-    const inputStr = JSON.stringify(input, null, 2)
-    const truncatedInput = inputStr.length > 500
-      ? inputStr.slice(0, 500) + '...(truncated)'
-      : inputStr
+    const formattedInput = formatValueForError(input)
     onResponseChunk({
       type: 'error',
-      message: `${toolCall.error}\n\nOriginal tool call input:\n${truncatedInput}`,
+      message: `${toolCall.error}\n\nOriginal tool call input:\n${formattedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
@@ -491,13 +489,10 @@ export async function executeCustomToolCall(
   }
 
   if ('error' in toolCall) {
-    const inputStr = JSON.stringify(input, null, 2)
-    const truncatedInput = inputStr.length > 500
-      ? inputStr.slice(0, 500) + '...(truncated)'
-      : inputStr
+    const formattedInput = formatValueForError(input)
     onResponseChunk({
       type: 'error',
-      message: `${toolCall.error}\n\nOriginal tool call input:\n${truncatedInput}`,
+      message: `${toolCall.error}\n\nOriginal tool call input:\n${formattedInput}`,
     })
     logger.debug(
       { toolCall, error: toolCall.error },
