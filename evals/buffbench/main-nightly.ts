@@ -17,7 +17,7 @@ async function main() {
   const results = await runBuffBench({
     evalDataPaths: [ path.join(__dirname, 'eval-codebuff.json')],
     agents: ['base2-free'],
-    taskConcurrency: 3,
+    taskConcurrency: 6,
     saveTraces,
   })
 
