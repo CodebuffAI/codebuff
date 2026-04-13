@@ -29,6 +29,7 @@ const fireworksAgent = new Agent({
 /** Map from OpenRouter model IDs to Fireworks standard API model IDs */
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
+  'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
 
@@ -150,6 +151,11 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
   'minimax/minimax-m2.5': {
     inputCostPerToken: 0.30 / 1_000_000,
     cachedInputCostPerToken: 0.03 / 1_000_000,
+    outputCostPerToken: 1.20 / 1_000_000,
+  },
+  'minimax/minimax-m2.7': {
+    inputCostPerToken: 0.30 / 1_000_000,
+    cachedInputCostPerToken: 0.06 / 1_000_000,
     outputCostPerToken: 1.20 / 1_000_000,
   },
   'z-ai/glm-5.1': {
