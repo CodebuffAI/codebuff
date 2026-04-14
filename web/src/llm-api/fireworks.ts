@@ -31,6 +31,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
+  'moonshotai/kimi-k2.5': 'accounts/fireworks/models/kimi-k2p5',
 }
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
@@ -162,6 +163,11 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 1.40 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.40 / 1_000_000,
+  },
+  'moonshotai/kimi-k2.5': {
+    inputCostPerToken: 0.60 / 1_000_000,
+    cachedInputCostPerToken: 0.10 / 1_000_000,
+    outputCostPerToken: 3.00 / 1_000_000,
   },
 }
 
