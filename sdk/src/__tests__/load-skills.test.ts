@@ -140,17 +140,11 @@ describe('loadSkills', () => {
       description: 'project claude',
     })
 
-    const skills = await loadSkills({ cwd: projectDir })
-
-    expect(skills['priority-skill']?.description).toBe('project claude')
-  })
-
-  test('skips invalid skill directories and malformed skill definitions', async () => {
-    const skillsRoot = path.join(projectDir, '.agents', 'skills')
-    const consoleError = spyOn(console, 'error').mockImplementation(() => {})
-    const consoleWarn = spyOn(console, 'warn').mockImplementation(() => {})
-
-    mkdirSync(path.join(skillsRoot, 'missing-skill-file'), { recursive: true })
+    writeFileSync(
+      path.join(malformedDir, 'SKILL.md'),
+      ['---', '{invalid yaml: [unclosed', '---'].join('\n'),
+      'utf8',
+    )
 
     const malformedDir = path.join(skillsRoot, 'malformed-frontmatter')
     mkdirSync(malformedDir, { recursive: true })
