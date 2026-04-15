@@ -394,7 +394,7 @@ async function runOnce({
           filteredTools.push(tool)
           continue
         }
-        if (tool.name in toolNames) {
+        if (toolNames.includes(tool.name)) {
           filteredTools.push(tool)
           continue
         }
