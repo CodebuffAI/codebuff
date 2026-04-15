@@ -43,17 +43,9 @@ const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
   'z-ai/glm-5.1': 'accounts/james-65d217/deployments/mjb4i7ea',
 }
 
-/** Check if current time is within deployment hours (10am–8pm ET) */
-export function isDeploymentHours(now: Date = new Date()): boolean {
-  const etHour = parseInt(
-    now.toLocaleString('en-US', {
-      timeZone: 'America/New_York',
-      hour: 'numeric',
-      hour12: false,
-    }),
-    10,
-  )
-  return etHour >= 10 && etHour < 20
+/** Check if current time is within deployment hours (always enabled) */
+export function isDeploymentHours(_now: Date = new Date()): boolean {
+  return true
 }
 
 /**
@@ -731,7 +723,7 @@ export async function createFireworksRequestWithFallback(params: {
   if (shouldTryDeployment) {
     logger.info(
       { model: originalModel, deploymentModel: deploymentModelId },
-      'Trying Fireworks custom deployment (business hours)',
+      'Trying Fireworks custom deployment',
     )
     const response = await createFireworksRequest({
       body,
