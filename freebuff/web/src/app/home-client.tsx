@@ -31,7 +31,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'MiniMax M2.5 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'GLM 5.1 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -343,7 +343,7 @@ function FAQList() {
 
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
-  { word: 'FAST', description: '5–10× speed up via fast models and quick context gathering.' },
+  { word: 'FAST', description: '2–5x speed up via fast models and quick context gathering.' },
   { word: 'LOADED', description: '9 specialized subagents: code review, browser use, deep thinking with your ChatGPT subscription, and more.' },
 ]
 
