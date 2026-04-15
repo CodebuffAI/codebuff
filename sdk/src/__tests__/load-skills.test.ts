@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
@@ -98,6 +98,31 @@ describe('loadSkills', () => {
     )
   })
 
+  test('loads skills from an explicit skillsPath only', async () => {
+    const explicitSkillsDir = path.join(tempRoot, 'custom-skills')
+
+    writeSkill({
+      skillsRoot: explicitSkillsDir,
+      skillDirName: 'custom-skill',
+      description: 'Loaded from explicit skillsPath',
+    })
+    writeSkill({
+      skillsRoot: path.join(projectDir, '.agents', 'skills'),
+      skillDirName: 'project-skill',
+      description: 'Should be ignored when skillsPath is set',
+    })
+
+    const skills = await loadSkills({
+      cwd: projectDir,
+      skillsPath: explicitSkillsDir,
+    })
+
+    expect(Object.keys(skills)).toEqual(['custom-skill'])
+    expect(skills['custom-skill']?.description).toBe(
+      'Loaded from explicit skillsPath',
+    )
+  })
+
   test('applies override precedence as project over global and .agents over .claude', async () => {
     writeSkill({
       skillsRoot: path.join(homeDir, '.claude', 'skills'),
@@ -140,19 +165,23 @@ describe('loadSkills', () => {
       description: 'project claude',
     })
 
-    writeFileSync(
-      path.join(malformedDir, 'SKILL.md'),
-      ['---', '{invalid yaml: [unclosed', '---'].join('\n'),
-      'utf8',
-    )
+    const skills = await loadSkills({ cwd: projectDir })
+
+    expect(skills['priority-skill']?.description).toBe('project claude')
+  })
+
+  test('skips invalid skill directories and malformed skill definitions', async () => {
+    const skillsRoot = path.join(projectDir, '.agents', 'skills')
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {})
+    const consoleWarn = spyOn(console, 'warn').mockImplementation(() => {})
+
+    mkdirSync(path.join(skillsRoot, 'missing-skill-file'), { recursive: true })
 
     const malformedDir = path.join(skillsRoot, 'malformed-frontmatter')
     mkdirSync(malformedDir, { recursive: true })
     writeFileSync(
       path.join(malformedDir, 'SKILL.md'),
-      ['---', 'name malformed-frontmatter', 'description: missing colon', '---'].join(
-        '\n',
-      ),
+      ['---', '{invalid yaml: [unclosed', '---'].join('\n'),
       'utf8',
     )
 
@@ -195,7 +224,9 @@ describe('loadSkills', () => {
       expect.stringContaining('Invalid frontmatter in skill file'),
     )
     expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("Skill name 'different-name' does not match directory name 'mismatch-dir'"),
+      expect.stringContaining(
+        "Skill name 'different-name' does not match directory name 'mismatch-dir'",
+      ),
     )
     expect(consoleWarn).toHaveBeenCalledWith(
       `Skipping invalid skill directory name: ${tooLongName}`,
