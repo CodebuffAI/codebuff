@@ -172,8 +172,8 @@ describe('loadSkills', () => {
 
   test('skips invalid skill directories and malformed skill definitions', async () => {
     const skillsRoot = path.join(projectDir, '.agents', 'skills')
-    const consoleError = spyOn(console, 'error').mockImplementation(() => {})
-    const consoleWarn = spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleError = spyOn(console, 'error').mockImplementation(() => { })
+    const consoleWarn = spyOn(console, 'warn').mockImplementation(() => { })
 
     mkdirSync(path.join(skillsRoot, 'missing-skill-file'), { recursive: true })
 
@@ -236,6 +236,36 @@ describe('loadSkills', () => {
     )
     expect(consoleWarn).toHaveBeenCalledWith(
       'Skipping invalid skill directory name: special_skill',
+    )
+  })
+
+  test('loads skills from skillsPath and bypasses default search roots', async () => {
+    const customSkillsDir = path.join(tempRoot, 'custom-skills')
+    mkdirSync(customSkillsDir, { recursive: true })
+
+    // Put a skill in a default root that should NOT be found
+    writeSkill({
+      skillsRoot: path.join(projectDir, '.agents', 'skills'),
+      skillDirName: 'default-skill',
+      description: 'Should not be found',
+    })
+
+    // Put a skill in the custom directory that SHOULD be found
+    writeSkill({
+      skillsRoot: customSkillsDir,
+      skillDirName: 'custom-skill',
+      description: 'Found via skillsPath',
+    })
+
+    const skills = await loadSkills({
+      cwd: projectDir,
+      skillsPath: customSkillsDir,
+    })
+
+    expect(Object.keys(skills).sort()).toEqual(['custom-skill'])
+    expect(skills['custom-skill']?.description).toBe('Found via skillsPath')
+    expect(skills['custom-skill']?.filePath).toBe(
+      path.join(customSkillsDir, 'custom-skill', 'SKILL.md'),
     )
   })
 })
