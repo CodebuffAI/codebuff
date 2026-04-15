@@ -40,6 +40,7 @@ const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 /** Custom deployment IDs for models with dedicated Fireworks deployments */
 const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
   // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/lnfid5h9',
+  'moonshotai/kimi-k2.5': 'accounts/james-65d217/deployments/mx8l5rq2',
   'z-ai/glm-5.1': 'accounts/james-65d217/deployments/mjb4i7ea',
 }
 

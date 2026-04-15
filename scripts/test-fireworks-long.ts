@@ -40,6 +40,14 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.40 / 1_000_000,
   },
+  'kimi-k2.5': {
+    id: 'moonshotai/kimi-k2.5',
+    standardModel: 'accounts/fireworks/models/kimi-k2p5',
+    deploymentModel: 'accounts/james-65d217/deployments/mx8l5rq2',
+    inputCostPerToken: 0.60 / 1_000_000,
+    cachedInputCostPerToken: 0.10 / 1_000_000,
+    outputCostPerToken: 3.00 / 1_000_000,
+  },
   minimax: {
     id: 'minimax/minimax-m2.5',
     standardModel: 'accounts/fireworks/models/minimax-m2p5',
