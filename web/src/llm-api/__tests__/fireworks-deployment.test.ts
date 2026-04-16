@@ -379,6 +379,162 @@ describe('Fireworks deployment routing', () => {
       }
     })
 
+    it('transforms reasoning to reasoning_effort (defaults to medium)', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning: { enabled: true },
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBe('medium')
+      expect(fetchedBodies[0].reasoning).toBeUndefined()
+    })
+
+    it('uses reasoning.effort value when specified', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning: { effort: 'high' },
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBe('high')
+      expect(fetchedBodies[0].reasoning).toBeUndefined()
+    })
+
+    it('skips reasoning_effort when reasoning.enabled is false', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning: { enabled: false, effort: 'high' },
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBeUndefined()
+      expect(fetchedBodies[0].reasoning).toBeUndefined()
+    })
+
+    it('preserves reasoning_effort when tools are present (Fireworks supports both)', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning: { effort: 'high' },
+          tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBe('high')
+      expect(fetchedBodies[0].reasoning).toBeUndefined()
+    })
+
+    it('passes through reasoning_effort when set directly without reasoning object', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning_effort: 'low',
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBe('low')
+    })
+
+    it('preserves directly-set reasoning_effort when tools are present', async () => {
+      const fetchedBodies: Record<string, unknown>[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchedBodies.push(body)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      await createFireworksRequestWithFallback({
+        body: {
+          ...minimalBody,
+          reasoning_effort: 'low',
+          tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
+        } as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
+
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].reasoning_effort).toBe('low')
+    })
+
     it('logs when trying deployment and when falling back on 5xx', async () => {
       const spy = spyDeploymentHours(true)
       let callCount = 0

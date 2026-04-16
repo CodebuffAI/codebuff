@@ -97,6 +97,20 @@ function createFireworksRequest(params: {
     model: modelIdOverride ?? getFireworksModelId(originalModel),
   }
 
+  // Transform OpenRouter-style `reasoning` object into Fireworks' `reasoning_effort`.
+  // Unlike OpenAI, Fireworks supports reasoning_effort together with function tools
+  // (e.g. GLM-4.5/5.1 and Kimi K2 are designed for interleaved reasoning + tool use).
+  if (fireworksBody.reasoning && typeof fireworksBody.reasoning === 'object') {
+    const reasoning = fireworksBody.reasoning as {
+      enabled?: boolean
+      effort?: 'high' | 'medium' | 'low'
+    }
+    if (reasoning.enabled ?? true) {
+      fireworksBody.reasoning_effort = reasoning.effort ?? 'medium'
+    }
+  }
+  delete fireworksBody.reasoning
+
   // Strip OpenRouter-specific / internal fields
   delete fireworksBody.provider
   delete fireworksBody.transforms
