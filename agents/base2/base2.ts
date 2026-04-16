@@ -25,10 +25,11 @@ export function createBase2(
   const isFree = mode === 'free'
 
   const isSonnet = false
+  const model = isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.6'
 
   return {
     publisher,
-    model: isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.6',
+    model,
     providerOptions: isFree ? {
       data_collection: 'deny',
     } : {
@@ -164,6 +165,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
 # Codebuff Meta-information
+
+You are running on the ${model} model.
 
 Users send prompts to you in one of a few user-selected modes, like DEFAULT, MAX, or PLAN.
 
