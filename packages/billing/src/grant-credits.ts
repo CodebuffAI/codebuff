@@ -139,7 +139,12 @@ async function executeGrantCreditOperation(params: {
 
   const now = new Date()
 
-  // First check for any negative balances
+  // First check for any negative balances.
+  // This is the ONLY place debt is cleared. The consume path
+  // (consumeFromOrderedGrants in balance-calculator.ts) only deepens
+  // debt on overflow; it never repays it. New credit grants zero out
+  // existing debt rows here and subtract the total debt from the
+  // granted amount.
   const negativeGrants = await tx
     .select()
     .from(schema.creditLedger)

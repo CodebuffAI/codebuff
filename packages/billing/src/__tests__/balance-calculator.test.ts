@@ -21,12 +21,21 @@ function createMockGrant(overrides: {
   expires_at: Date | null
   created_at: Date
   principal?: number
-  type?: 'subscription' | 'purchase' | 'promotion' | 'organization' | 'referral'
+  type?:
+    | 'subscription'
+    | 'purchase'
+    | 'organization'
+    | 'referral'
+    | 'referral_legacy'
+    | 'free'
+    | 'admin'
+    | 'ad'
 }) {
   return {
     operation_id: overrides.operation_id,
     user_id: 'user-123',
-    organization_id: null,
+    org_id: null,
+    stripe_subscription_id: null,
     principal: overrides.principal ?? Math.max(overrides.balance, 100),
     balance: overrides.balance,
     type: overrides.type ?? ('subscription' as const),
@@ -392,6 +401,396 @@ describe('Balance Calculator - calculateUsageAndBalance', () => {
       expect(result.balance.breakdown.purchase).toBe(500)
       expect(result.balance.breakdown.organization).toBe(0)
     })
+  })
+})
+
+describe('shouldBlockFreeUserOverdraw', () => {
+  afterEach(() => {
+    clearMockedModules()
+  })
+
+  async function importModule() {
+    await mockModule('@codebuff/internal/db', () => ({
+      default: {},
+    }))
+    await mockModule('@codebuff/common/analytics', () => ({
+      trackEvent: () => {},
+    }))
+    return import('@codebuff/billing/balance-calculator')
+  }
+
+  it('should block when exhausted free-tier user tries to consume', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: 0, type: 'free' }], 100),
+    ).toBe(true)
+  })
+
+  it('should block when free-tier user balance is less than charge', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: 50, type: 'free' }], 100),
+    ).toBe(true)
+  })
+
+  it('should not block when free-tier user has sufficient balance', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: 500, type: 'free' }], 100),
+    ).toBe(false)
+  })
+
+  it('should not block when user has a subscription grant even with zero balance', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw(
+        [
+          { balance: 0, type: 'free' },
+          { balance: 0, type: 'subscription' },
+        ],
+        100,
+      ),
+    ).toBe(false)
+  })
+
+  it('should not block when user has a purchase grant', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw(
+        [
+          { balance: 0, type: 'free' },
+          { balance: 10, type: 'purchase' },
+        ],
+        100,
+      ),
+    ).toBe(false)
+  })
+
+  it('should not block when credits to charge is 0 (free-mode agent)', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: 0, type: 'free' }], 0),
+    ).toBe(false)
+  })
+
+  it('should block referral-only user with insufficient credits', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: 50, type: 'referral' }], 100),
+    ).toBe(true)
+  })
+
+  it('should block user in debt with no paid grants', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    expect(
+      shouldBlockFreeUserOverdraw([{ balance: -100, type: 'free' }], 50),
+    ).toBe(true)
+  })
+
+  it('should aggregate balance across multiple unpaid grants', async () => {
+    const { shouldBlockFreeUserOverdraw } = await importModule()
+    // Total balance: 110, charge: 100 → not blocked
+    expect(
+      shouldBlockFreeUserOverdraw(
+        [
+          { balance: 30, type: 'free' },
+          { balance: 80, type: 'referral' },
+        ],
+        100,
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('InsufficientCreditsError', () => {
+  afterEach(() => {
+    clearMockedModules()
+  })
+
+  async function importModule() {
+    await mockModule('@codebuff/internal/db', () => ({
+      default: {},
+    }))
+    await mockModule('@codebuff/common/analytics', () => ({
+      trackEvent: () => {},
+    }))
+    return import('@codebuff/billing/balance-calculator')
+  }
+
+  it('should be an instance of Error with the correct name and fields', async () => {
+    const { InsufficientCreditsError } = await importModule()
+    const err = new InsufficientCreditsError(-50, 200)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).toBeInstanceOf(InsufficientCreditsError)
+    expect(err.name).toBe('InsufficientCreditsError')
+    expect(err.netBalance).toBe(-50)
+    expect(err.chargeAmount).toBe(200)
+    expect(err.message).toBe(
+      'Insufficient credits for free-tier user: balance=-50, charge=200',
+    )
+  })
+
+  it('should be exported from the billing barrel (@codebuff/billing)', async () => {
+    await mockModule('@codebuff/internal/db', () => ({
+      default: {},
+    }))
+    await mockModule('@codebuff/common/analytics', () => ({
+      trackEvent: () => {},
+    }))
+    const billing = await import('@codebuff/billing')
+    expect(typeof billing.InsufficientCreditsError).toBe('function')
+    const err = new billing.InsufficientCreditsError(0, 100)
+    expect(err).toBeInstanceOf(Error)
+    expect(err.name).toBe('InsufficientCreditsError')
+  })
+})
+
+describe('consumeFromOrderedGrants - credit consumption bugs', () => {
+  // Regression tests for two compounding bugs:
+  // 1. Pass 1 ("repay debt") was directionally wrong: consumption reduced debt instead of
+  //    deepening it, giving users free compute every other message after grant exhaustion.
+  // 2. Pass 3 used stale in-memory grant.balance, so drain-and-overflow silently dropped
+  //    the overflowing credits (no debt created, free compute).
+
+  afterEach(() => {
+    clearMockedModules()
+  })
+
+  /** Mock tx that captures the sequence of balance writes to the DB. */
+  function createWriteCaptureTx() {
+    const writes: number[] = []
+    const tx = {
+      update: () => ({
+        set: (values: { balance: number }) => ({
+          where: () => {
+            writes.push(values.balance)
+            return Promise.resolve()
+          },
+        }),
+      }),
+    }
+    return { tx, writes }
+  }
+
+  async function importModule() {
+    await mockModule('@codebuff/internal/db', () => ({
+      default: {},
+    }))
+    await mockModule('@codebuff/common/analytics', () => ({
+      trackEvent: () => {},
+    }))
+    return import('@codebuff/billing/balance-calculator')
+  }
+
+  it('should deepen debt (not repay it) when consuming from a grant already in debt', async () => {
+    // Bug 1 reproduction: pass 1 treated consumption as credit addition,
+    // reducing debt instead of deepening it. Every other post-exhaustion message
+    // was free compute.
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'debt-grant',
+        balance: -100,
+        principal: 500,
+        priority: 20,
+        type: 'free',
+        expires_at: null,
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 100,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    // Debt must deepen from -100 to -200 (not "repay" to 0)
+    expect(writes).toEqual([-200])
+    expect(result.consumed).toBe(100)
+  })
+
+  it('should create debt on overflow when draining a positive grant beyond its balance', async () => {
+    // Bug 2 reproduction: pass 3 checked lastGrant.balance <= 0 using the
+    // original (pre-drain) in-memory value. If a grant started positive and
+    // was drained to 0 in pass 2, the check saw the original positive value
+    // and skipped debt creation. The overflow credits were silently dropped.
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'single-grant',
+        balance: 500,
+        principal: 500,
+        priority: 20,
+        type: 'free',
+        expires_at: null,
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 600,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    // Grant drained to 0, then 100 overflow creates debt
+    expect(writes).toEqual([0, -100])
+    expect(result.consumed).toBe(600)
+  })
+
+  it('should not forgive debt on grants when consuming from a different positive grant', async () => {
+    // Combined bug: user has a debt grant (-50) and a positive grant (200).
+    // Bug 1 "repaid" the debt using 50 of the incoming consumption, then only
+    // charged 50 from the positive grant. Net: debt forgiven, user only charged
+    // 50 real credits for 100 credits of compute.
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'debt-free',
+        balance: -50,
+        principal: 500,
+        priority: 20,
+        type: 'free',
+        expires_at: null,
+        created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+      }),
+      createMockGrant({
+        operation_id: 'positive-purchase',
+        balance: 200,
+        principal: 200,
+        priority: 80,
+        type: 'purchase',
+        expires_at: null,
+        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 100,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    // Debt grant must be untouched. All 100 consumed from purchase grant.
+    expect(writes).toEqual([100]) // Only one write: purchase 200 → 100
+    expect(result.consumed).toBe(100)
+    expect(result.fromPurchased).toBe(100)
+    // Debt grant balance unchanged
+    expect(grants[0].balance).toBe(-50)
+  })
+
+  it('should correctly consume from a positive grant without overflow (happy path)', async () => {
+    // Sanity check: basic consumption that never overflows should work identically.
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'healthy-grant',
+        balance: 500,
+        principal: 500,
+        priority: 20,
+        type: 'free',
+        expires_at: null,
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 100,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    expect(writes).toEqual([400])
+    expect(result.consumed).toBe(100)
+    expect(result.fromPurchased).toBe(0)
+  })
+
+  it('should consume across multiple positive grants in priority order', async () => {
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'sub-grant',
+        balance: 50,
+        principal: 50,
+        priority: 10,
+        type: 'subscription',
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+      }),
+      createMockGrant({
+        operation_id: 'purchase-grant',
+        balance: 200,
+        principal: 200,
+        priority: 80,
+        type: 'purchase',
+        expires_at: null,
+        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 150,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    // Sub drained (50→0), then 100 from purchase (200→100)
+    expect(writes).toEqual([0, 100])
+    expect(result.consumed).toBe(150)
+    expect(result.fromPurchased).toBe(100)
+  })
+
+  it('should track all consumed credits even when creating debt (consumed === creditsToConsume)', async () => {
+    // Before the fix, consumed was less than creditsToConsume on overflow:
+    // the overflow credits were silently dropped, so consumed only counted
+    // what was drained from positive balances.
+    const { consumeFromOrderedGrants } = await importModule()
+    const { tx, writes } = createWriteCaptureTx()
+
+    const grants = [
+      createMockGrant({
+        operation_id: 'small-grant',
+        balance: 30,
+        principal: 30,
+        priority: 20,
+        type: 'free',
+        expires_at: null,
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      }),
+    ]
+
+    const result = await consumeFromOrderedGrants({
+      userId: 'user-123',
+      creditsToConsume: 200,
+      grants,
+      logger,
+      tx: tx as any,
+    })
+
+    // Drain 30, then 170 overflow as debt
+    expect(writes).toEqual([0, -170])
+    expect(result.consumed).toBe(200)
   })
 })
 

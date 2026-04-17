@@ -38,6 +38,45 @@ export interface CreditConsumptionResult {
   fromPurchased: number
 }
 
+/**
+ * Thrown when a free-tier user (no purchase or subscription grants)
+ * attempts to consume more credits than their balance allows.
+ */
+export class InsufficientCreditsError extends Error {
+  public readonly netBalance: number
+  public readonly chargeAmount: number
+
+  constructor(netBalance: number, chargeAmount: number) {
+    super(
+      `Insufficient credits for free-tier user: balance=${netBalance}, charge=${chargeAmount}`,
+    )
+    this.name = 'InsufficientCreditsError'
+    this.netBalance = netBalance
+    this.chargeAmount = chargeAmount
+  }
+}
+
+/**
+ * Hard gate: blocks a charge when a free-tier user (no purchase or subscription
+ * grants) would overdraw their credit balance. This prevents credit-farming
+ * abuse where users consume far more than their granted credits.
+ *
+ * Users with purchase or subscription grants are always allowed through
+ * (they have a payment relationship and can accumulate debt).
+ */
+export function shouldBlockFreeUserOverdraw(
+  grants: Array<{ balance: number; type: string }>,
+  credits: number,
+): boolean {
+  if (credits <= 0) return false
+  const hasPaidGrant = grants.some(
+    (g) => g.type === 'purchase' || g.type === 'subscription',
+  )
+  if (hasPaidGrant) return false
+  const netBalance = grants.reduce((sum, g) => sum + g.balance, 0)
+  return netBalance < credits
+}
+
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<
   typeof db,
@@ -170,6 +209,14 @@ export async function updateGrantBalance(params: {
 
 /**
  * Consumes credits from a list of ordered grants.
+ *
+ * **Side effect:** mutates `grants[].balance` in-memory to reflect
+ * post-consumption state. Callers must not reuse the array afterward
+ * expecting original balances.
+ *
+ * **Debt model:** consumption never repays existing debt. Debt is only
+ * cleared in `grant-credits.ts` (`executeGrantCreditOperation`) when
+ * new credits are added. This function only deepens debt on overflow.
  */
 export async function consumeFromOrderedGrants(
   params: {
@@ -188,30 +235,9 @@ export async function consumeFromOrderedGrants(
   let consumed = 0
   let fromPurchased = 0
 
-  // First pass: try to repay any debt
-  for (const grant of grants) {
-    if (grant.balance < 0 && remainingToConsume > 0) {
-      const debtAmount = Math.abs(grant.balance)
-      const repayAmount = Math.min(debtAmount, remainingToConsume)
-      const newBalance = grant.balance + repayAmount
-      remainingToConsume -= repayAmount
-      consumed += repayAmount
-
-      await updateGrantBalance({
-        ...params,
-        grant,
-        consumed: -repayAmount,
-        newBalance,
-      })
-
-      logger.debug(
-        { userId, grantId: grant.operation_id, repayAmount, newBalance },
-        'Repaid debt in grant',
-      )
-    }
-  }
-
-  // Second pass: consume from positive balances
+  // Consume from positive balances in priority order.
+  // NOTE: debt grants (balance < 0) are skipped. Consumption never repays
+  // debt; that only happens via grant-credits.ts when new credits arrive.
   for (const grant of grants) {
     if (remainingToConsume <= 0) break
     if (grant.balance <= 0) continue
@@ -232,33 +258,39 @@ export async function consumeFromOrderedGrants(
       consumed: consumeFromThisGrant,
       newBalance,
     })
+
+    // Mutate in-memory balance so the overflow check below sees
+    // post-consumption state (not the stale original value).
+    grant.balance = newBalance
   }
 
-  // If we still have remaining to consume and no grants left, create debt in the last grant
+  // If we still have remaining to consume, create or extend debt on the
+  // last grant. After the loop above all positive-balance grants are drained.
+  // The "last grant" (lowest consumption priority, typically a subscription
+  // grant that renews monthly) absorbs the overflow as debt.
   if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
+    const newBalance = lastGrant.balance - remainingToConsume
 
-    if (lastGrant.balance <= 0) {
-      const newBalance = lastGrant.balance - remainingToConsume
-      await updateGrantBalance({
-        ...params,
-        grant: lastGrant,
+    await updateGrantBalance({
+      ...params,
+      grant: lastGrant,
+      consumed: remainingToConsume,
+      newBalance,
+    })
+    consumed += remainingToConsume
+    lastGrant.balance = newBalance
+
+    logger.warn(
+      {
+        userId,
+        grantId: lastGrant.operation_id,
+        requested: remainingToConsume,
         consumed: remainingToConsume,
-        newBalance,
-      })
-      consumed += remainingToConsume
-
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: remainingToConsume,
-          newDebt: Math.abs(newBalance),
-        },
-        'Created new debt in grant',
-      )
-    }
+        newDebt: Math.abs(newBalance),
+      },
+      'Created/extended debt in grant',
+    )
   }
 
   return { consumed, fromPurchased }
@@ -617,6 +649,28 @@ export async function consumeCreditsAndAddAgentStep(params: {
               'No active grants found to consume credits from',
             )
             throw new Error('No active grants found')
+          }
+
+          // Hard gate: block free-tier users from overdrawing credits.
+          // This prevents credit-farming abuse where users with only free/referral
+          // grants consume far beyond their balance due to the debt-repay bug
+          // in consumeFromOrderedGrants.
+          // (BYOK path already broke out of this `consumeCredits:` block above.)
+          if (shouldBlockFreeUserOverdraw(activeGrants, credits)) {
+            const netBalance = activeGrants.reduce(
+              (sum, g) => sum + g.balance,
+              0,
+            )
+            logger.warn(
+              {
+                userId,
+                credits,
+                netBalance,
+                grantTypes: [...new Set(activeGrants.map((g) => g.type))],
+              },
+              'Blocked free-tier user from overdrawing credits',
+            )
+            throw new InsufficientCreditsError(netBalance, credits)
           }
 
           phase = 'consume_credits'
