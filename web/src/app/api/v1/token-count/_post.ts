@@ -32,7 +32,7 @@ const tokenCountRequestSchema = z.object({
 
 type TokenCountRequest = z.infer<typeof tokenCountRequestSchema>
 
-const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-6'
+const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-7'
 
 export async function postTokenCount(params: {
   req: NextRequest

@@ -16,7 +16,7 @@ export const createBestOfNImplementor = (options: {
     model: isSonnet
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
-        ? 'anthropic/claude-opus-4.6'
+        ? 'anthropic/claude-opus-4.7'
         : isGemini
           ? 'google/gemini-3-pro-preview'
           : 'openai/gpt-5.1',

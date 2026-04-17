@@ -14,7 +14,7 @@ export const createCodeEditor = (options: {
         ? 'openai/gpt-5.1'
         : options.model === 'glm'
           ? 'z-ai/glm-5.1'
-          : 'anthropic/claude-opus-4.6',
+          : 'anthropic/claude-opus-4.7',
     ...(options.model === 'opus' && {
       providerOptions: {
         only: ['amazon-bedrock'],

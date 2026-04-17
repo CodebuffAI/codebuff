@@ -12,7 +12,7 @@ export const createCodeEditor = (options: {
     model:
       options.model === 'gpt-5'
         ? 'openai/gpt-5.1'
-        : 'anthropic/claude-opus-4.6',
+        : 'anthropic/claude-opus-4.7',
     displayName: 'Code Editor',
     spawnerPrompt:
       'Expert code reviewer that reviews recent code changes and makes improvements.',

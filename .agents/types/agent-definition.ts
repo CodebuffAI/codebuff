@@ -380,7 +380,9 @@ export type ModelName =
 
   // Anthropic
   | 'anthropic/claude-sonnet-4.6'
+  | 'anthropic/claude-opus-4.7'
   | 'anthropic/claude-opus-4.6'
+  | 'anthropic/claude-opus-4.5'
   | 'anthropic/claude-haiku-4.5'
   | 'anthropic/claude-sonnet-4.5'
   | 'anthropic/claude-opus-4.1'

@@ -11,7 +11,7 @@ import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.6',
+    model: 'anthropic/claude-opus-4.7',
     providerOptions: {
       only: ['amazon-bedrock'],
     },
