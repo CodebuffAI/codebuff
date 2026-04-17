@@ -109,8 +109,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             totalRemaining: 100,
             totalDebt: 0,
             netBalance: 100,
-            breakdown: {},
-            principals: {},
+            breakdown: {} as Record<string, number>,
+            principals: {} as Record<string, number>,
           },
           nextQuotaReset,
         }
