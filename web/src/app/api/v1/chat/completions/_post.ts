@@ -1,6 +1,9 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
+import {
+  isFreeMode,
+  isFreeModeAllowedAgentModel,
+} from '@codebuff/common/constants/free-agents'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
@@ -356,6 +359,38 @@ export async function postChatCompletions(params: {
       return NextResponse.json(
         { message: `runId Not Running: ${runIdFromBody}` },
         { status: 400 },
+      )
+    }
+
+    // Free-mode requests must use an allowlisted agent+model combination.
+    // Without this gate, an attacker on a brand-new unpaid account can set
+    // cost_mode='free' to bypass both the paid-account check and the balance
+    // check, then request an expensive model (Opus, etc). Our OpenRouter key
+    // pays for the call; the downstream credit-consumption step records an
+    // audit row but can't actually deduct from a user who has no grants —
+    // net result is free Opus for the attacker, real dollars for us. Check
+    // must happen here, before any call to OpenRouter.
+    if (
+      isFreeModeRequest &&
+      !isFreeModeAllowedAgentModel(agentId, typedBody.model)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'free_mode_invalid_agent_model',
+          agentId,
+          model: typedBody.model,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'free_mode_invalid_agent_model',
+          message:
+            'Free mode is only available for specific agent and model combinations.',
+        },
+        { status: 403 },
       )
     }
 

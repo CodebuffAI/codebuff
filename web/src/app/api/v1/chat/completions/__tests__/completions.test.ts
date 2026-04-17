@@ -135,6 +135,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           status: 'running',
         }
       }
+      if (runId === 'run-free') {
+        return {
+          // Real free-mode allowlisted agent (see FREE_MODE_AGENT_MODELS).
+          agent_id: 'base2-free',
+          status: 'running',
+        }
+      }
       if (runId === 'run-completed') {
         return {
           agent_id: 'agent-123',
@@ -529,10 +536,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-new-free' },
           body: JSON.stringify({
-            model: 'test/test-model',
+            model: 'z-ai/glm-5.1',
             stream: false,
             codebuff_metadata: {
-              run_id: 'run-123',
+              run_id: 'run-free',
               client_id: 'test-client-id-123',
               cost_mode: 'free',
             },
@@ -562,8 +569,116 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-no-credits' },
           body: JSON.stringify({
-            model: 'test/test-model',
+            model: 'z-ai/glm-5.1',
             stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(200)
+    })
+
+    it('rejects free-mode requests using a non-allowlisted model (e.g. Opus)', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            // Expensive model the attacker wants for free.
+            model: 'anthropic/claude-4.7-opus',
+            stream: true,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_invalid_agent_model')
+    })
+
+    it('rejects free-mode requests with an allowlisted agent but a model outside its allowed set', async () => {
+      // agent=base2-free is allowlisted, but Opus is not in its allowed
+      // model set. This is the spoofing variant of the attack where the
+      // caller picks a real free-mode agentId to try to sneak past the gate.
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            model: 'anthropic/claude-4.7-opus',
+            stream: true,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_invalid_agent_model')
+    })
+
+    it('rejects free-mode requests where agentId is not in the allowlist at all', async () => {
+      // run-123 points to agent-123, which is not a free-mode agent.
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            model: 'z-ai/glm-5.1',
+            stream: true,
             codebuff_metadata: {
               run_id: 'run-123',
               client_id: 'test-client-id-123',
@@ -585,7 +700,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         loggerWithContext: mockLoggerWithContext,
       })
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_invalid_agent_model')
     })
   })
 
@@ -734,10 +851,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
-            model: 'test/test-model',
+            model: 'z-ai/glm-5.1',
             stream: false,
             codebuff_metadata: {
-              run_id: 'run-123',
+              run_id: 'run-free',
               client_id: 'test-client-id-123',
               cost_mode: 'free',
             },
