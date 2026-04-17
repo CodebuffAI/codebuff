@@ -138,7 +138,17 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       const operationId = referralRecord[0].operation_id
 
-      // 2. Process and grant credits for both users (one-time, never expires)
+      // 2. Grant credits for both users (skipped entirely when bonus is 0 — we still
+      //    record the referral above for tracking, but don't write 0-principal rows
+      //    into the credit ledger).
+      if (CREDITS_REFERRAL_BONUS <= 0) {
+        logger.info(
+          { operationId, referrerId: referrer.id, referredId: userId },
+          'Referral recorded; credit grants skipped (CREDITS_REFERRAL_BONUS=0).',
+        )
+        return
+      }
+
       const grantPromises = []
 
       const grantForUser = (user: { id: string; role: 'referrer' | 'referred' }) =>
