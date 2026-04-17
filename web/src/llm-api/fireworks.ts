@@ -4,6 +4,7 @@ import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
+import { FIREWORKS_DEPLOYMENT_MAP } from './fireworks-config'
 import {
   consumeCreditsForMessage,
   extractRequestMetadata,
@@ -36,13 +37,6 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
-
-/** Custom deployment IDs for models with dedicated Fireworks deployments */
-const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
-  // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/lnfid5h9',
-  'moonshotai/kimi-k2.5': 'accounts/james-65d217/deployments/mx8l5rq2',
-  'z-ai/glm-5.1': 'accounts/james-65d217/deployments/mjb4i7ea',
-}
 
 /** Check if current time is within deployment hours (always enabled) */
 export function isDeploymentHours(_now: Date = new Date()): boolean {

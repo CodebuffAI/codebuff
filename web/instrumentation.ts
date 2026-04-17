@@ -8,6 +8,7 @@
  * causing Render's proxy to return 502 Bad Gateway errors.
  */
 
+import { startFireworksMonitor } from '@/server/fireworks-monitor/monitor'
 import { logger } from '@/util/logger'
 
 export function register() {
@@ -45,4 +46,6 @@ export function register() {
   })
 
   logger.info({}, '[Instrumentation] Global error handlers registered')
+
+  startFireworksMonitor()
 }
