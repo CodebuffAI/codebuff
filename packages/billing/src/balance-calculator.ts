@@ -38,45 +38,6 @@ export interface CreditConsumptionResult {
   fromPurchased: number
 }
 
-/**
- * Thrown when a free-tier user (no purchase or subscription grants)
- * attempts to consume more credits than their balance allows.
- */
-export class InsufficientCreditsError extends Error {
-  public readonly netBalance: number
-  public readonly chargeAmount: number
-
-  constructor(netBalance: number, chargeAmount: number) {
-    super(
-      `Insufficient credits for free-tier user: balance=${netBalance}, charge=${chargeAmount}`,
-    )
-    this.name = 'InsufficientCreditsError'
-    this.netBalance = netBalance
-    this.chargeAmount = chargeAmount
-  }
-}
-
-/**
- * Hard gate: blocks a charge when a free-tier user (no purchase or subscription
- * grants) would overdraw their credit balance. This prevents credit-farming
- * abuse where users consume far more than their granted credits.
- *
- * Users with purchase or subscription grants are always allowed through
- * (they have a payment relationship and can accumulate debt).
- */
-export function shouldBlockFreeUserOverdraw(
-  grants: Array<{ balance: number; type: string }>,
-  credits: number,
-): boolean {
-  if (credits <= 0) return false
-  const hasPaidGrant = grants.some(
-    (g) => g.type === 'purchase' || g.type === 'subscription',
-  )
-  if (hasPaidGrant) return false
-  const netBalance = grants.reduce((sum, g) => sum + g.balance, 0)
-  return netBalance < credits
-}
-
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<
   typeof db,
@@ -602,7 +563,18 @@ export async function consumeCreditsAndAddAgentStep(params: {
   const finishedAt = new Date()
   const latencyMs = finishedAt.getTime() - startTime.getTime()
 
-  // Track grant state for error logging (declared outside transaction for access in catch block)
+  // Test sentinel: short-circuit both credit consumption and the message
+  // insert. Matches prior behavior so agent-runtime unit tests that use this
+  // sentinel as userId don't hit the DB.
+  if (userId === TEST_USER_ID) {
+    return success({
+      consumed: 0,
+      fromPurchased: 0,
+      agentStepId: 'test-step-id',
+    })
+  }
+
+  // Track grant state for error logging
   let activeGrantsSnapshot: Array<{
     operation_id: string
     balance: number
@@ -610,192 +582,86 @@ export async function consumeCreditsAndAddAgentStep(params: {
     priority: number
     expires_at: Date | null
   }> = []
-  let phase: 'fetch_grants' | 'consume_credits' | 'insert_message' | 'complete' =
-    'fetch_grants'
+  let phase: 'fetch_grants' | 'consume_credits' | 'complete' = 'fetch_grants'
+
+  // Billing transaction. Isolated from the message insert below so that a
+  // billing failure never prevents us from recording that OpenRouter was paid.
+  // OR bills us the moment the upstream request completes; the audit row must
+  // exist regardless of whether we successfully charged the user.
+  let consumeResult: CreditConsumptionResult | null = null
+  let billingError: unknown = null
+  let lockWaitMs: number | undefined
+  let alreadyRecorded = false
 
   try {
-    const { result, lockWaitMs } = await withAdvisoryLockTransaction({
-      callback: async (tx) => {
-        // Reset state at start of each transaction attempt (in case of retries)
+    const txOut = await withAdvisoryLockTransaction({
+      callback: async (tx): Promise<CreditConsumptionResult | null> => {
         activeGrantsSnapshot = []
         phase = 'fetch_grants'
 
+        if (byok) return null
+
+        // Idempotency: if we've already recorded this messageId (e.g. a retry
+        // of the exact same upstream call), skip credit consumption. The
+        // advisory lock is keyed by userId so this check is serialized per
+        // user. messageId is globally unique in practice (OR generation id).
+        const existing = await tx
+          .select({ id: schema.message.id })
+          .from(schema.message)
+          .where(eq(schema.message.id, messageId))
+          .limit(1)
+        if (existing.length > 0) {
+          alreadyRecorded = true
+          return null
+        }
+
         const now = new Date()
+        const activeGrants = await getOrderedActiveGrantsForConsumption({
+          ...params,
+          now,
+          conn: tx,
+        })
 
-        let consumeResult: CreditConsumptionResult | null = null
-        consumeCredits: {
-          if (byok) {
-            break consumeCredits
-          }
+        activeGrantsSnapshot = activeGrants.map((g) => ({
+          operation_id: g.operation_id,
+          balance: g.balance,
+          type: g.type,
+          priority: g.priority,
+          expires_at: g.expires_at,
+        }))
 
-          const activeGrants = await getOrderedActiveGrantsForConsumption({
-            ...params,
-            now,
-            conn: tx,
-          })
-
-          // Capture grant snapshot for error logging (includes expires_at for timing issues)
-          activeGrantsSnapshot = activeGrants.map((g) => ({
-            operation_id: g.operation_id,
-            balance: g.balance,
-            type: g.type,
-            priority: g.priority,
-            expires_at: g.expires_at,
-          }))
-
-          if (activeGrants.length === 0) {
-            logger.error(
-              { userId, credits },
-              'No active grants found to consume credits from',
-            )
-            throw new Error('No active grants found')
-          }
-
-          // Hard gate: block free-tier users from overdrawing credits.
-          // This prevents credit-farming abuse where users with only free/referral
-          // grants consume far beyond their balance due to the debt-repay bug
-          // in consumeFromOrderedGrants.
-          // (BYOK path already broke out of this `consumeCredits:` block above.)
-          if (shouldBlockFreeUserOverdraw(activeGrants, credits)) {
-            const netBalance = activeGrants.reduce(
-              (sum, g) => sum + g.balance,
-              0,
-            )
-            logger.warn(
-              {
-                userId,
-                credits,
-                netBalance,
-                grantTypes: [...new Set(activeGrants.map((g) => g.type))],
-              },
-              'Blocked free-tier user from overdrawing credits',
-            )
-            throw new InsufficientCreditsError(netBalance, credits)
-          }
-
-          phase = 'consume_credits'
-          consumeResult = await consumeFromOrderedGrants({
-            ...params,
-            creditsToConsume: credits,
-            grants: activeGrants,
-            tx,
-          })
-
-          if (userId === TEST_USER_ID) {
-            return { ...consumeResult, agentStepId: 'test-step-id' }
-          }
-        }
-
-        phase = 'insert_message'
-        try {
-          await tx.insert(schema.message).values({
-            id: messageId,
-            agent_id: agentId,
-            finished_at: new Date(),
-            client_id: clientId,
-            client_request_id: clientRequestId,
-            model,
-            reasoning_text: reasoningText,
-            response,
-            input_tokens: inputTokens,
-            cache_creation_input_tokens: cacheCreationInputTokens,
-            cache_read_input_tokens: cacheReadInputTokens,
-            reasoning_tokens: reasoningTokens,
-            output_tokens: outputTokens,
-            cost: cost.toString(),
-            credits,
-            byok,
-            latency_ms: latencyMs,
-            ttft_ms: ttftMs,
-            user_id: userId,
-          })
-        } catch (error) {
+        if (activeGrants.length === 0) {
+          // Non-fatal: user has no grants (not even a free one). Log loudly,
+          // let the message insert proceed so we at least have an audit row.
           logger.error(
-            {
-              messageId,
-              userId,
-              agentId,
-              error: getErrorObject(error),
-              pgDetails: extractPostgresErrorDetails(error),
-            },
-            'Failed to insert message',
+            { userId, credits, messageId },
+            'No active grants found to consume credits from',
           )
-          throw error
+          return null
         }
 
+        phase = 'consume_credits'
+        const result = await consumeFromOrderedGrants({
+          ...params,
+          creditsToConsume: credits,
+          grants: activeGrants,
+          tx,
+        })
         phase = 'complete'
-        if (!consumeResult) {
-          consumeResult = {
-            consumed: 0,
-            fromPurchased: 0,
-          }
-        }
-        return { ...consumeResult, agentStepId: crypto.randomUUID() }
+        return result
       },
       lockKey: `user:${userId}`,
       context: { userId, credits },
       logger,
     })
-
-    // Log successful credit consumption with lock timing
-    logger.info(
-      {
-        userId,
-        messageId,
-        creditsConsumed: result.consumed,
-        creditsRequested: credits,
-        fromPurchased: result.fromPurchased,
-        lockWaitMs,
-        agentId,
-        model,
-      },
-      'Credits consumed and agent step recorded',
-    )
-
-    // Track credit consumption analytics
-    trackEvent({
-      event: AnalyticsEvent.CREDIT_CONSUMED,
-      userId,
-      properties: {
-        creditsConsumed: result.consumed,
-        creditsRequested: credits,
-        fromPurchased: result.fromPurchased,
-        messageId,
-        agentId,
-        model,
-        source: 'consumeCreditsAndAddAgentStep',
-        inputTokens,
-        outputTokens,
-        reasoningTokens: reasoningTokens ?? 0,
-        cacheReadInputTokens,
-        latencyMs,
-        byok,
-      },
-      logger,
-    })
-
-    await reportPurchasedCreditsToStripe({
-      userId,
-      stripeCustomerId: params.stripeCustomerId,
-      purchasedCredits: result.fromPurchased,
-      logger,
-      eventId: messageId,
-      timestamp: finishedAt,
-      extraPayload: {
-        source: 'consumeCreditsAndAddAgentStep',
-        message_id: messageId,
-      },
-    })
-
-    return success(result)
+    consumeResult = txOut.result
+    lockWaitMs = txOut.lockWaitMs
   } catch (error) {
-    // Extract detailed error information for debugging
-    const pgDetails = extractPostgresErrorDetails(error)
-
+    billingError = error
     logger.error(
       {
         error: getErrorObject(error),
-        pgDetails,
+        pgDetails: extractPostgresErrorDetails(error),
         transactionContext: {
           phase,
           userId,
@@ -816,10 +682,125 @@ export async function consumeCreditsAndAddAgentStep(params: {
           0,
         ),
       },
-      'Error consuming credits and adding agent step',
+      'Error consuming credits; proceeding with message insert',
     )
-    return failure(error)
   }
+
+  // Idempotent replay: message row already exists. Skip the insert and the
+  // post-billing side effects (Stripe metering already fired on the first
+  // call; analytics were already emitted).
+  if (alreadyRecorded) {
+    logger.info(
+      { messageId, userId, agentId },
+      'Message already recorded; skipping duplicate consumeCreditsAndAddAgentStep',
+    )
+    return success({
+      consumed: 0,
+      fromPurchased: 0,
+      agentStepId: crypto.randomUUID(),
+    })
+  }
+
+  // Always record the message row. If billing failed, mark credits=0 so the
+  // audit row still exists — the row being absent is how OR costs leaked before.
+  const recordedCredits = billingError === null ? credits : 0
+
+  try {
+    await db
+      .insert(schema.message)
+      .values({
+        id: messageId,
+        agent_id: agentId,
+        finished_at: new Date(),
+        client_id: clientId,
+        client_request_id: clientRequestId,
+        model,
+        reasoning_text: reasoningText,
+        response,
+        input_tokens: inputTokens,
+        cache_creation_input_tokens: cacheCreationInputTokens,
+        cache_read_input_tokens: cacheReadInputTokens,
+        reasoning_tokens: reasoningTokens,
+        output_tokens: outputTokens,
+        cost: cost.toString(),
+        credits: recordedCredits,
+        byok,
+        latency_ms: latencyMs,
+        ttft_ms: ttftMs,
+        user_id: userId,
+      })
+      .onConflictDoNothing({ target: schema.message.id })
+  } catch (error) {
+    logger.error(
+      {
+        messageId,
+        userId,
+        agentId,
+        error: getErrorObject(error),
+        pgDetails: extractPostgresErrorDetails(error),
+      },
+      'Failed to insert message row',
+    )
+  }
+
+  if (billingError) {
+    return failure(billingError)
+  }
+
+  const finalResult: CreditConsumptionResult =
+    consumeResult ?? { consumed: 0, fromPurchased: 0 }
+
+  logger.info(
+    {
+      userId,
+      messageId,
+      creditsConsumed: finalResult.consumed,
+      creditsRequested: credits,
+      fromPurchased: finalResult.fromPurchased,
+      lockWaitMs,
+      agentId,
+      model,
+    },
+    'Credits consumed and agent step recorded',
+  )
+
+  trackEvent({
+    event: AnalyticsEvent.CREDIT_CONSUMED,
+    userId,
+    properties: {
+      creditsConsumed: finalResult.consumed,
+      creditsRequested: credits,
+      fromPurchased: finalResult.fromPurchased,
+      messageId,
+      agentId,
+      model,
+      source: 'consumeCreditsAndAddAgentStep',
+      inputTokens,
+      outputTokens,
+      reasoningTokens: reasoningTokens ?? 0,
+      cacheReadInputTokens,
+      latencyMs,
+      byok,
+    },
+    logger,
+  })
+
+  await reportPurchasedCreditsToStripe({
+    userId,
+    stripeCustomerId: params.stripeCustomerId,
+    purchasedCredits: finalResult.fromPurchased,
+    logger,
+    eventId: messageId,
+    timestamp: finishedAt,
+    extraPayload: {
+      source: 'consumeCreditsAndAddAgentStep',
+      message_id: messageId,
+    },
+  })
+
+  const agentStepId =
+    userId === TEST_USER_ID ? 'test-step-id' : crypto.randomUUID()
+  return success({ ...finalResult, agentStepId })
 }
 
 /**
