@@ -77,6 +77,11 @@ const FREE_MODE_ALLOWED_COUNTRIES = new Set([
 const MIN_ACCOUNT_AGE_DAYS = 3
 const MIN_ACCOUNT_AGE_FOR_PAID_MS = MIN_ACCOUNT_AGE_DAYS * 24 * 60 * 60 * 1000
 
+// Emails allowed to bypass the paid+aged-account gate so integration tests
+// (e.g. the SDK prompt-caching test) can run against a real server without
+// needing to seed a purchase on every fresh test account.
+const PAID_GATE_BYPASS_EMAILS = new Set(['team@codebuff.com'])
+
 function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
   if (forwardedFor) {
@@ -459,9 +464,12 @@ export async function postChatCompletions(params: {
       ? Date.now() - new Date(userInfo.created_at).getTime()
       : 0
     const accountIsTooNew = accountAgeMs < MIN_ACCOUNT_AGE_FOR_PAID_MS
+    const isBypassedEmail =
+      !!userInfo.email && PAID_GATE_BYPASS_EMAILS.has(userInfo.email.toLowerCase())
     if (
       !isFreeModeRequest &&
       !openrouterApiKeyHeader &&
+      !isBypassedEmail &&
       (!hasPaidRelationship || accountIsTooNew)
     ) {
       trackEvent({
