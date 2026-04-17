@@ -381,7 +381,7 @@ function buildImplementationStepPrompt({
   return buildArray(
     isMax &&
     `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    'You must use the skill tool to load any potentially relevant skills.',
+    'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
     isFree &&
     `Spawn the thinker-with-files-gemini agent for complex problems, not routine edits. Pass the relevant filePaths.`,
     isMax &&
