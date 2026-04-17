@@ -61,15 +61,34 @@ function createOpenRouterRequest(params: {
   })
 }
 
-function extractUsageAndCost(usage: any): UsageData {
-  const openRouterCost = usage?.cost ?? 0
-  const upstreamCost = usage?.cost_details?.upstream_inference_cost ?? 0
+/**
+ * Extract token counts and billed cost from an OpenRouter `usage` object.
+ *
+ * OpenRouter reports the billed charge in ONE of two fields — or in BOTH
+ * with the SAME value (observed on Anthropic routes). They are NOT additive:
+ *
+ *   Anthropic routes: { cost: X, cost_details: { upstream_inference_cost: X } }
+ *   Google routes:    { cost: 0, cost_details: { upstream_inference_cost: X } }
+ *   Some routes:      { cost: X, cost_details: null }
+ *
+ * We previously summed the two fields, which double-charged every Anthropic
+ * call. Taking the max handles all three shapes safely.
+ *
+ * See: investigation notes + scripts/refund-openrouter-overcharge.ts
+ */
+export function extractUsageAndCost(usage: any): UsageData {
+  const openRouterCost =
+    typeof usage?.cost === 'number' ? usage.cost : 0
+  const upstreamCost =
+    typeof usage?.cost_details?.upstream_inference_cost === 'number'
+      ? usage.cost_details.upstream_inference_cost
+      : 0
   return {
     inputTokens: usage?.prompt_tokens ?? 0,
     outputTokens: usage?.completion_tokens ?? 0,
     cacheReadInputTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
     reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-    cost: openRouterCost + upstreamCost,
+    cost: Math.max(openRouterCost, upstreamCost),
   }
 }
 
