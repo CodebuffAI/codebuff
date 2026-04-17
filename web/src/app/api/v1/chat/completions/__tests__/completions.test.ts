@@ -18,21 +18,32 @@ import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { GetUserPreferencesFn } from '../_post'
 
 describe('/api/v1/chat/completions POST endpoint', () => {
+  // Old enough to clear the account-age gate in _post.ts
+  const AGED_ACCOUNT_CREATED_AT = new Date('2024-01-01T00:00:00Z')
+
   const mockUserData: Record<
     string,
-    { id: string; banned: boolean }
+    { id: string; banned: boolean; created_at: Date }
   > = {
     'test-api-key-123': {
       id: 'user-123',
       banned: false,
+      created_at: AGED_ACCOUNT_CREATED_AT,
     },
     'test-api-key-no-credits': {
       id: 'user-no-credits',
       banned: false,
+      created_at: AGED_ACCOUNT_CREATED_AT,
     },
     'test-api-key-blocked': {
       id: 'banned-user-id',
       banned: true,
+      created_at: AGED_ACCOUNT_CREATED_AT,
+    },
+    'test-api-key-new-free': {
+      id: 'user-new-free',
+      banned: false,
+      created_at: new Date(),
     },
   }
 
@@ -43,7 +54,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id, banned: userData.banned } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
+    return {
+      id: userData.id,
+      banned: userData.banned,
+      created_at: userData.created_at,
+    } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
   }
 
   let mockLogger: Logger
@@ -80,6 +95,22 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             totalDebt: 0,
             netBalance: 0,
             breakdown: {},
+            // Has purchased credits historically (principals > 0) but 0 remaining
+            // so the paid-plan gate passes and the credit check is what enforces 402.
+            principals: { purchase: 100 },
+          },
+          nextQuotaReset,
+        }
+      }
+      if (userId === 'user-new-free') {
+        return {
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: 100,
+            totalDebt: 0,
+            netBalance: 100,
+            breakdown: {},
+            principals: {},
           },
           nextQuotaReset,
         }
@@ -91,6 +122,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           totalDebt: 0,
           netBalance: 100,
           breakdown: {},
+          principals: { purchase: 100 },
         },
         nextQuotaReset,
       }
@@ -419,6 +451,75 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const expectedResetCountdown = formatQuotaResetCountdown(nextQuotaReset)
       expect(body.message).toContain(expectedResetCountdown)
       expect(body.message).not.toContain(nextQuotaReset)
+    })
+
+    it('returns 403 for a free-tier user with no paid relationship', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('requires_paid_plan')
+    })
+
+    it('lets a BYOK free-tier new account through the paid-plan gate', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'x-openrouter-api-key': 'sk-or-byok-test',
+          },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(200)
     })
 
     it('skips credit check when in FREE mode even with 0 credits', async () => {
@@ -818,6 +919,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           totalDebt: 0,
           netBalance: includeSubscriptionCredits ? 350 : 0,
           breakdown: {},
+          principals: { subscription: 350 },
         },
         nextQuotaReset,
       }))

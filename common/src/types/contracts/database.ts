@@ -8,6 +8,7 @@ type User = {
   referral_code: string | null
   stripe_customer_id: string | null
   banned: boolean
+  created_at: Date
 }
 export const userColumns = [
   'id',
@@ -16,6 +17,7 @@ export const userColumns = [
   'referral_code',
   'stripe_customer_id',
   'banned',
+  'created_at',
 ] as const
 export type UserColumn = keyof User
 export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {

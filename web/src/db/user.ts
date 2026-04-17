@@ -15,6 +15,7 @@ export const VALID_USER_INFO_FIELDS = [
   'referral_code',
   'stripe_customer_id',
   'banned',
+  'created_at',
 ] as const
 
 export async function getUserInfoFromApiKey<T extends UserColumn>({

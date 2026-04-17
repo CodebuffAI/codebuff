@@ -74,6 +74,9 @@ const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'NO', 'SE', 'NL', 'DK', 'DE', 'FI', 'BE', 'LU', 'CH', 'IE', 'IS',
 ])
 
+const MIN_ACCOUNT_AGE_DAYS = 3
+const MIN_ACCOUNT_AGE_FOR_PAID_MS = MIN_ACCOUNT_AGE_DAYS * 24 * 60 * 60 * 1000
+
 function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
   if (forwardedFor) {
@@ -206,7 +209,7 @@ export async function postChatCompletions(params: {
     // Get user info
     const userInfo = await getUserInfoFromApiKey({
       apiKey,
-      fields: ['id', 'email', 'discord_id', 'stripe_customer_id', 'banned'],
+      fields: ['id', 'email', 'discord_id', 'stripe_customer_id', 'banned', 'created_at'],
       logger,
     })
     if (!userInfo) {
@@ -440,9 +443,42 @@ export async function postChatCompletions(params: {
 
     // Fetch user credit data (includes subscription credits when block grant was ensured)
     const {
-      balance: { totalRemaining },
+      balance: { totalRemaining, principals },
       nextQuotaReset,
     } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
+
+    // Gate non-free-mode requests behind (a) an established paid relationship
+    // AND (b) a non-new account. An ongoing abuse campaign uses freshly-signed-up
+    // self-referral accounts to burn credits via the stream-error billing gap in
+    // openrouter.ts; restricting to aged + paid accounts cuts off that vector.
+    // BYOK users bypass — they pay OpenRouter directly, so there's nothing to burn.
+    const openrouterApiKeyHeader = req.headers.get(BYOK_OPENROUTER_HEADER)
+    const hasPaidRelationship =
+      (principals.purchase ?? 0) > 0 || (principals.subscription ?? 0) > 0
+    const accountAgeMs = userInfo.created_at
+      ? Date.now() - new Date(userInfo.created_at).getTime()
+      : 0
+    const accountIsTooNew = accountAgeMs < MIN_ACCOUNT_AGE_FOR_PAID_MS
+    if (!openrouterApiKeyHeader && (!hasPaidRelationship || accountIsTooNew)) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'blocked_for_free_tier',
+          model: typedBody.model,
+          hasPaidRelationship,
+          accountAgeMs,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'requires_paid_plan',
+          message: `Non-free mode requires a paid subscription or purchased credits on an account at least ${MIN_ACCOUNT_AGE_DAYS} days old. Visit ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage to upgrade, or pass an OpenRouter API key to bring your own credits.`,
+        },
+        { status: 403 },
+      )
+    }
 
     // Credit check
     if (totalRemaining <= 0 && !isFreeModeRequest) {
@@ -464,7 +500,7 @@ export async function postChatCompletions(params: {
       )
     }
 
-    const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
+    const openrouterApiKey = openrouterApiKeyHeader
 
     // Handle streaming vs non-streaming
     try {

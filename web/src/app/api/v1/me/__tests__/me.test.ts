@@ -25,6 +25,7 @@ describe('/api/v1/me route', () => {
       referral_code: 'ref-user-123',
       stripe_customer_id: 'cus_test_123',
       banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
     },
     'test-api-key-456': {
       id: 'user-456',
@@ -33,6 +34,7 @@ describe('/api/v1/me route', () => {
       referral_code: 'ref-user-456',
       stripe_customer_id: null,
       banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
     },
   }
 
@@ -214,7 +216,7 @@ describe('/api/v1/me route', () => {
       const body = await response.json()
       expect(body.error).toContain('Invalid fields: invalid_field')
       expect(body.error).toContain(
-        'Valid fields are: id, email, discord_id, referral_code, stripe_customer_id, banned, referral_link',
+        'Valid fields are: id, email, discord_id, referral_code, stripe_customer_id, banned, created_at, referral_link',
       )
     })
 
