@@ -114,6 +114,7 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze({
       referral_code: 'ref-test-code',
       stripe_customer_id: null,
       banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
     } as const
     return Object.fromEntries(
       fields.map((field) => [field, user[field as keyof typeof user]]),

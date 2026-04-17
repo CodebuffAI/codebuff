@@ -39,6 +39,7 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
     referral_code: 'ref-test-code',
     stripe_customer_id: null,
     banned: false,
+    created_at: new Date('2024-01-01T00:00:00Z'),
   }),
   fetchAgentFromDatabase: async () => null,
   startAgentRun: async () => 'test-agent-run-id',
