@@ -522,6 +522,39 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
     })
 
+    it('lets a freebuff/free-mode request through even for a brand-new unpaid account', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(200)
+    })
+
     it('skips credit check when in FREE mode even with 0 credits', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',

@@ -459,7 +459,11 @@ export async function postChatCompletions(params: {
       ? Date.now() - new Date(userInfo.created_at).getTime()
       : 0
     const accountIsTooNew = accountAgeMs < MIN_ACCOUNT_AGE_FOR_PAID_MS
-    if (!openrouterApiKeyHeader && (!hasPaidRelationship || accountIsTooNew)) {
+    if (
+      !isFreeModeRequest &&
+      !openrouterApiKeyHeader &&
+      (!hasPaidRelationship || accountIsTooNew)
+    ) {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
         userId,
