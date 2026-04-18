@@ -1,18 +1,26 @@
 import { TextAttributes } from '@opentui/core'
-import { useRenderer } from '@opentui/react'
-import React, { useEffect, useMemo, useState } from 'react'
+import { useKeyboard, useRenderer } from '@opentui/react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { AdBanner } from './ad-banner'
 import { ChoiceAdBanner } from './choice-ad-banner'
 import { ShimmerText } from './shimmer-text'
+import { endFreebuffSessionBestEffort } from '../hooks/use-freebuff-session'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
+import { flushAnalytics } from '../utils/analytics'
+import { withTimeout } from '../utils/terminal-color-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { KeyEvent } from '@opentui/core'
+
+/** Cap on exit cleanup (DELETE /session + flushAnalytics) so a slow network
+ *  doesn't block process exit. */
+const EXIT_CLEANUP_TIMEOUT_MS = 1000
 
 interface WaitingRoomScreenProps {
   session: FreebuffSessionResponse | null
@@ -67,6 +75,24 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
   // Always enable ads in the waiting room — this is where monetization lives.
   const { ad, adData, recordImpression } = useGravityAd({ enabled: true })
+
+  // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
+  // through as a normal OpenTUI key event. Release the seat before exit so
+  // the next user in line doesn't have to wait for server-side expiry.
+  useKeyboard(
+    useCallback((key: KeyEvent) => {
+      if (key.ctrl && key.name === 'c') {
+        key.preventDefault?.()
+        const cleanup = Promise.allSettled([
+          flushAnalytics(),
+          endFreebuffSessionBestEffort(),
+        ])
+        withTimeout(cleanup, EXIT_CLEANUP_TIMEOUT_MS, undefined).finally(() => {
+          process.exit(0)
+        })
+      }
+    }, []),
+  )
 
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back.
@@ -127,40 +153,41 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
           {isQueued && session && (
             <>
-              <text
-                style={{ fg: theme.foreground, marginBottom: 1 }}
-              >
-                <ShimmerText text="You're in the waiting room" />
+              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
+                You're in the waiting room
               </text>
 
               <box
                 style={{
                   flexDirection: 'column',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
                   gap: 0,
                 }}
               >
-                <text style={{ fg: theme.foreground }}>
-                  Position{' '}
-                  <span fg={theme.primary} attributes={TextAttributes.BOLD}>
-                    {session.position}
-                  </span>
-                  <span fg={theme.muted}> of {session.queueDepth}</span>
-                </text>
-                <text style={{ fg: theme.foreground }}>
-                  Estimated wait:{' '}
-                  <span fg={theme.primary}>
-                    {formatWait(session.estimatedWaitMs)}
-                  </span>
-                </text>
-                <text style={{ fg: theme.muted }}>
-                  Waiting for {formatElapsed(elapsedMs)}
-                </text>
-              </box>
-
-              <box style={{ marginTop: 1, alignItems: 'center' }}>
-                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                  Leave this window open — we'll ding when your session starts.
+                {session.position === 1 ? (
+                  <text style={{ fg: theme.primary, alignSelf: 'flex-start' }}>
+                    <ShimmerText text="Next in line" />
+                  </text>
+                ) : (
+                  <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
+                    <span fg={theme.muted}>Position </span>
+                    <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+                      {session.position}
+                    </span>
+                    <span fg={theme.muted}> / {session.queueDepth}</span>
+                  </text>
+                )}
+                {session.position !== 1 && (
+                  <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
+                    <span fg={theme.muted}>Wait     </span>
+                    <span fg={theme.primary}>
+                      <ShimmerText text={formatWait(session.estimatedWaitMs)} />
+                    </span>
+                  </text>
+                )}
+                <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
+                  <span>Elapsed  </span>
+                  {formatElapsed(elapsedMs)}
                 </text>
               </box>
             </>

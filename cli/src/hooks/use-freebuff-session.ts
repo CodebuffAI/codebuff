@@ -115,6 +115,27 @@ export function markFreebuffSessionSuperseded(): void {
 }
 
 /**
+ * Best-effort DELETE of the caller's session row. Used by exit paths that
+ * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
+ * instead of waiting for the server-side expiry sweep. Swallows errors
+ * because we are about to terminate anyway.
+ */
+export async function endFreebuffSessionBestEffort(): Promise<void> {
+  if (!IS_FREEBUFF) return
+  const current = useFreebuffSessionStore.getState().session
+  if (!current || (current.status !== 'queued' && current.status !== 'active')) {
+    return
+  }
+  const { token } = getAuthTokenDetails()
+  if (!token) return
+  try {
+    await callSession('DELETE', token)
+  } catch {
+    // swallow — we're exiting
+  }
+}
+
+/**
  * Manages the freebuff waiting-room session lifecycle:
  *   - POST on mount to join the queue / rotate instance id
  *   - polls GET while queued (fast) or active (slow) to keep state fresh
