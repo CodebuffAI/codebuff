@@ -31,6 +31,9 @@ const definition: AgentDefinition = {
         userBudget: {
           type: 'number',
         },
+        cacheExpiryMs: {
+          type: 'number',
+        },
       },
       required: [],
     },
@@ -74,8 +77,8 @@ const definition: AgentDefinition = {
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
 
-    /** Prompt cache expiry time (Anthropic caches for 5 minutes) */
-    const CACHE_EXPIRY_MS = 5 * 60 * 1000
+    /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
+    const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
 
     /** Header used in conversation summaries */
     const SUMMARY_HEADER =
@@ -326,6 +329,17 @@ const definition: AgentDefinition = {
     )
     if (lastSubagentSpawnIndex !== -1) {
       currentMessages.splice(lastSubagentSpawnIndex, 1)
+    }
+
+    // Also remove the params USER_PROMPT if params were provided to this agent
+    // (this is the message like <user_message>{"cacheExpiryMs": 600000}</user_message>)
+    if (params && Object.keys(params).length > 0) {
+      const lastUserPromptIndex = currentMessages.findLastIndex((message) =>
+        message.tags?.includes('USER_PROMPT'),
+      )
+      if (lastUserPromptIndex !== -1) {
+        currentMessages.splice(lastUserPromptIndex, 1)
+      }
     }
 
     // Check for prompt cache miss (>5 min gap before the USER_PROMPT message)
