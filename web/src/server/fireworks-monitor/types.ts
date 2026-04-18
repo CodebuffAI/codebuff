@@ -18,6 +18,9 @@ export interface DeploymentHealth {
   status: DeploymentHealthStatus
   reasons: string[]
   metrics: {
+    /** null when Fireworks doesn't emit a deployment_replicas gauge for the
+     *  deployment (cold / deleted / not-yet-scraped). 0 means scaled-to-zero. */
+    replicas: number | null
     requestRate: number
     errorRate: number
     errorFraction: number

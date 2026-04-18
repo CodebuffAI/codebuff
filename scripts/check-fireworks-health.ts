@@ -110,6 +110,7 @@ async function main() {
     console.log(`── ${color}${health.status.toUpperCase().padEnd(9)}${RESET} ${model}`)
     console.log(`   deployment:            ${deployment}`)
     console.log(`   base model:            ${health.baseModel ?? 'n/a'}`)
+    console.log(`   replicas:              ${health.metrics.replicas ?? 'n/a'}`)
     console.log(`   request rate:          ${health.metrics.requestRate.toFixed(3)} req/s`)
     console.log(`   error rate:            ${health.metrics.errorRate.toFixed(3)} err/s (${formatPct(health.metrics.errorFraction)})`)
     console.log(`   concurrent requests:   ${health.metrics.concurrentRequests.toFixed(2)}`)

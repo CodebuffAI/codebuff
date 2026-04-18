@@ -17,6 +17,7 @@ afterEach(() => {
 const DEPLOYMENT = 'accounts/test-acc/deployments/d1'
 
 const HEALTHY_BODY = [
+  `deployment_replicas{deployment_id="d1"} 1`,
   `request_counter_total:sum_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1"} 10`,
   `requests_error_total:sum_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1",http_code="500"} 0`,
   `generator_kv_blocks_fraction:avg_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1"} 0.1`,

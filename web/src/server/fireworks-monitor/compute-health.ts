@@ -49,9 +49,9 @@ export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = {
   errorFractionUnhealthy: 0.1,
   kvBlocksFractionDegraded: 0.95,
   kvBlocksFractionUnhealthy: 0.99,
-  generationQueueMsDegraded: 5_000,
+  generationQueueMsDegraded: 400,
   generationQueueMsUnhealthy: 15_000,
-  ttftMsDegraded: 8_000,
+  ttftMsDegraded: 2_000,
   ttftMsUnhealthy: 30_000,
 }
 
@@ -69,6 +69,15 @@ export function computeDeploymentHealth(params: {
 }): DeploymentHealth {
   const { deployment, metrics, thresholds } = params
   const filter = { deployment }
+  const deploymentId = parseDeploymentId(deployment)
+
+  // `deployment_replicas` is keyed by deployment_id (not the full deployment
+  // path). Zero or missing replicas means the deployment is cold / scaled to
+  // zero / deleted — admission must fail closed in that case.
+  const replicasSamples = findSamples(metrics, 'deployment_replicas', {
+    deployment_id: deploymentId,
+  })
+  const replicas = replicasSamples.length > 0 ? sumSamples(replicasSamples) : null
 
   const requestRateSamples = findSamples(
     metrics,
@@ -121,13 +130,24 @@ export function computeDeploymentHealth(params: {
     ...errorRateSamples,
   ].find((s) => s.labels.base_model)
   const baseModel = baseModelSample?.labels.base_model ?? null
-  const deploymentId = baseModelSample?.labels.deployment_id ?? parseDeploymentId(deployment)
 
   const reasons: string[] = []
   let status: DeploymentHealthStatus = 'healthy'
 
   const upgrade = (next: DeploymentHealthStatus) => {
     if (STATUS_RANK[next] > STATUS_RANK[status]) status = next
+  }
+
+  // A deployment with no running replicas cannot serve traffic. Treat as
+  // unhealthy unconditionally so admission stops funneling users to a cold
+  // backend. Missing gauge (`replicas === null`) is the strongest signal
+  // Fireworks has dropped the deployment from its scrape entirely.
+  if (replicas === null) {
+    reasons.push('no replicas metric — deployment cold or deleted')
+    upgrade('unhealthy')
+  } else if (replicas <= 0) {
+    reasons.push(`replicas=${replicas}`)
+    upgrade('unhealthy')
   }
 
   if (requestRate >= thresholds.minRequestRateForErrorCheck) {
@@ -175,6 +195,7 @@ export function computeDeploymentHealth(params: {
     status,
     reasons,
     metrics: {
+      replicas,
       requestRate,
       errorRate,
       errorFraction,
@@ -223,6 +244,7 @@ export function computeSnapshot(params: {
         status: 'unknown',
         reasons: ['no scrape yet'],
         metrics: {
+          replicas: null,
           requestRate: 0,
           errorRate: 0,
           errorFraction: 0,

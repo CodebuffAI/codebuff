@@ -18,9 +18,18 @@ function fixture(params: {
   kvSlots?: number
   queueBuckets?: Array<{ le: string; count: number }>
   ttftBuckets?: Array<{ le: string; count: number }>
+  /** deployment_replicas gauge. Defaults to 1 so existing tests stay healthy.
+   *  Set to 0 or null to simulate a cold/deleted deployment. */
+  replicas?: number | null
 }): string {
   const lines: string[] = []
   const labels = `base_model="m",deployment="${DEPLOYMENT}",deployment_account="test-acc",deployment_id="d1"`
+  const replicas = params.replicas === undefined ? 1 : params.replicas
+  if (replicas !== null) {
+    lines.push(
+      `deployment_replicas{deployment_account="test-acc",deployment_id="d1"} ${replicas}`,
+    )
+  }
   if (params.requestRate !== undefined) {
     lines.push(`request_counter_total:sum_by_deployment{${labels}} ${params.requestRate}`)
   }
@@ -182,9 +191,38 @@ describe('computeDeploymentHealth', () => {
     expect(health.reasons.some((r) => r.includes('error rate'))).toBe(true)
   })
 
+  test('flags deployment with zero replicas as unhealthy', () => {
+    const metrics = parsePrometheusText(
+      fixture({ requestRate: 0, errorRate: 0, kvBlocks: 0, replicas: 0 }),
+    )
+    const health = computeDeploymentHealth({
+      deployment: DEPLOYMENT,
+      metrics,
+      thresholds: DEFAULT_HEALTH_THRESHOLDS,
+    })
+    expect(health.status).toBe('unhealthy')
+    expect(health.metrics.replicas).toBe(0)
+    expect(health.reasons.some((r) => r.includes('replicas'))).toBe(true)
+  })
+
+  test('flags deployment with no replicas metric as unhealthy (cold / deleted)', () => {
+    const metrics = parsePrometheusText(
+      fixture({ requestRate: 0, errorRate: 0, kvBlocks: 0, replicas: null }),
+    )
+    const health = computeDeploymentHealth({
+      deployment: DEPLOYMENT,
+      metrics,
+      thresholds: DEFAULT_HEALTH_THRESHOLDS,
+    })
+    expect(health.status).toBe('unhealthy')
+    expect(health.metrics.replicas).toBeNull()
+    expect(health.reasons.some((r) => r.includes('cold or deleted'))).toBe(true)
+  })
+
   test('sums error counters across multiple HTTP codes', () => {
     const labels = `base_model="m",deployment="${DEPLOYMENT}",deployment_id="d1"`
     const text = [
+      `deployment_replicas{deployment_account="test-acc",deployment_id="d1"} 1`,
       `request_counter_total:sum_by_deployment{${labels}} 100`,
       `requests_error_total:sum_by_deployment{${labels},http_code="500"} 3`,
       `requests_error_total:sum_by_deployment{${labels},http_code="429"} 5`,
@@ -231,9 +269,11 @@ describe('computeSnapshot', () => {
   test('overall status is the worst across deployments', () => {
     const dep2 = 'accounts/test-acc/deployments/d2'
     const text = [
+      `deployment_replicas{deployment_id="d1"} 1`,
       `request_counter_total:sum_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1"} 100`,
       `requests_error_total:sum_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1",http_code="500"} 0`,
       `generator_kv_blocks_fraction:avg_by_deployment{deployment="${DEPLOYMENT}",deployment_id="d1"} 0.1`,
+      `deployment_replicas{deployment_id="d2"} 1`,
       `request_counter_total:sum_by_deployment{deployment="${dep2}",deployment_id="d2"} 100`,
       `requests_error_total:sum_by_deployment{deployment="${dep2}",deployment_id="d2",http_code="500"} 30`,
       `generator_kv_blocks_fraction:avg_by_deployment{deployment="${dep2}",deployment_id="d2"} 0.1`,
