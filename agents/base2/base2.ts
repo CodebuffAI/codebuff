@@ -284,22 +284,40 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         noAskUser,
       }),
 
-    handleSteps: function* ({ params }) {
-      while (true) {
-        // Run context-pruner before each step
-        yield {
-          toolName: 'spawn_agent_inline',
-          input: {
-            agent_type: 'context-pruner',
-            params: params ?? {},
-          },
-          includeToolCall: false,
-        } as any
+    // handleSteps is serialized via .toString() and re-eval'd, so closure
+    // variables like `isFree` are not in scope at runtime. Pick the right
+    // literal-baked function here instead.
+    handleSteps: isFree
+      ? function* ({ params }) {
+          while (true) {
+            yield {
+              toolName: 'spawn_agent_inline',
+              input: {
+                agent_type: 'context-pruner',
+                params: { ...(params ?? {}), cacheExpiryMs: 10 * 60 * 1000 },
+              },
+              includeToolCall: false,
+            } as any
 
-        const { stepsComplete } = yield 'STEP'
-        if (stepsComplete) break
-      }
-    },
+            const { stepsComplete } = yield 'STEP'
+            if (stepsComplete) break
+          }
+        }
+      : function* ({ params }) {
+          while (true) {
+            yield {
+              toolName: 'spawn_agent_inline',
+              input: {
+                agent_type: 'context-pruner',
+                params: params ?? {},
+              },
+              includeToolCall: false,
+            } as any
+
+            const { stepsComplete } = yield 'STEP'
+            if (stepsComplete) break
+          }
+        },
   }
 }
 
