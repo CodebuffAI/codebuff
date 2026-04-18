@@ -49,6 +49,38 @@ async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise
   return { userId: String(userInfo.id) }
 }
 
+function serverError(
+  deps: FreebuffSessionDeps,
+  route: string,
+  userId: string | null,
+  error: unknown,
+): NextResponse {
+  const err = error instanceof Error ? error : new Error(String(error))
+  deps.logger.error(
+    {
+      route,
+      userId,
+      errorName: err.name,
+      errorMessage: err.message,
+      errorCode: (err as any).code,
+      cause:
+        (err as any).cause instanceof Error
+          ? {
+              name: (err as any).cause.name,
+              message: (err as any).cause.message,
+              code: (err as any).cause.code,
+            }
+          : (err as any).cause,
+      stack: err.stack,
+    },
+    '[freebuff/session] handler failed',
+  )
+  return NextResponse.json(
+    { error: 'internal_error', message: err.message },
+    { status: 500 },
+  )
+}
+
 /** POST /api/v1/freebuff/session — join queue / take over as this instance. */
 export async function postFreebuffSession(
   req: NextRequest,
@@ -57,11 +89,15 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const state = await requestSession({
-    userId: auth.userId,
-    deps: deps.sessionDeps,
-  })
-  return NextResponse.json(state, { status: 200 })
+  try {
+    const state = await requestSession({
+      userId: auth.userId,
+      deps: deps.sessionDeps,
+    })
+    return NextResponse.json(state, { status: 200 })
+  } catch (error) {
+    return serverError(deps, 'POST', auth.userId, error)
+  }
 }
 
 /** GET /api/v1/freebuff/session — read current state without mutation. */
@@ -72,17 +108,21 @@ export async function getFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const state = await getSessionState({
-    userId: auth.userId,
-    deps: deps.sessionDeps,
-  })
-  if (!state) {
-    return NextResponse.json(
-      { status: 'none', message: 'Call POST to join the waiting room.' },
-      { status: 200 },
-    )
+  try {
+    const state = await getSessionState({
+      userId: auth.userId,
+      deps: deps.sessionDeps,
+    })
+    if (!state) {
+      return NextResponse.json(
+        { status: 'none', message: 'Call POST to join the waiting room.' },
+        { status: 200 },
+      )
+    }
+    return NextResponse.json(state, { status: 200 })
+  } catch (error) {
+    return serverError(deps, 'GET', auth.userId, error)
   }
-  return NextResponse.json(state, { status: 200 })
 }
 
 /** DELETE /api/v1/freebuff/session — end session / leave queue immediately. */
@@ -93,6 +133,10 @@ export async function deleteFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  await endUserSession({ userId: auth.userId, deps: deps.sessionDeps })
-  return NextResponse.json({ status: 'ended' }, { status: 200 })
+  try {
+    await endUserSession({ userId: auth.userId, deps: deps.sessionDeps })
+    return NextResponse.json({ status: 'ended' }, { status: 200 })
+  } catch (error) {
+    return serverError(deps, 'DELETE', auth.userId, error)
+  }
 }

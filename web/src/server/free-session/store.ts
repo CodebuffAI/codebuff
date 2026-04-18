@@ -52,6 +52,11 @@ export async function joinOrTakeOver(params: {
   const { userId, now } = params
   const nextInstanceId = newInstanceId()
 
+  // postgres-js does NOT coerce raw JS Date values when they're interpolated
+  // inside a `sql\`...\`` fragment (the column-type hint that Drizzle's
+  // values() path relies on is absent there). Pre-serialize to an ISO string
+  // and cast to timestamptz so the driver binds it as text.
+  const nowIso = sql`${now.toISOString()}::timestamptz`
   // Single UPSERT that encodes every case in one round-trip, race-safe
   // against concurrent POSTs for the same user (the PK would otherwise turn
   // two parallel INSERTs into a 500). Inside ON CONFLICT DO UPDATE, bare
@@ -63,7 +68,7 @@ export async function joinOrTakeOver(params: {
   //   queued                     → rotate instance_id, preserve queued_at
   //   active & expired           → re-queue at back: status=queued,
   //                                queued_at=now, admitted_at/expires_at=null
-  const activeUnexpired = sql`${schema.freeSession.status} = 'active' AND ${schema.freeSession.expires_at} > ${now}`
+  const activeUnexpired = sql`${schema.freeSession.status} = 'active' AND ${schema.freeSession.expires_at} > ${nowIso}`
 
   const [row] = await db
     .insert(schema.freeSession)
@@ -84,7 +89,7 @@ export async function joinOrTakeOver(params: {
         queued_at: sql`CASE
           WHEN ${schema.freeSession.status} = 'queued' THEN ${schema.freeSession.queued_at}
           WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
-          ELSE ${now}
+          ELSE ${nowIso}
         END`,
         admitted_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.admitted_at} ELSE NULL END`,
         expires_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.expires_at} ELSE NULL END`,
@@ -152,7 +157,7 @@ export async function queuePositionFor(params: {
     .where(
       and(
         eq(schema.freeSession.status, 'queued'),
-        sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt}, ${params.userId})`,
+        sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt.toISOString()}::timestamptz, ${params.userId})`,
       ),
     )
   return Number(rows[0]?.n ?? 0)

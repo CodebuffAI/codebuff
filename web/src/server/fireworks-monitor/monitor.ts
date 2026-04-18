@@ -108,10 +108,46 @@ function jittered(intervalMs: number): number {
   return Math.max(1_000, Math.round(intervalMs + delta))
 }
 
+/** Unwrap nested `.cause` chains (undici's `fetch failed` wraps the real
+ *  error — DNS, ECONNREFUSED, TLS, etc. — under `.cause`). */
+function describeError(error: unknown): {
+  message: string
+  name?: string
+  code?: string
+  causes: Array<{ name?: string; message: string; code?: string }>
+  stack?: string
+} {
+  const causes: Array<{ name?: string; message: string; code?: string }> = []
+  let cursor: unknown = error instanceof Error ? (error as any).cause : undefined
+  let guard = 0
+  while (cursor && guard < 5) {
+    if (cursor instanceof Error) {
+      causes.push({
+        name: cursor.name,
+        message: cursor.message,
+        code: (cursor as any).code,
+      })
+      cursor = (cursor as any).cause
+    } else {
+      causes.push({ message: String(cursor) })
+      break
+    }
+    guard++
+  }
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    name: error instanceof Error ? error.name : undefined,
+    code: error instanceof Error ? (error as any).code : undefined,
+    causes,
+    stack: error instanceof Error ? error.stack : undefined,
+  }
+}
+
 async function pollOnce(): Promise<void> {
   if (!state) return
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const url = FIREWORKS_METRICS_URL(state.options.accountId)
   try {
     const metrics = await scrapeFireworksMetrics({
       apiKey: state.options.apiKey,
@@ -123,8 +159,8 @@ async function pollOnce(): Promise<void> {
     state.lastError = null
     state.backoffUntil = 0
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    state.lastError = message
+    const details = describeError(error)
+    state.lastError = details.message
     if (error instanceof FireworksScrapeError && error.status === 429) {
       const backoffMs = error.retryAfterMs ?? DEFAULT_429_BACKOFF_MS
       state.backoffUntil = Date.now() + backoffMs
@@ -133,7 +169,20 @@ async function pollOnce(): Promise<void> {
         '[FireworksMonitor] Rate limited, backing off',
       )
     } else {
-      logger.warn({ error: message }, '[FireworksMonitor] Scrape failed')
+      logger.warn(
+        {
+          error: details.message,
+          errorName: details.name,
+          errorCode: details.code,
+          causes: details.causes,
+          aborted: controller.signal.aborted,
+          url,
+          accountId: state.options.accountId,
+          usingCustomFetch: Boolean(state.options.fetch),
+          stack: details.stack,
+        },
+        '[FireworksMonitor] Scrape failed',
+      )
     }
   } finally {
     clearTimeout(timeout)
