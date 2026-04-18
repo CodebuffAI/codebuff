@@ -34,7 +34,7 @@ const inputSchema = z
                 cwd: z.string().optional().describe('Optional working directory relative to project root'),
                 maxResults: z.number().optional().describe('Max results per file. Default 15'),
               })).optional().describe('Array of code search queries (code-searcher)'),
-              filePaths: z.array(z.string()).optional().describe('Relevant file paths to read (opus-agent, gpt-5-agent, thinker-with-files-gemini)'),
+              filePaths: z.array(z.string()).optional().describe('Relevant file paths to read (opus-agent, gpt-5-agent)'),
               directories: z.array(z.string()).optional().describe('Directories to search within (file-picker)'),
               url: z.string().optional().describe('Starting URL to navigate to (browser-use)'),
               prompts: z.array(z.string()).optional().describe('Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt)'),
