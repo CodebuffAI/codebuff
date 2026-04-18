@@ -12,6 +12,7 @@
   },
   "files": [
     "index.js",
+    "http.js",
     "postinstall.js",
     "README.md"
   ],
