@@ -47,12 +47,12 @@ export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = {
   minRequestRateForErrorCheck: 0.1,
   errorFractionDegraded: 0.02,
   errorFractionUnhealthy: 0.1,
-  kvBlocksFractionDegraded: 0.95,
-  kvBlocksFractionUnhealthy: 0.99,
-  generationQueueMsDegraded: 400,
-  generationQueueMsUnhealthy: 15_000,
-  ttftMsDegraded: 2_000,
-  ttftMsUnhealthy: 30_000,
+  kvBlocksFractionDegraded: 0.85,
+  kvBlocksFractionUnhealthy: 0.97,
+  generationQueueMsDegraded: 300,
+  generationQueueMsUnhealthy: 2_000,
+  ttftMsDegraded: 1_500,
+  ttftMsUnhealthy: 10_000,
 }
 
 const STATUS_RANK: Record<DeploymentHealthStatus, number> = {
