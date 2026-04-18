@@ -24,7 +24,3 @@ export function isWaitingRoomEnabled(): boolean {
 export function getSessionLengthMs(): number {
   return env.FREEBUFF_SESSION_LENGTH_MS
 }
-
-export function getMaxConcurrentSessions(): number {
-  return env.FREEBUFF_MAX_CONCURRENT_SESSIONS
-}

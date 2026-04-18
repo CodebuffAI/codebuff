@@ -9,11 +9,11 @@ export function toSessionStateResponse(params: {
   row: InternalSessionRow | null
   position: number
   queueDepth: number
-  maxConcurrent: number
-  sessionLengthMs: number
+  admissionTickMs: number
+  maxAdmitsPerTick: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepth, maxConcurrent, sessionLengthMs, now } = params
+  const { row, position, queueDepth, admissionTickMs, maxAdmitsPerTick, now } = params
   if (!row) return null
 
   if (row.status === 'active' && row.expires_at && row.expires_at.getTime() > now.getTime()) {
@@ -34,8 +34,8 @@ export function toSessionStateResponse(params: {
       queueDepth,
       estimatedWaitMs: estimateWaitMs({
         position,
-        maxConcurrent,
-        sessionLengthMs,
+        admissionTickMs,
+        maxAdmitsPerTick,
       }),
       queuedAt: row.queued_at.toISOString(),
     }
@@ -46,21 +46,21 @@ export function toSessionStateResponse(params: {
 }
 
 /**
- * Upper-bound estimate: assumes full capacity and uniform session expiry.
- * Real wait time is usually lower because sessions finish early.
+ * Wait-time estimate under the drip-admission model: we admit
+ * `maxAdmitsPerTick` users every `admissionTickMs`, gated by Fireworks
+ * health. Ignoring health pauses, user at position P waits roughly
+ * `ceil((P - 1) / maxAdmitsPerTick) * admissionTickMs`.
  *
- *   waitMs ≈ floor((position - 1) / maxConcurrent) * sessionLengthMs
- *
- * Position 1..maxConcurrent → 0ms (next admission tick will pick you up).
- * Position maxConcurrent+1..2*maxConcurrent → one full session length.
+ * Position 1 → 0ms (next tick picks you up).
+ * Position maxAdmitsPerTick+1 → one tick.
  */
 export function estimateWaitMs(params: {
   position: number
-  maxConcurrent: number
-  sessionLengthMs: number
+  admissionTickMs: number
+  maxAdmitsPerTick: number
 }): number {
-  const { position, maxConcurrent, sessionLengthMs } = params
-  if (position <= 0 || maxConcurrent <= 0) return 0
-  const waves = Math.floor((position - 1) / maxConcurrent)
-  return waves * sessionLengthMs
+  const { position, admissionTickMs, maxAdmitsPerTick } = params
+  if (position <= 1 || admissionTickMs <= 0 || maxAdmitsPerTick <= 0) return 0
+  const ticksAhead = Math.ceil((position - 1) / maxAdmitsPerTick)
+  return ticksAhead * admissionTickMs
 }

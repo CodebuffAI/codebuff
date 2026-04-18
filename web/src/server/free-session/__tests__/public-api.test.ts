@@ -11,7 +11,8 @@ import type { SessionDeps } from '../public-api'
 import type { InternalSessionRow } from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
-const MAX_CONC = 10
+const TICK_MS = 15_000
+const ADMITS_PER_TICK = 1
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   rows: Map<string, InternalSessionRow>
@@ -35,8 +36,8 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     },
     _now: () => currentNow,
     isWaitingRoomEnabled: () => true,
-    getMaxConcurrentSessions: () => MAX_CONC,
-    getSessionLengthMs: () => SESSION_LEN,
+    getAdmissionTickMs: () => TICK_MS,
+    getMaxAdmitsPerTick: () => ADMITS_PER_TICK,
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     endSession: async (userId) => {

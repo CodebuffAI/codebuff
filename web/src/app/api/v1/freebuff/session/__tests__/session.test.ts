@@ -28,8 +28,8 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   return {
     rows,
     isWaitingRoomEnabled: () => true,
-    getMaxConcurrentSessions: () => 10,
-    getSessionLengthMs: () => 60 * 60_000,
+    getAdmissionTickMs: () => 15_000,
+    getMaxAdmitsPerTick: () => 1,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepth: async () => [...rows.values()].filter((r) => r.status === 'queued').length,

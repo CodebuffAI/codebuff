@@ -4,8 +4,8 @@
 
 The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployment. It has three jobs:
 
-1. **Bound concurrency** — cap the number of simultaneously-active free users so one deployment does not degrade under load.
-2. **Gate on upstream health** — only admit new users while the Fireworks deployment is reporting `healthy` (via the separate monitor in `web/src/server/fireworks-monitor/`).
+1. **Drip-admit users** — admit at a steady trickle (default 1 per 15s) so load ramps up gradually rather than stampeding the deployment when the queue is long.
+2. **Gate on upstream health** — only admit new users while the Fireworks deployment is reporting `healthy` (via the separate monitor in `web/src/server/fireworks-monitor/`). Once metrics degrade, admission halts until they recover — this is the primary concurrency control, not a static cap.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
 Users who cannot be admitted immediately are placed in a FIFO queue and given an estimated wait time. Admitted users get a fixed-length session (default 1h) during which they can make free-mode requests subject to the existing per-user rate limits.
@@ -20,7 +20,6 @@ FREEBUFF_WAITING_ROOM_ENABLED=false
 
 # Other knobs (only read when enabled)
 FREEBUFF_SESSION_LENGTH_MS=3600000         # 1 hour
-FREEBUFF_MAX_CONCURRENT_SESSIONS=50
 ```
 
 Flipping the flag is safe at runtime: existing rows stay in the DB and will be admitted / expired correctly whenever the flag is flipped back on.
@@ -127,17 +126,15 @@ Each tick does (in order):
 
 1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now()`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
 2. **Check upstream health.** `isFireworksAdmissible()` from the monitor. If not `healthy`, skip admission for this tick (queue grows; users see `status: 'queued'` with increasing position).
-3. **Measure capacity.** `capacity = min(MAX_CONCURRENT - activeCount, MAX_ADMITS_PER_TICK)`. `MAX_ADMITS_PER_TICK=20` caps thundering-herd admission when a large block of sessions expires simultaneously.
-4. **Admit.** `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT capacity FOR UPDATE SKIP LOCKED`, then `UPDATE` those rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`.
+3. **Admit.** `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED`, then `UPDATE` those rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering the queue at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from getting hit by a thundering herd of newly-admitted CLIs; once metrics show the deployment is saturated, step 2 halts further admissions.
 
 ### Tunables
 
 | Constant | Location | Default | Purpose |
 |---|---|---|---|
-| `ADMISSION_TICK_MS` | `config.ts` | 5000 | How often the ticker fires |
-| `MAX_ADMITS_PER_TICK` | `config.ts` | 20 | Upper bound on admits per tick |
+| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires |
+| `MAX_ADMITS_PER_TICK` | `config.ts` | 1 | Upper bound on admits per tick |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
-| `FREEBUFF_MAX_CONCURRENT_SESSIONS` | env | 50 | Global active-session cap |
 
 ## HTTP API
 
@@ -210,18 +207,18 @@ When the waiting room is disabled, the gate returns `{ ok: true, reason: 'disabl
 
 ## Estimated Wait Time
 
-Computed in `session-view.ts` as an **upper bound** that assumes uniform session expiry:
+Computed in `session-view.ts` from the drip-admission rate:
 
 ```
-waves      = floor((position - 1) / maxConcurrent)
-waitMs     = waves * sessionLengthMs
+ticksAhead = ceil((position - 1) / maxAdmitsPerTick)
+waitMs     = ticksAhead * admissionTickMs
 ```
 
-- Position 1..`maxConcurrent` → 0 (next tick will admit them)
-- Position `maxConcurrent`+1..`2*maxConcurrent` → one full session length
+- Position 1 → 0 (next tick admits you)
+- Position `maxAdmitsPerTick` + 1 → one tick
 - and so on.
 
-Actual wait is usually shorter because users call `DELETE /session` on CLI exit and sessions turn over naturally. We show an upper bound because under-promising on wait time is better UX than surprise delays.
+This estimate **ignores health-gated pauses**: during a Fireworks incident admission halts entirely, so the actual wait can be longer. We choose to under-report here because showing "unknown" / "indefinite" is worse UX for the common case where the deployment is healthy.
 
 ## CLI Integration (frontend-side contract)
 

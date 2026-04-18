@@ -1,7 +1,6 @@
 import {
   ADMISSION_TICK_MS,
   MAX_ADMITS_PER_TICK,
-  getMaxConcurrentSessions,
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
@@ -20,8 +19,8 @@ let state: AdmissionState | null = null
 
 /** Emit a `[FreeSessionAdmission] snapshot` log every N ticks even when
  *  nothing changed, so dashboards / alerts have a reliable heartbeat of
- *  queue depth and active count. At ADMISSION_TICK_MS=5s, 12 ticks = 1 min. */
-const SNAPSHOT_EVERY_N_TICKS = 12
+ *  queue depth and active count. At ADMISSION_TICK_MS=15s, 10 ticks = 2.5 min. */
+const SNAPSHOT_EVERY_N_TICKS = 10
 
 export interface AdmissionDeps {
   sweepExpired: (now: Date) => Promise<number>
@@ -33,7 +32,7 @@ export interface AdmissionDeps {
     now: Date
   }) => Promise<{ user_id: string }[]>
   isFireworksAdmissible: () => boolean
-  getMaxConcurrentSessions: () => number
+  getMaxAdmitsPerTick: () => number
   getSessionLengthMs: () => number
   now?: () => Date
 }
@@ -44,7 +43,7 @@ const defaultDeps: AdmissionDeps = {
   queueDepth,
   admitFromQueue,
   isFireworksAdmissible,
-  getMaxConcurrentSessions,
+  getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
   getSessionLengthMs,
 }
 
@@ -53,14 +52,19 @@ export interface AdmissionTickResult {
   admitted: number
   active: number
   queueDepth: number
-  skipped: 'health' | 'full' | null
+  skipped: 'health' | null
 }
 
 /**
  * Run a single admission tick:
  *   1. Expire sessions past their expires_at.
  *   2. If Fireworks is not 'healthy', skip admission (waiting queue grows).
- *   3. Admit up to (maxConcurrent - activeCount, MAX_ADMITS_PER_TICK) users.
+ *   3. Admit up to maxAdmitsPerTick queued users.
+ *
+ * There is no global concurrency cap — the Fireworks health monitor is the
+ * primary gate. Admission drips at (maxAdmitsPerTick / ADMISSION_TICK_MS),
+ * which drives utilization up slowly; once metrics degrade, step 2 halts
+ * admission until things recover.
  *
  * Returns counts for observability. Safe to call concurrently across pods —
  * the underlying admit query takes an advisory xact lock.
@@ -80,15 +84,8 @@ export async function runAdmissionTick(
   }
 
   const active = await deps.countActive(now)
-  const max = deps.getMaxConcurrentSessions()
-  const capacity = Math.min(Math.max(0, max - active), MAX_ADMITS_PER_TICK)
-  if (capacity === 0) {
-    const depth = await deps.queueDepth()
-    return { expired, admitted: 0, active, queueDepth: depth, skipped: 'full' }
-  }
-
   const admitted = await deps.admitFromQueue({
-    limit: capacity,
+    limit: deps.getMaxAdmitsPerTick(),
     sessionLengthMs: deps.getSessionLengthMs(),
     now,
   })
@@ -129,7 +126,6 @@ function runTick() {
             expired: result.expired,
             active: result.active,
             queueDepth: result.queueDepth,
-            maxConcurrent: getMaxConcurrentSessions(),
             skipped: result.skipped,
           },
           changed ? '[FreeSessionAdmission] tick' : '[FreeSessionAdmission] snapshot',
@@ -158,7 +154,7 @@ export function startFreeSessionAdmission(): boolean {
   state = { timer: null, inFlight: null, tickCount: 0 }
   runTick()
   logger.info(
-    { tickMs: ADMISSION_TICK_MS, maxConcurrent: getMaxConcurrentSessions() },
+    { tickMs: ADMISSION_TICK_MS, maxAdmitsPerTick: MAX_ADMITS_PER_TICK },
     '[FreeSessionAdmission] Started',
   )
   return true

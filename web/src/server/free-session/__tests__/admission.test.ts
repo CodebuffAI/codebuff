@@ -20,7 +20,7 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
       return Array.from({ length: limit }, (_, i) => ({ user_id: `u${i}` }))
     },
     isFireworksAdmissible: () => true,
-    getMaxConcurrentSessions: () => 10,
+    getMaxAdmitsPerTick: () => 1,
     getSessionLengthMs: () => 60 * 60 * 1000,
     now: () => NOW,
     ...overrides,
@@ -28,43 +28,26 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
 }
 
 describe('runAdmissionTick', () => {
-  test('admits up to (max - active) when healthy', async () => {
-    const deps = makeAdmissionDeps({
-      countActive: async () => 3,
-      getMaxConcurrentSessions: () => 10,
-    })
+  test('admits maxAdmitsPerTick when healthy', async () => {
+    const deps = makeAdmissionDeps({ getMaxAdmitsPerTick: () => 2 })
     const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(7)
+    expect(result.admitted).toBe(2)
     expect(result.skipped).toBeNull()
   })
 
-  test('caps admits per tick at MAX_ADMITS_PER_TICK', async () => {
-    const deps = makeAdmissionDeps({
-      countActive: async () => 0,
-      getMaxConcurrentSessions: () => 1000,
-    })
+  test('defaults to 1 admit per tick', async () => {
+    const deps = makeAdmissionDeps()
     const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(20)
+    expect(result.admitted).toBe(1)
   })
 
   test('skips admission when Fireworks not healthy', async () => {
     const deps = makeAdmissionDeps({
       isFireworksAdmissible: () => false,
-      countActive: async () => 0,
     })
     const result = await runAdmissionTick(deps)
     expect(result.admitted).toBe(0)
     expect(result.skipped).toBe('health')
-  })
-
-  test('skips when at capacity', async () => {
-    const deps = makeAdmissionDeps({
-      countActive: async () => 10,
-      getMaxConcurrentSessions: () => 10,
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(0)
-    expect(result.skipped).toBe('full')
   })
 
   test('sweeps expired sessions even when skipping admission', async () => {
@@ -85,10 +68,9 @@ describe('runAdmissionTick', () => {
     const deps = makeAdmissionDeps({
       sweepExpired: async () => 2,
       countActive: async () => 5,
-      getMaxConcurrentSessions: () => 8,
     })
     const result = await runAdmissionTick(deps)
     expect(result.expired).toBe(2)
-    expect(result.admitted).toBe(3)
+    expect(result.admitted).toBe(1)
   })
 })

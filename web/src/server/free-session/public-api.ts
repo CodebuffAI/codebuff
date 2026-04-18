@@ -1,6 +1,6 @@
 import {
-  getMaxConcurrentSessions,
-  getSessionLengthMs,
+  ADMISSION_TICK_MS,
+  MAX_ADMITS_PER_TICK,
   isWaitingRoomEnabled,
 } from './config'
 import {
@@ -21,8 +21,8 @@ export interface SessionDeps {
   queueDepth: () => Promise<number>
   queuePositionFor: (params: { userId: string; queuedAt: Date }) => Promise<number>
   isWaitingRoomEnabled: () => boolean
-  getMaxConcurrentSessions: () => number
-  getSessionLengthMs: () => number
+  getAdmissionTickMs: () => number
+  getMaxAdmitsPerTick: () => number
   now?: () => Date
 }
 
@@ -33,8 +33,8 @@ const defaultDeps: SessionDeps = {
   queueDepth,
   queuePositionFor,
   isWaitingRoomEnabled,
-  getMaxConcurrentSessions,
-  getSessionLengthMs,
+  getAdmissionTickMs: () => ADMISSION_TICK_MS,
+  getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
@@ -55,8 +55,8 @@ async function viewForRow(
     row,
     position,
     queueDepth: depth,
-    maxConcurrent: deps.getMaxConcurrentSessions(),
-    sessionLengthMs: deps.getSessionLengthMs(),
+    admissionTickMs: deps.getAdmissionTickMs(),
+    maxAdmitsPerTick: deps.getMaxAdmitsPerTick(),
     now: nowOf(deps),
   })
 }
