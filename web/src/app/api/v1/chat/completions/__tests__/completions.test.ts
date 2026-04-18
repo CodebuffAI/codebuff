@@ -785,6 +785,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Subscription limit enforcement', () => {
+    // Bumped from Bun's 5s default: the non-streaming fetch-path tests here
+    // have flaked right at the boundary (observed 5001ms) on loaded machines.
+    const SUBSCRIPTION_TEST_TIMEOUT_MS = 15000
+
     const createValidRequest = () =>
       new NextRequest('http://localhost:3000/api/v1/chat/completions', {
         method: 'POST',
@@ -1023,7 +1027,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
       // getUserPreferences should not be called for non-subscribers
       expect(mockGetUserPreferences).not.toHaveBeenCalled()
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('defaults to allowing fallback when getUserPreferences is not provided', async () => {
       const weeklyLimitError: BlockGrantResult = {
@@ -1050,7 +1054,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       // Should continue processing (default to allowing a-la-carte)
       expect(response.status).toBe(200)
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('allows subscriber with 0 a-la-carte credits but active block grant', async () => {
       const blockGrant: BlockGrantResult = {
