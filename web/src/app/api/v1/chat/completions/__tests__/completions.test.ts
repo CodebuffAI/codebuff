@@ -18,32 +18,25 @@ import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { GetUserPreferencesFn } from '../_post'
 
 describe('/api/v1/chat/completions POST endpoint', () => {
-  // Old enough to clear the account-age gate in _post.ts
-  const AGED_ACCOUNT_CREATED_AT = new Date('2024-01-01T00:00:00Z')
-
   const mockUserData: Record<
     string,
-    { id: string; banned: boolean; created_at: Date }
+    { id: string; banned: boolean }
   > = {
     'test-api-key-123': {
       id: 'user-123',
       banned: false,
-      created_at: AGED_ACCOUNT_CREATED_AT,
     },
     'test-api-key-no-credits': {
       id: 'user-no-credits',
       banned: false,
-      created_at: AGED_ACCOUNT_CREATED_AT,
     },
     'test-api-key-blocked': {
       id: 'banned-user-id',
       banned: true,
-      created_at: AGED_ACCOUNT_CREATED_AT,
     },
     'test-api-key-new-free': {
       id: 'user-new-free',
       banned: false,
-      created_at: new Date(),
     },
   }
 
@@ -57,7 +50,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     return {
       id: userData.id,
       banned: userData.banned,
-      created_at: userData.created_at,
     } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
   }
 
@@ -82,15 +74,15 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     ).toISOString()
 
     mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
+      error: mock(() => { }),
+      warn: mock(() => { }),
+      info: mock(() => { }),
+      debug: mock(() => { }),
     }
 
     mockLoggerWithContext = mock(() => mockLogger)
 
-    mockTrackEvent = mock(() => {})
+    mockTrackEvent = mock(() => { })
 
     mockGetUserUsageData = mock(async ({ userId }: { userId: string }) => {
       if (userId === 'user-no-credits') {
@@ -101,22 +93,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             totalDebt: 0,
             netBalance: 0,
             breakdown: {},
-            // Has purchased credits historically (principals > 0) but 0 remaining
-            // so the paid-plan gate passes and the credit check is what enforces 402.
-            principals: { purchase: 100 },
-          },
-          nextQuotaReset,
-        }
-      }
-      if (userId === 'user-new-free') {
-        return {
-          usageThisCycle: 0,
-          balance: {
-            totalRemaining: 100,
-            totalDebt: 0,
-            netBalance: 100,
-            breakdown: {} as Record<string, number>,
-            principals: {} as Record<string, number>,
+            principals: {},
           },
           nextQuotaReset,
         }
@@ -128,7 +105,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           totalDebt: 0,
           netBalance: 100,
           breakdown: {},
-          principals: { purchase: 100 },
+          principals: {},
         },
         nextQuotaReset,
       }
@@ -474,7 +451,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.message).not.toContain(nextQuotaReset)
     })
 
-    it('returns 403 for a free-tier user with no paid relationship', async () => {
+    it('lets a new account with no paid relationship through for non-free mode', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -504,10 +481,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
       })
 
-      expect(response.status).toBe(403)
-      const body = await response.json()
-      expect(body.error).toBe('requires_paid_plan')
+      expect(response.status).toBe(200)
     })
+
 
     it('lets a BYOK free-tier new account through the paid-plan gate', async () => {
       const req = new NextRequest(
