@@ -1635,8 +1635,12 @@ describe('freebuff gate errors', () => {
     // the structured gate responses).
     const messages = baseMessage()
     const updater = makeUpdater(messages)
+    const err = Object.assign(new Error('oops'), {
+      error: 'session_superseded',
+      statusCode: 500,
+    })
     handleRunError({
-      error: { error: 'session_superseded', statusCode: 500, message: 'oops' },
+      error: err,
       timerController: createMockTimerController(),
       updater,
       setIsRetrying: () => {},
