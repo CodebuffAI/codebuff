@@ -96,8 +96,14 @@ function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
  *
  * Activity is tracked via the global activity-tracker module.
  */
-export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState => {
+export const useGravityAd = (options?: {
+  enabled?: boolean
+  /** Skip the "wait for first user message" gate. Used by the freebuff
+   *  waiting room, which has no conversation but still needs ads. */
+  forceStart?: boolean
+}): GravityAdState => {
   const enabled = options?.enabled ?? true
+  const forceStart = options?.forceStart ?? false
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [adData, setAdData] = useState<AdData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -115,9 +121,12 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
   const shouldHideAds = !enabled || (isVeryCompactHeight && !isFreeMode)
 
   // Use Zustand selector instead of manual subscription - only rerenders when value changes
-  const hasUserMessaged = useChatStore((s) =>
+  const hasUserMessagedStore = useChatStore((s) =>
     s.messages.some((m) => m.variant === 'user'),
   )
+  // forceStart lets callers (e.g. the waiting room) opt out of the
+  // "wait for the first user message" gate.
+  const shouldStart = forceStart || hasUserMessagedStore
 
   // Single consolidated controller ref
   const ctrlRef = useRef<GravityController>({
@@ -358,9 +367,9 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
     })
   }, [])
 
-  // Start rotation when user sends first message
+  // Start rotation when user sends first message (or immediately if forced).
   useEffect(() => {
-    if (!hasUserMessaged || !getAdsEnabled() || shouldHideAds) return
+    if (!shouldStart || !getAdsEnabled() || shouldHideAds) return
 
     setIsLoading(true)
 
@@ -390,10 +399,10 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
       clearInterval(id)
       ctrlRef.current.intervalId = null
     }
-  }, [hasUserMessaged, shouldHideAds])
+  }, [shouldStart, shouldHideAds])
 
   // Don't return ad when ads should be hidden
-  const visible = hasUserMessaged && !shouldHideAds
+  const visible = shouldStart && !shouldHideAds
   return {
     ad: visible ? ad : null,
     adData: visible ? adData : null,

@@ -3,6 +3,7 @@ import { useKeyboard, useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { AdBanner } from './ad-banner'
+import { Button } from './button'
 import { ChoiceAdBanner } from './choice-ad-banner'
 import { ShimmerText } from './shimmer-text'
 import { endFreebuffSessionBestEffort } from '../hooks/use-freebuff-session'
@@ -74,25 +75,40 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   })
 
   // Always enable ads in the waiting room — this is where monetization lives.
-  const { ad, adData, recordImpression } = useGravityAd({ enabled: true })
+  // forceStart bypasses the "wait for first user message" gate inside the hook,
+  // which would otherwise block ads here since no conversation exists yet.
+  const { ad, adData, recordImpression } = useGravityAd({
+    enabled: true,
+    forceStart: true,
+  })
+
+  // Release the seat + flush analytics before exit. Used by both Ctrl+C and
+  // the top-right X button so they always do the same cleanup.
+  const handleExit = useCallback(() => {
+    const cleanup = Promise.allSettled([
+      flushAnalytics(),
+      endFreebuffSessionBestEffort(),
+    ])
+    withTimeout(cleanup, EXIT_CLEANUP_TIMEOUT_MS, undefined).finally(() => {
+      process.exit(0)
+    })
+  }, [])
 
   // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
-  // through as a normal OpenTUI key event. Release the seat before exit so
-  // the next user in line doesn't have to wait for server-side expiry.
+  // through as a normal OpenTUI key event.
   useKeyboard(
-    useCallback((key: KeyEvent) => {
-      if (key.ctrl && key.name === 'c') {
-        key.preventDefault?.()
-        const cleanup = Promise.allSettled([
-          flushAnalytics(),
-          endFreebuffSessionBestEffort(),
-        ])
-        withTimeout(cleanup, EXIT_CLEANUP_TIMEOUT_MS, undefined).finally(() => {
-          process.exit(0)
-        })
-      }
-    }, []),
+    useCallback(
+      (key: KeyEvent) => {
+        if (key.ctrl && key.name === 'c') {
+          key.preventDefault?.()
+          handleExit()
+        }
+      },
+      [handleExit],
+    ),
   )
+
+  const [exitHover, setExitHover] = useState(false)
 
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back.
@@ -118,14 +134,45 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         backgroundColor: theme.background,
       }}
     >
+      {/* Top-right exit affordance so mouse users have a clear way out even
+          when they don't know Ctrl+C works. width: '100%' is required for
+          justifyContent: 'flex-end' to actually push the X to the right. */}
+      <box
+        style={{
+          width: '100%',
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          paddingTop: 1,
+          paddingRight: 2,
+          flexShrink: 0,
+        }}
+      >
+        <Button
+          onClick={handleExit}
+          onMouseOver={() => setExitHover(true)}
+          onMouseOut={() => setExitHover(false)}
+          style={{ paddingLeft: 1, paddingRight: 1 }}
+        >
+          <text
+            style={{ fg: exitHover ? theme.foreground : theme.muted }}
+            attributes={exitHover ? TextAttributes.BOLD : TextAttributes.NONE}
+          >
+            ✕
+          </text>
+        </Button>
+      </box>
+
       <box
         style={{
           flexGrow: 1,
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          // flex-end so the logo + title + info clump sits just above the ad,
+          // matching how chat anchors its header/messages to the input bar.
+          justifyContent: 'flex-end',
           paddingLeft: 2,
           paddingRight: 2,
+          paddingBottom: 1,
           gap: 1,
         }}
       >
@@ -165,9 +212,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 }}
               >
                 {session.position === 1 ? (
-                  <text style={{ fg: theme.primary, alignSelf: 'flex-start' }}>
-                    <ShimmerText text="Next in line" />
-                  </text>
+                  <>
+                    <text style={{ fg: theme.primary, alignSelf: 'flex-start' }}>
+                      <ShimmerText text="Next in line" />
+                    </text>
+                    <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
+                      {session.queueDepth === 1
+                        ? 'just you in line right now'
+                        : `${session.queueDepth} people in line`}
+                    </text>
+                  </>
                 ) : (
                   <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
                     <span fg={theme.muted}>Position </span>
