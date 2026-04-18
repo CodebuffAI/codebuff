@@ -132,7 +132,7 @@ describe('parse module', () => {
         () => multilineCode,
       )
 
-      expect(result.numLines).toBe(2) // Due to operator precedence: .match(/\n/g)?.length ?? 0 + 1 becomes (2 ?? 1) = 2
+      expect(result.numLines).toBe(3)
     })
 
     it('should deduplicate identifiers and calls', () => {
