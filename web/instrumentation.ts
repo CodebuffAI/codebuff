@@ -11,7 +11,7 @@
 import { startFireworksMonitor } from '@/server/fireworks-monitor/monitor'
 import { logger } from '@/util/logger'
 
-export function register() {
+export async function register() {
   // Handle unhandled promise rejections (async errors that aren't caught)
   process.on(
     'unhandledRejection',
@@ -48,4 +48,14 @@ export function register() {
   logger.info({}, '[Instrumentation] Global error handlers registered')
 
   startFireworksMonitor()
+
+  // DB-touching admission module uses `postgres`, which imports Node built-ins
+  // like `crypto`. Gate on NEXT_RUNTIME so the edge bundle doesn't try to
+  // resolve them.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { startFreeSessionAdmission } = await import(
+      '@/server/free-session/admission'
+    )
+    startFreeSessionAdmission()
+  }
 }

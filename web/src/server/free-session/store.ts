@@ -1,0 +1,231 @@
+import { db } from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { and, asc, count, eq, gt, inArray, lt, sql } from 'drizzle-orm'
+
+import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
+
+import type { InternalSessionRow } from './types'
+
+/** Generate a cryptographically random instance id (token). */
+export function newInstanceId(): string {
+  return crypto.randomUUID()
+}
+
+/**
+ * postgres.js under some configurations returns Postgres booleans as 't'/'f'
+ * strings rather than JS booleans. Mirrors the same coercion used in
+ * packages/internal/src/db/advisory-lock.ts.
+ */
+function coerceBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (value === 't' || value === 'true' || value === 1) return true
+  return false
+}
+
+export async function getSessionRow(
+  userId: string,
+): Promise<InternalSessionRow | null> {
+  const row = await db.query.freeSession.findFirst({
+    where: eq(schema.freeSession.user_id, userId),
+  })
+  return (row as InternalSessionRow | undefined) ?? null
+}
+
+/**
+ * Join the queue (or take over an existing row with a new instance_id).
+ *
+ * Semantics:
+ *   - If no row exists: insert status=queued, fresh instance_id, queued_at=now.
+ *   - If row exists and active+unexpired: rotate instance_id (takeover),
+ *     preserve status/admitted_at/expires_at.
+ *   - If row exists and expired: reset to queued with fresh instance_id
+ *     and fresh queued_at — effectively re-queue at the back.
+ *   - If row exists and already queued: rotate instance_id, preserve
+ *     queued_at so user keeps their place in line.
+ *
+ * Never trusts client-supplied timestamps or instance ids.
+ */
+export async function joinOrTakeOver(params: {
+  userId: string
+  now: Date
+}): Promise<InternalSessionRow> {
+  const { userId, now } = params
+  const nextInstanceId = newInstanceId()
+
+  // Single UPSERT that encodes every case in one round-trip, race-safe
+  // against concurrent POSTs for the same user (the PK would otherwise turn
+  // two parallel INSERTs into a 500). Inside ON CONFLICT DO UPDATE, bare
+  // column references resolve to the existing row.
+  //
+  // Decision table (pre-update state → post-update state):
+  //   no row                     → INSERT: status=queued, queued_at=now
+  //   active & expires_at > now  → rotate instance_id only (takeover)
+  //   queued                     → rotate instance_id, preserve queued_at
+  //   active & expired           → re-queue at back: status=queued,
+  //                                queued_at=now, admitted_at/expires_at=null
+  const activeUnexpired = sql`${schema.freeSession.status} = 'active' AND ${schema.freeSession.expires_at} > ${now}`
+
+  const [row] = await db
+    .insert(schema.freeSession)
+    .values({
+      user_id: userId,
+      status: 'queued',
+      active_instance_id: nextInstanceId,
+      queued_at: now,
+      created_at: now,
+      updated_at: now,
+    })
+    .onConflictDoUpdate({
+      target: schema.freeSession.user_id,
+      set: {
+        active_instance_id: nextInstanceId,
+        updated_at: now,
+        status: sql`CASE WHEN ${activeUnexpired} THEN 'active'::free_session_status ELSE 'queued'::free_session_status END`,
+        queued_at: sql`CASE
+          WHEN ${schema.freeSession.status} = 'queued' THEN ${schema.freeSession.queued_at}
+          WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
+          ELSE ${now}
+        END`,
+        admitted_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.admitted_at} ELSE NULL END`,
+        expires_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.expires_at} ELSE NULL END`,
+      },
+    })
+    .returning()
+
+  if (!row) {
+    throw new Error(`joinOrTakeOver returned no row for user=${userId}`)
+  }
+  return row as InternalSessionRow
+}
+
+export async function endSession(userId: string): Promise<void> {
+  await db
+    .delete(schema.freeSession)
+    .where(eq(schema.freeSession.user_id, userId))
+}
+
+/**
+ * Count active non-expired sessions. Callers must already have expired old
+ * rows via sweepExpired() for this number to be accurate.
+ */
+export async function countActive(now: Date): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(
+      and(
+        eq(schema.freeSession.status, 'active'),
+        gt(schema.freeSession.expires_at, now),
+      ),
+    )
+  return Number(rows[0]?.n ?? 0)
+}
+
+export async function queueDepth(): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(eq(schema.freeSession.status, 'queued'))
+  return Number(rows[0]?.n ?? 0)
+}
+
+/**
+ * 1-indexed position in the FIFO queue for a known-queued row. Ties on
+ * queued_at are broken deterministically by user_id. Callers already holding
+ * the row should prefer queuePositionFor() to skip the extra lookup.
+ */
+export async function queuePosition(userId: string): Promise<number> {
+  const me = await db.query.freeSession.findFirst({
+    where: eq(schema.freeSession.user_id, userId),
+  })
+  if (!me || me.status !== 'queued') return 0
+  return queuePositionFor({ userId, queuedAt: me.queued_at })
+}
+
+export async function queuePositionFor(params: {
+  userId: string
+  queuedAt: Date
+}): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(
+      and(
+        eq(schema.freeSession.status, 'queued'),
+        sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt}, ${params.userId})`,
+      ),
+    )
+  return Number(rows[0]?.n ?? 0)
+}
+
+/** Remove rows whose active session has expired. Safe to call repeatedly. */
+export async function sweepExpired(now: Date): Promise<number> {
+  const deleted = await db
+    .delete(schema.freeSession)
+    .where(
+      and(
+        eq(schema.freeSession.status, 'active'),
+        lt(schema.freeSession.expires_at, now),
+      ),
+    )
+    .returning({ user_id: schema.freeSession.user_id })
+  return deleted.length
+}
+
+/**
+ * Atomically admit up to `limit` queued users, guarded by a per-transaction
+ * advisory lock so only one pod admits at a time. Returns admitted rows.
+ *
+ * If the advisory lock is already held, returns []. Caller should treat that
+ * as "another pod is handling it, skip this tick".
+ */
+export async function admitFromQueue(params: {
+  limit: number
+  sessionLengthMs: number
+  now: Date
+}): Promise<InternalSessionRow[]> {
+  const { limit, sessionLengthMs, now } = params
+  if (limit <= 0) return []
+
+  return db.transaction(async (tx) => {
+    const lockResult = await tx.execute<{ acquired: unknown }>(
+      sql`SELECT pg_try_advisory_xact_lock(${FREEBUFF_ADMISSION_LOCK_ID}) AS acquired`,
+    )
+    // postgres-js returns an array-like; coerceBool handles the 't'/'f' string
+    // case that the driver emits under some configurations.
+    if (!coerceBool((lockResult as unknown as Array<{ acquired: unknown }>)[0]?.acquired)) {
+      return []
+    }
+
+    const candidates = await tx
+      .select({ user_id: schema.freeSession.user_id })
+      .from(schema.freeSession)
+      .where(eq(schema.freeSession.status, 'queued'))
+      .orderBy(asc(schema.freeSession.queued_at), asc(schema.freeSession.user_id))
+      .limit(limit)
+      .for('update', { skipLocked: true })
+
+    if (candidates.length === 0) return []
+
+    const expiresAt = new Date(now.getTime() + sessionLengthMs)
+    const userIds = candidates.map((c) => c.user_id)
+
+    const admitted = await tx
+      .update(schema.freeSession)
+      .set({
+        status: 'active',
+        admitted_at: now,
+        expires_at: expiresAt,
+        updated_at: now,
+      })
+      .where(
+        and(
+          eq(schema.freeSession.status, 'queued'),
+          inArray(schema.freeSession.user_id, userIds),
+        ),
+      )
+      .returning()
+
+    return admitted as InternalSessionRow[]
+  })
+}
