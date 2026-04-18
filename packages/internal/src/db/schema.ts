@@ -795,3 +795,65 @@ export const agentStep = pgTable(
     index('idx_agent_step_children_gin').using('gin', table.child_run_ids),
   ],
 )
+
+export const freeSessionStatusEnum = pgEnum('free_session_status', [
+  'queued',
+  'active',
+])
+
+/**
+ * Free-user session / waiting-room state. One row per user is enforced by the
+ * PK on user_id so a single account cannot occupy multiple active sessions.
+ *
+ * Status transitions:
+ *   none  → (POST /session)        → queued
+ *   queued → (admission tick)      → active
+ *   active → (expires_at in past)  → treated as expired; next POST re-queues
+ *   any   → (DELETE /session)      → row removed
+ *
+ * active_instance_id is server-generated on every POST /session and rotates
+ * when a new CLI takes over. Chat completions requires a matching
+ * active_instance_id so prior instances stop serving requests.
+ */
+export const freeSession = pgTable(
+  'free_session',
+  {
+    user_id: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: freeSessionStatusEnum('status').notNull(),
+    active_instance_id: text('active_instance_id').notNull(),
+    queued_at: timestamp('queued_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    admitted_at: timestamp('admitted_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    expires_at: timestamp('expires_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    created_at: timestamp('created_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Dequeue: SELECT ... WHERE status='queued' ORDER BY queued_at LIMIT N
+    index('idx_free_session_queue').on(table.status, table.queued_at),
+    // Expiry sweep: SELECT ... WHERE status='active' AND expires_at < now()
+    index('idx_free_session_expiry').on(table.expires_at),
+  ],
+)
