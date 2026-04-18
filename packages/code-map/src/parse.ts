@@ -169,7 +169,7 @@ export function parseTokens(
         calls: [] as string[],
       }
     }
-    const numLines = sourceCode.match(/\n/g)?.length ?? 0 + 1
+    const numLines = (sourceCode.match(/\n/g)?.length ?? 0) + 1
     if (!parser || !query) {
       throw new Error('Parser or query not found')
     }
