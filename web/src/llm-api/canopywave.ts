@@ -19,7 +19,7 @@ const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
 
 // Extended timeout for deep-thinking models that can take
 // a long time to start streaming.
-const CANOPYWAVE_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const CANOPYWAVE_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const canopywaveAgent = new Agent({
   headersTimeout: CANOPYWAVE_HEADERS_TIMEOUT_MS,

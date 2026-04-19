@@ -20,7 +20,7 @@ const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 
 // Extended timeout for deep-thinking models that can take
 // a long time to start streaming.
-const FIREWORKS_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const FIREWORKS_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const fireworksAgent = new Agent({
   headersTimeout: FIREWORKS_HEADERS_TIMEOUT_MS,

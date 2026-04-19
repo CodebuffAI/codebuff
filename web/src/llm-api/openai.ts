@@ -62,7 +62,7 @@ const OUTPUT_TOKEN_COSTS: Record<string, number> = {
 
 // Extended timeout for deep-thinking models (e.g., gpt-5.x) that can take
 // a long time to start streaming.
-const OPENAI_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const OPENAI_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const openaiAgent = new Agent({
   headersTimeout: OPENAI_HEADERS_TIMEOUT_MS,

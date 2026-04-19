@@ -19,7 +19,7 @@ const SILICONFLOW_BASE_URL = 'https://api.siliconflow.com/v1'
 
 // Extended timeout for deep-thinking models that can take
 // a long time to start streaming.
-const SILICONFLOW_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const SILICONFLOW_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const siliconflowAgent = new Agent({
   headersTimeout: SILICONFLOW_HEADERS_TIMEOUT_MS,

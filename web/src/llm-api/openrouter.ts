@@ -42,7 +42,7 @@ const GENERATION_LOOKUP_DELAY_MS = 500
 
 // Extended timeout for deep-thinking models (e.g., gpt-5) that can take
 // a long time to start streaming.
-const OPENROUTER_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const OPENROUTER_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const openrouterAgent = new Agent({
   headersTimeout: OPENROUTER_HEADERS_TIMEOUT_MS,
