@@ -85,7 +85,7 @@ const defaultCallbacks = {
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
   onBuildMax: () => {},
-  onBuildFree: () => {},
+  onBuildLite: () => {},
   onFeedback: () => {},
   onCloseFeedback: () => {},
 }
@@ -198,7 +198,7 @@ describe('MessageBlockStore', () => {
         onToggleCollapsed: mockToggle,
         onBuildFast: mockBuildFast,
         onBuildMax: mockBuildMax,
-        onBuildFree: mockBuildFree,
+        onBuildLite: mockBuildFree,
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
       })
@@ -207,7 +207,7 @@ describe('MessageBlockStore', () => {
       expect(state.callbacks.onToggleCollapsed).toBe(mockToggle)
       expect(state.callbacks.onBuildFast).toBe(mockBuildFast)
       expect(state.callbacks.onBuildMax).toBe(mockBuildMax)
-      expect(state.callbacks.onBuildFree).toBe(mockBuildFree)
+      expect(state.callbacks.onBuildLite).toBe(mockBuildFree)
       expect(state.callbacks.onFeedback).toBe(mockFeedback)
       expect(state.callbacks.onCloseFeedback).toBe(mockCloseFeedback)
     })
@@ -250,7 +250,7 @@ describe('MessageBlockStore', () => {
         onToggleCollapsed: mockFn,
         onBuildFast: mockFn,
         onBuildMax: mockFn,
-        onBuildFree: mockFn,
+        onBuildLite: mockFn,
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
       })
@@ -261,7 +261,7 @@ describe('MessageBlockStore', () => {
       // Callbacks should be noop functions (not undefined)
       expect(typeof state.callbacks.onToggleCollapsed).toBe('function')
       expect(typeof state.callbacks.onBuildFast).toBe('function')
-      expect(typeof state.callbacks.onBuildFree).toBe('function')
+      expect(typeof state.callbacks.onBuildLite).toBe('function')
       // They should not throw when called
       expect(() => state.callbacks.onToggleCollapsed('test-id')).not.toThrow()
     })

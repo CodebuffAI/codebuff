@@ -137,8 +137,8 @@ function parseArgs(): ParsedArgs {
         '--cwd <directory>',
         'Set the working directory (default: current directory)',
       )
-      .option('--free', 'Start in FREE mode')
-      .option('--lite', 'Start in FREE mode (deprecated, use --free)')
+      .option('--lite', 'Start in LITE mode')
+      .option('--free', 'Start in LITE mode (deprecated alias)')
       .option('--max', 'Start in MAX mode')
       .option('--plan', 'Start in PLAN mode')
       .addHelpText('after', '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry')
@@ -154,12 +154,12 @@ function parseArgs(): ParsedArgs {
   const continueFlag = options.continue
 
   // Determine initial mode from flags (last flag wins if multiple specified)
-  // Freebuff always uses FREE mode
+  // Freebuff always uses LITE mode
   let initialMode: AgentMode | undefined
   if (IS_FREEBUFF) {
-    initialMode = 'FREE'
+    initialMode = 'LITE'
   } else {
-    if (options.free || options.lite) initialMode = 'FREE'
+    if (options.free || options.lite) initialMode = 'LITE'
     if (options.max) initialMode = 'MAX'
     if (options.plan) initialMode = 'PLAN'
   }

@@ -1,7 +1,7 @@
 ---
 title: 'Modes'
 section: 'help'
-tags: ['modes', 'free', 'max', 'plan', 'configuration']
+tags: ['modes', 'lite', 'max', 'plan', 'configuration']
 order: 2
 ---
 
@@ -15,7 +15,7 @@ Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` co
   | Default | Claude Opus 4.6 | editor | Yes |
   | Max | Claude Opus 4.6 | editor-multi-prompt | Yes |
   | Plan | Claude Opus 4.6 | None | No |
-  | Free | GLM 5.1 | None | No |
+  | Lite | GLM 5.1 | None | No |
 </MarkdownTable>
 
 ## Default
@@ -58,14 +58,10 @@ Use this to scope out work before implementing, or to discuss approaches without
 
 Switch to this mode with `/mode:plan`.
 
-## Free
+## Lite
 
-GLM 5.1, cheaper and faster:
+GLM 5.1, cheaper and faster.
 
-- Less file context gathering
-- Skips code review
-- No todo tracking
+An efficient mode for most coding tasks.
 
-Good for quick fixes and simple questions.
-
-Switch to this mode with `/mode:free`.
+Switch to this mode with `/mode:lite`.

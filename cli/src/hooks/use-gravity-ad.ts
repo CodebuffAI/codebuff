@@ -6,6 +6,7 @@ import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 
 import type { Message} from '@codebuff/sdk';
@@ -112,11 +113,10 @@ export const useGravityAd = (options?: {
   const { terminalHeight } = useTerminalLayout()
   const isVeryCompactHeight = terminalHeight <= 17
 
-  // Get agent mode - FREE mode always shows ads even on compact screens
-  const agentMode = useChatStore((s) => s.agentMode)
-  const isFreeMode = agentMode === 'FREE'
+  // Freebuff always shows ads even on compact screens (ads are mandatory there).
+  const isFreeMode = IS_FREEBUFF
 
-  // Skip ads on very compact screens unless in FREE mode (where ads are mandatory)
+  // Skip ads on very compact screens unless we're in Freebuff (where ads are mandatory)
   // Also skip if explicitly disabled (e.g. user has a subscription)
   const shouldHideAds = !enabled || (isVeryCompactHeight && !isFreeMode)
 
@@ -163,7 +163,7 @@ export const useGravityAd = (options?: {
       return
     }
 
-    // Include mode in request - FREE mode should not grant credits
+    // Include mode in request - Freebuff should not grant credits (no balance concept).
     const agentMode = useChatStore.getState().agentMode
 
     fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {

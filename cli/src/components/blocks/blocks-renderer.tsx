@@ -24,7 +24,7 @@ interface BlocksRendererProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onBuildFree: () => void
+  onBuildLite: () => void
   isLastMessage?: boolean
   contentToCopy?: string
 }
@@ -42,7 +42,7 @@ interface BlocksRendererPropsRef {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onBuildFree: () => void
+  onBuildLite: () => void
   isLastMessage?: boolean
   contentToCopy?: string
   lastTextBlockIndex: number
@@ -61,7 +61,7 @@ export const BlocksRenderer = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    onBuildFree,
+    onBuildLite,
     isLastMessage,
     contentToCopy,
   }: BlocksRendererProps) => {
@@ -87,7 +87,7 @@ export const BlocksRenderer = memo(
       onToggleCollapsed,
       onBuildFast,
       onBuildMax,
-      onBuildFree,
+      onBuildLite,
       isLastMessage,
       contentToCopy,
       lastTextBlockIndex,
@@ -167,7 +167,7 @@ export const BlocksRenderer = memo(
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
                   onBuildMax={p.onBuildMax}
-                  onBuildFree={p.onBuildFree}
+                  onBuildLite={p.onBuildLite}
                   siblingBlocks={p.sourceBlocks}
                   isLastMessage={p.isLastMessage}
                 />
@@ -194,7 +194,7 @@ export const BlocksRenderer = memo(
               onToggleCollapsed={p.onToggleCollapsed}
               onBuildFast={p.onBuildFast}
               onBuildMax={p.onBuildMax}
-              onBuildFree={p.onBuildFree}
+              onBuildLite={p.onBuildLite}
               isLastMessage={p.isLastMessage}
               contentToCopy={index === p.lastTextBlockIndex ? p.contentToCopy : undefined}
             />

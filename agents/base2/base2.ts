@@ -7,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'default' | 'free' | 'max' | 'fast',
+  mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -22,7 +22,7 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
-  const isFree = mode === 'free'
+  const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
   const model = isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.7'

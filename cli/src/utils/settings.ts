@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS: Settings = {
   adsEnabled: true,
 }
 
-// Note: FREE mode is now a valid AgentMode (was previously LITE)
+// Note: The old FREE mode has been renamed back to LITE; migrate on load.
 
 /**
  * Settings schema - add new settings here as the product evolves
@@ -83,12 +83,12 @@ const validateSettings = (parsed: unknown): Settings => {
   const settings: Settings = {}
   const obj = parsed as Record<string, unknown>
 
-  // Validate mode
-  if (
-    typeof obj.mode === 'string' &&
-    AGENT_MODES.includes(obj.mode as AgentMode)
-  ) {
-    settings.mode = obj.mode as AgentMode
+  // Validate mode; migrate the previously-saved 'FREE' value to 'LITE'.
+  if (typeof obj.mode === 'string') {
+    const normalized = obj.mode === 'FREE' ? 'LITE' : obj.mode
+    if (AGENT_MODES.includes(normalized as AgentMode)) {
+      settings.mode = normalized as AgentMode
+    }
   }
 
   // Validate adsEnabled

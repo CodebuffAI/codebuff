@@ -618,7 +618,7 @@ export const Chat = ({
     ],
   )
 
-  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildFree } = useChatInput({
+  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildLite } = useChatInput({
     setInputValue,
     agentMode,
     setAgentMode,
@@ -1246,7 +1246,7 @@ export const Chat = ({
       onToggleCollapsed: handleCollapseToggle,
       onBuildFast: handleBuildFast,
       onBuildMax: handleBuildMax,
-      onBuildFree: handleBuildFree,
+      onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
     })
@@ -1254,7 +1254,7 @@ export const Chat = ({
     handleCollapseToggle,
     handleBuildFast,
     handleBuildMax,
-    handleBuildFree,
+    handleBuildLite,
     handleMessageFeedback,
     handleCloseFeedback,
     setMessageBlockCallbacks,
@@ -1467,7 +1467,7 @@ export const Chat = ({
             <AdBanner
               ad={ad}
               onDisableAds={handleDisableAds}
-              isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
+              isFreeMode={IS_FREEBUFF}
             />
           )
         )}

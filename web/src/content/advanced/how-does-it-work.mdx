@@ -14,7 +14,7 @@ Codebuff runs multiple agents, each tuned for a specific task.
 The main agent ("Buffy") runs on Claude Opus 4.6. It reads your prompt, gathers context, and spawns subagents. The orchestrator is available in several variants:
 
 - [`base2`](/publishers/codebuff/agents/base2) - Default mode orchestrator
-- [`base2-free`](/publishers/codebuff/agents/base2-free) - Free mode (faster, no credit cost)
+- [`base2-lite`](/publishers/codebuff/agents/base2-lite) - Lite mode (faster, cheaper)
 - [`base2-max`](/publishers/codebuff/agents/base2-max) - Max mode (best-of-N selection)
 - [`base2-plan`](/publishers/codebuff/agents/base2-plan) - Plan mode (no file writes)
 
@@ -25,7 +25,7 @@ The main agent ("Buffy") runs on Claude Opus 4.6. It reads your prompt, gathers 
 - [**Researcher**](/publishers/codebuff/agents/researcher) (Grok 4 Fast) - web and docs lookup
 - [**Thinker**](/publishers/codebuff/agents/thinker) (GPT-5.1, Gemini 2.5 Pro) - works through hard problems
 - [**Editor**](/publishers/codebuff/agents/editor) (GPT-5.1, Claude Opus 4.6) - writes and modifies code
-- [**Reviewer**](/publishers/codebuff/agents/reviewer) (Claude Opus 4.6, GLM 5.1 in Free mode) - catches bugs and style issues
+- [**Reviewer**](/publishers/codebuff/agents/reviewer) (Claude Opus 4.6, GLM 5.1 in Lite mode) - catches bugs and style issues
 - [**Basher**](/publishers/codebuff/agents/basher) (Gemini 3.1 Flash Lite) - runs terminal commands
 
 ## Best-of-N Selection (Max Mode)

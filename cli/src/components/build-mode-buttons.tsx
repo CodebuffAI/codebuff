@@ -11,16 +11,16 @@ export const BuildModeButtons = ({
   theme,
   onBuildFast,
   onBuildMax,
-  onBuildFree,
+  onBuildLite,
 }: {
   theme: ChatTheme
   onBuildFast: () => void
   onBuildMax: () => void
-  onBuildFree: () => void
+  onBuildLite: () => void
 }) => {
   if (IS_FREEBUFF) return null
 
-  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | 'free' | null>(
+  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | 'lite' | null>(
     null,
   )
   const { width } = useTerminalLayout()
@@ -93,15 +93,15 @@ export const BuildModeButtons = ({
             paddingRight: 2,
             borderStyle: 'single',
             borderColor:
-              hoveredButton === 'free' ? theme.foreground : theme.secondary,
+              hoveredButton === 'lite' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onClick={onBuildFree}
-          onMouseOver={() => setHoveredButton('free')}
+          onClick={onBuildLite}
+          onMouseOver={() => setHoveredButton('lite')}
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
-            <span fg={theme.foreground}>Build FREE</span>
+            <span fg={theme.foreground}>Build LITE</span>
           </text>
         </Button>
       </box>

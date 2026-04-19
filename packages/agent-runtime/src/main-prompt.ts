@@ -107,6 +107,7 @@ export async function mainPrompt(
       {
         ask: AgentTemplateTypes.ask,
         free: AgentTemplateTypes.base_free,
+        lite: AgentTemplateTypes.base_free,
         normal: AgentTemplateTypes.base,
         max: AgentTemplateTypes.base_max,
         experimental: 'base2',

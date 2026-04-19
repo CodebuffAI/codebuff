@@ -1671,7 +1671,7 @@ describe('freebuff gate errors', () => {
     handleRunCompletion({
       runState,
       actualCredits: undefined,
-      agentMode: 'FREE',
+      agentMode: 'LITE',
       timerController: createMockTimerController(),
       updater,
       aiMessageId: 'ai-1',

@@ -25,7 +25,7 @@ export type CreateRunConfigParams = {
   agentDefinitions: AgentDefinition[]
   eventHandlerState: EventHandlerState
   signal: AbortSignal
-  costMode?: 'free' | 'normal' | 'max' | 'experimental' | 'ask'
+  costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
 }
 

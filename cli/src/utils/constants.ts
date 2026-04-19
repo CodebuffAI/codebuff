@@ -122,10 +122,13 @@ export const MAIN_AGENT_ID = 'main-agent'
 /**
  * Mapping from agent mode to agent ID.
  * Single source of truth for all agent modes (order = cycling order).
+ *
+ * Freebuff maps LITE to the free-tier agent (base2-free) so it stays fully free;
+ * regular Codebuff maps LITE to base2-lite which charges credits normally.
  */
 export const AGENT_MODE_TO_ID = {
   DEFAULT: 'base2',
-  FREE: 'base2-free',
+  LITE: IS_FREEBUFF ? 'base2-free' : 'base2-lite',
   MAX: 'base2-max',
   PLAN: 'base2-plan',
 } as const
@@ -135,11 +138,14 @@ export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
 
 /**
  * Maps CLI agent mode to cost mode for billing.
- * FREE mode maps to 'free' cost mode where allowlisted agent+model combos cost 0 credits.
+ *
+ * Freebuff's LITE maps to 'free' cost mode (waiting room, rate limits, 0 credits
+ * for allowlisted agent+model combos). Regular Codebuff's LITE maps to 'lite' —
+ * a normal paid mode (charges credits, no waiting room, no country restrictions).
  */
 export const AGENT_MODE_TO_COST_MODE = {
   DEFAULT: 'normal',
-  FREE: 'free',
+  LITE: IS_FREEBUFF ? 'free' : 'lite',
   MAX: 'max',
   PLAN: 'normal',
-} as const satisfies Record<AgentMode, 'free' | 'normal' | 'max' | 'experimental' | 'ask'>
+} as const satisfies Record<AgentMode, 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'>

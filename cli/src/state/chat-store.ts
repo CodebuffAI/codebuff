@@ -185,7 +185,7 @@ const initialState: ChatStoreState = {
   isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
-  agentMode: IS_FREEBUFF ? ('FREE' as const) : loadModePreference(),
+  agentMode: IS_FREEBUFF ? ('LITE' as const) : loadModePreference(),
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
