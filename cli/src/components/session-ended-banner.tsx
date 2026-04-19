@@ -84,7 +84,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             style={{ fg: rejoining ? theme.muted : theme.primary }}
             attributes={TextAttributes.BOLD}
           >
-            {rejoining ? 'Rejoining…' : '[Enter] Rejoin waiting room'}
+            {rejoining ? 'Rejoining…' : 'Press Enter to rejoin waiting room'}
           </text>
         </Button>
       )}
