@@ -15,6 +15,7 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
     calls,
     sweepExpired: async () => 0,
     queueDepth: async () => 0,
+    activeCount: async () => 0,
     getFireworksHealth: async () => 'healthy',
     admitFromQueue: async ({ getFireworksHealth }) => {
       calls.admit += 1

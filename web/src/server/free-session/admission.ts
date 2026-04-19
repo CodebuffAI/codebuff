@@ -5,7 +5,7 @@ import {
   isWaitingRoomEnabled,
 } from './config'
 import { getFireworksHealth } from './fireworks-health'
-import { admitFromQueue, queueDepth, sweepExpired } from './store'
+import { activeCount, admitFromQueue, queueDepth, sweepExpired } from './store'
 
 import type { FireworksHealth } from './fireworks-health'
 
@@ -14,6 +14,7 @@ import { logger } from '@/util/logger'
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
   queueDepth: () => Promise<number>
+  activeCount: () => Promise<number>
   admitFromQueue: (params: {
     sessionLengthMs: number
     now: Date
@@ -29,6 +30,7 @@ export interface AdmissionDeps {
 const defaultDeps: AdmissionDeps = {
   sweepExpired,
   queueDepth,
+  activeCount,
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
   // waiting-room → admitted → ended flow without a real upstream.
@@ -48,6 +50,7 @@ export interface AdmissionTickResult {
   expired: number
   admitted: number
   queueDepth: number
+  activeCount: number
   skipped: FireworksHealth | null
 }
 
@@ -77,8 +80,17 @@ export async function runAdmissionTick(
     getFireworksHealth: deps.getFireworksHealth,
   })
 
-  const depth = await deps.queueDepth()
-  return { expired, admitted: admitted.length, queueDepth: depth, skipped }
+  const [depth, active] = await Promise.all([
+    deps.queueDepth(),
+    deps.activeCount(),
+  ])
+  return {
+    expired,
+    admitted: admitted.length,
+    queueDepth: depth,
+    activeCount: active,
+    skipped,
+  }
 }
 
 let interval: ReturnType<typeof setInterval> | null = null
@@ -89,17 +101,20 @@ function runTick() {
   inFlight = true
   runAdmissionTick()
     .then((result) => {
-      if (result.admitted > 0 || result.expired > 0 || result.skipped !== null) {
-        logger.info(
-          {
-            admitted: result.admitted,
-            expired: result.expired,
-            queueDepth: result.queueDepth,
-            skipped: result.skipped,
-          },
-          '[FreeSessionAdmission] tick',
-        )
-      }
+      // Emit every tick so queueDepth/activeCount form a continuous time-series
+      // that can be charted over time. metric=freebuff_waiting_room makes it
+      // filterable in the log aggregator.
+      logger.info(
+        {
+          metric: 'freebuff_waiting_room',
+          admitted: result.admitted,
+          expired: result.expired,
+          queueDepth: result.queueDepth,
+          activeCount: result.activeCount,
+          skipped: result.skipped,
+        },
+        '[FreeSessionAdmission] tick',
+      )
     })
     .catch((error) => {
       logger.warn(

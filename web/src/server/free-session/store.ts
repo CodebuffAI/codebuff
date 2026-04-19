@@ -108,6 +108,14 @@ export async function queueDepth(): Promise<number> {
   return Number(rows[0]?.n ?? 0)
 }
 
+export async function activeCount(): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(eq(schema.freeSession.status, 'active'))
+  return Number(rows[0]?.n ?? 0)
+}
+
 export async function queuePositionFor(params: {
   userId: string
   queuedAt: Date
