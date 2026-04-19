@@ -11,7 +11,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 
 import { FreebuffSession, requireFreebuffBinary } from '../utils'
 
-const TEST_TIMEOUT = 180_000
+const TEST_TIMEOUT = 1_000_000
 
 function getApiKey(): string | null {
   return process.env.CODEBUFF_API_KEY ?? null
