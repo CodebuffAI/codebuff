@@ -19,7 +19,7 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
       calls.admit.push(limit)
       return Array.from({ length: limit }, (_, i) => ({ user_id: `u${i}` }))
     },
-    isFireworksAdmissible: () => true,
+    isFireworksAdmissible: async () => true,
     getMaxAdmitsPerTick: () => 1,
     getSessionLengthMs: () => 60 * 60 * 1000,
     getSessionGraceMs: () => 30 * 60 * 1000,
@@ -44,7 +44,7 @@ describe('runAdmissionTick', () => {
 
   test('skips admission when Fireworks not healthy', async () => {
     const deps = makeAdmissionDeps({
-      isFireworksAdmissible: () => false,
+      isFireworksAdmissible: async () => false,
     })
     const result = await runAdmissionTick(deps)
     expect(result.admitted).toBe(0)
@@ -58,7 +58,7 @@ describe('runAdmissionTick', () => {
         swept = 3
         return 3
       },
-      isFireworksAdmissible: () => false,
+      isFireworksAdmissible: async () => false,
     })
     const result = await runAdmissionTick(deps)
     expect(swept).toBe(3)

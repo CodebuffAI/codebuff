@@ -35,7 +35,7 @@ flowchart LR
     Gate[checkSessionAdmissible]
     Ticker[Admission Ticker<br/>every 5s, 1 pod]
     Store[(free_session<br/>Postgres)]
-    Monitor[FireworksMonitor<br/>isFireworksAdmissible]
+    Probe[isFireworksAdmissible<br/>Fireworks metrics GET]
 
     CLI -- "POST on startup<br/>(gets instance_id)" --> SessionAPI
     CLI -- "GET to poll state" --> SessionAPI
@@ -44,7 +44,7 @@ flowchart LR
     ChatAPI --> Gate
     Gate --> Store
     Ticker --> Store
-    Ticker --> Monitor
+    Ticker --> Probe
 ```
 
 ### Components
@@ -123,7 +123,7 @@ The rotation is important: it happens even if the caller is already in the `acti
 ### What this does NOT prevent
 
 - A single user manually syncing `instance_id` between two CLIs (e.g. editing a config file). This is possible but requires them to re-sync after every startup call, so it's high-friction. We accept this.
-- A user creating multiple accounts. That is covered by other gates (MIN_ACCOUNT_AGE_FOR_PAID_MS, geo check) and the Fireworks monitor's overall throttle.
+- A user creating multiple accounts. That is covered by other gates (MIN_ACCOUNT_AGE_FOR_PAID_MS, geo check) and the overall drip-admission rate.
 
 ## Admission Loop
 
@@ -132,8 +132,8 @@ One pod runs the admission loop at a time, coordinated via Postgres advisory loc
 Each tick does (in order):
 
 1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now()`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
-2. **Check upstream health.** `isFireworksAdmissible()` from the monitor. If not `healthy`, skip admission for this tick (queue grows; users see `status: 'queued'` with increasing position).
-3. **Admit.** `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED`, then `UPDATE` those rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering the queue at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from getting hit by a thundering herd of newly-admitted CLIs; once metrics show the deployment is saturated, step 2 halts further admissions.
+2. **Check upstream reachability.** `isFireworksAdmissible()` does a short-timeout GET against the Fireworks account metrics endpoint. If it doesn't respond OK, skip admission for this tick (queue grows; users see `status: 'queued'` with increasing position).
+3. **Admit.** `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED`, then `UPDATE` those rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering the queue at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from getting hit by a thundering herd of newly-admitted CLIs; if the probe starts failing, step 2 halts further admissions.
 
 ### Tunables
 

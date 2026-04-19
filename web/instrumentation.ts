@@ -8,7 +8,6 @@
  * causing Render's proxy to return 502 Bad Gateway errors.
  */
 
-import { startFireworksMonitor } from '@/server/fireworks-monitor/monitor'
 import { logger } from '@/util/logger'
 
 export async function register() {
@@ -46,8 +45,6 @@ export async function register() {
   })
 
   logger.info({}, '[Instrumentation] Global error handlers registered')
-
-  startFireworksMonitor()
 
   // DB-touching admission module uses `postgres`, which imports Node built-ins
   // like `crypto`. Gate on NEXT_RUNTIME so the edge bundle doesn't try to
