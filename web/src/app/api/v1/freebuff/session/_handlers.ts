@@ -22,7 +22,9 @@ export interface FreebuffSessionDeps {
   sessionDeps?: SessionDeps
 }
 
-type AuthResult = { error: NextResponse } | { userId: string }
+type AuthResult =
+  | { error: NextResponse }
+  | { userId: string; userEmail: string | null }
 
 async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise<AuthResult> {
   const apiKey = extractApiKeyFromHeader(req)
@@ -39,7 +41,7 @@ async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise
   }
   const userInfo = await deps.getUserInfoFromApiKey({
     apiKey,
-    fields: ['id'],
+    fields: ['id', 'email'],
     logger: deps.logger,
   })
   if (!userInfo?.id) {
@@ -50,7 +52,7 @@ async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise
       ),
     }
   }
-  return { userId: String(userInfo.id) }
+  return { userId: String(userInfo.id), userEmail: userInfo.email ?? null }
 }
 
 function serverError(
@@ -96,6 +98,7 @@ export async function postFreebuffSession(
   try {
     const state = await requestSession({
       userId: auth.userId,
+      userEmail: auth.userEmail,
       deps: deps.sessionDeps,
     })
     return NextResponse.json(state, { status: 200 })
@@ -118,6 +121,7 @@ export async function getFreebuffSession(
     const claimedInstanceId = req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
     const state = await getSessionState({
       userId: auth.userId,
+      userEmail: auth.userEmail,
       claimedInstanceId,
       deps: deps.sessionDeps,
     })
@@ -142,7 +146,11 @@ export async function deleteFreebuffSession(
   if ('error' in auth) return auth.error
 
   try {
-    await endUserSession({ userId: auth.userId, deps: deps.sessionDeps })
+    await endUserSession({
+      userId: auth.userId,
+      userEmail: auth.userEmail,
+      deps: deps.sessionDeps,
+    })
     return NextResponse.json({ status: 'ended' }, { status: 200 })
   } catch (error) {
     return serverError(deps, 'DELETE', auth.userId, error)
