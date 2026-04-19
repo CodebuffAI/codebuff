@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
+import { FreebuffSessionCountdown } from './freebuff-session-countdown'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
 import { StopButton } from './stop-button'
@@ -169,6 +170,9 @@ export const StatusBar = ({
         }}
       >
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
+        <text style={{ wrapMode: 'none' }}>
+          <FreebuffSessionCountdown />
+        </text>
         {onStop && (statusIndicatorState.kind === 'waiting' || statusIndicatorState.kind === 'streaming') && (
           <StopButton onClick={onStop} />
         )}
