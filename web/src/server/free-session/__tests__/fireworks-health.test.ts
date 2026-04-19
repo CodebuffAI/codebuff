@@ -54,7 +54,7 @@ function errors(code: string, rate: number): PromSample {
 
 describe('fireworks health classifier', () => {
   test('healthy when queue well under the threshold', () => {
-    const samples: PromSample[] = [kvBlocks(0.5), ...prefillQueueBuckets(300)]
+    const samples: PromSample[] = [kvBlocks(0.5), ...prefillQueueBuckets(150)]
     expect(classify(samples, [DEPLOY])).toBe('healthy')
   })
 
@@ -95,7 +95,7 @@ describe('fireworks health classifier', () => {
   test('ignores high error fraction when traffic is too low to be meaningful', () => {
     const samples: PromSample[] = [
       kvBlocks(0.5),
-      ...prefillQueueBuckets(300),
+      ...prefillQueueBuckets(150),
       requests(0.05),
       errors('500', 0.05),
     ]
