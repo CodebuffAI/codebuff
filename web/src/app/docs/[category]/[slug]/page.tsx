@@ -38,7 +38,7 @@ const FAQ_ITEMS = [
   {
     question: 'Can I use my Claude Pro or Max subscription with Codebuff?',
     answer:
-      "Yes! If you have a Claude Pro or Max subscription, you can connect it to Codebuff and use your subscription for Claude model requests. This lets you save credits while still benefiting from Codebuff's intelligent orchestration. Run /connect:claude in the CLI to link your subscription. Note: Using your Claude Pro/Max subscription in Codebuff is not officially supported by Anthropic.",
+      'Connecting your Claude Pro or Max subscription to Codebuff is deprecated and will be removed on March 1st. At least one user had their Anthropic account disabled after heavy usage via Codebuff. We recommend switching to a Codebuff Strong subscription instead — it includes generous usage limits across all models without needing to connect an external subscription.',
   },
   {
     question: 'Is Codebuff open source?',
