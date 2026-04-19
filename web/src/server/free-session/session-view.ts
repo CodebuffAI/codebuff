@@ -14,11 +14,10 @@ export function toSessionStateResponse(params: {
   position: number
   queueDepth: number
   admissionTickMs: number
-  maxAdmitsPerTick: number
   graceMs: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepth, admissionTickMs, maxAdmitsPerTick, graceMs, now } = params
+  const { row, position, queueDepth, admissionTickMs, graceMs, now } = params
   if (!row) return null
 
   if (row.status === 'active' && row.expires_at) {
@@ -52,11 +51,7 @@ export function toSessionStateResponse(params: {
       instanceId: row.active_instance_id,
       position,
       queueDepth,
-      estimatedWaitMs: estimateWaitMs({
-        position,
-        admissionTickMs,
-        maxAdmitsPerTick,
-      }),
+      estimatedWaitMs: estimateWaitMs({ position, admissionTickMs }),
       queuedAt: row.queued_at.toISOString(),
     }
   }
@@ -66,21 +61,17 @@ export function toSessionStateResponse(params: {
 }
 
 /**
- * Wait-time estimate under the drip-admission model: we admit
- * `maxAdmitsPerTick` users every `admissionTickMs`, gated by Fireworks
- * health. Ignoring health pauses, user at position P waits roughly
- * `ceil((P - 1) / maxAdmitsPerTick) * admissionTickMs`.
+ * Wait-time estimate under the drip-admission model: one user per
+ * `admissionTickMs`, gated by Fireworks health. Ignoring health pauses, the
+ * user at position P waits roughly `(P - 1) * admissionTickMs`.
  *
  * Position 1 → 0ms (next tick picks you up).
- * Position maxAdmitsPerTick+1 → one tick.
  */
 export function estimateWaitMs(params: {
   position: number
   admissionTickMs: number
-  maxAdmitsPerTick: number
 }): number {
-  const { position, admissionTickMs, maxAdmitsPerTick } = params
-  if (position <= 1 || admissionTickMs <= 0 || maxAdmitsPerTick <= 0) return 0
-  const ticksAhead = Math.ceil((position - 1) / maxAdmitsPerTick)
-  return ticksAhead * admissionTickMs
+  const { position, admissionTickMs } = params
+  if (position <= 1 || admissionTickMs <= 0) return 0
+  return (position - 1) * admissionTickMs
 }

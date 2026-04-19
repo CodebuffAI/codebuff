@@ -1,11 +1,12 @@
 import { TextAttributes } from '@opentui/core'
-import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useMemo, useState } from 'react'
+import { useRenderer } from '@opentui/react'
+import React, { useMemo, useState } from 'react'
 
 import { AdBanner } from './ad-banner'
 import { Button } from './button'
 import { ChoiceAdBanner } from './choice-ad-banner'
 import { ShimmerText } from './shimmer-text'
+import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
@@ -16,7 +17,6 @@ import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
-import type { KeyEvent } from '@opentui/core'
 
 interface WaitingRoomScreenProps {
   session: FreebuffSessionResponse | null
@@ -77,16 +77,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     forceStart: true,
   })
 
-  // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
-  // through as a normal OpenTUI key event. Shared with the top-right X button.
-  useKeyboard(
-    useCallback((key: KeyEvent) => {
-      if (key.ctrl && key.name === 'c') {
-        key.preventDefault?.()
-        exitFreebuffCleanly()
-      }
-    }, []),
-  )
+  useFreebuffCtrlCExit()
 
   const [exitHover, setExitHover] = useState(false)
 

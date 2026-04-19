@@ -5,7 +5,6 @@ import { estimateWaitMs, toSessionStateResponse } from '../session-view'
 import type { InternalSessionRow } from '../types'
 
 const TICK_MS = 15_000
-const ADMITS_PER_TICK = 1
 const GRACE_MS = 30 * 60_000
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
@@ -25,26 +24,17 @@ function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
 
 describe('estimateWaitMs', () => {
   test('position 1 → 0 wait (next tick picks you up)', () => {
-    expect(estimateWaitMs({ position: 1, admissionTickMs: TICK_MS, maxAdmitsPerTick: ADMITS_PER_TICK })).toBe(0)
+    expect(estimateWaitMs({ position: 1, admissionTickMs: TICK_MS })).toBe(0)
   })
 
-  test('position N → (N-1) ticks ahead at 1 admit/tick', () => {
-    expect(estimateWaitMs({ position: 2, admissionTickMs: TICK_MS, maxAdmitsPerTick: 1 })).toBe(TICK_MS)
-    expect(estimateWaitMs({ position: 10, admissionTickMs: TICK_MS, maxAdmitsPerTick: 1 })).toBe(9 * TICK_MS)
-  })
-
-  test('batched admission divides wait', () => {
-    // 5 admits/tick: positions 2-6 all sit one tick ahead.
-    expect(estimateWaitMs({ position: 2, admissionTickMs: TICK_MS, maxAdmitsPerTick: 5 })).toBe(TICK_MS)
-    expect(estimateWaitMs({ position: 6, admissionTickMs: TICK_MS, maxAdmitsPerTick: 5 })).toBe(TICK_MS)
-    // Position 7 enters the second tick.
-    expect(estimateWaitMs({ position: 7, admissionTickMs: TICK_MS, maxAdmitsPerTick: 5 })).toBe(2 * TICK_MS)
+  test('position N → (N-1) ticks ahead', () => {
+    expect(estimateWaitMs({ position: 2, admissionTickMs: TICK_MS })).toBe(TICK_MS)
+    expect(estimateWaitMs({ position: 10, admissionTickMs: TICK_MS })).toBe(9 * TICK_MS)
   })
 
   test('degenerate inputs return 0', () => {
-    expect(estimateWaitMs({ position: 0, admissionTickMs: TICK_MS, maxAdmitsPerTick: 1 })).toBe(0)
-    expect(estimateWaitMs({ position: 5, admissionTickMs: 0, maxAdmitsPerTick: 1 })).toBe(0)
-    expect(estimateWaitMs({ position: 5, admissionTickMs: TICK_MS, maxAdmitsPerTick: 0 })).toBe(0)
+    expect(estimateWaitMs({ position: 0, admissionTickMs: TICK_MS })).toBe(0)
+    expect(estimateWaitMs({ position: 5, admissionTickMs: 0 })).toBe(0)
   })
 })
 
@@ -52,7 +42,6 @@ describe('toSessionStateResponse', () => {
   const now = new Date('2026-04-17T12:00:00Z')
   const baseArgs = {
     admissionTickMs: TICK_MS,
-    maxAdmitsPerTick: ADMITS_PER_TICK,
     graceMs: GRACE_MS,
   }
 

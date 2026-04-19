@@ -34,7 +34,6 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     rows,
     isWaitingRoomEnabled: () => true,
     admissionTickMs: 15_000,
-    maxAdmitsPerTick: 1,
     graceMs: 30 * 60 * 1000,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,

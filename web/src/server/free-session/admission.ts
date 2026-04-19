@@ -2,7 +2,6 @@ import { env } from '@codebuff/internal/env'
 
 import {
   ADMISSION_TICK_MS,
-  MAX_ADMITS_PER_TICK,
   getSessionGraceMs,
   getSessionLengthMs,
   isWaitingRoomEnabled,
@@ -153,7 +152,7 @@ export function startFreeSessionAdmission(): boolean {
   if (typeof interval.unref === 'function') interval.unref()
   runTick() // fire first tick immediately
   logger.info(
-    { tickMs: ADMISSION_TICK_MS, maxAdmitsPerTick: MAX_ADMITS_PER_TICK },
+    { tickMs: ADMISSION_TICK_MS },
     '[FreeSessionAdmission] Started',
   )
   return true

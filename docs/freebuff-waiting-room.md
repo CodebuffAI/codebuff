@@ -4,7 +4,7 @@
 
 The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployment. It has three jobs:
 
-1. **Drip-admit users** — admit at a steady trickle (default 1 per 15s) so load ramps up gradually rather than stampeding the deployment when the queue is long.
+1. **Drip-admit users** — admit at a steady trickle (default 1 per `ADMISSION_TICK_MS`, currently 15s) so load ramps up gradually rather than stampeding the deployment when the queue is long.
 2. **Gate on upstream health** — before each admission tick, probe the Fireworks metrics endpoint with a short timeout (`isFireworksAdmissible` in `web/src/server/free-session/admission.ts`). If it doesn't respond OK, admission halts until it does — this is the primary concurrency control, not a static cap.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
@@ -132,14 +132,13 @@ One pod runs the admission loop at a time, coordinated via Postgres advisory loc
 Each tick does (in order):
 
 1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now() - grace`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
-2. **Admit.** `admitFromQueue()` first calls `isFireworksAdmissible()` (short-timeout GET against the Fireworks metrics endpoint). If the probe fails, returns `{ skipped: 'health' }` — admission pauses and the queue grows until recovery. Otherwise opens a transaction, takes `pg_try_advisory_xact_lock(FREEBUFF_ADMISSION_LOCK_ID)`, and `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED` → `UPDATE` the rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from a thundering herd of newly-admitted CLIs.
+2. **Admit.** `admitFromQueue()` first calls `isFireworksAdmissible()` (short-timeout GET against the Fireworks metrics endpoint). If the probe fails, returns `{ skipped: 'health' }` — admission pauses and the queue grows until recovery. Otherwise opens a transaction, takes `pg_try_advisory_xact_lock(FREEBUFF_ADMISSION_LOCK_ID)`, and `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT 1 FOR UPDATE SKIP LOCKED` → `UPDATE` the row to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. One admit per tick keeps Fireworks from a thundering herd of newly-admitted CLIs.
 
 ### Tunables
 
 | Constant | Location | Default | Purpose |
 |---|---|---|---|
-| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires |
-| `MAX_ADMITS_PER_TICK` | `config.ts` | 1 | Upper bound on admits per tick |
+| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. One user is admitted per tick. |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
 | `FREEBUFF_SESSION_GRACE_MS` | env | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
@@ -224,6 +223,7 @@ For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` ca
 
 | HTTP | `error` | When |
 |---|---|---|
+| 426 | `freebuff_update_required` | Request did not include a `freebuff_instance_id` — the client is a pre-waiting-room build. The CLI shows the server-supplied message verbatim. |
 | 428 | `waiting_room_required` | No session row exists. Client should call POST /session. |
 | 429 | `waiting_room_queued` | Row exists with `status='queued'`. Client should keep polling GET. |
 | 409 | `session_superseded` | Claimed `instance_id` does not match stored one — another CLI took over. |
@@ -249,13 +249,11 @@ This is a **trust-the-client** design: the server still admits requests during t
 Computed in `session-view.ts` from the drip-admission rate:
 
 ```
-ticksAhead = ceil((position - 1) / maxAdmitsPerTick)
-waitMs     = ticksAhead * admissionTickMs
+waitMs = (position - 1) * admissionTickMs
 ```
 
 - Position 1 → 0 (next tick admits you)
-- Position `maxAdmitsPerTick` + 1 → one tick
-- and so on.
+- Position 2 → one tick, and so on.
 
 This estimate **ignores health-gated pauses**: during a Fireworks incident admission halts entirely, so the actual wait can be longer. We choose to under-report here because showing "unknown" / "indefinite" is worse UX for the common case where the deployment is healthy.
 

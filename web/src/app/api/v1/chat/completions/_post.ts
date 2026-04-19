@@ -147,6 +147,7 @@ const STATUS_BY_GATE_CODE = {
   waiting_room_queued: 429,
   session_superseded: 409,
   session_expired: 410,
+  freebuff_update_required: 426,
 } satisfies Record<GateRejectCode, number>
 
 export async function postChatCompletions(params: {
@@ -412,30 +413,8 @@ export async function postChatCompletions(params: {
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
-      const gate = await checkSession({
-        userId,
-        claimedInstanceId,
-      })
+      const gate = await checkSession({ userId, claimedInstanceId })
       if (!gate.ok) {
-        // Old freebuff clients (pre-waiting-room) never send an instance_id.
-        // Return a 426 with a clear "please restart to upgrade" message that
-        // their existing error banner will render verbatim.
-        if (!claimedInstanceId) {
-          trackEvent({
-            event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
-            userId,
-            properties: { error: 'freebuff_update_required' },
-            logger,
-          })
-          return NextResponse.json(
-            {
-              error: 'freebuff_update_required',
-              message:
-                'This version of freebuff is out of date. Please restart freebuff to upgrade and continue using free mode.',
-            },
-            { status: 426 },
-          )
-        }
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,

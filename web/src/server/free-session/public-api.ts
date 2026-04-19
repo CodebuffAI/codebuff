@@ -1,6 +1,5 @@
 import {
   ADMISSION_TICK_MS,
-  MAX_ADMITS_PER_TICK,
   getSessionGraceMs,
   isWaitingRoomEnabled,
 } from './config'
@@ -27,7 +26,6 @@ export interface SessionDeps {
    *  interface uses values rather than thunks so tests can pass numbers
    *  inline without wrapping. */
   admissionTickMs: number
-  maxAdmitsPerTick: number
   graceMs: number
   now?: () => Date
 }
@@ -40,7 +38,6 @@ const defaultDeps: SessionDeps = {
   queuePositionFor,
   isWaitingRoomEnabled,
   admissionTickMs: ADMISSION_TICK_MS,
-  maxAdmitsPerTick: MAX_ADMITS_PER_TICK,
   get graceMs() {
     // Read-through getter so test overrides via env still work; the value
     // itself is materialized once per call. Cheaper than a thunk because
@@ -68,7 +65,6 @@ async function viewForRow(
     position,
     queueDepth: depth,
     admissionTickMs: deps.admissionTickMs,
-    maxAdmitsPerTick: deps.maxAdmitsPerTick,
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })
@@ -160,6 +156,9 @@ export type SessionGateResult =
   | { ok: false; code: 'waiting_room_queued'; message: string }
   | { ok: false; code: 'session_superseded'; message: string }
   | { ok: false; code: 'session_expired'; message: string }
+  /** Pre-waiting-room CLI that never sends an instance id. Surfaced as a
+   *  distinct code so the caller can prompt the user to restart. */
+  | { ok: false; code: 'freebuff_update_required'; message: string }
 
 /**
  * Called from the chat/completions hot path for free-mode requests. Either
@@ -179,6 +178,19 @@ export async function checkSessionAdmissible(params: {
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
   if (!deps.isWaitingRoomEnabled()) return { ok: true, reason: 'disabled' }
+
+  // Pre-waiting-room CLIs never send a freebuff_instance_id. Classify that up
+  // front so the caller gets a distinct code (→ 426 Upgrade Required) and the
+  // user sees a clear "please restart" message instead of a gate reject they
+  // can't interpret.
+  if (!params.claimedInstanceId) {
+    return {
+      ok: false,
+      code: 'freebuff_update_required',
+      message:
+        'This version of freebuff is out of date. Please restart freebuff to upgrade and continue using free mode.',
+    }
+  }
 
   const row = await deps.getSessionRow(params.userId)
 
@@ -213,7 +225,7 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
-  if (!params.claimedInstanceId || params.claimedInstanceId !== row.active_instance_id) {
+  if (params.claimedInstanceId !== row.active_instance_id) {
     return {
       ok: false,
       code: 'session_superseded',

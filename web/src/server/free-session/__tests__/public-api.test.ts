@@ -12,7 +12,6 @@ import type { InternalSessionRow } from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
 const TICK_MS = 15_000
-const ADMITS_PER_TICK = 1
 const GRACE_MS = 30 * 60 * 1000
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
@@ -38,7 +37,6 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     _now: () => currentNow,
     isWaitingRoomEnabled: () => true,
     admissionTickMs: TICK_MS,
-    maxAdmitsPerTick: ADMITS_PER_TICK,
     graceMs: GRACE_MS,
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
@@ -329,7 +327,9 @@ describe('checkSessionAdmissible', () => {
     expect(result.code).toBe('session_superseded')
   })
 
-  test('active + missing instance id → session_superseded (fails closed)', async () => {
+  test('missing instance id → freebuff_update_required (pre-waiting-room CLI)', async () => {
+    // Classified up front regardless of row state: old clients never send an
+    // id, so we surface a distinct code that maps to 426 Upgrade Required.
     await requestSession({ userId: 'u1', deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
@@ -342,7 +342,7 @@ describe('checkSessionAdmissible', () => {
       deps,
     })
     if (result.ok) throw new Error('unreachable')
-    expect(result.code).toBe('session_superseded')
+    expect(result.code).toBe('freebuff_update_required')
   })
 
   test('active inside grace window → ok with reason=draining', async () => {

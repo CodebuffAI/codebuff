@@ -1,14 +1,11 @@
 import { TextAttributes } from '@opentui/core'
-import { useKeyboard } from '@opentui/react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
+import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useLogo } from '../hooks/use-logo'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
-
-import type { KeyEvent } from '@opentui/core'
 
 /**
  * Terminal state shown after a 409 session_superseded response. Another CLI on
@@ -26,16 +23,7 @@ export const FreebuffSupersededScreen: React.FC = () => {
     blockColor,
   })
 
-  // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
-  // through as a normal OpenTUI key event.
-  useKeyboard(
-    useCallback((key: KeyEvent) => {
-      if (key.ctrl && key.name === 'c') {
-        key.preventDefault?.()
-        exitFreebuffCleanly()
-      }
-    }, []),
-  )
+  useFreebuffCtrlCExit()
 
   return (
     <box
