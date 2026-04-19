@@ -13,11 +13,10 @@ export function toSessionStateResponse(params: {
   row: InternalSessionRow | null
   position: number
   queueDepth: number
-  admissionTickMs: number
   graceMs: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepth, admissionTickMs, graceMs, now } = params
+  const { row, position, queueDepth, graceMs, now } = params
   if (!row) return null
 
   if (row.status === 'active' && row.expires_at) {
@@ -51,7 +50,7 @@ export function toSessionStateResponse(params: {
       instanceId: row.active_instance_id,
       position,
       queueDepth,
-      estimatedWaitMs: estimateWaitMs({ position, admissionTickMs }),
+      estimatedWaitMs: estimateWaitMs({ position }),
       queuedAt: row.queued_at.toISOString(),
     }
   }
@@ -60,18 +59,14 @@ export function toSessionStateResponse(params: {
   return null
 }
 
+const WAIT_MS_PER_SPOT_AHEAD = 60_000
+
 /**
- * Wait-time estimate under the drip-admission model: one user per
- * `admissionTickMs`, gated by Fireworks health. Ignoring health pauses, the
- * user at position P waits roughly `(P - 1) * admissionTickMs`.
- *
+ * Rough wait-time estimate shown to queued users: one minute per spot ahead.
  * Position 1 → 0ms (next tick picks you up).
  */
-export function estimateWaitMs(params: {
-  position: number
-  admissionTickMs: number
-}): number {
-  const { position, admissionTickMs } = params
-  if (position <= 1 || admissionTickMs <= 0) return 0
-  return (position - 1) * admissionTickMs
+export function estimateWaitMs(params: { position: number }): number {
+  const { position } = params
+  if (position <= 1) return 0
+  return (position - 1) * WAIT_MS_PER_SPOT_AHEAD
 }

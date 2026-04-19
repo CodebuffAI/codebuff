@@ -1,5 +1,4 @@
 import {
-  ADMISSION_TICK_MS,
   getSessionGraceMs,
   isWaitingRoomEnabled,
 } from './config'
@@ -25,7 +24,6 @@ export interface SessionDeps {
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
    *  inline without wrapping. */
-  admissionTickMs: number
   graceMs: number
   now?: () => Date
 }
@@ -37,7 +35,6 @@ const defaultDeps: SessionDeps = {
   queueDepth,
   queuePositionFor,
   isWaitingRoomEnabled,
-  admissionTickMs: ADMISSION_TICK_MS,
   get graceMs() {
     // Read-through getter so test overrides via env still work; the value
     // itself is materialized once per call. Cheaper than a thunk because
@@ -64,7 +61,6 @@ async function viewForRow(
     row,
     position,
     queueDepth: depth,
-    admissionTickMs: deps.admissionTickMs,
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })

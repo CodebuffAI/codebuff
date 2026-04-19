@@ -11,7 +11,6 @@ import type { SessionDeps } from '../public-api'
 import type { InternalSessionRow } from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
-const TICK_MS = 15_000
 const GRACE_MS = 30 * 60 * 1000
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
@@ -36,7 +35,6 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     },
     _now: () => currentNow,
     isWaitingRoomEnabled: () => true,
-    admissionTickMs: TICK_MS,
     graceMs: GRACE_MS,
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,

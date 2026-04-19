@@ -246,16 +246,16 @@ This is a **trust-the-client** design: the server still admits requests during t
 
 ## Estimated Wait Time
 
-Computed in `session-view.ts` from the drip-admission rate:
+Computed in `session-view.ts` as a rough one-minute-per-spot-ahead estimate:
 
 ```
-waitMs = (position - 1) * admissionTickMs
+waitMs = (position - 1) * 60_000
 ```
 
 - Position 1 → 0 (next tick admits you)
-- Position 2 → one tick, and so on.
+- Position 2 → one minute, and so on.
 
-This estimate **ignores health-gated pauses**: during a Fireworks incident admission halts entirely, so the actual wait can be longer. We choose to under-report here because showing "unknown" / "indefinite" is worse UX for the common case where the deployment is healthy.
+This estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence and health-gated pauses (during a Fireworks incident admission halts entirely), so the real wait can be longer or shorter.
 
 ## CLI Integration (frontend-side contract)
 

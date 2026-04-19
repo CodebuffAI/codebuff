@@ -4,7 +4,7 @@ import { estimateWaitMs, toSessionStateResponse } from '../session-view'
 
 import type { InternalSessionRow } from '../types'
 
-const TICK_MS = 15_000
+const WAIT_PER_SPOT_MS = 60_000
 const GRACE_MS = 30 * 60_000
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
@@ -24,24 +24,22 @@ function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
 
 describe('estimateWaitMs', () => {
   test('position 1 → 0 wait (next tick picks you up)', () => {
-    expect(estimateWaitMs({ position: 1, admissionTickMs: TICK_MS })).toBe(0)
+    expect(estimateWaitMs({ position: 1 })).toBe(0)
   })
 
-  test('position N → (N-1) ticks ahead', () => {
-    expect(estimateWaitMs({ position: 2, admissionTickMs: TICK_MS })).toBe(TICK_MS)
-    expect(estimateWaitMs({ position: 10, admissionTickMs: TICK_MS })).toBe(9 * TICK_MS)
+  test('position N → (N-1) minutes ahead', () => {
+    expect(estimateWaitMs({ position: 2 })).toBe(WAIT_PER_SPOT_MS)
+    expect(estimateWaitMs({ position: 10 })).toBe(9 * WAIT_PER_SPOT_MS)
   })
 
   test('degenerate inputs return 0', () => {
-    expect(estimateWaitMs({ position: 0, admissionTickMs: TICK_MS })).toBe(0)
-    expect(estimateWaitMs({ position: 5, admissionTickMs: 0 })).toBe(0)
+    expect(estimateWaitMs({ position: 0 })).toBe(0)
   })
 })
 
 describe('toSessionStateResponse', () => {
   const now = new Date('2026-04-17T12:00:00Z')
   const baseArgs = {
-    admissionTickMs: TICK_MS,
     graceMs: GRACE_MS,
   }
 
@@ -69,7 +67,7 @@ describe('toSessionStateResponse', () => {
       instanceId: 'inst-1',
       position: 3,
       queueDepth: 10,
-      estimatedWaitMs: 2 * TICK_MS,
+      estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
       queuedAt: now.toISOString(),
     })
   })
