@@ -18,7 +18,7 @@ export type FireworksHealth = 'healthy' | 'degraded' | 'unhealthy'
 /** Degrade once median prefill-queue latency crosses this bound. Strict by
  *  design — a 1s queue on top of ~1s prefill already means users feel 2s+
  *  before first token. */
-export const PREFILL_QUEUE_DEGRADED_MS = 200
+export const PREFILL_QUEUE_DEGRADED_MS = 125
 
 /** Leading indicator of load — responds instantly to memory pressure, while
  *  prefill-queue p50 is a lagging window statistic. Degrading here lets us
