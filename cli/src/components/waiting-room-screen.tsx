@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { AdBanner } from './ad-banner'
 import { Button } from './button'
@@ -8,6 +8,7 @@ import { ChoiceAdBanner } from './choice-ad-banner'
 import { ShimmerText } from './shimmer-text'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
+import { useNow } from '../hooks/use-now'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
@@ -95,11 +96,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     if (session?.status === 'queued') return Date.parse(session.queuedAt)
     return null
   }, [session])
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
+  const now = useNow(1000, queuedAtMs !== null)
   const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
   const isQueued = session?.status === 'queued'

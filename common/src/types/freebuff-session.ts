@@ -3,8 +3,7 @@
  * for the CLI (which deserializes these) and the server (which serializes
  * them) — keep both in sync by importing this module from either side.
  *
- * The CLI layers additional client-only states (`superseded`, `ended`) on
- * top of these — see `cli/src/types/freebuff-session.ts`.
+ * The CLI uses these shapes directly; there are no client-only states.
  */
 export type FreebuffSessionServerResponse =
   | {
@@ -13,7 +12,9 @@ export type FreebuffSessionServerResponse =
       status: 'disabled'
     }
   | {
-      /** User has no session row. CLI must POST to re-queue. */
+      /** User has no session row. CLI must POST to (re-)queue. Also returned
+       *  when `getSessionState` notices the user has been swept past the
+       *  grace window. */
       status: 'none'
       message?: string
     }
@@ -34,14 +35,27 @@ export type FreebuffSessionServerResponse =
       remainingMs: number
     }
   | {
-      /** Session is past `expiresAt` but still inside the server-side grace
-       *  window. The CLI must stop accepting new prompts but may finish any
-       *  in-flight agent run. Hard cutoff at `gracePeriodEndsAt`; past that
-       *  the chat gate rejects with `session_expired`. */
-      status: 'draining'
-      instanceId: string
-      admittedAt: string
-      expiresAt: string
-      gracePeriodEndsAt: string
-      gracePeriodRemainingMs: number
+      /** Session is over. While `instanceId` is present we're inside the
+       *  server-side grace window — chat requests still go through so the
+       *  agent can finish, but the CLI must not accept new prompts. Once
+       *  `instanceId` is absent the session is fully gone and the user must
+       *  rejoin via POST.
+       *
+       *  Server-supplied form (in-grace) carries the timing fields; the
+       *  client may also synthesize a no-grace `{ status: 'ended' }` when a
+       *  poll reveals the row was swept. Both render the same UI. */
+      status: 'ended'
+      instanceId?: string
+      admittedAt?: string
+      expiresAt?: string
+      gracePeriodEndsAt?: string
+      gracePeriodRemainingMs?: number
+    }
+  | {
+      /** Another CLI on the same account rotated our instance id. Polling
+       *  stops and the UI shows a "close the other CLI" screen. The server
+       *  returns this from GET /session when the caller's instance id
+       *  doesn't match the stored one; the chat-completions gate also
+       *  surfaces it as a 409 for fast in-flight feedback. */
+      status: 'superseded'
     }

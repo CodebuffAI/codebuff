@@ -104,7 +104,7 @@ describe('toSessionStateResponse', () => {
     })
   })
 
-  test('active row inside grace window maps to draining response', () => {
+  test('active row inside grace window maps to ended response (with grace timing)', () => {
     const admittedAt = new Date(now.getTime() - 65 * 60_000)
     const expiresAt = new Date(now.getTime() - 5 * 60_000) // 5 min past expiry
     const view = toSessionStateResponse({
@@ -115,7 +115,7 @@ describe('toSessionStateResponse', () => {
       now,
     })
     expect(view).toEqual({
-      status: 'draining',
+      status: 'ended',
       instanceId: 'inst-1',
       admittedAt: admittedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),

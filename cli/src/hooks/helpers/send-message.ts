@@ -520,6 +520,8 @@ function handleFreebuffGateError(
       updater.setError(
         "You're still in the waiting room. Please wait for admission before sending messages.",
       )
+      // Re-sync without resetting chat — this is a "we'll wait", not a
+      // "let's start fresh".
       refreshFreebuffSession().catch(() => {})
       return
     case 'session_superseded':

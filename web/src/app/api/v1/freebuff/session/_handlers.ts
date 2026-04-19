@@ -12,6 +12,10 @@ import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/d
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
+/** Header the CLI uses to identify which instance is polling. Used by GET to
+ *  detect when another CLI on the same account has rotated the id. */
+export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+
 export interface FreebuffSessionDeps {
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
@@ -100,7 +104,9 @@ export async function postFreebuffSession(
   }
 }
 
-/** GET /api/v1/freebuff/session — read current state without mutation. */
+/** GET /api/v1/freebuff/session — read current state without mutation. The
+ *  caller's instance id (via X-Freebuff-Instance-Id) is used to detect
+ *  takeover by another CLI on the same account. */
 export async function getFreebuffSession(
   req: NextRequest,
   deps: FreebuffSessionDeps,
@@ -109,11 +115,13 @@ export async function getFreebuffSession(
   if ('error' in auth) return auth.error
 
   try {
+    const claimedInstanceId = req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
     const state = await getSessionState({
       userId: auth.userId,
+      claimedInstanceId,
       deps: deps.sessionDeps,
     })
-    if (!state) {
+    if (state.status === 'none') {
       return NextResponse.json(
         { status: 'none', message: 'Call POST to join the waiting room.' },
         { status: 200 },

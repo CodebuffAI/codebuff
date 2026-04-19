@@ -6,14 +6,15 @@ import { getAuthTokenDetails } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 
-import type {
-  FreebuffSessionResponse,
-  FreebuffSessionServerResponse,
-} from '../types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
 const POLL_INTERVAL_QUEUED_MS = 5_000
 const POLL_INTERVAL_ACTIVE_MS = 30_000
 const POLL_INTERVAL_ERROR_MS = 10_000
+
+/** Header sent on GET so the server can detect when another CLI on the same
+ *  account has rotated the id and respond with `{ status: 'superseded' }`. */
+const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
 
 /** Play the terminal bell so users get an audible notification on admission. */
 const playAdmissionSound = () => {
@@ -32,12 +33,16 @@ const sessionEndpoint = (): string => {
 async function callSession(
   method: 'POST' | 'GET' | 'DELETE',
   token: string,
-  signal?: AbortSignal,
-): Promise<FreebuffSessionServerResponse> {
+  opts: { instanceId?: string; signal?: AbortSignal } = {},
+): Promise<FreebuffSessionResponse> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+  if (method === 'GET' && opts.instanceId) {
+    headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
+  }
   const resp = await fetch(sessionEndpoint(), {
     method,
-    headers: { Authorization: `Bearer ${token}` },
-    signal,
+    headers,
+    signal: opts.signal,
   })
   if (!resp.ok) {
     const text = await resp.text().catch(() => '')
@@ -45,24 +50,11 @@ async function callSession(
       `freebuff session ${method} failed: ${resp.status} ${text.slice(0, 200)}`,
     )
   }
-  return (await resp.json()) as FreebuffSessionServerResponse
+  return (await resp.json()) as FreebuffSessionResponse
 }
 
-/**
- * Normalize a server response into CLI internal state. The only transform is
- * `draining → ended` with the instance id preserved — see
- * `types/freebuff-session.ts` for the rationale.
- */
-function toClientSession(
-  resp: FreebuffSessionServerResponse,
-): FreebuffSessionResponse {
-  if (resp.status === 'draining') {
-    return { status: 'ended', instanceId: resp.instanceId }
-  }
-  return resp
-}
-
-/** Picks the poll delay after a successful tick. */
+/** Picks the poll delay after a successful tick. Returns null when the state
+ *  is terminal (no further polling). */
 function nextDelayMs(next: FreebuffSessionResponse): number | null {
   switch (next.status) {
     case 'queued':
@@ -75,53 +67,75 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
         1_000,
         Math.min(POLL_INTERVAL_ACTIVE_MS, next.remainingMs + 1_000),
       )
+    case 'ended':
+      // Inside the grace window we keep checking so the post-grace transition
+      // (server returns `none`, we synthesize ended-no-instanceId) is prompt.
+      return next.instanceId ? POLL_INTERVAL_ACTIVE_MS : null
     case 'none':
     case 'disabled':
     case 'superseded':
-    case 'ended':
       return null
   }
 }
 
-/**
- * Imperatively re-sync the session with the server. Call this when the
- * chat-completions gate tells us our seat is no longer valid (428, 410).
- */
-export async function refreshFreebuffSession(): Promise<void> {
-  if (!IS_FREEBUFF) return
-  await useFreebuffSessionStore.getState().driver?.refresh({ forcePost: true })
+// --- Poll-loop control surface ---------------------------------------------
+//
+// The hook below registers a controller object here on mount; module-level
+// imperative functions (refresh / mark superseded / mark ended / etc.) talk
+// to it without going through React. Non-React callers (chat-completions
+// gate, exit paths) hit those functions directly.
+
+interface PollController {
+  refresh: () => Promise<void>
+  apply: (next: FreebuffSessionResponse) => void
+  abort: () => void
+  setHasPosted: (value: boolean) => void
+}
+
+let controller: PollController | null = null
+
+/** Read the current instance id for outgoing chat requests. Includes `ended`
+ *  so in-flight agent work can keep streaming during the server-side grace
+ *  window (server keeps the row alive until `expires_at + grace`). */
+export function getFreebuffInstanceId(): string | undefined {
+  const current = useFreebuffSessionStore.getState().session
+  if (!current) return undefined
+  switch (current.status) {
+    case 'queued':
+    case 'active':
+    case 'ended':
+      return current.instanceId
+    default:
+      return undefined
+  }
 }
 
 /**
- * Rejoin the waiting room after a session has ended. Wipes any prior chat
- * history so the next admitted session starts fresh (callers shouldn't have
- * to remember this detail).
+ * Re-POST to the server (rejoining the queue / rotating the instance id).
+ * Pass `resetChat: true` to also wipe local chat history — used when
+ * rejoining after a session ended so the next admitted session starts fresh.
  */
-export async function rejoinFreebuffSession(): Promise<void> {
+export async function refreshFreebuffSession(opts: { resetChat?: boolean } = {}): Promise<void> {
   if (!IS_FREEBUFF) return
-  await useFreebuffSessionStore.getState().driver?.refresh({ forcePost: true })
-  const { useChatStore } = await import('../state/chat-store')
-  useChatStore.getState().reset()
+  if (opts.resetChat) {
+    const { useChatStore } = await import('../state/chat-store')
+    useChatStore.getState().reset()
+  }
+  await controller?.refresh()
 }
 
-/**
- * Flip into the terminal `superseded` state (stops polling, renders the
- * "close the other CLI" screen). Called after a 409 session_superseded.
- */
 export function markFreebuffSessionSuperseded(): void {
   if (!IS_FREEBUFF) return
-  useFreebuffSessionStore.getState().driver?.markSuperseded()
+  controller?.abort()
+  controller?.apply({ status: 'superseded' })
 }
 
-/**
- * Flip into the client-only `ended` state (hides the input, shows the
- * rejoin banner). Called both when a poll detects `active → none` and when
- * the chat gate returns 410/428. In-flight agent work may still finish
- * under the server-side grace period.
- */
+/** Flip into the local `ended` state without an instanceId (server has lost
+ *  our row). The chat surface stays mounted with the rejoin banner. */
 export function markFreebuffSessionEnded(): void {
   if (!IS_FREEBUFF) return
-  useFreebuffSessionStore.getState().driver?.markEnded()
+  controller?.abort()
+  controller?.apply({ status: 'ended' })
 }
 
 /**
@@ -132,40 +146,19 @@ export function markFreebuffSessionEnded(): void {
 export async function endFreebuffSessionBestEffort(): Promise<void> {
   if (!IS_FREEBUFF) return
   const current = useFreebuffSessionStore.getState().session
-  if (
-    !current ||
-    (current.status !== 'queued' &&
-      current.status !== 'active' &&
-      current.status !== 'ended')
-  ) {
-    return
-  }
-  // `ended` without an instanceId means the server already dropped our row;
-  // skip the DELETE.
-  if (current.status === 'ended' && !current.instanceId) return
+  if (!current) return
+  // Only fire DELETE if we actually held a slot.
+  const heldSlot =
+    current.status === 'queued' ||
+    current.status === 'active' ||
+    (current.status === 'ended' && Boolean(current.instanceId))
+  if (!heldSlot) return
   const { token } = getAuthTokenDetails()
   if (!token) return
   try {
     await callSession('DELETE', token)
   } catch {
     // swallow — we're exiting
-  }
-}
-
-/** Read the current instance id for outgoing chat requests. Includes `ended`
- *  so in-flight agent work can keep streaming during the server-side grace
- *  window. */
-export function getFreebuffInstanceId(): string | undefined {
-  const current = useFreebuffSessionStore.getState().session
-  if (!current) return undefined
-  switch (current.status) {
-    case 'queued':
-    case 'active':
-      return current.instanceId
-    case 'ended':
-      return current.instanceId
-    default:
-      return undefined
   }
 }
 
@@ -181,18 +174,13 @@ interface UseFreebuffSessionResult {
  *   - re-POSTs on explicit refresh (chat gate rejected us)
  *   - DELETE on unmount so the slot frees up for the next user
  *   - plays a bell on transition from queued → active
- *
- * Writes all state into `useFreebuffSessionStore`; components subscribe
- * there rather than reading the return value. The return value is kept for
- * back-compat with AuthedSurface's render gate.
  */
 export function useFreebuffSession(): UseFreebuffSessionResult {
   const session = useFreebuffSessionStore((s) => s.session)
   const error = useFreebuffSessionStore((s) => s.error)
 
   useEffect(() => {
-    const { setSession, setError, setDriver } =
-      useFreebuffSessionStore.getState()
+    const { setSession, setError } = useFreebuffSessionStore.getState()
 
     if (!IS_FREEBUFF) {
       setSession({ status: 'disabled' })
@@ -210,7 +198,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     }
 
     let cancelled = false
-    let controller = new AbortController()
+    let abortController = new AbortController()
     let timer: ReturnType<typeof setTimeout> | null = null
     let previousStatus: FreebuffSessionResponse['status'] | null = null
     let hasPosted = false
@@ -218,6 +206,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     const apply = (next: FreebuffSessionResponse) => {
       setSession(next)
       setError(null)
+      previousStatus = next.status
     }
 
     const clearTimer = () => {
@@ -233,43 +222,42 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       timer = setTimeout(tick, ms)
     }
 
-    const tick = async (opts: { forcePost?: boolean } = {}) => {
+    const tick = async () => {
       if (cancelled) return
-      // POST only when we don't yet hold a seat; thereafter GET. The
-      // `active → none` edge is short-circuited to `ended` below, so we
-      // never GET our way back into a needs-POST state without an explicit
-      // force.
-      const method: 'POST' | 'GET' =
-        opts.forcePost || !hasPosted ? 'POST' : 'GET'
+      // POST when we don't yet hold a seat; thereafter GET. The
+      // active|ended → none edge is special-cased below so we don't silently
+      // re-POST out from under an in-flight agent.
+      const method: 'POST' | 'GET' = hasPosted ? 'GET' : 'POST'
+      const instanceId = getFreebuffInstanceId()
       try {
-        const raw = await callSession(method, token, controller.signal)
+        const next = await callSession(method, token, {
+          signal: abortController.signal,
+          instanceId,
+        })
         if (cancelled) return
         hasPosted = true
-        const next = toClientSession(raw)
 
         if (previousStatus === 'queued' && next.status === 'active') {
           playAdmissionSound()
         }
 
-        // active/ended → none means we've passed the server's hard cutoff.
-        // Flip to the client-only `ended` state instead of following the
-        // usual 'none' re-POST path, so the chat surface stays mounted and
-        // the user gets a gentle Enter-to-rejoin prompt.
+        // active|ended → none means we've passed the server's hard cutoff.
+        // Synthesize a no-instanceId ended state so the chat surface stays
+        // mounted with the Enter-to-rejoin banner instead of looping back
+        // through the waiting room.
         if (
           (previousStatus === 'active' || previousStatus === 'ended') &&
           next.status === 'none'
         ) {
-          previousStatus = 'ended'
           apply({ status: 'ended' })
           return
         }
 
-        previousStatus = next.status
         apply(next)
         const delay = nextDelayMs(next)
         if (delay !== null) schedule(delay)
       } catch (err) {
-        if (cancelled || controller.signal.aborted) return
+        if (cancelled || abortController.signal.aborted) return
         const msg = err instanceof Error ? err.message : String(err)
         logger.warn({ error: msg }, '[freebuff-session] fetch failed')
         setError(msg)
@@ -277,42 +265,36 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       }
     }
 
-    tick()
-
-    setDriver({
-      refresh: async (opts) => {
+    controller = {
+      refresh: async () => {
         clearTimer()
         // Abort any in-flight fetch so it can't race us and overwrite state.
-        controller.abort()
-        controller = new AbortController()
-        if (opts?.forcePost) {
-          // Reset previousStatus so the queued→active bell still fires after
-          // a forced re-POST.
-          previousStatus = null
-          hasPosted = false
-        }
-        await tick(opts)
+        abortController.abort()
+        abortController = new AbortController()
+        // Reset previousStatus so the queued→active bell still fires after
+        // a forced re-POST.
+        previousStatus = null
+        hasPosted = false
+        await tick()
       },
-      markSuperseded: () => {
+      apply,
+      abort: () => {
         clearTimer()
-        controller.abort()
-        previousStatus = 'superseded'
-        apply({ status: 'superseded' })
+        abortController.abort()
       },
-      markEnded: () => {
-        clearTimer()
-        controller.abort()
-        previousStatus = 'ended'
-        apply({ status: 'ended' })
+      setHasPosted: (value) => {
+        hasPosted = value
       },
-    })
+    }
+
+    tick()
 
     return () => {
       cancelled = true
-      controller.abort()
+      abortController.abort()
       clearTimer()
       const current = useFreebuffSessionStore.getState().session
-      setDriver(null)
+      controller = null
 
       // Fire-and-forget DELETE. Only release if we actually held a slot so
       // we don't generate spurious DELETEs (e.g. HMR before POST completes).

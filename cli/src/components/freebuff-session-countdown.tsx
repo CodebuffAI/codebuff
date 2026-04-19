@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 
+import { useNow } from '../hooks/use-now'
 import { useTheme } from '../hooks/use-theme'
 import { IS_FREEBUFF } from '../utils/constants'
 
@@ -31,12 +32,7 @@ export const FreebuffSessionCountdown: React.FC<{
   const expiresAtMs =
     session?.status === 'active' ? Date.parse(session.expiresAt) : null
 
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!expiresAtMs) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [expiresAtMs])
+  const now = useNow(1000, expiresAtMs !== null)
 
   if (!IS_FREEBUFF || !expiresAtMs) return null
 

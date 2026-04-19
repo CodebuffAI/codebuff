@@ -15,6 +15,7 @@ export default db
 // Re-export advisory lock utilities
 export {
   ADVISORY_LOCK_IDS,
+  coerceBool,
   tryAcquireAdvisoryLock,
 } from './advisory-lock'
 export type { LockHandle, AdvisoryLockId } from './advisory-lock'

@@ -1,6 +1,7 @@
 import { db } from '@codebuff/internal/db'
+import { coerceBool } from '@codebuff/internal/db/advisory-lock'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, asc, count, eq, inArray, lt, sql } from 'drizzle-orm'
+import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
@@ -9,17 +10,6 @@ import type { InternalSessionRow } from './types'
 /** Generate a cryptographically random instance id (token). */
 export function newInstanceId(): string {
   return crypto.randomUUID()
-}
-
-/**
- * postgres.js under some configurations returns Postgres booleans as 't'/'f'
- * strings rather than JS booleans. Mirrors the same coercion used in
- * packages/internal/src/db/advisory-lock.ts.
- */
-function coerceBool(value: unknown): boolean {
-  if (typeof value === 'boolean') return value
-  if (value === 't' || value === 'true' || value === 1) return true
-  return false
 }
 
 export async function getSessionRow(
@@ -117,19 +107,6 @@ export async function queueDepth(): Promise<number> {
   return Number(rows[0]?.n ?? 0)
 }
 
-/**
- * 1-indexed position in the FIFO queue for a known-queued row. Ties on
- * queued_at are broken deterministically by user_id. Callers already holding
- * the row should prefer queuePositionFor() to skip the extra lookup.
- */
-export async function queuePosition(userId: string): Promise<number> {
-  const me = await db.query.freeSession.findFirst({
-    where: eq(schema.freeSession.user_id, userId),
-  })
-  if (!me || me.status !== 'queued') return 0
-  return queuePositionFor({ userId, queuedAt: me.queued_at })
-}
-
 export async function queuePositionFor(params: {
   userId: string
   queuedAt: Date
@@ -166,26 +143,24 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 }
 
 /**
- * Atomically admit up to `limit` queued users, gated by an upstream
- * reachability probe and guarded by an advisory xact lock so only one pod
- * admits per tick.
+ * Atomically admit one queued user, gated by an upstream reachability probe
+ * and guarded by an advisory xact lock so only one pod admits per tick.
  *
  * Return semantics:
- *   - `{ admitted: [...], skipped: null }` — successful tick (possibly empty queue)
+ *   - `{ admitted: [row], skipped: null }` — admitted one user
+ *   - `{ admitted: [], skipped: null }` — empty queue or another pod held the lock
  *   - `{ admitted: [], skipped: 'health' }` — probe failed, admission paused
- *   - `{ admitted: [], skipped: null }` — another pod held the advisory lock
  *
  * The probe runs before the transaction so a slow probe doesn't hold a
- * Postgres connection open.
+ * Postgres connection open. Drip-admission of one user per tick keeps load
+ * on Fireworks smooth even when a large block of sessions expires at once.
  */
 export async function admitFromQueue(params: {
-  limit: number
   sessionLengthMs: number
   now: Date
   isFireworksAdmissible: () => Promise<boolean>
 }): Promise<{ admitted: InternalSessionRow[]; skipped: 'health' | null }> {
-  const { limit, sessionLengthMs, now, isFireworksAdmissible } = params
-  if (limit <= 0) return { admitted: [], skipped: null }
+  const { sessionLengthMs, now, isFireworksAdmissible } = params
 
   if (!(await isFireworksAdmissible())) {
     return { admitted: [], skipped: 'health' }
@@ -195,9 +170,11 @@ export async function admitFromQueue(params: {
     const lockResult = await tx.execute<{ acquired: unknown }>(
       sql`SELECT pg_try_advisory_xact_lock(${FREEBUFF_ADMISSION_LOCK_ID}) AS acquired`,
     )
-    // postgres-js returns an array-like; coerceBool handles the 't'/'f' string
-    // case that the driver emits under some configurations.
-    if (!coerceBool((lockResult as unknown as Array<{ acquired: unknown }>)[0]?.acquired)) {
+    if (
+      !coerceBool(
+        (lockResult as unknown as Array<{ acquired: unknown }>)[0]?.acquired,
+      )
+    ) {
       return { admitted: [], skipped: null }
     }
 
@@ -206,14 +183,13 @@ export async function admitFromQueue(params: {
       .from(schema.freeSession)
       .where(eq(schema.freeSession.status, 'queued'))
       .orderBy(asc(schema.freeSession.queued_at), asc(schema.freeSession.user_id))
-      .limit(limit)
+      .limit(1)
       .for('update', { skipLocked: true })
 
-    if (candidates.length === 0) return { admitted: [], skipped: null }
+    const candidate = candidates[0]
+    if (!candidate) return { admitted: [], skipped: null }
 
     const expiresAt = new Date(now.getTime() + sessionLengthMs)
-    const userIds = candidates.map((c) => c.user_id)
-
     const admitted = await tx
       .update(schema.freeSession)
       .set({
@@ -225,7 +201,7 @@ export async function admitFromQueue(params: {
       .where(
         and(
           eq(schema.freeSession.status, 'queued'),
-          inArray(schema.freeSession.user_id, userIds),
+          eq(schema.freeSession.user_id, candidate.user_id),
         ),
       )
       .returning()

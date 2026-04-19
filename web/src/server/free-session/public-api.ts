@@ -13,6 +13,7 @@ import {
 } from './store'
 import { toSessionStateResponse } from './session-view'
 
+import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 import type { InternalSessionRow, SessionStateResponse } from './types'
 
 export interface SessionDeps {
@@ -22,9 +23,12 @@ export interface SessionDeps {
   queueDepth: () => Promise<number>
   queuePositionFor: (params: { userId: string; queuedAt: Date }) => Promise<number>
   isWaitingRoomEnabled: () => boolean
-  getAdmissionTickMs: () => number
-  getMaxAdmitsPerTick: () => number
-  getSessionGraceMs: () => number
+  /** Plain values, not getters: these never change at runtime. The deps
+   *  interface uses values rather than thunks so tests can pass numbers
+   *  inline without wrapping. */
+  admissionTickMs: number
+  maxAdmitsPerTick: number
+  graceMs: number
   now?: () => Date
 }
 
@@ -35,9 +39,14 @@ const defaultDeps: SessionDeps = {
   queueDepth,
   queuePositionFor,
   isWaitingRoomEnabled,
-  getAdmissionTickMs: () => ADMISSION_TICK_MS,
-  getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
-  getSessionGraceMs,
+  admissionTickMs: ADMISSION_TICK_MS,
+  maxAdmitsPerTick: MAX_ADMITS_PER_TICK,
+  get graceMs() {
+    // Read-through getter so test overrides via env still work; the value
+    // itself is materialized once per call. Cheaper than a thunk because
+    // callers don't have to invoke a function.
+    return getSessionGraceMs()
+  },
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
@@ -58,9 +67,9 @@ async function viewForRow(
     row,
     position,
     queueDepth: depth,
-    admissionTickMs: deps.getAdmissionTickMs(),
-    maxAdmitsPerTick: deps.getMaxAdmitsPerTick(),
-    graceMs: deps.getSessionGraceMs(),
+    admissionTickMs: deps.admissionTickMs,
+    maxAdmitsPerTick: deps.maxAdmitsPerTick,
+    graceMs: deps.graceMs,
     now: nowOf(deps),
   })
 }
@@ -73,9 +82,8 @@ async function viewForRow(
  *   - Existing queued → rotate instance_id, preserve queue position
  *   - Existing expired → re-queue at the back with fresh instance_id
  *
- * joinOrTakeOver guarantees the returned row is either queued or
- * active-unexpired, both of which map to a non-null view. The `!` assertion
- * below reflects that invariant.
+ * `joinOrTakeOver` always returns a row that maps to a non-null view (queued
+ * or active-unexpired), so the cast below is sound.
  */
 export async function requestSession(params: {
   userId: string
@@ -85,24 +93,49 @@ export async function requestSession(params: {
   if (!deps.isWaitingRoomEnabled()) return { status: 'disabled' }
 
   const row = await deps.joinOrTakeOver({ userId: params.userId, now: nowOf(deps) })
-  return (await viewForRow(params.userId, deps, row))!
+  const view = await viewForRow(params.userId, deps, row)
+  if (!view) {
+    throw new Error(
+      `joinOrTakeOver returned a row that maps to no view (user=${params.userId})`,
+    )
+  }
+  return view
 }
 
 /**
  * Read-only check of the caller's current state. Does not mutate or rotate
- * instance_id. Returns null when the user has no session row at all (or only
- * an expired active row) — the CLI should interpret that as "call
- * requestSession() first".
+ * `instance_id`. The CLI sends its currently-held `claimedInstanceId` so we
+ * can return `superseded` if a newer CLI on the same account took over.
+ *
+ * Returns:
+ *   - `disabled` when the waiting room is off
+ *   - `none` when the user has no row at all (or the row was swept past
+ *     the grace window)
+ *   - `superseded` when the caller's id no longer matches the stored one
+ *     (active sessions only — a queued row's id always wins)
+ *   - `queued` / `active` / `ended` otherwise (see `toSessionStateResponse`)
  */
 export async function getSessionState(params: {
   userId: string
+  claimedInstanceId?: string | null | undefined
   deps?: SessionDeps
-}): Promise<SessionStateResponse | null> {
+}): Promise<FreebuffSessionServerResponse> {
   const deps = params.deps ?? defaultDeps
   if (!deps.isWaitingRoomEnabled()) return { status: 'disabled' }
   const row = await deps.getSessionRow(params.userId)
-  if (!row) return null
-  return viewForRow(params.userId, deps, row)
+  if (!row) return { status: 'none' }
+
+  if (
+    row.status === 'active' &&
+    params.claimedInstanceId &&
+    params.claimedInstanceId !== row.active_instance_id
+  ) {
+    return { status: 'superseded' }
+  }
+
+  const view = await viewForRow(params.userId, deps, row)
+  if (!view) return { status: 'none' }
+  return view
 }
 
 export async function endUserSession(params: {
@@ -168,7 +201,7 @@ export async function checkSessionAdmissible(params: {
   const now = nowOf(deps)
   const nowMs = now.getTime()
   const expiresAtMs = row.expires_at?.getTime() ?? 0
-  const graceMs = deps.getSessionGraceMs()
+  const graceMs = deps.graceMs
   // Past the hard cutoff (`expires_at + grace`). The grace window lets the CLI
   // finish an in-flight agent run after the user's session ended; once it's
   // gone, we fall back to the same re-queue flow as a regular expiry.

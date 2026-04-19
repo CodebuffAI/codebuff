@@ -37,9 +37,9 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     },
     _now: () => currentNow,
     isWaitingRoomEnabled: () => true,
-    getAdmissionTickMs: () => TICK_MS,
-    getMaxAdmitsPerTick: () => ADMITS_PER_TICK,
-    getSessionGraceMs: () => GRACE_MS,
+    admissionTickMs: TICK_MS,
+    maxAdmitsPerTick: ADMITS_PER_TICK,
+    graceMs: GRACE_MS,
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     endSession: async (userId) => {
@@ -114,7 +114,6 @@ describe('requestSession', () => {
   })
 
   test('disabled flag returns { status: disabled } and does not touch DB', async () => {
-    deps.isWaitingRoomEnabled = () => true // sanity
     const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
     const state = await requestSession({ userId: 'u1', deps: offDeps })
     expect(state).toEqual({ status: 'disabled' })
@@ -143,8 +142,8 @@ describe('requestSession', () => {
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', deps })
 
-    const s1 = (await getSessionState({ userId: 'u1', deps }))!
-    const s2 = (await getSessionState({ userId: 'u2', deps }))!
+    const s1 = await getSessionState({ userId: 'u1', deps })
+    const s2 = await getSessionState({ userId: 'u2', deps })
     if (s1.status !== 'queued' || s2.status !== 'queued') throw new Error('unreachable')
     expect(s1.position).toBe(1)
     expect(s2.position).toBe(2)
@@ -162,6 +161,100 @@ describe('requestSession', () => {
     expect(second.status).toBe('active')
     if (second.status !== 'active') throw new Error('unreachable')
     expect(second.instanceId).not.toBe('inst-1') // rotated
+  })
+})
+
+describe('getSessionState', () => {
+  let deps: ReturnType<typeof makeDeps>
+  beforeEach(() => {
+    deps = makeDeps()
+  })
+
+  test('disabled flag returns disabled', async () => {
+    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
+    const state = await getSessionState({ userId: 'u1', deps: offDeps })
+    expect(state).toEqual({ status: 'disabled' })
+  })
+
+  test('no row returns none', async () => {
+    const state = await getSessionState({ userId: 'u1', deps })
+    expect(state).toEqual({ status: 'none' })
+  })
+
+  test('active session with matching instance id returns active', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+    expect(state.status).toBe('active')
+  })
+
+  test('active session with mismatched instance id returns superseded', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: 'stale-token',
+      deps,
+    })
+    expect(state).toEqual({ status: 'superseded' })
+  })
+
+  test('omitted claimedInstanceId on active session returns active (read-only)', async () => {
+    // Polling without an id (e.g. very first GET before POST has resolved)
+    // must not be classified as superseded — only an explicit mismatch is.
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const state = await getSessionState({ userId: 'u1', deps })
+    expect(state.status).toBe('active')
+  })
+
+  test('row inside grace window returns ended (with instanceId)', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
+    row.expires_at = new Date(deps._now().getTime() - 60_000)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+    expect(state.status).toBe('ended')
+    if (state.status !== 'ended') throw new Error('unreachable')
+    expect(state.instanceId).toBe(row.active_instance_id)
+    expect(state.gracePeriodRemainingMs).toBe(GRACE_MS - 60_000)
+  })
+
+  test('row past grace window returns none', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = new Date(deps._now().getTime() - 2 * SESSION_LEN)
+    row.expires_at = new Date(deps._now().getTime() - GRACE_MS - 1)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+    expect(state).toEqual({ status: 'none' })
   })
 })
 

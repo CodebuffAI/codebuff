@@ -4,6 +4,10 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
  * Pure function converting an internal session row (or absence thereof) into
  * the public response shape. Never reads the clock — caller supplies `now` so
  * behavior is deterministic under test.
+ *
+ * Returns null only when the row is past the grace window — the caller
+ * should treat that as "no session" and either re-queue or surface
+ * `{ status: 'none' }` to the client.
  */
 export function toSessionStateResponse(params: {
   row: InternalSessionRow | null
@@ -32,7 +36,7 @@ export function toSessionStateResponse(params: {
     const graceEndsMs = expiresAtMs + graceMs
     if (graceEndsMs > nowMs) {
       return {
-        status: 'draining',
+        status: 'ended',
         instanceId: row.active_instance_id,
         admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
         expiresAt: row.expires_at.toISOString(),

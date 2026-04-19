@@ -7,27 +7,23 @@ import type { AdmissionDeps } from '../admission'
 const NOW = new Date('2026-04-17T12:00:00Z')
 
 function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDeps & {
-  calls: { admit: number[] }
+  calls: { admit: number }
 } {
-  const calls = { admit: [] as number[] }
-  const deps: AdmissionDeps & { calls: { admit: number[] } } = {
+  const calls = { admit: 0 }
+  const deps: AdmissionDeps & { calls: { admit: number } } = {
     calls,
     sweepExpired: async () => 0,
     queueDepth: async () => 0,
     isFireworksAdmissible: async () => true,
-    admitFromQueue: async ({ limit, isFireworksAdmissible }) => {
-      calls.admit.push(limit)
+    admitFromQueue: async ({ isFireworksAdmissible }) => {
+      calls.admit += 1
       if (!(await isFireworksAdmissible())) {
         return { admitted: [], skipped: 'health' }
       }
-      return {
-        admitted: Array.from({ length: limit }, (_, i) => ({ user_id: `u${i}` })),
-        skipped: null,
-      }
+      return { admitted: [{ user_id: 'u0' }], skipped: null }
     },
-    getMaxAdmitsPerTick: () => 1,
-    getSessionLengthMs: () => 60 * 60 * 1000,
-    getSessionGraceMs: () => 30 * 60 * 1000,
+    sessionLengthMs: 60 * 60 * 1000,
+    graceMs: 30 * 60 * 1000,
     now: () => NOW,
     ...overrides,
   }
@@ -35,17 +31,11 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
 }
 
 describe('runAdmissionTick', () => {
-  test('admits maxAdmitsPerTick when healthy', async () => {
-    const deps = makeAdmissionDeps({ getMaxAdmitsPerTick: () => 2 })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(2)
-    expect(result.skipped).toBeNull()
-  })
-
-  test('defaults to 1 admit per tick', async () => {
+  test('admits one user per tick when healthy', async () => {
     const deps = makeAdmissionDeps()
     const result = await runAdmissionTick(deps)
     expect(result.admitted).toBe(1)
+    expect(result.skipped).toBeNull()
   })
 
   test('skips admission when Fireworks not healthy', async () => {
@@ -83,7 +73,7 @@ describe('runAdmissionTick', () => {
   test('forwards grace ms to sweepExpired', async () => {
     const received: number[] = []
     const deps = makeAdmissionDeps({
-      getSessionGraceMs: () => 12_345,
+      graceMs: 12_345,
       sweepExpired: async (_now, graceMs) => {
         received.push(graceMs)
         return 0

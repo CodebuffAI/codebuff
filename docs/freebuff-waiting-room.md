@@ -91,19 +91,19 @@ Migration: `packages/internal/src/db/migrations/0043_vengeful_boomer.sql`.
 stateDiagram-v2
     [*] --> queued: POST /session<br/>(first call)
     queued --> active: admission tick<br/>(capacity + healthy)
-    active --> draining: expires_at < now()<br/>(grace window)
-    draining --> expired: expires_at + grace < now()
+    active --> ended: expires_at < now()<br/>(grace window)
+    ended --> expired: expires_at + grace < now()
     expired --> queued: POST /session<br/>(re-queue at back)
     queued --> [*]: DELETE /session
     active --> [*]: DELETE /session<br/>or admission sweep
-    draining --> [*]: DELETE /session<br/>or admission sweep
+    ended --> [*]: DELETE /session<br/>or admission sweep
 ```
 
-Neither `draining` nor `expired` is a stored status — they are derived from `expires_at` versus `now()` and the grace window:
+Neither `ended` nor `expired` is a stored status — they are derived from `expires_at` versus `now()` and the grace window:
 
-- `expires_at > now()` → `active` (gate: `ok: 'active'`)
-- `expires_at <= now() < expires_at + grace` → `draining` (gate: `ok: 'draining'`; client must stop accepting new prompts but can let an in-flight agent finish)
-- `expires_at + grace <= now()` → `expired` (gate: `session_expired`); swept by the admission ticker
+- `expires_at > now()` → `active` (gate: `ok: 'active'`; wire: `active`)
+- `expires_at <= now() < expires_at + grace` → `ended` on the wire (gate still admits with `ok: 'draining'`; client must stop accepting new prompts but can let an in-flight agent finish)
+- `expires_at + grace <= now()` → `expired` (gate: `session_expired`; wire: `none` after sweep); swept by the admission ticker
 
 ## Single-instance Enforcement
 
@@ -182,9 +182,11 @@ Response shapes:
 }
 
 // Past expiresAt but inside the grace window — agent in flight may finish,
-// CLI must not accept new user prompts.
+// CLI must not accept new user prompts. `instanceId` is present so chat
+// requests still authenticate; once we're past the hard cutoff the row is
+// swept and the next GET returns `none` instead.
 {
-  "status": "draining",
+  "status": "ended",
   "instanceId": "e47…",
   "admittedAt": "2026-04-17T12:00:00Z",
   "expiresAt":  "2026-04-17T13:00:00Z",
@@ -195,11 +197,17 @@ Response shapes:
 
 ### `GET /api/v1/freebuff/session`
 
-**Read-only polling.** Does not mutate `active_instance_id`. The CLI uses this to refresh the countdown / queue position. Returns the same shapes as POST, plus:
+**Read-only polling.** Does not mutate `active_instance_id`. The CLI uses this to refresh the countdown / queue position. The CLI sends its currently-held instance id via the `X-Freebuff-Instance-Id` header so the server can detect takeover by another CLI on the same account.
+
+Returns the same shapes as POST, plus:
 
 ```jsonc
 // User has no row at all — must call POST first
 { "status": "none", "message": "Call POST to join the waiting room." }
+
+// Active row exists but the supplied instance id no longer matches —
+// another CLI on the same account took over.
+{ "status": "superseded" }
 ```
 
 ### `DELETE /api/v1/freebuff/session`
@@ -221,16 +229,16 @@ For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` ca
 | 409 | `session_superseded` | Claimed `instance_id` does not match stored one — another CLI took over. |
 | 410 | `session_expired` | `expires_at + grace < now()` (past the hard cutoff). Client should POST /session to re-queue. |
 
-Successful results carry one of three reasons: `disabled` (gate is off), `active` (`expires_at > now()`, `remainingMs` provided), or `draining` (`expires_at <= now() < expires_at + grace`, `gracePeriodRemainingMs` provided). The CLI should treat `draining` as "let any in-flight agent run finish, but block new user prompts" — see [Drain / Grace Window](#drain--grace-window) below.
+Successful results carry one of three reasons: `disabled` (gate is off), `active` (`expires_at > now()`, `remainingMs` provided), or `draining` (`expires_at <= now() < expires_at + grace`, `gracePeriodRemainingMs` provided). The CLI should treat `draining` as "let any in-flight agent run finish, but block new user prompts" — see [Drain / Grace Window](#drain--grace-window) below. The corresponding wire status from `getSessionState` is `ended`.
 
 When the waiting room is disabled, the gate returns `{ ok: true, reason: 'disabled' }` without touching the DB.
 
 ## Drain / Grace Window
 
-We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a `draining` state for `FREEBUFF_SESSION_GRACE_MS` (default 30 min). During the drain window:
+We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a "draining" state for `FREEBUFF_SESSION_GRACE_MS` (default 30 min). During the drain window:
 
 - `checkSessionAdmissible` returns `{ ok: true, reason: 'draining', gracePeriodRemainingMs }` — chat completions still go through.
-- `getSessionState` / `requestSession` return `status: 'draining'` on the wire. The CLI normalizes this into its internal `ended` state (input hidden, Enter-to-rejoin banner) and keeps forwarding the instance id so in-flight agent work can keep streaming.
+- `getSessionState` / `requestSession` return `{ status: 'ended', instanceId, ... }` on the wire. The CLI hides the input and shows the Enter-to-rejoin banner while still forwarding the instance id so in-flight agent work can keep streaming.
 - `sweepExpired` skips the row, keeping it in the DB so the gate keeps working.
 - `joinOrTakeOver` still treats the row as expired (`expires_at <= now()`), so a fresh POST re-queues at the back of the line. This means starting a new CLI during the drain window cleanly hands off to a queued seat rather than extending the current one.
 
@@ -253,20 +261,18 @@ This estimate **ignores health-gated pauses**: during a Fireworks incident admis
 
 ## CLI Integration (frontend-side contract)
 
-Not implemented yet. When the CLI is updated, it should:
+The CLI:
 
-1. **On startup**, call `POST /api/v1/freebuff/session`. Store `instanceId` in memory (not on disk — startup must re-admit).
-2. **Loop while `status === 'queued'`:** poll `GET /api/v1/freebuff/session` every ~5s and render `position / queueDepth / estimatedWaitMs` to the user.
-3. **When `status === 'active'`**, start rendering `remainingMs` as a countdown. Re-poll GET every ~30s to stay honest with server-side state.
-4. **On every chat request**, include `codebuff_metadata.freebuff_instance_id: <stored id>`.
-5. **Handle gate errors:**
-   - `session_superseded` (409) → surface "another freebuff instance has taken over; exiting" and shut down.
-   - `session_expired` (410) → go back to step 1 (re-admit into queue).
-   - `waiting_room_queued` (429) → shouldn't happen under normal flow but recoverable by polling GET.
-   - `waiting_room_required` (428) → shouldn't happen either; call POST.
-6. **On clean exit**, call `DELETE /api/v1/freebuff/session` so the next user can be admitted sooner.
+1. **On startup**, calls `POST /api/v1/freebuff/session`. Stores `instanceId` in memory (not on disk — startup must re-admit).
+2. **Loops while `status === 'queued'`:** polls `GET /api/v1/freebuff/session` (with `X-Freebuff-Instance-Id`) every ~5s and renders `position / queueDepth / estimatedWaitMs`.
+3. **When `status === 'active'`**, renders `remainingMs` as a countdown. Re-polls GET every ~30s to stay honest with server-side state.
+4. **When `status === 'ended'`** (the server-side draining/grace shape, with `instanceId`), hides the input and shows the Enter-to-rejoin banner while still forwarding the instance id on outgoing chat requests so in-flight agent work can finish.
+5. **When `status === 'superseded'`**, stops polling and shows the "close the other CLI" screen.
+6. **On every chat request**, includes `codebuff_metadata.freebuff_instance_id: <stored id>`.
+7. **Handles chat-gate errors:** the same statuses are reachable via the gate's 409/410/428/429 for fast in-flight feedback, and the CLI calls the matching `markFreebuff*` helper to flip local state without waiting for the next poll.
+8. **On clean exit**, calls `DELETE /api/v1/freebuff/session` so the next user can be admitted sooner.
 
-The `disabled` response means the server has the waiting room turned off. CLI should treat it identically to `active` with infinite remaining time — do not show a countdown, and include a dummy/empty `freebuff_instance_id` (the server ignores it).
+The `disabled` response means the server has the waiting room turned off. CLI treats it identically to `active` with infinite remaining time — no countdown, and chat requests can omit `freebuff_instance_id` entirely.
 
 ## Multi-pod Behavior
 

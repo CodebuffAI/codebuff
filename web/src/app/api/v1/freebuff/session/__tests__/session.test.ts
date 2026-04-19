@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   deleteFreebuffSession,
+  FREEBUFF_INSTANCE_HEADER,
   getFreebuffSession,
   postFreebuffSession,
 } from '../_handlers'
@@ -11,9 +12,13 @@ import type { SessionDeps } from '@/server/free-session/public-api'
 import type { InternalSessionRow } from '@/server/free-session/types'
 import type { NextRequest } from 'next/server'
 
-function makeReq(apiKey: string | null): NextRequest {
+function makeReq(
+  apiKey: string | null,
+  opts: { instanceId?: string } = {},
+): NextRequest {
   const headers = new Headers()
   if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`)
+  if (opts.instanceId) headers.set(FREEBUFF_INSTANCE_HEADER, opts.instanceId)
   return {
     headers,
   } as unknown as NextRequest
@@ -28,9 +33,9 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   return {
     rows,
     isWaitingRoomEnabled: () => true,
-    getAdmissionTickMs: () => 15_000,
-    getMaxAdmitsPerTick: () => 1,
-    getSessionGraceMs: () => 30 * 60 * 1000,
+    admissionTickMs: 15_000,
+    maxAdmitsPerTick: 1,
+    graceMs: 30 * 60 * 1000,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepth: async () => [...rows.values()].filter((r) => r.status === 'queued').length,
@@ -108,6 +113,26 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('none')
+  })
+
+  test('returns superseded when active row exists with mismatched instance id', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'real-id',
+      queued_at: new Date(),
+      admitted_at: new Date(),
+      expires_at: new Date(Date.now() + 60_000),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    const resp = await getFreebuffSession(
+      makeReq('ok', { instanceId: 'stale-id' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    const body = await resp.json()
+    expect(body.status).toBe('superseded')
   })
 })
 

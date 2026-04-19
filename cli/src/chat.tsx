@@ -1473,8 +1473,8 @@ export const Chat = ({
         )}
 
         {reviewMode ? (
-          // Review takes precedence over the session-ended banner: during a
-          // draining session the agent may still be asking to run tools, and
+          // Review takes precedence over the session-ended banner: during the
+          // grace window the agent may still be asking to run tools, and
           // those approvals must be reachable for the run to finish.
           <ReviewScreen
             onSelectOption={handleReviewOptionSelect}

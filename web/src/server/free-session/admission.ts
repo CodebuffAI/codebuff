@@ -40,15 +40,14 @@ export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
   queueDepth: () => Promise<number>
   admitFromQueue: (params: {
-    limit: number
     sessionLengthMs: number
     now: Date
     isFireworksAdmissible: () => Promise<boolean>
   }) => Promise<{ admitted: { user_id: string }[]; skipped: 'health' | null }>
   isFireworksAdmissible: () => Promise<boolean>
-  getMaxAdmitsPerTick: () => number
-  getSessionLengthMs: () => number
-  getSessionGraceMs: () => number
+  /** Plain values, not thunks — these never change at runtime. */
+  sessionLengthMs: number
+  graceMs: number
   now?: () => Date
 }
 
@@ -57,14 +56,17 @@ const defaultDeps: AdmissionDeps = {
   queueDepth,
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
-  // waiting-room → admitted → draining → ended flow without a real upstream.
+  // waiting-room → admitted → ended flow without a real upstream.
   isFireworksAdmissible:
     process.env.FREEBUFF_DEV_FORCE_ADMIT === 'true'
       ? async () => true
       : isFireworksAdmissible,
-  getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
-  getSessionLengthMs,
-  getSessionGraceMs,
+  get sessionLengthMs() {
+    return getSessionLengthMs()
+  },
+  get graceMs() {
+    return getSessionGraceMs()
+  },
 }
 
 export interface AdmissionTickResult {
@@ -77,15 +79,15 @@ export interface AdmissionTickResult {
 /**
  * Run a single admission tick:
  *   1. Expire sessions past their expires_at + grace.
- *   2. Attempt to admit up to maxAdmitsPerTick queued users, gated by the
- *      Fireworks reachability probe (done inside admitFromQueue so we don't
- *      pay for an HTTP call when the advisory lock is already held by
- *      another pod).
+ *   2. Attempt to admit one queued user, gated by the Fireworks reachability
+ *      probe (done inside admitFromQueue so we don't pay for an HTTP call
+ *      when the advisory lock is already held by another pod — see
+ *      `admitFromQueue`).
  *
  * There is no global concurrency cap — the Fireworks health probe is the
- * primary gate. Admission drips at (maxAdmitsPerTick / ADMISSION_TICK_MS),
- * which drives utilization up slowly; once the probe fails, step 2 halts
- * admission until things recover.
+ * primary gate. Admission drips at (1 / ADMISSION_TICK_MS), which drives
+ * utilization up slowly; once the probe fails, step 2 halts admission until
+ * things recover.
  *
  * Returns counts for observability. Safe to call concurrently across pods —
  * admitFromQueue takes an advisory xact lock.
@@ -94,11 +96,10 @@ export async function runAdmissionTick(
   deps: AdmissionDeps = defaultDeps,
 ): Promise<AdmissionTickResult> {
   const now = (deps.now ?? (() => new Date()))()
-  const expired = await deps.sweepExpired(now, deps.getSessionGraceMs())
+  const expired = await deps.sweepExpired(now, deps.graceMs)
 
   const { admitted, skipped } = await deps.admitFromQueue({
-    limit: deps.getMaxAdmitsPerTick(),
-    sessionLengthMs: deps.getSessionLengthMs(),
+    sessionLengthMs: deps.sessionLengthMs,
     now,
     isFireworksAdmissible: deps.isFireworksAdmissible,
   })
