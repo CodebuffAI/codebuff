@@ -33,7 +33,7 @@ const FAQ_ITEMS = [
   {
     question: 'What model does Codebuff use?',
     answer:
-      'Multiple. The orchestrator uses Claude Opus 4.6 in Default and Max modes, or GLM 5.1 in Free mode. Subagents are matched to their tasks: Claude Opus 4.6 for code editing, GPT-5.1 for deep reasoning, Grok 4.1 Fast for terminal commands and research, and Relace AI for fast file rewrites.',
+      'Multiple. The orchestrator uses Claude Opus 4.7 in Default and Max modes, or GLM 5.1 in Lite mode. Subagents are matched to their tasks: Claude Opus 4.7 and GPT-5.4 for deep reasoning and code review, and Gemini 3.1 Flash Lite for terminal commands, file discovery, and web/docs research.',
   },
   {
     question: 'Can I use my Claude Pro or Max subscription with Codebuff?',
