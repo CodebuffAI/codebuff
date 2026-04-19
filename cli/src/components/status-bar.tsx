@@ -25,6 +25,16 @@ const formatCountdown = (ms: number): string => {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+const formatSessionRemaining = (ms: number): string => {
+  if (ms <= 0) return 'expiring…'
+  if (ms < COUNTDOWN_VISIBLE_MS) return `${formatCountdown(ms)} left`
+  const totalMinutes = Math.ceil(ms / 60_000)
+  if (totalMinutes < 60) return `${totalMinutes}m left`
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return minutes === 0 ? `${hours}h left` : `${hours}h ${minutes}m left`
+}
+
 interface StatusBarProps {
   timerStartTime: number | null
   isAtBottom: boolean
@@ -79,11 +89,13 @@ export const StatusBar = ({
     return () => clearInterval(interval)
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
+  const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
         return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
-      
+
       case 'clipboard':
         // Use green color for feedback success messages
         const isFeedbackSuccess = statusIndicatorState.message.includes('Feedback sent')
@@ -92,10 +104,10 @@ export const StatusBar = ({
             {statusIndicatorState.message}
           </span>
         )
-      
+
       case 'reconnected':
         return <span fg={theme.success}>Reconnected</span>
-      
+
       case 'retrying':
         return (
           <ShimmerText
@@ -103,10 +115,10 @@ export const StatusBar = ({
             primaryColor={theme.warning}
           />
         )
-      
+
       case 'connecting':
         return <ShimmerText text="connecting..." />
-      
+
       case 'waiting':
         return (
           <ShimmerText
@@ -115,7 +127,7 @@ export const StatusBar = ({
             primaryColor={theme.secondary}
           />
         )
-      
+
       case 'streaming':
         return (
           <ShimmerText
@@ -124,11 +136,19 @@ export const StatusBar = ({
             primaryColor={theme.secondary}
           />
         )
-      
+
       case 'paused':
         return null
-      
+
       case 'idle':
+        if (sessionProgress !== null) {
+          const isUrgent = sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS
+          return (
+            <span fg={isUrgent ? theme.warning : theme.secondary}>
+              Free session · {formatSessionRemaining(sessionProgress.remainingMs)}
+            </span>
+          )
+        }
         return null
     }
   }
@@ -143,8 +163,6 @@ export const StatusBar = ({
 
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
-
-  const sessionProgress = useFreebuffSessionProgress(freebuffSession)
 
   // Show gray background when there's status indicator, timer, or when the
   // freebuff session fill is visible (otherwise the fill would float over
@@ -208,7 +226,8 @@ export const StatusBar = ({
           <StopButton onClick={onStop} />
         )}
         {sessionProgress !== null &&
-          sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS && (
+          sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS &&
+          statusIndicatorState.kind !== 'idle' && (
             <text style={{ wrapMode: 'none' }}>
               <span fg={theme.warning} attributes={TextAttributes.BOLD}>
                 {formatCountdown(sessionProgress.remainingMs)}
