@@ -43,62 +43,61 @@ describe('Error preserves in-progress message history', () => {
     // 2. Then throws due to a downstream timeout/service error
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
-        const history = params.action.sessionState.mainAgentState.messageHistory
+        const mainAgentState = params.action.sessionState.mainAgentState
 
-        // The runtime adds the user message as part of building its initial messages
-        history.push({
-          role: 'user',
-          content: [{ type: 'text', text: 'Fix the bug in auth.ts' }],
-          tags: ['USER_PROMPT'],
-        })
-
-        // Step 1: assistant responds with a tool call (reading a file)
-        history.push({
-          role: 'assistant',
-          content: [
-            { type: 'text', text: 'Let me read the auth file first.' },
-            {
-              type: 'tool-call',
-              toolCallId: 'read-1',
-              toolName: 'read_files',
-              input: { paths: ['auth.ts'] },
-            } as ToolCallContentBlock,
-          ],
-        })
-
-        // Tool result
-        history.push({
-          role: 'tool',
-          toolCallId: 'read-1',
-          toolName: 'read_files',
-          content: [
-            {
-              type: 'json',
-              value: [{ path: 'auth.ts', content: 'const auth = ...' }],
-            },
-          ],
-        })
-
-        // Step 2: assistant continues with another tool call (writing the fix)
-        history.push({
-          role: 'assistant',
-          content: [
-            { type: 'text', text: 'Found the issue, writing the fix now.' },
-            {
-              type: 'tool-call',
-              toolCallId: 'write-1',
-              toolName: 'write_file',
-              input: { path: 'auth.ts', content: 'const auth = fixed' },
-            } as ToolCallContentBlock,
-          ],
-        })
-
-        history.push({
-          role: 'tool',
-          toolCallId: 'write-1',
-          toolName: 'write_file',
-          content: [{ type: 'json', value: { file: 'auth.ts', message: 'File written' } }],
-        })
+        // Match the real runtime's behavior: replace messageHistory with a new
+        // array that includes the user prompt as its first entry. The SDK
+        // detects runtime progress via reference inequality, so we must
+        // reassign the array rather than pushing into it.
+        mainAgentState.messageHistory = [
+          ...mainAgentState.messageHistory,
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Fix the bug in auth.ts' }],
+            tags: ['USER_PROMPT'],
+          },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'Let me read the auth file first.' },
+              {
+                type: 'tool-call',
+                toolCallId: 'read-1',
+                toolName: 'read_files',
+                input: { paths: ['auth.ts'] },
+              } as ToolCallContentBlock,
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'read-1',
+            toolName: 'read_files',
+            content: [
+              {
+                type: 'json',
+                value: [{ path: 'auth.ts', content: 'const auth = ...' }],
+              },
+            ],
+          },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'Found the issue, writing the fix now.' },
+              {
+                type: 'tool-call',
+                toolCallId: 'write-1',
+                toolName: 'write_file',
+                input: { path: 'auth.ts', content: 'const auth = fixed' },
+              } as ToolCallContentBlock,
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'write-1',
+            toolName: 'write_file',
+            content: [{ type: 'json', value: { file: 'auth.ts', message: 'File written' } }],
+          },
+        ]
 
         // Now simulate a server timeout on the next LLM call
         const timeoutError = new Error('Service Unavailable') as Error & {
@@ -195,31 +194,34 @@ describe('Error preserves in-progress message history', () => {
     // Run 1: agent does some work then hits an error
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
-        const history = params.action.sessionState.mainAgentState.messageHistory
+        const mainAgentState = params.action.sessionState.mainAgentState
 
-        history.push({
-          role: 'user',
-          content: [{ type: 'text', text: 'Investigate the login bug' }],
-          tags: ['USER_PROMPT'],
-        })
-        history.push(assistantMessage('I found the problem in auth.ts on line 42.'))
-        history.push({
-          role: 'assistant',
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: 'read-login',
-              toolName: 'read_files',
-              input: { paths: ['login.ts'] },
-            } as ToolCallContentBlock,
-          ],
-        })
-        history.push({
-          role: 'tool',
-          toolCallId: 'read-login',
-          toolName: 'read_files',
-          content: [{ type: 'json', value: [{ path: 'login.ts', content: 'login code' }] }],
-        })
+        mainAgentState.messageHistory = [
+          ...mainAgentState.messageHistory,
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Investigate the login bug' }],
+            tags: ['USER_PROMPT'],
+          },
+          assistantMessage('I found the problem in auth.ts on line 42.'),
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'read-login',
+                toolName: 'read_files',
+                input: { paths: ['login.ts'] },
+              } as ToolCallContentBlock,
+            ],
+          },
+          {
+            role: 'tool',
+            toolCallId: 'read-login',
+            toolName: 'read_files',
+            content: [{ type: 'json', value: [{ path: 'login.ts', content: 'login code' }] }],
+          },
+        ]
 
         const error = new Error('Service Unavailable') as Error & {
           statusCode: number

@@ -536,6 +536,17 @@ export const runAgentStep = async (
   }
 }
 
+/**
+ * Runs the agent loop.
+ *
+ * IMPORTANT: This function mutates `params.agentState` in place throughout the
+ * run (not just at return time). Fields like `messageHistory`, `systemPrompt`,
+ * `toolDefinitions`, `creditsUsed`, and `output` are updated as work progresses
+ * so that callers holding a reference to the same object (e.g. the SDK's
+ * `sessionState.mainAgentState`) see in-progress work immediately — which
+ * matters when an error is thrown mid-run and the normal return path is
+ * skipped.
+ */
 export async function loopAgentSteps(
   params: {
     addAgentStep: AddAgentStepFn
