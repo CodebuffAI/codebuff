@@ -44,6 +44,12 @@ async function callSession(
     headers,
     signal: opts.signal,
   })
+  // 404 = endpoint not deployed on this server (older web build). Treat as
+  // "waiting room disabled" so a newer CLI against an older server still
+  // works, rather than stranding users in a waiting room forever.
+  if (resp.status === 404) {
+    return { status: 'disabled' }
+  }
   if (!resp.ok) {
     const text = await resp.text().catch(() => '')
     throw new Error(
