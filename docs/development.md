@@ -42,3 +42,19 @@ Logs are in `debug/console/` (`db.log`, `studio.log`, `sdk.log`, `web.log`).
 ## Database Migrations
 
 Edit schema using Drizzle's TS DSL (don't hand-write migration SQL), then run the internal DB scripts to generate/apply migrations.
+
+## Running Scripts Against Prod
+
+Scripts in `scripts/` connect to whatever environment Infisical injects. To run a script against the production database and services, prefix it with `infisical run --env=prod`:
+
+```bash
+infisical run --env=prod -- bun scripts/<name>.ts
+```
+
+You can also inline a one-off query:
+
+```bash
+infisical run --env=prod -- bun -e "import db from '@codebuff/internal/db'; /* ... */"
+```
+
+Add `--silent` to suppress the Infisical banner. Default env is `dev` — always pass `--env=prod` explicitly when you want prod. Prefer read-only queries; coordinate before running anything that writes.
