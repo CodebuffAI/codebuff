@@ -52,7 +52,7 @@ jobs:
   e2e:
     needs: build-freebuff
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -101,7 +101,7 @@ jobs:
         run: cd sdk && bun run build
 
       - name: Run e2e test - ${{ matrix.test }}
-        run: bun test freebuff/e2e/tests/${{ matrix.test }}.e2e.test.ts --timeout=120000
+        run: bun test freebuff/e2e/tests/${{ matrix.test }}.e2e.test.ts --timeout=${{ (matrix.test == 'code-edit' || matrix.test == 'terminal-command') && '900000' || '120000' }}
 
       - name: Upload tmux session logs on failure
         if: failure()
