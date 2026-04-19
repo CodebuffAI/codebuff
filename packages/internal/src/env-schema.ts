@@ -32,6 +32,17 @@ export const serverEnvSchema = clientEnvSchema.extend({
   DISCORD_PUBLIC_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_APPLICATION_ID: z.string().min(1),
+
+  // Freebuff waiting room. Defaults to OFF so the feature requires explicit
+  // opt-in per environment — the CLI/SDK do not yet send
+  // freebuff_instance_id, so enabling this before they ship would reject
+  // every free-mode request with 428 waiting_room_required.
+  FREEBUFF_WAITING_ROOM_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  FREEBUFF_SESSION_LENGTH_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
+  FREEBUFF_SESSION_GRACE_MS: z.coerce.number().int().nonnegative().default(30 * 60 * 1000),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -79,4 +90,9 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
+
+  // Freebuff waiting room
+  FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
+  FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
+  FREEBUFF_SESSION_GRACE_MS: process.env.FREEBUFF_SESSION_GRACE_MS,
 }

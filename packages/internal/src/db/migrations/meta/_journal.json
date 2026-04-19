@@ -302,6 +302,13 @@
       "when": 1773878149145,
       "tag": "0042_needy_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1776461642346,
+      "tag": "0043_vengeful_boomer",
+      "breakpoints": true
     }
   ]
 }

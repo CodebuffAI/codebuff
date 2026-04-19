@@ -6,6 +6,11 @@ export interface CodebuffMetadata {
   run_id?: string
   n?: number
   cost_mode?: string
+  /** Server-issued session instance id (see /api/v1/freebuff/session). Required
+   *  on free-mode requests when the waiting room is enabled; stale values are
+   *  rejected so a second CLI on the same account cannot keep serving traffic
+   *  after the first one re-admitted. */
+  freebuff_instance_id?: string
 }
 
 export interface ChatMessage {
@@ -77,7 +82,9 @@ export function isCodebuffMetadata(
     (v.client_id === undefined || typeof v.client_id === 'string') &&
     (v.run_id === undefined || typeof v.run_id === 'string') &&
     (v.n === undefined || typeof v.n === 'number') &&
-    (v.cost_mode === undefined || typeof v.cost_mode === 'string')
+    (v.cost_mode === undefined || typeof v.cost_mode === 'string') &&
+    (v.freebuff_instance_id === undefined ||
+      typeof v.freebuff_instance_id === 'string')
   )
 }
 

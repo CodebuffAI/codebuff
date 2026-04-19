@@ -1,10 +1,16 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 
+import {
+  markFreebuffSessionEnded,
+  markFreebuffSessionSuperseded,
+  refreshFreebuffSession,
+} from '../use-freebuff-session'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
+  getFreebuffGateErrorKind,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
@@ -387,6 +393,13 @@ export const handleRunCompletion = (params: {
       return
     }
 
+    const gateKind = getFreebuffGateErrorKind(output)
+    if (gateKind) {
+      handleFreebuffGateError(gateKind, updater)
+      finalizeAfterError()
+      return
+    }
+
     // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
     updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
@@ -474,7 +487,52 @@ export const handleRunError = (params: {
     return
   }
 
+  const gateKind = getFreebuffGateErrorKind(error)
+  if (gateKind) {
+    handleFreebuffGateError(gateKind, updater)
+    return
+  }
+
   // Use setError for all errors so they display in UserErrorBanner consistently
   const errorMessage = errorInfo.message || 'An unexpected error occurred'
   updater.setError(errorMessage)
+}
+
+/**
+ * Surface + recover from a waiting-room gate rejection. The server rejected
+ * the request because our seat is no longer valid; update local state so the
+ * UI reflects reality and we stop sending requests until we re-admit.
+ */
+function handleFreebuffGateError(
+  kind: ReturnType<typeof getFreebuffGateErrorKind>,
+  updater: BatchedMessageUpdater,
+) {
+  switch (kind) {
+    case 'session_expired':
+    case 'waiting_room_required':
+      // Our seat is gone mid-chat. Flip to `ended` instead of auto re-queuing:
+      // the Chat surface stays mounted so any in-flight agent work can finish
+      // under the server-side grace period, and the session-ended banner
+      // prompts the user to press Enter when they're ready to rejoin.
+      markFreebuffSessionEnded()
+      return
+    case 'waiting_room_queued':
+      updater.setError(
+        "You're still in the waiting room. Please wait for admission before sending messages.",
+      )
+      // Re-sync without resetting chat — this is a "we'll wait", not a
+      // "let's start fresh".
+      refreshFreebuffSession().catch(() => {})
+      return
+    case 'session_superseded':
+      updater.setError(
+        'Another freebuff CLI took over this account. Close the other instance, then restart.',
+      )
+      // Terminal state: stop polling and flip UI to a "please restart" screen
+      // so we don't silently fight the other instance for the seat.
+      markFreebuffSessionSuperseded()
+      return
+    default:
+      return
+  }
 }

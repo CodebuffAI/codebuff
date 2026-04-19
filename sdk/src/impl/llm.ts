@@ -62,7 +62,7 @@ function calculateUsedCredits(params: { costDollars: number }): number {
   return Math.round(costDollars * (1 + PROFIT_MARGIN) * 100)
 }
 
-function getProviderOptions(params: {
+export function getProviderOptions(params: {
   model: string
   runId: string
   clientSessionId: string
@@ -71,6 +71,7 @@ function getProviderOptions(params: {
   n?: number
   costMode?: string
   cacheDebugCorrelation?: string
+  extraCodebuffMetadata?: Record<string, string>
 }): { codebuff: JSONObject } {
   const {
     model,
@@ -81,6 +82,7 @@ function getProviderOptions(params: {
     n,
     costMode,
     cacheDebugCorrelation,
+    extraCodebuffMetadata,
   } = params
 
   let providerConfig: Record<string, any>
@@ -105,6 +107,9 @@ function getProviderOptions(params: {
       ...providerOptions?.codebuff,
       // All values here get appended to the request body
       codebuff_metadata: {
+        // Caller-supplied keys go first so they can't override reserved
+        // identifiers like run_id/client_id/cost_mode that the server trusts.
+        ...(extraCodebuffMetadata ?? {}),
         run_id: runId,
         client_id: clientSessionId,
         ...(n && { n }),

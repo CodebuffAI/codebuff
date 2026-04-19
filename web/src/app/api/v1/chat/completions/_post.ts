@@ -67,6 +67,9 @@ import {
   handleOpenRouterStream,
   OpenRouterError,
 } from '@/llm-api/openrouter'
+import { checkSessionAdmissible } from '@/server/free-session/public-api'
+
+import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
@@ -135,6 +138,18 @@ export const formatQuotaResetCountdown = (
   return `in ${pluralize(minutes, 'minute')}`
 }
 
+export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
+
+type GateRejectCode = Extract<SessionGateResult, { ok: false }>['code']
+
+const STATUS_BY_GATE_CODE = {
+  waiting_room_required: 428,
+  waiting_room_queued: 429,
+  session_superseded: 409,
+  session_expired: 410,
+  freebuff_update_required: 426,
+} satisfies Record<GateRejectCode, number>
+
 export async function postChatCompletions(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -147,6 +162,9 @@ export async function postChatCompletions(params: {
   insertMessageBigquery: InsertMessageBigqueryFn
   ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
   getUserPreferences?: GetUserPreferencesFn
+  /** Optional override for the freebuff waiting-room gate. Defaults to the
+   *  real check backed by Postgres; tests inject a no-op. */
+  checkSessionAdmissible?: CheckSessionAdmissibleFn
 }) {
   const {
     req,
@@ -158,6 +176,7 @@ export async function postChatCompletions(params: {
     insertMessageBigquery,
     ensureSubscriberBlockGrant,
     getUserPreferences,
+    checkSessionAdmissible: checkSession = checkSessionAdmissible,
   } = params
   let { logger } = params
   let { trackEvent } = params
@@ -384,6 +403,29 @@ export async function postChatCompletions(params: {
         },
         { status: 403 },
       )
+    }
+
+    // Freebuff waiting-room gate. Only enforced for free-mode requests, and
+    // only when FREEBUFF_WAITING_ROOM_ENABLED=true — otherwise this is a
+    // no-op that returns { ok: true, reason: 'disabled' } without a DB hit.
+    // Runs before the rate limiter so rejected requests don't burn a queued
+    // user's free-mode counters.
+    if (isFreeModeRequest) {
+      const claimedInstanceId =
+        typedBody.codebuff_metadata?.freebuff_instance_id
+      const gate = await checkSession({ userId, claimedInstanceId })
+      if (!gate.ok) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: { error: gate.code },
+          logger,
+        })
+        return NextResponse.json(
+          { error: gate.code, message: gate.message },
+          { status: STATUS_BY_GATE_CODE[gate.code] },
+        )
+      }
     }
 
     // Rate limit free mode requests (after validation so invalid requests don't consume quota)

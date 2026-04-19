@@ -147,6 +147,10 @@ export type RunOptions = {
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
   costMode?: string
+  /** Extra key/values merged into each LLM request's `codebuff_metadata`.
+   *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
+   *  `freebuff_instance_id` that server-side gates read from the request body. */
+  extraCodebuffMetadata?: Record<string, string>
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -213,6 +217,7 @@ async function runOnce({
   extraToolResults,
   signal,
   costMode,
+  extraCodebuffMetadata,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -509,6 +514,7 @@ async function runOnce({
     repoId: undefined,
     clientSessionId: promptId,
     userId,
+    extraCodebuffMetadata,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     let errorMessage =

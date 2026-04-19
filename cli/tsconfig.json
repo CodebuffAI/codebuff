@@ -12,6 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "preserveSymlinks": false,
+    "baseUrl": ".",
     "paths": {
       "@codebuff/sdk": ["../sdk/src/index.ts"]
     }

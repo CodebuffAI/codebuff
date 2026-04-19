@@ -4,11 +4,14 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
+import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
+import { WaitingRoomScreen } from './components/waiting-room-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
+import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useLogo } from './hooks/use-logo'
 import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
@@ -297,8 +300,8 @@ export const App = ({
   const chatKey = resumeChatId ?? 'current'
 
   return (
-    <Chat
-      key={chatKey}
+    <AuthedSurface
+      chatKey={chatKey}
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
@@ -313,6 +316,96 @@ export const App = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={handleSwitchToGitRoot}
+    />
+  )
+}
+
+interface AuthedSurfaceProps {
+  chatKey: string
+  headerContent: React.ReactNode
+  initialPrompt: string | null
+  agentId?: string
+  fileTree: FileTreeNode[]
+  inputRef: React.MutableRefObject<MultilineInputHandle | null>
+  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean | null>>
+  setUser: React.Dispatch<React.SetStateAction<import('./utils/auth').User | null>>
+  logoutMutation: ReturnType<typeof useAuthState>['logoutMutation']
+  continueChat: boolean
+  continueChatId: string | undefined
+  authStatus: AuthStatus
+  initialMode: AgentMode | undefined
+  gitRoot: string | null | undefined
+  onSwitchToGitRoot: () => void
+}
+
+/**
+ * Rendered only after auth is confirmed. Owns the freebuff waiting-room gate
+ * so `useFreebuffSession` runs exactly once per authed session (not before
+ * we have a token).
+ */
+const AuthedSurface = ({
+  chatKey,
+  headerContent,
+  initialPrompt,
+  agentId,
+  fileTree,
+  inputRef,
+  setIsAuthenticated,
+  setUser,
+  logoutMutation,
+  continueChat,
+  continueChatId,
+  authStatus,
+  initialMode,
+  gitRoot,
+  onSwitchToGitRoot,
+}: AuthedSurfaceProps) => {
+  const { session, error: sessionError } = useFreebuffSession()
+
+  // Terminal state: a 409 from the gate means another CLI rotated our
+  // instance id. Show a dedicated screen and stop polling — don't fall back
+  // into the waiting room, which would look like normal queued progress.
+  if (IS_FREEBUFF && session?.status === 'superseded') {
+    return <FreebuffSupersededScreen />
+  }
+
+  // Route every non-admitted state through the waiting room:
+  //   null     → initial POST in flight
+  //   'queued' → waiting our turn
+  //   'none'   → server lost our row; hook is about to re-POST
+  // Falling through to <Chat> on 'none' would leave the user unable to send
+  // any free-mode request until the next poll cycle.
+  //
+  // 'ended' deliberately falls through to <Chat>: the agent may still be
+  // finishing work under the server-side grace period, and the chat surface
+  // itself swaps the input box for the session-ended banner.
+  if (
+    IS_FREEBUFF &&
+    (session === null ||
+      session.status === 'queued' ||
+      session.status === 'none')
+  ) {
+    return <WaitingRoomScreen session={session} error={sessionError} />
+  }
+
+  return (
+    <Chat
+      key={chatKey}
+      headerContent={headerContent}
+      initialPrompt={initialPrompt}
+      agentId={agentId}
+      fileTree={fileTree}
+      inputRef={inputRef}
+      setIsAuthenticated={setIsAuthenticated}
+      setUser={setUser}
+      logoutMutation={logoutMutation}
+      continueChat={continueChat}
+      continueChatId={continueChatId}
+      authStatus={authStatus}
+      initialMode={initialMode}
+      gitRoot={gitRoot}
+      onSwitchToGitRoot={onSwitchToGitRoot}
+      freebuffSession={session}
     />
   )
 }
