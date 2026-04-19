@@ -45,19 +45,35 @@ describe('Fireworks deployment routing', () => {
     })
 
     it('isDeploymentCoolingDown returns false initially', () => {
-      expect(isDeploymentCoolingDown()).toBe(false)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(false)
     })
 
     it('isDeploymentCoolingDown returns true after markDeploymentScalingUp', () => {
-      markDeploymentScalingUp()
-      expect(isDeploymentCoolingDown()).toBe(true)
+      markDeploymentScalingUp(DEPLOYMENT_MODEL_ID)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(true)
     })
 
     it('isDeploymentCoolingDown returns false after resetDeploymentCooldown', () => {
-      markDeploymentScalingUp()
-      expect(isDeploymentCoolingDown()).toBe(true)
+      markDeploymentScalingUp(DEPLOYMENT_MODEL_ID)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(true)
       resetDeploymentCooldown()
-      expect(isDeploymentCoolingDown()).toBe(false)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(false)
+    })
+
+    it('cooldown on one deployment does not affect other deployments', () => {
+      const otherDeployment = 'accounts/james-65d217/deployments/other123'
+      markDeploymentScalingUp(DEPLOYMENT_MODEL_ID)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(true)
+      expect(isDeploymentCoolingDown(otherDeployment)).toBe(false)
+    })
+
+    it('resetDeploymentCooldown with an id only clears that deployment', () => {
+      const otherDeployment = 'accounts/james-65d217/deployments/other123'
+      markDeploymentScalingUp(DEPLOYMENT_MODEL_ID)
+      markDeploymentScalingUp(otherDeployment)
+      resetDeploymentCooldown(DEPLOYMENT_MODEL_ID)
+      expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(false)
+      expect(isDeploymentCoolingDown(otherDeployment)).toBe(true)
     })
 
     it('DEPLOYMENT_COOLDOWN_MS is 2 minutes', () => {
@@ -195,8 +211,8 @@ describe('Fireworks deployment routing', () => {
         expect(fetchCalls).toHaveLength(2)
         expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
         expect(fetchCalls[1]).toBe(STANDARD_MODEL_ID)
-        // Verify cooldown was activated
-        expect(isDeploymentCoolingDown()).toBe(true)
+        // Verify cooldown was activated for this specific deployment
+        expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(true)
       } finally {
         spy.restore()
       }
@@ -243,7 +259,7 @@ describe('Fireworks deployment routing', () => {
         expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
         expect(fetchCalls[1]).toBe(STANDARD_MODEL_ID)
         // Non-scaling 503 should NOT activate the cooldown
-        expect(isDeploymentCoolingDown()).toBe(false)
+        expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(false)
       } finally {
         spy.restore()
       }
@@ -283,7 +299,7 @@ describe('Fireworks deployment routing', () => {
         expect(fetchCalls).toHaveLength(2)
         expect(fetchCalls[0]).toBe(DEPLOYMENT_MODEL_ID)
         expect(fetchCalls[1]).toBe(STANDARD_MODEL_ID)
-        expect(isDeploymentCoolingDown()).toBe(false)
+        expect(isDeploymentCoolingDown(DEPLOYMENT_MODEL_ID)).toBe(false)
       } finally {
         spy.restore()
       }
@@ -291,7 +307,7 @@ describe('Fireworks deployment routing', () => {
 
     it('skips deployment during cooldown and goes straight to standard API', async () => {
       const spy = spyDeploymentHours(true)
-      markDeploymentScalingUp()
+      markDeploymentScalingUp(DEPLOYMENT_MODEL_ID)
 
       const fetchCalls: string[] = []
       const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {

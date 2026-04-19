@@ -30,3 +30,4 @@ debug/
 
 # Infisical config (user-specific)
 .infisical.json
+.gstack/

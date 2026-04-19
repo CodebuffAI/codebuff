@@ -44,22 +44,32 @@ export function isDeploymentHours(_now: Date = new Date()): boolean {
 }
 
 /**
- * In-memory cooldown to avoid repeatedly hitting a deployment that is scaling up.
- * After a DEPLOYMENT_SCALING_UP 503, we skip the deployment for this many ms.
+ * In-memory per-deployment cooldown to avoid repeatedly hitting a deployment
+ * that is scaling up. After a DEPLOYMENT_SCALING_UP 503, we skip that
+ * deployment for this many ms. Keyed by full deployment path so one
+ * deployment's cooldown doesn't affect routing to other deployments.
  */
 export const DEPLOYMENT_COOLDOWN_MS = 2 * 60 * 1000
-let deploymentScalingUpUntil = 0
+const deploymentCooldowns = new Map<string, number>()
 
-export function isDeploymentCoolingDown(): boolean {
-  return Date.now() < deploymentScalingUpUntil
+export function isDeploymentCoolingDown(deploymentId: string): boolean {
+  const until = deploymentCooldowns.get(deploymentId)
+  if (until === undefined) return false
+  if (Date.now() < until) return true
+  deploymentCooldowns.delete(deploymentId)
+  return false
 }
 
-export function markDeploymentScalingUp(): void {
-  deploymentScalingUpUntil = Date.now() + DEPLOYMENT_COOLDOWN_MS
+export function markDeploymentScalingUp(deploymentId: string): void {
+  deploymentCooldowns.set(deploymentId, Date.now() + DEPLOYMENT_COOLDOWN_MS)
 }
 
-export function resetDeploymentCooldown(): void {
-  deploymentScalingUpUntil = 0
+export function resetDeploymentCooldown(deploymentId?: string): void {
+  if (deploymentId === undefined) {
+    deploymentCooldowns.clear()
+    return
+  }
+  deploymentCooldowns.delete(deploymentId)
 }
 
 export function isFireworksModel(model: string): boolean {
@@ -725,9 +735,9 @@ export async function createFireworksRequestWithFallback(params: {
   const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
   const shouldTryDeployment =
     useCustomDeployment &&
-    deploymentModelId &&
+    !!deploymentModelId &&
     isDeploymentHours() &&
-    !isDeploymentCoolingDown()
+    !isDeploymentCoolingDown(deploymentModelId)
 
   if (shouldTryDeployment) {
     logger.info(
@@ -749,7 +759,7 @@ export async function createFireworksRequestWithFallback(params: {
         'Fireworks custom deployment returned 5xx, falling back to standard API',
       )
       if (errorText.includes('DEPLOYMENT_SCALING_UP')) {
-        markDeploymentScalingUp()
+        markDeploymentScalingUp(deploymentModelId)
       }
       // Fall through to standard API request below
     } else {

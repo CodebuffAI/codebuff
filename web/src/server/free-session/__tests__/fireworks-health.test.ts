@@ -108,11 +108,43 @@ describe('fireworks health classifier', () => {
     expect(classify([], [DEPLOY])).toBe('healthy')
   })
 
-  test('worst-of across multiple deployments — unhealthy wins over degraded', () => {
+  test('healthy if any deployment is healthy (one deployment per model, users route per-model)', () => {
     const other = 'other123'
     const samples: PromSample[] = [
+      // DEPLOY is healthy
+      kvBlocks(0.5),
+      ...prefillQueueBuckets(150),
+      // other is unhealthy
+      {
+        name: 'generator_kv_blocks_fraction:avg_by_deployment',
+        labels: { deployment_id: other },
+        value: KV_BLOCKS_UNHEALTHY_FRACTION + 0.005,
+      },
+    ]
+    expect(classify(samples, [DEPLOY, other])).toBe('healthy')
+  })
+
+  test('degraded when all deployments are non-healthy and at least one is degraded', () => {
+    const other = 'other123'
+    const samples: PromSample[] = [
+      // DEPLOY is degraded (prefill queue over threshold)
       kvBlocks(0.5),
       ...prefillQueueBuckets(PREFILL_QUEUE_P90_DEGRADED_MS + 500),
+      // other is unhealthy (KV backstop)
+      {
+        name: 'generator_kv_blocks_fraction:avg_by_deployment',
+        labels: { deployment_id: other },
+        value: KV_BLOCKS_UNHEALTHY_FRACTION + 0.005,
+      },
+    ]
+    expect(classify(samples, [DEPLOY, other])).toBe('degraded')
+  })
+
+  test('unhealthy only when every deployment is unhealthy', () => {
+    const other = 'other123'
+    const samples: PromSample[] = [
+      kvBlocks(KV_BLOCKS_UNHEALTHY_FRACTION + 0.005),
+      ...prefillQueueBuckets(300),
       {
         name: 'generator_kv_blocks_fraction:avg_by_deployment',
         labels: { deployment_id: other },
