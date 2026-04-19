@@ -7,25 +7,31 @@ import type { AdmissionDeps } from '../admission'
 const NOW = new Date('2026-04-17T12:00:00Z')
 
 function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDeps & {
-  calls: { admit: number[]; expired: number; active: number }
+  calls: { admit: number[] }
 } {
-  const calls = { admit: [] as number[], expired: 0, active: 0 }
-  return {
+  const calls = { admit: [] as number[] }
+  const deps: AdmissionDeps & { calls: { admit: number[] } } = {
     calls,
     sweepExpired: async () => 0,
-    countActive: async () => 0,
     queueDepth: async () => 0,
-    admitFromQueue: async ({ limit }) => {
-      calls.admit.push(limit)
-      return Array.from({ length: limit }, (_, i) => ({ user_id: `u${i}` }))
-    },
     isFireworksAdmissible: async () => true,
+    admitFromQueue: async ({ limit, isFireworksAdmissible }) => {
+      calls.admit.push(limit)
+      if (!(await isFireworksAdmissible())) {
+        return { admitted: [], skipped: 'health' }
+      }
+      return {
+        admitted: Array.from({ length: limit }, (_, i) => ({ user_id: `u${i}` })),
+        skipped: null,
+      }
+    },
     getMaxAdmitsPerTick: () => 1,
     getSessionLengthMs: () => 60 * 60 * 1000,
     getSessionGraceMs: () => 30 * 60 * 1000,
     now: () => NOW,
     ...overrides,
   }
+  return deps
 }
 
 describe('runAdmissionTick', () => {
@@ -68,7 +74,6 @@ describe('runAdmissionTick', () => {
   test('propagates expiry count and admit count together', async () => {
     const deps = makeAdmissionDeps({
       sweepExpired: async () => 2,
-      countActive: async () => 5,
     })
     const result = await runAdmissionTick(deps)
     expect(result.expired).toBe(2)

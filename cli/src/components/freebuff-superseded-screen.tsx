@@ -5,14 +5,10 @@ import React, { useCallback } from 'react'
 import { useLogo } from '../hooks/use-logo'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { flushAnalytics } from '../utils/analytics'
-import { withTimeout } from '../utils/terminal-color-detection'
+import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { KeyEvent } from '@opentui/core'
-
-/** Cap on analytics flush so a slow network doesn't block process exit. */
-const EXIT_CLEANUP_TIMEOUT_MS = 1000
 
 /**
  * Terminal state shown after a 409 session_superseded response. Another CLI on
@@ -31,17 +27,12 @@ export const FreebuffSupersededScreen: React.FC = () => {
   })
 
   // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
-  // through as a normal OpenTUI key event. No DELETE needed here: the other
-  // CLI already rotated our instance id, so our seat (if any) belongs to them.
+  // through as a normal OpenTUI key event.
   useKeyboard(
     useCallback((key: KeyEvent) => {
       if (key.ctrl && key.name === 'c') {
         key.preventDefault?.()
-        withTimeout(flushAnalytics(), EXIT_CLEANUP_TIMEOUT_MS, undefined).finally(
-          () => {
-            process.exit(0)
-          },
-        )
+        exitFreebuffCleanly()
       }
     }, []),
   )

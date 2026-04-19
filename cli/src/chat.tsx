@@ -1344,9 +1344,7 @@ export const Chat = ({
   const hasActiveFreebuffSession =
     IS_FREEBUFF && freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
-    IS_FREEBUFF &&
-    (freebuffSession?.status === 'draining' ||
-      freebuffSession?.status === 'ended')
+    IS_FREEBUFF && freebuffSession?.status === 'ended'
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent ||

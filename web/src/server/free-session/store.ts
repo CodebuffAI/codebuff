@@ -1,6 +1,6 @@
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, asc, count, eq, gt, inArray, lt, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
@@ -109,23 +109,6 @@ export async function endSession(userId: string): Promise<void> {
     .where(eq(schema.freeSession.user_id, userId))
 }
 
-/**
- * Count active non-expired sessions. Callers must already have expired old
- * rows via sweepExpired() for this number to be accurate.
- */
-export async function countActive(now: Date): Promise<number> {
-  const rows = await db
-    .select({ n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'active'),
-        gt(schema.freeSession.expires_at, now),
-      ),
-    )
-  return Number(rows[0]?.n ?? 0)
-}
-
 export async function queueDepth(): Promise<number> {
   const rows = await db
     .select({ n: count() })
@@ -183,19 +166,30 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 }
 
 /**
- * Atomically admit up to `limit` queued users, guarded by a per-transaction
- * advisory lock so only one pod admits at a time. Returns admitted rows.
+ * Atomically admit up to `limit` queued users, gated by an upstream
+ * reachability probe and guarded by an advisory xact lock so only one pod
+ * admits per tick.
  *
- * If the advisory lock is already held, returns []. Caller should treat that
- * as "another pod is handling it, skip this tick".
+ * Return semantics:
+ *   - `{ admitted: [...], skipped: null }` — successful tick (possibly empty queue)
+ *   - `{ admitted: [], skipped: 'health' }` — probe failed, admission paused
+ *   - `{ admitted: [], skipped: null }` — another pod held the advisory lock
+ *
+ * The probe runs before the transaction so a slow probe doesn't hold a
+ * Postgres connection open.
  */
 export async function admitFromQueue(params: {
   limit: number
   sessionLengthMs: number
   now: Date
-}): Promise<InternalSessionRow[]> {
-  const { limit, sessionLengthMs, now } = params
-  if (limit <= 0) return []
+  isFireworksAdmissible: () => Promise<boolean>
+}): Promise<{ admitted: InternalSessionRow[]; skipped: 'health' | null }> {
+  const { limit, sessionLengthMs, now, isFireworksAdmissible } = params
+  if (limit <= 0) return { admitted: [], skipped: null }
+
+  if (!(await isFireworksAdmissible())) {
+    return { admitted: [], skipped: 'health' }
+  }
 
   return db.transaction(async (tx) => {
     const lockResult = await tx.execute<{ acquired: unknown }>(
@@ -204,7 +198,7 @@ export async function admitFromQueue(params: {
     // postgres-js returns an array-like; coerceBool handles the 't'/'f' string
     // case that the driver emits under some configurations.
     if (!coerceBool((lockResult as unknown as Array<{ acquired: unknown }>)[0]?.acquired)) {
-      return []
+      return { admitted: [], skipped: null }
     }
 
     const candidates = await tx
@@ -215,7 +209,7 @@ export async function admitFromQueue(params: {
       .limit(limit)
       .for('update', { skipLocked: true })
 
-    if (candidates.length === 0) return []
+    if (candidates.length === 0) return { admitted: [], skipped: null }
 
     const expiresAt = new Date(now.getTime() + sessionLengthMs)
     const userIds = candidates.map((c) => c.user_id)
@@ -236,6 +230,6 @@ export async function admitFromQueue(params: {
       )
       .returning()
 
-    return admitted as InternalSessionRow[]
+    return { admitted: admitted as InternalSessionRow[], skipped: null }
   })
 }

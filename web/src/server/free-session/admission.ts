@@ -7,23 +7,10 @@ import {
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
-import { admitFromQueue, countActive, queueDepth, sweepExpired } from './store'
+import { admitFromQueue, queueDepth, sweepExpired } from './store'
 
 import { FIREWORKS_ACCOUNT_ID } from '@/llm-api/fireworks-config'
 import { logger } from '@/util/logger'
-
-interface AdmissionState {
-  timer: ReturnType<typeof setTimeout> | null
-  inFlight: Promise<void> | null
-  tickCount: number
-}
-
-let state: AdmissionState | null = null
-
-/** Emit a `[FreeSessionAdmission] snapshot` log every N ticks even when
- *  nothing changed, so dashboards / alerts have a reliable heartbeat of
- *  queue depth and active count. At ADMISSION_TICK_MS=15s, 10 ticks = 2.5 min. */
-const SNAPSHOT_EVERY_N_TICKS = 10
 
 const FIREWORKS_METRICS_URL = `https://api.fireworks.ai/v1/accounts/${FIREWORKS_ACCOUNT_ID}/metrics`
 const HEALTH_CHECK_TIMEOUT_MS = 5_000
@@ -51,13 +38,13 @@ export async function isFireworksAdmissible(): Promise<boolean> {
 
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
-  countActive: (now: Date) => Promise<number>
   queueDepth: () => Promise<number>
   admitFromQueue: (params: {
     limit: number
     sessionLengthMs: number
     now: Date
-  }) => Promise<{ user_id: string }[]>
+    isFireworksAdmissible: () => Promise<boolean>
+  }) => Promise<{ admitted: { user_id: string }[]; skipped: 'health' | null }>
   isFireworksAdmissible: () => Promise<boolean>
   getMaxAdmitsPerTick: () => number
   getSessionLengthMs: () => number
@@ -67,7 +54,6 @@ export interface AdmissionDeps {
 
 const defaultDeps: AdmissionDeps = {
   sweepExpired,
-  countActive,
   queueDepth,
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
@@ -84,16 +70,17 @@ const defaultDeps: AdmissionDeps = {
 export interface AdmissionTickResult {
   expired: number
   admitted: number
-  active: number
   queueDepth: number
   skipped: 'health' | null
 }
 
 /**
  * Run a single admission tick:
- *   1. Expire sessions past their expires_at.
- *   2. If Fireworks is not reachable, skip admission (waiting queue grows).
- *   3. Admit up to maxAdmitsPerTick queued users.
+ *   1. Expire sessions past their expires_at + grace.
+ *   2. Attempt to admit up to maxAdmitsPerTick queued users, gated by the
+ *      Fireworks reachability probe (done inside admitFromQueue so we don't
+ *      pay for an HTTP call when the advisory lock is already held by
+ *      another pod).
  *
  * There is no global concurrency cap — the Fireworks health probe is the
  * primary gate. Admission drips at (maxAdmitsPerTick / ADMISSION_TICK_MS),
@@ -101,7 +88,7 @@ export interface AdmissionTickResult {
  * admission until things recover.
  *
  * Returns counts for observability. Safe to call concurrently across pods —
- * the underlying admit query takes an advisory xact lock.
+ * admitFromQueue takes an advisory xact lock.
  */
 export async function runAdmissionTick(
   deps: AdmissionDeps = defaultDeps,
@@ -109,60 +96,38 @@ export async function runAdmissionTick(
   const now = (deps.now ?? (() => new Date()))()
   const expired = await deps.sweepExpired(now, deps.getSessionGraceMs())
 
-  if (!(await deps.isFireworksAdmissible())) {
-    const [active, depth] = await Promise.all([
-      deps.countActive(now),
-      deps.queueDepth(),
-    ])
-    return { expired, admitted: 0, active, queueDepth: depth, skipped: 'health' }
-  }
-
-  const active = await deps.countActive(now)
-  const admitted = await deps.admitFromQueue({
+  const { admitted, skipped } = await deps.admitFromQueue({
     limit: deps.getMaxAdmitsPerTick(),
     sessionLengthMs: deps.getSessionLengthMs(),
     now,
+    isFireworksAdmissible: deps.isFireworksAdmissible,
   })
 
   const depth = await deps.queueDepth()
-  return {
-    expired,
-    admitted: admitted.length,
-    active: active + admitted.length,
-    queueDepth: depth,
-    skipped: null,
-  }
+  return { expired, admitted: admitted.length, queueDepth: depth, skipped }
 }
 
-function scheduleNext() {
-  if (!state) return
-  const timer = setTimeout(runTick, ADMISSION_TICK_MS)
-  if (typeof timer.unref === 'function') timer.unref()
-  state.timer = timer
-}
+let interval: ReturnType<typeof setInterval> | null = null
+let inFlight = false
 
 function runTick() {
-  if (!state) return
-  // If a tick is still inflight (previous tick ran long), skip without
-  // rescheduling — the inflight Promise's finally will schedule the next one.
-  // This prevents overlapping timers piling up.
-  if (state.inFlight) return
-
-  const tickIdx = ++state.tickCount
-  state.inFlight = runAdmissionTick()
+  if (inFlight) return
+  inFlight = true
+  runAdmissionTick()
     .then((result) => {
-      const changed = result.admitted > 0 || result.expired > 0
-      const heartbeat = tickIdx % SNAPSHOT_EVERY_N_TICKS === 0
-      if (changed || heartbeat || result.skipped === 'health') {
+      if (
+        result.admitted > 0 ||
+        result.expired > 0 ||
+        result.skipped === 'health'
+      ) {
         logger.info(
           {
             admitted: result.admitted,
             expired: result.expired,
-            active: result.active,
             queueDepth: result.queueDepth,
             skipped: result.skipped,
           },
-          changed ? '[FreeSessionAdmission] tick' : '[FreeSessionAdmission] snapshot',
+          '[FreeSessionAdmission] tick',
         )
       }
     })
@@ -173,20 +138,19 @@ function runTick() {
       )
     })
     .finally(() => {
-      if (!state) return
-      state.inFlight = null
-      scheduleNext()
+      inFlight = false
     })
 }
 
 export function startFreeSessionAdmission(): boolean {
-  if (state) return true
+  if (interval) return true
   if (!isWaitingRoomEnabled()) {
     logger.info({}, '[FreeSessionAdmission] Waiting room disabled — ticker not started')
     return false
   }
-  state = { timer: null, inFlight: null, tickCount: 0 }
-  runTick()
+  interval = setInterval(runTick, ADMISSION_TICK_MS)
+  if (typeof interval.unref === 'function') interval.unref()
+  runTick() // fire first tick immediately
   logger.info(
     { tickMs: ADMISSION_TICK_MS, maxAdmitsPerTick: MAX_ADMITS_PER_TICK },
     '[FreeSessionAdmission] Started',
@@ -195,9 +159,9 @@ export function startFreeSessionAdmission(): boolean {
 }
 
 export function stopFreeSessionAdmission(): void {
-  if (!state) return
-  if (state.timer) clearTimeout(state.timer)
-  state = null
+  if (interval) clearInterval(interval)
+  interval = null
+  inFlight = false
 }
 
 export function __resetFreeSessionAdmissionForTests(): void {

@@ -3,9 +3,8 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
 
 import { Button } from './button'
-import { refreshFreebuffSession } from '../hooks/use-freebuff-session'
+import { rejoinFreebuffSession } from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
-import { useChatStore } from '../state/chat-store'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
@@ -18,10 +17,9 @@ interface SessionEndedBannerProps {
 }
 
 /**
- * Replaces the chat input when the freebuff session has ended (client state
- * `draining` or `ended`). Captures Enter to re-queue the user; Esc keeps
- * falling through to the global stream-interrupt handler so in-flight work
- * can be cancelled.
+ * Replaces the chat input when the freebuff session has ended. Captures
+ * Enter to re-queue the user; Esc keeps falling through to the global
+ * stream-interrupt handler so in-flight work can be cancelled.
  */
 export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   isStreaming,
@@ -40,13 +38,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     // Once the POST lands, the hook flips status to 'queued' and app.tsx
     // swaps us into <WaitingRoomScreen>, unmounting this banner. No need to
     // clear `rejoining` on success — the component will be gone.
-    refreshFreebuffSession()
-      .then(() => {
-        // Wipe the prior conversation so the next admitted session starts
-        // with empty history instead of continuing the one that just ended.
-        useChatStore.getState().reset()
-      })
-      .catch(() => setRejoining(false))
+    rejoinFreebuffSession().catch(() => setRejoining(false))
   }, [canRejoin])
 
   useKeyboard(

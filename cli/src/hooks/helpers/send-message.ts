@@ -510,11 +510,10 @@ function handleFreebuffGateError(
   switch (kind) {
     case 'session_expired':
     case 'waiting_room_required':
-      // Our seat is gone mid-chat. Flip to the client-only `ended` state
-      // instead of auto re-queuing: the Chat surface stays mounted so any
-      // in-flight agent work can finish under the server-side grace period,
-      // and the session-ended banner prompts the user to press Enter when
-      // they're ready to rejoin the waiting room.
+      // Our seat is gone mid-chat. Flip to `ended` instead of auto re-queuing:
+      // the Chat surface stays mounted so any in-flight agent work can finish
+      // under the server-side grace period, and the session-ended banner
+      // prompts the user to press Enter when they're ready to rejoin.
       markFreebuffSessionEnded()
       return
     case 'waiting_room_queued':

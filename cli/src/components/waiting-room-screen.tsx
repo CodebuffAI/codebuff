@@ -6,22 +6,16 @@ import { AdBanner } from './ad-banner'
 import { Button } from './button'
 import { ChoiceAdBanner } from './choice-ad-banner'
 import { ShimmerText } from './shimmer-text'
-import { endFreebuffSessionBestEffort } from '../hooks/use-freebuff-session'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { flushAnalytics } from '../utils/analytics'
-import { withTimeout } from '../utils/terminal-color-detection'
+import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { KeyEvent } from '@opentui/core'
-
-/** Cap on exit cleanup (DELETE /session + flushAnalytics) so a slow network
- *  doesn't block process exit. */
-const EXIT_CLEANUP_TIMEOUT_MS = 1000
 
 interface WaitingRoomScreenProps {
   session: FreebuffSessionResponse | null
@@ -82,30 +76,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     forceStart: true,
   })
 
-  // Release the seat + flush analytics before exit. Used by both Ctrl+C and
-  // the top-right X button so they always do the same cleanup.
-  const handleExit = useCallback(() => {
-    const cleanup = Promise.allSettled([
-      flushAnalytics(),
-      endFreebuffSessionBestEffort(),
-    ])
-    withTimeout(cleanup, EXIT_CLEANUP_TIMEOUT_MS, undefined).finally(() => {
-      process.exit(0)
-    })
-  }, [])
-
   // Ctrl+C exits. Stdin is in raw mode, so SIGINT never fires — the key comes
-  // through as a normal OpenTUI key event.
+  // through as a normal OpenTUI key event. Shared with the top-right X button.
   useKeyboard(
-    useCallback(
-      (key: KeyEvent) => {
-        if (key.ctrl && key.name === 'c') {
-          key.preventDefault?.()
-          handleExit()
-        }
-      },
-      [handleExit],
-    ),
+    useCallback((key: KeyEvent) => {
+      if (key.ctrl && key.name === 'c') {
+        key.preventDefault?.()
+        exitFreebuffCleanly()
+      }
+    }, []),
   )
 
   const [exitHover, setExitHover] = useState(false)
@@ -148,7 +127,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         }}
       >
         <Button
-          onClick={handleExit}
+          onClick={exitFreebuffCleanly}
           onMouseOver={() => setExitHover(true)}
           onMouseOut={() => setExitHover(false)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
@@ -201,7 +180,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           {isQueued && session && (
             <>
               <text style={{ fg: theme.foreground, marginBottom: 1 }}>
-                You're in the waiting room
+                {session.position === 1
+                  ? "You're next in line"
+                  : "You're in the waiting room"}
               </text>
 
               <box
@@ -211,34 +192,25 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   gap: 0,
                 }}
               >
-                {session.position === 1 ? (
-                  <>
-                    <text style={{ fg: theme.primary, alignSelf: 'flex-start' }}>
-                      <ShimmerText text="Next in line" />
-                    </text>
-                    <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                      {session.queueDepth === 1
-                        ? 'just you in line right now'
-                        : `${session.queueDepth} people in line`}
-                    </text>
-                  </>
-                ) : (
-                  <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
-                    <span fg={theme.muted}>Position </span>
-                    <span fg={theme.primary} attributes={TextAttributes.BOLD}>
-                      {session.position}
-                    </span>
-                    <span fg={theme.muted}> / {session.queueDepth}</span>
-                  </text>
-                )}
-                {session.position !== 1 && (
-                  <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
-                    <span fg={theme.muted}>Wait     </span>
-                    <span fg={theme.primary}>
-                      <ShimmerText text={formatWait(session.estimatedWaitMs)} />
-                    </span>
-                  </text>
-                )}
+                <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
+                  <span fg={theme.muted}>Position </span>
+                  <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+                    {session.position}
+                  </span>
+                  <span fg={theme.muted}> / {session.queueDepth}</span>
+                </text>
+                <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
+                  <span fg={theme.muted}>Wait     </span>
+                  <span fg={theme.primary}>
+                    <ShimmerText
+                      text={
+                        session.position === 1
+                          ? 'any moment now'
+                          : formatWait(session.estimatedWaitMs)
+                      }
+                    />
+                  </span>
+                </text>
                 <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
                   <span>Elapsed  </span>
                   {formatElapsed(elapsedMs)}

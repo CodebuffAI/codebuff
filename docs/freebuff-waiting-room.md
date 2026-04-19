@@ -131,9 +131,8 @@ One pod runs the admission loop at a time, coordinated via Postgres advisory loc
 
 Each tick does (in order):
 
-1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now()`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
-2. **Check upstream reachability.** `isFireworksAdmissible()` does a short-timeout GET against the Fireworks account metrics endpoint. If it doesn't respond OK, skip admission for this tick (queue grows; users see `status: 'queued'` with increasing position).
-3. **Admit.** `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED`, then `UPDATE` those rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering the queue at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from getting hit by a thundering herd of newly-admitted CLIs; if the probe starts failing, step 2 halts further admissions.
+1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now() - grace`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
+2. **Admit.** `admitFromQueue()` first calls `isFireworksAdmissible()` (short-timeout GET against the Fireworks metrics endpoint). If the probe fails, returns `{ skipped: 'health' }` — admission pauses and the queue grows until recovery. Otherwise opens a transaction, takes `pg_try_advisory_xact_lock(FREEBUFF_ADMISSION_LOCK_ID)`, and `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT MAX_ADMITS_PER_TICK FOR UPDATE SKIP LOCKED` → `UPDATE` the rows to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. Staggering at `MAX_ADMITS_PER_TICK=1` / 15s keeps Fireworks from a thundering herd of newly-admitted CLIs.
 
 ### Tunables
 
@@ -231,7 +230,7 @@ When the waiting room is disabled, the gate returns `{ ok: true, reason: 'disabl
 We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a `draining` state for `FREEBUFF_SESSION_GRACE_MS` (default 30 min). During the drain window:
 
 - `checkSessionAdmissible` returns `{ ok: true, reason: 'draining', gracePeriodRemainingMs }` — chat completions still go through.
-- `getSessionState` / `requestSession` return `status: 'draining'` so the CLI can render a "session ending — agent finishing up" indicator and disable the input box.
+- `getSessionState` / `requestSession` return `status: 'draining'` on the wire. The CLI normalizes this into its internal `ended` state (input hidden, Enter-to-rejoin banner) and keeps forwarding the instance id so in-flight agent work can keep streaming.
 - `sweepExpired` skips the row, keeping it in the DB so the gate keeps working.
 - `joinOrTakeOver` still treats the row as expired (`expires_at <= now()`), so a fresh POST re-queues at the back of the line. This means starting a new CLI during the drain window cleanly hands off to a queued seat rather than extending the current one.
 

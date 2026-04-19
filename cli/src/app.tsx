@@ -376,9 +376,9 @@ const AuthedSurface = ({
   // Falling through to <Chat> on 'none' would leave the user unable to send
   // any free-mode request until the next poll cycle.
   //
-  // 'draining' and 'ended' deliberately fall through to <Chat>: the agent
-  // may still be finishing work under the server-side grace period, and the
-  // chat surface itself swaps the input box for the session-ended banner.
+  // 'ended' deliberately falls through to <Chat>: the agent may still be
+  // finishing work under the server-side grace period, and the chat surface
+  // itself swaps the input box for the session-ended banner.
   if (
     IS_FREEBUFF &&
     (session === null ||

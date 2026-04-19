@@ -72,6 +72,10 @@ async function viewForRow(
  *   - Existing active (unexpired) → rotate instance_id (takeover), preserve state
  *   - Existing queued → rotate instance_id, preserve queue position
  *   - Existing expired → re-queue at the back with fresh instance_id
+ *
+ * joinOrTakeOver guarantees the returned row is either queued or
+ * active-unexpired, both of which map to a non-null view. The `!` assertion
+ * below reflects that invariant.
  */
 export async function requestSession(params: {
   userId: string
@@ -81,15 +85,7 @@ export async function requestSession(params: {
   if (!deps.isWaitingRoomEnabled()) return { status: 'disabled' }
 
   const row = await deps.joinOrTakeOver({ userId: params.userId, now: nowOf(deps) })
-  // joinOrTakeOver always returns either a queued row or an active-valid row,
-  // both of which map to a non-null response.
-  const view = await viewForRow(params.userId, deps, row)
-  if (!view) {
-    throw new Error(
-      `unreachable: joinOrTakeOver returned unmappable row for user=${params.userId} status=${row.status} expires_at=${row.expires_at?.toISOString() ?? 'null'}`,
-    )
-  }
-  return view
+  return (await viewForRow(params.userId, deps, row))!
 }
 
 /**
