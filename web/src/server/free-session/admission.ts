@@ -1,39 +1,15 @@
-import { env } from '@codebuff/internal/env'
-
 import {
   ADMISSION_TICK_MS,
   getSessionGraceMs,
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
+import { getFireworksHealth } from './fireworks-health'
 import { admitFromQueue, queueDepth, sweepExpired } from './store'
 
-import { FIREWORKS_ACCOUNT_ID } from '@/llm-api/fireworks-config'
+import type { FireworksHealth } from './fireworks-health'
+
 import { logger } from '@/util/logger'
-
-const FIREWORKS_METRICS_URL = `https://api.fireworks.ai/v1/accounts/${FIREWORKS_ACCOUNT_ID}/metrics`
-const HEALTH_CHECK_TIMEOUT_MS = 5_000
-
-/** Fails closed on DNS failure, non-OK status, or timeout — so admission halts
- *  whenever the upstream is unreachable and resumes on its own when it recovers. */
-export async function isFireworksAdmissible(): Promise<boolean> {
-  const apiKey = env.FIREWORKS_API_KEY
-  if (!apiKey) return false
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
-  try {
-    const response = await fetch(FIREWORKS_METRICS_URL, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: controller.signal,
-    })
-    return response.ok
-  } catch {
-    return false
-  } finally {
-    clearTimeout(timeout)
-  }
-}
 
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
@@ -41,9 +17,9 @@ export interface AdmissionDeps {
   admitFromQueue: (params: {
     sessionLengthMs: number
     now: Date
-    isFireworksAdmissible: () => Promise<boolean>
-  }) => Promise<{ admitted: { user_id: string }[]; skipped: 'health' | null }>
-  isFireworksAdmissible: () => Promise<boolean>
+    getFireworksHealth: () => Promise<FireworksHealth>
+  }) => Promise<{ admitted: { user_id: string }[]; skipped: FireworksHealth | null }>
+  getFireworksHealth: () => Promise<FireworksHealth>
   /** Plain values, not thunks — these never change at runtime. */
   sessionLengthMs: number
   graceMs: number
@@ -56,10 +32,10 @@ const defaultDeps: AdmissionDeps = {
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
   // waiting-room → admitted → ended flow without a real upstream.
-  isFireworksAdmissible:
+  getFireworksHealth:
     process.env.FREEBUFF_DEV_FORCE_ADMIT === 'true'
-      ? async () => true
-      : isFireworksAdmissible,
+      ? async () => 'healthy'
+      : getFireworksHealth,
   get sessionLengthMs() {
     return getSessionLengthMs()
   },
@@ -72,21 +48,19 @@ export interface AdmissionTickResult {
   expired: number
   admitted: number
   queueDepth: number
-  skipped: 'health' | null
+  skipped: FireworksHealth | null
 }
 
 /**
  * Run a single admission tick:
  *   1. Expire sessions past their expires_at + grace.
- *   2. Attempt to admit one queued user, gated by the Fireworks reachability
- *      probe (done inside admitFromQueue so we don't pay for an HTTP call
- *      when the advisory lock is already held by another pod — see
- *      `admitFromQueue`).
+ *   2. Attempt to admit one queued user. Admission proceeds only when the
+ *      upstream health probe reports `healthy`; `degraded` and `unhealthy`
+ *      both pause admission so the deployment can catch up.
  *
- * There is no global concurrency cap — the Fireworks health probe is the
- * primary gate. Admission drips at (1 / ADMISSION_TICK_MS), which drives
- * utilization up slowly; once the probe fails, step 2 halts admission until
- * things recover.
+ * Admission drips at (1 / ADMISSION_TICK_MS), which drives utilization up
+ * slowly; once the probe stops returning `healthy`, step 2 halts admission
+ * until the upstream recovers.
  *
  * Returns counts for observability. Safe to call concurrently across pods —
  * admitFromQueue takes an advisory xact lock.
@@ -100,7 +74,7 @@ export async function runAdmissionTick(
   const { admitted, skipped } = await deps.admitFromQueue({
     sessionLengthMs: deps.sessionLengthMs,
     now,
-    isFireworksAdmissible: deps.isFireworksAdmissible,
+    getFireworksHealth: deps.getFireworksHealth,
   })
 
   const depth = await deps.queueDepth()
@@ -115,11 +89,7 @@ function runTick() {
   inFlight = true
   runAdmissionTick()
     .then((result) => {
-      if (
-        result.admitted > 0 ||
-        result.expired > 0 ||
-        result.skipped === 'health'
-      ) {
+      if (result.admitted > 0 || result.expired > 0 || result.skipped !== null) {
         logger.info(
           {
             admitted: result.admitted,

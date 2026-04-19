@@ -5,6 +5,7 @@ import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
+import type { FireworksHealth } from './fireworks-health'
 import type { InternalSessionRow } from './types'
 
 /** Generate a cryptographically random instance id (token). */
@@ -143,27 +144,29 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 }
 
 /**
- * Atomically admit one queued user, gated by an upstream reachability probe
- * and guarded by an advisory xact lock so only one pod admits per tick.
+ * Atomically admit one queued user, gated by the upstream health probe and
+ * guarded by an advisory xact lock so only one pod admits per tick.
  *
  * Return semantics:
  *   - `{ admitted: [row], skipped: null }` — admitted one user
  *   - `{ admitted: [], skipped: null }` — empty queue or another pod held the lock
- *   - `{ admitted: [], skipped: 'health' }` — probe failed, admission paused
+ *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — probe blocked admission
  *
- * The probe runs before the transaction so a slow probe doesn't hold a
- * Postgres connection open. Drip-admission of one user per tick keeps load
- * on Fireworks smooth even when a large block of sessions expires at once.
+ * Only `healthy` admits; `degraded` and `unhealthy` both pause admission (the
+ * distinction is for observability — degraded means "upstream loaded",
+ * unhealthy means "upstream unreachable or saturated"). The probe runs before
+ * the transaction so a slow probe doesn't hold a Postgres connection open.
  */
 export async function admitFromQueue(params: {
   sessionLengthMs: number
   now: Date
-  isFireworksAdmissible: () => Promise<boolean>
-}): Promise<{ admitted: InternalSessionRow[]; skipped: 'health' | null }> {
-  const { sessionLengthMs, now, isFireworksAdmissible } = params
+  getFireworksHealth: () => Promise<FireworksHealth>
+}): Promise<{ admitted: InternalSessionRow[]; skipped: FireworksHealth | null }> {
+  const { sessionLengthMs, now, getFireworksHealth } = params
 
-  if (!(await isFireworksAdmissible())) {
-    return { admitted: [], skipped: 'health' }
+  const health = await getFireworksHealth()
+  if (health !== 'healthy') {
+    return { admitted: [], skipped: health }
   }
 
   return db.transaction(async (tx) => {

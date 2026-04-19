@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { runAdmissionTick } from '../admission'
 
 import type { AdmissionDeps } from '../admission'
+import type { FireworksHealth } from '../fireworks-health'
 
 const NOW = new Date('2026-04-17T12:00:00Z')
 
@@ -14,11 +15,12 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
     calls,
     sweepExpired: async () => 0,
     queueDepth: async () => 0,
-    isFireworksAdmissible: async () => true,
-    admitFromQueue: async ({ isFireworksAdmissible }) => {
+    getFireworksHealth: async () => 'healthy',
+    admitFromQueue: async ({ getFireworksHealth }) => {
       calls.admit += 1
-      if (!(await isFireworksAdmissible())) {
-        return { admitted: [], skipped: 'health' }
+      const health = await getFireworksHealth()
+      if (health !== 'healthy') {
+        return { admitted: [], skipped: health }
       }
       return { admitted: [{ user_id: 'u0' }], skipped: null }
     },
@@ -38,13 +40,22 @@ describe('runAdmissionTick', () => {
     expect(result.skipped).toBeNull()
   })
 
-  test('skips admission when Fireworks not healthy', async () => {
+  test('skips admission when Fireworks is degraded', async () => {
     const deps = makeAdmissionDeps({
-      isFireworksAdmissible: async () => false,
+      getFireworksHealth: async () => 'degraded' as FireworksHealth,
     })
     const result = await runAdmissionTick(deps)
     expect(result.admitted).toBe(0)
-    expect(result.skipped).toBe('health')
+    expect(result.skipped).toBe('degraded')
+  })
+
+  test('skips admission when Fireworks is unhealthy', async () => {
+    const deps = makeAdmissionDeps({
+      getFireworksHealth: async () => 'unhealthy' as FireworksHealth,
+    })
+    const result = await runAdmissionTick(deps)
+    expect(result.admitted).toBe(0)
+    expect(result.skipped).toBe('unhealthy')
   })
 
   test('sweeps expired sessions even when skipping admission', async () => {
@@ -54,7 +65,7 @@ describe('runAdmissionTick', () => {
         swept = 3
         return 3
       },
-      isFireworksAdmissible: async () => false,
+      getFireworksHealth: async () => 'unhealthy' as FireworksHealth,
     })
     const result = await runAdmissionTick(deps)
     expect(swept).toBe(3)
