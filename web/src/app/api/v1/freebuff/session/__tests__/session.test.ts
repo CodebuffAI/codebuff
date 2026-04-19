@@ -30,6 +30,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     isWaitingRoomEnabled: () => true,
     getAdmissionTickMs: () => 15_000,
     getMaxAdmitsPerTick: () => 1,
+    getSessionGraceMs: () => 30 * 60 * 1000,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepth: async () => [...rows.values()].filter((r) => r.status === 'queued').length,

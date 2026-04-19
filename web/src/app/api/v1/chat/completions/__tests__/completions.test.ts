@@ -583,6 +583,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
         loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
       })
 
       expect(response.status).toBe(200)

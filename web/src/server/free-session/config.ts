@@ -24,3 +24,11 @@ export function isWaitingRoomEnabled(): boolean {
 export function getSessionLengthMs(): number {
   return env.FREEBUFF_SESSION_LENGTH_MS
 }
+
+/** Drain window after a session's `expires_at`. During this window the gate
+ *  still admits requests so an in-flight agent run can finish, but the CLI is
+ *  expected to stop accepting new user prompts. Hard cutoff at
+ *  `expires_at + grace`; past that the gate returns `session_expired`. */
+export function getSessionGraceMs(): number {
+  return env.FREEBUFF_SESSION_GRACE_MS
+}

@@ -22,6 +22,7 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
     isFireworksAdmissible: () => true,
     getMaxAdmitsPerTick: () => 1,
     getSessionLengthMs: () => 60 * 60 * 1000,
+    getSessionGraceMs: () => 30 * 60 * 1000,
     now: () => NOW,
     ...overrides,
   }
@@ -72,5 +73,18 @@ describe('runAdmissionTick', () => {
     const result = await runAdmissionTick(deps)
     expect(result.expired).toBe(2)
     expect(result.admitted).toBe(1)
+  })
+
+  test('forwards grace ms to sweepExpired', async () => {
+    const received: number[] = []
+    const deps = makeAdmissionDeps({
+      getSessionGraceMs: () => 12_345,
+      sweepExpired: async (_now, graceMs) => {
+        received.push(graceMs)
+        return 0
+      },
+    })
+    await runAdmissionTick(deps)
+    expect(received).toEqual([12_345])
   })
 })

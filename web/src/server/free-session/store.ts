@@ -163,14 +163,19 @@ export async function queuePositionFor(params: {
   return Number(rows[0]?.n ?? 0)
 }
 
-/** Remove rows whose active session has expired. Safe to call repeatedly. */
-export async function sweepExpired(now: Date): Promise<number> {
+/**
+ * Remove rows whose active session has expired past the drain grace window.
+ * Rows whose `expires_at` is in the past but still inside `expires_at + grace`
+ * are kept so an in-flight agent run can finish. Safe to call repeatedly.
+ */
+export async function sweepExpired(now: Date, graceMs: number): Promise<number> {
+  const cutoff = new Date(now.getTime() - graceMs)
   const deleted = await db
     .delete(schema.freeSession)
     .where(
       and(
         eq(schema.freeSession.status, 'active'),
-        lt(schema.freeSession.expires_at, now),
+        lt(schema.freeSession.expires_at, cutoff),
       ),
     )
     .returning({ user_id: schema.freeSession.user_id })

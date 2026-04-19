@@ -42,6 +42,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .default('false')
     .transform((v) => v === 'true'),
   FREEBUFF_SESSION_LENGTH_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
+  FREEBUFF_SESSION_GRACE_MS: z.coerce.number().int().nonnegative().default(30 * 60 * 1000),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -93,4 +94,5 @@ export const serverProcessEnv: ServerInput = {
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
   FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
+  FREEBUFF_SESSION_GRACE_MS: process.env.FREEBUFF_SESSION_GRACE_MS,
 }

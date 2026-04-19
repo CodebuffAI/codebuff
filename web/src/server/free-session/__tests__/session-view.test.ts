@@ -6,6 +6,7 @@ import type { InternalSessionRow } from '../types'
 
 const TICK_MS = 15_000
 const ADMITS_PER_TICK = 1
+const GRACE_MS = 30 * 60_000
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   const now = new Date('2026-04-17T12:00:00Z')
@@ -52,6 +53,7 @@ describe('toSessionStateResponse', () => {
   const baseArgs = {
     admissionTickMs: TICK_MS,
     maxAdmitsPerTick: ADMITS_PER_TICK,
+    graceMs: GRACE_MS,
   }
 
   test('returns null when row is null', () => {
@@ -102,9 +104,33 @@ describe('toSessionStateResponse', () => {
     })
   })
 
-  test('active but expired row maps to null (caller should re-queue)', () => {
+  test('active row inside grace window maps to draining response', () => {
+    const admittedAt = new Date(now.getTime() - 65 * 60_000)
+    const expiresAt = new Date(now.getTime() - 5 * 60_000) // 5 min past expiry
     const view = toSessionStateResponse({
-      row: row({ status: 'active', admitted_at: now, expires_at: new Date(now.getTime() - 1) }),
+      row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
+      position: 0,
+      queueDepth: 0,
+      ...baseArgs,
+      now,
+    })
+    expect(view).toEqual({
+      status: 'draining',
+      instanceId: 'inst-1',
+      admittedAt: admittedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      gracePeriodEndsAt: new Date(expiresAt.getTime() + GRACE_MS).toISOString(),
+      gracePeriodRemainingMs: GRACE_MS - 5 * 60_000,
+    })
+  })
+
+  test('active row past the grace window maps to null (caller should re-queue)', () => {
+    const view = toSessionStateResponse({
+      row: row({
+        status: 'active',
+        admitted_at: now,
+        expires_at: new Date(now.getTime() - GRACE_MS - 1),
+      }),
       position: 0,
       queueDepth: 0,
       ...baseArgs,

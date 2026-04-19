@@ -11,18 +11,34 @@ export function toSessionStateResponse(params: {
   queueDepth: number
   admissionTickMs: number
   maxAdmitsPerTick: number
+  graceMs: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepth, admissionTickMs, maxAdmitsPerTick, now } = params
+  const { row, position, queueDepth, admissionTickMs, maxAdmitsPerTick, graceMs, now } = params
   if (!row) return null
 
-  if (row.status === 'active' && row.expires_at && row.expires_at.getTime() > now.getTime()) {
-    return {
-      status: 'active',
-      instanceId: row.active_instance_id,
-      admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
-      expiresAt: row.expires_at.toISOString(),
-      remainingMs: row.expires_at.getTime() - now.getTime(),
+  if (row.status === 'active' && row.expires_at) {
+    const expiresAtMs = row.expires_at.getTime()
+    const nowMs = now.getTime()
+    if (expiresAtMs > nowMs) {
+      return {
+        status: 'active',
+        instanceId: row.active_instance_id,
+        admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
+        expiresAt: row.expires_at.toISOString(),
+        remainingMs: expiresAtMs - nowMs,
+      }
+    }
+    const graceEndsMs = expiresAtMs + graceMs
+    if (graceEndsMs > nowMs) {
+      return {
+        status: 'draining',
+        instanceId: row.active_instance_id,
+        admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
+        expiresAt: row.expires_at.toISOString(),
+        gracePeriodEndsAt: new Date(graceEndsMs).toISOString(),
+        gracePeriodRemainingMs: graceEndsMs - nowMs,
+      }
     }
   }
 
@@ -41,7 +57,7 @@ export function toSessionStateResponse(params: {
     }
   }
 
-  // expired active — callers should treat as "no session" and re-queue
+  // active row past the grace window — callers should treat as "no session" and re-queue
   return null
 }
 

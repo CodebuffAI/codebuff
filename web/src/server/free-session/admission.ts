@@ -1,6 +1,7 @@
 import {
   ADMISSION_TICK_MS,
   MAX_ADMITS_PER_TICK,
+  getSessionGraceMs,
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
@@ -23,7 +24,7 @@ let state: AdmissionState | null = null
 const SNAPSHOT_EVERY_N_TICKS = 10
 
 export interface AdmissionDeps {
-  sweepExpired: (now: Date) => Promise<number>
+  sweepExpired: (now: Date, graceMs: number) => Promise<number>
   countActive: (now: Date) => Promise<number>
   queueDepth: () => Promise<number>
   admitFromQueue: (params: {
@@ -34,6 +35,7 @@ export interface AdmissionDeps {
   isFireworksAdmissible: () => boolean
   getMaxAdmitsPerTick: () => number
   getSessionLengthMs: () => number
+  getSessionGraceMs: () => number
   now?: () => Date
 }
 
@@ -45,6 +47,7 @@ const defaultDeps: AdmissionDeps = {
   isFireworksAdmissible,
   getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
   getSessionLengthMs,
+  getSessionGraceMs,
 }
 
 export interface AdmissionTickResult {
@@ -73,7 +76,7 @@ export async function runAdmissionTick(
   deps: AdmissionDeps = defaultDeps,
 ): Promise<AdmissionTickResult> {
   const now = (deps.now ?? (() => new Date()))()
-  const expired = await deps.sweepExpired(now)
+  const expired = await deps.sweepExpired(now, deps.getSessionGraceMs())
 
   if (!deps.isFireworksAdmissible()) {
     const [active, depth] = await Promise.all([

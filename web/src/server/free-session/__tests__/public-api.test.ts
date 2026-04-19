@@ -13,6 +13,7 @@ import type { InternalSessionRow } from '../types'
 const SESSION_LEN = 60 * 60 * 1000
 const TICK_MS = 15_000
 const ADMITS_PER_TICK = 1
+const GRACE_MS = 30 * 60 * 1000
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   rows: Map<string, InternalSessionRow>
@@ -38,6 +39,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     isWaitingRoomEnabled: () => true,
     getAdmissionTickMs: () => TICK_MS,
     getMaxAdmitsPerTick: () => ADMITS_PER_TICK,
+    getSessionGraceMs: () => GRACE_MS,
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     endSession: async (userId) => {
@@ -250,12 +252,30 @@ describe('checkSessionAdmissible', () => {
     expect(result.code).toBe('session_superseded')
   })
 
-  test('active but expires_at in the past → session_expired', async () => {
+  test('active inside grace window → ok with reason=draining', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
+    // 1 minute past expiry, well within the 30-minute grace window
+    row.expires_at = new Date(deps._now().getTime() - 60_000)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.reason !== 'draining') throw new Error('unreachable')
+    expect(result.gracePeriodRemainingMs).toBe(GRACE_MS - 60_000)
+  })
+
+  test('active past the grace window → session_expired', async () => {
     await requestSession({ userId: 'u1', deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - 2 * SESSION_LEN)
-    row.expires_at = new Date(deps._now().getTime() - 1)
+    row.expires_at = new Date(deps._now().getTime() - GRACE_MS - 1)
 
     const result = await checkSessionAdmissible({
       userId: 'u1',
@@ -264,6 +284,22 @@ describe('checkSessionAdmissible', () => {
     })
     if (result.ok) throw new Error('unreachable')
     expect(result.code).toBe('session_expired')
+  })
+
+  test('draining + wrong instance id still rejects with session_superseded', async () => {
+    await requestSession({ userId: 'u1', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
+    row.expires_at = new Date(deps._now().getTime() - 60_000)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: 'stale-token',
+      deps,
+    })
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('session_superseded')
   })
 })
 

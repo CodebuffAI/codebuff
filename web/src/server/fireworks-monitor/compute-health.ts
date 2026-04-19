@@ -38,10 +38,8 @@ export interface HealthThresholds {
   ttftMsUnhealthy: number
 }
 
-// Default thresholds are calibrated to the observed freebuff workload on
-// glm-5.1 / kimi-k2.5. They are intentionally loose at first so a cold
-// deployment does not flap; expect to tighten once you have a week of
-// live data. Override per-instance via startFireworksMonitor({ thresholds }).
+// Tuned to trip 'degraded' before users feel it on glm-5.1. Override per-instance
+// via startFireworksMonitor({ thresholds }).
 export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = {
   staleSnapshotMs: 3 * 60 * 1000,
   minRequestRateForErrorCheck: 0.1,

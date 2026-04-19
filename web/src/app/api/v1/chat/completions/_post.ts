@@ -68,6 +68,8 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
+
+import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
@@ -137,6 +139,15 @@ export const formatQuotaResetCountdown = (
 }
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
+
+type GateRejectCode = Extract<SessionGateResult, { ok: false }>['code']
+
+const STATUS_BY_GATE_CODE = {
+  waiting_room_required: 428,
+  waiting_room_queued: 429,
+  session_superseded: 409,
+  session_expired: 410,
+} satisfies Record<GateRejectCode, number>
 
 export async function postChatCompletions(params: {
   req: NextRequest
@@ -410,15 +421,9 @@ export async function postChatCompletions(params: {
           properties: { error: gate.code },
           logger,
         })
-        const statusByCode: Record<string, number> = {
-          waiting_room_required: 428,
-          waiting_room_queued: 429,
-          session_superseded: 409,
-          session_expired: 410,
-        }
         return NextResponse.json(
           { error: gate.code, message: gate.message },
-          { status: statusByCode[gate.code] ?? 429 },
+          { status: STATUS_BY_GATE_CODE[gate.code] },
         )
       }
     }

@@ -23,6 +23,18 @@ export type SessionStateResponse =
       expiresAt: string
       remainingMs: number
     }
+  | {
+      /** Session is past `expiresAt` but still inside the grace window — the
+       *  CLI must stop accepting new prompts but may finish any in-flight
+       *  agent run. Hard cutoff at `gracePeriodEndsAt`; past that the gate
+       *  rejects with `session_expired`. */
+      status: 'draining'
+      instanceId: string
+      admittedAt: string
+      expiresAt: string
+      gracePeriodEndsAt: string
+      gracePeriodRemainingMs: number
+    }
 
 export interface InternalSessionRow {
   user_id: string

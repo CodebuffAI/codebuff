@@ -1,6 +1,7 @@
 import {
   ADMISSION_TICK_MS,
   MAX_ADMITS_PER_TICK,
+  getSessionGraceMs,
   isWaitingRoomEnabled,
 } from './config'
 import {
@@ -23,6 +24,7 @@ export interface SessionDeps {
   isWaitingRoomEnabled: () => boolean
   getAdmissionTickMs: () => number
   getMaxAdmitsPerTick: () => number
+  getSessionGraceMs: () => number
   now?: () => Date
 }
 
@@ -35,6 +37,7 @@ const defaultDeps: SessionDeps = {
   isWaitingRoomEnabled,
   getAdmissionTickMs: () => ADMISSION_TICK_MS,
   getMaxAdmitsPerTick: () => MAX_ADMITS_PER_TICK,
+  getSessionGraceMs,
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
@@ -57,6 +60,7 @@ async function viewForRow(
     queueDepth: depth,
     admissionTickMs: deps.getAdmissionTickMs(),
     maxAdmitsPerTick: deps.getMaxAdmitsPerTick(),
+    graceMs: deps.getSessionGraceMs(),
     now: nowOf(deps),
   })
 }
@@ -117,6 +121,12 @@ export async function endUserSession(params: {
 export type SessionGateResult =
   | { ok: true; reason: 'disabled' }
   | { ok: true; reason: 'active'; remainingMs: number }
+  | {
+      ok: true
+      reason: 'draining'
+      /** Time remaining until the hard cutoff (`expires_at + grace`). */
+      gracePeriodRemainingMs: number
+    }
   | { ok: false; code: 'waiting_room_required'; message: string }
   | { ok: false; code: 'waiting_room_queued'; message: string }
   | { ok: false; code: 'session_superseded'; message: string }
@@ -160,7 +170,13 @@ export async function checkSessionAdmissible(params: {
   }
 
   const now = nowOf(deps)
-  if (!row.expires_at || row.expires_at.getTime() <= now.getTime()) {
+  const nowMs = now.getTime()
+  const expiresAtMs = row.expires_at?.getTime() ?? 0
+  const graceMs = deps.getSessionGraceMs()
+  // Past the hard cutoff (`expires_at + grace`). The grace window lets the CLI
+  // finish an in-flight agent run after the user's session ended; once it's
+  // gone, we fall back to the same re-queue flow as a regular expiry.
+  if (!row.expires_at || expiresAtMs + graceMs <= nowMs) {
     return {
       ok: false,
       code: 'session_expired',
@@ -176,9 +192,19 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
+  if (expiresAtMs > nowMs) {
+    return {
+      ok: true,
+      reason: 'active',
+      remainingMs: expiresAtMs - nowMs,
+    }
+  }
+
+  // Inside the grace window: still admit so the agent can finish, but signal
+  // to the caller (and via metrics) that no new user prompts should arrive.
   return {
     ok: true,
-    reason: 'active',
-    remainingMs: row.expires_at.getTime() - now.getTime(),
+    reason: 'draining',
+    gracePeriodRemainingMs: expiresAtMs + graceMs - nowMs,
   }
 }
