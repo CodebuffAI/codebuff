@@ -199,11 +199,6 @@ export const ChatInputBar = ({
     return <InputModeBanner />
   }
 
-  // Referral mode: show only the referral banner (no input box)
-  if (inputMode === 'referral') {
-    return <InputModeBanner />
-  }
-
   // ChatGPT connect mode: show only the connect panel (no input box)
   if (inputMode === 'connect:chatgpt') {
     return <InputModeBanner />

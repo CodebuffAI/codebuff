@@ -12,7 +12,6 @@ export type InputMode =
   | 'plan'
   | 'review'
   | 'interview'
-  | 'referral'
   | 'usage'
   | 'image'
   | 'help'
@@ -109,16 +108,6 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     color: 'info',
     placeholder: 'describe what to review...',
     widthAdjustment: 9,
-    showAgentModeToggle: false,
-    disableSlashSuggestions: true,
-    blockKeyboardExit: false,
-  },
-  referral: {
-    icon: '◎',
-    label: null,
-    color: 'warning',
-    placeholder: 'have a code? enter it here',
-    widthAdjustment: 2, // 1 char + 1 padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,

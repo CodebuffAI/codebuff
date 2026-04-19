@@ -92,22 +92,6 @@ Key files:
 - Store user_id as property for internal reference
 - Track events with consistent naming: `category.event_name`
 
-## Referral System
-
-### Workflow
-
-1. Users get unique referral codes upon account creation
-2. Share referral links: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/redeem?referral_code=${referralCode}`
-3. New users redeem codes during signup/onboarding
-4. Both referrer and referred user receive `CREDITS_REFERRAL_BONUS` credits
-5. Referrals tracked in database with limits
-
-### Key Components
-
-- `web/src/app/referrals/page.tsx`: Main referrals UI
-- `web/src/app/api/referrals/route.ts`: API operations
-- `web/src/app/onboard/page.tsx`: Referral code processing
-
 ## Verifying Changes
 
 After changes, run type checking:

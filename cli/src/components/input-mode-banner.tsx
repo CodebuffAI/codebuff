@@ -7,7 +7,6 @@ import { ChatGptConnectBanner } from './chatgpt-connect-banner'
 import { ClaudeConnectBanner } from './claude-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
-import { ReferralBanner } from './referral-banner'
 import { SubscriptionLimitBanner } from './subscription-limit-banner'
 import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
@@ -28,7 +27,6 @@ const BANNER_REGISTRY: Record<
   default: () => <PendingAttachmentsBanner />,
   image: () => <PendingAttachmentsBanner />,
   ...(IS_FREEBUFF ? {} : { usage: ({ showTime }: { showTime: number }) => <UsageBanner showTime={showTime} /> }),
-  ...(IS_FREEBUFF ? {} : { referral: () => <ReferralBanner /> }),
   help: () => <HelpBanner />,
   ...(CLAUDE_OAUTH_ENABLED && !IS_FREEBUFF
     ? { 'connect:claude': () => <ClaudeConnectBanner /> }

@@ -2,7 +2,6 @@ import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
@@ -37,7 +36,6 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'connect:claude',
   'ads:enable',
   'ads:disable',
-  'refer-friends',
   'usage',
   'subscribe',
   'agent:gpt-5',
@@ -89,12 +87,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'ads:disable',
     label: 'ads:disable',
     description: 'Disable contextual ads',
-  },
-  {
-    id: 'refer-friends',
-    label: 'refer-friends',
-    description: `Refer friends for ${CREDITS_REFERRAL_BONUS} bonus credits each`,
-    aliases: ['referral'],
   },
   {
     id: 'init',

@@ -8,9 +8,7 @@ import { useThemeStore } from '../hooks/use-theme'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
-import { handleReferralCode } from './referral'
 import { runBashCommand } from './router'
-import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
@@ -169,7 +167,6 @@ const clearInput = (params: RouterParams) => {
 const FREEBUFF_REMOVED_COMMANDS = new Set([
   'ads:enable',
   'ads:disable',
-  'refer-friends',
   'usage',
   'subscribe',
   'image',
@@ -246,42 +243,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter bash mode
       useChatStore.getState().setInputMode('bash')
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommandWithArgs({
-    name: 'refer-friends',
-    aliases: ['referral', 'redeem'],
-    handler: async (params, args) => {
-      const trimmedArgs = args.trim()
-
-      // If user provided a code directly, redeem it immediately
-      if (trimmedArgs) {
-        const code = normalizeReferralCode(trimmedArgs)
-        try {
-          const { postUserMessage } = await handleReferralCode(code)
-          params.setMessages((prev) => [
-            ...prev,
-            getUserMessage(params.inputValue.trim()),
-            ...postUserMessage([]),
-          ])
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error'
-          params.setMessages((prev) => [
-            ...prev,
-            getUserMessage(params.inputValue.trim()),
-            getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
-          ])
-        }
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        return
-      }
-
-      // Otherwise enter referral mode
-      useChatStore.getState().setInputMode('referral')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

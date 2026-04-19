@@ -5,7 +5,6 @@ export interface UserProfile {
   image: string | null
   stripe_customer_id: string | null
   handle: string | null
-  referral_code: string | null
   auto_topup_enabled: boolean
   auto_topup_threshold: number | null
   auto_topup_amount: number | null

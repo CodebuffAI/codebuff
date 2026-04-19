@@ -20,13 +20,10 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
   const searchParams = useSearchParams() ?? new URLSearchParams()
 
   const handleContinueAsUser = () => {
-    const referralCode = searchParams.get('referral_code')
     let callbackUrl = '/'
 
     if (authCode) {
       callbackUrl = `/onboard?${searchParams.toString()}`
-    } else if (referralCode) {
-      callbackUrl = `/onboard?referral_code=${referralCode}`
     }
 
     window.location.href = callbackUrl
@@ -34,14 +31,10 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
 
   const handleUseAnotherAccount = () => {
     const searchParamsString = searchParams.toString()
-    const referralCode = searchParams.get('referral_code')
 
     let callbackUrl = '/login'
     if (authCode) {
       callbackUrl = `/onboard?${searchParamsString}`
-    } else if (referralCode) {
-      callbackUrl = `/onboard?referral_code=${referralCode}`
-      localStorage.setItem('referral_code', referralCode)
     }
 
     signIn('github', { callbackUrl, prompt: 'login' })

@@ -13,7 +13,6 @@ export interface MockApiClientOverrides {
   usage?: ReturnType<typeof mock>
   loginCode?: ReturnType<typeof mock>
   loginStatus?: ReturnType<typeof mock>
-  referral?: ReturnType<typeof mock>
   publish?: ReturnType<typeof mock>
   logout?: ReturnType<typeof mock>
   feedback?: ReturnType<typeof mock>
@@ -54,8 +53,6 @@ export const createMockApiClient = (
     mock(defaultOkResponse)) as CodebuffApiClient['loginCode'],
   loginStatus: (overrides.loginStatus ??
     mock(defaultOkResponse)) as CodebuffApiClient['loginStatus'],
-  referral: (overrides.referral ??
-    mock(defaultOkResponse)) as CodebuffApiClient['referral'],
   publish: (overrides.publish ??
     mock(defaultOkResponse)) as CodebuffApiClient['publish'],
   logout: (overrides.logout ??

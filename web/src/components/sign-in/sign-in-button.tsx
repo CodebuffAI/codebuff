@@ -44,11 +44,9 @@ export const SignInButton = ({
 
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
-        const referralCode = searchParams.get('referral_code')
 
         console.log('🔵 SignInButton: Login page detected', {
           authCode: !!authCode,
-          referralCode,
         })
 
         if (authCode) {
@@ -58,30 +56,12 @@ export const SignInButton = ({
             '🔵 SignInButton: CLI flow detected, callback:',
             callbackUrl,
           )
-        } else if (referralCode) {
-          // Store referral code and use absolute URL for better preservation
-          localStorage.setItem('referral_code', referralCode)
-          callbackUrl = `${window.location.origin}/onboard?referral_code=${referralCode}`
-          console.log(
-            '🔵 SignInButton: Referral flow detected, absolute callback:',
-            callbackUrl,
-          )
         } else {
           // Regular web login
           callbackUrl = '/'
           console.log(
             '🔵 SignInButton: Regular web login, callback:',
             callbackUrl,
-          )
-        }
-      } else {
-        // For non-login pages, store referral_code if present
-        const referralCode = searchParams.get('referral_code')
-        if (referralCode) {
-          localStorage.setItem('referral_code', referralCode)
-          console.log(
-            '🔵 SignInButton: Stored referral code in localStorage:',
-            referralCode,
           )
         }
       }
@@ -96,8 +76,6 @@ export const SignInButton = ({
           providerName,
           callbackUrl,
         })
-
-        // Referral code already stored in localStorage above for fallback
 
         const result = await signIn(providerName, { callbackUrl })
         console.log('🔵 SignInButton: signIn result:', result)

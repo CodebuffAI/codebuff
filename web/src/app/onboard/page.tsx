@@ -15,14 +15,12 @@ import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import CardWithBeams from '@/components/card-with-beams'
-import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 import { logger } from '@/util/logger'
 
 
 interface PageProps {
   searchParams?: Promise<{
     auth_code?: string
-    referral_code?: string
   }>
 }
 
@@ -38,38 +36,21 @@ function renderSuccessPage(
   title: string,
   description: string,
   message: string,
-  referralCode?: string,
 ) {
-  const successCard = CardWithBeams({
+  return CardWithBeams({
     title,
     description,
     content: (
       <div className="flex flex-col space-y-4 text-center">
         <p className="text-lg">{message}</p>
-        {referralCode && (
-          <p className="text-muted-foreground">
-            Don't forget to enter your referral code in the CLI to claim your
-            bonus credits!
-          </p>
-        )}
       </div>
     ),
   })
-
-  return (
-    <OnboardClientWrapper
-      hasReferralCode={!!referralCode}
-      referralCode={referralCode}
-    >
-      {successCard}
-    </OnboardClientWrapper>
-  )
 }
 
 const Onboard = async ({ searchParams }: PageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const authCode = resolvedSearchParams.auth_code
-  const referralCode = resolvedSearchParams.referral_code
   const session = await getServerSession(authOptions)
   const user = session?.user
 
@@ -80,11 +61,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
   if (!authCode) {
     return renderSuccessPage(
       'Welcome to Codebuff!',
-      referralCode
-        ? "Once you've installed Codebuff, you can close this window."
-        : '',
+      '',
       "You're all set! Head back to your terminal to continue.",
-      referralCode,
     )
   }
 
@@ -149,11 +127,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
   if (success) {
     return renderSuccessPage(
       'Login successful!',
-      referralCode
-        ? 'Follow the steps above to install Codebuff, then you can close this window.'
-        : '',
+      '',
       'Return to your terminal to continue.',
-      referralCode,
     )
   }
 

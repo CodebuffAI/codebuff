@@ -1,10 +1,8 @@
 'use client'
 
 import { env } from '@codebuff/common/env'
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
-import { getReferralLink } from '@codebuff/common/util/referral'
 import { useQuery } from '@tanstack/react-query'
-import { CopyIcon, Forward } from 'lucide-react'
+import { Forward } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { match, P } from 'ts-pattern'
 
@@ -12,7 +10,6 @@ import { ProfileSection } from './profile-section'
 
 import type { ReferralData } from '@/app/api/referrals/route'
 
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -20,18 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from '@/components/ui/use-toast'
-
-const copyReferral = (link: string) => {
-  navigator.clipboard.writeText(link)
-  toast({
-    title: `Copied referral link`,
-    description: 'Refer away! 🌟',
-  })
-}
 
 const CreditsBadge = ({
   credits,
@@ -62,10 +48,8 @@ export function ReferralsSection() {
       return ret
     },
     enabled: !!session?.user,
-    refetchInterval: 15000,
   })
   const loading = isLoading || status === 'loading'
-  const link = data?.referralCode ? getReferralLink(data.referralCode) : ''
 
   if (error) {
     return (
@@ -94,7 +78,7 @@ export function ReferralsSection() {
           <CardHeader>
             <CardTitle>You're not logged in.</CardTitle>
             <CardDescription>
-              Log in to access your referral program.
+              Log in to access your referrals.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -103,7 +87,7 @@ export function ReferralsSection() {
   }
 
   return (
-    <ProfileSection description="Share Codebuff!">
+    <ProfileSection>
       {data?.referredBy && (
         <Card className="bg-gradient-to-br from-green-100/90 to-emerald-100/90 dark:from-green-900/90 dark:to-emerald-900/90 border border-green-200 dark:border-green-800 shadow-lg">
           <CardHeader>
@@ -131,10 +115,6 @@ export function ReferralsSection() {
           <CardTitle className="text-green-800 dark:text-green-200">
             Your Referrals
           </CardTitle>
-          <CardDescription className="text-green-700 dark:text-green-300">
-            Refer a friend and <b>you'll both</b> earn {CREDITS_REFERRAL_BONUS}{' '}
-            credits as a one-time bonus!{' '}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {match({
@@ -160,49 +140,9 @@ export function ReferralsSection() {
               },
               ({ data }) => (
                 <div className="space-y-4">
-                  <div>Share this link with them:</div>
-                  <div className="relative">
-                    {loading ? (
-                      <Skeleton className="h-10 w-full" />
-                    ) : (
-                      <Input
-                        value={link}
-                        placeholder={'Your referral link'}
-                        readOnly
-                        className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                      />
-                    )}
-                    <Button
-                      onClick={() => copyReferral(link)}
-                      disabled={loading || !session?.user}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto"
-                      variant="ghost"
-                    >
-                      <CopyIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <Separator />
-
                   <div>
-                    You've referred{' '}
-                    <b>
-                      {data.referrals.length}/{data.referralLimit}
-                    </b>{' '}
-                    people.{' '}
-                    <Button
-                      variant="link"
-                      className="p-0 m-0 inline-flex"
-                      asChild
-                    >
-                      <a
-                        href={`https://codebuff.retool.com/form/e6c62a73-03b1-4ef3-8ab1-eba416ce7187?email=${session?.user?.email}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        (Wanna refer more? 🚀)
-                      </a>
-                    </Button>
+                    You've referred <b>{data.referrals.length}</b>{' '}
+                    {data.referrals.length === 1 ? 'person' : 'people'}.
                   </div>
                   {data.referrals.length !== 0 && (
                     <ul className="space-y-2">
