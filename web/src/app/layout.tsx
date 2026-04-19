@@ -8,7 +8,6 @@ import { LayoutWrapper } from '@/components/layout-wrapper'
 import { Navbar } from '@/components/navbar/navbar'
 import QueryProvider from '@/components/providers/query-client-provider'
 import { ThemeProvider } from '@/components/theme-provider'
-import { Banner } from '@/components/ui/banner'
 import { Toaster } from '@/components/ui/toaster'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
@@ -67,7 +66,6 @@ export default function RootLayout({
           <SessionProvider>
             <QueryProvider>
               <PostHogProvider>
-                <Banner />
                 <Navbar />
                 <div className="flex-grow">
                   <LayoutWrapper>{children}</LayoutWrapper>
