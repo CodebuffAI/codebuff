@@ -110,18 +110,27 @@ async function probe(): Promise<FireworksHealth> {
   return classify(samples, deploymentIds)
 }
 
-/** Treat the whole fleet as degraded/unhealthy if any single deployment is. */
+/** Admit if ANY deployment is healthy. One deployment per model (and per
+ *  region in the future) means a user's request routes to a specific
+ *  deployment based on their chosen model — a degraded or unhealthy
+ *  deployment for one model doesn't affect users whose model routes
+ *  elsewhere, and `createFireworksRequestWithFallback` falls back to the
+ *  standard Fireworks API on 5xx regardless. Only hold the queue when ALL
+ *  deployments are non-healthy. Degraded beats unhealthy so
+ *  observability/logs show we still have upstream reachable. */
 export function classify(
   samples: PromSample[],
   deploymentIds: string[],
 ): FireworksHealth {
-  let worst: FireworksHealth = 'healthy'
+  if (deploymentIds.length === 0) return 'healthy'
+
+  let anyDegraded = false
   for (const deploymentId of deploymentIds) {
     const h = classifyOne(samples, deploymentId)
-    if (h === 'unhealthy') return 'unhealthy'
-    if (h === 'degraded') worst = 'degraded'
+    if (h === 'healthy') return 'healthy'
+    if (h === 'degraded') anyDegraded = true
   }
-  return worst
+  return anyDegraded ? 'degraded' : 'unhealthy'
 }
 
 function classifyOne(samples: PromSample[], deploymentId: string): FireworksHealth {
