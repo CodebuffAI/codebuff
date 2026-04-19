@@ -1,5 +1,6 @@
-import { FIREWORKS_ACCOUNT_ID, FIREWORKS_DEPLOYMENT_MAP } from '@/llm-api/fireworks-config'
 import { env } from '@codebuff/internal/env'
+
+import { FIREWORKS_ACCOUNT_ID, FIREWORKS_DEPLOYMENT_MAP } from '@/llm-api/fireworks-config'
 import { logger } from '@/util/logger'
 
 /**
@@ -15,13 +16,14 @@ import { logger } from '@/util/logger'
  */
 export type FireworksHealth = 'healthy' | 'degraded' | 'unhealthy'
 
-/** Degrade once median prefill-queue latency crosses this bound. Strict by
- *  design — a 1s queue on top of ~1s prefill already means users feel 2s+
- *  before first token. */
-export const PREFILL_QUEUE_DEGRADED_MS = 125
+/** Degrade once p90 prefill-queue latency crosses this bound. Using p90
+ *  instead of p50 gives a better early-warning signal — the tail starts
+ *  rising before the median does, so we can halt admission before most
+ *  users feel it. */
+export const PREFILL_QUEUE_P90_DEGRADED_MS = 1000
 
 /** Leading indicator of load — responds instantly to memory pressure, while
- *  prefill-queue p50 is a lagging window statistic. Degrading here lets us
+ *  prefill-queue p90 is a lagging window statistic. Degrading here lets us
  *  halt admission *before* users feel it. */
 export const KV_BLOCKS_DEGRADED_FRACTION = 0.8
 
@@ -160,16 +162,16 @@ function classifyOne(samples: PromSample[], deploymentId: string): FireworksHeal
     return 'unhealthy'
   }
 
-  const p50 = histogramPercentile(
+  const p90 = histogramPercentile(
     samples,
     'latency_prefill_queue_ms_bucket:sum_by_deployment',
     deploymentId,
-    50,
+    90,
   )
-  if (p50 !== undefined && p50 > PREFILL_QUEUE_DEGRADED_MS) {
+  if (p90 !== undefined && p90 > PREFILL_QUEUE_P90_DEGRADED_MS) {
     logger.info(
-      { deploymentId, prefillQueueP50Ms: Math.round(p50), kvBlocks },
-      '[FireworksHealth] degraded: prefill queue p50 over threshold',
+      { deploymentId, prefillQueueP90Ms: Math.round(p90), kvBlocks },
+      '[FireworksHealth] degraded: prefill queue p90 over threshold',
     )
     return 'degraded'
   }

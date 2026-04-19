@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   KV_BLOCKS_DEGRADED_FRACTION,
   KV_BLOCKS_UNHEALTHY_FRACTION,
-  PREFILL_QUEUE_DEGRADED_MS,
+  PREFILL_QUEUE_P90_DEGRADED_MS,
   classify,
 } from '../fireworks-health'
 
@@ -19,20 +19,22 @@ function kvBlocks(value: number): PromSample {
   }
 }
 
-/** Emit a minimal cumulative-counts histogram for prefill queue where every
- *  event lands in exactly one bucket `le`. */
-function prefillQueueBuckets(p50Ms: number): PromSample[] {
+/** Emit a cumulative-counts histogram for prefill queue where the p90
+ *  percentile falls in the bucket with le ≥ p90Ms (i.e. p90 ≥ p90Ms).
+ *  Uses 10 total events all landing in that bucket, so the 90th-percentile
+ *  interpolates within the bucket above the bucket boundary. */
+function prefillQueueBuckets(p90Ms: number): PromSample[] {
   const les = [50, 150, 300, 500, 750, 1000, 1500, 3000, 5000, 7500, 10000]
   const name = 'latency_prefill_queue_ms_bucket:sum_by_deployment'
-  // cumulative count = 0 below p50, 1 at and above p50
+  const total = 10
   return les.map((le) => ({
     name,
     labels: { deployment_id: DEPLOY, le: String(le) },
-    value: le >= p50Ms ? 1 : 0,
+    value: le >= p90Ms ? total : 0,
   })).concat({
     name,
     labels: { deployment_id: DEPLOY, le: '+Inf' },
-    value: 1,
+    value: total,
   })
 }
 
@@ -58,10 +60,10 @@ describe('fireworks health classifier', () => {
     expect(classify(samples, [DEPLOY])).toBe('healthy')
   })
 
-  test('degraded when prefill queue p50 exceeds the threshold', () => {
+  test('degraded when prefill queue p90 exceeds the threshold', () => {
     const samples: PromSample[] = [
       kvBlocks(0.5),
-      ...prefillQueueBuckets(PREFILL_QUEUE_DEGRADED_MS + 500),
+      ...prefillQueueBuckets(PREFILL_QUEUE_P90_DEGRADED_MS + 500),
     ]
     expect(classify(samples, [DEPLOY])).toBe('degraded')
   })
@@ -110,7 +112,7 @@ describe('fireworks health classifier', () => {
     const other = 'other123'
     const samples: PromSample[] = [
       kvBlocks(0.5),
-      ...prefillQueueBuckets(PREFILL_QUEUE_DEGRADED_MS + 500),
+      ...prefillQueueBuckets(PREFILL_QUEUE_P90_DEGRADED_MS + 500),
       {
         name: 'generator_kv_blocks_fraction:avg_by_deployment',
         labels: { deployment_id: other },
