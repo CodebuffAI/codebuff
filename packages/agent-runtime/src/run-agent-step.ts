@@ -800,12 +800,13 @@ export async function loopAgentSteps(
     return cachedAdditionalToolDefinitions
   }
 
-  let currentAgentState: AgentState = {
-    ...initialAgentState,
-    messageHistory: initialMessages,
-    systemPrompt: system,
-    toolDefinitions,
-  }
+  // Mutate initialAgentState so that in-progress work propagates back to the
+  // caller's shared reference (e.g. SDK's sessionState.mainAgentState) even if
+  // an error is thrown before we return.
+  initialAgentState.messageHistory = initialMessages
+  initialAgentState.systemPrompt = system
+  initialAgentState.toolDefinitions = toolDefinitions
+  let currentAgentState: AgentState = initialAgentState
 
   // Convert tool definitions to Anthropic format for accurate token counting
   // Tool definitions are stored as { [name]: { description, inputSchema } }
@@ -908,7 +909,8 @@ export async function loopAgentSteps(
         } = programmaticResult
         n = generateN
 
-        currentAgentState = programmaticAgentState
+        Object.assign(initialAgentState, programmaticAgentState)
+        currentAgentState = initialAgentState
         totalSteps = stepNumber
 
         shouldEndTurn = endTurn
@@ -989,7 +991,8 @@ export async function loopAgentSteps(
         logger.error('No runId found for agent state after finishing agent run')
       }
 
-      currentAgentState = newAgentState
+      Object.assign(initialAgentState, newAgentState)
+      currentAgentState = initialAgentState
       shouldEndTurn = llmShouldEndTurn
       nResponses = generatedResponses
 

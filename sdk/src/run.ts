@@ -282,16 +282,24 @@ async function runOnce({
     }
   }
 
+  // The agent runtime mutates sessionState.mainAgentState as it progresses, so any
+  // messages added beyond this baseline reflect in-progress work that should be preserved.
+  const initialHistoryLength = sessionState.mainAgentState.messageHistory.length
+
   /** Calculates the current session state if cancelled.
    *
-   * This is used when callMainPrompt throws an error (the server never processed the request).
-   * We need to add the user's message here since the server didn't get a chance to add it.
+   * This is used when callMainPrompt throws an error. If the agent runtime made
+   * any progress (added messages to the shared session state), those messages are
+   * preserved. Otherwise the user's message is added so it isn't lost.
    */
   function getCancelledSessionState(message: string): SessionState {
     const state = cloneDeep(sessionState)
 
-    // Add the user's message since the server never processed it
-    if (prompt || preparedContent) {
+    const runtimeMadeProgress =
+      state.mainAgentState.messageHistory.length > initialHistoryLength
+
+    // Only add the user's message if the runtime didn't get a chance to add it.
+    if (!runtimeMadeProgress && (prompt || preparedContent)) {
       state.mainAgentState.messageHistory.push({
         role: 'user' as const,
         content: buildUserMessageContent(prompt, params, preparedContent),
