@@ -5,7 +5,7 @@
 The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployment. It has three jobs:
 
 1. **Drip-admit users** — admit at a steady trickle (default 1 per 15s) so load ramps up gradually rather than stampeding the deployment when the queue is long.
-2. **Gate on upstream health** — only admit new users while the Fireworks deployment is reporting `healthy` (via the separate monitor in `web/src/server/fireworks-monitor/`). Once metrics degrade, admission halts until they recover — this is the primary concurrency control, not a static cap.
+2. **Gate on upstream health** — before each admission tick, probe the Fireworks metrics endpoint with a short timeout (`isFireworksAdmissible` in `web/src/server/free-session/admission.ts`). If it doesn't respond OK, admission halts until it does — this is the primary concurrency control, not a static cap.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
 Users who cannot be admitted immediately are placed in a FIFO queue and given an estimated wait time. Admitted users get a fixed-length session (default 1h) during which they can make free-mode requests subject to the existing per-user rate limits.
@@ -20,6 +20,7 @@ FREEBUFF_WAITING_ROOM_ENABLED=false
 
 # Other knobs (only read when enabled)
 FREEBUFF_SESSION_LENGTH_MS=3600000         # 1 hour
+FREEBUFF_SESSION_GRACE_MS=1800000          # 30 min — drain window after expiry
 ```
 
 Flipping the flag is safe at runtime: existing rows stay in the DB and will be admitted / expired correctly whenever the flag is flipped back on.
@@ -90,13 +91,19 @@ Migration: `packages/internal/src/db/migrations/0043_vengeful_boomer.sql`.
 stateDiagram-v2
     [*] --> queued: POST /session<br/>(first call)
     queued --> active: admission tick<br/>(capacity + healthy)
-    active --> expired: expires_at < now()
+    active --> draining: expires_at < now()<br/>(grace window)
+    draining --> expired: expires_at + grace < now()
     expired --> queued: POST /session<br/>(re-queue at back)
     queued --> [*]: DELETE /session
     active --> [*]: DELETE /session<br/>or admission sweep
+    draining --> [*]: DELETE /session<br/>or admission sweep
 ```
 
-There is no stored `expired` status. An `active` row whose `expires_at` is in the past is treated as expired by `checkSessionAdmissible` and swept by the admission ticker.
+Neither `draining` nor `expired` is a stored status — they are derived from `expires_at` versus `now()` and the grace window:
+
+- `expires_at > now()` → `active` (gate: `ok: 'active'`)
+- `expires_at <= now() < expires_at + grace` → `draining` (gate: `ok: 'draining'`; client must stop accepting new prompts but can let an in-flight agent finish)
+- `expires_at + grace <= now()` → `expired` (gate: `session_expired`); swept by the admission ticker
 
 ## Single-instance Enforcement
 
@@ -135,6 +142,7 @@ Each tick does (in order):
 | `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires |
 | `MAX_ADMITS_PER_TICK` | `config.ts` | 1 | Upper bound on admits per tick |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
+| `FREEBUFF_SESSION_GRACE_MS` | env | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
 ## HTTP API
 
@@ -173,6 +181,17 @@ Response shapes:
   "expiresAt":  "2026-04-17T13:00:00Z",
   "remainingMs": 3600000
 }
+
+// Past expiresAt but inside the grace window — agent in flight may finish,
+// CLI must not accept new user prompts.
+{
+  "status": "draining",
+  "instanceId": "e47…",
+  "admittedAt": "2026-04-17T12:00:00Z",
+  "expiresAt":  "2026-04-17T13:00:00Z",
+  "gracePeriodEndsAt": "2026-04-17T13:30:00Z",
+  "gracePeriodRemainingMs": 1800000
+}
 ```
 
 ### `GET /api/v1/freebuff/session`
@@ -201,9 +220,22 @@ For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` ca
 | 428 | `waiting_room_required` | No session row exists. Client should call POST /session. |
 | 429 | `waiting_room_queued` | Row exists with `status='queued'`. Client should keep polling GET. |
 | 409 | `session_superseded` | Claimed `instance_id` does not match stored one — another CLI took over. |
-| 410 | `session_expired` | Row exists with `status='active'` but `expires_at < now()`. Client should POST /session to re-queue. |
+| 410 | `session_expired` | `expires_at + grace < now()` (past the hard cutoff). Client should POST /session to re-queue. |
+
+Successful results carry one of three reasons: `disabled` (gate is off), `active` (`expires_at > now()`, `remainingMs` provided), or `draining` (`expires_at <= now() < expires_at + grace`, `gracePeriodRemainingMs` provided). The CLI should treat `draining` as "let any in-flight agent run finish, but block new user prompts" — see [Drain / Grace Window](#drain--grace-window) below.
 
 When the waiting room is disabled, the gate returns `{ ok: true, reason: 'disabled' }` without touching the DB.
+
+## Drain / Grace Window
+
+We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a `draining` state for `FREEBUFF_SESSION_GRACE_MS` (default 30 min). During the drain window:
+
+- `checkSessionAdmissible` returns `{ ok: true, reason: 'draining', gracePeriodRemainingMs }` — chat completions still go through.
+- `getSessionState` / `requestSession` return `status: 'draining'` so the CLI can render a "session ending — agent finishing up" indicator and disable the input box.
+- `sweepExpired` skips the row, keeping it in the DB so the gate keeps working.
+- `joinOrTakeOver` still treats the row as expired (`expires_at <= now()`), so a fresh POST re-queues at the back of the line. This means starting a new CLI during the drain window cleanly hands off to a queued seat rather than extending the current one.
+
+This is a **trust-the-client** design: the server still admits requests during the drain window, and we rely on the CLI to stop submitting new user prompts at `expires_at`. The 30-min hard cutoff caps the abuse surface — a malicious client that ignores the contract can extend a session by at most one grace window per expiry.
 
 ## Estimated Wait Time
 
@@ -247,6 +279,7 @@ The `disabled` response means the server has the waiting room turned off. CLI sh
 
 | Attack | Mitigation |
 |---|---|
+| CLI keeps submitting new prompts past `expires_at` | Trusted client; bounded by 30-min hard cutoff at `expires_at + grace`. After that the gate returns `session_expired` and the user must re-queue. |
 | Multiple sessions per account | PK on `user_id` — structurally impossible |
 | Multiple CLIs sharing one session | `active_instance_id` rotates on POST; stale id → 409 |
 | Client-forged timestamps | All timestamps server-supplied (`DEFAULT now()` or explicit) |
@@ -254,8 +287,7 @@ The `disabled` response means the server has the waiting room turned off. CLI sh
 | Repeatedly calling POST to reset queue position | POST preserves `queued_at` for already-queued users |
 | Two pods admitting the same user | `SELECT ... FOR UPDATE SKIP LOCKED` + advisory xact lock |
 | Spamming POST/GET to starve admission tick | Admission uses Postgres advisory lock; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
-| Low-traffic error-fraction flapping blocking admissions | Health monitor has `minRequestRateForErrorCheck` floor (see `fireworks-monitor`) |
-| Monitor down / metrics stale | `isFireworksAdmissible()` fails closed → admission pauses, queue grows |
+| Fireworks metrics endpoint down / slow | `isFireworksAdmissible()` fails closed (timeout or non-OK) → admission pauses, queue grows |
 | Zombie expired sessions holding capacity | Swept on every admission tick, even when upstream is unhealthy |
 
 ## Testing

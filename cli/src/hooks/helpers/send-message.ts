@@ -1,6 +1,7 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 
 import {
+  markFreebuffSessionEnded,
   markFreebuffSessionSuperseded,
   refreshFreebuffSession,
 } from '../use-freebuff-session'
@@ -507,14 +508,14 @@ function handleFreebuffGateError(
   updater: BatchedMessageUpdater,
 ) {
   switch (kind) {
-    case 'waiting_room_required':
     case 'session_expired':
-      updater.setError(
-        'Your freebuff session is no longer active. Rejoining the waiting room…',
-      )
-      // Re-POST asynchronously; UI flips back to the waiting room as soon as
-      // the store picks up status: 'queued'.
-      refreshFreebuffSession().catch(() => {})
+    case 'waiting_room_required':
+      // Our seat is gone mid-chat. Flip to the client-only `ended` state
+      // instead of auto re-queuing: the Chat surface stays mounted so any
+      // in-flight agent work can finish under the server-side grace period,
+      // and the session-ended banner prompts the user to press Enter when
+      // they're ready to rejoin the waiting room.
+      markFreebuffSessionEnded()
       return
     case 'waiting_room_queued':
       updater.setError(

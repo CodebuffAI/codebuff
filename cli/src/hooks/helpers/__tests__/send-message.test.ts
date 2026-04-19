@@ -1581,7 +1581,7 @@ describe('freebuff gate errors', () => {
     expect(messages[0].userError).toContain('Another freebuff CLI took over')
   })
 
-  test('handleRunError maps 410 session_expired to the rejoining message', () => {
+  test('handleRunError suppresses the inline error for 410 session_expired (ended banner takes over)', () => {
     const messages = baseMessage()
     const updater = makeUpdater(messages)
     handleRunError({
@@ -1594,10 +1594,13 @@ describe('freebuff gate errors', () => {
       updateChainInProgress: () => {},
     })
     updater.flush()
-    expect(messages[0].userError).toContain('no longer active')
+    // New contract: the gate handler flips the session store into `ended`
+    // and the session-ended banner is the user-facing signal, so we do NOT
+    // also surface an inline userError inside the chat transcript.
+    expect(messages[0].userError).toBeUndefined()
   })
 
-  test('handleRunError maps 428 waiting_room_required to the rejoining message', () => {
+  test('handleRunError suppresses the inline error for 428 waiting_room_required (ended banner takes over)', () => {
     const messages = baseMessage()
     const updater = makeUpdater(messages)
     handleRunError({
@@ -1610,7 +1613,7 @@ describe('freebuff gate errors', () => {
       updateChainInProgress: () => {},
     })
     updater.flush()
-    expect(messages[0].userError).toContain('no longer active')
+    expect(messages[0].userError).toBeUndefined()
   })
 
   test('handleRunError maps 429 waiting_room_queued to the still-queued message', () => {
@@ -1679,6 +1682,10 @@ describe('freebuff gate errors', () => {
       setHasReceivedPlanResponse: () => {},
     })
     updater.flush()
-    expect(messages[0].userError).toContain('no longer active')
+    // 410 is now handled by the ended banner, not an inline error. The
+    // assertion here just confirms routing happened via the gate handler
+    // (which swallows the userError) rather than the generic error path
+    // (which would set a userError from the message).
+    expect(messages[0].userError).toBeUndefined()
   })
 })

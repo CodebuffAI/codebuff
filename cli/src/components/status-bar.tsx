@@ -7,6 +7,7 @@ import { StopButton } from './stop-button'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
+import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
 
@@ -18,6 +19,7 @@ interface StatusBarProps {
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
   onStop?: () => void
+  freebuffSession: FreebuffSessionResponse | null
 }
 
 export const StatusBar = ({
@@ -26,6 +28,7 @@ export const StatusBar = ({
   scrollToLatest,
   statusIndicatorState,
   onStop,
+  freebuffSession,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -170,12 +173,12 @@ export const StatusBar = ({
         }}
       >
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
-        <text style={{ wrapMode: 'none' }}>
-          <FreebuffSessionCountdown />
-        </text>
         {onStop && (statusIndicatorState.kind === 'waiting' || statusIndicatorState.kind === 'streaming') && (
           <StopButton onClick={onStop} />
         )}
+        <text style={{ wrapMode: 'none' }}>
+          <FreebuffSessionCountdown session={freebuffSession} />
+        </text>
       </box>
     </box>
   )

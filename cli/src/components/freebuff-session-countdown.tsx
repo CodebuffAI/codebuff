@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { IS_FREEBUFF } from '../utils/constants'
 
-const LOW_THRESHOLD_MS = 5 * 60_000
-const CRITICAL_THRESHOLD_MS = 60_000
+import type { FreebuffSessionResponse } from '../types/freebuff-session'
+
+const LOW_THRESHOLD_MS = 60_000
 
 const formatRemaining = (ms: number): string => {
   if (ms <= 0) return 'expiring…'
@@ -24,9 +24,10 @@ const formatRemaining = (ms: number): string => {
  * surprised when their seat is released. Returns null in non-freebuff
  * builds or when no active session exists — safe to always mount.
  */
-export const FreebuffSessionCountdown: React.FC = () => {
+export const FreebuffSessionCountdown: React.FC<{
+  session: FreebuffSessionResponse | null
+}> = ({ session }) => {
   const theme = useTheme()
-  const session = useFreebuffSessionStore((s) => s.session)
   const expiresAtMs =
     session?.status === 'active' ? Date.parse(session.expiresAt) : null
 
@@ -40,21 +41,9 @@ export const FreebuffSessionCountdown: React.FC = () => {
   if (!IS_FREEBUFF || !expiresAtMs) return null
 
   const remainingMs = expiresAtMs - now
-  const color =
-    remainingMs < CRITICAL_THRESHOLD_MS
-      ? theme.error
-      : remainingMs < LOW_THRESHOLD_MS
-        ? theme.warning
-        : theme.muted
+  // Muted until the final minute, then a soft warning — deliberately not
+  // `theme.error` so the countdown reads informational, not alarming.
+  const color = remainingMs < LOW_THRESHOLD_MS ? theme.warning : theme.muted
 
   return <span fg={color}>{formatRemaining(remainingMs)}</span>
-}
-
-/** True when the freebuff session countdown will render non-null content.
- *  Used by the chat surface to keep the status bar visible while a
- *  session is active, even when there's no streaming/queue activity. */
-export const useHasActiveFreebuffSession = (): boolean => {
-  return useFreebuffSessionStore(
-    (s) => IS_FREEBUFF && s.session?.status === 'active',
-  )
 }
