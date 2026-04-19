@@ -4,7 +4,7 @@ import { estimateWaitMs, toSessionStateResponse } from '../session-view'
 
 import type { InternalSessionRow } from '../types'
 
-const WAIT_PER_SPOT_MS = 60_000
+const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {

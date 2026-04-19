@@ -59,10 +59,10 @@ export function toSessionStateResponse(params: {
   return null
 }
 
-const WAIT_MS_PER_SPOT_AHEAD = 60_000
+const WAIT_MS_PER_SPOT_AHEAD = 24_000
 
 /**
- * Rough wait-time estimate shown to queued users: one minute per spot ahead.
+ * Rough wait-time estimate shown to queued users: 24 seconds per spot ahead.
  * Position 1 → 0ms (next tick picks you up).
  */
 export function estimateWaitMs(params: { position: number }): number {
