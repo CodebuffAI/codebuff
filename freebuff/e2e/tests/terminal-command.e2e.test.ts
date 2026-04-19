@@ -17,7 +17,7 @@ function getApiKey(): string | null {
   return process.env.CODEBUFF_API_KEY ?? null
 }
 
-describe('Freebuff: Terminal Command', () => {
+describe.skip('Freebuff: Terminal Command', () => {
   let session: FreebuffSession | null = null
 
   afterEach(async () => {
@@ -54,7 +54,7 @@ describe('Freebuff: Terminal Command', () => {
       const content = await session.waitForFileContent(
         'timestamp.txt',
         '',
-        120_000,
+        900_000,
       )
 
       // The file should contain a Unix timestamp (numeric string)

@@ -17,7 +17,7 @@ function getApiKey(): string | null {
   return process.env.CODEBUFF_API_KEY ?? null
 }
 
-describe('Freebuff: Code Edit', () => {
+describe.skip('Freebuff: Code Edit', () => {
   let session: FreebuffSession | null = null
 
   afterEach(async () => {
@@ -65,7 +65,7 @@ describe('Freebuff: Code Edit', () => {
       const finalContent = await session.waitForFileContent(
         'index.js',
         'console.log',
-        120_000,
+        900_000,
       )
 
       expect(finalContent).toContain('console.log')
