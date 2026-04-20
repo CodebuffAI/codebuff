@@ -413,7 +413,11 @@ export async function postChatCompletions(params: {
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
-      const gate = await checkSession({ userId, claimedInstanceId })
+      const gate = await checkSession({
+        userId,
+        userEmail: userInfo.email,
+        claimedInstanceId,
+      })
       if (!gate.ok) {
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,

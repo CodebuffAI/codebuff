@@ -1,5 +1,6 @@
 import {
   getSessionGraceMs,
+  isWaitingRoomBypassedForEmail,
   isWaitingRoomEnabled,
 } from './config'
 import {
@@ -79,10 +80,16 @@ async function viewForRow(
  */
 export async function requestSession(params: {
   userId: string
+  userEmail?: string | null | undefined
   deps?: SessionDeps
 }): Promise<SessionStateResponse> {
   const deps = params.deps ?? defaultDeps
-  if (!deps.isWaitingRoomEnabled()) return { status: 'disabled' }
+  if (
+    !deps.isWaitingRoomEnabled() ||
+    isWaitingRoomBypassedForEmail(params.userEmail)
+  ) {
+    return { status: 'disabled' }
+  }
 
   const row = await deps.joinOrTakeOver({ userId: params.userId, now: nowOf(deps) })
   const view = await viewForRow(params.userId, deps, row)
@@ -109,11 +116,17 @@ export async function requestSession(params: {
  */
 export async function getSessionState(params: {
   userId: string
+  userEmail?: string | null | undefined
   claimedInstanceId?: string | null | undefined
   deps?: SessionDeps
 }): Promise<FreebuffSessionServerResponse> {
   const deps = params.deps ?? defaultDeps
-  if (!deps.isWaitingRoomEnabled()) return { status: 'disabled' }
+  if (
+    !deps.isWaitingRoomEnabled() ||
+    isWaitingRoomBypassedForEmail(params.userEmail)
+  ) {
+    return { status: 'disabled' }
+  }
   const row = await deps.getSessionRow(params.userId)
   if (!row) return { status: 'none' }
 
@@ -132,10 +145,16 @@ export async function getSessionState(params: {
 
 export async function endUserSession(params: {
   userId: string
+  userEmail?: string | null | undefined
   deps?: SessionDeps
 }): Promise<void> {
   const deps = params.deps ?? defaultDeps
-  if (!deps.isWaitingRoomEnabled()) return
+  if (
+    !deps.isWaitingRoomEnabled() ||
+    isWaitingRoomBypassedForEmail(params.userEmail)
+  ) {
+    return
+  }
   await deps.endSession(params.userId)
 }
 
@@ -169,11 +188,17 @@ export type SessionGateResult =
  */
 export async function checkSessionAdmissible(params: {
   userId: string
+  userEmail?: string | null | undefined
   claimedInstanceId: string | null | undefined
   deps?: SessionDeps
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
-  if (!deps.isWaitingRoomEnabled()) return { ok: true, reason: 'disabled' }
+  if (
+    !deps.isWaitingRoomEnabled() ||
+    isWaitingRoomBypassedForEmail(params.userEmail)
+  ) {
+    return { ok: true, reason: 'disabled' }
+  }
 
   // Pre-waiting-room CLIs never send a freebuff_instance_id. Classify that up
   // front so the caller gets a distinct code (→ 426 Upgrade Required) and the

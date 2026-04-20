@@ -285,17 +285,6 @@ export const App = ({
     )
   }
 
-  // Render chat history screen when requested
-  if (showChatHistory) {
-    return (
-      <ChatHistoryScreen
-        onSelectChat={handleResumeChat}
-        onCancel={closeChatHistory}
-        onNewChat={handleNewChat}
-      />
-    )
-  }
-
   // Use key to force remount when resuming a different chat from history
   const chatKey = resumeChatId ?? 'current'
 
@@ -316,6 +305,10 @@ export const App = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={handleSwitchToGitRoot}
+      showChatHistory={showChatHistory}
+      onSelectChat={handleResumeChat}
+      onCancelChatHistory={closeChatHistory}
+      onNewChat={handleNewChat}
     />
   )
 }
@@ -336,6 +329,10 @@ interface AuthedSurfaceProps {
   initialMode: AgentMode | undefined
   gitRoot: string | null | undefined
   onSwitchToGitRoot: () => void
+  showChatHistory: boolean
+  onSelectChat: (chatId: string) => void
+  onCancelChatHistory: () => void
+  onNewChat: () => void
 }
 
 /**
@@ -359,6 +356,10 @@ const AuthedSurface = ({
   initialMode,
   gitRoot,
   onSwitchToGitRoot,
+  showChatHistory,
+  onSelectChat,
+  onCancelChatHistory,
+  onNewChat,
 }: AuthedSurfaceProps) => {
   const { session, error: sessionError } = useFreebuffSession()
 
@@ -386,6 +387,20 @@ const AuthedSurface = ({
       session.status === 'none')
   ) {
     return <WaitingRoomScreen session={session} error={sessionError} />
+  }
+
+  // Chat history renders inside AuthedSurface so the freebuff session stays
+  // mounted while the user browses history. Unmounting this surface would
+  // DELETE the session row and drop the user back into the waiting room on
+  // return.
+  if (showChatHistory) {
+    return (
+      <ChatHistoryScreen
+        onSelectChat={onSelectChat}
+        onCancel={onCancelChatHistory}
+        onNewChat={onNewChat}
+      />
+    )
   }
 
   return (

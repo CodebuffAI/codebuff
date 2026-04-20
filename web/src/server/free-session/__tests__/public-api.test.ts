@@ -281,6 +281,29 @@ describe('checkSessionAdmissible', () => {
     expect(result.code).toBe('waiting_room_required')
   })
 
+  test('bypassed email (team@codebuff.com) → ok with reason=disabled, no DB read', async () => {
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      userEmail: 'team@codebuff.com',
+      claimedInstanceId: undefined,
+      deps,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('unreachable')
+    expect(result.reason).toBe('disabled')
+    expect(deps.rows.size).toBe(0)
+  })
+
+  test('bypassed email is case-insensitive', async () => {
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      userEmail: 'Team@Codebuff.COM',
+      claimedInstanceId: undefined,
+      deps,
+    })
+    expect(result.ok).toBe(true)
+  })
+
   test('queued session → waiting_room_queued', async () => {
     await requestSession({ userId: 'u1', deps })
     const result = await checkSessionAdmissible({
