@@ -13,7 +13,6 @@ import {
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
-import { ReferrerTracker } from '@/components/referrer-tracker'
 import {
   Card,
   CardHeader,
@@ -47,7 +46,6 @@ function StatusCard({
 }) {
   return (
     <main className="container mx-auto flex flex-col items-center py-20">
-      <ReferrerTracker />
       <div className="w-full sm:w-1/2 md:w-2/3">
         <Card>
           <CardHeader>

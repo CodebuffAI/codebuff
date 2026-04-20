@@ -19,7 +19,16 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()
   const searchParams = useSearchParams() ?? new URLSearchParams()
 
+  const persistReferrer = () => {
+    const referrer = searchParams.get('referrer')
+    if (referrer) {
+      localStorage.setItem('freebuff_referrer', referrer)
+    }
+  }
+
   const handleContinueAsUser = () => {
+    persistReferrer()
+
     let callbackUrl = '/'
 
     if (authCode) {
@@ -30,6 +39,8 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
   }
 
   const handleUseAnotherAccount = () => {
+    persistReferrer()
+
     const searchParamsString = searchParams.toString()
 
     let callbackUrl = '/login'
