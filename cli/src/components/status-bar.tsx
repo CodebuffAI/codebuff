@@ -2,9 +2,10 @@ import { getFreebuffModel } from '@codebuff/common/constants/freebuff-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
+import { Button } from './button'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
-import { StopButton } from './stop-button'
+
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
@@ -12,6 +13,35 @@ import { formatElapsedTime } from '../utils/format-elapsed-time'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
+/** A small status-bar action button with hover-bold styling. */
+const StatusActionButton = ({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+}) => {
+  const theme = useTheme()
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <Button
+      style={{ paddingLeft: 1, paddingRight: 1 }}
+      onClick={onClick}
+      onMouseOver={() => setHovered(true)}
+      onMouseOut={() => setHovered(false)}
+    >
+      <text>
+        <span
+          fg={theme.secondary}
+          attributes={hovered ? TextAttributes.BOLD : TextAttributes.NONE}
+        >
+          {children}
+        </span>
+      </text>
+    </Button>
+  )
+}
 
 const SHIMMER_INTERVAL_MS = 160
 
@@ -42,6 +72,7 @@ interface StatusBarProps {
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
   onStop?: () => void
+  onEndSession?: () => void
   freebuffSession: FreebuffSessionResponse | null
 }
 
@@ -51,6 +82,7 @@ export const StatusBar = ({
   scrollToLatest,
   statusIndicatorState,
   onStop,
+  onEndSession,
   freebuffSession,
 }: StatusBarProps) => {
   const theme = useTheme()
@@ -229,7 +261,10 @@ export const StatusBar = ({
       >
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
         {onStop && (statusIndicatorState.kind === 'waiting' || statusIndicatorState.kind === 'streaming') && (
-          <StopButton onClick={onStop} />
+          <StatusActionButton onClick={onStop}>■ Esc</StatusActionButton>
+        )}
+        {onEndSession && statusIndicatorState.kind === 'idle' && freebuffSession?.status === 'active' && (
+          <StatusActionButton onClick={onEndSession}>✕ End session</StatusActionButton>
         )}
         {sessionProgress !== null &&
           sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS &&

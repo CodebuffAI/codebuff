@@ -57,7 +57,9 @@ import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { IS_FREEBUFF } from './utils/constants'
+import { endAndRejoinFreebuffSession } from './hooks/use-freebuff-session'
+import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
+import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
 
 import {
@@ -1453,6 +1455,13 @@ export const Chat = ({
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
             onStop={chatKeyboardHandlers.onInterruptStream}
+            onEndSession={() => {
+              setMessages((prev) => [
+                ...prev,
+                getSystemMessage(END_SESSION_MESSAGE),
+              ])
+              endAndRejoinFreebuffSession().catch(() => {})
+            }}
             freebuffSession={freebuffSession}
           />
         )}

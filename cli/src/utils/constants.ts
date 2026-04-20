@@ -8,6 +8,10 @@ import { getCliEnv } from './env'
  */
 export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
 
+/** Message shown when the user ends a freebuff session early. */
+export const END_SESSION_MESSAGE =
+  'Ending session and returning to the waiting room…'
+
 // Agent IDs that should not be rendered in the CLI UI
 export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
 

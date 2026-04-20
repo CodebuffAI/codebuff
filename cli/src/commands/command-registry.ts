@@ -16,7 +16,7 @@ import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -622,7 +622,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.setMessages((prev) => [
         ...prev,
         getUserMessage(params.inputValue.trim()),
-        getSystemMessage('Ending session and returning to the waiting room…'),
+        getSystemMessage(END_SESSION_MESSAGE),
       ])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
