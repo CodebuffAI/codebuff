@@ -20,14 +20,19 @@ import type { NextRequest } from 'next/server'
  *  the caller's country and it's not on the allowlist, short-circuit with a
  *  terminal `country_blocked` response so the CLI can show the warning
  *  screen without ever joining the queue. Null country (VPN / localhost)
- *  fails open — chat/completions will catch it later if it matters. */
+ *  fails open — chat/completions will catch it later if it matters.
+ *
+ *  Returns HTTP 403 (not 200) so older CLIs — which don't know the
+ *  `country_blocked` status and would tight-poll on an unrecognized 200
+ *  body — fall into their existing `!resp.ok` error path and back off on
+ *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
 function countryBlockedResponse(req: NextRequest): NextResponse | null {
   const countryCode = getCountryCode(req)
   if (!countryCode) return null
   if (FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)) return null
   return NextResponse.json(
     { status: 'country_blocked', countryCode },
-    { status: 200 },
+    { status: 403 },
   )
 }
 

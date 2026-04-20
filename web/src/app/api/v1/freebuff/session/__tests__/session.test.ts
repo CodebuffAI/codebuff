@@ -110,7 +110,9 @@ describe('POST /api/v1/freebuff/session', () => {
       makeReq('ok', { cfCountry: 'FR' }),
       makeDeps(sessionDeps, 'u1'),
     )
-    expect(resp.status).toBe(200)
+    // 403 (not 200) so older CLIs that don't know `country_blocked` fall into
+    // their error-retry backoff instead of tight-polling.
+    expect(resp.status).toBe(403)
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
@@ -143,7 +145,7 @@ describe('GET /api/v1/freebuff/session', () => {
       makeReq('ok', { cfCountry: 'FR' }),
       makeDeps(sessionDeps, 'u1'),
     )
-    expect(resp.status).toBe(200)
+    expect(resp.status).toBe(403)
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
