@@ -15,6 +15,7 @@ import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import CardWithBeams from '@/components/card-with-beams'
+import { WelcomeCard } from '@/components/onboard/welcome-card'
 import { logger } from '@/util/logger'
 
 
@@ -33,19 +34,17 @@ function renderErrorCard(title: string, description: string, message: string) {
 }
 
 function renderSuccessPage(
-  title: string,
+  fallbackTitle: string,
   description: string,
   message: string,
 ) {
-  return CardWithBeams({
-    title,
-    description,
-    content: (
-      <div className="flex flex-col space-y-4 text-center">
-        <p className="text-lg">{message}</p>
-      </div>
-    ),
-  })
+  return (
+    <WelcomeCard
+      fallbackTitle={fallbackTitle}
+      description={description}
+      message={message}
+    />
+  )
 }
 
 const Onboard = async ({ searchParams }: PageProps) => {

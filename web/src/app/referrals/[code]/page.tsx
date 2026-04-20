@@ -6,6 +6,7 @@ import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 import type { Metadata } from 'next'
 
 import CardWithBeams from '@/components/card-with-beams'
+import { PersistReferrer } from '@/components/referral/persist-referrer'
 import { Button } from '@/components/ui/button'
 import { InstallInstructions } from '@/components/ui/install-instructions'
 
@@ -78,10 +79,13 @@ export default async function ReferralPage({
   const displayName = referrerName || referrerParam || 'Someone'
 
   return (
-    <CardWithBeams
-      title={`${displayName} invited you to Codebuff!`}
-      description="Install Codebuff and start building with AI in your terminal."
-      content={<InstallInstructions />}
-    />
+    <>
+      <PersistReferrer referrer={displayName} />
+      <CardWithBeams
+        title={`${displayName} invited you to Codebuff!`}
+        description="Install Codebuff and start building with AI in your terminal."
+        content={<InstallInstructions />}
+      />
+    </>
   )
 }
