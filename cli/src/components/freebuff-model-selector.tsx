@@ -84,47 +84,65 @@ export const FreebuffModelSelector: React.FC = () => {
       <text style={{ fg: theme.muted, marginBottom: 1 }}>
         Model — tap or press 1-{FREEBUFF_MODELS.length} to switch
       </text>
-      {FREEBUFF_MODELS.map((model, idx) => {
-        const isSelected = model.id === selectedModel
-        const isPending = pending === model.id
-        const isHovered = hoveredId === model.id
-        const indicator = isSelected ? '●' : '○'
-        const indicatorColor = isSelected ? theme.primary : theme.muted
-        const labelColor = isSelected ? theme.foreground : theme.muted
-        const interactable = !pending && !isSelected
-        const ahead = aheadByModel?.[model.id]
-        const hint =
-          ahead === undefined
-            ? model.tagline
-            : ahead === 0
-              ? 'No wait'
-              : `${ahead} ahead`
-        return (
-          <Button
-            key={model.id}
-            onClick={() => pick(model.id)}
-            onMouseOver={() => interactable && setHoveredId(model.id)}
-            onMouseOut={() => setHoveredId((curr) => (curr === model.id ? null : curr))}
-            style={{ paddingLeft: 0, paddingRight: 1 }}
-          >
-            <text>
-              <span fg={indicatorColor}>{indicator} </span>
-              <span fg={theme.muted}>{idx + 1}. </span>
-              <span
-                fg={labelColor}
-                attributes={isSelected ? TextAttributes.BOLD : TextAttributes.NONE}
-              >
-                {model.displayName}
-              </span>
-              <span fg={theme.muted}>  {hint}</span>
-              {isPending && <span fg={theme.muted}>  switching…</span>}
-              {isHovered && interactable && !isPending && (
-                <span fg={theme.muted}>  ↵</span>
-              )}
-            </text>
-          </Button>
-        )
-      })}
+      <box
+        style={{
+          flexDirection: 'row',
+          gap: 2,
+        }}
+      >
+        {FREEBUFF_MODELS.map((model, idx) => {
+          const isSelected = model.id === selectedModel
+          const isPending = pending === model.id
+          const isHovered = hoveredId === model.id
+          const indicator = isSelected ? '●' : '○'
+          const indicatorColor = isSelected ? theme.primary : theme.muted
+          const labelColor = isSelected ? theme.foreground : theme.muted
+          const interactable = !pending && !isSelected
+          const ahead = aheadByModel?.[model.id]
+          const hint =
+            ahead === undefined
+              ? model.tagline
+              : ahead === 0
+                ? 'No wait'
+                : `${ahead} ahead`
+
+          const borderColor = isSelected
+            ? theme.primary
+            : isHovered && interactable
+              ? theme.foreground
+              : theme.border
+
+          return (
+            <Button
+              key={model.id}
+              onClick={() => pick(model.id)}
+              onMouseOver={() => interactable && setHoveredId(model.id)}
+              onMouseOut={() => setHoveredId((curr) => (curr === model.id ? null : curr))}
+              style={{
+                borderStyle: 'single',
+                borderColor,
+                paddingLeft: 1,
+                paddingRight: 1,
+              }}
+              border={['top', 'bottom', 'left', 'right']}
+            >
+              <text>
+                <span fg={indicatorColor}>{indicator} </span>
+                <span fg={theme.muted}>{idx + 1}. </span>
+                <span
+                  fg={labelColor}
+                  attributes={isSelected ? TextAttributes.BOLD : TextAttributes.NONE}
+                >
+                  {model.displayName}
+                </span>
+                <span fg={theme.muted}>  {hint}</span>
+                {isPending && <span fg={theme.muted}>  switching…</span>}
+
+              </text>
+            </Button>
+          )
+        })}
+      </box>
     </box>
   )
 }

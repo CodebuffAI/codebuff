@@ -174,11 +174,14 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   : "You're in the waiting room"}
               </text>
 
+              <FreebuffModelSelector />
+
               <box
                 style={{
                   flexDirection: 'column',
                   alignItems: 'flex-start',
                   gap: 0,
+                  marginTop: 1,
                 }}
               >
                 <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
@@ -200,10 +203,6 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed  </span>
                   {formatElapsed(elapsedMs)}
                 </text>
-              </box>
-
-              <box style={{ marginTop: 1 }}>
-                <FreebuffModelSelector />
               </box>
             </>
           )}
