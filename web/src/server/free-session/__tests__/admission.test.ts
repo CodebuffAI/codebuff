@@ -28,6 +28,9 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
     sessionLengthMs: 60 * 60 * 1000,
     graceMs: 30 * 60 * 1000,
     now: () => NOW,
+    // Default to a single model so per-tick assertions (admitted: 1) stay
+    // crisp regardless of how many production models are registered.
+    models: ['test-model'],
     ...overrides,
   }
   return deps
