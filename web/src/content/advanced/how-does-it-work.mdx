@@ -11,7 +11,7 @@ Codebuff runs multiple agents, each tuned for a specific task.
 
 ## The Orchestrator
 
-The main agent ("Buffy") runs on Claude Opus 4.6. It reads your prompt, gathers context, and spawns subagents. The orchestrator is available in several variants:
+The main agent ("Buffy") runs on Claude Opus 4.7. It reads your prompt, gathers context, and spawns subagents. The orchestrator is available in several variants:
 
 - [`base2`](/publishers/codebuff/agents/base2) - Default mode orchestrator
 - [`base2-lite`](/publishers/codebuff/agents/base2-lite) - Lite mode (faster, cheaper)
@@ -22,10 +22,10 @@ The main agent ("Buffy") runs on Claude Opus 4.6. It reads your prompt, gathers 
 
 - [**File Picker**](/publishers/codebuff/agents/file-picker) (Gemini 2.0 Flash) - finds relevant files
 - [**Code Searcher**](/publishers/codebuff/agents/code-searcher) - grep-style pattern matching
-- [**Researcher**](/publishers/codebuff/agents/researcher) (Grok 4 Fast) - web and docs lookup
-- [**Thinker**](/publishers/codebuff/agents/thinker) (GPT-5.1, Gemini 2.5 Pro) - works through hard problems
-- [**Editor**](/publishers/codebuff/agents/editor) (GPT-5.1, Claude Opus 4.6) - writes and modifies code
-- [**Reviewer**](/publishers/codebuff/agents/reviewer) (Claude Opus 4.6, GLM 5.1 in Lite mode) - catches bugs and style issues
+- [**Researcher**](/publishers/codebuff/agents/researcher) (Gemini 3.1 Flash Lite) - web and docs lookup
+- [**Thinker**](/publishers/codebuff/agents/thinker) (Claude Opus 4.7, GPT-5.4) - works through hard problems
+- [**Editor**](/publishers/codebuff/agents/editor) (Claude Opus 4.7, GPT-5.1, GLM 5.1) - writes and modifies code
+- [**Reviewer**](/publishers/codebuff/agents/reviewer) (Claude Opus 4.7, GLM 5.1 in Lite mode) - catches bugs and style issues
 - [**Basher**](/publishers/codebuff/agents/basher) (Gemini 3.1 Flash Lite) - runs terminal commands
 
 ## Best-of-N Selection (Max Mode)

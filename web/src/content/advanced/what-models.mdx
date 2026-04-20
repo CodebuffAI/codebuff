@@ -16,10 +16,10 @@ The main agent ("Buffy") coordinates everything:
 <MarkdownTable>
   | Mode | Model |
   |------|-------|
-  | Default | Opus 4.6 |
-  | Plan | Opus 4.6 |
-  | Max | Opus 4.6 |
-  | Free | GLM 5.1 |
+  | Default | Opus 4.7 |
+  | Plan | Opus 4.7 |
+  | Max | Opus 4.7 |
+  | Lite | GLM 5.1 |
 </MarkdownTable>
 
 ## Subagents
@@ -29,12 +29,12 @@ The orchestrator spawns these for specific jobs:
 <MarkdownTable>
   | Task | Models |
   |------|--------|
-  | Code editing | Claude Opus 4.6, GLM 5.1 |
-  | Thinking/reasoning | Claude Opus 4.6, GPT-5.4 |
-  | Code review | Claude Opus 4.6, GPT-5.4 |
+  | Code editing | Claude Opus 4.7, GLM 5.1 |
+  | Thinking/reasoning | Claude Opus 4.7, GPT-5.4 |
+  | Code review | Claude Opus 4.7, GPT-5.4 |
   | File discovery | Gemini 3.1 Flash Lite, Gemini 2.5 Flash Lite |
   | Terminal commands | Gemini 3.1 Flash Lite |
   | Web/docs research | Gemini 3.1 Flash Lite |
 </MarkdownTable>
 
-Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Free mode uses GLM 5.1 and includes code review support.
+Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Lite mode uses GLM 5.1 and includes code review support.
