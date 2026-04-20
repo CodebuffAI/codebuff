@@ -20,9 +20,7 @@ const POLL_INTERVAL_ERROR_MS = 10_000
  *  account has rotated the id and respond with `{ status: 'superseded' }`. */
 const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
 
-/** Header sent on POST/GET telling the server which model's queue we want.
- *  POST uses it to (re-)join that model's queue; GET uses it only for the
- *  rare GET-before-POST edge where there's no row yet. */
+/** Header sent on POST telling the server which model's queue to join. */
 const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 /** Play the terminal bell so users get an audible notification on admission. */
@@ -48,7 +46,7 @@ async function callSession(
   if (method === 'GET' && opts.instanceId) {
     headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
   }
-  if ((method === 'POST' || method === 'GET') && opts.model) {
+  if (method === 'POST' && opts.model) {
     headers[FREEBUFF_MODEL_HEADER] = opts.model
   }
   const resp = await fetch(sessionEndpoint(), {
@@ -216,6 +214,21 @@ export function markFreebuffSessionEnded(): void {
   controller?.apply({ status: 'ended' })
 }
 
+/** True when the session row represents a server-side slot the caller is
+ *  holding (queued, active, or in the post-expiry grace window with a live
+ *  instance id). DELETE only matters in those states; otherwise we'd fire a
+ *  spurious request the server has nothing to act on. */
+function shouldReleaseSlot(
+  current: FreebuffSessionResponse | null,
+): boolean {
+  if (!current) return false
+  return (
+    current.status === 'queued' ||
+    current.status === 'active' ||
+    (current.status === 'ended' && Boolean(current.instanceId))
+  )
+}
+
 /**
  * Best-effort DELETE of the caller's session row. Used by exit paths that
  * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
@@ -224,13 +237,7 @@ export function markFreebuffSessionEnded(): void {
 export async function endFreebuffSessionBestEffort(): Promise<void> {
   if (!IS_FREEBUFF) return
   const current = useFreebuffSessionStore.getState().session
-  if (!current) return
-  // Only fire DELETE if we actually held a slot.
-  const heldSlot =
-    current.status === 'queued' ||
-    current.status === 'active' ||
-    (current.status === 'ended' && Boolean(current.instanceId))
-  if (!heldSlot) return
+  if (!shouldReleaseSlot(current)) return
   const { token } = getAuthTokenDetails()
   if (!token) return
   try {
@@ -389,12 +396,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
       // Fire-and-forget DELETE. Only release if we actually held a slot so
       // we don't generate spurious DELETEs (e.g. HMR before POST completes).
-      if (
-        current &&
-        (current.status === 'queued' ||
-          current.status === 'active' ||
-          (current.status === 'ended' && current.instanceId))
-      ) {
+      if (shouldReleaseSlot(current)) {
         callSession('DELETE', token).catch(() => {})
       }
       setSession(null)

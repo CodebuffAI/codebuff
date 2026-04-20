@@ -15,7 +15,7 @@ export interface FreebuffModelOption {
   tagline: string
 }
 
-export const FREEBUFF_MODELS: readonly FreebuffModelOption[] = [
+export const FREEBUFF_MODELS = [
   {
     id: 'z-ai/glm-5.1',
     displayName: 'GLM 5.1',
@@ -26,16 +26,22 @@ export const FREEBUFF_MODELS: readonly FreebuffModelOption[] = [
     displayName: 'MiniMax M2.7',
     tagline: 'Fast, lighter wait.',
   },
-] as const
+] as const satisfies readonly FreebuffModelOption[]
 
-export const DEFAULT_FREEBUFF_MODEL_ID: string = FREEBUFF_MODELS[0].id
+export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 
-export function isFreebuffModelId(id: string | null | undefined): id is string {
+export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_MODELS[0].id
+
+export function isFreebuffModelId(
+  id: string | null | undefined,
+): id is FreebuffModelId {
   if (!id) return false
   return FREEBUFF_MODELS.some((m) => m.id === id)
 }
 
-export function resolveFreebuffModel(id: string | null | undefined): string {
+export function resolveFreebuffModel(
+  id: string | null | undefined,
+): FreebuffModelId {
   return isFreebuffModelId(id) ? id : DEFAULT_FREEBUFF_MODEL_ID
 }
 

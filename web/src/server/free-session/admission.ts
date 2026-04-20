@@ -81,6 +81,12 @@ export async function runAdmissionTick(
 
   const models = deps.models ?? FREEBUFF_MODELS.map((m) => m.id)
 
+  // Probe upstream health once per tick. Today every model shares a Fireworks
+  // deployment so a single probe gates them all — TODO: when we add a
+  // non-Fireworks model, plumb a model/deploymentId into the probe.
+  const health = await deps.getFireworksHealth()
+  const sharedHealth = async () => health
+
   // Run per-model admission in parallel — they only contend on independent
   // advisory locks and a single update each.
   const perModel = await Promise.all(
@@ -89,7 +95,7 @@ export async function runAdmissionTick(
         model,
         sessionLengthMs: deps.sessionLengthMs,
         now,
-        getFireworksHealth: deps.getFireworksHealth,
+        getFireworksHealth: sharedHealth,
       })
       const depth = await deps.queueDepth({ model })
       return { model, admittedCount: admitted.length, depth, skipped }
@@ -101,8 +107,6 @@ export async function runAdmissionTick(
   const queueDepthByModel = Object.fromEntries(
     perModel.map((r) => [r.model, r.depth]),
   )
-  // Use the most-degraded skipped reason for the top-level result. They all
-  // come from the same shared probe so they'll usually agree anyway.
   const skipped = perModel.find((r) => r.skipped)?.skipped ?? null
 
   return {

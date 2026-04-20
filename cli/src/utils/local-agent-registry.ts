@@ -7,6 +7,9 @@ import { loadLocalAgents as sdkLoadLocalAgents, loadMCPConfigSync } from '@codeb
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
+import { FREE_MODE_AGENT_MODELS } from '@codebuff/common/constants/free-agents'
+import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+
 import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, IS_FREEBUFF, type AgentMode } from './constants'
@@ -14,15 +17,15 @@ import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
 /** Agents whose hardcoded model gets swapped out for the user's currently
- *  selected freebuff model. Each entry must also be allowlisted under the
- *  matching id in `FREE_MODE_AGENT_MODELS` (server-side check) for both
- *  glm-5.1 and minimax-m2.7 — otherwise the chat-completions endpoint will
- *  reject the request with `free_mode_invalid_agent_model`. */
-const FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS = new Set([
-  'base2-free',
-  'editor-lite',
-  'code-reviewer-lite',
-])
+ *  selected freebuff model. Derived from the server's
+ *  `FREE_MODE_AGENT_MODELS` — any agent whose allowlist contains every
+ *  freebuff model is safe to retarget client-side without tripping the
+ *  server's `free_mode_invalid_agent_model` rejection. */
+const FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS: ReadonlySet<string> = new Set(
+  Object.entries(FREE_MODE_AGENT_MODELS)
+    .filter(([, allowed]) => FREEBUFF_MODELS.every((m) => allowed.has(m.id)))
+    .map(([agentId]) => agentId),
+)
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 

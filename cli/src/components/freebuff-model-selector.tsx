@@ -47,10 +47,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     useCallback(
       (key: KeyEvent) => {
         if (disabled || pending) return
-        const digit = parseInt(key.name ?? '', 10)
-        if (!Number.isFinite(digit) || digit < 1 || digit > FREEBUFF_MODELS.length) {
-          return
-        }
+        const name = key.name ?? ''
+        if (!/^[1-9]$/.test(name)) return
+        const digit = Number(name)
+        if (digit > FREEBUFF_MODELS.length) return
         const target = FREEBUFF_MODELS[digit - 1]
         if (target && target.id !== selectedModel) {
           key.preventDefault?.()

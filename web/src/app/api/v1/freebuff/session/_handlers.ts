@@ -39,10 +39,7 @@ function countryBlockedResponse(req: NextRequest): NextResponse | null {
 /** Header the CLI uses to identify which instance is polling. Used by GET to
  *  detect when another CLI on the same account has rotated the id. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
-/** Header the CLI uses to communicate which freebuff model it wants to be in
- *  the queue for. Used by both POST (join/switch) and GET (read-only — the
- *  server doesn't change the model on a GET, but uses the header for the
- *  rare GET-before-POST case where there's no row yet). */
+/** Header the CLI sends on POST to pick which model's queue to join. */
 export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 export interface FreebuffSessionDeps {
