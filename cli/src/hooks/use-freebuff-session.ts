@@ -317,6 +317,17 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         if (cancelled) return
         hasPosted = true
 
+        // Race recovery: user picked a different model in the waiting room at
+        // the exact moment the server admitted them with the original model.
+        // Silently revert the local selection and re-tick so the next call
+        // (a GET) lands the actual active session. Users who really want to
+        // switch can /end-session deliberately.
+        if (next.status === 'model_locked') {
+          useFreebuffModelStore.getState().setSelectedModel(next.currentModel)
+          schedule(0)
+          return
+        }
+
         if (previousStatus === 'queued' && next.status === 'active') {
           playAdmissionSound()
         }
