@@ -7,12 +7,15 @@ import type { InternalSessionRow } from '../types'
 const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
+const TEST_MODEL = 'z-ai/glm-5.1'
+
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   const now = new Date('2026-04-17T12:00:00Z')
   return {
     user_id: 'u1',
     status: 'queued',
     active_instance_id: 'inst-1',
+    model: TEST_MODEL,
     queued_at: now,
     admitted_at: null,
     expires_at: null,
@@ -41,13 +44,13 @@ describe('toSessionStateResponse', () => {
   const now = new Date('2026-04-17T12:00:00Z')
   const baseArgs = {
     graceMs: GRACE_MS,
+    queueDepthByModel: {},
   }
 
   test('returns null when row is null', () => {
     const view = toSessionStateResponse({
       row: null,
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
@@ -58,15 +61,17 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'queued' }),
       position: 3,
-      queueDepth: 10,
       ...baseArgs,
+      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
       now,
     })
     expect(view).toEqual({
       status: 'queued',
       instanceId: 'inst-1',
+      model: TEST_MODEL,
       position: 3,
       queueDepth: 10,
+      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
       estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
       queuedAt: now.toISOString(),
     })
@@ -78,13 +83,13 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
     expect(view).toEqual({
       status: 'active',
       instanceId: 'inst-1',
+      model: TEST_MODEL,
       admittedAt: admittedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
       remainingMs: 50 * 60_000,
@@ -97,7 +102,6 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
@@ -119,7 +123,6 @@ describe('toSessionStateResponse', () => {
         expires_at: new Date(now.getTime() - GRACE_MS - 1),
       }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })

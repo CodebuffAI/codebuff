@@ -124,6 +124,7 @@ const STATUS_BY_GATE_CODE = {
   waiting_room_queued: 429,
   session_superseded: 409,
   session_expired: 410,
+  session_model_mismatch: 409,
   freebuff_update_required: 426,
 } satisfies Record<GateRejectCode, number>
 
@@ -394,6 +395,7 @@ export async function postChatCompletions(params: {
         userId,
         userEmail: userInfo.email,
         claimedInstanceId,
+        requestedModel: typedBody.model,
       })
       if (!gate.ok) {
         trackEvent({

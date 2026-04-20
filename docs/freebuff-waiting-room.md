@@ -2,13 +2,13 @@
 
 ## Overview
 
-The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployment. It has three jobs:
+The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployments. It has three jobs:
 
-1. **Drip-admit users** — admit at a steady trickle (default 1 per `ADMISSION_TICK_MS`, currently 15s) so load ramps up gradually rather than stampeding the deployment when the queue is long.
-2. **Gate on upstream health** — before each admission tick, probe the Fireworks metrics endpoint with a short timeout (`isFireworksAdmissible` in `web/src/server/free-session/admission.ts`). If it doesn't respond OK, admission halts until it does — this is the primary concurrency control, not a static cap.
+1. **Drip-admit users per model** — each selectable freebuff model has its own FIFO queue. Admission runs one tick (default `ADMISSION_TICK_MS`, 15s) that tries to admit one user per model, so heavier models can sit cold without starving lighter ones.
+2. **Gate on per-deployment health** — a single fleet probe per tick (`getFleetHealth` in `web/src/server/free-session/fireworks-health.ts`) hits the Fireworks metrics endpoint and classifies each dedicated deployment as `healthy | degraded | unhealthy`. Only models whose deployment is `healthy` admit that tick; a degraded minimax-m2.7 no longer stalls glm-5.1 admissions.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
-Users who cannot be admitted immediately are placed in a FIFO queue and given an estimated wait time. Admitted users get a fixed-length session (default 1h) during which they can make free-mode requests subject to the existing per-user rate limits.
+Users who cannot be admitted immediately are placed in the queue for their chosen model and given an estimated wait time. Admitted users get a fixed-length session (default 1h) bound to the model they were admitted on; chat completions use that model for the life of the session.
 
 The entire system is gated by the env flag `FREEBUFF_WAITING_ROOM_ENABLED`. When `false`, the gate is a no-op and the admission ticker does not start; free-mode traffic flows through unchanged.
 
@@ -33,28 +33,30 @@ flowchart LR
     SessionAPI["/api/v1/freebuff/session<br/>(GET, POST, DELETE)"]
     ChatAPI["/api/v1/chat/completions"]
     Gate[checkSessionAdmissible]
-    Ticker[Admission Ticker<br/>every 5s, 1 pod]
+    Ticker["Admission Ticker<br/>every ADMISSION_TICK_MS<br/>(all pods, per-model locks)"]
     Store[(free_session<br/>Postgres)]
-    Probe[isFireworksAdmissible<br/>Fireworks metrics GET]
+    Probe["getFleetHealth<br/>Fireworks metrics GET<br/>(cached ~25s)"]
 
-    CLI -- "POST on startup<br/>(gets instance_id)" --> SessionAPI
+    CLI -- "POST on startup<br/>(model + gets instance_id)" --> SessionAPI
     CLI -- "GET to poll state" --> SessionAPI
     CLI -- "chat requests<br/>include instance_id" --> ChatAPI
     SessionAPI --> Store
     ChatAPI --> Gate
     Gate --> Store
-    Ticker --> Store
+    Ticker -- "per-model admit" --> Store
     Ticker --> Probe
 ```
 
 ### Components
 
-- **`free_session` table** (Postgres) — single source of truth for queue + active-session state. One row per user (PK on `user_id`).
-- **Public API** (`web/src/server/free-session/public-api.ts`) — `requestSession`, `getSessionState`, `endUserSession`, `checkSessionAdmissible`. Pure business logic; DI-friendly.
-- **Store** (`web/src/server/free-session/store.ts`) — all DB ops. Transaction boundaries and advisory locks live here.
-- **Admission ticker** (`web/src/server/free-session/admission.ts`) — self-scheduling timer that runs every 5s, sweeps expired rows, and admits queued users up to capacity.
+- **`free_session` table** (Postgres) — single source of truth for queue + active-session state. One row per user (PK on `user_id`), with a `model` column recording which queue the row belongs to.
+- **Model registry** (`common/src/constants/freebuff-models.ts`) — `FREEBUFF_MODELS` is the authoritative list of selectable models. Adding a new freebuff model means adding an entry here; the admission ticker iterates this list every tick.
+- **Public API** (`web/src/server/free-session/public-api.ts`) — `requestSession`, `getSessionState`, `endUserSession`, `checkSessionAdmissible`. Pure business logic; DI-friendly. `requestSession` accepts the user's chosen `model` and can return `model_locked` when a session is already active on a different model.
+- **Store** (`web/src/server/free-session/store.ts`) — all DB ops. Transaction boundaries and per-model advisory locks live here.
+- **Fleet health probe** (`web/src/server/free-session/fireworks-health.ts`) — `getFleetHealth()` does a single HTTP GET against the Fireworks metrics endpoint and returns a `Record<modelId, 'healthy' | 'degraded' | 'unhealthy'>`. Cached ~25s (under the Fireworks 30s exporter cadence and 6 req/min rate limit). Models without a dedicated deployment in `FIREWORKS_DEPLOYMENT_MAP` (e.g. serverless) are absent from the map and treated as `healthy` at call sites.
+- **Admission ticker** (`web/src/server/free-session/admission.ts`) — self-scheduling timer that runs every `ADMISSION_TICK_MS`. Each tick sweeps expired rows once, resolves fleet health once, then admits one queued user per model in parallel (each guarded by a model-keyed advisory lock).
 - **HTTP routes** (`web/src/app/api/v1/freebuff/session/`) — thin wrappers that resolve the API key → `userId` and delegate to the public API.
-- **Chat-completions gate** (`web/src/app/api/v1/chat/completions/_post.ts`) — for free-mode requests, calls `checkSessionAdmissible(userId, claimedInstanceId)` after the rate-limit check and rejects non-admissible requests with a structured error.
+- **Chat-completions gate** (`web/src/app/api/v1/chat/completions/_post.ts`) — for free-mode requests, calls `checkSessionAdmissible(userId, claimedInstanceId)` after the rate-limit check and rejects non-admissible requests with a structured error. The admitted session's `model` is what gets sent to the upstream.
 
 ## Database Schema
 
@@ -65,6 +67,7 @@ CREATE TABLE free_session (
   user_id             text PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
   status              free_session_status NOT NULL,
   active_instance_id  text NOT NULL,
+  model               text NOT NULL,
   queued_at           timestamptz NOT NULL DEFAULT now(),
   admitted_at         timestamptz,
   expires_at          timestamptz,
@@ -72,16 +75,18 @@ CREATE TABLE free_session (
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_free_session_queue  ON free_session (status, queued_at);
+-- Per-model dequeue: WHERE status='queued' AND model=$1 ORDER BY queued_at
+CREATE INDEX idx_free_session_queue  ON free_session (status, model, queued_at);
 CREATE INDEX idx_free_session_expiry ON free_session (expires_at);
 ```
 
-Migration: `packages/internal/src/db/migrations/0043_vengeful_boomer.sql`.
+Migrations: `packages/internal/src/db/migrations/0043_vengeful_boomer.sql` (initial table) and `0044_violet_stingray.sql` (added the `model` column and rebuilt the queue index).
 
 **Design notes**
 
 - **PK on `user_id`** is the structural enforcement of "one session per account". No app-logic race can produce two rows for one user.
 - **`active_instance_id`** rotates on every `POST /session` call. This is how we enforce one-CLI-at-a-time (see [Single-instance enforcement](#single-instance-enforcement)).
+- **`model` column.** Populated by the POST handler; determines which queue the row belongs to while queued and is fixed for the life of an active session. Switching models while an active session is live is rejected (`model_locked`, 409).
 - **All timestamps server-supplied.** The client never sends `queued_at`, `admitted_at`, or `expires_at` — they are either `DEFAULT now()` or computed server-side during admission.
 - **FK CASCADE on user delete** keeps the table clean without a background job.
 
@@ -127,18 +132,26 @@ The rotation is important: it happens even if the caller is already in the `acti
 
 ## Admission Loop
 
-One pod runs the admission loop at a time, coordinated via Postgres advisory lock. All pods start a ticker on boot, but each tick acquires `pg_try_advisory_xact_lock(FREEBUFF_ADMISSION_LOCK_ID)` inside a transaction; if already held, the tick is a no-op on that pod. The lock is automatically released when the transaction commits.
+All pods start a ticker on boot. Coordination is by **per-model** Postgres advisory locks: the lock id is `FREEBUFF_ADMISSION_LOCK_ID + hashStringToInt32(model)`, so different models can admit concurrently across pods while a single model is still serialized. Each per-model attempt takes the lock inside a transaction via `pg_try_advisory_xact_lock`; if the lock is held by another pod, that model is a no-op on this pod for this tick. The lock is released automatically when the transaction commits.
 
 Each tick does (in order):
 
-1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now() - grace`. Runs regardless of upstream health so zombie sessions are cleaned up even during an outage.
-2. **Admit.** `admitFromQueue()` first calls `isFireworksAdmissible()` (short-timeout GET against the Fireworks metrics endpoint). If the probe fails, returns `{ skipped: 'health' }` — admission pauses and the queue grows until recovery. Otherwise opens a transaction, takes `pg_try_advisory_xact_lock(FREEBUFF_ADMISSION_LOCK_ID)`, and `SELECT ... WHERE status='queued' ORDER BY queued_at, user_id LIMIT 1 FOR UPDATE SKIP LOCKED` → `UPDATE` the row to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. One admit per tick keeps Fireworks from a thundering herd of newly-admitted CLIs.
+1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now() - grace`. Runs once per tick regardless of upstream health so zombie sessions are cleaned up even during an outage.
+2. **Fleet health probe.** `getFleetHealth()` returns a `Record<modelId, 'healthy' | 'degraded' | 'unhealthy'>`. One HTTP call per tick (cached ~25s across pods) covers every model. Deployment absent from the fleet map (serverless) defaults to `healthy` at the call site.
+3. **Admit per model, in parallel.** For each model in `FREEBUFF_MODELS`, call `admitFromQueue({ model, health, sessionLengthMs, now })`:
+   - If `health !== 'healthy'`, returns `{ admitted: [], skipped: health }` without touching Postgres — the model's queue pauses and grows until recovery.
+   - Otherwise opens a transaction, takes the per-model advisory lock, and `SELECT ... WHERE status='queued' AND model=$1 ORDER BY queued_at, user_id LIMIT 1 FOR UPDATE SKIP LOCKED` → `UPDATE` the row to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. One admit per model per tick keeps Fireworks from a thundering herd of newly-admitted CLIs.
+
+The final tick result carries a `queueDepthByModel` map and a single `skipped` reason (the first non-null skip across models) for observability.
 
 ### Tunables
 
 | Constant | Location | Default | Purpose |
 |---|---|---|---|
-| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. One user is admitted per tick. |
+| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. Up to one user is admitted per model per tick. |
+| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `glm-5.1`, `minimax-m2.7` | Selectable models; each gets its own queue and admission slot. |
+| `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | glm-5.1 only | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
+| `HEALTH_CACHE_TTL_MS` | `fireworks-health.ts` | 25000 | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit. |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
 | `FREEBUFF_SESSION_GRACE_MS` | env | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
@@ -148,12 +161,14 @@ All endpoints authenticate via the standard `Authorization: Bearer <api-key>` or
 
 ### `POST /api/v1/freebuff/session`
 
-**Called by the CLI on startup.** Idempotent. Semantics:
+**Called by the CLI on startup and whenever the user picks a different model in the waiting room.** Body: `{ "model": "<freebuff model id>" }` (optional; falls back to the default model if omitted or unknown). Idempotent. Semantics:
 
-- No existing row → create with `status='queued'`, fresh `active_instance_id`, `queued_at=now()`.
-- Existing queued row → rotate `active_instance_id`, preserve `queued_at` (no queue jump).
-- Existing active+unexpired row → rotate `active_instance_id`, preserve `status`/`admitted_at`/`expires_at`.
-- Existing active+expired row → reset to queued with fresh `queued_at` (re-queue at back).
+- No existing row → create with `status='queued'`, `model` = requested, fresh `active_instance_id`, `queued_at=now()`.
+- Existing queued row, **same model** → rotate `active_instance_id`, preserve `queued_at` (no queue jump).
+- Existing queued row, **different model** → switch `model` and reset `queued_at=now()` (move to back of the new model's queue). Rotating `active_instance_id`.
+- Existing active+unexpired row, **same model** → rotate `active_instance_id`, preserve `status`/`admitted_at`/`expires_at`.
+- Existing active+unexpired row, **different model** → reject with `model_locked` (HTTP 409); `active_instance_id` is **not** rotated so the other CLI stays valid. Client must DELETE the session before switching.
+- Existing active+expired row → reset to queued with fresh `queued_at` and the requested `model` (re-queue at back).
 
 Response shapes:
 
@@ -165,9 +180,14 @@ Response shapes:
 {
   "status": "queued",
   "instanceId": "e47…",
-  "position": 17,          // 1-indexed
-  "queueDepth": 43,
-  "estimatedWaitMs": 3600000,
+  "model": "z-ai/glm-5.1",
+  "position": 17,          // 1-indexed within this model's queue
+  "queueDepth": 43,        // size of this model's queue
+  "queueDepthByModel": {   // snapshot of every model's queue — powers the
+    "z-ai/glm-5.1": 43,    //  "N ahead" hint in the selector. Missing
+    "minimax/minimax-m2.7": 4  //  entries should be treated as 0.
+  },
+  "estimatedWaitMs": 384000,
   "queuedAt": "2026-04-17T12:00:00Z"
 }
 
@@ -175,6 +195,7 @@ Response shapes:
 {
   "status": "active",
   "instanceId": "e47…",
+  "model": "z-ai/glm-5.1",
   "admittedAt": "2026-04-17T12:00:00Z",
   "expiresAt":  "2026-04-17T13:00:00Z",
   "remainingMs": 3600000
@@ -191,6 +212,15 @@ Response shapes:
   "expiresAt":  "2026-04-17T13:00:00Z",
   "gracePeriodEndsAt": "2026-04-17T13:30:00Z",
   "gracePeriodRemainingMs": 1800000
+}
+
+// POST only: user asked for a different model while an active session is
+// bound to `currentModel`. HTTP 409. CLI must DELETE /session and re-POST
+// to actually switch.
+{
+  "status": "model_locked",
+  "currentModel": "z-ai/glm-5.1",
+  "requestedModel": "minimax/minimax-m2.7"
 }
 ```
 
@@ -246,29 +276,30 @@ This is a **trust-the-client** design: the server still admits requests during t
 
 ## Estimated Wait Time
 
-Computed in `session-view.ts` as a rough one-minute-per-spot-ahead estimate:
+Computed in `session-view.ts` (`WAIT_MS_PER_SPOT_AHEAD = 24_000`) as a rough per-spot estimate within the user's own model queue:
 
 ```
-waitMs = (position - 1) * 60_000
+waitMs = (position - 1) * 24_000
 ```
 
 - Position 1 → 0 (next tick admits you)
-- Position 2 → one minute, and so on.
+- Position 2 → 24s, and so on.
 
-This estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence and health-gated pauses (during a Fireworks incident admission halts entirely), so the real wait can be longer or shorter.
+`position` is scoped to this model's queue — a user at position 1 in the `minimax/minimax-m2.7` queue is not affected by the depth of the `z-ai/glm-5.1` queue. The estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence and health-gated pauses (during a per-deployment Fireworks incident only the affected model's queue stalls; healthy models keep draining), so the real wait can be longer or shorter.
 
 ## CLI Integration (frontend-side contract)
 
 The CLI:
 
-1. **On startup**, calls `POST /api/v1/freebuff/session`. Stores `instanceId` in memory (not on disk — startup must re-admit).
-2. **Loops while `status === 'queued'`:** polls `GET /api/v1/freebuff/session` (with `X-Freebuff-Instance-Id`) every ~5s and renders `position / queueDepth / estimatedWaitMs`.
-3. **When `status === 'active'`**, renders `remainingMs` as a countdown. Re-polls GET every ~30s to stay honest with server-side state.
-4. **When `status === 'ended'`** (the server-side draining/grace shape, with `instanceId`), hides the input and shows the Enter-to-rejoin banner while still forwarding the instance id on outgoing chat requests so in-flight agent work can finish.
-5. **When `status === 'superseded'`**, stops polling and shows the "close the other CLI" screen.
-6. **On every chat request**, includes `codebuff_metadata.freebuff_instance_id: <stored id>`.
-7. **Handles chat-gate errors:** the same statuses are reachable via the gate's 409/410/428/429 for fast in-flight feedback, and the CLI calls the matching `markFreebuff*` helper to flip local state without waiting for the next poll.
-8. **On clean exit**, calls `DELETE /api/v1/freebuff/session` so the next user can be admitted sooner.
+1. **On startup**, calls `POST /api/v1/freebuff/session` with the user's persisted model choice. Stores `instanceId` in memory (not on disk — startup must re-admit).
+2. **Loops while `status === 'queued'`:** polls `GET /api/v1/freebuff/session` (with `X-Freebuff-Instance-Id`) every ~5s and renders `position / queueDepth / estimatedWaitMs` alongside the selected model.
+3. **Model switch from the waiting room** → re-POSTs with the new model id. Server moves the row to the back of the new model's queue. If the server responds `model_locked` (we already got admitted on the old model in the meantime), the tick loop silently reverts the local selection to the locked model rather than interrupting the active session — users who really want to switch can `/end-session` deliberately.
+4. **When `status === 'active'`**, renders `remainingMs` as a countdown. Re-polls GET every ~30s to stay honest with server-side state. Chat completions use the admitted session's model for the rest of the session.
+5. **When `status === 'ended'`** (the server-side draining/grace shape, with `instanceId`), hides the input and shows the Enter-to-rejoin banner while still forwarding the instance id on outgoing chat requests so in-flight agent work can finish.
+6. **When `status === 'superseded'`**, stops polling and shows the "close the other CLI" screen.
+7. **On every chat request**, includes `codebuff_metadata.freebuff_instance_id: <stored id>`.
+8. **Handles chat-gate errors:** the same statuses are reachable via the gate's 409/410/428/429 for fast in-flight feedback, and the CLI calls the matching `markFreebuff*` helper to flip local state without waiting for the next poll.
+9. **On clean exit**, calls `DELETE /api/v1/freebuff/session` so the next user can be admitted sooner.
 
 The `disabled` response means the server has the waiting room turned off. CLI treats it identically to `active` with infinite remaining time — no countdown, and chat requests can omit `freebuff_instance_id` entirely.
 
@@ -276,7 +307,8 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 
 - **`/api/v1/freebuff/session` routes** are stateless per pod; all state lives in Postgres. Any pod can serve any request.
 - **Chat completions gate** is a single `SELECT` per free-mode request. At high QPS this is the hottest path — the `user_id` PK lookup is O(1). If it ever becomes a problem, the obvious fix is to cache the session row for ~1s per pod.
-- **Admission loop** runs on every pod but is serialized by `pg_try_advisory_xact_lock`. At any given tick, exactly one pod actually admits; the rest early-return.
+- **Admission loop** runs on every pod. Per-model advisory locks serialize admission *within* each model while allowing different models to admit on different pods concurrently. At any given tick, exactly one pod actually admits for each model; the rest early-return on that model's lock.
+- **Fleet health probe** is cached per-pod (`HEALTH_CACHE_TTL_MS`, 25s). Each pod hits the Fireworks metrics endpoint at most ~2.4/min, staying under the 6 req/min account rate limit with a comfortable margin.
 
 ## Abuse Resistance Summary
 
@@ -288,9 +320,11 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 | Client-forged timestamps | All timestamps server-supplied (`DEFAULT now()` or explicit) |
 | Queue jumping via timestamp manipulation | `queued_at` is server-supplied; FIFO order is server-determined |
 | Repeatedly calling POST to reset queue position | POST preserves `queued_at` for already-queued users |
-| Two pods admitting the same user | `SELECT ... FOR UPDATE SKIP LOCKED` + advisory xact lock |
-| Spamming POST/GET to starve admission tick | Admission uses Postgres advisory lock; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
-| Fireworks metrics endpoint down / slow | `isFireworksAdmissible()` fails closed (timeout or non-OK) → admission pauses, queue grows |
+| Two pods admitting the same user | Per-model `SELECT ... FOR UPDATE SKIP LOCKED` + per-model advisory xact lock |
+| Spamming POST/GET to starve admission tick | Admission uses per-model Postgres advisory locks; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
+| Repeatedly POSTing different models to get across every queue | Single row per user (PK on `user_id`); switching models moves the row, never clones it. A user holds exactly one queue slot at any time. |
+| Fireworks metrics endpoint down / slow | `getFleetHealth()` fails closed (timeout, non-OK, or missing API key) → every dedicated-deployment model is flagged `unhealthy` and its queue pauses. |
+| One deployment degraded while others are fine | Health is classified per-deployment; only the affected model's queue pauses, so a degraded minimax-m2.7 doesn't block glm-5.1 admissions. |
 | Zombie expired sessions holding capacity | Swept on every admission tick, even when upstream is unhealthy |
 
 ## Testing
@@ -298,8 +332,9 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 Pure logic covered by `web/src/server/free-session/__tests__/*.test.ts`:
 
 - `session-view.test.ts` — wait-time estimation, row→response mapping
-- `public-api.test.ts` — all status transitions via in-memory DI store
-- `admission.test.ts` — tick behaviour with mocked store + health checks
+- `public-api.test.ts` — all status transitions via in-memory DI store (including `model_locked` and cross-model switching)
+- `admission.test.ts` — tick behaviour with mocked store + per-model health (healthy/degraded/unhealthy, absent-entry-defaults-to-healthy for serverless models)
+- `fireworks-health.test.ts` — `classifyOne` decision table: KV-blocks thresholds, 5xx fraction, prefill queue p90 histogram, per-deployment independence
 
 Handler tests in `web/src/app/api/v1/freebuff/session/__tests__/session.test.ts` cover auth + request routing with a mocked `SessionDeps`.
 

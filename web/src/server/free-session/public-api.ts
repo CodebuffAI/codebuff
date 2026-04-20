@@ -1,13 +1,19 @@
 import {
+  isFreebuffModelId as isSelectableFreebuffModel,
+  resolveFreebuffModel,
+} from '@codebuff/common/constants/freebuff-models'
+
+import {
   getSessionGraceMs,
   isWaitingRoomBypassedForEmail,
   isWaitingRoomEnabled,
 } from './config'
 import {
   endSession,
+  FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
-  queueDepth,
+  queueDepthsByModel,
   queuePositionFor,
 } from './store'
 import { toSessionStateResponse } from './session-view'
@@ -17,10 +23,18 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
 
 export interface SessionDeps {
   getSessionRow: (userId: string) => Promise<InternalSessionRow | null>
-  joinOrTakeOver: (params: { userId: string; now: Date }) => Promise<InternalSessionRow>
+  joinOrTakeOver: (params: {
+    userId: string
+    model: string
+    now: Date
+  }) => Promise<InternalSessionRow>
   endSession: (userId: string) => Promise<void>
-  queueDepth: () => Promise<number>
-  queuePositionFor: (params: { userId: string; queuedAt: Date }) => Promise<number>
+  queueDepthsByModel: () => Promise<Record<string, number>>
+  queuePositionFor: (params: {
+    userId: string
+    model: string
+    queuedAt: Date
+  }) => Promise<number>
   isWaitingRoomEnabled: () => boolean
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
@@ -33,7 +47,7 @@ const defaultDeps: SessionDeps = {
   getSessionRow,
   joinOrTakeOver,
   endSession,
-  queueDepth,
+  queueDepthsByModel,
   queuePositionFor,
   isWaitingRoomEnabled,
   get graceMs() {
@@ -51,39 +65,62 @@ async function viewForRow(
   deps: SessionDeps,
   row: InternalSessionRow,
 ): Promise<SessionStateResponse | null> {
-  const [position, depth] =
+  const [position, depthsByModel] =
     row.status === 'queued'
       ? await Promise.all([
-          deps.queuePositionFor({ userId, queuedAt: row.queued_at }),
-          deps.queueDepth(),
+          deps.queuePositionFor({
+            userId,
+            model: row.model,
+            queuedAt: row.queued_at,
+          }),
+          deps.queueDepthsByModel(),
         ])
-      : [0, 0]
+      : [0, {}]
   return toSessionStateResponse({
     row,
     position,
-    queueDepth: depth,
+    queueDepthByModel: depthsByModel,
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })
 }
 
+export type RequestSessionResult =
+  | SessionStateResponse
+  | {
+      /** User asked to queue/switch to a different model while their active
+       *  session is still bound to another. The CLI must end the existing
+       *  session first (DELETE /session) before re-queueing. */
+      status: 'model_locked'
+      currentModel: string
+      requestedModel: string
+    }
+
 /**
- * Client calls this on CLI startup. Semantics:
- *   - Waiting room disabled → { status: 'disabled' }
- *   - No existing session → create queued row, fresh instance_id
- *   - Existing active (unexpired) → rotate instance_id (takeover), preserve state
- *   - Existing queued → rotate instance_id, preserve queue position
- *   - Existing expired → re-queue at the back with fresh instance_id
+ * Client calls this on CLI startup with the model they want to use.
+ * Semantics:
+ *   - Waiting room disabled → { status: 'disabled' } (model still respected
+ *     downstream by chat-completions)
+ *   - No existing session → create queued row for `model`, fresh instance_id
+ *   - Existing active (unexpired), same model → rotate instance_id (takeover)
+ *   - Existing active (unexpired), different model → { status: 'model_locked' }
+ *   - Existing queued, same model → rotate instance_id, preserve position
+ *   - Existing queued, different model → switch to new model and join the
+ *     back of that model's queue
+ *   - Existing expired → re-queue at the back of `model`'s queue with fresh
+ *     instance_id
  *
- * `joinOrTakeOver` always returns a row that maps to a non-null view (queued
- * or active-unexpired), so the cast below is sound.
+ * `joinOrTakeOver` (when it doesn't throw) always returns a row that maps to
+ * a non-null view (queued or active-unexpired), so the cast below is sound.
  */
 export async function requestSession(params: {
   userId: string
+  model: string
   userEmail?: string | null | undefined
   deps?: SessionDeps
-}): Promise<SessionStateResponse> {
+}): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
+  const model = resolveFreebuffModel(params.model)
   if (
     !deps.isWaitingRoomEnabled() ||
     isWaitingRoomBypassedForEmail(params.userEmail)
@@ -91,7 +128,23 @@ export async function requestSession(params: {
     return { status: 'disabled' }
   }
 
-  const row = await deps.joinOrTakeOver({ userId: params.userId, now: nowOf(deps) })
+  let row: InternalSessionRow
+  try {
+    row = await deps.joinOrTakeOver({
+      userId: params.userId,
+      model,
+      now: nowOf(deps),
+    })
+  } catch (err) {
+    if (err instanceof FreeSessionModelLockedError) {
+      return {
+        status: 'model_locked',
+        currentModel: err.currentModel,
+        requestedModel: model,
+      }
+    }
+    throw err
+  }
   const view = await viewForRow(params.userId, deps, row)
   if (!view) {
     throw new Error(
@@ -171,6 +224,9 @@ export type SessionGateResult =
   | { ok: false; code: 'waiting_room_queued'; message: string }
   | { ok: false; code: 'session_superseded'; message: string }
   | { ok: false; code: 'session_expired'; message: string }
+  /** Active session locked to a different model than the one requested. The
+   *  CLI should restart its session (DELETE then POST) to switch models. */
+  | { ok: false; code: 'session_model_mismatch'; message: string }
   /** Pre-waiting-room CLI that never sends an instance id. Surfaced as a
    *  distinct code so the caller can prompt the user to restart. */
   | { ok: false; code: 'freebuff_update_required'; message: string }
@@ -190,6 +246,10 @@ export async function checkSessionAdmissible(params: {
   userId: string
   userEmail?: string | null | undefined
   claimedInstanceId: string | null | undefined
+  /** Model the chat-completions request is for. When provided, the gate
+   *  rejects requests whose model doesn't match the active session's model
+   *  so a stale CLI tab can't slip a request through under the wrong model. */
+  requestedModel?: string | null | undefined
   deps?: SessionDeps
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
@@ -251,6 +311,23 @@ export async function checkSessionAdmissible(params: {
       ok: false,
       code: 'session_superseded',
       message: 'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+    }
+  }
+
+  // Reject requests for a model the session isn't bound to. Sub-agents may
+  // legitimately use other models (Gemini Flash etc.) so we only enforce this
+  // when the caller provides a requestedModel — and only against the set of
+  // selectable freebuff models (resolveFreebuffModel returns the canonical id
+  // or the default for anything outside the registry).
+  if (
+    params.requestedModel &&
+    isSelectableFreebuffModel(params.requestedModel) &&
+    params.requestedModel !== row.model
+  ) {
+    return {
+      ok: false,
+      code: 'session_model_mismatch',
+      message: `This session is bound to ${row.model}; restart freebuff to switch models.`,
     }
   }
 

@@ -26,21 +26,37 @@ export async function getSessionRow(
  * Join the queue (or take over an existing row with a new instance_id).
  *
  * Semantics:
- *   - If no row exists: insert status=queued, fresh instance_id, queued_at=now.
- *   - If row exists and active+unexpired: rotate instance_id (takeover),
- *     preserve status/admitted_at/expires_at.
- *   - If row exists and expired: reset to queued with fresh instance_id
- *     and fresh queued_at — effectively re-queue at the back.
- *   - If row exists and already queued: rotate instance_id, preserve
- *     queued_at so user keeps their place in line.
+ *   - If no row exists: insert status=queued for `model`, fresh instance_id,
+ *     queued_at=now.
+ *   - If row exists and active+unexpired and model matches: rotate
+ *     instance_id (takeover), preserve status/admitted_at/expires_at.
+ *   - If row exists and active+unexpired but the user picked a different
+ *     model: reject with `model_locked` — the active session is bound to the
+ *     model it was admitted with. The CLI should end the session first.
+ *   - If row exists and expired: reset to queued with fresh instance_id,
+ *     fresh queued_at, and the requested model — effectively re-queue at
+ *     the back of the new model's queue.
+ *   - If row exists and already queued: if model matches, rotate
+ *     instance_id and preserve queued_at; if model differs, switch model
+ *     and reset queued_at to now (move to back of the new queue).
  *
  * Never trusts client-supplied timestamps or instance ids.
  */
+export class FreeSessionModelLockedError extends Error {
+  constructor(public readonly currentModel: string) {
+    super(
+      `Active session is locked to model ${currentModel}; end the session before switching.`,
+    )
+    this.name = 'FreeSessionModelLockedError'
+  }
+}
+
 export async function joinOrTakeOver(params: {
   userId: string
+  model: string
   now: Date
 }): Promise<InternalSessionRow> {
-  const { userId, now } = params
+  const { userId, model, now } = params
   const nextInstanceId = newInstanceId()
 
   // postgres-js does NOT coerce raw JS Date values when they're interpolated
@@ -54,12 +70,21 @@ export async function joinOrTakeOver(params: {
   // column references resolve to the existing row.
   //
   // Decision table (pre-update state → post-update state):
-  //   no row                     → INSERT: status=queued, queued_at=now
-  //   active & expires_at > now  → rotate instance_id only (takeover)
-  //   queued                     → rotate instance_id, preserve queued_at
+  //   no row                     → INSERT: status=queued, queued_at=now,
+  //                                model=$model
+  //   active & expires_at > now  →
+  //     same model: rotate instance_id only (takeover)
+  //     diff model: throw FreeSessionModelLockedError post-fetch (we can't
+  //       easily express the reject-without-update branch in a single UPSERT;
+  //       see below)
+  //   queued, same model         → rotate instance_id, preserve queued_at
+  //   queued, diff model         → switch model, reset queued_at=now
+  //                                (move to back of new queue)
   //   active & expired           → re-queue at back: status=queued,
-  //                                queued_at=now, admitted_at/expires_at=null
+  //                                queued_at=now, model=$model,
+  //                                admitted_at/expires_at=null
   const activeUnexpired = sql`${schema.freeSession.status} = 'active' AND ${schema.freeSession.expires_at} > ${nowIso}`
+  const sameModel = sql`${schema.freeSession.model} = ${model}`
 
   const [row] = await db
     .insert(schema.freeSession)
@@ -67,6 +92,7 @@ export async function joinOrTakeOver(params: {
       user_id: userId,
       status: 'queued',
       active_instance_id: nextInstanceId,
+      model,
       queued_at: now,
       created_at: now,
       updated_at: now,
@@ -74,12 +100,24 @@ export async function joinOrTakeOver(params: {
     .onConflictDoUpdate({
       target: schema.freeSession.user_id,
       set: {
-        active_instance_id: nextInstanceId,
+        // For active+unexpired rows the instance_id only rotates if the model
+        // matches; otherwise we keep the existing id so the active session
+        // stays valid for the other CLI/tab. We then detect the mismatch
+        // post-update and throw, so the caller can return a clean error.
+        active_instance_id: sql`CASE
+          WHEN ${activeUnexpired} AND NOT (${sameModel}) THEN ${schema.freeSession.active_instance_id}
+          ELSE ${nextInstanceId}
+        END`,
         updated_at: now,
         status: sql`CASE WHEN ${activeUnexpired} THEN 'active'::free_session_status ELSE 'queued'::free_session_status END`,
+        // Keep model when active+unexpired (locked); switch otherwise.
+        model: sql`CASE
+          WHEN ${activeUnexpired} THEN ${schema.freeSession.model}
+          ELSE ${model}
+        END`,
         queued_at: sql`CASE
-          WHEN ${schema.freeSession.status} = 'queued' THEN ${schema.freeSession.queued_at}
           WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
+          WHEN ${schema.freeSession.status} = 'queued' AND ${sameModel} THEN ${schema.freeSession.queued_at}
           ELSE ${nowIso}
         END`,
         admitted_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.admitted_at} ELSE NULL END`,
@@ -91,6 +129,13 @@ export async function joinOrTakeOver(params: {
   if (!row) {
     throw new Error(`joinOrTakeOver returned no row for user=${userId}`)
   }
+
+  // Active sessions are locked to their original model — surface a typed
+  // error so the public API can translate it into a structured response.
+  if (row.status === 'active' && row.model !== model) {
+    throw new FreeSessionModelLockedError(row.model)
+  }
+
   return row as InternalSessionRow
 }
 
@@ -100,12 +145,35 @@ export async function endSession(userId: string): Promise<void> {
     .where(eq(schema.freeSession.user_id, userId))
 }
 
-export async function queueDepth(): Promise<number> {
+export async function queueDepth(params: { model: string }): Promise<number> {
   const rows = await db
     .select({ n: count() })
     .from(schema.freeSession)
-    .where(eq(schema.freeSession.status, 'queued'))
+    .where(
+      and(
+        eq(schema.freeSession.status, 'queued'),
+        eq(schema.freeSession.model, params.model),
+      ),
+    )
   return Number(rows[0]?.n ?? 0)
+}
+
+/**
+ * Single-query read of queued-row counts bucketed by model. Powers the
+ * per-model "N ahead" hint in the waiting-room model selector — one round-trip
+ * covers every model's queue depth, so the UI stays cheap to refresh.
+ * Models with no queued rows are absent from the map; callers should default
+ * missing keys to 0.
+ */
+export async function queueDepthsByModel(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ model: schema.freeSession.model, n: count() })
+    .from(schema.freeSession)
+    .where(eq(schema.freeSession.status, 'queued'))
+    .groupBy(schema.freeSession.model)
+  const out: Record<string, number> = {}
+  for (const row of rows) out[row.model] = Number(row.n)
+  return out
 }
 
 export async function activeCount(): Promise<number> {
@@ -118,6 +186,7 @@ export async function activeCount(): Promise<number> {
 
 export async function queuePositionFor(params: {
   userId: string
+  model: string
   queuedAt: Date
 }): Promise<number> {
   const rows = await db
@@ -126,6 +195,7 @@ export async function queuePositionFor(params: {
     .where(
       and(
         eq(schema.freeSession.status, 'queued'),
+        eq(schema.freeSession.model, params.model),
         sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt.toISOString()}::timestamptz, ${params.userId})`,
       ),
     )
@@ -152,34 +222,42 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 }
 
 /**
- * Atomically admit one queued user, gated by the upstream health probe and
- * guarded by an advisory xact lock so only one pod admits per tick.
+ * Atomically admit one queued user for a specific model, gated by the
+ * upstream health for that model's deployment and guarded by an advisory
+ * xact lock so only one pod admits per tick (per model).
+ *
+ * Each model has its own queue; this admits the longest-waiting user from
+ * the given model's queue. Health is passed in (resolved by the caller from
+ * a single fleet probe) rather than fetched here, so a slow probe doesn't
+ * hold a Postgres connection open.
  *
  * Return semantics:
  *   - `{ admitted: [row], skipped: null }` — admitted one user
  *   - `{ admitted: [], skipped: null }` — empty queue or another pod held the lock
- *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — probe blocked admission
+ *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — health blocked admission
  *
  * Only `healthy` admits; `degraded` and `unhealthy` both pause admission (the
  * distinction is for observability — degraded means "upstream loaded",
- * unhealthy means "upstream unreachable or saturated"). The probe runs before
- * the transaction so a slow probe doesn't hold a Postgres connection open.
+ * unhealthy means "upstream unreachable or saturated").
  */
 export async function admitFromQueue(params: {
+  model: string
   sessionLengthMs: number
   now: Date
-  getFireworksHealth: () => Promise<FireworksHealth>
+  health: FireworksHealth
 }): Promise<{ admitted: InternalSessionRow[]; skipped: FireworksHealth | null }> {
-  const { sessionLengthMs, now, getFireworksHealth } = params
+  const { model, sessionLengthMs, now, health } = params
 
-  const health = await getFireworksHealth()
   if (health !== 'healthy') {
     return { admitted: [], skipped: health }
   }
 
   return db.transaction(async (tx) => {
+    // Per-model lock: hashing the model into the lock id lets distinct model
+    // queues admit concurrently while still serializing within a single queue.
+    const modelLockId = FREEBUFF_ADMISSION_LOCK_ID + hashStringToInt32(model)
     const lockResult = await tx.execute<{ acquired: unknown }>(
-      sql`SELECT pg_try_advisory_xact_lock(${FREEBUFF_ADMISSION_LOCK_ID}) AS acquired`,
+      sql`SELECT pg_try_advisory_xact_lock(${modelLockId}) AS acquired`,
     )
     if (
       !coerceBool(
@@ -192,7 +270,12 @@ export async function admitFromQueue(params: {
     const candidates = await tx
       .select({ user_id: schema.freeSession.user_id })
       .from(schema.freeSession)
-      .where(eq(schema.freeSession.status, 'queued'))
+      .where(
+        and(
+          eq(schema.freeSession.status, 'queued'),
+          eq(schema.freeSession.model, model),
+        ),
+      )
       .orderBy(asc(schema.freeSession.queued_at), asc(schema.freeSession.user_id))
       .limit(1)
       .for('update', { skipLocked: true })
@@ -219,4 +302,13 @@ export async function admitFromQueue(params: {
 
     return { admitted: admitted as InternalSessionRow[], skipped: null }
   })
+}
+
+/** Stable 31-bit hash so model-keyed advisory lock ids don't overflow int4. */
+function hashStringToInt32(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0
+  }
+  return Math.abs(h) % 0x40000000
 }

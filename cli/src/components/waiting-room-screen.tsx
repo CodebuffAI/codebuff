@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react'
 import { AdBanner } from './ad-banner'
 import { Button } from './button'
 import { ChoiceAdBanner } from './choice-ad-banner'
+import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useGravityAd } from '../hooks/use-gravity-ad'
@@ -199,6 +200,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed  </span>
                   {formatElapsed(elapsedMs)}
                 </text>
+              </box>
+
+              <box style={{ marginTop: 1 }}>
+                <FreebuffModelSelector />
               </box>
             </>
           )}

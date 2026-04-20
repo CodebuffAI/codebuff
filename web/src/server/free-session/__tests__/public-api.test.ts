@@ -6,12 +6,14 @@ import {
   getSessionState,
   requestSession,
 } from '../public-api'
+import { FreeSessionModelLockedError } from '../store'
 
 import type { SessionDeps } from '../public-api'
 import type { InternalSessionRow } from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
 const GRACE_MS = 30 * 60 * 1000
+const DEFAULT_MODEL = 'z-ai/glm-5.1'
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   rows: Map<string, InternalSessionRow>
@@ -41,15 +43,18 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     endSession: async (userId) => {
       rows.delete(userId)
     },
-    queueDepth: async () => {
-      let n = 0
-      for (const r of rows.values()) if (r.status === 'queued') n++
-      return n
-    },
-    queuePositionFor: async ({ userId, queuedAt }) => {
-      let pos = 0
+    queueDepthsByModel: async () => {
+      const out: Record<string, number> = {}
       for (const r of rows.values()) {
         if (r.status !== 'queued') continue
+        out[r.model] = (out[r.model] ?? 0) + 1
+      }
+      return out
+    },
+    queuePositionFor: async ({ userId, model, queuedAt }) => {
+      let pos = 0
+      for (const r of rows.values()) {
+        if (r.status !== 'queued' || r.model !== model) continue
         if (
           r.queued_at.getTime() < queuedAt.getTime() ||
           (r.queued_at.getTime() === queuedAt.getTime() && r.user_id <= userId)
@@ -59,7 +64,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return pos
     },
-    joinOrTakeOver: async ({ userId, now }) => {
+    joinOrTakeOver: async ({ userId, model, now }) => {
       const existing = rows.get(userId)
       const nextInstance = newInstanceId()
       if (!existing) {
@@ -67,6 +72,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           user_id: userId,
           status: 'queued',
           active_instance_id: nextInstance,
+          model,
           queued_at: now,
           admitted_at: null,
           expires_at: null,
@@ -81,17 +87,25 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         existing.expires_at &&
         existing.expires_at.getTime() > now.getTime()
       ) {
+        if (existing.model !== model) {
+          throw new FreeSessionModelLockedError(existing.model)
+        }
         existing.active_instance_id = nextInstance
         existing.updated_at = now
         return existing
       }
       if (existing.status === 'queued') {
         existing.active_instance_id = nextInstance
+        if (existing.model !== model) {
+          existing.model = model
+          existing.queued_at = now
+        }
         existing.updated_at = now
         return existing
       }
       existing.status = 'queued'
       existing.active_instance_id = nextInstance
+      existing.model = model
       existing.queued_at = now
       existing.admitted_at = null
       existing.expires_at = null
@@ -111,13 +125,17 @@ describe('requestSession', () => {
 
   test('disabled flag returns { status: disabled } and does not touch DB', async () => {
     const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
-    const state = await requestSession({ userId: 'u1', deps: offDeps })
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps: offDeps,
+    })
     expect(state).toEqual({ status: 'disabled' })
     expect(offDeps.rows.size).toBe(0)
   })
 
   test('first call puts user in queue at position 1', async () => {
-    const state = await requestSession({ userId: 'u1', deps })
+    const state = await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.position).toBe(1)
@@ -125,18 +143,34 @@ describe('requestSession', () => {
     expect(state.instanceId).toBe('inst-1')
   })
 
+  test('queued response includes a per-model depth snapshot for the selector', async () => {
+    // Seed 2 users in glm + 1 in minimax so the returned map captures both.
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    deps._tick(new Date(deps._now().getTime() + 1000))
+    await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
+    deps._tick(new Date(deps._now().getTime() + 1000))
+    await requestSession({ userId: 'u3', model: 'minimax/minimax-m2.7', deps })
+
+    const state = await getSessionState({ userId: 'u1', deps })
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.queueDepthByModel).toEqual({
+      [DEFAULT_MODEL]: 2,
+      'minimax/minimax-m2.7': 1,
+    })
+  })
+
   test('second call from same user rotates instance id, keeps queue position', async () => {
-    await requestSession({ userId: 'u1', deps })
-    const second = await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const second = await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     if (second.status !== 'queued') throw new Error('unreachable')
     expect(second.position).toBe(1)
     expect(second.instanceId).toBe('inst-2')
   })
 
   test('multiple users queue in FIFO order', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u2', deps })
+    await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
 
     const s1 = await getSessionState({ userId: 'u1', deps })
     const s2 = await getSessionState({ userId: 'u2', deps })
@@ -147,13 +181,13 @@ describe('requestSession', () => {
 
   test('active unexpired session → rotate instance id, preserve active state', async () => {
     // Prime a user into active state manually.
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
     row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
 
-    const second = await requestSession({ userId: 'u1', deps })
+    const second = await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     expect(second.status).toBe('active')
     if (second.status !== 'active') throw new Error('unreachable')
     expect(second.instanceId).not.toBe('inst-1') // rotated
@@ -178,7 +212,7 @@ describe('getSessionState', () => {
   })
 
   test('active session with matching instance id returns active', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -193,7 +227,7 @@ describe('getSessionState', () => {
   })
 
   test('active session with mismatched instance id returns superseded', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -210,7 +244,7 @@ describe('getSessionState', () => {
   test('omitted claimedInstanceId on active session returns active (read-only)', async () => {
     // Polling without an id (e.g. very first GET before POST has resolved)
     // must not be classified as superseded — only an explicit mismatch is.
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -221,7 +255,7 @@ describe('getSessionState', () => {
   })
 
   test('row inside grace window returns ended (with instanceId)', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
@@ -239,7 +273,7 @@ describe('getSessionState', () => {
   })
 
   test('row past grace window returns none', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - 2 * SESSION_LEN)
@@ -305,7 +339,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('queued session → waiting_room_queued', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const result = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: 'inst-1',
@@ -316,7 +350,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('active + matching instance id → ok', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -333,7 +367,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('active + wrong instance id → session_superseded', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -351,7 +385,7 @@ describe('checkSessionAdmissible', () => {
   test('missing instance id → freebuff_update_required (pre-waiting-room CLI)', async () => {
     // Classified up front regardless of row state: old clients never send an
     // id, so we surface a distinct code that maps to 426 Upgrade Required.
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -367,7 +401,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('active inside grace window → ok with reason=draining', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
@@ -385,7 +419,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('active past the grace window → session_expired', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - 2 * SESSION_LEN)
@@ -401,7 +435,7 @@ describe('checkSessionAdmissible', () => {
   })
 
   test('draining + wrong instance id still rejects with session_superseded', async () => {
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
@@ -420,7 +454,7 @@ describe('checkSessionAdmissible', () => {
 describe('endUserSession', () => {
   test('removes row', async () => {
     const deps = makeDeps()
-    await requestSession({ userId: 'u1', deps })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     expect(deps.rows.has('u1')).toBe(true)
     await endUserSession({ userId: 'u1', deps })
     expect(deps.rows.has('u1')).toBe(false)
@@ -432,6 +466,7 @@ describe('endUserSession', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'x',
+      model: DEFAULT_MODEL,
       queued_at: new Date(),
       admitted_at: null,
       expires_at: null,
