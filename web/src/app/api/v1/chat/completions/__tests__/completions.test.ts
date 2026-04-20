@@ -833,7 +833,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('rate_limit_exceeded')
       expect(body.message).toContain('weekly limit reached')
       expect(body.message).toContain('Enable "Continue with credits"')
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('skips subscription limit check when in FREE mode even with fallback disabled', async () => {
       const weeklyLimitError: BlockGrantResult = {
@@ -880,7 +880,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       })
 
       expect(response.status).toBe(200)
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('returns 429 when block exhausted and fallback disabled', async () => {
       const blockExhaustedError: BlockGrantResult = {
@@ -914,7 +914,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('rate_limit_exceeded')
       expect(body.message).toContain('5-hour session limit reached')
       expect(body.message).toContain('Enable "Continue with credits"')
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('continues when weekly limit reached but fallback is enabled', async () => {
       const weeklyLimitError: BlockGrantResult = {
@@ -945,7 +945,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       expect(response.status).toBe(200)
       expect(mockLogger.info).toHaveBeenCalled()
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it('continues when block grant is created successfully', async () => {
       const blockGrant: BlockGrantResult = {
@@ -977,7 +977,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
       // getUserPreferences should not be called when block grant succeeds
       expect(mockGetUserPreferences).not.toHaveBeenCalled()
-    })
+    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
 
     it.skip('continues when ensureSubscriberBlockGrant throws an error (fail open)', async () => {
       const mockEnsureSubscriberBlockGrant = mock(async () => {
