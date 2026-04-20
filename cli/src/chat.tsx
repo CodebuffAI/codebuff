@@ -1473,15 +1473,17 @@ export const Chat = ({
         )}
 
         {reviewMode ? (
-          // Review takes precedence over the session-ended banner: during the
-          // grace window the agent may still be asking to run tools, and
-          // those approvals must be reachable for the run to finish.
+          // Review and ask_user take precedence over the session-ended banner:
+          // during the grace window the agent may still be asking to run tools
+          // or asking the user a question, and those approvals/answers must be
+          // reachable for the run to finish — otherwise the agent hangs
+          // waiting for input that can never be given.
           <ReviewScreen
             onSelectOption={handleReviewOptionSelect}
             onCustom={handleReviewCustom}
             onCancel={handleCloseReviewScreen}
           />
-        ) : isFreebuffSessionOver ? (
+        ) : isFreebuffSessionOver && !askUserState ? (
           <SessionEndedBanner
             isStreaming={isStreaming || isWaitingForResponse}
           />

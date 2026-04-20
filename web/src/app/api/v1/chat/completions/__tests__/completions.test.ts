@@ -412,8 +412,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(403)
       const body = await response.json()
       expect(body.error).toBe('account_suspended')
-      expect(body.message).toContain('Your account has been suspended due to billing issues')
-      expect(body.message).toContain('to resolve this')
+      expect(body.message).toContain('Your account has been suspended')
+      expect(body.message).toContain('if you did not expect this')
     })
   })
 
