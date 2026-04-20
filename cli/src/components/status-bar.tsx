@@ -1,3 +1,4 @@
+import { getFreebuffModel } from '@codebuff/common/constants/freebuff-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -143,9 +144,14 @@ export const StatusBar = ({
       case 'idle':
         if (sessionProgress !== null) {
           const isUrgent = sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS
+          const modelName =
+            freebuffSession?.status === 'active'
+              ? getFreebuffModel(freebuffSession.model).displayName
+              : null
           return (
             <span fg={isUrgent ? theme.warning : theme.secondary}>
-              Free session · {formatSessionRemaining(sessionProgress.remainingMs)}
+              {modelName ? `${modelName} · ` : ''}Free session ·{' '}
+              {formatSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
