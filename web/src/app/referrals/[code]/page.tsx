@@ -1,8 +1,8 @@
-import { env } from '@codebuff/common/env'
-import { headers } from 'next/headers'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { eq } from 'drizzle-orm'
 import Link from 'next/link'
 
-import type { ReferralCodeResponse } from '../../api/referrals/[code]/route'
 import type { Metadata } from 'next'
 
 import CardWithBeams from '@/components/card-with-beams'
@@ -39,22 +39,12 @@ export default async function ReferralPage({
   const resolvedSearchParams = await searchParams
   const referrerParam = resolvedSearchParams.referrer
 
-  let referrerName: string | null = null
-  try {
-    const baseUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
-    const headerList = await headers()
-    const cookie = headerList.get('Cookie') ?? ''
-    const response = await fetch(`${baseUrl}/api/referrals/${code}`, {
-      headers: { Cookie: cookie },
-    })
+  const referrer = await db.query.user.findFirst({
+    where: eq(schema.user.referral_code, code),
+    columns: { name: true },
+  })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch referral data')
-    }
-
-    const referralData: ReferralCodeResponse = await response.json()
-    referrerName = referralData.referrerName
-  } catch {
+  if (!referrer) {
     return (
       <CardWithBeams
         title="Invalid Referral Link"
@@ -76,7 +66,7 @@ export default async function ReferralPage({
     )
   }
 
-  const displayName = referrerName || referrerParam || 'Someone'
+  const displayName = referrer.name || referrerParam || 'Someone'
 
   return (
     <>

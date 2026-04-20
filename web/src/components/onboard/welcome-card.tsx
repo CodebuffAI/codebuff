@@ -1,5 +1,7 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import posthog from 'posthog-js'
 import { useEffect, useState } from 'react'
 
 import CardWithBeams from '@/components/card-with-beams'
@@ -16,10 +18,14 @@ export function WelcomeCard({
   const [referrer, setReferrer] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem('codebuff_referrer_display')
+    const stored = localStorage.getItem('codebuff_referrer')
     if (stored) {
       setReferrer(stored)
-      localStorage.removeItem('codebuff_referrer_display')
+      posthog.capture(AnalyticsEvent.CODEBUFF_REFERRER_ATTRIBUTED, {
+        referrer: stored,
+        $set_once: { codebuff_referrer: stored },
+      })
+      localStorage.removeItem('codebuff_referrer')
     }
   }, [])
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { CreditCard, Shield, Users, Key, Menu, User } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -14,50 +15,65 @@ import { ReferralsSection } from './components/referrals-section'
 import { SecuritySection } from './components/security-section'
 import { UsageSection } from './components/usage-section'
 
+import type { ReferralData } from '@/app/api/referrals/route'
+
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 
-const sections = [
-  {
-    id: 'usage',
-    title: 'Usage & Credits',
-    icon: CreditCard,
-    component: UsageSection,
-  },
-  {
-    id: 'security',
-    title: 'Security',
-    icon: Shield,
-    component: SecuritySection,
-  },
-  {
-    id: 'api-keys',
-    title: 'API Keys',
-    icon: Key,
-    component: ApiKeysSection,
-  },
-  {
-    id: 'referrals',
-    title: 'Referrals',
-    icon: Users,
-    component: ReferralsSection,
-  },
-  {
-    id: 'account',
-    title: 'Account',
-    icon: User,
-    component: AccountSection,
-  },
-]
+type Section = {
+  id: string
+  title: string
+  icon: typeof CreditCard
+  component: React.ComponentType
+}
+
+const REFERRALS_SECTION: Section = {
+  id: 'referrals',
+  title: 'Referrals',
+  icon: Users,
+  component: ReferralsSection,
+}
+
+function buildSections(hasReferralHistory: boolean): Section[] {
+  return [
+    {
+      id: 'usage',
+      title: 'Usage & Credits',
+      icon: CreditCard,
+      component: UsageSection,
+    },
+    {
+      id: 'security',
+      title: 'Security',
+      icon: Shield,
+      component: SecuritySection,
+    },
+    {
+      id: 'api-keys',
+      title: 'API Keys',
+      icon: Key,
+      component: ApiKeysSection,
+    },
+    ...(hasReferralHistory ? [REFERRALS_SECTION] : []),
+    {
+      id: 'account',
+      title: 'Account',
+      icon: User,
+      component: AccountSection,
+    },
+  ]
+}
 
 function ProfileSidebar({
+  sections,
   activeSection,
   onSectionChange,
   onNavigate,
 }: {
+  sections: Section[]
   activeSection: string
   onSectionChange: (section: string) => void
   onNavigate?: () => void
@@ -89,18 +105,34 @@ function ProfileSidebar({
 }
 
 function ProfilePageContent() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams() ?? new URLSearchParams()
   const [activeSection, setActiveSection] = useState('usage')
   const [open, setOpen] = useState(false)
+
+  const { data: referralData } = useQuery<ReferralData>({
+    queryKey: ['referrals'],
+    queryFn: async () => {
+      const response = await fetch('/api/referrals')
+      const ret = await response.json()
+      if (!response.ok) {
+        throw new Error(`Failed to fetch referral data: ${ret.error}`)
+      }
+      return ret
+    },
+    enabled: !!session?.user,
+  })
+  const hasReferralHistory =
+    !!referralData?.referredBy || (referralData?.referrals.length ?? 0) > 0
+  const sections = buildSections(hasReferralHistory)
 
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab && sections.find((s) => s.id === tab)) {
       setActiveSection(tab)
     }
-  }, [searchParams])
+  }, [searchParams, sections])
 
   // Check for subscription success
   useEffect(() => {
@@ -162,6 +194,7 @@ function ProfilePageContent() {
                 </p>
               </div>
               <ProfileSidebar
+                sections={sections}
                 activeSection={activeSection}
                 onSectionChange={handleSectionChange}
                 onNavigate={() => setOpen(false)}
@@ -207,6 +240,7 @@ function ProfilePageContent() {
               </p>
             </div>
             <ProfileSidebar
+              sections={sections}
               activeSection={activeSection}
               onSectionChange={handleSectionChange}
               onNavigate={() => setOpen(false)}

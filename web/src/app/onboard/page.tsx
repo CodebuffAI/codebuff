@@ -25,28 +25,6 @@ interface PageProps {
   }>
 }
 
-function renderErrorCard(title: string, description: string, message: string) {
-  return CardWithBeams({
-    title,
-    description,
-    content: <p>{message}</p>,
-  })
-}
-
-function renderSuccessPage(
-  fallbackTitle: string,
-  description: string,
-  message: string,
-) {
-  return (
-    <WelcomeCard
-      fallbackTitle={fallbackTitle}
-      description={description}
-      message={message}
-    />
-  )
-}
-
 const Onboard = async ({ searchParams }: PageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const authCode = resolvedSearchParams.auth_code
@@ -58,10 +36,12 @@ const Onboard = async ({ searchParams }: PageProps) => {
   }
 
   if (!authCode) {
-    return renderSuccessPage(
-      'Welcome to Codebuff!',
-      '',
-      "You're all set! Head back to your terminal to continue.",
+    return (
+      <WelcomeCard
+        fallbackTitle="Welcome to Codebuff!"
+        description=""
+        message="You're all set! Head back to your terminal to continue."
+      />
     )
   }
 
@@ -74,29 +54,44 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (!valid) {
-    return renderErrorCard(
-      'Uh-oh, spaghettio!',
-      'Invalid auth code.',
-      'Please try again and reach out to support@codebuff.com if the problem persists.',
+    return (
+      <CardWithBeams
+        title="Uh-oh, spaghettio!"
+        description="Invalid auth code."
+        content={
+          <p>
+            Please try again and reach out to support@codebuff.com if the
+            problem persists.
+          </p>
+        }
+      />
     )
   }
 
   if (isAuthCodeExpired(expiresAt)) {
-    return renderErrorCard(
-      'Uh-oh, spaghettio!',
-      'Auth code expired.',
-      'Please generate a new code and reach out to support@codebuff.com if the problem persists.',
+    return (
+      <CardWithBeams
+        title="Uh-oh, spaghettio!"
+        description="Auth code expired."
+        content={
+          <p>
+            Please generate a new code and reach out to support@codebuff.com if
+            the problem persists.
+          </p>
+        }
+      />
     )
   }
 
   const isReplay = await checkReplayAttack(fingerprintHash, user.id)
   if (isReplay) {
-    return CardWithBeams({
-      title: 'Your account is already connected to your CLI!',
-      description:
-        'Feel free to close this window and head back to your terminal.',
-      content: <p>No replay attack for you 👊</p>,
-    })
+    return (
+      <CardWithBeams
+        title="Your account is already connected to your CLI!"
+        description="Feel free to close this window and head back to your terminal."
+        content={<p>No replay attack for you 👊</p>}
+      />
+    )
   }
 
   const { hasConflict, existingUserId } = await checkFingerprintConflict(
@@ -108,10 +103,17 @@ const Onboard = async ({ searchParams }: PageProps) => {
       { fingerprintId, existingUserId, attemptedUserId: user.id },
       'Fingerprint ownership conflict',
     )
-    return renderErrorCard(
-      'Unable to complete login',
-      'Something went wrong during the login process.',
-      `Please try generating a new login code. If the problem persists, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.`,
+    return (
+      <CardWithBeams
+        title="Unable to complete login"
+        description="Something went wrong during the login process."
+        content={
+          <p>
+            Please try generating a new login code. If the problem persists,
+            contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
+          </p>
+        }
+      />
     )
   }
 
@@ -124,17 +126,26 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (success) {
-    return renderSuccessPage(
-      'Login successful!',
-      '',
-      'Return to your terminal to continue.',
+    return (
+      <WelcomeCard
+        fallbackTitle="Login successful!"
+        description=""
+        message="Return to your terminal to continue."
+      />
     )
   }
 
-  return renderErrorCard(
-    'Uh-oh, spaghettio!',
-    'Something went wrong.',
-    `Not sure what happened. Please try again and reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.`,
+  return (
+    <CardWithBeams
+      title="Uh-oh, spaghettio!"
+      description="Something went wrong."
+      content={
+        <p>
+          Not sure what happened. Please try again and reach out to{' '}
+          {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
+        </p>
+      }
+    />
   )
 }
 

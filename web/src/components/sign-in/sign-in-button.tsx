@@ -31,38 +31,16 @@ export const SignInButton = ({
     onClick?.()
 
     startTransition(async () => {
-      // Include search params in callback URL to preserve context
       const searchParamsString = searchParams.toString()
       let callbackUrl =
         pathname + (searchParamsString ? `?${searchParamsString}` : '')
 
-      console.log('🔵 SignInButton: Starting sign-in process', {
-        pathname,
-        searchParams: Object.fromEntries(searchParams.entries()),
-        initialCallbackUrl: callbackUrl,
-      })
-
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
-
-        console.log('🔵 SignInButton: Login page detected', {
-          authCode: !!authCode,
-        })
-
         if (authCode) {
-          // Logging in from CLI
           callbackUrl = `/onboard?${searchParams.toString()}`
-          console.log(
-            '🔵 SignInButton: CLI flow detected, callback:',
-            callbackUrl,
-          )
         } else {
-          // Regular web login
           callbackUrl = '/'
-          console.log(
-            '🔵 SignInButton: Regular web login, callback:',
-            callbackUrl,
-          )
         }
       }
 
@@ -72,15 +50,8 @@ export const SignInButton = ({
       })
 
       try {
-        console.log('🔵 SignInButton: Calling signIn with:', {
-          providerName,
-          callbackUrl,
-        })
-
-        const result = await signIn(providerName, { callbackUrl })
-        console.log('🔵 SignInButton: signIn result:', result)
+        await signIn(providerName, { callbackUrl })
       } catch (error) {
-        console.error('🔵 SignInButton: signIn failed:', error)
         toast({
           title: 'Sign in failed',
           description:
