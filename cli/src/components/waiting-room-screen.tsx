@@ -190,13 +190,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
                   <span fg={theme.muted}>Wait     </span>
                   <span fg={theme.primary}>
-                    <ShimmerText
-                      text={
-                        session.position === 1
-                          ? 'any moment now'
-                          : formatWait(session.estimatedWaitMs)
-                      }
-                    />
+                    {session.position === 1
+                      ? 'any moment now'
+                      : formatWait(session.estimatedWaitMs)}
                   </span>
                 </text>
                 <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
