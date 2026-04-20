@@ -205,31 +205,31 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 
 /**
  * Atomically admit one queued user for a specific model, gated by the
- * upstream health probe and guarded by an advisory xact lock so only one pod
- * admits per tick (per model).
+ * upstream health for that model's deployment and guarded by an advisory
+ * xact lock so only one pod admits per tick (per model).
  *
- * Each model has its own queue; this admits the longest-waiting user from the
- * given model's queue.
+ * Each model has its own queue; this admits the longest-waiting user from
+ * the given model's queue. Health is passed in (resolved by the caller from
+ * a single fleet probe) rather than fetched here, so a slow probe doesn't
+ * hold a Postgres connection open.
  *
  * Return semantics:
  *   - `{ admitted: [row], skipped: null }` — admitted one user
  *   - `{ admitted: [], skipped: null }` — empty queue or another pod held the lock
- *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — probe blocked admission
+ *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — health blocked admission
  *
  * Only `healthy` admits; `degraded` and `unhealthy` both pause admission (the
  * distinction is for observability — degraded means "upstream loaded",
- * unhealthy means "upstream unreachable or saturated"). The probe runs before
- * the transaction so a slow probe doesn't hold a Postgres connection open.
+ * unhealthy means "upstream unreachable or saturated").
  */
 export async function admitFromQueue(params: {
   model: string
   sessionLengthMs: number
   now: Date
-  getFireworksHealth: () => Promise<FireworksHealth>
+  health: FireworksHealth
 }): Promise<{ admitted: InternalSessionRow[]; skipped: FireworksHealth | null }> {
-  const { model, sessionLengthMs, now, getFireworksHealth } = params
+  const { model, sessionLengthMs, now, health } = params
 
-  const health = await getFireworksHealth()
   if (health !== 'healthy') {
     return { admitted: [], skipped: health }
   }

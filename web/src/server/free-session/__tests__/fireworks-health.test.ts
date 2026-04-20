@@ -4,7 +4,7 @@ import {
   KV_BLOCKS_DEGRADED_FRACTION,
   KV_BLOCKS_UNHEALTHY_FRACTION,
   PREFILL_QUEUE_P90_DEGRADED_MS,
-  classify,
+  classifyOne,
 } from '../fireworks-health'
 
 type PromSample = { name: string; labels: Record<string, string>; value: number }
@@ -57,7 +57,7 @@ function errors(code: string, rate: number): PromSample {
 describe('fireworks health classifier', () => {
   test('healthy when queue well under the threshold', () => {
     const samples: PromSample[] = [kvBlocks(0.5), ...prefillQueueBuckets(150)]
-    expect(classify(samples, [DEPLOY])).toBe('healthy')
+    expect(classifyOne(samples, DEPLOY)).toBe('healthy')
   })
 
   test('degraded when prefill queue p90 exceeds the threshold', () => {
@@ -65,7 +65,7 @@ describe('fireworks health classifier', () => {
       kvBlocks(0.5),
       ...prefillQueueBuckets(PREFILL_QUEUE_P90_DEGRADED_MS + 500),
     ]
-    expect(classify(samples, [DEPLOY])).toBe('degraded')
+    expect(classifyOne(samples, DEPLOY)).toBe('degraded')
   })
 
   test('degraded when KV blocks cross the soft threshold (leading indicator)', () => {
@@ -73,7 +73,7 @@ describe('fireworks health classifier', () => {
       kvBlocks(KV_BLOCKS_DEGRADED_FRACTION + 0.01),
       ...prefillQueueBuckets(300),
     ]
-    expect(classify(samples, [DEPLOY])).toBe('degraded')
+    expect(classifyOne(samples, DEPLOY)).toBe('degraded')
   })
 
   test('unhealthy when KV blocks exceed the backstop', () => {
@@ -81,7 +81,7 @@ describe('fireworks health classifier', () => {
       kvBlocks(KV_BLOCKS_UNHEALTHY_FRACTION + 0.005),
       ...prefillQueueBuckets(300),
     ]
-    expect(classify(samples, [DEPLOY])).toBe('unhealthy')
+    expect(classifyOne(samples, DEPLOY)).toBe('unhealthy')
   })
 
   test('unhealthy when 5xx error fraction exceeds the threshold', () => {
@@ -91,7 +91,7 @@ describe('fireworks health classifier', () => {
       requests(1),
       errors('500', 0.2),
     ]
-    expect(classify(samples, [DEPLOY])).toBe('unhealthy')
+    expect(classifyOne(samples, DEPLOY)).toBe('unhealthy')
   })
 
   test('ignores high error fraction when traffic is too low to be meaningful', () => {
@@ -101,14 +101,17 @@ describe('fireworks health classifier', () => {
       requests(0.05),
       errors('500', 0.05),
     ]
-    expect(classify(samples, [DEPLOY])).toBe('healthy')
+    expect(classifyOne(samples, DEPLOY)).toBe('healthy')
   })
 
   test('healthy with no data yet (new deployment, no events)', () => {
-    expect(classify([], [DEPLOY])).toBe('healthy')
+    expect(classifyOne([], DEPLOY)).toBe('healthy')
   })
 
-  test('worst-of across multiple deployments — unhealthy wins over degraded', () => {
+  test('classifies deployments independently — one bad deployment does not affect another', () => {
+    // The fleet probe builds the result by classifying each deployment
+    // separately, so a saturated 'other' deployment leaves DEPLOY's
+    // (only-degraded) verdict intact.
     const other = 'other123'
     const samples: PromSample[] = [
       kvBlocks(0.5),
@@ -119,6 +122,7 @@ describe('fireworks health classifier', () => {
         value: KV_BLOCKS_UNHEALTHY_FRACTION + 0.005,
       },
     ]
-    expect(classify(samples, [DEPLOY, other])).toBe('unhealthy')
+    expect(classifyOne(samples, DEPLOY)).toBe('degraded')
+    expect(classifyOne(samples, other)).toBe('unhealthy')
   })
 })

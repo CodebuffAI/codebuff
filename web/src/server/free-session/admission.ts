@@ -6,10 +6,10 @@ import {
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
-import { getFireworksHealth } from './fireworks-health'
+import { getFleetHealth } from './fireworks-health'
 import { activeCount, admitFromQueue, queueDepth, sweepExpired } from './store'
 
-import type { FireworksHealth } from './fireworks-health'
+import type { FireworksHealth, FleetHealth } from './fireworks-health'
 
 import { logger } from '@/util/logger'
 
@@ -21,9 +21,9 @@ export interface AdmissionDeps {
     model: string
     sessionLengthMs: number
     now: Date
-    getFireworksHealth: () => Promise<FireworksHealth>
+    health: FireworksHealth
   }) => Promise<{ admitted: { user_id: string }[]; skipped: FireworksHealth | null }>
-  getFireworksHealth: () => Promise<FireworksHealth>
+  getFleetHealth: () => Promise<FleetHealth>
   /** Plain values, not thunks — these never change at runtime. */
   sessionLengthMs: number
   graceMs: number
@@ -38,11 +38,13 @@ const defaultDeps: AdmissionDeps = {
   activeCount,
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
-  // waiting-room → admitted → ended flow without a real upstream.
-  getFireworksHealth:
+  // waiting-room → admitted → ended flow without a real upstream. Returning
+  // an empty fleet means every model resolves to the absence-default of
+  // 'healthy' below.
+  getFleetHealth:
     process.env.FREEBUFF_DEV_FORCE_ADMIT === 'true'
-      ? async () => 'healthy'
-      : getFireworksHealth,
+      ? async () => ({})
+      : getFleetHealth,
   get sessionLengthMs() {
     return getSessionLengthMs()
   },
@@ -81,21 +83,23 @@ export async function runAdmissionTick(
 
   const models = deps.models ?? FREEBUFF_MODELS.map((m) => m.id)
 
-  // Probe upstream health once per tick. Today every model shares a Fireworks
-  // deployment so a single probe gates them all — TODO: when we add a
-  // non-Fireworks model, plumb a model/deploymentId into the probe.
-  const health = await deps.getFireworksHealth()
-  const sharedHealth = async () => health
+  // One probe per tick covers every model — the Fireworks metrics endpoint
+  // returns all deployments in a single response. Models without a dedicated
+  // deployment (e.g. serverless) aren't in the map; treat their absence as
+  // 'healthy' so admission continues. TODO: when those models move to their
+  // own deployments, drop the absence-default and require an explicit entry.
+  const fleet = await deps.getFleetHealth()
 
   // Run per-model admission in parallel — they only contend on independent
   // advisory locks and a single update each.
   const perModel = await Promise.all(
     models.map(async (model) => {
+      const health = fleet[model] ?? 'healthy'
       const { admitted, skipped } = await deps.admitFromQueue({
         model,
         sessionLengthMs: deps.sessionLengthMs,
         now,
-        getFireworksHealth: sharedHealth,
+        health,
       })
       const depth = await deps.queueDepth({ model })
       return { model, admittedCount: admitted.length, depth, skipped }

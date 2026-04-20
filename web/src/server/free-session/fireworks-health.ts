@@ -52,25 +52,35 @@ const HEALTH_CHECK_TIMEOUT_MS = 5_000
  *  pod hits the endpoint at most ~2.4/min. */
 const HEALTH_CACHE_TTL_MS = 25_000
 
-type CacheEntry = { expiresAt: number; health: FireworksHealth }
+/** Map of model id → FireworksHealth. Only includes models that have a
+ *  dedicated Fireworks deployment in `FIREWORKS_DEPLOYMENT_MAP`. Models served
+ *  via the Fireworks serverless API (no deployment id) are not present —
+ *  callers should treat their absence as 'healthy' for now.
+ *  TODO: when serverless models move to dedicated deployments, drop the
+ *        absence-means-healthy fallback at the call site. */
+export type FleetHealth = Record<string, FireworksHealth>
+
+type CacheEntry = { expiresAt: number; fleet: FleetHealth }
 let cache: CacheEntry | null = null
 
 export function __resetFireworksHealthCacheForTests(): void {
   cache = null
 }
 
-export async function getFireworksHealth(): Promise<FireworksHealth> {
+export async function getFleetHealth(): Promise<FleetHealth> {
   const now = Date.now()
-  if (cache && cache.expiresAt > now) return cache.health
+  if (cache && cache.expiresAt > now) return cache.fleet
 
-  const health = await probe()
-  cache = { expiresAt: now + HEALTH_CACHE_TTL_MS, health }
-  return health
+  const fleet = await probe()
+  cache = { expiresAt: now + HEALTH_CACHE_TTL_MS, fleet }
+  return fleet
 }
 
-async function probe(): Promise<FireworksHealth> {
+async function probe(): Promise<FleetHealth> {
   const apiKey = env.FIREWORKS_API_KEY
-  if (!apiKey) return 'unhealthy'
+  // Mark every deployment-mapped model unhealthy when we can't authenticate
+  // the probe. Serverless models (absent from the map) keep their default.
+  if (!apiKey) return allDeploymentsAt('unhealthy')
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
@@ -81,18 +91,15 @@ async function probe(): Promise<FireworksHealth> {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
     })
-    if (!response.ok) return 'unhealthy'
+    if (!response.ok) return allDeploymentsAt('unhealthy')
     body = await response.text()
   } catch {
-    return 'unhealthy'
+    return allDeploymentsAt('unhealthy')
   } finally {
     clearTimeout(timeout)
   }
 
-  const deploymentIds = Object.values(FIREWORKS_DEPLOYMENT_MAP).map(
-    (name) => name.split('/').pop()!,
-  )
-  if (deploymentIds.length === 0) return 'healthy'
+  if (Object.keys(FIREWORKS_DEPLOYMENT_MAP).length === 0) return {}
 
   const { samples, newestTimestampMs } = parsePrometheus(body)
 
@@ -104,27 +111,26 @@ async function probe(): Promise<FireworksHealth> {
       { ageMs: Date.now() - newestTimestampMs },
       '[FireworksHealth] unhealthy: metrics snapshot is stale',
     )
-    return 'unhealthy'
+    return allDeploymentsAt('unhealthy')
   }
 
-  return classify(samples, deploymentIds)
-}
-
-/** Treat the whole fleet as degraded/unhealthy if any single deployment is. */
-export function classify(
-  samples: PromSample[],
-  deploymentIds: string[],
-): FireworksHealth {
-  let worst: FireworksHealth = 'healthy'
-  for (const deploymentId of deploymentIds) {
-    const h = classifyOne(samples, deploymentId)
-    if (h === 'unhealthy') return 'unhealthy'
-    if (h === 'degraded') worst = 'degraded'
+  const fleet: FleetHealth = {}
+  for (const [modelId, deploymentName] of Object.entries(FIREWORKS_DEPLOYMENT_MAP)) {
+    const deploymentId = deploymentName.split('/').pop()!
+    fleet[modelId] = classifyOne(samples, deploymentId)
   }
-  return worst
+  return fleet
 }
 
-function classifyOne(samples: PromSample[], deploymentId: string): FireworksHealth {
+function allDeploymentsAt(health: FireworksHealth): FleetHealth {
+  const out: FleetHealth = {}
+  for (const modelId of Object.keys(FIREWORKS_DEPLOYMENT_MAP)) {
+    out[modelId] = health
+  }
+  return out
+}
+
+export function classifyOne(samples: PromSample[], deploymentId: string): FireworksHealth {
   const kvBlocks = scalarFor(
     samples,
     'generator_kv_blocks_fraction:avg_by_deployment',
