@@ -16,10 +16,10 @@ export function WelcomeCard({
   const [referrer, setReferrer] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem('codebuff_referrer')
+    const stored = localStorage.getItem('codebuff_referrer_display')
     if (stored) {
       setReferrer(stored)
-      localStorage.removeItem('codebuff_referrer')
+      localStorage.removeItem('codebuff_referrer_display')
     }
   }, [])
 

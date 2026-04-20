@@ -7,6 +7,7 @@ import { Footer } from '@/components/footer'
 import { LayoutWrapper } from '@/components/layout-wrapper'
 import { Navbar } from '@/components/navbar/navbar'
 import QueryProvider from '@/components/providers/query-client-provider'
+import { ReferrerTracker } from '@/components/referral/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { siteConfig } from '@/lib/constant'
@@ -66,6 +67,7 @@ export default function RootLayout({
           <SessionProvider>
             <QueryProvider>
               <PostHogProvider>
+                <ReferrerTracker />
                 <Navbar />
                 <div className="flex-grow">
                   <LayoutWrapper>{children}</LayoutWrapper>

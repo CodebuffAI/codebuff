@@ -62,6 +62,9 @@ export enum AnalyticsEvent {
   ONBOARD_PAGE_RUN_COMMAND_COPIED = 'onboard_page.run_command_copied',
   ONBOARD_PAGE_INSTALL_COMMAND_COPIED = 'onboard_page.install_command_copied',
 
+  // Web - Creator Attribution
+  CODEBUFF_REFERRER_ATTRIBUTED = 'codebuff.referrer_attributed',
+
   // Web - Install Dialog
   INSTALL_DIALOG_CD_COMMAND_COPIED = 'install_dialog.cd_command_copied',
   INSTALL_DIALOG_RUN_COMMAND_COPIED = 'install_dialog.run_command_copied',
