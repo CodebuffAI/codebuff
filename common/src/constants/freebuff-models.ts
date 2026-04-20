@@ -19,12 +19,12 @@ export const FREEBUFF_MODELS = [
   {
     id: 'z-ai/glm-5.1',
     displayName: 'GLM 5.1',
-    tagline: 'Strong all-rounder.',
+    tagline: 'Smartest',
   },
   {
     id: 'minimax/minimax-m2.7',
     displayName: 'MiniMax M2.7',
-    tagline: 'Fast, lighter wait.',
+    tagline: 'Fastest',
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
