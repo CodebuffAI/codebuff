@@ -20,7 +20,7 @@ export type FireworksHealth = 'healthy' | 'degraded' | 'unhealthy'
  *  instead of p50 gives a better early-warning signal — the tail starts
  *  rising before the median does, so we can halt admission before most
  *  users feel it. */
-export const PREFILL_QUEUE_P90_DEGRADED_MS = 1000
+export const PREFILL_QUEUE_P90_DEGRADED_MS = 500
 
 /** Leading indicator of load — responds instantly to memory pressure, while
  *  prefill-queue p90 is a lagging window statistic. Degrading here lets us
