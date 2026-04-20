@@ -183,6 +183,10 @@ Response shapes:
   "model": "z-ai/glm-5.1",
   "position": 17,          // 1-indexed within this model's queue
   "queueDepth": 43,        // size of this model's queue
+  "queueDepthByModel": {   // snapshot of every model's queue — powers the
+    "z-ai/glm-5.1": 43,    //  "N ahead" hint in the selector. Missing
+    "minimax/minimax-m2.7": 4  //  entries should be treated as 0.
+  },
   "estimatedWaitMs": 384000,
   "queuedAt": "2026-04-17T12:00:00Z"
 }

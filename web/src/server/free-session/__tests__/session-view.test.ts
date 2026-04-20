@@ -44,13 +44,13 @@ describe('toSessionStateResponse', () => {
   const now = new Date('2026-04-17T12:00:00Z')
   const baseArgs = {
     graceMs: GRACE_MS,
+    queueDepthByModel: {},
   }
 
   test('returns null when row is null', () => {
     const view = toSessionStateResponse({
       row: null,
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
@@ -61,8 +61,8 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'queued' }),
       position: 3,
-      queueDepth: 10,
       ...baseArgs,
+      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
       now,
     })
     expect(view).toEqual({
@@ -71,6 +71,7 @@ describe('toSessionStateResponse', () => {
       model: TEST_MODEL,
       position: 3,
       queueDepth: 10,
+      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
       estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
       queuedAt: now.toISOString(),
     })
@@ -82,7 +83,6 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
@@ -102,7 +102,6 @@ describe('toSessionStateResponse', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })
@@ -124,7 +123,6 @@ describe('toSessionStateResponse', () => {
         expires_at: new Date(now.getTime() - GRACE_MS - 1),
       }),
       position: 0,
-      queueDepth: 0,
       ...baseArgs,
       now,
     })

@@ -158,6 +158,24 @@ export async function queueDepth(params: { model: string }): Promise<number> {
   return Number(rows[0]?.n ?? 0)
 }
 
+/**
+ * Single-query read of queued-row counts bucketed by model. Powers the
+ * per-model "N ahead" hint in the waiting-room model selector — one round-trip
+ * covers every model's queue depth, so the UI stays cheap to refresh.
+ * Models with no queued rows are absent from the map; callers should default
+ * missing keys to 0.
+ */
+export async function queueDepthsByModel(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ model: schema.freeSession.model, n: count() })
+    .from(schema.freeSession)
+    .where(eq(schema.freeSession.status, 'queued'))
+    .groupBy(schema.freeSession.model)
+  const out: Record<string, number> = {}
+  for (const row of rows) out[row.model] = Number(row.n)
+  return out
+}
+
 export async function activeCount(): Promise<number> {
   const rows = await db
     .select({ n: count() })

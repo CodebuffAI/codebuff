@@ -43,12 +43,13 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     endSession: async (userId) => {
       rows.delete(userId)
     },
-    queueDepth: async ({ model }) => {
-      let n = 0
+    queueDepthsByModel: async () => {
+      const out: Record<string, number> = {}
       for (const r of rows.values()) {
-        if (r.status === 'queued' && r.model === model) n++
+        if (r.status !== 'queued') continue
+        out[r.model] = (out[r.model] ?? 0) + 1
       }
-      return n
+      return out
     },
     queuePositionFor: async ({ userId, model, queuedAt }) => {
       let pos = 0
@@ -140,6 +141,22 @@ describe('requestSession', () => {
     expect(state.position).toBe(1)
     expect(state.queueDepth).toBe(1)
     expect(state.instanceId).toBe('inst-1')
+  })
+
+  test('queued response includes a per-model depth snapshot for the selector', async () => {
+    // Seed 2 users in glm + 1 in minimax so the returned map captures both.
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    deps._tick(new Date(deps._now().getTime() + 1000))
+    await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
+    deps._tick(new Date(deps._now().getTime() + 1000))
+    await requestSession({ userId: 'u3', model: 'minimax/minimax-m2.7', deps })
+
+    const state = await getSessionState({ userId: 'u1', deps })
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.queueDepthByModel).toEqual({
+      [DEFAULT_MODEL]: 2,
+      'minimax/minimax-m2.7': 1,
+    })
   })
 
   test('second call from same user rotates instance id, keeps queue position', async () => {

@@ -26,6 +26,11 @@ export type FreebuffSessionServerResponse =
       /** 1-indexed position in the queue for `model`. */
       position: number
       queueDepth: number
+      /** Current depth of every model's queue, so the CLI can show a live
+       *  "N ahead" hint on each row of the model selector. Models with no
+       *  queued rows at snapshot time may be absent; the CLI should treat a
+       *  missing entry as 0. */
+      queueDepthByModel: Record<string, number>
       estimatedWaitMs: number
       queuedAt: string
     }

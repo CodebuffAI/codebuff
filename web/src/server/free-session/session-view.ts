@@ -12,11 +12,13 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
 export function toSessionStateResponse(params: {
   row: InternalSessionRow | null
   position: number
-  queueDepth: number
+  /** Snapshot of every model's queue depth at response time. Only consumed
+   *  by the `queued` variant — active/ended don't need the selector. */
+  queueDepthByModel: Record<string, number>
   graceMs: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepth, graceMs, now } = params
+  const { row, position, queueDepthByModel, graceMs, now } = params
   if (!row) return null
 
   if (row.status === 'active' && row.expires_at) {
@@ -51,7 +53,8 @@ export function toSessionStateResponse(params: {
       instanceId: row.active_instance_id,
       model: row.model,
       position,
-      queueDepth,
+      queueDepth: queueDepthByModel[row.model] ?? 0,
+      queueDepthByModel,
       estimatedWaitMs: estimateWaitMs({ position }),
       queuedAt: row.queued_at.toISOString(),
     }

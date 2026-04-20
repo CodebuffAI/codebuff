@@ -39,7 +39,14 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     graceMs: 30 * 60 * 1000,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
-    queueDepth: async () => [...rows.values()].filter((r) => r.status === 'queued').length,
+    queueDepthsByModel: async () => {
+      const out: Record<string, number> = {}
+      for (const r of rows.values()) {
+        if (r.status !== 'queued') continue
+        out[r.model] = (out[r.model] ?? 0) + 1
+      }
+      return out
+    },
     queuePositionFor: async () => 1,
     endSession: async (userId) => {
       rows.delete(userId)

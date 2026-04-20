@@ -13,7 +13,7 @@ import {
   FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
-  queueDepth,
+  queueDepthsByModel,
   queuePositionFor,
 } from './store'
 import { toSessionStateResponse } from './session-view'
@@ -29,7 +29,7 @@ export interface SessionDeps {
     now: Date
   }) => Promise<InternalSessionRow>
   endSession: (userId: string) => Promise<void>
-  queueDepth: (params: { model: string }) => Promise<number>
+  queueDepthsByModel: () => Promise<Record<string, number>>
   queuePositionFor: (params: {
     userId: string
     model: string
@@ -47,7 +47,7 @@ const defaultDeps: SessionDeps = {
   getSessionRow,
   joinOrTakeOver,
   endSession,
-  queueDepth,
+  queueDepthsByModel,
   queuePositionFor,
   isWaitingRoomEnabled,
   get graceMs() {
@@ -65,7 +65,7 @@ async function viewForRow(
   deps: SessionDeps,
   row: InternalSessionRow,
 ): Promise<SessionStateResponse | null> {
-  const [position, depth] =
+  const [position, depthsByModel] =
     row.status === 'queued'
       ? await Promise.all([
           deps.queuePositionFor({
@@ -73,13 +73,13 @@ async function viewForRow(
             model: row.model,
             queuedAt: row.queued_at,
           }),
-          deps.queueDepth({ model: row.model }),
+          deps.queueDepthsByModel(),
         ])
-      : [0, 0]
+      : [0, {}]
   return toSessionStateResponse({
     row,
     position,
-    queueDepth: depth,
+    queueDepthByModel: depthsByModel,
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })
