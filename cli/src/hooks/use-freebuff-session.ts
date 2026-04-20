@@ -170,8 +170,10 @@ export async function refreshFreebuffSession(opts: { resetChat?: boolean } = {})
 /**
  * User picked a different model in the waiting room. Persist the choice and
  * re-POST so the server moves them to the back of the new model's queue. If
- * the user has an active session bound to a different model, the server
- * responds with `model_locked` and the UI prompts them to end first.
+ * the server has already admitted them on a different model, it responds
+ * with `model_locked`; the tick loop silently reverts the local selection to
+ * the locked model so the active session stays intact. Users who really want
+ * to switch can /end-session deliberately.
  */
 export async function switchFreebuffModel(model: string): Promise<void> {
   if (!IS_FREEBUFF) return

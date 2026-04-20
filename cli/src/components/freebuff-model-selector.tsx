@@ -11,21 +11,12 @@ import { useTheme } from '../hooks/use-theme'
 
 import type { KeyEvent } from '@opentui/core'
 
-interface FreebuffModelSelectorProps {
-  /** Disables interaction while a switch / refresh is mid-flight so the user
-   *  can't queue up a second switch and double-bounce themselves to the back
-   *  of yet another queue. */
-  disabled?: boolean
-}
-
 /**
  * Lets the user pick which model's queue they're in. Tapping (or pressing the
  * row's number key) on a different model triggers a re-POST: the server moves
  * them to the back of the new model's queue.
  */
-export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
-  disabled = false,
-}) => {
+export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const [pending, setPending] = useState<string | null>(null)
@@ -33,12 +24,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 
   const pick = useCallback(
     (modelId: string) => {
-      if (disabled || pending) return
+      if (pending) return
       if (modelId === selectedModel) return
       setPending(modelId)
       switchFreebuffModel(modelId).finally(() => setPending(null))
     },
-    [disabled, pending, selectedModel],
+    [pending, selectedModel],
   )
 
   // Number-key shortcuts (1-9) so keyboard-only users can switch without
@@ -46,7 +37,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
-        if (disabled || pending) return
+        if (pending) return
         const name = key.name ?? ''
         if (!/^[1-9]$/.test(name)) return
         const digit = Number(name)
@@ -57,7 +48,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           pick(target.id)
         }
       },
-      [disabled, pending, pick, selectedModel],
+      [pending, pick, selectedModel],
     ),
   )
 
@@ -79,7 +70,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         const indicator = isSelected ? '●' : '○'
         const indicatorColor = isSelected ? theme.primary : theme.muted
         const labelColor = isSelected ? theme.foreground : theme.muted
-        const interactable = !disabled && !pending && !isSelected
+        const interactable = !pending && !isSelected
         return (
           <Button
             key={model.id}
