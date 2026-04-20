@@ -14,11 +14,12 @@ import type { NextRequest } from 'next/server'
 
 function makeReq(
   apiKey: string | null,
-  opts: { instanceId?: string } = {},
+  opts: { instanceId?: string; cfCountry?: string } = {},
 ): NextRequest {
   const headers = new Headers()
   if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`)
   if (opts.instanceId) headers.set(FREEBUFF_INSTANCE_HEADER, opts.instanceId)
+  if (opts.cfCountry) headers.set('cf-ipcountry', opts.cfCountry)
   return {
     headers,
   } as unknown as NextRequest
@@ -102,6 +103,31 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('disabled')
   })
+
+  test('returns country_blocked without joining the queue for disallowed country', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'FR' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    // 403 (not 200) so older CLIs that don't know `country_blocked` fall into
+    // their error-retry backoff instead of tight-polling.
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.countryCode).toBe('FR')
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('allows queue entry for allowed country', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'US' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    const body = await resp.json()
+    expect(body.status).toBe('queued')
+  })
 })
 
 describe('GET /api/v1/freebuff/session', () => {
@@ -111,6 +137,18 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('none')
+  })
+
+  test('returns country_blocked for disallowed country on GET', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'FR' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.countryCode).toBe('FR')
   })
 
   test('returns superseded when active row exists with mismatched instance id', async () => {

@@ -384,7 +384,8 @@ const AuthedSurface = ({
     IS_FREEBUFF &&
     (session === null ||
       session.status === 'queued' ||
-      session.status === 'none')
+      session.status === 'none' ||
+      session.status === 'country_blocked')
   ) {
     return <WaitingRoomScreen session={session} error={sessionError} />
   }

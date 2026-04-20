@@ -5,12 +5,36 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
+import {
+  FREE_MODE_ALLOWED_COUNTRIES,
+  getCountryCode,
+} from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { SessionDeps } from '@/server/free-session/public-api'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
+
+/** Early country gate. Mirrors the chat/completions check: if we can resolve
+ *  the caller's country and it's not on the allowlist, short-circuit with a
+ *  terminal `country_blocked` response so the CLI can show the warning
+ *  screen without ever joining the queue. Null country (VPN / localhost)
+ *  fails open — chat/completions will catch it later if it matters.
+ *
+ *  Returns HTTP 403 (not 200) so older CLIs — which don't know the
+ *  `country_blocked` status and would tight-poll on an unrecognized 200
+ *  body — fall into their existing `!resp.ok` error path and back off on
+ *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
+function countryBlockedResponse(req: NextRequest): NextResponse | null {
+  const countryCode = getCountryCode(req)
+  if (!countryCode) return null
+  if (FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)) return null
+  return NextResponse.json(
+    { status: 'country_blocked', countryCode },
+    { status: 403 },
+  )
+}
 
 /** Header the CLI uses to identify which instance is polling. Used by GET to
  *  detect when another CLI on the same account has rotated the id. */
@@ -95,6 +119,9 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
+  const blocked = countryBlockedResponse(req)
+  if (blocked) return blocked
+
   try {
     const state = await requestSession({
       userId: auth.userId,
@@ -116,6 +143,9 @@ export async function getFreebuffSession(
 ): Promise<NextResponse> {
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
+
+  const blocked = countryBlockedResponse(req)
+  if (blocked) return blocked
 
   try {
     const claimedInstanceId = req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
