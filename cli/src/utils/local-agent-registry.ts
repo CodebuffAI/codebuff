@@ -7,10 +7,22 @@ import { loadLocalAgents as sdkLoadLocalAgents, loadMCPConfigSync } from '@codeb
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
+import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
-import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
+import { AGENT_MODE_TO_ID, IS_FREEBUFF, type AgentMode } from './constants'
 import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
+
+/** Agents whose hardcoded model gets swapped out for the user's currently
+ *  selected freebuff model. Each entry must also be allowlisted under the
+ *  matching id in `FREE_MODE_AGENT_MODELS` (server-side check) for both
+ *  glm-5.1 and minimax-m2.7 — otherwise the chat-completions endpoint will
+ *  reject the request with `free_mode_invalid_agent_model`. */
+const FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS = new Set([
+  'base2-free',
+  'editor-lite',
+  'code-reviewer-lite',
+])
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -350,6 +362,20 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
           ...def.mcpServers,
           ...mcpServersCache,
         }
+      }
+    }
+  }
+
+  // Override the model of free-mode agents to match the user's pick from the
+  // freebuff waiting room. Bundled definitions hardcode glm-5.1; we swap in
+  // whatever the user chose so the chat-completions request body carries the
+  // matching model and the server-side session gate doesn't reject it as a
+  // model mismatch.
+  if (IS_FREEBUFF) {
+    const selectedModel = getSelectedFreebuffModel()
+    for (const def of definitions) {
+      if (FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS.has(def.id)) {
+        def.model = selectedModel
       }
     }
   }

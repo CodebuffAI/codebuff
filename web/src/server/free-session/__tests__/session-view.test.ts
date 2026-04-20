@@ -7,12 +7,15 @@ import type { InternalSessionRow } from '../types'
 const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
+const TEST_MODEL = 'z-ai/glm-5.1'
+
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   const now = new Date('2026-04-17T12:00:00Z')
   return {
     user_id: 'u1',
     status: 'queued',
     active_instance_id: 'inst-1',
+    model: TEST_MODEL,
     queued_at: now,
     admitted_at: null,
     expires_at: null,
@@ -65,6 +68,7 @@ describe('toSessionStateResponse', () => {
     expect(view).toEqual({
       status: 'queued',
       instanceId: 'inst-1',
+      model: TEST_MODEL,
       position: 3,
       queueDepth: 10,
       estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
@@ -85,6 +89,7 @@ describe('toSessionStateResponse', () => {
     expect(view).toEqual({
       status: 'active',
       instanceId: 'inst-1',
+      model: TEST_MODEL,
       admittedAt: admittedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
       remainingMs: 50 * 60_000,

@@ -15,6 +15,8 @@ export interface InternalSessionRow {
   user_id: string
   status: FreeSessionStatus
   active_instance_id: string
+  /** Freebuff model id this row is queued for (or locked to, once active). */
+  model: string
   queued_at: Date
   admitted_at: Date | null
   expires_at: Date | null

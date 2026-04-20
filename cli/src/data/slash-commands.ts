@@ -47,6 +47,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
   'connect',
   'plan',
+  'queue',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -183,6 +184,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'theme:toggle',
     label: 'theme:toggle',
     description: 'Toggle between light and dark mode',
+  },
+  {
+    id: 'queue',
+    label: 'queue',
+    description: 'End your free session and return to the waiting room (lets you switch model)',
+    aliases: ['rejoin', 'switch'],
   },
   {
     id: 'logout',

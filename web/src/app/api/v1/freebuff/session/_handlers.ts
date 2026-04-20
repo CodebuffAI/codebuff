@@ -39,6 +39,11 @@ function countryBlockedResponse(req: NextRequest): NextResponse | null {
 /** Header the CLI uses to identify which instance is polling. Used by GET to
  *  detect when another CLI on the same account has rotated the id. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+/** Header the CLI uses to communicate which freebuff model it wants to be in
+ *  the queue for. Used by both POST (join/switch) and GET (read-only — the
+ *  server doesn't change the model on a GET, but uses the header for the
+ *  rare GET-before-POST case where there's no row yet). */
+export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 export interface FreebuffSessionDeps {
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -122,13 +127,20 @@ export async function postFreebuffSession(
   const blocked = countryBlockedResponse(req)
   if (blocked) return blocked
 
+  const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
+
   try {
     const state = await requestSession({
       userId: auth.userId,
       userEmail: auth.userEmail,
+      model: requestedModel,
       deps: deps.sessionDeps,
     })
-    return NextResponse.json(state, { status: 200 })
+    // model_locked is a 409 so it's distinguishable from a normal queued/active
+    // response on the client. The CLI translates it into a "switch model?"
+    // confirmation prompt.
+    const status = state.status === 'model_locked' ? 409 : 200
+    return NextResponse.json(state, { status })
   } catch (error) {
     return serverError(deps, 'POST', auth.userId, error)
   }

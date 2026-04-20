@@ -12,6 +12,8 @@ import type { SessionDeps } from '@/server/free-session/public-api'
 import type { InternalSessionRow } from '@/server/free-session/types'
 import type { NextRequest } from 'next/server'
 
+const DEFAULT_MODEL = 'z-ai/glm-5.1'
+
 function makeReq(
   apiKey: string | null,
   opts: { instanceId?: string; cfCountry?: string } = {},
@@ -42,11 +44,12 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     endSession: async (userId) => {
       rows.delete(userId)
     },
-    joinOrTakeOver: async ({ userId, now }) => {
+    joinOrTakeOver: async ({ userId, model, now }) => {
       const r: InternalSessionRow = {
         user_id: userId,
         status: 'queued',
         active_instance_id: `inst-${++instanceCounter}`,
+        model,
         queued_at: now,
         admitted_at: null,
         expires_at: null,
@@ -157,6 +160,7 @@ describe('GET /api/v1/freebuff/session', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'real-id',
+      model: DEFAULT_MODEL,
       queued_at: new Date(),
       admitted_at: new Date(),
       expires_at: new Date(Date.now() + 60_000),
@@ -180,6 +184,7 @@ describe('DELETE /api/v1/freebuff/session', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'x',
+      model: DEFAULT_MODEL,
       queued_at: new Date(),
       admitted_at: new Date(),
       expires_at: new Date(Date.now() + 60_000),

@@ -4,6 +4,7 @@ import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import { endAndRejoinFreebuffSession } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
@@ -609,6 +610,26 @@ const ALL_COMMANDS: CommandDefinition[] = [
         getSystemMessage(`Switched to ${newTheme} theme.`),
       ])
       clearInput(params)
+    },
+  }),
+  // /queue (freebuff-only) — end the active session early and re-queue. The
+  // hook flips status from 'active' → 'queued', which unmounts <Chat> and
+  // mounts <WaitingRoomScreen>, where the user can pick a different model.
+  defineCommand({
+    name: 'queue',
+    aliases: ['rejoin', 'switch'],
+    handler: (params) => {
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage('Ending session and returning to the waiting room…'),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      endAndRejoinFreebuffSession().catch(() => {
+        // The hook surfaces poll errors via the session store; nothing to do
+        // here beyond letting the chat history reflect the attempt.
+      })
     },
   }),
 ]

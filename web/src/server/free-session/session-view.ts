@@ -26,6 +26,7 @@ export function toSessionStateResponse(params: {
       return {
         status: 'active',
         instanceId: row.active_instance_id,
+        model: row.model,
         admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
         expiresAt: row.expires_at.toISOString(),
         remainingMs: expiresAtMs - nowMs,
@@ -48,6 +49,7 @@ export function toSessionStateResponse(params: {
     return {
       status: 'queued',
       instanceId: row.active_instance_id,
+      model: row.model,
       position,
       queueDepth,
       estimatedWaitMs: estimateWaitMs({ position }),

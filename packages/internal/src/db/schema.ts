@@ -823,6 +823,10 @@ export const freeSession = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     status: freeSessionStatusEnum('status').notNull(),
     active_instance_id: text('active_instance_id').notNull(),
+    /** Which freebuff model this row is queued for / locked to. Each model has
+     *  its own queue (admission picks one queued user per model per tick) and
+     *  the model is fixed for the life of an active session. */
+    model: text('model').notNull(),
     queued_at: timestamp('queued_at', {
       mode: 'date',
       withTimezone: true,
@@ -851,8 +855,8 @@ export const freeSession = pgTable(
       .defaultNow(),
   },
   (table) => [
-    // Dequeue: SELECT ... WHERE status='queued' ORDER BY queued_at LIMIT N
-    index('idx_free_session_queue').on(table.status, table.queued_at),
+    // Per-model dequeue: WHERE status='queued' AND model=$1 ORDER BY queued_at
+    index('idx_free_session_queue').on(table.status, table.model, table.queued_at),
     // Expiry sweep: SELECT ... WHERE status='active' AND expires_at < now()
     index('idx_free_session_expiry').on(table.expires_at),
   ],

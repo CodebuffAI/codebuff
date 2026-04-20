@@ -1,3 +1,5 @@
+import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+
 import {
   ADMISSION_TICK_MS,
   getSessionGraceMs,
@@ -13,9 +15,10 @@ import { logger } from '@/util/logger'
 
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
-  queueDepth: () => Promise<number>
+  queueDepth: (params: { model: string }) => Promise<number>
   activeCount: () => Promise<number>
   admitFromQueue: (params: {
+    model: string
     sessionLengthMs: number
     now: Date
     getFireworksHealth: () => Promise<FireworksHealth>
@@ -24,6 +27,8 @@ export interface AdmissionDeps {
   /** Plain values, not thunks — these never change at runtime. */
   sessionLengthMs: number
   graceMs: number
+  /** Models to run admission ticks for. Defaults to the full model registry. */
+  models?: readonly string[]
   now?: () => Date
 }
 
@@ -49,7 +54,8 @@ const defaultDeps: AdmissionDeps = {
 export interface AdmissionTickResult {
   expired: number
   admitted: number
-  queueDepth: number
+  /** Per-model queue depth at the end of the tick. */
+  queueDepthByModel: Record<string, number>
   activeCount: number
   skipped: FireworksHealth | null
 }
@@ -57,16 +63,15 @@ export interface AdmissionTickResult {
 /**
  * Run a single admission tick:
  *   1. Expire sessions past their expires_at + grace.
- *   2. Attempt to admit one queued user. Admission proceeds only when the
- *      upstream health probe reports `healthy`; `degraded` and `unhealthy`
- *      both pause admission so the deployment can catch up.
+ *   2. For each model, attempt to admit one queued user. Admission proceeds
+ *      only when the upstream health probe reports `healthy`; `degraded` and
+ *      `unhealthy` both pause admission so the deployment can catch up.
  *
- * Admission drips at (1 / ADMISSION_TICK_MS), which drives utilization up
- * slowly; once the probe stops returning `healthy`, step 2 halts admission
- * until the upstream recovers.
+ * Per-model admission means heavier models can sit cold without starving
+ * lighter ones. Admission still drips at (1 / ADMISSION_TICK_MS) per model.
  *
  * Returns counts for observability. Safe to call concurrently across pods —
- * admitFromQueue takes an advisory xact lock.
+ * admitFromQueue takes a per-model advisory xact lock.
  */
 export async function runAdmissionTick(
   deps: AdmissionDeps = defaultDeps,
@@ -74,20 +79,36 @@ export async function runAdmissionTick(
   const now = (deps.now ?? (() => new Date()))()
   const expired = await deps.sweepExpired(now, deps.graceMs)
 
-  const { admitted, skipped } = await deps.admitFromQueue({
-    sessionLengthMs: deps.sessionLengthMs,
-    now,
-    getFireworksHealth: deps.getFireworksHealth,
-  })
+  const models = deps.models ?? FREEBUFF_MODELS.map((m) => m.id)
 
-  const [depth, active] = await Promise.all([
-    deps.queueDepth(),
-    deps.activeCount(),
-  ])
+  // Run per-model admission in parallel — they only contend on independent
+  // advisory locks and a single update each.
+  const perModel = await Promise.all(
+    models.map(async (model) => {
+      const { admitted, skipped } = await deps.admitFromQueue({
+        model,
+        sessionLengthMs: deps.sessionLengthMs,
+        now,
+        getFireworksHealth: deps.getFireworksHealth,
+      })
+      const depth = await deps.queueDepth({ model })
+      return { model, admittedCount: admitted.length, depth, skipped }
+    }),
+  )
+
+  const active = await deps.activeCount()
+  const totalAdmitted = perModel.reduce((s, r) => s + r.admittedCount, 0)
+  const queueDepthByModel = Object.fromEntries(
+    perModel.map((r) => [r.model, r.depth]),
+  )
+  // Use the most-degraded skipped reason for the top-level result. They all
+  // come from the same shared probe so they'll usually agree anyway.
+  const skipped = perModel.find((r) => r.skipped)?.skipped ?? null
+
   return {
     expired,
-    admitted: admitted.length,
-    queueDepth: depth,
+    admitted: totalAdmitted,
+    queueDepthByModel,
     activeCount: active,
     skipped,
   }
@@ -109,7 +130,7 @@ function runTick() {
           metric: 'freebuff_waiting_room',
           admitted: result.admitted,
           expired: result.expired,
-          queueDepth: result.queueDepth,
+          queueDepthByModel: result.queueDepthByModel,
           activeCount: result.activeCount,
           skipped: result.skipped,
         },

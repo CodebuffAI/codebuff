@@ -21,7 +21,9 @@ export type FreebuffSessionServerResponse =
   | {
       status: 'queued'
       instanceId: string
-      /** 1-indexed position in the FIFO queue. */
+      /** Model the user is queued for. Each model has its own queue. */
+      model: string
+      /** 1-indexed position in the queue for `model`. */
       position: number
       queueDepth: number
       estimatedWaitMs: number
@@ -30,6 +32,8 @@ export type FreebuffSessionServerResponse =
   | {
       status: 'active'
       instanceId: string
+      /** Model the active session is bound to — cannot change mid-session. */
+      model: string
       admittedAt: string
       expiresAt: string
       remainingMs: number
@@ -67,4 +71,14 @@ export type FreebuffSessionServerResponse =
        *  screen. `countryCode` is the resolved country for display. */
       status: 'country_blocked'
       countryCode: string
+    }
+  | {
+      /** User has an active session bound to a different model. Returned
+       *  from POST /session when they pick a new model without ending their
+       *  current session first. The CLI shows a confirmation prompt: "End
+       *  your active GLM session to switch?" → on confirm, DELETE then
+       *  re-POST with the new model. */
+      status: 'model_locked'
+      currentModel: string
+      requestedModel: string
     }

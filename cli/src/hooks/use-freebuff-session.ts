@@ -1,6 +1,10 @@
 import { env } from '@codebuff/common/env'
 import { useEffect } from 'react'
 
+import {
+  getSelectedFreebuffModel,
+  useFreebuffModelStore,
+} from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { getAuthTokenDetails } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
@@ -15,6 +19,11 @@ const POLL_INTERVAL_ERROR_MS = 10_000
 /** Header sent on GET so the server can detect when another CLI on the same
  *  account has rotated the id and respond with `{ status: 'superseded' }`. */
 const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+
+/** Header sent on POST/GET telling the server which model's queue we want.
+ *  POST uses it to (re-)join that model's queue; GET uses it only for the
+ *  rare GET-before-POST edge where there's no row yet. */
+const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 /** Play the terminal bell so users get an audible notification on admission. */
 const playAdmissionSound = () => {
@@ -33,11 +42,14 @@ const sessionEndpoint = (): string => {
 async function callSession(
   method: 'POST' | 'GET' | 'DELETE',
   token: string,
-  opts: { instanceId?: string; signal?: AbortSignal } = {},
+  opts: { instanceId?: string; model?: string; signal?: AbortSignal } = {},
 ): Promise<FreebuffSessionResponse> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
   if (method === 'GET' && opts.instanceId) {
     headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
+  }
+  if ((method === 'POST' || method === 'GET') && opts.model) {
+    headers[FREEBUFF_MODEL_HEADER] = opts.model
   }
   const resp = await fetch(sessionEndpoint(), {
     method,
@@ -61,6 +73,17 @@ async function callSession(
       | FreebuffSessionResponse
       | null
     if (body && body.status === 'country_blocked') {
+      return body
+    }
+  }
+  // 409 from POST means the user picked a different model than their active
+  // session is bound to. Surface as a non-throw `model_locked` so the UI can
+  // show a confirmation prompt (DELETE then re-POST to switch).
+  if (resp.status === 409 && method === 'POST') {
+    const body = (await resp.json().catch(() => null)) as
+      | FreebuffSessionResponse
+      | null
+    if (body && body.status === 'model_locked') {
       return body
     }
   }
@@ -95,6 +118,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'disabled':
     case 'superseded':
     case 'country_blocked':
+    case 'model_locked':
       return null
   }
 }
@@ -142,6 +166,39 @@ export async function refreshFreebuffSession(opts: { resetChat?: boolean } = {})
     const { useChatStore } = await import('../state/chat-store')
     useChatStore.getState().reset()
   }
+  await controller?.refresh()
+}
+
+/**
+ * User picked a different model in the waiting room. Persist the choice and
+ * re-POST so the server moves them to the back of the new model's queue. If
+ * the user has an active session bound to a different model, the server
+ * responds with `model_locked` and the UI prompts them to end first.
+ */
+export async function switchFreebuffModel(model: string): Promise<void> {
+  if (!IS_FREEBUFF) return
+  const { setSelectedModel } = useFreebuffModelStore.getState()
+  setSelectedModel(model)
+  await controller?.refresh()
+}
+
+/**
+ * End the current session and immediately rejoin the queue. Used by the
+ * "switch model" confirmation flow when the server returned `model_locked`,
+ * and by any UI that lets the user exit an active session early.
+ */
+export async function endAndRejoinFreebuffSession(): Promise<void> {
+  if (!IS_FREEBUFF) return
+  const { token } = getAuthTokenDetails()
+  if (!token) return
+  try {
+    await callSession('DELETE', token)
+  } catch {
+    // Best-effort — even if DELETE fails the re-POST below will eventually
+    // succeed once the server-side sweep catches up.
+  }
+  const { useChatStore } = await import('../state/chat-store')
+  useChatStore.getState().reset()
   await controller?.refresh()
 }
 
@@ -250,10 +307,12 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       // re-POST out from under an in-flight agent.
       const method: 'POST' | 'GET' = hasPosted ? 'GET' : 'POST'
       const instanceId = getFreebuffInstanceId()
+      const model = getSelectedFreebuffModel()
       try {
         const next = await callSession(method, token, {
           signal: abortController.signal,
           instanceId,
+          model,
         })
         if (cancelled) return
         hasPosted = true
