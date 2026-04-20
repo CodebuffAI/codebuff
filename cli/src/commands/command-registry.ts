@@ -612,12 +612,11 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /queue (freebuff-only) — end the active session early and re-queue. The
+  // /end-session (freebuff-only) — end the active session early and re-queue. The
   // hook flips status from 'active' → 'queued', which unmounts <Chat> and
   // mounts <WaitingRoomScreen>, where the user can pick a different model.
   defineCommand({
-    name: 'queue',
-    aliases: ['rejoin', 'switch'],
+    name: 'end-session',
     handler: (params) => {
       params.setMessages((prev) => [
         ...prev,
