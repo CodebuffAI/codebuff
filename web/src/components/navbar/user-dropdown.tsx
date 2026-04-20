@@ -1,7 +1,7 @@
 'use client'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { Gift, Users, User, Key } from 'lucide-react'
+import { Users, User, Key } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
@@ -48,9 +48,6 @@ export const UserDropdown = ({ session: { user } }: { session: Session }) => {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/profile?tab=api-keys')}>
           <Key className="mr-2 size-4" /> <span>API Keys</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/profile?tab=referrals')}>
-          <Gift className="mr-2 size-4" /> <span>Refer Friends</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

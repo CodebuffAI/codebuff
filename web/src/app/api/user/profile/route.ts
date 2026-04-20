@@ -22,7 +22,6 @@ export async function GET() {
       where: eq(schema.user.id, session.user.id),
       columns: {
         handle: true,
-        referral_code: true,
         auto_topup_enabled: true,
         auto_topup_threshold: true,
         auto_topup_amount: true,
@@ -39,7 +38,6 @@ export async function GET() {
 
     const response: Partial<UserProfile> = {
       handle: user.handle,
-      referral_code: user.referral_code,
       auto_topup_enabled: user.auto_topup_enabled && !auto_topup_blocked_reason,
       auto_topup_threshold: user.auto_topup_threshold ?? 500,
       auto_topup_amount: user.auto_topup_amount ?? 2000,

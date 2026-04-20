@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getReferralLink } from '@codebuff/common/util/referral'
 import { NextResponse } from 'next/server'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -10,16 +9,7 @@ import type { NextRequest } from 'next/server'
 import { VALID_USER_INFO_FIELDS } from '@/db/user'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
-const DERIVED_USER_INFO_FIELDS = ['referral_link'] as const
-
-type DerivedField = (typeof DERIVED_USER_INFO_FIELDS)[number]
-type ValidDbField = (typeof VALID_USER_INFO_FIELDS)[number]
-type ValidField = ValidDbField | DerivedField
-
-const ALL_USER_INFO_FIELDS = [
-  ...VALID_USER_INFO_FIELDS,
-  ...DERIVED_USER_INFO_FIELDS,
-] as const
+type ValidField = (typeof VALID_USER_INFO_FIELDS)[number]
 
 export async function getMe(params: {
   req: NextRequest
@@ -51,7 +41,7 @@ export async function getMe(params: {
     if (requestedFields.length === 0) {
       return NextResponse.json(
         {
-          error: `Invalid fields: empty. Valid fields are: ${ALL_USER_INFO_FIELDS.join(', ')}`,
+          error: `Invalid fields: empty. Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
         },
         { status: 400 },
       )
@@ -59,7 +49,7 @@ export async function getMe(params: {
 
     // Validate that all requested fields are valid
     const invalidFields = requestedFields.filter(
-      (f) => !ALL_USER_INFO_FIELDS.includes(f as ValidField),
+      (f) => !VALID_USER_INFO_FIELDS.includes(f as ValidField),
     )
     if (invalidFields.length > 0) {
       trackEvent({
@@ -73,7 +63,7 @@ export async function getMe(params: {
       })
       return NextResponse.json(
         {
-          error: `Invalid fields: ${invalidFields.join(', ')}. Valid fields are: ${ALL_USER_INFO_FIELDS.join(', ')}`,
+          error: `Invalid fields: ${invalidFields.join(', ')}. Valid fields are: ${VALID_USER_INFO_FIELDS.join(', ')}`,
         },
         { status: 400 },
       )
@@ -84,22 +74,9 @@ export async function getMe(params: {
     fields = ['id']
   }
 
-  // Build database field selection (exclude derived fields, always include id)
-  const dbFieldsSet = new Set<ValidDbField>()
-
-  for (const field of fields) {
-    if (VALID_USER_INFO_FIELDS.includes(field as ValidDbField)) {
-      dbFieldsSet.add(field as ValidDbField)
-    }
-  }
-
+  const dbFieldsSet = new Set<ValidField>(fields)
   // Always include id for tracking
   dbFieldsSet.add('id')
-
-  // If referral_link is requested, ensure we also fetch referral_code
-  if (fields.includes('referral_link') && !dbFieldsSet.has('referral_code')) {
-    dbFieldsSet.add('referral_code')
-  }
 
   const dbFields = Array.from(dbFieldsSet)
 
@@ -127,23 +104,14 @@ export async function getMe(params: {
     logger,
   })
 
-  // Build response including derived fields
   const userInfoRecord = userInfo as Partial<
-    Record<ValidDbField, string | boolean | Date | null>
+    Record<ValidField, string | boolean | Date | null>
   >
 
   const responseBody: Record<string, unknown> = {}
 
   for (const field of fields) {
-    if (field === 'referral_link') {
-      const referralCode = userInfoRecord.referral_code ?? null
-      responseBody.referral_link =
-        typeof referralCode === 'string' && referralCode.length > 0
-          ? getReferralLink(referralCode)
-          : null
-    } else {
-      responseBody[field] = userInfoRecord[field as ValidDbField] ?? null
-    }
+    responseBody[field] = userInfoRecord[field] ?? null
   }
 
   return NextResponse.json(responseBody)

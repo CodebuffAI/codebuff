@@ -54,17 +54,6 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('escape in referral mode exits mode even while streaming', () => {
-      const state: ChatKeyboardState = {
-        ...defaultState,
-        inputMode: 'referral',
-        isStreaming: true,
-      }
-      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
-        type: 'exit-input-mode',
-      })
-    })
-
     test('escape in usage mode exits mode', () => {
       const state: ChatKeyboardState = {
         ...defaultState,

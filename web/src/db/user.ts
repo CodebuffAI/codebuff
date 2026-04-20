@@ -12,7 +12,6 @@ export const VALID_USER_INFO_FIELDS = [
   'id',
   'email',
   'discord_id',
-  'referral_code',
   'stripe_customer_id',
   'banned',
   'created_at',

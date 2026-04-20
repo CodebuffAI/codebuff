@@ -162,29 +162,6 @@ describe('fetchUserDetails', () => {
       expect(result).toEqual(mockUserDetails)
     })
 
-    test('returns null referral_code when not set', async () => {
-      const mockUserDetails = {
-        referral_code: null,
-      }
-
-      const meMock = mock(() =>
-        Promise.resolve({
-          ok: true,
-          status: 200,
-          data: mockUserDetails,
-        }),
-      )
-      const apiClient = createMockApiClient({ me: meMock })
-
-      const result = await fetchUserDetails({
-        authToken: 'valid-token',
-        fields: ['referral_code'] as const,
-        logger: mockLogger,
-        apiClient,
-      })
-
-      expect(result?.referral_code).toBe(null)
-    })
   })
 
   describe('environment validation', () => {

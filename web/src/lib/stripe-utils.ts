@@ -1,7 +1,3 @@
-import db from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { eq, or, sql } from 'drizzle-orm'
-
 import type Stripe from 'stripe'
 
 export function getSubscriptionItemByType(
@@ -11,27 +7,4 @@ export function getSubscriptionItemByType(
   return subscription.items.data.find(
     (item) => item.price.recurring?.usage_type === usageType,
   )
-}
-
-export async function getTotalReferralCreditsForCustomer(
-  customerId: string,
-): Promise<number> {
-  return db
-    .select({
-      referralCredits: sql<string>`SUM(COALESCE(${schema.referral.credits}, 0))`,
-    })
-    .from(schema.user)
-    .leftJoin(
-      schema.referral,
-      or(
-        eq(schema.referral.referrer_id, schema.user.id),
-        eq(schema.referral.referred_id, schema.user.id),
-      ),
-    )
-    .where(eq(schema.user.stripe_customer_id, customerId))
-    .limit(1)
-    .then((rows) => {
-      const firstRow = rows[0]
-      return parseInt(firstRow?.referralCredits ?? '0')
-    })
 }

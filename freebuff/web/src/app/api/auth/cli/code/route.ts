@@ -11,7 +11,6 @@ import { logger } from '@/util/logger'
 export async function POST(req: Request) {
   const reqSchema = z.object({
     fingerprintId: z.string(),
-    referralCode: z.string().optional(),
   })
   const requestBody = await req.json()
   const result = reqSchema.safeParse(requestBody)
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { fingerprintId, referralCode } = result.data
+  const { fingerprintId } = result.data
 
   try {
     const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour
@@ -54,9 +53,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const loginUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${
-      referralCode ? `&referral_code=${referralCode}` : ''
-    }`
+    const loginUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
 
     return NextResponse.json({
       fingerprintId,

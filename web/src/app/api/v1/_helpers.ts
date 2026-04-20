@@ -24,7 +24,6 @@ export interface UserInfo {
   id: string
   email: string
   discord_id: string | null
-  referral_code?: string | null
   stripe_customer_id?: string | null
   banned?: boolean
 }

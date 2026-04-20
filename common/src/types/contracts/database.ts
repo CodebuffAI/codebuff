@@ -5,7 +5,6 @@ type User = {
   id: string
   email: string
   discord_id: string | null
-  referral_code: string | null
   stripe_customer_id: string | null
   banned: boolean
   created_at: Date
@@ -14,7 +13,6 @@ export const userColumns = [
   'id',
   'email',
   'discord_id',
-  'referral_code',
   'stripe_customer_id',
   'banned',
   'created_at',

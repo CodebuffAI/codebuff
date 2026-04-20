@@ -45,7 +45,6 @@ export enum AnalyticsEvent {
 
   // Web - Authentication
   AUTH_LOGIN_STARTED = 'auth.login_started',
-  AUTH_REFERRAL_GITHUB_LOGIN_STARTED = 'auth.referral_github_login_started',
   AUTH_LOGOUT_COMPLETED = 'auth.logout_completed',
 
   // Web - Cookie Consent
@@ -62,6 +61,9 @@ export enum AnalyticsEvent {
   ONBOARD_PAGE_CD_COMMAND_COPIED = 'onboard_page.cd_command_copied',
   ONBOARD_PAGE_RUN_COMMAND_COPIED = 'onboard_page.run_command_copied',
   ONBOARD_PAGE_INSTALL_COMMAND_COPIED = 'onboard_page.install_command_copied',
+
+  // Web - Creator Attribution
+  CODEBUFF_REFERRER_ATTRIBUTED = 'codebuff.referrer_attributed',
 
   // Web - Install Dialog
   INSTALL_DIALOG_CD_COMMAND_COPIED = 'install_dialog.cd_command_copied',
@@ -87,7 +89,6 @@ export enum AnalyticsEvent {
 
   // Web - UI Components
   TOAST_SHOWN = 'toast.shown',
-  REFERRAL_BANNER_CLICKED = 'referral_banner.clicked',
 
   // Web - API
   AGENT_RUN_API_REQUEST = 'api.agent_run_request',
@@ -147,7 +148,7 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
 
-  // Freebuff - Referral Attribution
+  // Freebuff - Creator Attribution
   FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
 
   // Freebuff - Get Started Page

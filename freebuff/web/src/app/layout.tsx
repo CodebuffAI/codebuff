@@ -3,6 +3,7 @@ import '@/styles/globals.css'
 import type { Metadata } from 'next'
 
 import { Footer } from '@/components/footer'
+import { ReferrerTracker } from '@/components/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
@@ -55,6 +56,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class">
           <SessionProvider>
             <PostHogProvider>
+              <ReferrerTracker />
               <div className="flex-grow">{children}</div>
               <Footer />
             </PostHogProvider>

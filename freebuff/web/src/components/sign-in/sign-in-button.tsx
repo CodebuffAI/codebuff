@@ -26,15 +26,16 @@ export function SignInButton({
       let callbackUrl =
         pathname + (searchParamsString ? `?${searchParamsString}` : '')
 
+      const referrer = searchParams.get('referrer')
+      if (referrer) {
+        localStorage.setItem('freebuff_referrer', referrer)
+      }
+
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
-        const referralCode = searchParams.get('referral_code')
 
         if (authCode) {
           callbackUrl = `/onboard?${searchParams.toString()}`
-        } else if (referralCode) {
-          localStorage.setItem('referral_code', referralCode)
-          callbackUrl = `${window.location.origin}/onboard?referral_code=${referralCode}`
         } else {
           callbackUrl = '/'
         }

@@ -13,7 +13,6 @@ import {
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
-import { ReferrerTracker } from '@/components/referrer-tracker'
 import {
   Card,
   CardHeader,
@@ -23,10 +22,16 @@ import {
 } from '@/components/ui/card'
 import { logger } from '@/util/logger'
 
+function normalizeReferrer(raw: string | undefined): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim().slice(0, 50)
+  return trimmed || null
+}
+
 interface PageProps {
   searchParams?: Promise<{
     auth_code?: string
-    referral_code?: string
+    referrer?: string
   }>
 }
 
@@ -41,7 +46,6 @@ function StatusCard({
 }) {
   return (
     <main className="container mx-auto flex flex-col items-center py-20">
-      <ReferrerTracker />
       <div className="w-full sm:w-1/2 md:w-2/3">
         <Card>
           <CardHeader>
@@ -60,19 +64,28 @@ function StatusCard({
 const Onboard = async ({ searchParams }: PageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const authCode = resolvedSearchParams.auth_code
-  const referralCode = resolvedSearchParams.referral_code
+  const referrerName = normalizeReferrer(resolvedSearchParams.referrer)
   const session = await getServerSession(authOptions)
   const user = session?.user
 
   if (!user) {
-    return redirect('/login')
+    const params = new URLSearchParams()
+    if (authCode) params.set('auth_code', authCode)
+    if (referrerName) params.set('referrer', referrerName)
+    const query = params.toString()
+    const dest = authCode ? '/login' : '/get-started'
+    return redirect(query ? `${dest}?${query}` : dest)
   }
 
   if (!authCode) {
     return (
       <StatusCard
-        title="Welcome to Freebuff!"
-        description={referralCode ? "Once you've installed Freebuff, you can close this window." : ''}
+        title={
+          referrerName
+            ? `${referrerName} invited you to try Freebuff!`
+            : 'Welcome to Freebuff!'
+        }
+        description=""
         message="You're all set! Head back to your terminal to continue."
       />
     )

@@ -3,11 +3,9 @@
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useEffect, useState, Suspense } from 'react'
 
 import IDEDemo from '@/components/IDEDemo'
-import { ReferralRedirect } from '@/components/referral-redirect'
 import { BlockColor, DecorativeBlocks } from '@/components/ui/decorative-blocks'
 import { Hero } from '@/components/ui/hero'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
@@ -17,7 +15,6 @@ import { BrowserComparison } from '@/components/ui/landing/feature/browser-compa
 import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
 import { TestimonialsSection } from '@/components/ui/landing/testimonials-section'
 import { Section } from '@/components/ui/section'
-import { toast } from '@/components/ui/use-toast'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { cn } from '@/lib/utils'
 
@@ -33,7 +30,6 @@ function SearchParamsHandler() {
 
 export default function HomeClient() {
   const [demoSwitched, setDemoSwitched] = useState(false)
-  const { data: session } = useSession()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -42,48 +38,11 @@ export default function HomeClient() {
     return () => clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    const handleReferralCode = async () => {
-      const referralCode = localStorage.getItem('referral_code')
-      if (referralCode && session?.user?.id) {
-        try {
-          const response = await fetch('/api/referrals', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ referralCode }),
-          })
-
-          const data = await response.json()
-
-          if (response.ok) {
-            toast({
-              title: 'Success!',
-              description: `You earned ${data.credits_redeemed} credits from your referral!`,
-              className: 'cursor-pointer',
-              onClick: () => {
-                window.location.href = '/referrals'
-              },
-            })
-          }
-        } catch (error) {
-          console.error('Error redeeming referral code:', error)
-        } finally {
-          localStorage.removeItem('referral_code')
-        }
-      }
-    }
-
-    handleReferralCode()
-  }, [session?.user?.id])
-
   return (
     <div className="relative">
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
-      <ReferralRedirect />
 
       <Section background={SECTION_THEMES.hero.background} hero fullViewport>
         <div
