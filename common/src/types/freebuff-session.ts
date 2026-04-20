@@ -59,3 +59,12 @@ export type FreebuffSessionServerResponse =
        *  surfaces it as a 409 for fast in-flight feedback. */
       status: 'superseded'
     }
+  | {
+      /** Request originated from a country outside the free-mode allowlist.
+       *  Returned before queue admission so users don't wait through the
+       *  room only to be rejected on their first chat request. Terminal —
+       *  CLI stops polling and shows a "not available in your country"
+       *  screen. `countryCode` is the resolved country for display. */
+      status: 'country_blocked'
+      countryCode: string
+    }

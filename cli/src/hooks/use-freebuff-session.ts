@@ -80,6 +80,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'none':
     case 'disabled':
     case 'superseded':
+    case 'country_blocked':
       return null
   }
 }

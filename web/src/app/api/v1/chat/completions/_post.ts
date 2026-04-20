@@ -68,39 +68,16 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
+import {
+  FREE_MODE_ALLOWED_COUNTRIES,
+  extractClientIp,
+  getCountryCode,
+} from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
-
-const FREE_MODE_ALLOWED_COUNTRIES = new Set([
-  'US', 'CA',
-  'GB', 'AU', 'NZ',
-  'NO', 'SE', 'NL', 'DK', 'DE', 'FI', 'BE', 'LU', 'CH', 'IE', 'IS',
-])
-
-function extractClientIp(req: NextRequest): string | undefined {
-  const forwardedFor = req.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim()
-  }
-  return req.headers.get('x-real-ip') ?? undefined
-}
-
-function getCountryCode(req: NextRequest): string | null {
-  const cfCountry = req.headers.get('cf-ipcountry')
-  if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
-    return cfCountry.toUpperCase()
-  }
-
-  const clientIp = extractClientIp(req)
-  if (!clientIp) {
-    return null
-  }
-  const geo = geoip.lookup(clientIp)
-  return geo?.country ?? null
-}
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,

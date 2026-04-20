@@ -213,6 +213,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           {session?.status === 'disabled' && (
             <text style={{ fg: theme.muted }}>Waiting room disabled.</text>
           )}
+
+          {/* Country outside the free-mode allowlist. Terminal — polling has
+              stopped. Tell the user up front rather than letting them wait in
+              the queue only to be rejected at the chat/completions gate. */}
+          {session?.status === 'country_blocked' && (
+            <>
+              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
+                ⚠ Free mode isn't available in your region
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                We detected your location as{' '}
+                <span fg={theme.foreground}>{session.countryCode}</span>,
+                which is outside the countries where freebuff is currently
+                offered. Press Ctrl+C to exit.
+              </text>
+            </>
+          )}
         </box>
       </box>
 
