@@ -2,9 +2,9 @@ import { cyan, green, red, yellow, bold } from 'picocolors'
 
 import { LOGIN_WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
-import { generateFingerprintId } from './utils'
 import { saveUserCredentials } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
+import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
@@ -18,7 +18,7 @@ import type { User } from '../utils/auth'
  * clipboard and browser integration don't work.
  */
 export async function runPlainLogin(): Promise<void> {
-  const fingerprintId = generateFingerprintId()
+  const fingerprintId = await getFingerprintId()
 
   console.log()
   console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))

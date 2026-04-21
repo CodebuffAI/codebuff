@@ -5,6 +5,7 @@ export type LoginStoreState = {
   loginUrl: string | null
   loading: boolean
   error: string | null
+  fingerprintId: string | null
   fingerprintHash: string | null
   expiresAt: string | null
   isWaitingForEnter: boolean
@@ -21,6 +22,9 @@ type LoginStoreActions = {
   ) => void
   setLoading: (loading: boolean) => void
   setError: (
+    value: string | null | ((prev: string | null) => string | null),
+  ) => void
+  setFingerprintId: (
     value: string | null | ((prev: string | null) => string | null),
   ) => void
   setFingerprintHash: (
@@ -46,6 +50,7 @@ const initialState: LoginStoreState = {
   loginUrl: null,
   loading: false,
   error: null,
+  fingerprintId: null,
   fingerprintHash: null,
   expiresAt: null,
   isWaitingForEnter: false,
@@ -74,6 +79,12 @@ export const useLoginStore = create<LoginStore>()(
     setError: (value) =>
       set((state) => {
         state.error = typeof value === 'function' ? value(state.error) : value
+      }),
+
+    setFingerprintId: (value) =>
+      set((state) => {
+        state.fingerprintId =
+          typeof value === 'function' ? value(state.fingerprintId) : value
       }),
 
     setFingerprintHash: (value) =>
@@ -125,6 +136,7 @@ export const useLoginStore = create<LoginStore>()(
         state.loginUrl = initialState.loginUrl
         state.loading = initialState.loading
         state.error = initialState.error
+        state.fingerprintId = initialState.fingerprintId
         state.fingerprintHash = initialState.fingerprintHash
         state.expiresAt = initialState.expiresAt
         state.isWaitingForEnter = initialState.isWaitingForEnter
