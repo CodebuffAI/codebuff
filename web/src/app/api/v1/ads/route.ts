@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     fetch,
     serverEnv: {
       GRAVITY_API_KEY: env.GRAVITY_API_KEY,
+      CARBON_ZONE_KEY: env.CARBON_ZONE_KEY,
       CB_ENVIRONMENT: env.NEXT_PUBLIC_CB_ENVIRONMENT,
     },
   })

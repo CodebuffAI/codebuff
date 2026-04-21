@@ -16,7 +16,7 @@ const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then p
 const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching new ads
 const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
 
-// Ad response type (matches Gravity API response, credits added after impression)
+// Ad response type (normalized shape across providers; credits added after impression)
 export type AdResponse = {
   adText: string
   title: string
@@ -29,6 +29,12 @@ export type AdResponse = {
 }
 
 export type AdVariant = 'banner' | 'choice'
+
+/**
+ * Which upstream ad network to query. The server maps each provider onto the
+ * same normalized response shape, so the rest of the hook is provider-agnostic.
+ */
+export type AdProvider = 'gravity' | 'carbon'
 
 export type AdData =
   | { variant: 'banner'; ad: AdResponse }
@@ -102,9 +108,12 @@ export const useGravityAd = (options?: {
   /** Skip the "wait for first user message" gate. Used by the freebuff
    *  waiting room, which has no conversation but still needs ads. */
   forceStart?: boolean
+  /** Which ad network to query. Defaults to Gravity. */
+  provider?: AdProvider
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
+  const provider: AdProvider = options?.provider ?? 'gravity'
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [adData, setAdData] = useState<AdData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -159,7 +168,7 @@ export const useGravityAd = (options?: {
 
     const authToken = getAuthToken()
     if (!authToken) {
-      logger.warn('[gravity] No auth token, skipping impression recording')
+      logger.warn('[ads] No auth token, skipping impression recording')
       return
     }
 
@@ -179,7 +188,7 @@ export const useGravityAd = (options?: {
         if (data.creditsGranted > 0) {
           logger.info(
             { creditsGranted: data.creditsGranted },
-            '[gravity] Ad impression credits granted',
+            '[ads] Ad impression credits granted',
           )
           setAd((cur) =>
             cur?.impUrl === impUrl
@@ -205,7 +214,7 @@ export const useGravityAd = (options?: {
         }
       })
       .catch((err) => {
-        logger.debug({ err }, '[gravity] Failed to record ad impression')
+        logger.debug({ err }, '[ads] Failed to record ad impression')
       })
   }
 
@@ -235,7 +244,7 @@ export const useGravityAd = (options?: {
 
     const authToken = getAuthToken()
     if (!authToken) {
-      logger.warn('[gravity] No auth token available')
+      logger.warn('[ads] No auth token available')
       return null
     }
 
@@ -277,16 +286,21 @@ export const useGravityAd = (options?: {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
+          provider,
           messages: adMessages,
           sessionId: useChatStore.getState().chatSessionId,
           device: getDeviceInfo(),
+          // Carbon requires a real browser-ish useragent for targeting/fraud
+          // detection. Gravity ignores it. We source one centrally so every
+          // provider that needs it sees the same value.
+          userAgent: getAdUserAgent(),
         }),
       })
 
       if (!response.ok) {
         logger.warn(
-          { status: response.status, response: await response.json() },
-          '[gravity] Web API returned error',
+          { provider, status: response.status, response: await response.json() },
+          '[ads] Web API returned error',
         )
         return null
       }
@@ -304,7 +318,7 @@ export const useGravityAd = (options?: {
 
       return null
     } catch (err) {
-      logger.error({ err }, '[gravity] Failed to fetch ad')
+      logger.error({ err }, '[ads] Failed to fetch ad')
       return null
     }
   }
@@ -464,4 +478,23 @@ function getDeviceInfo(): DeviceInfo {
   const locale = Intl.DateTimeFormat().resolvedOptions().locale
 
   return { os, timezone, locale }
+}
+
+/**
+ * Useragent string passed to ad providers. Carbon (BuySellAds) requires a
+ * plausible browser useragent for targeting and fraud screening. We send a
+ * stable desktop Chrome-on-{os} UA per platform so targeting is consistent
+ * across users on the same platform without sharing anything identifying.
+ *
+ * Chrome version needs bumping periodically — stale UAs look bot-ish to ad
+ * networks. Last bumped: 2026-04-21. Revisit roughly every 6 months.
+ */
+const AD_CHROME_VERSION = '124.0.0.0'
+function getAdUserAgent(): string {
+  const osUA: Record<string, string> = {
+    darwin: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+    win32: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+    linux: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+  }
+  return osUA[process.platform] ?? osUA.linux
 }

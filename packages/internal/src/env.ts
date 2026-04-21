@@ -35,6 +35,15 @@ if (isCI) {
 // Only log environment in non-production
 if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
   console.log('Using environment:', process.env.NEXT_PUBLIC_CB_ENVIRONMENT)
+
+  // `CVADC53U` is the public test zone documented by BuySellAds — safe to use
+  // in dev/CI so nobody has to configure anything to see Carbon ads render.
+  // Prod intentionally has no default: if CARBON_ZONE_KEY isn't set there,
+  // waiting-room requests return no ad rather than silently hitting test
+  // inventory.
+  if (!process.env.CARBON_ZONE_KEY) {
+    process.env.CARBON_ZONE_KEY = 'CVADC53U'
+  }
 }
 
 export const env = serverEnvSchema.parse(serverProcessEnv)

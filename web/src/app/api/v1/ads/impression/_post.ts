@@ -178,23 +178,37 @@ export async function postAdImpression(params: {
     )
   }
 
-  // Fire the impression pixel to Gravity
-  try {
-    await fetch(impUrl)
-    logger.info({ userId, impUrl }, '[ads] Fired impression pixel')
-  } catch (error) {
-    logger.warn(
-      {
-        impUrl,
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message }
-            : error,
-      },
-      '[ads] Failed to fire impression pixel',
-    )
-    // Continue anyway - we still want to record the impression
-  }
+  // Fire the primary impression pixel plus any provider-specific extra
+  // tracking pixels (Carbon returns these via the `pixel` field). Each extra
+  // pixel may contain `[timestamp]` which we substitute with unix seconds.
+  const now = Math.floor(Date.now() / 1000).toString()
+  const extraPixels = (adRecord.extra_pixels ?? []).map((p) =>
+    p.replaceAll('[timestamp]', now),
+  )
+  const pixelUrls = [impUrl, ...extraPixels]
+
+  await Promise.all(
+    pixelUrls.map(async (pixelUrl) => {
+      try {
+        await fetch(pixelUrl)
+      } catch (error) {
+        logger.warn(
+          {
+            pixelUrl,
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : error,
+          },
+          '[ads] Failed to fire impression pixel',
+        )
+      }
+    }),
+  )
+  logger.info(
+    { userId, provider: adRecord.provider, pixelCount: pixelUrls.length },
+    '[ads] Fired impression pixels',
+  )
 
   // No credits granted for ad impressions
   const creditsGranted = 0
