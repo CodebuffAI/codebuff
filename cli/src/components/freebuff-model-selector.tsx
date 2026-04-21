@@ -8,6 +8,7 @@ import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
 import { switchFreebuffModel } from '../hooks/use-freebuff-session'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 
 import type { KeyEvent } from '@opentui/core'
@@ -27,6 +28,7 @@ import type { KeyEvent } from '@opentui/core'
  */
 export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
+  const { terminalWidth } = useTerminalDimensions()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
   const [pending, setPending] = useState<string | null>(null)
@@ -64,6 +66,27 @@ export const FreebuffModelSelector: React.FC = () => {
     [],
   )
 
+  // Decide row vs column layout based on whether both buttons actually fit
+  // side-by-side. Each button's inner text is "● {displayName} · {tagline}  {hint}",
+  // plus 2 cols of border and 2 cols of padding. Buttons are separated by a
+  // gap of 2. If the total exceeds the terminal width, stack vertically.
+  const stackVertically = useMemo(() => {
+    const BUTTON_CHROME = 4 // 2 border + 2 padding
+    const GAP = 2
+    const total = FREEBUFF_MODELS.reduce((sum, model, idx) => {
+      const inner =
+        2 /* indicator + space */ +
+        model.displayName.length +
+        3 /* " · " */ +
+        model.tagline.length +
+        2 /* "  " */ +
+        hintWidth
+      return sum + inner + BUTTON_CHROME + (idx > 0 ? GAP : 0)
+    }, 0)
+    // Leave a small margin for the surrounding padding on the waiting-room screen.
+    return total > terminalWidth - 4
+  }, [hintWidth, terminalWidth])
+
   const pick = useCallback(
     (modelId: string) => {
       if (pending) return
@@ -74,18 +97,18 @@ export const FreebuffModelSelector: React.FC = () => {
     [pending, selectedModel],
   )
 
-  // Tab / Shift+Tab and Left/Right arrow keys move the focus highlight only;
-  // Enter or Space commits the switch. Two-step navigation prevents the user
-  // from accidentally giving up their place in line by tabbing past their
-  // queue. Up/Down intentionally do nothing so they don't fight other
-  // vertical UI.
+  // Tab / Shift+Tab and arrow keys move the focus highlight only; Enter or
+  // Space commits the switch. Two-step navigation prevents the user from
+  // accidentally giving up their place in line by tabbing past their queue.
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
         if (pending) return
         const name = key.name ?? ''
-        const isForward = name === 'right' || (name === 'tab' && !key.shift)
-        const isBackward = name === 'left' || (name === 'tab' && key.shift)
+        const isForward =
+          name === 'right' || name === 'down' || (name === 'tab' && !key.shift)
+        const isBackward =
+          name === 'left' || name === 'up' || (name === 'tab' && key.shift)
         const isCommit = name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
@@ -121,8 +144,9 @@ export const FreebuffModelSelector: React.FC = () => {
     >
       <box
         style={{
-          flexDirection: 'row',
-          gap: 2,
+          flexDirection: stackVertically ? 'column' : 'row',
+          gap: stackVertically ? 0 : 2,
+          alignItems: 'flex-start',
         }}
       >
         {FREEBUFF_MODELS.map((model) => {
