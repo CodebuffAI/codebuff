@@ -7,7 +7,12 @@ import {
   isWaitingRoomEnabled,
 } from './config'
 import { getFleetHealth } from './fireworks-health'
-import { activeCount, admitFromQueue, queueDepth, sweepExpired } from './store'
+import {
+  activeCountsByModel,
+  admitFromQueue,
+  queueDepth,
+  sweepExpired,
+} from './store'
 
 import type { FireworksHealth, FleetHealth } from './fireworks-health'
 
@@ -16,7 +21,7 @@ import { logger } from '@/util/logger'
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
   queueDepth: (params: { model: string }) => Promise<number>
-  activeCount: () => Promise<number>
+  activeCountsByModel: () => Promise<Record<string, number>>
   admitFromQueue: (params: {
     model: string
     sessionLengthMs: number
@@ -35,7 +40,7 @@ export interface AdmissionDeps {
 const defaultDeps: AdmissionDeps = {
   sweepExpired,
   queueDepth,
-  activeCount,
+  activeCountsByModel,
   admitFromQueue,
   // FREEBUFF_DEV_FORCE_ADMIT lets local `dev:freebuff` drive the full
   // waiting-room → admitted → ended flow without a real upstream. Returning
@@ -58,7 +63,9 @@ export interface AdmissionTickResult {
   admitted: number
   /** Per-model queue depth at the end of the tick. */
   queueDepthByModel: Record<string, number>
-  activeCount: number
+  /** Per-model active-session count at the end of the tick. Models with no
+   *  active sessions are omitted. */
+  activeCountByModel: Record<string, number>
   skipped: FireworksHealth | null
 }
 
@@ -106,7 +113,7 @@ export async function runAdmissionTick(
     }),
   )
 
-  const active = await deps.activeCount()
+  const activeCountByModel = await deps.activeCountsByModel()
   const totalAdmitted = perModel.reduce((s, r) => s + r.admittedCount, 0)
   const queueDepthByModel = Object.fromEntries(
     perModel.map((r) => [r.model, r.depth]),
@@ -117,7 +124,7 @@ export async function runAdmissionTick(
     expired,
     admitted: totalAdmitted,
     queueDepthByModel,
-    activeCount: active,
+    activeCountByModel,
     skipped,
   }
 }
@@ -130,16 +137,16 @@ function runTick() {
   inFlight = true
   runAdmissionTick()
     .then((result) => {
-      // Emit every tick so queueDepth/activeCount form a continuous time-series
-      // that can be charted over time. metric=freebuff_waiting_room makes it
-      // filterable in the log aggregator.
+      // Emit every tick so per-model queue depth and active counts form a
+      // continuous time-series that can be charted over time.
+      // metric=freebuff_waiting_room makes it filterable in the log aggregator.
       logger.info(
         {
           metric: 'freebuff_waiting_room',
           admitted: result.admitted,
           expired: result.expired,
           queueDepthByModel: result.queueDepthByModel,
-          activeCount: result.activeCount,
+          activeCountByModel: result.activeCountByModel,
           skipped: result.skipped,
         },
         '[FreeSessionAdmission] tick',

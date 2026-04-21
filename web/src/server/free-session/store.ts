@@ -176,12 +176,21 @@ export async function queueDepthsByModel(): Promise<Record<string, number>> {
   return out
 }
 
-export async function activeCount(): Promise<number> {
+/**
+ * Single-query read of active-row counts bucketed by model. Mirrors
+ * `queueDepthsByModel` so the admission tick can log per-model utilization
+ * alongside per-model queue depth. Models with no active sessions are absent
+ * from the map; callers should default missing keys to 0.
+ */
+export async function activeCountsByModel(): Promise<Record<string, number>> {
   const rows = await db
-    .select({ n: count() })
+    .select({ model: schema.freeSession.model, n: count() })
     .from(schema.freeSession)
     .where(eq(schema.freeSession.status, 'active'))
-  return Number(rows[0]?.n ?? 0)
+    .groupBy(schema.freeSession.model)
+  const out: Record<string, number> = {}
+  for (const row of rows) out[row.model] = Number(row.n)
+  return out
 }
 
 export async function queuePositionFor(params: {
