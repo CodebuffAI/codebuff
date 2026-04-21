@@ -33,6 +33,12 @@ export const serverEnvSchema = clientEnvSchema.extend({
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_APPLICATION_ID: z.string().min(1),
 
+  // Shared secret for the hourly bot-sweep GitHub Action. Callers must send
+  // `Authorization: Bearer $BOT_SWEEP_SECRET` to /api/admin/bot-sweep.
+  // Optional so dev environments can start without it; the endpoint returns
+  // 503 if the secret isn't configured.
+  BOT_SWEEP_SECRET: z.string().min(16).optional(),
+
   // Freebuff waiting room. Defaults to OFF so the feature requires explicit
   // opt-in per environment — the CLI/SDK do not yet send
   // freebuff_instance_id, so enabling this before they ship would reject
@@ -90,6 +96,7 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
+  BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
 
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
