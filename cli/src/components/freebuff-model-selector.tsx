@@ -55,16 +55,12 @@ export const FreebuffModelSelector: React.FC = () => {
     return out
   }, [session])
 
-  // Pad the trailing hint ("3 ahead", "No wait", tagline) to a fixed width so
+  // Pad the trailing hint ("3 ahead", "No wait", "…") to a fixed width so
   // buttons don't visibly resize when the queue depth ticks down (12 → 9) or
-  // when the user's selection moves between queues.
+  // when the user's selection moves between queues. The tagline is shown
+  // inline with the name now, so it's no longer part of this slot.
   const hintWidth = useMemo(
-    () =>
-      Math.max(
-        'No wait'.length,
-        '999 ahead'.length,
-        ...FREEBUFF_MODELS.map((m) => m.tagline.length),
-      ),
+    () => Math.max('No wait'.length, '999 ahead'.length),
     [],
   )
 
@@ -139,11 +135,7 @@ export const FreebuffModelSelector: React.FC = () => {
           const interactable = !pending && !isSelected
           const ahead = aheadByModel?.[model.id]
           const hint =
-            ahead === undefined
-              ? model.tagline
-              : ahead === 0
-                ? 'No wait'
-                : `${ahead} ahead`
+            ahead === undefined ? '' : ahead === 0 ? 'No wait' : `${ahead} ahead`
 
           const borderColor = isSelected
             ? theme.primary
@@ -176,6 +168,7 @@ export const FreebuffModelSelector: React.FC = () => {
                 >
                   {model.displayName}
                 </span>
+                <span fg={theme.muted}> · {model.tagline}</span>
                 <span fg={theme.muted}>  {hint.padEnd(hintWidth)}</span>
               </text>
             </Button>
