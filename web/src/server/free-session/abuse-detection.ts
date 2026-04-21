@@ -63,6 +63,11 @@ export async function identifyBotSuspects(params: {
   const { logger } = params
   const now = new Date()
   const cutoff = new Date(now.getTime() - WINDOW_HOURS * 3600_000)
+  // postgres-js can't encode a JS Date as an ad-hoc template parameter
+  // (it only knows how when the driver recognises the target column's
+  // type). Embed the ISO string with an explicit cast so the FILTER
+  // clauses below go through cleanly.
+  const cutoffIso = cutoff.toISOString()
 
   const sessions = await db
     .select({
@@ -94,8 +99,8 @@ export async function identifyBotSuspects(params: {
   const msgStats = await db
     .select({
       user_id: schema.message.user_id,
-      msgs24h: sql<number>`COUNT(*) FILTER (WHERE ${schema.message.finished_at} >= ${cutoff})`,
-      distinctHours24h: sql<number>`COUNT(DISTINCT EXTRACT(HOUR FROM ${schema.message.finished_at})) FILTER (WHERE ${schema.message.finished_at} >= ${cutoff})`,
+      msgs24h: sql<number>`COUNT(*) FILTER (WHERE ${schema.message.finished_at} >= ${cutoffIso}::timestamptz)`,
+      distinctHours24h: sql<number>`COUNT(DISTINCT EXTRACT(HOUR FROM ${schema.message.finished_at})) FILTER (WHERE ${schema.message.finished_at} >= ${cutoffIso}::timestamptz)`,
       lifetime: sql<number>`COUNT(*)`,
     })
     .from(schema.message)
