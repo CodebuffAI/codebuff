@@ -47,7 +47,7 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
-    "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=./src/db/drizzle.config.ts",
     "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
     "db:e2e:setup": "bun ./src/db/e2e-setup.ts",
     "db:e2e:down": "docker compose -f ./src/db/docker-compose.e2e.yml down --volumes",
