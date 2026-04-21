@@ -13,8 +13,8 @@ import { useTheme } from '../hooks/use-theme'
 import type { KeyEvent } from '@opentui/core'
 
 /**
- * Lets the user pick which model's queue they're in. Tapping (or pressing the
- * row's number key) on a different model triggers a re-POST: the server moves
+ * Lets the user pick which model's queue they're in. Tapping a different model
+ * (or cycling to it via Tab / arrow keys) triggers a re-POST: the server moves
  * them to the back of the new model's queue.
  *
  * Each row shows a live "N ahead" count sourced from the server's
@@ -43,6 +43,19 @@ export const FreebuffModelSelector: React.FC = () => {
     return out
   }, [session])
 
+  // Pad the trailing hint ("3 ahead", "No wait", tagline) to a fixed width so
+  // buttons don't visibly resize when the queue depth ticks down (12 → 9) or
+  // when the user's selection moves between queues.
+  const hintWidth = useMemo(
+    () =>
+      Math.max(
+        'No wait'.length,
+        '999 ahead'.length,
+        ...FREEBUFF_MODELS.map((m) => m.tagline.length),
+      ),
+    [],
+  )
+
   const pick = useCallback(
     (modelId: string) => {
       if (pending) return
@@ -53,17 +66,23 @@ export const FreebuffModelSelector: React.FC = () => {
     [pending, selectedModel],
   )
 
-  // Number-key shortcuts (1-9) so keyboard-only users can switch without
-  // hunting for a clickable region.
+  // Tab / Shift+Tab and Left/Right arrow keys cycle through the model buttons.
+  // Up/Down intentionally do nothing so they don't fight other vertical UI.
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
         if (pending) return
         const name = key.name ?? ''
-        if (!/^[1-9]$/.test(name)) return
-        const digit = Number(name)
-        if (digit > FREEBUFF_MODELS.length) return
-        const target = FREEBUFF_MODELS[digit - 1]
+        const isForward = name === 'right' || (name === 'tab' && !key.shift)
+        const isBackward = name === 'left' || (name === 'tab' && key.shift)
+        if (!isForward && !isBackward) return
+        const currentIdx = FREEBUFF_MODELS.findIndex((m) => m.id === selectedModel)
+        if (currentIdx === -1) return
+        const len = FREEBUFF_MODELS.length
+        const nextIdx = isForward
+          ? (currentIdx + 1) % len
+          : (currentIdx - 1 + len) % len
+        const target = FREEBUFF_MODELS[nextIdx]
         if (target && target.id !== selectedModel) {
           key.preventDefault?.()
           pick(target.id)
@@ -81,18 +100,14 @@ export const FreebuffModelSelector: React.FC = () => {
         gap: 0,
       }}
     >
-      <text style={{ fg: theme.muted, marginBottom: 1 }}>
-        Model — tap or press 1-{FREEBUFF_MODELS.length} to switch
-      </text>
       <box
         style={{
           flexDirection: 'row',
           gap: 2,
         }}
       >
-        {FREEBUFF_MODELS.map((model, idx) => {
+        {FREEBUFF_MODELS.map((model) => {
           const isSelected = model.id === selectedModel
-          const isPending = pending === model.id
           const isHovered = hoveredId === model.id
           const indicator = isSelected ? '●' : '○'
           const indicatorColor = isSelected ? theme.primary : theme.muted
@@ -128,16 +143,13 @@ export const FreebuffModelSelector: React.FC = () => {
             >
               <text>
                 <span fg={indicatorColor}>{indicator} </span>
-                <span fg={theme.muted}>{idx + 1}. </span>
                 <span
                   fg={labelColor}
                   attributes={isSelected ? TextAttributes.BOLD : TextAttributes.NONE}
                 >
                   {model.displayName}
                 </span>
-                <span fg={theme.muted}>  {hint}</span>
-                {isPending && <span fg={theme.muted}>  switching…</span>}
-
+                <span fg={theme.muted}>  {hint.padEnd(hintWidth)}</span>
               </text>
             </Button>
           )

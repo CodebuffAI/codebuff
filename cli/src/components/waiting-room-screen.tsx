@@ -191,13 +191,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   </span>
                   <span fg={theme.muted}> / {session.queueDepth}</span>
                 </text>
-                <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
-                  <span fg={theme.muted}>Wait     </span>
-                  <span fg={theme.primary}>
-                    {session.position === 1
-                      ? 'any moment now'
-                      : formatWait(session.estimatedWaitMs)}
-                  </span>
+                <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
+                  <span>Wait     </span>
+                  {session.position === 1
+                    ? 'any moment now'
+                    : formatWait(session.estimatedWaitMs)}
                 </text>
                 <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
                   <span>Elapsed  </span>
