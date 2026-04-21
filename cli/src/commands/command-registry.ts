@@ -9,7 +9,7 @@ import { handleInitializationFlowLocally } from './init'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
-import { endAndRejoinFreebuffSession } from '../hooks/use-freebuff-session'
+import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
@@ -613,9 +613,10 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /end-session (freebuff-only) — end the active session early and re-queue. The
-  // hook flips status from 'active' → 'queued', which unmounts <Chat> and
-  // mounts <WaitingRoomScreen>, where the user can pick a different model.
+  // /end-session (freebuff-only) — end the active session early and drop back
+  // to the model picker. The hook flips status to 'none', which unmounts
+  // <Chat> and mounts <WaitingRoomScreen> on the landing view, where the
+  // user picks a model and hits Enter to rejoin the queue.
   defineCommand({
     name: 'end-session',
     handler: (params) => {
@@ -626,7 +627,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       ])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      endAndRejoinFreebuffSession().catch(() => {
+      returnToFreebuffLanding({ resetChat: true }).catch(() => {
         // The hook surfaces poll errors via the session store; nothing to do
         // here beyond letting the chat history reflect the attempt.
       })

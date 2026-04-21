@@ -263,15 +263,6 @@ export function joinFreebuffQueue(model: string): Promise<void> {
 }
 
 /**
- * End the current session and immediately rejoin the queue. Used by the
- * "switch model" confirmation flow when the server returned `model_locked`,
- * and by any UI that lets the user exit an active session early.
- */
-export function endAndRejoinFreebuffSession(): Promise<void> {
-  return restartFreebuffSession('rejoin', { resetChat: true, releaseSlot: true })
-}
-
-/**
  * Best-effort DELETE of the caller's session row. Used by exit paths that
  * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
  * instead of waiting for the server-side expiry sweep.

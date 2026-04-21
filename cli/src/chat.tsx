@@ -57,7 +57,7 @@ import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { endAndRejoinFreebuffSession } from './hooks/use-freebuff-session'
+import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
 import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
@@ -1460,7 +1460,7 @@ export const Chat = ({
                 ...prev,
                 getSystemMessage(END_SESSION_MESSAGE),
               ])
-              endAndRejoinFreebuffSession().catch(() => {})
+              returnToFreebuffLanding({ resetChat: true }).catch(() => {})
             }}
             freebuffSession={freebuffSession}
           />
