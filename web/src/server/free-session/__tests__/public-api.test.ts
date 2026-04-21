@@ -38,6 +38,27 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     _now: () => currentNow,
     isWaitingRoomEnabled: () => true,
     graceMs: GRACE_MS,
+    sessionLengthMs: SESSION_LEN,
+    // Test default: instant-admit disabled (capacity 0) so existing FIFO
+    // queue tests stay green. Tests that exercise instant admission opt in
+    // via `getInstantAdmitCapacity: () => N`.
+    getInstantAdmitCapacity: () => 0,
+    activeCountForModel: async (model) => {
+      let n = 0
+      for (const r of rows.values()) {
+        if (r.status === 'active' && r.model === model) n++
+      }
+      return n
+    },
+    promoteQueuedUser: async ({ userId, model, sessionLengthMs, now }) => {
+      const row = rows.get(userId)
+      if (!row || row.status !== 'queued' || row.model !== model) return null
+      row.status = 'active'
+      row.admitted_at = now
+      row.expires_at = new Date(now.getTime() + sessionLengthMs)
+      row.updated_at = now
+      return row
+    },
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     endSession: async (userId) => {
@@ -191,6 +212,63 @@ describe('requestSession', () => {
     expect(second.status).toBe('active')
     if (second.status !== 'active') throw new Error('unreachable')
     expect(second.instanceId).not.toBe('inst-1') // rotated
+  })
+
+  test('instant-admit: below capacity admits the user in the same request', async () => {
+    const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.remainingMs).toBe(SESSION_LEN)
+    // The row in storage is flipped too, so the next GET /session also sees active.
+    expect(admitDeps.rows.get('u1')?.status).toBe('active')
+  })
+
+  test('instant-admit: queues once active-count reaches capacity', async () => {
+    const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 2 })
+    const s1 = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    const s2 = await requestSession({
+      userId: 'u2',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    const s3 = await requestSession({
+      userId: 'u3',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    expect(s1.status).toBe('active')
+    expect(s2.status).toBe('active')
+    expect(s3.status).toBe('queued')
+  })
+
+  test('instant-admit: per-model capacities are independent', async () => {
+    // GLM saturated at 1 active, MiniMax still has room.
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: (model) =>
+        model === DEFAULT_MODEL ? 1 : 10,
+    })
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps: admitDeps })
+    const s2 = await requestSession({
+      userId: 'u2',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    const s3 = await requestSession({
+      userId: 'u3',
+      model: 'minimax/minimax-m2.7',
+      deps: admitDeps,
+    })
+    expect(s2.status).toBe('queued')
+    expect(s3.status).toBe('active')
   })
 })
 

@@ -4,15 +4,19 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 
 import {
+  getInstantAdmitCapacity,
   getSessionGraceMs,
+  getSessionLengthMs,
   isWaitingRoomBypassedForEmail,
   isWaitingRoomEnabled,
 } from './config'
 import {
+  activeCountForModel,
   endSession,
   FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
+  promoteQueuedUser,
   queueDepthsByModel,
   queuePositionFor,
 } from './store'
@@ -35,11 +39,28 @@ export interface SessionDeps {
     model: string
     queuedAt: Date
   }) => Promise<number>
+  /** Instant-admit check: returns the number of active sessions currently
+   *  bound to a given model. Compared against the model's configured
+   *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
+  activeCountForModel: (model: string) => Promise<number>
+  /** Instant-admit promotion: flips a specific queued row to active. Returns
+   *  the updated row or null if the row wasn't in a queued state. */
+  promoteQueuedUser: (params: {
+    userId: string
+    model: string
+    sessionLengthMs: number
+    now: Date
+  }) => Promise<InternalSessionRow | null>
+  /** Per-model capacity lookup. Indirected through deps so tests can
+   *  force-enable / force-disable instant admit without mutating the
+   *  shared model registry. */
+  getInstantAdmitCapacity: (model: string) => number
   isWaitingRoomEnabled: () => boolean
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
    *  inline without wrapping. */
   graceMs: number
+  sessionLengthMs: number
   now?: () => Date
 }
 
@@ -49,12 +70,18 @@ const defaultDeps: SessionDeps = {
   endSession,
   queueDepthsByModel,
   queuePositionFor,
+  activeCountForModel,
+  promoteQueuedUser,
+  getInstantAdmitCapacity,
   isWaitingRoomEnabled,
   get graceMs() {
     // Read-through getter so test overrides via env still work; the value
     // itself is materialized once per call. Cheaper than a thunk because
     // callers don't have to invoke a function.
     return getSessionGraceMs()
+  },
+  get sessionLengthMs() {
+    return getSessionLengthMs()
   },
 }
 
@@ -145,6 +172,33 @@ export async function requestSession(params: {
     }
     throw err
   }
+
+  // Instant-admit: if the model has spare capacity (fewer active sessions
+  // than its configured `instantAdmitCapacity`), skip the waiting room
+  // entirely and flip the user to active in this same request. The tick
+  // + FIFO queue only engage once we hit the threshold, so backpressure
+  // kicks in exactly when the deployment needs it.
+  //
+  // Race note: two concurrent joiners may each see `active < capacity`
+  // and both get admitted, overshooting the cap by up to `concurrency - 1`.
+  // Capacities are chosen with headroom for this, and the configured
+  // value is a comfort threshold not a hard ceiling.
+  if (row.status === 'queued') {
+    const capacity = deps.getInstantAdmitCapacity(model)
+    if (capacity > 0) {
+      const activeCount = await deps.activeCountForModel(model)
+      if (activeCount < capacity) {
+        const promoted = await deps.promoteQueuedUser({
+          userId: params.userId,
+          model,
+          sessionLengthMs: deps.sessionLengthMs,
+          now: nowOf(deps),
+        })
+        if (promoted) row = promoted
+      }
+    }
+  }
+
   const view = await viewForRow(params.userId, deps, row)
   if (!view) {
     throw new Error(

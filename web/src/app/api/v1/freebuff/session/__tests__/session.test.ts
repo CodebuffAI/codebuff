@@ -37,6 +37,13 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     rows,
     isWaitingRoomEnabled: () => true,
     graceMs: 30 * 60 * 1000,
+    sessionLengthMs: 60 * 60 * 1000,
+    // Keep instant-admit disabled in handler tests — they verify queue/state
+    // transitions, not admission policy. With capacity 0 the deps below
+    // aren't reached, so they're trivial stubs.
+    getInstantAdmitCapacity: () => 0,
+    activeCountForModel: async () => 0,
+    promoteQueuedUser: async () => null,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepthsByModel: async () => {
