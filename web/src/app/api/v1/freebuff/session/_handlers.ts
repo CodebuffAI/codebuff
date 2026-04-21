@@ -166,7 +166,11 @@ export async function getFreebuffSession(
     })
     if (state.status === 'none') {
       return NextResponse.json(
-        { status: 'none', message: 'Call POST to join the waiting room.' },
+        {
+          status: 'none',
+          message: 'Call POST to join the waiting room.',
+          queueDepthByModel: state.queueDepthByModel,
+        },
         { status: 200 },
       )
     }

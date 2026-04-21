@@ -206,9 +206,9 @@ describe('getSessionState', () => {
     expect(state).toEqual({ status: 'disabled' })
   })
 
-  test('no row returns none', async () => {
+  test('no row returns none with empty queue-depth snapshot', async () => {
     const state = await getSessionState({ userId: 'u1', deps })
-    expect(state).toEqual({ status: 'none' })
+    expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
   })
 
   test('active session with matching instance id returns active', async () => {
@@ -284,7 +284,7 @@ describe('getSessionState', () => {
       claimedInstanceId: row.active_instance_id,
       deps,
     })
-    expect(state).toEqual({ status: 'none' })
+    expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
   })
 })
 

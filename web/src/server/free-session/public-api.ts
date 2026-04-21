@@ -181,7 +181,16 @@ export async function getSessionState(params: {
     return { status: 'disabled' }
   }
   const row = await deps.getSessionRow(params.userId)
-  if (!row) return { status: 'none' }
+
+  // Build a `none` response with live queue depths so the CLI's pre-join
+  // picker can show "N ahead" hints without first committing the user to a
+  // queue. Cheap snapshot — no user-scoped state.
+  const noneResponse = async (): Promise<FreebuffSessionServerResponse> => ({
+    status: 'none',
+    queueDepthByModel: await deps.queueDepthsByModel(),
+  })
+
+  if (!row) return noneResponse()
 
   if (
     row.status === 'active' &&
@@ -192,7 +201,7 @@ export async function getSessionState(params: {
   }
 
   const view = await viewForRow(params.userId, deps, row)
-  if (!view) return { status: 'none' }
+  if (!view) return noneResponse()
   return view
 }
 

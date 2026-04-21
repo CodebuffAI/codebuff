@@ -92,6 +92,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
   const isQueued = session?.status === 'queued'
+  // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
+  // state: show the picker with live N-ahead hints and a prompt. Picking a
+  // model triggers joinFreebuffQueue, which POSTs and transitions us to
+  // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
+  const isLanding = session?.status === 'none'
 
   return (
     <box
@@ -160,10 +165,19 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </text>
           )}
 
-          {((!session && !error) || session?.status === 'none') && (
+          {!session && !error && (
             <text style={{ fg: theme.muted }}>
-              <ShimmerText text="Joining the waiting room…" />
+              <ShimmerText text="Connecting…" />
             </text>
+          )}
+
+          {isLanding && (
+            <>
+              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
+                Pick a model to start
+              </text>
+              <FreebuffModelSelector />
+            </>
           )}
 
           {isQueued && session && (

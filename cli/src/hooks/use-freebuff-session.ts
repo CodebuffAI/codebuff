@@ -132,7 +132,6 @@ interface PollController {
   refresh: () => Promise<void>
   apply: (next: FreebuffSessionResponse) => void
   abort: () => void
-  setHasPosted: (value: boolean) => void
 }
 
 let controller: PollController | null = null
@@ -168,14 +167,18 @@ export async function refreshFreebuffSession(opts: { resetChat?: boolean } = {})
 }
 
 /**
- * User picked a different model in the waiting room. Persist the choice and
- * re-POST so the server moves them to the back of the new model's queue. If
- * the server has already admitted them on a different model, it responds
+ * Join (or re-queue for) `model`. Dual-purpose:
+ *   - First join: called from the pre-chat landing picker. The session starts
+ *     at `none` (GET-only); this is the user's explicit commitment to enter.
+ *   - Switch: called when the user picks a different model from within the
+ *     waiting room. Server moves them to the back of the new model's queue.
+ *
+ * If the server has already admitted them on a different model, it responds
  * with `model_locked`; the tick loop silently reverts the local selection to
  * the locked model so the active session stays intact. Users who really want
  * to switch can /end-session deliberately.
  */
-export async function switchFreebuffModel(model: string): Promise<void> {
+export async function joinFreebuffQueue(model: string): Promise<void> {
   if (!IS_FREEBUFF) return
   const { setSelectedModel } = useFreebuffModelStore.getState()
   setSelectedModel(model)
@@ -256,9 +259,13 @@ interface UseFreebuffSessionResult {
 
 /**
  * Manages the freebuff waiting-room session lifecycle:
- *   - POST on mount to join the queue / rotate instance id
+ *   - GET on mount to probe state (no auto-join; the user picks a model in
+ *     the landing screen, which calls joinFreebuffQueue)
+ *   - if the probe sees an existing seat, POSTs once to take over (rotates
+ *     the instance id so any other CLI on the same account is superseded)
  *   - polls GET while queued (fast) or active (slow) to keep state fresh
- *   - re-POSTs on explicit refresh (chat gate rejected us)
+ *   - re-POSTs on explicit refresh (chat gate rejected us, user switched
+ *     models, user rejoined after ending)
  *   - DELETE on unmount so the slot frees up for the next user
  *   - plays a bell on transition from queued → active
  */
@@ -288,7 +295,11 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let abortController = new AbortController()
     let timer: ReturnType<typeof setTimeout> | null = null
     let previousStatus: FreebuffSessionResponse['status'] | null = null
-    let hasPosted = false
+    // Method for the NEXT tick. GET is read-only; POST claims/rotates a seat.
+    // Startup is GET (probe before committing). After any POST completes we
+    // flip back to GET. refresh() sets it to 'POST' for explicit join/rejoin;
+    // the startup takeover branch does the same when the probe finds a seat.
+    let nextMethod: 'GET' | 'POST' = 'GET'
 
     const apply = (next: FreebuffSessionResponse) => {
       setSession(next)
@@ -311,10 +322,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
     const tick = async () => {
       if (cancelled) return
-      // POST when we don't yet hold a seat; thereafter GET. The
-      // active|ended → none edge is special-cased below so we don't silently
-      // re-POST out from under an in-flight agent.
-      const method: 'POST' | 'GET' = hasPosted ? 'GET' : 'POST'
+      const method = nextMethod
       const instanceId = getFreebuffInstanceId()
       const model = getSelectedFreebuffModel()
       try {
@@ -324,7 +332,10 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           model,
         })
         if (cancelled) return
-        hasPosted = true
+        // After any successful call, default back to GET polling. The
+        // takeover and model_locked branches below override this when they
+        // need another POST.
+        nextMethod = 'GET'
 
         // Race recovery: user picked a different model in the waiting room at
         // the exact moment the server admitted them with the original model.
@@ -333,6 +344,23 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // switch can /end-session deliberately.
         if (next.status === 'model_locked') {
           useFreebuffModelStore.getState().setSelectedModel(next.currentModel)
+          schedule(0)
+          return
+        }
+
+        // Startup takeover: the initial probe GET saw we already hold a seat
+        // (from a prior CLI instance). POST now to rotate our instance id so
+        // any other CLI on this account is superseded on its next poll.
+        // `previousStatus === null` fences this to the very first tick only.
+        // Pin the selected model to whatever the server thinks we're on so
+        // the POST preserves our queue position instead of switching queues.
+        if (
+          method === 'GET' &&
+          previousStatus === null &&
+          (next.status === 'queued' || next.status === 'active')
+        ) {
+          useFreebuffModelStore.getState().setSelectedModel(next.model)
+          nextMethod = 'POST'
           schedule(0)
           return
         }
@@ -374,16 +402,13 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // Reset previousStatus so the queued→active bell still fires after
         // a forced re-POST.
         previousStatus = null
-        hasPosted = false
+        nextMethod = 'POST'
         await tick()
       },
       apply,
       abort: () => {
         clearTimer()
         abortController.abort()
-      },
-      setHasPosted: (value) => {
-        hasPosted = value
       },
     }
 

@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
 
-import { switchFreebuffModel } from '../hooks/use-freebuff-session'
+import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
@@ -14,17 +14,20 @@ import { useTheme } from '../hooks/use-theme'
 import type { KeyEvent } from '@opentui/core'
 
 /**
- * Lets the user pick which model's queue they're in. Switching triggers a
- * re-POST: the server moves them to the back of the new model's queue, which
- * means switching is *not free* — they lose their place in the original line.
+ * Dual-purpose model picker:
+ *   - Pre-chat landing (session 'none'): user hasn't joined any queue. Picking
+ *     a model is their explicit commitment to enter — this triggers the POST.
+ *   - In-queue switcher (session 'queued'): picking a *different* model moves
+ *     the user to the back of that queue (lose place in original). Picking the
+ *     model they're already in is a no-op.
  *
- * To prevent accidental queue loss, keyboard navigation is two-step: Tab /
- * arrow keys move a focus highlight, and Enter commits the switch. Mouse
- * clicks are still one-step (the click target is intentional).
+ * To prevent accidental queue loss while queued, keyboard navigation is
+ * two-step: Tab / arrow keys move a focus highlight, and Enter commits the
+ * switch. Mouse clicks are still one-step. On the landing screen, pressing
+ * Enter on the already-focused model also commits — there's nothing to lose.
  *
  * Each row shows a live "N ahead" count sourced from the server's
- * `queueDepthByModel` snapshot so the choice is informed (e.g. "3 ahead" vs
- * "12 ahead") rather than a blind preference toggle.
+ * `queueDepthByModel` snapshot so the choice is informed.
  */
 export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
@@ -42,19 +45,30 @@ export const FreebuffModelSelector: React.FC = () => {
     setFocusedId(selectedModel)
   }, [selectedModel])
 
-  // For the user's current queue, "ahead" is `position - 1` (themselves don't
-  // count). For every other queue, switching would land them at the back, so
-  // it's that queue's full depth. Null before the first queued snapshot so
-  // the UI doesn't flash misleading zeros.
+  // Landing ('none'): depths come from the server snapshot, no "self" to
+  // subtract. In-queue ('queued'): for the user's queue, "ahead" is
+  // `position - 1` (themselves don't count); for every other queue, switching
+  // would land them at the back, so it's that queue's full depth. Null before
+  // any snapshot so the UI doesn't flash misleading zeros.
   const aheadByModel = useMemo<Record<string, number> | null>(() => {
-    if (session?.status !== 'queued') return null
-    const depths = session.queueDepthByModel ?? {}
-    const out: Record<string, number> = {}
-    for (const { id } of FREEBUFF_MODELS) {
-      out[id] =
-        id === session.model ? Math.max(0, session.position - 1) : depths[id] ?? 0
+    if (session?.status === 'none') {
+      const depths = session.queueDepthByModel ?? {}
+      const out: Record<string, number> = {}
+      for (const { id } of FREEBUFF_MODELS) out[id] = depths[id] ?? 0
+      return out
     }
-    return out
+    if (session?.status === 'queued') {
+      const depths = session.queueDepthByModel ?? {}
+      const out: Record<string, number> = {}
+      for (const { id } of FREEBUFF_MODELS) {
+        out[id] =
+          id === session.model
+            ? Math.max(0, session.position - 1)
+            : depths[id] ?? 0
+      }
+      return out
+    }
+    return null
   }, [session])
 
   // Pad the trailing hint ("3 ahead", "No wait", "…") to a fixed width so
@@ -87,14 +101,20 @@ export const FreebuffModelSelector: React.FC = () => {
     return total > terminalWidth - 4
   }, [hintWidth, terminalWidth])
 
+  // "Already committed to this model" — only when the server has us queued
+  // on it. On the landing screen (status 'none'), nothing is committed yet,
+  // so picking the focused model is always a real action (first join).
+  const committedModelId =
+    session?.status === 'queued' ? session.model : null
+
   const pick = useCallback(
     (modelId: string) => {
       if (pending) return
-      if (modelId === selectedModel) return
+      if (modelId === committedModelId) return
       setPending(modelId)
-      switchFreebuffModel(modelId).finally(() => setPending(null))
+      joinFreebuffQueue(modelId).finally(() => setPending(null))
     },
-    [pending, selectedModel],
+    [pending, committedModelId],
   )
 
   // Tab / Shift+Tab and arrow keys move the focus highlight only; Enter or
@@ -112,7 +132,7 @@ export const FreebuffModelSelector: React.FC = () => {
         const isCommit = name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
-          if (focusedId !== selectedModel) {
+          if (focusedId !== committedModelId) {
             key.preventDefault?.()
             pick(focusedId)
           }
@@ -130,7 +150,7 @@ export const FreebuffModelSelector: React.FC = () => {
           setFocusedId(target.id)
         }
       },
-      [pending, pick, focusedId, selectedModel],
+      [pending, pick, focusedId, committedModelId],
     ),
   )
 
@@ -150,13 +170,19 @@ export const FreebuffModelSelector: React.FC = () => {
         }}
       >
         {FREEBUFF_MODELS.map((model) => {
+          // 'Selected' means the dot is filled and the label is bold. On the
+          // landing screen ('none') this tracks the pre-focused pick; on the
+          // queued screen it tracks the model the server has us on. Either
+          // way, selectedModel reflects the intent of "what Enter commits to."
           const isSelected = model.id === selectedModel
           const isHovered = hoveredId === model.id
           const isFocused = focusedId === model.id && !isSelected
           const indicator = isSelected ? '●' : '○'
           const indicatorColor = isSelected ? theme.primary : theme.muted
           const labelColor = isSelected ? theme.foreground : theme.muted
-          const interactable = !pending && !isSelected
+          // Clickable whenever picking would actually do something — i.e.
+          // anything except re-picking the queue we're already in.
+          const interactable = !pending && model.id !== committedModelId
           const ahead = aheadByModel?.[model.id]
           const hint =
             ahead === undefined ? '' : ahead === 0 ? 'No wait' : `${ahead} ahead`

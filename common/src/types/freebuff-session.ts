@@ -17,6 +17,11 @@ export type FreebuffSessionServerResponse =
        *  grace window. */
       status: 'none'
       message?: string
+      /** Snapshot of every model's queue depth so the CLI can render live
+       *  "N ahead" hints on the pre-join model picker without first
+       *  committing the user to a queue. Present on GET responses; not
+       *  returned from POST (POST never produces `none`). */
+      queueDepthByModel?: Record<string, number>
     }
   | {
       status: 'queued'
