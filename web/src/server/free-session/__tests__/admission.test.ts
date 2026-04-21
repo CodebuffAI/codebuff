@@ -15,6 +15,7 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
   const deps: AdmissionDeps & { calls: { admit: number } } = {
     calls,
     sweepExpired: async () => 0,
+    evictBanned: async () => 0,
     queueDepth: async () => 0,
     activeCountsByModel: async () => ({}),
     getFleetHealth: async () => ({}),
@@ -125,5 +126,34 @@ describe('runAdmissionTick', () => {
     })
     await runAdmissionTick(deps)
     expect(received).toEqual([12_345])
+  })
+
+  test('evicts banned users every tick and surfaces the count', async () => {
+    let evictCalls = 0
+    const deps = makeAdmissionDeps({
+      evictBanned: async () => {
+        evictCalls += 1
+        return 4
+      },
+    })
+    const result = await runAdmissionTick(deps)
+    expect(evictCalls).toBe(1)
+    expect(result.evictedBanned).toBe(4)
+  })
+
+  test('still evicts banned users when admission is paused by health', async () => {
+    let evictCalls = 0
+    const deps = makeAdmissionDeps({
+      getFleetHealth: async () => fleet('unhealthy'),
+      evictBanned: async () => {
+        evictCalls += 1
+        return 2
+      },
+    })
+    const result = await runAdmissionTick(deps)
+    expect(evictCalls).toBe(1)
+    expect(result.evictedBanned).toBe(2)
+    expect(result.admitted).toBe(0)
+    expect(result.skipped).toBe('unhealthy')
   })
 })
