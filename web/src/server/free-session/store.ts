@@ -177,6 +177,24 @@ export async function queueDepthsByModel(): Promise<Record<string, number>> {
 }
 
 /**
+ * Count of rows currently in `active` status for one model — the threshold
+ * check that gates instant admission. Hot-path lookup; callers avoid the
+ * full `activeCountsByModel` scan when they only need one model's count.
+ */
+export async function activeCountForModel(model: string): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(
+      and(
+        eq(schema.freeSession.status, 'active'),
+        eq(schema.freeSession.model, model),
+      ),
+    )
+  return Number(rows[0]?.n ?? 0)
+}
+
+/**
  * Single-query read of active-row counts bucketed by model. Mirrors
  * `queueDepthsByModel` so the admission tick can log per-model utilization
  * alongside per-model queue depth. Models with no active sessions are absent
@@ -331,6 +349,43 @@ export async function admitFromQueue(params: {
 
     return { admitted: admitted as InternalSessionRow[], skipped: null }
   })
+}
+
+/**
+ * Promote a specific queued user to active. Used by the instant-admit path
+ * in `requestSession` when the model's active-session count is below its
+ * configured capacity — skips the FIFO advisory-lock dance because each
+ * call targets a distinct (user_id, model) and the UPDATE is a no-op if
+ * the row isn't queued any more.
+ *
+ * Returns the updated row or null if the row was not in the expected
+ * (queued, same-model) state.
+ */
+export async function promoteQueuedUser(params: {
+  userId: string
+  model: string
+  sessionLengthMs: number
+  now: Date
+}): Promise<InternalSessionRow | null> {
+  const { userId, model, sessionLengthMs, now } = params
+  const expiresAt = new Date(now.getTime() + sessionLengthMs)
+  const [row] = await db
+    .update(schema.freeSession)
+    .set({
+      status: 'active',
+      admitted_at: now,
+      expires_at: expiresAt,
+      updated_at: now,
+    })
+    .where(
+      and(
+        eq(schema.freeSession.user_id, userId),
+        eq(schema.freeSession.status, 'queued'),
+        eq(schema.freeSession.model, model),
+      ),
+    )
+    .returning()
+  return (row as InternalSessionRow | undefined) ?? null
 }
 
 /** Stable 31-bit hash so model-keyed advisory lock ids don't overflow int4. */

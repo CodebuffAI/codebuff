@@ -39,3 +39,19 @@ export function getSessionLengthMs(): number {
 export function getSessionGraceMs(): number {
   return env.FREEBUFF_SESSION_GRACE_MS
 }
+
+/**
+ * Per-model instant-admit capacity: how many concurrent active sessions a
+ * deployment can hold before new joiners fall back to the FIFO queue + tick.
+ * Deployment-sizing knob — kept server-side so we can tune without bumping
+ * the shared `common` package that the CLI consumes. Unknown ids → 0 (always
+ * queue).
+ */
+const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
+  'z-ai/glm-5.1': 50,
+  'minimax/minimax-m2.7': 200,
+}
+
+export function getInstantAdmitCapacity(id: string): number {
+  return INSTANT_ADMIT_CAPACITY[id] ?? 0
+}
