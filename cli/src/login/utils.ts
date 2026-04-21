@@ -55,13 +55,6 @@ export function formatUrl(url: string, maxWidth?: number): string[] {
 }
 
 /**
- * Generates a unique fingerprint ID for CLI authentication
- */
-export function generateFingerprintId(): string {
-  return `codebuff-cli-${Math.random().toString(36).substring(2, 15)}`
-}
-
-/**
  * Determines the color for a character based on its position relative to the sheen
  * Block characters use blockColor, shadow/border characters animate to accent green
  * @param accentColor - The accent color to use for the sheen effect (typically theme.primary)

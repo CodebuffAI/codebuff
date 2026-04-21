@@ -21,20 +21,16 @@ let machineIdModule: typeof import('node-machine-id') | null = null
 let systeminformationModule: typeof import('systeminformation') | null = null
 
 async function getMachineId(): Promise<string> {
-  try {
-    if (!machineIdModule) {
-      machineIdModule = await import('node-machine-id')
-    }
-    const id = await machineIdModule.machineId()
-    // Validate that we got a real machine ID, not an empty or placeholder value
-    if (!id || id === 'unknown' || id.length < 8) {
-      throw new Error('Invalid machine ID returned')
-    }
-    return id
-  } catch (error) {
-    // Re-throw to signal that enhanced fingerprinting should fall back to legacy
-    throw error
+  if (!machineIdModule) {
+    machineIdModule = await import('node-machine-id')
   }
+  const id = await machineIdModule.machineId()
+  // Validate that we got a real machine ID, not an empty or placeholder value.
+  // Throwing here triggers the legacy fallback in calculateFingerprint().
+  if (!id || id === 'unknown' || id.length < 8) {
+    throw new Error('Invalid machine ID returned')
+  }
+  return id
 }
 
 async function getSystemInfo(): Promise<{
@@ -139,6 +135,25 @@ async function calculateEnhancedFingerprint(): Promise<string> {
 function calculateLegacyFingerprint(): string {
   const randomSuffix = randomBytes(6).toString('base64url').substring(0, 8)
   return `codebuff-cli-${randomSuffix}`
+}
+
+/**
+ * Cached fingerprint promise. Populated on first call and reused for the
+ * process lifetime so every auth step in a session ships the same fingerprint
+ * to the server.
+ */
+let cachedFingerprintPromise: Promise<string> | null = null
+
+/**
+ * Returns the process-wide CLI fingerprint, computing it on first call.
+ * Safe to call from multiple places — the first caller wins and the rest
+ * await the same promise.
+ */
+export function getFingerprintId(): Promise<string> {
+  if (!cachedFingerprintPromise) {
+    cachedFingerprintPromise = calculateFingerprint()
+  }
+  return cachedFingerprintPromise
 }
 
 /**

@@ -13,6 +13,7 @@ import { setProjectRoot } from '../project-files'
 import { initTimestampFormatter } from '../utils/helpers'
 import { enableManualThemeRefresh } from '../utils/theme-system'
 import { initAnalytics } from '../utils/analytics'
+import { getFingerprintId } from '../utils/fingerprint'
 import { initializeDirenv } from './init-direnv'
 
 export async function initializeApp(params: { cwd?: string }): Promise<void> {
@@ -37,6 +38,10 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   initializeThemeStore()
   enableManualThemeRefresh()
   initTimestampFormatter()
+
+  // Compute the hardware-based fingerprint in the background so it's ready
+  // by the time the user finishes reading the login prompt.
+  void getFingerprintId()
 
   // Refresh Claude OAuth credentials in the background if they exist
   // This ensures the subscription status is up-to-date on startup

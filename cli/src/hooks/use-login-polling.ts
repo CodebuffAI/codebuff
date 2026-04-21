@@ -8,7 +8,7 @@ import type { User } from '../utils/auth'
 
 interface UseLoginPollingParams {
   loginUrl: string | null
-  fingerprintId: string
+  fingerprintId: string | null
   fingerprintHash: string | null
   expiresAt: string | null
   isWaitingForEnter: boolean
@@ -49,6 +49,9 @@ export function useLoginPolling({
   }, [onError])
 
   useEffect(() => {
+    // fingerprintHash only becomes non-null after the login-URL mutation
+    // succeeds, and that path always sets fingerprintId first — so gating
+    // on fingerprintHash implicitly gates on fingerprintId.
     if (!loginUrl || !fingerprintHash || !expiresAt || !isWaitingForEnter) {
       return
     }
@@ -67,7 +70,7 @@ export function useLoginPolling({
       },
       {
         baseUrl: LOGIN_WEBSITE_URL,
-        fingerprintId,
+        fingerprintId: fingerprintId!,
         fingerprintHash,
         expiresAt,
         shouldContinue: () => active,
