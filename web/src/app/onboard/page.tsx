@@ -94,6 +94,9 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
+  // Log fingerprint collisions as a signal for async abuse review, but don't
+  // block login — shared dev machines, Docker images with baked-in machine-ids,
+  // and CI runners can legitimately produce the same fingerprint across users.
   const { hasConflict, existingUserId } = await checkFingerprintConflict(
     fingerprintId,
     user.id,
@@ -102,18 +105,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       { fingerprintId, existingUserId, attemptedUserId: user.id },
       'Fingerprint ownership conflict',
-    )
-    return (
-      <CardWithBeams
-        title="Unable to complete login"
-        description="Something went wrong during the login process."
-        content={
-          <p>
-            Please try generating a new login code. If the problem persists,
-            contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
-          </p>
-        }
-      />
     )
   }
 
