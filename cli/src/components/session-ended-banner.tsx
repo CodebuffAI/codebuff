@@ -3,7 +3,7 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
 
 import { Button } from './button'
-import { refreshFreebuffSession } from '../hooks/use-freebuff-session'
+import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -35,10 +35,14 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const rejoin = useCallback(() => {
     if (!canRejoin) return
     setRejoining(true)
-    // Once the POST lands, the hook flips status to 'queued' and app.tsx
-    // swaps us into <WaitingRoomScreen>, unmounting this banner. No need to
-    // clear `rejoining` on success — the component will be gone.
-    refreshFreebuffSession({ resetChat: true }).catch(() => setRejoining(false))
+    // Drop back to the landing picker (status: 'none') so the user picks a
+    // model and hits Enter again to commit, instead of being silently
+    // re-queued. app.tsx swaps us into <WaitingRoomScreen> on the
+    // transition, unmounting this banner — no need to clear `rejoining` on
+    // success.
+    returnToFreebuffLanding({ resetChat: true }).catch(() =>
+      setRejoining(false),
+    )
   }, [canRejoin])
 
   useKeyboard(

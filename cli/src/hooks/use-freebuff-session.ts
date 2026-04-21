@@ -124,12 +124,20 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
 // --- Poll-loop control surface ---------------------------------------------
 //
 // The hook below registers a controller object here on mount; module-level
-// imperative functions (refresh / mark superseded / mark ended / etc.) talk
+// imperative functions (restart / mark superseded / mark ended / etc.) talk
 // to it without going through React. Non-React callers (chat-completions
 // gate, exit paths) hit those functions directly.
 
+/** How the next tick should behave after a forced restart.
+ *   - 'rejoin'  → POST: claim/rotate a seat (used after explicit end-and-rejoin
+ *                 or when the chat gate kicks us back to the queue).
+ *   - 'landing' → GET: drop to the model-picker (status 'none') so the user
+ *                 reconfirms a model before rejoining. */
+type RestartMode = 'rejoin' | 'landing'
+
 interface PollController {
-  refresh: () => Promise<void>
+  /** Cancel the in-flight tick + timer and start a fresh one in `mode`. */
+  restart: (mode: RestartMode) => Promise<void>
   apply: (next: FreebuffSessionResponse) => void
   abort: () => void
 }
@@ -152,73 +160,6 @@ export function getFreebuffInstanceId(): string | undefined {
   }
 }
 
-/**
- * Re-POST to the server (rejoining the queue / rotating the instance id).
- * Pass `resetChat: true` to also wipe local chat history — used when
- * rejoining after a session ended so the next admitted session starts fresh.
- */
-export async function refreshFreebuffSession(opts: { resetChat?: boolean } = {}): Promise<void> {
-  if (!IS_FREEBUFF) return
-  if (opts.resetChat) {
-    const { useChatStore } = await import('../state/chat-store')
-    useChatStore.getState().reset()
-  }
-  await controller?.refresh()
-}
-
-/**
- * Join (or re-queue for) `model`. Dual-purpose:
- *   - First join: called from the pre-chat landing picker. The session starts
- *     at `none` (GET-only); this is the user's explicit commitment to enter.
- *   - Switch: called when the user picks a different model from within the
- *     waiting room. Server moves them to the back of the new model's queue.
- *
- * If the server has already admitted them on a different model, it responds
- * with `model_locked`; the tick loop silently reverts the local selection to
- * the locked model so the active session stays intact. Users who really want
- * to switch can /end-session deliberately.
- */
-export async function joinFreebuffQueue(model: string): Promise<void> {
-  if (!IS_FREEBUFF) return
-  const { setSelectedModel } = useFreebuffModelStore.getState()
-  setSelectedModel(model)
-  await controller?.refresh()
-}
-
-/**
- * End the current session and immediately rejoin the queue. Used by the
- * "switch model" confirmation flow when the server returned `model_locked`,
- * and by any UI that lets the user exit an active session early.
- */
-export async function endAndRejoinFreebuffSession(): Promise<void> {
-  if (!IS_FREEBUFF) return
-  const { token } = getAuthTokenDetails()
-  if (!token) return
-  try {
-    await callSession('DELETE', token)
-  } catch {
-    // Best-effort — even if DELETE fails the re-POST below will eventually
-    // succeed once the server-side sweep catches up.
-  }
-  const { useChatStore } = await import('../state/chat-store')
-  useChatStore.getState().reset()
-  await controller?.refresh()
-}
-
-export function markFreebuffSessionSuperseded(): void {
-  if (!IS_FREEBUFF) return
-  controller?.abort()
-  controller?.apply({ status: 'superseded' })
-}
-
-/** Flip into the local `ended` state without an instanceId (server has lost
- *  our row). The chat surface stays mounted with the rejoin banner. */
-export function markFreebuffSessionEnded(): void {
-  if (!IS_FREEBUFF) return
-  controller?.abort()
-  controller?.apply({ status: 'ended' })
-}
-
 /** True when the session row represents a server-side slot the caller is
  *  holding (queued, active, or in the post-expiry grace window with a live
  *  instance id). DELETE only matters in those states; otherwise we'd fire a
@@ -234,13 +175,11 @@ function shouldReleaseSlot(
   )
 }
 
-/**
- * Best-effort DELETE of the caller's session row. Used by exit paths that
- * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
- * instead of waiting for the server-side expiry sweep.
- */
-export async function endFreebuffSessionBestEffort(): Promise<void> {
-  if (!IS_FREEBUFF) return
+/** Best-effort DELETE of the caller's session row, gated on actually holding
+ *  one. Used both by exit paths and any flow that wants the next POST to
+ *  start clean (rejoin, return-to-landing). Always swallows errors — the
+ *  server-side sweep is the backstop. */
+async function releaseFreebuffSlot(): Promise<void> {
   const current = useFreebuffSessionStore.getState().session
   if (!shouldReleaseSlot(current)) return
   const { token } = getAuthTokenDetails()
@@ -248,8 +187,112 @@ export async function endFreebuffSessionBestEffort(): Promise<void> {
   try {
     await callSession('DELETE', token)
   } catch {
-    // swallow — we're exiting
+    // swallow
   }
+}
+
+async function resetChatStore(): Promise<void> {
+  const { useChatStore } = await import('../state/chat-store')
+  useChatStore.getState().reset()
+}
+
+interface RestartOpts {
+  resetChat?: boolean
+  /** DELETE the held slot before restarting so the next POST starts clean. */
+  releaseSlot?: boolean
+}
+
+async function restartFreebuffSession(
+  mode: RestartMode,
+  opts: RestartOpts = {},
+): Promise<void> {
+  if (!IS_FREEBUFF) return
+  // Halt the running poll loop before we touch local stores or DELETE the
+  // slot. Otherwise an in-flight GET could land mid-reset and overwrite
+  // state, or the next scheduled tick could fire between DELETE and
+  // restart() with stale assumptions. restart() re-aborts and re-arms
+  // below; the extra abort here is cheap.
+  controller?.abort()
+  if (opts.resetChat) await resetChatStore()
+  if (opts.releaseSlot) await releaseFreebuffSlot()
+  await controller?.restart(mode)
+}
+
+/**
+ * Re-POST to the server (rejoining the queue / rotating the instance id).
+ * Pass `resetChat: true` to also wipe local chat history — used when
+ * rejoining after a session ended so the next admitted session starts fresh.
+ */
+export function refreshFreebuffSession(
+  opts: { resetChat?: boolean } = {},
+): Promise<void> {
+  return restartFreebuffSession('rejoin', { resetChat: opts.resetChat })
+}
+
+/**
+ * Drop back to the pre-join landing state (model picker) instead of auto
+ * re-queuing. Used after a session ends: the user lands on the picker so
+ * they consciously choose a model and hit Enter to join, rather than being
+ * silently re-queued for whatever model they last used.
+ */
+export function returnToFreebuffLanding(
+  opts: { resetChat?: boolean } = {},
+): Promise<void> {
+  return restartFreebuffSession('landing', {
+    resetChat: opts.resetChat,
+    releaseSlot: true,
+  })
+}
+
+/**
+ * Join (or re-queue for) `model`. Dual-purpose:
+ *   - First join: called from the pre-chat landing picker. The session starts
+ *     at `none` (GET-only); this is the user's explicit commitment to enter.
+ *   - Switch: called when the user picks a different model from within the
+ *     waiting room. Server moves them to the back of the new model's queue.
+ *
+ * If the server has already admitted them on a different model, it responds
+ * with `model_locked`; the tick loop silently reverts the local selection to
+ * the locked model so the active session stays intact. Users who really want
+ * to switch can /end-session deliberately.
+ */
+export function joinFreebuffQueue(model: string): Promise<void> {
+  if (!IS_FREEBUFF) return Promise.resolve()
+  useFreebuffModelStore.getState().setSelectedModel(model)
+  return restartFreebuffSession('rejoin')
+}
+
+/**
+ * End the current session and immediately rejoin the queue. Used by the
+ * "switch model" confirmation flow when the server returned `model_locked`,
+ * and by any UI that lets the user exit an active session early.
+ */
+export function endAndRejoinFreebuffSession(): Promise<void> {
+  return restartFreebuffSession('rejoin', { resetChat: true, releaseSlot: true })
+}
+
+/**
+ * Best-effort DELETE of the caller's session row. Used by exit paths that
+ * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
+ * instead of waiting for the server-side expiry sweep.
+ */
+export async function endFreebuffSessionBestEffort(): Promise<void> {
+  if (!IS_FREEBUFF) return
+  await releaseFreebuffSlot()
+}
+
+export function markFreebuffSessionSuperseded(): void {
+  if (!IS_FREEBUFF) return
+  controller?.abort()
+  controller?.apply({ status: 'superseded' })
+}
+
+/** Flip into the local `ended` state without an instanceId (server has lost
+ *  our row). The chat surface stays mounted with the rejoin banner. */
+export function markFreebuffSessionEnded(): void {
+  if (!IS_FREEBUFF) return
+  controller?.abort()
+  controller?.apply({ status: 'ended' })
 }
 
 interface UseFreebuffSessionResult {
@@ -394,14 +437,25 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     }
 
     controller = {
-      refresh: async () => {
+      restart: async (mode) => {
         clearTimer()
         // Abort any in-flight fetch so it can't race us and overwrite state.
         abortController.abort()
         abortController = new AbortController()
         // Reset previousStatus so the queued→active bell still fires after
-        // a forced re-POST.
+        // a forced restart, and so the active|ended → none synthesis below
+        // doesn't bounce a 'landing' restart straight back to 'ended'.
         previousStatus = null
+        if (mode === 'landing') {
+          // Land on the picker without a probe GET. If the preceding
+          // DELETE hasn't propagated, a GET here could still see
+          // queued/active and trip the startup-takeover branch below into
+          // an auto-POST — the exact silent-rejoin this mode exists to
+          // avoid. Polling resumes when the user commits to a model via
+          // joinFreebuffQueue.
+          apply({ status: 'none' })
+          return
+        }
         nextMethod = 'POST'
         await tick()
       },
