@@ -10,6 +10,7 @@ import { getFleetHealth } from './fireworks-health'
 import {
   activeCountsByModel,
   admitFromQueue,
+  evictBanned,
   queueDepth,
   sweepExpired,
 } from './store'
@@ -20,6 +21,7 @@ import { logger } from '@/util/logger'
 
 export interface AdmissionDeps {
   sweepExpired: (now: Date, graceMs: number) => Promise<number>
+  evictBanned: () => Promise<number>
   queueDepth: (params: { model: string }) => Promise<number>
   activeCountsByModel: () => Promise<Record<string, number>>
   admitFromQueue: (params: {
@@ -39,6 +41,7 @@ export interface AdmissionDeps {
 
 const defaultDeps: AdmissionDeps = {
   sweepExpired,
+  evictBanned,
   queueDepth,
   activeCountsByModel,
   admitFromQueue,
@@ -60,6 +63,8 @@ const defaultDeps: AdmissionDeps = {
 
 export interface AdmissionTickResult {
   expired: number
+  /** Free_session rows removed because the user is banned. */
+  evictedBanned: number
   admitted: number
   /** Per-model queue depth at the end of the tick. */
   queueDepthByModel: Record<string, number>
@@ -86,7 +91,12 @@ export async function runAdmissionTick(
   deps: AdmissionDeps = defaultDeps,
 ): Promise<AdmissionTickResult> {
   const now = (deps.now ?? (() => new Date()))()
-  const expired = await deps.sweepExpired(now, deps.graceMs)
+  // Run eviction before admission so a banned user freed from a slot in this
+  // tick frees room for a queued user to be admitted in the same tick.
+  const [expired, evictedBanned] = await Promise.all([
+    deps.sweepExpired(now, deps.graceMs),
+    deps.evictBanned(),
+  ])
 
   const models = deps.models ?? FREEBUFF_MODELS.map((m) => m.id)
 
@@ -122,6 +132,7 @@ export async function runAdmissionTick(
 
   return {
     expired,
+    evictedBanned,
     admitted: totalAdmitted,
     queueDepthByModel,
     activeCountByModel,
@@ -145,6 +156,7 @@ function runTick() {
           metric: 'freebuff_waiting_room',
           admitted: result.admitted,
           expired: result.expired,
+          evictedBanned: result.evictedBanned,
           queueDepthByModel: result.queueDepthByModel,
           activeCountByModel: result.activeCountByModel,
           skipped: result.skipped,

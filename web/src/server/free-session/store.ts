@@ -231,6 +231,26 @@ export async function sweepExpired(now: Date, graceMs: number): Promise<number> 
 }
 
 /**
+ * Drop any free_session row whose user has been banned. Bans flipped via the
+ * admin UI / direct SQL / Stripe webhook don't cascade into free_session, so
+ * without this sweep a banned user keeps holding their admitted slot until
+ * expires_at. Cheap to call every tick (EXISTS subquery, indexed PK lookup).
+ */
+export async function evictBanned(): Promise<number> {
+  const deleted = await db
+    .delete(schema.freeSession)
+    .where(
+      sql`EXISTS (
+        SELECT 1 FROM ${schema.user}
+        WHERE ${schema.user.id} = ${schema.freeSession.user_id}
+          AND ${schema.user.banned} = true
+      )`,
+    )
+    .returning({ user_id: schema.freeSession.user_id })
+  return deleted.length
+}
+
+/**
  * Atomically admit one queued user for a specific model, gated by the
  * upstream health for that model's deployment and guarded by an advisory
  * xact lock so only one pod admits per tick (per model).
