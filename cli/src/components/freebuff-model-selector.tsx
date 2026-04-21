@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
@@ -13,9 +13,13 @@ import { useTheme } from '../hooks/use-theme'
 import type { KeyEvent } from '@opentui/core'
 
 /**
- * Lets the user pick which model's queue they're in. Tapping a different model
- * (or cycling to it via Tab / arrow keys) triggers a re-POST: the server moves
- * them to the back of the new model's queue.
+ * Lets the user pick which model's queue they're in. Switching triggers a
+ * re-POST: the server moves them to the back of the new model's queue, which
+ * means switching is *not free* — they lose their place in the original line.
+ *
+ * To prevent accidental queue loss, keyboard navigation is two-step: Tab /
+ * arrow keys move a focus highlight, and Enter commits the switch. Mouse
+ * clicks are still one-step (the click target is intentional).
  *
  * Each row shows a live "N ahead" count sourced from the server's
  * `queueDepthByModel` snapshot so the choice is informed (e.g. "3 ahead" vs
@@ -27,6 +31,14 @@ export const FreebuffModelSelector: React.FC = () => {
   const session = useFreebuffSessionStore((s) => s.session)
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  // Keyboard cursor — separate from the actually-selected model so that
+  // Tab/arrow navigation can preview without committing. Re-syncs to the
+  // selected model whenever the selection changes (after a successful switch
+  // or an external selectedModel update).
+  const [focusedId, setFocusedId] = useState<string>(selectedModel)
+  useEffect(() => {
+    setFocusedId(selectedModel)
+  }, [selectedModel])
 
   // For the user's current queue, "ahead" is `position - 1` (themselves don't
   // count). For every other queue, switching would land them at the back, so
@@ -66,8 +78,11 @@ export const FreebuffModelSelector: React.FC = () => {
     [pending, selectedModel],
   )
 
-  // Tab / Shift+Tab and Left/Right arrow keys cycle through the model buttons.
-  // Up/Down intentionally do nothing so they don't fight other vertical UI.
+  // Tab / Shift+Tab and Left/Right arrow keys move the focus highlight only;
+  // Enter or Space commits the switch. Two-step navigation prevents the user
+  // from accidentally giving up their place in line by tabbing past their
+  // queue. Up/Down intentionally do nothing so they don't fight other
+  // vertical UI.
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
@@ -75,20 +90,28 @@ export const FreebuffModelSelector: React.FC = () => {
         const name = key.name ?? ''
         const isForward = name === 'right' || (name === 'tab' && !key.shift)
         const isBackward = name === 'left' || (name === 'tab' && key.shift)
-        if (!isForward && !isBackward) return
-        const currentIdx = FREEBUFF_MODELS.findIndex((m) => m.id === selectedModel)
+        const isCommit = name === 'return' || name === 'enter' || name === 'space'
+        if (!isForward && !isBackward && !isCommit) return
+        if (isCommit) {
+          if (focusedId !== selectedModel) {
+            key.preventDefault?.()
+            pick(focusedId)
+          }
+          return
+        }
+        const currentIdx = FREEBUFF_MODELS.findIndex((m) => m.id === focusedId)
         if (currentIdx === -1) return
         const len = FREEBUFF_MODELS.length
         const nextIdx = isForward
           ? (currentIdx + 1) % len
           : (currentIdx - 1 + len) % len
         const target = FREEBUFF_MODELS[nextIdx]
-        if (target && target.id !== selectedModel) {
+        if (target) {
           key.preventDefault?.()
-          pick(target.id)
+          setFocusedId(target.id)
         }
       },
-      [pending, pick, selectedModel],
+      [pending, pick, focusedId, selectedModel],
     ),
   )
 
@@ -109,6 +132,7 @@ export const FreebuffModelSelector: React.FC = () => {
         {FREEBUFF_MODELS.map((model) => {
           const isSelected = model.id === selectedModel
           const isHovered = hoveredId === model.id
+          const isFocused = focusedId === model.id && !isSelected
           const indicator = isSelected ? '●' : '○'
           const indicatorColor = isSelected ? theme.primary : theme.muted
           const labelColor = isSelected ? theme.foreground : theme.muted
@@ -123,14 +147,17 @@ export const FreebuffModelSelector: React.FC = () => {
 
           const borderColor = isSelected
             ? theme.primary
-            : isHovered && interactable
+            : (isFocused || isHovered) && interactable
               ? theme.foreground
               : theme.border
 
           return (
             <Button
               key={model.id}
-              onClick={() => pick(model.id)}
+              onClick={() => {
+                setFocusedId(model.id)
+                pick(model.id)
+              }}
               onMouseOver={() => interactable && setHoveredId(model.id)}
               onMouseOut={() => setHoveredId((curr) => (curr === model.id ? null : curr))}
               style={{
