@@ -24,6 +24,7 @@ const CARBON_URL_BASE = 'https://srv.buysellads.com/ads'
 type CarbonAd = {
   statlink?: string
   statimp?: string
+  statview?: string
   description?: string
   company?: string
   callToAction?: string
@@ -108,18 +109,27 @@ export function createCarbonProvider(config: {
       const clickUrl = withScheme(first.statlink)
       const impUrl = withScheme(first.statimp)
 
+      // `statview` is Carbon's IAB viewable-impression pixel (separate from the
+      // regular impression `statimp`). Our CLI ad is definitively viewable when
+      // rendered, so fire it alongside any advertiser pixels.
+      const extraPixels = [
+        ...(first.statview ? [withScheme(first.statview)] : []),
+        ...splitPixels(first.pixel),
+      ]
+
       const normalized: NormalizedAd = {
         adText: first.description ?? '',
         title: first.company ?? '',
         cta: first.callToAction ?? 'Learn more',
-        // Carbon doesn't return a separate destination URL distinct from
-        // statlink. Use statlink so DB rows look consistent with Gravity;
-        // clients click `clickUrl` in both cases.
-        url: clickUrl,
+        // Carbon doesn't expose a destination URL — `statlink` is a tracker
+        // that 302s to the advertiser. Leave `url` empty so the UI doesn't
+        // render "srv.buysellads.com" as the ad's domain. Clicks use
+        // `clickUrl` and get correctly routed through tracking.
+        url: '',
         favicon: first.image ?? first.logo ?? '',
         clickUrl,
         impUrl,
-        extraPixels: splitPixels(first.pixel),
+        extraPixels,
       }
 
       return { variant: 'banner', ad: normalized }
