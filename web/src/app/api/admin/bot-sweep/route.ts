@@ -8,6 +8,7 @@ import {
   formatSweepReport,
   identifyBotSuspects,
 } from '@/server/free-session/abuse-detection'
+import { reviewSuspects } from '@/server/free-session/abuse-review'
 import { logger } from '@/util/logger'
 
 import type { NextRequest } from 'next/server'
@@ -44,9 +45,16 @@ export async function POST(req: NextRequest) {
     const report = await identifyBotSuspects({ logger })
     const { subject, message } = formatSweepReport(report)
 
+    // Second-pass agent review. Advisory only — if it fails or returns
+    // null we still send the rule-based report.
+    const agentReview = await reviewSuspects({ report, logger })
+    const fullMessage = agentReview
+      ? `${message}\n\n=== AGENT REVIEW (Claude Sonnet 4.6) ===\n\n${agentReview}`
+      : message
+
     const emailResult = await sendBasicEmail({
       email: REPORT_RECIPIENT,
-      data: { subject, message },
+      data: { subject, message: fullMessage },
       logger,
     })
 
@@ -63,6 +71,7 @@ export async function POST(req: NextRequest) {
       suspectCount: report.suspects.length,
       highTierCount: report.suspects.filter((s) => s.tier === 'high').length,
       emailSent: emailResult.success,
+      agentReviewIncluded: agentReview !== null,
     })
   } catch (error) {
     logger.error({ error }, 'bot-sweep failed')
