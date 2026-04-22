@@ -271,6 +271,38 @@ export async function identifyBotSuspects(params: {
       score += 15
     }
 
+    // --- Region signal (corroborating, scored only when stacked with usage) ---
+    // The free tier is intended for users in approved regions: English-speaking
+    // (US, UK, Canada, Australia, NZ, Ireland) and western-European markets.
+    // We have no IP data, so region is inferred from email provider and the
+    // unicode characters in the display name. CJK indicators (Chinese/Japanese/
+    // Korean Unicode in name, Chinese-provider emails, .edu.cn domains) are
+    // the only signal we can detect reliably, and empirically our abuse
+    // clusters are overwhelmingly from these provider pools. Diaspora users
+    // from approved regions may trip this flag, so it only contributes to the
+    // score when combined with heavy usage (the combination, not the region
+    // alone, is what justifies the score bump).
+    const hasCjkName =
+      !!s.name &&
+      /[一-鿿぀-ヿ가-힯]/.test(s.name)
+    const hasChineseDomain =
+      !!s.email &&
+      /@(qq|163|126|sina|sina\.cn|foxmail|aliyun|139|yeah|tom)\.(com|cn|net)$/i.test(
+        s.email,
+      )
+    const hasCnEduDomain = !!s.email && /\.edu\.cn$/i.test(s.email)
+    const nonApprovedRegion =
+      hasCjkName || hasChineseDomain || hasCnEduDomain
+    if (nonApprovedRegion) {
+      const reasons: string[] = []
+      if (hasCjkName) reasons.push('cjk-name')
+      if (hasChineseDomain) reasons.push('cn-provider')
+      if (hasCnEduDomain) reasons.push('cn-edu')
+      flags.push(`non-approved-region[${reasons.join(',')}]`)
+      if (msgs24h >= 500) score += 40
+      else if (msgs24h >= 300) score += 25
+    }
+
     // --- Email/handle pattern flags (purely informational) ---
     // These are too noisy in isolation (many real users have digits in their
     // email, use plus-aliases for privacy, or sign up via duck.com). They're
