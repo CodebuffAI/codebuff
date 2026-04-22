@@ -260,6 +260,20 @@ export const App = ({
     // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
+  // Render project picker FIRST when at home directory or outside a project.
+  // This deliberately precedes the login/auth and waiting-room gates so the
+  // user always gets to pick a working directory before anything else — auth
+  // failures or a banned/queued freebuff session would otherwise replace the
+  // picker mid-flash and look like being kicked out of the app.
+  if (showProjectPicker) {
+    return (
+      <ProjectPickerScreen
+        onSelectProject={onProjectChange}
+        initialPath={projectRoot}
+      />
+    )
+  }
+
   // Render login modal when not authenticated AND auth service is reachable
   // Don't show login modal during network outages OR while retrying
   if (
@@ -271,16 +285,6 @@ export const App = ({
       <LoginModal
         onLoginSuccess={handleLoginSuccess}
         hasInvalidCredentials={hasInvalidCredentials}
-      />
-    )
-  }
-
-  // Render project picker when at home directory or outside a project
-  if (showProjectPicker) {
-    return (
-      <ProjectPickerScreen
-        onSelectProject={onProjectChange}
-        initialPath={projectRoot}
       />
     )
   }
