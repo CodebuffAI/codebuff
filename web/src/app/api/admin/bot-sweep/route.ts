@@ -46,10 +46,12 @@ export async function POST(req: NextRequest) {
     const { subject, message } = formatSweepReport(report)
 
     // Second-pass agent review. Advisory only — if it fails or returns
-    // null we still send the rule-based report.
+    // null we still send the rule-based report. Lead with the agent's
+    // tiered recommendation since that's the actionable part; raw
+    // rule-based data follows as supporting detail.
     const agentReview = await reviewSuspects({ report, logger })
     const fullMessage = agentReview
-      ? `${message}\n\n=== AGENT REVIEW (Claude Sonnet 4.6) ===\n\n${agentReview}`
+      ? `=== AGENT REVIEW (Claude Sonnet 4.6) ===\n\n${agentReview}\n\n=== RAW RULE-BASED DATA ===\n\n${message}`
       : message
 
     const emailResult = await sendBasicEmail({
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
       suspectCount: report.suspects.length,
       highTierCount: report.suspects.filter((s) => s.tier === 'high').length,
       emailSent: emailResult.success,
-      agentReviewIncluded: agentReview !== null,
+      agentReview,
     })
   } catch (error) {
     logger.error({ error }, 'bot-sweep failed')

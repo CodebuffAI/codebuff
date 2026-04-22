@@ -45,7 +45,7 @@ async function main() {
   console.log('\n--- END ---')
 
   const fullMessage = agentReview
-    ? `${message}\n\n=== AGENT REVIEW (Claude Sonnet 4.6) ===\n\n${agentReview}`
+    ? `=== AGENT REVIEW (Claude Sonnet 4.6) ===\n\n${agentReview}\n\n=== RAW RULE-BASED DATA ===\n\n${message}`
     : message
 
   console.log(`\nSending email to ${RECIPIENT}…`)
