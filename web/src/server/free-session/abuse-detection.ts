@@ -11,11 +11,14 @@
 import { FREEBUFF_ROOT_AGENT_IDS } from '@codebuff/common/constants/free-agents'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const WINDOW_HOURS = 24
+const GITHUB_API_CONCURRENCY = 8
+const GITHUB_API_TIMEOUT_MS = 10_000
 
 export type SuspectTier = 'high' | 'medium'
 
@@ -29,6 +32,8 @@ export type BotSuspect = {
   msgs24h: number
   distinctHours24h: number
   msgsLifetime: number
+  githubId: string | null
+  githubAgeDays: number | null
   flags: string[]
   tier: SuspectTier
   score: number
@@ -113,6 +118,25 @@ export async function identifyBotSuspects(params: {
     .groupBy(schema.message.user_id)
   const statsByUser = new Map(msgStats.map((m) => [m.user_id!, m]))
 
+  // Pull the GitHub numeric user ID (providerAccountId) for every session
+  // user so we can later look up actual GitHub account ages. Users who
+  // signed up with another provider simply won't have a github row.
+  const githubAccounts = await db
+    .select({
+      userId: schema.account.userId,
+      providerAccountId: schema.account.providerAccountId,
+    })
+    .from(schema.account)
+    .where(
+      and(
+        eq(schema.account.provider, 'github'),
+        inArray(schema.account.userId, userIds),
+      ),
+    )
+  const githubIdByUser = new Map(
+    githubAccounts.map((a) => [a.userId, a.providerAccountId]),
+  )
+
   const suspects: BotSuspect[] = []
   let activeCount = 0
   let queuedCount = 0
@@ -190,12 +214,23 @@ export async function identifyBotSuspects(params: {
       msgs24h,
       distinctHours24h,
       msgsLifetime,
+      githubId: githubIdByUser.get(s.user_id) ?? null,
+      githubAgeDays: null,
       flags,
       tier,
       score,
     })
   }
 
+  // Fan out GitHub account lookups ONLY for the shortlist so we don't blow
+  // through the rate limit for uninteresting sessions. Updates each suspect
+  // in place — adds a flag if the GH account itself is young.
+  await enrichWithGithubAge(suspects, now, logger)
+
+  // Re-tier after GH age flags may have bumped scores past the threshold.
+  for (const s of suspects) {
+    s.tier = s.score >= 80 ? 'high' : 'medium'
+  }
   suspects.sort((a, b) => b.score - a.score)
 
   const creationClusters = findCreationClusters(
@@ -223,6 +258,91 @@ export async function identifyBotSuspects(params: {
     queuedCount,
     suspects,
     creationClusters,
+  }
+}
+
+async function enrichWithGithubAge(
+  suspects: BotSuspect[],
+  now: Date,
+  logger: Logger,
+): Promise<void> {
+  const targets = suspects.filter((s) => s.githubId)
+  if (targets.length === 0) return
+
+  const queue = [...targets]
+  let failures = 0
+  let rateLimited = 0
+
+  const worker = async () => {
+    while (queue.length > 0) {
+      const s = queue.shift()
+      if (!s?.githubId) continue
+      const result = await fetchGithubCreatedAt(s.githubId)
+      if (result === 'rate-limited') {
+        rateLimited++
+        continue
+      }
+      if (result === null) {
+        failures++
+        continue
+      }
+      const ageDays = (now.getTime() - result.getTime()) / 86400_000
+      s.githubAgeDays = ageDays
+      if (ageDays < 7) {
+        s.flags.push(`gh-new<7d:${ageDays.toFixed(1)}d`)
+        s.score += 60
+      } else if (ageDays < 30) {
+        s.flags.push(`gh-new<30d:${ageDays.toFixed(0)}d`)
+        s.score += 30
+      } else if (ageDays < 90) {
+        s.flags.push(`gh-new<90d:${ageDays.toFixed(0)}d`)
+        s.score += 10
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(GITHUB_API_CONCURRENCY, targets.length) }, () =>
+      worker(),
+    ),
+  )
+
+  if (failures > 0 || rateLimited > 0) {
+    logger.warn(
+      { failures, rateLimited, total: targets.length },
+      'GitHub age enrichment had lookup failures',
+    )
+  }
+}
+
+/**
+ * Look up a GitHub user by numeric ID and return their `created_at`.
+ * Returns `'rate-limited'` so callers can log it distinctly from other
+ * failures (most likely cause at our scale). Any non-2xx is mapped to
+ * `null` so one flaky user doesn't stall the sweep.
+ */
+async function fetchGithubCreatedAt(
+  githubId: string,
+): Promise<Date | 'rate-limited' | null> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'codebuff-bot-sweep',
+    }
+    if (env.BOT_SWEEP_GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${env.BOT_SWEEP_GITHUB_TOKEN}`
+    }
+    const res = await fetch(`https://api.github.com/user/${githubId}`, {
+      headers,
+      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+    })
+    if (res.status === 403 || res.status === 429) return 'rate-limited'
+    if (!res.ok) return null
+    const data = (await res.json()) as { created_at?: string }
+    return data.created_at ? new Date(data.created_at) : null
+  } catch {
+    return null
   }
 }
 
@@ -284,8 +404,15 @@ export function formatSweepReport(report: SweepReport): {
   // {{message}} as HTML and collapse whitespace, which would ruin padEnd
   // column alignment. Separator-delimited survives both plain text and
   // wrapped HTML.
-  const renderSuspect = (s: BotSuspect) =>
-    `  ${s.email} — score=${s.score} age=${s.ageDays.toFixed(1)}d msgs24=${s.msgs24h} lifetime=${s.msgsLifetime} | ${s.flags.join(' ')}`
+  const renderSuspect = (s: BotSuspect) => {
+    const gh =
+      s.githubAgeDays !== null
+        ? ` gh_age=${s.githubAgeDays.toFixed(1)}d`
+        : s.githubId === null
+          ? ' gh_age=n/a'
+          : ' gh_age=?'
+    return `  ${s.email} — score=${s.score} age=${s.ageDays.toFixed(1)}d${gh} msgs24=${s.msgs24h} lifetime=${s.msgsLifetime} | ${s.flags.join(' ')}`
+  }
 
   if (high.length > 0) {
     lines.push(`=== HIGH CONFIDENCE (${high.length}) ===`)

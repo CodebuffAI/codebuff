@@ -39,6 +39,12 @@ export const serverEnvSchema = clientEnvSchema.extend({
   // 503 if the secret isn't configured.
   BOT_SWEEP_SECRET: z.string().min(16).optional(),
 
+  // Optional GitHub PAT used by the bot-sweep to look up each suspect's
+  // GitHub account age. Without it we fall back to unauthenticated API
+  // calls (60 req/hr from the server IP) which is enough for a normal
+  // sweep but risks rate-limiting.
+  BOT_SWEEP_GITHUB_TOKEN: z.string().min(1).optional(),
+
   // Freebuff waiting room. Defaults to OFF so the feature requires explicit
   // opt-in per environment — the CLI/SDK do not yet send
   // freebuff_instance_id, so enabling this before they ship would reject
@@ -97,6 +103,7 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
   BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
+  BOT_SWEEP_GITHUB_TOKEN: process.env.BOT_SWEEP_GITHUB_TOKEN,
 
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
