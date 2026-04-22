@@ -431,7 +431,10 @@ export const adImpression = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
 
-    // Ad content from Gravity API
+    // Which upstream ad network served this ad ('gravity', 'carbon', 'zeroclick', ...)
+    provider: text('provider').notNull().default('gravity'),
+
+    // Ad content (normalized across providers)
     ad_text: text('ad_text').notNull(),
     title: text('title').notNull(),
     cta: text('cta').notNull().default(''),
@@ -439,7 +442,13 @@ export const adImpression = pgTable(
     favicon: text('favicon').notNull(),
     click_url: text('click_url').notNull(),
     imp_url: text('imp_url').notNull().unique(), // Unique to prevent duplicates
-    payout: numeric('payout', { precision: 10, scale: 6 }).notNull(),
+    // Extra tracking pixel URLs (e.g. Carbon's `pixel` field, `||`-separated).
+    // Each string may contain `[timestamp]` which is substituted at fire time.
+    extra_pixels: text('extra_pixels').array(),
+    // Payout is Gravity-shaped; Carbon uses CPM and reports no per-impression
+    // payout, so this is nullable to avoid polluting revenue dashboards with
+    // fake numbers.
+    payout: numeric('payout', { precision: 10, scale: 6 }),
 
     // Credit tracking
     credits_granted: integer('credits_granted').notNull(),

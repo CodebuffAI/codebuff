@@ -12,6 +12,11 @@ export const serverEnvSchema = clientEnvSchema.extend({
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
+  // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
+  // Optional: when unset the Carbon provider returns no ad and callers fall
+  // back to their cached ads / fallback content. `CVADC53U` is the public
+  // test key from BSA docs and is safe to use in dev.
+  CARBON_ZONE_KEY: z.string().min(1).optional(),
   PORT: z.coerce.number().min(1000),
 
   // Web/Database variables
@@ -82,6 +87,7 @@ export const serverProcessEnv: ServerInput = {
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
+  CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 
   // Web/Database variables

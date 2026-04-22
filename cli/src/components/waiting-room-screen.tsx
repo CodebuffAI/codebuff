@@ -73,9 +73,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Always enable ads in the waiting room — this is where monetization lives.
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
+  // Uses Carbon (BuySellAds); in-chat ads still use the Gravity default.
   const { ad, adData, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
+    provider: 'carbon',
   })
 
   useFreebuffCtrlCExit()
