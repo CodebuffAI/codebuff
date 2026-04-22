@@ -297,6 +297,17 @@ async function enrichWithGithubAge(
       } else if (ageDays < 90) {
         s.flags.push(`gh-new<90d:${ageDays.toFixed(0)}d`)
         s.score += 10
+      } else if (ageDays >= 365 * 3) {
+        // Established GitHub accounts are a strong counter-signal: buying
+        // a 3+ year old account is rare at our abuse scale. Subtract enough
+        // to pull a day-1 heavy user (new-acct<1d + very-heavy = 90) back
+        // below the high-tier threshold without fully clearing them —
+        // genuine 24/7 patterns still surface.
+        s.flags.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
+        s.score -= 40
+      } else if (ageDays >= 365) {
+        s.flags.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
+        s.score -= 20
       }
     }
   }

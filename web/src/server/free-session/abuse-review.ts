@@ -41,6 +41,8 @@ You will see:
 
 A very young GitHub account (gh_age < 7d, especially < 1d) combined with heavy usage is one of the strongest bot signals we have: real developers almost never create a GitHub account on the same day they start running an agent. Weigh this heavily in tiering.
 
+Conversely, an established GitHub account (gh_age ≥ 1 year, especially ≥ 3 years) is a strong counter-signal. Account-age spoofing by buying old accounts is possible but uncommon at our abuse scale. An established GitHub + a natural agent mix (basher, code-reviewer, file-picker alongside the root agent) + some activity gaps during the day reads like an excited first-day power user, not a bot. Don't tier these as HIGH unless there's a second independent signal (creation cluster membership, true 24/7 distinct_hours, suspicious email pattern).
+
 Produce a markdown report with three sections:
 
 ## TIER 1 — HIGH CONFIDENCE (ban)
