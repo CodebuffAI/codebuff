@@ -438,13 +438,29 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // doesn't bounce a 'landing' restart straight back to 'ended'.
         previousStatus = null
         if (mode === 'landing') {
-          // Land on the picker without a probe GET. If the preceding
-          // DELETE hasn't propagated, a GET here could still see
-          // queued/active and trip the startup-takeover branch below into
-          // an auto-POST — the exact silent-rejoin this mode exists to
-          // avoid. Polling resumes when the user commits to a model via
-          // joinFreebuffQueue.
+          // Land on the picker immediately. We can't go through the normal
+          // tick/apply path because a server-side row that hasn't been
+          // swept yet would trip the startup-takeover branch into an
+          // auto-POST — the exact silent-rejoin this mode exists to
+          // prevent. But the picker still needs live queue depths for its
+          // "N ahead" hints, so kick off a fire-and-forget GET and extract
+          // just queueDepthByModel from the response, ignoring whatever
+          // status it claims. Polling resumes when the user commits to a
+          // model via joinFreebuffQueue.
           apply({ status: 'none' })
+          const fetchController = abortController
+          callSession('GET', token, { signal: fetchController.signal })
+            .then((response) => {
+              if (cancelled || fetchController.signal.aborted) return
+              const depths =
+                response.status === 'none' || response.status === 'queued'
+                  ? response.queueDepthByModel
+                  : undefined
+              if (depths) apply({ status: 'none', queueDepthByModel: depths })
+            })
+            .catch(() => {
+              // Silent — blank hints are acceptable if the fetch fails.
+            })
           return
         }
         nextMethod = 'POST'

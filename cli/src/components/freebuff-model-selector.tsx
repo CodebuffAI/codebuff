@@ -49,10 +49,14 @@ export const FreebuffModelSelector: React.FC = () => {
   // subtract. In-queue ('queued'): for the user's queue, "ahead" is
   // `position - 1` (themselves don't count); for every other queue, switching
   // would land them at the back, so it's that queue's full depth. Null before
-  // any snapshot so the UI doesn't flash misleading zeros.
+  // any snapshot so the UI doesn't flash misleading zeros — in particular,
+  // landing mode after a session ends initially sets status='none' with no
+  // queueDepthByModel; returning null here keeps the hint blank until the
+  // fetch lands, instead of showing "No wait" on every row.
   const aheadByModel = useMemo<Record<string, number> | null>(() => {
     if (session?.status === 'none') {
-      const depths = session.queueDepthByModel ?? {}
+      if (!session.queueDepthByModel) return null
+      const depths = session.queueDepthByModel
       const out: Record<string, number> = {}
       for (const { id } of FREEBUFF_MODELS) out[id] = depths[id] ?? 0
       return out
