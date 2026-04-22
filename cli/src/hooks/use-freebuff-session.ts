@@ -280,6 +280,21 @@ export function markFreebuffSessionSuperseded(): void {
   controller?.apply({ status: 'superseded' })
 }
 
+/** Flip into the terminal `country_blocked` state from outside the poll loop.
+ *  Used when the chat-completions gate rejects on country even though the
+ *  session-level country check had failed open (null detection → admitted).
+ *  Transitioning the session state here unmounts the Chat surface in favor of
+ *  the waiting-room's country_blocked message, so the user can't keep typing
+ *  and sending doomed requests. */
+export function markFreebuffSessionCountryBlocked(countryCode: string): void {
+  if (!IS_FREEBUFF) return
+  controller?.abort()
+  controller?.apply({ status: 'country_blocked', countryCode })
+  // Best-effort DELETE so we don't hold a waiting-room seat on a session the
+  // server is already refusing to serve at chat time.
+  releaseFreebuffSlot().catch(() => {})
+}
+
 /** Flip into the local `ended` state without an instanceId (server has lost
  *  our row). The chat surface stays mounted with the rejoin banner. */
 export function markFreebuffSessionEnded(): void {

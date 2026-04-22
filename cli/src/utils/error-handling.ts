@@ -58,6 +58,22 @@ export const isFreeModeUnavailableError = (error: unknown): boolean => {
 }
 
 /**
+ * Extract the detected countryCode off a free_mode_unavailable error, if the
+ * server included one. Used to populate the country_blocked screen after the
+ * chat-completions gate rejects a user whose session-level country check had
+ * previously failed open (null country detection → admitted → now blocked).
+ */
+export const getCountryCodeFromFreeModeError = (
+  error: unknown,
+): string | null => {
+  if (!isFreeModeUnavailableError(error)) return null
+  const candidate = (error as { countryCode?: unknown }).countryCode
+  return typeof candidate === 'string' && candidate.length > 0
+    ? candidate
+    : null
+}
+
+/**
  * Freebuff waiting-room gate errors returned by /api/v1/chat/completions.
  *
  * Contract (see docs/freebuff-waiting-room.md):
