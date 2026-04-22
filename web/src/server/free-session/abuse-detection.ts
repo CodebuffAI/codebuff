@@ -31,10 +31,13 @@ export type BotSuspect = {
   ageDays: number
   msgs24h: number
   distinctHours24h: number
+  maxQuietGapHours24h: number | null
+  distinctAgents24h: number
   msgsLifetime: number
   githubId: string | null
   githubAgeDays: number | null
   flags: string[]
+  counterSignals: string[]
   tier: SuspectTier
   score: number
 }
@@ -118,6 +121,60 @@ export async function identifyBotSuspects(params: {
     .groupBy(schema.message.user_id)
   const statsByUser = new Map(msgStats.map((m) => [m.user_id!, m]))
 
+  // Agent diversity is a counter-signal: real users fan out across basher,
+  // file-picker, code-reviewer, etc.; bot farms stay narrow on the root agent.
+  // Counted across ALL agent_ids (not just root), in the same 24h window.
+  const agentDiversity = await db
+    .select({
+      user_id: schema.message.user_id,
+      distinctAgents24h: sql<number>`COUNT(DISTINCT ${schema.message.agent_id})`,
+    })
+    .from(schema.message)
+    .where(
+      and(
+        inArray(schema.message.user_id, userIds),
+        sql`${schema.message.finished_at} >= ${cutoffIso}::timestamptz`,
+      ),
+    )
+    .groupBy(schema.message.user_id)
+  const diversityByUser = new Map(
+    agentDiversity.map((a) => [a.user_id!, Number(a.distinctAgents24h)]),
+  )
+
+  // Max inter-message quiet gap in the 24h window (in hours). A gap ≥ 4h is
+  // a strong "user slept" counter-signal — bots don't take circadian breaks.
+  // Uses LAG() so it needs a CTE; run as raw SQL.
+  const quietGaps = await db.execute(sql`
+    WITH ordered AS (
+      SELECT user_id, finished_at,
+             LAG(finished_at) OVER (PARTITION BY user_id ORDER BY finished_at) AS prev
+      FROM ${schema.message}
+      WHERE user_id IN (${sql.join(
+        userIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+        AND agent_id IN (${sql.join(
+          FREEBUFF_ROOT_AGENT_IDS.map((a) => sql`${a}`),
+          sql`, `,
+        )})
+        AND finished_at >= ${cutoffIso}::timestamptz
+    )
+    SELECT user_id,
+           MAX(EXTRACT(EPOCH FROM (finished_at - prev))) / 3600.0 AS max_gap_hours
+    FROM ordered
+    WHERE prev IS NOT NULL
+    GROUP BY user_id
+  `)
+  const quietGapByUser = new Map<string, number>()
+  for (const row of quietGaps as unknown as Array<{
+    user_id: string
+    max_gap_hours: string | number | null
+  }>) {
+    if (row.max_gap_hours != null) {
+      quietGapByUser.set(row.user_id, Number(row.max_gap_hours))
+    }
+  }
+
   // Pull the GitHub numeric user ID (providerAccountId) for every session
   // user so we can later look up actual GitHub account ages. Users who
   // signed up with another provider simply won't have a github row.
@@ -157,10 +214,14 @@ export async function identifyBotSuspects(params: {
     const msgs24h = Number(stats?.msgs24h ?? 0)
     const distinctHours24h = Number(stats?.distinctHours24h ?? 0)
     const msgsLifetime = Number(stats?.lifetime ?? 0)
+    const maxQuietGapHours24h = quietGapByUser.get(s.user_id) ?? null
+    const distinctAgents24h = diversityByUser.get(s.user_id) ?? 0
 
     const flags: string[] = []
+    const counterSignals: string[] = []
     let score = 0
 
+    // --- Behavioral red flags (produce positive score) ---
     if (msgs24h >= 50 && distinctHours24h >= 20) {
       flags.push(`24-7-usage:${msgs24h}/${distinctHours24h}h`)
       score += 100
@@ -179,28 +240,49 @@ export async function identifyBotSuspects(params: {
       flags.push(`new-acct<7d:${msgs24h}/24h`)
       score += 20
     }
-    if (s.email && /\+[a-z0-9]{6,}@/i.test(s.email)) {
-      flags.push('plus-alias')
-      score += 10
-    }
-    if (s.email && /^[a-z]{3,8}\d{4,}@/i.test(s.email)) {
-      flags.push('email-digits')
-      score += 5
-    }
-    if (s.email && /@duck\.com$/i.test(s.email)) {
-      flags.push('duck.com-alias')
-      score += 10
-    }
-    if (s.handle && /^user[-_]?\d+/i.test(s.handle)) {
-      flags.push('handle-userN')
-      score += 5
-    }
     if (msgsLifetime >= 10000) {
       flags.push(`lifetime:${msgsLifetime}`)
       score += 15
     }
 
-    if (flags.length === 0) continue
+    // --- Email/handle pattern flags (purely informational) ---
+    // These are too noisy in isolation (many real users have digits in their
+    // email, use plus-aliases for privacy, or sign up via duck.com). They're
+    // surfaced to the reviewer but don't contribute to the score unless
+    // combined with behavioral signals — and even then, the LLM layer is the
+    // one that makes that judgment, not this scorer.
+    if (s.email && /\+[a-z0-9]{6,}@/i.test(s.email)) flags.push('plus-alias')
+    if (s.email && /^[a-z]{3,8}\d{4,}@/i.test(s.email)) flags.push('email-digits')
+    if (s.email && /@duck\.com$/i.test(s.email)) flags.push('duck.com-alias')
+    if (s.handle && /^user[-_]?\d+/i.test(s.handle)) flags.push('handle-userN')
+
+    // --- Counter-signals (reduce score, surface alongside flags) ---
+    // Quiet gap: bots don't sleep. A real developer's activity shows
+    // multi-hour breaks for sleep, meals, meetings.
+    if (maxQuietGapHours24h !== null) {
+      if (maxQuietGapHours24h >= 8) {
+        counterSignals.push(`quiet-gap:${maxQuietGapHours24h.toFixed(1)}h`)
+        score -= 40
+      } else if (maxQuietGapHours24h >= 4) {
+        counterSignals.push(`quiet-gap:${maxQuietGapHours24h.toFixed(1)}h`)
+        score -= 20
+      }
+    }
+    // Agent diversity: real users pipeline through basher, file-picker,
+    // code-reviewer, thinker alongside the root agent. Bot farms stay narrow.
+    if (distinctAgents24h >= 10) {
+      counterSignals.push(`diverse-agents:${distinctAgents24h}`)
+      score -= 40
+    } else if (distinctAgents24h >= 6) {
+      counterSignals.push(`diverse-agents:${distinctAgents24h}`)
+      score -= 20
+    }
+
+    // Skip users with no behavioral signals — email-pattern flags alone
+    // shouldn't put a user on the review list.
+    if (score <= 0 && flags.every((f) => !/^24-7|^very-heavy|^heavy|^new-acct|^lifetime/.test(f))) {
+      continue
+    }
 
     const tier: SuspectTier = score >= 80 ? 'high' : 'medium'
 
@@ -213,10 +295,13 @@ export async function identifyBotSuspects(params: {
       ageDays,
       msgs24h,
       distinctHours24h,
+      maxQuietGapHours24h,
+      distinctAgents24h,
       msgsLifetime,
       githubId: githubIdByUser.get(s.user_id) ?? null,
       githubAgeDays: null,
       flags,
+      counterSignals,
       tier,
       score,
     })
@@ -303,10 +388,10 @@ async function enrichWithGithubAge(
         // to pull a day-1 heavy user (new-acct<1d + very-heavy = 90) back
         // below the high-tier threshold without fully clearing them —
         // genuine 24/7 patterns still surface.
-        s.flags.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
+        s.counterSignals.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
         s.score -= 40
       } else if (ageDays >= 365) {
-        s.flags.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
+        s.counterSignals.push(`gh-established:${(ageDays / 365).toFixed(1)}y`)
         s.score -= 20
       }
     }
@@ -422,7 +507,11 @@ export function formatSweepReport(report: SweepReport): {
         : s.githubId === null
           ? ' gh_age=n/a'
           : ' gh_age=?'
-    return `  ${s.email} — score=${s.score} age=${s.ageDays.toFixed(1)}d${gh} msgs24=${s.msgs24h} lifetime=${s.msgsLifetime} | ${s.flags.join(' ')}`
+    const counter =
+      s.counterSignals.length > 0
+        ? ` | counter: ${s.counterSignals.join(' ')}`
+        : ''
+    return `  ${s.email} — score=${s.score} age=${s.ageDays.toFixed(1)}d${gh} msgs24=${s.msgs24h} agents24=${s.distinctAgents24h} lifetime=${s.msgsLifetime} | ${s.flags.join(' ')}${counter}`
   }
 
   if (high.length > 0) {
