@@ -51,6 +51,18 @@ export type ToolCallError = {
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
+function stringInputError(
+  toolName: string,
+  toolCallId: string,
+): ToolCallError {
+  return {
+    toolName,
+    toolCallId,
+    input: {},
+    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. This usually means the model emitted malformed JSON (e.g. unescaped newlines or quotes inside a string value). Re-issue the tool call with properly escaped JSON.`,
+  }
+}
+
 export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   rawToolCall: {
     toolName: T
@@ -63,6 +75,10 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
 
   const processedParameters = rawToolCall.input
   const paramsSchema = toolParams[toolName].inputSchema
+
+  if (typeof processedParameters === 'string') {
+    return stringInputError(toolName, rawToolCall.toolCallId)
+  }
 
   const result = paramsSchema.safeParse(processedParameters)
 
@@ -386,6 +402,10 @@ export function parseRawCustomToolCall(params: {
       input: rawToolCall.input,
       error: `Tool ${toolName} not found`,
     }
+  }
+
+  if (typeof rawToolCall.input === 'string') {
+    return stringInputError(toolName, rawToolCall.toolCallId)
   }
 
   const processedParameters: Record<string, any> = {}
