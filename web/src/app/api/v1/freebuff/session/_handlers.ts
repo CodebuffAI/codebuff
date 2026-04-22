@@ -142,8 +142,16 @@ export async function postFreebuffSession(
     // response on the client. banned is a 403 (terminal, mirrors country_blocked)
     // so older CLIs that don't know the status fall into their `!resp.ok` error
     // path and back off instead of tight-polling on the unrecognized 200 body.
+    // rate_limited uses 429 so older CLIs fall into the error path (backing
+    // off on the 10s cadence) and newer CLIs parse the structured body below.
     const status =
-      state.status === 'model_locked' ? 409 : state.status === 'banned' ? 403 : 200
+      state.status === 'model_locked'
+        ? 409
+        : state.status === 'banned'
+          ? 403
+          : state.status === 'rate_limited'
+            ? 429
+            : 200
     return NextResponse.json(state, { status })
   } catch (error) {
     return serverError(deps, 'POST', auth.userId, error)

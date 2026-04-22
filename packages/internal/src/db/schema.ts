@@ -870,3 +870,37 @@ export const freeSession = pgTable(
     index('idx_free_session_expiry').on(table.expires_at),
   ],
 )
+
+/**
+ * Audit log of every admission — one row per queued→active transition. Used
+ * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 20h).
+ *
+ * Separate from `free_session` because that table is one-row-per-user (state,
+ * not history); the UPSERT path there would otherwise destroy prior admissions.
+ */
+export const freeSessionAdmit = pgTable(
+  'free_session_admit',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    model: text('model').notNull(),
+    admitted_at: timestamp('admitted_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Rate-limit lookup: WHERE user_id=$1 AND model=$2 AND admitted_at > $cutoff
+    index('idx_free_session_admit_user_model_time').on(
+      table.user_id,
+      table.model,
+      table.admitted_at,
+    ),
+  ],
+)

@@ -16,14 +16,64 @@ import {
   FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
+  listRecentAdmits,
   promoteQueuedUser,
   queueDepthsByModel,
   queuePositionFor,
 } from './store'
 import { toSessionStateResponse } from './session-view'
 
-import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
+import type {
+  FreebuffSessionRateLimit,
+  FreebuffSessionServerResponse,
+} from '@codebuff/common/types/freebuff-session'
 import type { InternalSessionRow, SessionStateResponse } from './types'
+
+/**
+ * Per-model admission rate limits. Keyed by freebuff model id; a model not
+ * in the map has no rate limit applied. Today only GLM 5.1 is limited
+ * (Minimax is cheap enough to leave unlimited).
+ *
+ * Hard-coded rather than env-driven: the values need to be observable in the
+ * code review, and the CLI already renders the numbers via `rateLimit` on
+ * queued/active responses — changing them is a deliberate, typed edit.
+ */
+const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
+  'z-ai/glm-5.1': { limit: 5, windowHours: 20 },
+}
+
+/** Fetch the caller's current quota snapshot for `model`, or undefined if the
+ *  model isn't rate-limited. Used by both POST (after admit) and GET polls so
+ *  the CLI's "N of M sessions used" line stays live instead of disappearing
+ *  after the first poll. Also returns the oldest admit in-window so callers
+ *  that need `retryAfterMs` don't have to re-query. */
+async function fetchRateLimitSnapshot(
+  userId: string,
+  model: string,
+  deps: SessionDeps,
+): Promise<
+  { info: FreebuffSessionRateLimit; oldest: Date | null } | undefined
+> {
+  const cfg = RATE_LIMITS[model]
+  if (!cfg) return undefined
+  const now = nowOf(deps)
+  const since = new Date(now.getTime() - cfg.windowHours * 60 * 60 * 1000)
+  const admits = await deps.listRecentAdmits({
+    userId,
+    model,
+    since,
+    limit: cfg.limit,
+  })
+  return {
+    info: {
+      model,
+      limit: cfg.limit,
+      windowHours: cfg.windowHours,
+      recentCount: admits.length,
+    },
+    oldest: admits[0] ?? null,
+  }
+}
 
 export interface SessionDeps {
   getSessionRow: (userId: string) => Promise<InternalSessionRow | null>
@@ -43,6 +93,15 @@ export interface SessionDeps {
    *  bound to a given model. Compared against the model's configured
    *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
   activeCountForModel: (model: string) => Promise<number>
+  /** Rate-limit helper: oldest-first admission timestamps for (userId, model)
+   *  inside the window. The caller uses `rows.length` as the count (capped
+   *  at `limit`) and `rows[0]` as the oldest for `retryAfterMs`. */
+  listRecentAdmits: (params: {
+    userId: string
+    model: string
+    since: Date
+    limit: number
+  }) => Promise<Date[]>
   /** Instant-admit promotion: flips a specific queued row to active. Returns
    *  the updated row or null if the row wasn't in a queued state. */
   promoteQueuedUser: (params: {
@@ -71,6 +130,7 @@ const defaultDeps: SessionDeps = {
   queueDepthsByModel,
   queuePositionFor,
   activeCountForModel,
+  listRecentAdmits,
   promoteQueuedUser,
   getInstantAdmitCapacity,
   isWaitingRoomEnabled,
@@ -122,6 +182,16 @@ export type RequestSessionResult =
       currentModel: string
       requestedModel: string
     }
+  | {
+      /** User has hit the per-model admission quota in the rolling window.
+       *  See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
+      status: 'rate_limited'
+      model: string
+      limit: number
+      windowHours: number
+      recentCount: number
+      retryAfterMs: number
+    }
 
 /**
  * Client calls this on CLI startup with the model they want to use.
@@ -160,6 +230,28 @@ export async function requestSession(params: {
     isWaitingRoomBypassedForEmail(params.userEmail)
   ) {
     return { status: 'disabled' }
+  }
+
+  // Rate-limit check runs before joinOrTakeOver so heavy users never even
+  // create a queued row. Only models listed in RATE_LIMITS are gated; others
+  // (Minimax today) fall through unchanged.
+  const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
+  if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
+    // Oldest admit's window-anniversary is when one slot opens back up.
+    // Clamped at 0 so a clock skew can't surface a negative retry-after.
+    const windowMs = snapshot.info.windowHours * 60 * 60 * 1000
+    const retryAfterMs = Math.max(
+      0,
+      (snapshot.oldest?.getTime() ?? 0) + windowMs - nowOf(deps).getTime(),
+    )
+    return {
+      status: 'rate_limited',
+      model,
+      limit: snapshot.info.limit,
+      windowHours: snapshot.info.windowHours,
+      recentCount: snapshot.info.recentCount,
+      retryAfterMs,
+    }
   }
 
   let row: InternalSessionRow
@@ -212,7 +304,21 @@ export async function requestSession(params: {
       `joinOrTakeOver returned a row that maps to no view (user=${params.userId})`,
     )
   }
-  return view
+  return attachRateLimit(params.userId, view, deps)
+}
+
+/** Thread the current quota snapshot onto queued/active views so the CLI can
+ *  render "N of M sessions used". Other statuses pass through unchanged.
+ *  Called on both POST and GET so the line stays live across polls. */
+async function attachRateLimit(
+  userId: string,
+  view: SessionStateResponse,
+  deps: SessionDeps,
+): Promise<SessionStateResponse> {
+  if (view.status !== 'queued' && view.status !== 'active') return view
+  const snapshot = await fetchRateLimitSnapshot(userId, view.model, deps)
+  if (!snapshot) return view
+  return { ...view, rateLimit: snapshot.info }
 }
 
 /**
@@ -267,7 +373,7 @@ export async function getSessionState(params: {
 
   const view = await viewForRow(params.userId, deps, row)
   if (!view) return noneResponse()
-  return view
+  return attachRateLimit(params.userId, view, deps)
 }
 
 export async function endUserSession(params: {
