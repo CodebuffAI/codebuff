@@ -77,7 +77,17 @@ export async function* processStreamWithTools(params: {
     input: any
     contents?: string
   }): Promise<void> {
-    const { toolName, input, contents } = params
+    const { toolName, contents } = params
+    let { input } = params
+
+    // AI SDK sometimes emits tool-call chunks with a raw JSON string as `input`
+    // when its repair pass can't produce a parsed object. Try to parse; if it
+    // fails, leave as string — the executor surfaces a clear error.
+    if (typeof input === 'string') {
+      try {
+        input = JSON.parse(input)
+      } catch {}
+    }
 
     const processor = processors[toolName] ?? defaultProcessor(toolName)
 

@@ -233,6 +233,152 @@ describe('tool validation error handling', () => {
     expect(errorEvents.length).toBe(0)
   })
 
+  it('should parse input JSON string from AI SDK before validation', async () => {
+    // The AI SDK can emit tool-call chunks with `input` as a raw JSON string
+    // when upstream schema validation fails and the repair function returns
+    // the original tool call unchanged. The stream parser should parse the
+    // string into an object before handing it to the tool executor.
+    const agentWithReadFiles: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: ['read_files', 'end_turn'],
+    }
+
+    const stringInputToolCallChunk = {
+      type: 'tool-call' as const,
+      toolName: 'read_files',
+      toolCallId: 'string-input-tool-call-id',
+      input: JSON.stringify({ paths: ['test.ts'] }) as any,
+    }
+
+    async function* mockStream() {
+      yield stringInputToolCallChunk
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    agentRuntimeImpl.requestFiles = async () => ({
+      'test.ts': 'console.log("test")',
+    })
+
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: agentWithReadFiles,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': agentWithReadFiles },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => {
+        responseChunks.push(chunk)
+      },
+    })
+
+    const toolCallEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'tool_call' }> =>
+        typeof chunk !== 'string' && chunk.type === 'tool_call',
+    )
+    expect(toolCallEvents.length).toBe(1)
+    expect(toolCallEvents[0].toolName).toBe('read_files')
+    expect(toolCallEvents[0].input).toEqual({ paths: ['test.ts'] })
+
+    const errorEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'error' }> =>
+        typeof chunk !== 'string' && chunk.type === 'error',
+    )
+    expect(errorEvents.length).toBe(0)
+  })
+
+  it('should emit a clear error when tool input is an unparseable string', async () => {
+    const agentWithReadFiles: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: ['read_files', 'end_turn'],
+    }
+
+    const invalidStringToolCallChunk = {
+      type: 'tool-call' as const,
+      toolName: 'read_files',
+      toolCallId: 'invalid-string-tool-call-id',
+      input: '{"paths": ["test.ts"' as any, // truncated/malformed JSON
+    }
+
+    async function* mockStream() {
+      yield invalidStringToolCallChunk
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    const responseChunks: (string | PrintModeEvent)[] = []
+
+    const result = await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: agentWithReadFiles,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': agentWithReadFiles },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: (chunk) => {
+        responseChunks.push(chunk)
+      },
+    })
+
+    const errorEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'error' }> =>
+        typeof chunk !== 'string' && chunk.type === 'error',
+    )
+    expect(errorEvents.length).toBe(1)
+    expect(errorEvents[0].message).toContain(
+      'tool arguments were a string, not a JSON object',
+    )
+    expect(errorEvents[0].message).toContain('Original tool call input:')
+
+    expect(result.hadToolCallError).toBe(true)
+
+    const toolCallEvents = responseChunks.filter(
+      (chunk): chunk is Extract<PrintModeEvent, { type: 'tool_call' }> =>
+        typeof chunk !== 'string' && chunk.type === 'tool_call',
+    )
+    expect(toolCallEvents.length).toBe(0)
+  })
+
   it('should preserve tool_call/tool_result ordering when custom tool setup is async', async () => {
     const toolName = 'delayed_custom_tool'
     const agentWithCustomTool: AgentTemplate = {
