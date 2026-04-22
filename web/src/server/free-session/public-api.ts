@@ -144,10 +144,17 @@ export async function requestSession(params: {
   userId: string
   model: string
   userEmail?: string | null | undefined
+  /** True if the account is banned. Short-circuited here so banned bots never
+   *  create a queued row — otherwise they inflate `queueDepth` between the
+   *  15s admission ticks that run `evictBanned`. */
+  userBanned?: boolean
   deps?: SessionDeps
 }): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
   const model = resolveFreebuffModel(params.model)
+  if (params.userBanned) {
+    return { status: 'banned' }
+  }
   if (
     !deps.isWaitingRoomEnabled() ||
     isWaitingRoomBypassedForEmail(params.userEmail)
@@ -224,10 +231,14 @@ export async function requestSession(params: {
 export async function getSessionState(params: {
   userId: string
   userEmail?: string | null | undefined
+  userBanned?: boolean
   claimedInstanceId?: string | null | undefined
   deps?: SessionDeps
 }): Promise<FreebuffSessionServerResponse> {
   const deps = params.deps ?? defaultDeps
+  if (params.userBanned) {
+    return { status: 'banned' }
+  }
   if (
     !deps.isWaitingRoomEnabled() ||
     isWaitingRoomBypassedForEmail(params.userEmail)

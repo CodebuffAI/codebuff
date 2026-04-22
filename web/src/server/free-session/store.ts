@@ -164,12 +164,26 @@ export async function queueDepth(params: { model: string }): Promise<number> {
  * covers every model's queue depth, so the UI stays cheap to refresh.
  * Models with no queued rows are absent from the map; callers should default
  * missing keys to 0.
+ *
+ * Excludes rows whose user is banned: `evictBanned` only runs on the 15s
+ * admission tick, so between ticks a flood of banned bots would inflate
+ * queueDepth by their count and then snap back down. Filtering here keeps
+ * the user-facing counter stable.
  */
 export async function queueDepthsByModel(): Promise<Record<string, number>> {
   const rows = await db
     .select({ model: schema.freeSession.model, n: count() })
     .from(schema.freeSession)
-    .where(eq(schema.freeSession.status, 'queued'))
+    .where(
+      and(
+        eq(schema.freeSession.status, 'queued'),
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${schema.user}
+          WHERE ${schema.user.id} = ${schema.freeSession.user_id}
+            AND ${schema.user.banned} = true
+        )`,
+      ),
+    )
     .groupBy(schema.freeSession.model)
   const out: Record<string, number> = {}
   for (const row of rows) out[row.model] = Number(row.n)
@@ -224,6 +238,14 @@ export async function queuePositionFor(params: {
         eq(schema.freeSession.status, 'queued'),
         eq(schema.freeSession.model, params.model),
         sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt.toISOString()}::timestamptz, ${params.userId})`,
+        // Exclude banned users ahead of us — matches queueDepthsByModel so the
+        // "Position N / M" counter doesn't briefly jump when banned rows are
+        // swept by the admission tick.
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${schema.user}
+          WHERE ${schema.user.id} = ${schema.freeSession.user_id}
+            AND ${schema.user.banned} = true
+        )`,
       ),
     )
   return Number(rows[0]?.n ?? 0)
