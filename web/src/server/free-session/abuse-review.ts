@@ -40,24 +40,28 @@ You will see:
 - Creation clusters: sets of codebuff accounts created within 30 minutes of each other.
 
 Counter-signals are mitigating evidence that should PULL DOWN your confidence:
-- \`quiet-gap:Xh\` — the user went X hours between messages in the last 24h. Bots don't sleep; a gap ≥ 4h is strong evidence of a human circadian pattern, ≥ 8h is nearly conclusive.
-- \`diverse-agents:N\` — the user invoked N distinct agents in 24h. Real developers pipeline through basher, file-picker, code-reviewer, thinker alongside the root agent. Bot farms stay narrow (typically 1–3 agents). N ≥ 6 is a meaningful counter-signal, N ≥ 10 is very strong.
+- \`quiet-gap:Xh\` — the user went X hours between messages in the last 24h. Bots don't sleep; a gap ≥ 3h is a real circadian signal, ≥ 5h is strong, ≥ 8h is nearly conclusive. A ≥5h gap by itself defeats any "round-the-clock" claim: the account is demonstrably NOT running 24/7, full stop.
+- \`diverse-agents:N\` — the user invoked N distinct agents in 24h. Real developers pipeline through basher, file-picker, code-reviewer, thinker alongside the root agent. Bot farms stay narrow (typically 1–3 agents). N ≥ 5 is a meaningful counter-signal, N ≥ 8 is very strong.
 - \`gh-established:Xy\` — the linked GitHub account is X years old. Buying an old GitHub is rare at our scale.
 
-When an account has strong counter-signals alongside its red flags, tier it DOWN. A user with \`very-heavy:1000/24h\` AND \`quiet-gap:10h diverse-agents:12 gh-established:3y\` is almost certainly a legitimate power user, not a bot, no matter how high the raw message count is.
+When an account has strong counter-signals alongside its red flags, tier it DOWN. A user with \`very-heavy:1000/24h\` AND \`quiet-gap:6h diverse-agents:6 gh-established:1y\` is almost certainly a legitimate power user, not a bot, no matter how high the raw message count is.
 
-A very young GitHub account (gh_age < 7d, especially < 1d) combined with heavy usage is one of the strongest bot signals we have: real developers almost never create a GitHub account on the same day they start running an agent. Weigh this heavily in tiering.
+A very young GitHub account (gh_age < 7d, especially < 1d) combined with heavy usage is one of the strongest bot signals we have: real developers almost never create a GitHub account on the same day they start running an agent. Weigh this heavily — fresh GH + heavy usage is TIER 1 even with a moderate (3–6h) quiet gap, because the fresh-GH signal is difficult to fake at scale.
 
-Conversely, an established GitHub account (gh_age ≥ 1 year, especially ≥ 3 years) is a strong counter-signal. Account-age spoofing by buying old accounts is possible but uncommon at our abuse scale. An established GitHub + a natural agent mix (basher, code-reviewer, file-picker alongside the root agent) + some activity gaps during the day reads like an excited first-day power user, not a bot. Don't tier these as HIGH unless there are two independent per-account signals (e.g. true 24/7 distinct_hours AND suspicious email pattern).
+Conversely, a GitHub account older than ~30 days is meaningful counter-evidence. The "day-1 of coding = day-1 of GitHub" pattern that makes fresh-GH such a strong bot signal doesn't apply once the GH predates the codebuff account by a month or more. gh_age ≥ 30d + a moderate quiet gap (≥4h) + any agent diversity reads like an excited power user, not a bot. Don't tier these as HIGH unless there's a genuinely unambiguous per-account signal (true near-continuous activity, see below).
 
 Creation-cluster membership is a WEAK signal on its own. The detector is purely temporal — accounts created within 30 minutes of each other. At normal signup volume, unrelated real users routinely land in the same window (product launches, HN/Reddit posts, timezone-aligned bursts). A cluster is only actionable when its members share a concrete cross-account pattern: matching email-local stems or digit siblings (\`v6apiworker\` / \`v8apiworker\`), a shared uncommon domain (\`@mail.hnust.edu.cn\`), sequential-number naming, or near-identical msgs_24h / distinct_hours footprints across multiple members. Absent such a shared pattern, treat a cluster list as background noise and tier members purely on their per-account signals. When you do use a cluster as evidence, name the shared pattern explicitly — "cluster sharing the \`vNNapiworker\` stem", not "member of 5-account creation cluster".
 
 Produce a markdown report with two sections:
 
 ## TIER 1 — HIGH CONFIDENCE (ban)
-Accounts whose OWN behavior shows strong automation: round-the-clock usage (distinct_hours_24h ≥ 20 AND msgs_24h ≥ 50), or heavy day-1 activity (msgs_24h ≥ 400) on a <1d-old codebuff account linked to a <7d-old GitHub login. A single account may also qualify when multiple weaker signals stack (e.g. heavy usage + fresh GH + throwaway-domain email + round-the-clock pattern).
+The bar is high — if you are choosing between TIER 1 and TIER 2, choose TIER 2.
 
-Cluster membership is NOT sufficient for TIER 1 on its own. Include it only as corroboration when the cluster shares an explicit cross-account pattern (see above); lead each reason line with the strongest per-account signal, and mention the cluster last.
+Qualifying signals (any one of these, taken on its own, justifies TIER 1):
+1. **Near-continuous activity** — distinct_hours_24h ≥ 18. 15–18 distinct hours is NOT near-continuous, even with heavy message counts — that's a normal motivated power user.
+2. **No quiet gap and heavy usage** — max_quiet_gap < 6h AND high message count (msgs_24h ≥ 700).
+2. **Fresh-GH + another signal** — gh_age < 7d AND (msgs_24h ≥ 700, or cluster with email pattern, or another signal). The fresh GitHub is a strong signal, but you also need something else to justify a ban.
+3. **Multi-signal stack with independent automation evidence** — e.g. cluster of accounts with a shared pattern and heavy usage.
 
 One line of reasoning per account. Group cluster members together under a cluster heading ONLY when the cluster shares a concrete pattern.
 
