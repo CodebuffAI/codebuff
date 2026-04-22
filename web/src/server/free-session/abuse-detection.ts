@@ -141,28 +141,54 @@ export async function identifyBotSuspects(params: {
     agentDiversity.map((a) => [a.user_id!, Number(a.distinctAgents24h)]),
   )
 
-  // Max inter-message quiet gap in the 24h window (in hours). A gap ≥ 4h is
-  // a strong "user slept" counter-signal — bots don't take circadian breaks.
-  // Uses LAG() so it needs a CTE; run as raw SQL.
+  // Largest gap of usage (in hours) within the observation window — where
+  // the window is bounded by GREATEST(user.created_at, now - 24h). For each
+  // user we consider three kinds of gap: window_start → first msg, gaps
+  // between consecutive msgs, and last msg → now. Max of those is the
+  // quiet gap.
+  //
+  // Clipping the window to signup matters: a 0.2d-old account can only
+  // plausibly have a gap up to its age. Without the clip, LAG() on an empty
+  // pre-window history would silently omit any leading-boundary gap, so a
+  // fresh bot with dense activity reads as "low quiet gap" correctly — but
+  // for heavy accounts that only started hitting us within the last few
+  // hours, we also want to count post-activity quiet time toward the gap.
+  const nowIso = now.toISOString()
   const quietGaps = await db.execute(sql`
-    WITH ordered AS (
-      SELECT user_id, finished_at,
-             LAG(finished_at) OVER (PARTITION BY user_id ORDER BY finished_at) AS prev
-      FROM ${schema.message}
-      WHERE user_id IN (${sql.join(
+    WITH bounds AS (
+      SELECT id AS user_id,
+             GREATEST(created_at, ${cutoffIso}::timestamptz) AS window_start
+      FROM ${schema.user}
+      WHERE id IN (${sql.join(
         userIds.map((id) => sql`${id}`),
         sql`, `,
       )})
-        AND agent_id IN (${sql.join(
+    ),
+    msgs AS (
+      SELECT m.user_id, m.finished_at, b.window_start
+      FROM ${schema.message} m
+      JOIN bounds b ON b.user_id = m.user_id
+      WHERE m.finished_at >= b.window_start
+        AND m.agent_id IN (${sql.join(
           FREEBUFF_ROOT_AGENT_IDS.map((a) => sql`${a}`),
           sql`, `,
         )})
-        AND finished_at >= ${cutoffIso}::timestamptz
+    ),
+    gaps AS (
+      SELECT user_id,
+             finished_at,
+             COALESCE(
+               LAG(finished_at) OVER (PARTITION BY user_id ORDER BY finished_at),
+               window_start
+             ) AS prev
+      FROM msgs
     )
     SELECT user_id,
-           MAX(EXTRACT(EPOCH FROM (finished_at - prev))) / 3600.0 AS max_gap_hours
-    FROM ordered
-    WHERE prev IS NOT NULL
+           GREATEST(
+             MAX(EXTRACT(EPOCH FROM (finished_at - prev)) / 3600.0),
+             EXTRACT(EPOCH FROM (${nowIso}::timestamptz - MAX(finished_at))) / 3600.0
+           ) AS max_gap_hours
+    FROM gaps
     GROUP BY user_id
   `)
   const quietGapByUser = new Map<string, number>()
