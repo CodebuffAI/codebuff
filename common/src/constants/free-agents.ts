@@ -9,6 +9,14 @@ import type { CostMode } from './model-config'
 export const FREE_COST_MODE = 'free' as const
 
 /**
+ * Root-orchestrator agent IDs counted as "a freebuff session" for abuse
+ * detection and usage auditing. Subagents (file-picker, basher, etc.) are
+ * excluded — they're spawned by the root, so counting them would inflate
+ * every user's apparent activity.
+ */
+export const FREEBUFF_ROOT_AGENT_IDS = ['base2-free'] as const
+
+/**
  * Agents that are allowed to run in FREE mode.
  * Only these specific agents (and their expected models) get 0 credits in FREE mode.
  * This prevents abuse by users trying to use arbitrary agents for free.
