@@ -60,17 +60,18 @@ async function callSession(
   if (resp.status === 404) {
     return { status: 'disabled' }
   }
-  // 403 with a country_blocked body is a terminal signal, not an error — the
-  // server rejects non-allowlist countries up front (see session _handlers.ts)
-  // so users don't wait through the queue only to be rejected at chat time.
-  // The 403 status (rather than 200) is deliberate: older CLIs that don't
-  // know this status treat it as a generic error and back off on the 10s
-  // error-retry cadence instead of tight-polling an unrecognized 200 body.
+  // 403 with a country_blocked or banned body is a terminal signal, not an
+  // error — the server rejects non-allowlist countries and banned accounts up
+  // front (see session _handlers.ts) so they don't wait through the queue only
+  // to be rejected at chat time. The 403 status (rather than 200) is
+  // deliberate: older CLIs that don't know these statuses treat them as a
+  // generic error and back off on the 10s error-retry cadence instead of
+  // tight-polling an unrecognized 200 body.
   if (resp.status === 403) {
     const body = (await resp.json().catch(() => null)) as
       | FreebuffSessionResponse
       | null
-    if (body && body.status === 'country_blocked') {
+    if (body && (body.status === 'country_blocked' || body.status === 'banned')) {
       return body
     }
   }
@@ -116,6 +117,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'disabled':
     case 'superseded':
     case 'country_blocked':
+    case 'banned':
     case 'model_locked':
       return null
   }

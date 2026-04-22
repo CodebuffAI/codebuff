@@ -155,6 +155,19 @@ describe('requestSession', () => {
     expect(offDeps.rows.size).toBe(0)
   })
 
+  test('banned user is rejected before joinOrTakeOver runs', async () => {
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      userBanned: true,
+      deps,
+    })
+    expect(state).toEqual({ status: 'banned' })
+    // No row should be created — the point is to keep banned bots out of
+    // queueDepthsByModel entirely, not just until the next evictBanned tick.
+    expect(deps.rows.size).toBe(0)
+  })
+
   test('first call puts user in queue at position 1', async () => {
     const state = await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     expect(state.status).toBe('queued')
@@ -282,6 +295,15 @@ describe('getSessionState', () => {
     const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
     const state = await getSessionState({ userId: 'u1', deps: offDeps })
     expect(state).toEqual({ status: 'disabled' })
+  })
+
+  test('banned user returns banned without hitting the DB', async () => {
+    const state = await getSessionState({
+      userId: 'u1',
+      userBanned: true,
+      deps,
+    })
+    expect(state).toEqual({ status: 'banned' })
   })
 
   test('no row returns none with empty queue-depth snapshot', async () => {

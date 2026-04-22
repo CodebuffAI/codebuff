@@ -50,7 +50,7 @@ export interface FreebuffSessionDeps {
 
 type AuthResult =
   | { error: NextResponse }
-  | { userId: string; userEmail: string | null }
+  | { userId: string; userEmail: string | null; userBanned: boolean }
 
 async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise<AuthResult> {
   const apiKey = extractApiKeyFromHeader(req)
@@ -67,7 +67,7 @@ async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise
   }
   const userInfo = await deps.getUserInfoFromApiKey({
     apiKey,
-    fields: ['id', 'email'],
+    fields: ['id', 'email', 'banned'],
     logger: deps.logger,
   })
   if (!userInfo?.id) {
@@ -78,7 +78,11 @@ async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise
       ),
     }
   }
-  return { userId: String(userInfo.id), userEmail: userInfo.email ?? null }
+  return {
+    userId: String(userInfo.id),
+    userEmail: userInfo.email ?? null,
+    userBanned: Boolean(userInfo.banned),
+  }
 }
 
 function serverError(
@@ -130,13 +134,16 @@ export async function postFreebuffSession(
     const state = await requestSession({
       userId: auth.userId,
       userEmail: auth.userEmail,
+      userBanned: auth.userBanned,
       model: requestedModel,
       deps: deps.sessionDeps,
     })
     // model_locked is a 409 so it's distinguishable from a normal queued/active
-    // response on the client. The CLI translates it into a "switch model?"
-    // confirmation prompt.
-    const status = state.status === 'model_locked' ? 409 : 200
+    // response on the client. banned is a 403 (terminal, mirrors country_blocked)
+    // so older CLIs that don't know the status fall into their `!resp.ok` error
+    // path and back off instead of tight-polling on the unrecognized 200 body.
+    const status =
+      state.status === 'model_locked' ? 409 : state.status === 'banned' ? 403 : 200
     return NextResponse.json(state, { status })
   } catch (error) {
     return serverError(deps, 'POST', auth.userId, error)
@@ -161,6 +168,7 @@ export async function getFreebuffSession(
     const state = await getSessionState({
       userId: auth.userId,
       userEmail: auth.userEmail,
+      userBanned: auth.userBanned,
       claimedInstanceId,
       deps: deps.sessionDeps,
     })
@@ -174,7 +182,10 @@ export async function getFreebuffSession(
         { status: 200 },
       )
     }
-    return NextResponse.json(state, { status: 200 })
+    // banned is terminal; 403 for the same reason as country_blocked — older
+    // CLIs that don't know this status treat it as a generic error.
+    const status = state.status === 'banned' ? 403 : 200
+    return NextResponse.json(state, { status })
   } catch (error) {
     return serverError(deps, 'GET', auth.userId, error)
   }

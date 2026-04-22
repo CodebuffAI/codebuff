@@ -242,6 +242,21 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               </text>
             </>
           )}
+
+          {/* Account banned. Terminal — polling has stopped. Blocking here
+              stops banned bots from re-entering the queue every few seconds
+              and inflating queueDepth between admission-tick sweeps. */}
+          {session?.status === 'banned' && (
+            <>
+              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
+                ⚠ Account unavailable
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                This account can't use freebuff. If you think this is a
+                mistake, contact support@codebuff.com. Press Ctrl+C to exit.
+              </text>
+            </>
+          )}
         </box>
       </box>
 

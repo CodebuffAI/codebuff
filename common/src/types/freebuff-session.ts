@@ -92,3 +92,10 @@ export type FreebuffSessionServerResponse =
       currentModel: string
       requestedModel: string
     }
+  | {
+      /** Account is banned. Returned from every endpoint so banned bots can't
+       *  join the queue at all (otherwise they inflate `queueDepth` until the
+       *  15s admission tick's `evictBanned` sweeps them). Terminal — CLI
+       *  stops polling and shows a banned message. */
+      status: 'banned'
+    }
