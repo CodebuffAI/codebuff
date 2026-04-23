@@ -14,12 +14,12 @@ export default function TermsOfServicePage() {
           <h2>Introduction</h2>
 
           <p>
-            Welcome to Codebuff, Inc (“Company”, “we”, “our”, “us”)! As you have
+            Welcome to Manicode, Inc. (DBA Codebuff) (“Company”, “we”, “our”, “us”)! As you have
             just clicked our Terms of Service, please pause, grab a cup of
             coffee and carefully read the following pages. It will take you
             approximately 20 minutes. These Terms of Service (“Terms”, “Terms of
             Service”) govern your use of our web pages located at
-            https://codebuff.com/ operated by Codebuff, Inc. Our Privacy Policy
+            https://codebuff.com/ operated by Manicode, Inc. Our Privacy Policy
             also governs your use of our Service and explains how we collect,
             safeguard and disclose information that results from your use of our
             web pages. Please read it here https://codebuff.com/privacy-policy.
@@ -68,17 +68,17 @@ export default function TermsOfServicePage() {
             subscription plan you select when purchasing a Subscription. At the
             end of each Billing Cycle, your Subscription will automatically
             renew under the exact same conditions unless you cancel it or
-            Codebuff, Inc cancels it. You may cancel your Subscription renewal
+            Manicode, Inc cancels it. You may cancel your Subscription renewal
             either through your online account management page or by contacting
-            Codebuff, Inc customer support team. A valid payment method,
+            Manicode, Inc customer support team. A valid payment method,
             including credit card, is required to process the payment for your
-            subscription. You shall provide Codebuff, Inc with accurate and
+            subscription. You shall provide Manicode, Inc with accurate and
             complete billing information including full name, address, state,
             zip code, telephone number, and a valid payment method information.
             By submitting such payment information, you automatically authorize
-            Codebuff, Inc to charge all Subscription fees incurred through your
+            Manicode, Inc to charge all Subscription fees incurred through your
             account to any such payment instruments. Should automatic billing
-            fail to occur for any reason, Codebuff, Inc will issue an electronic
+            fail to occur for any reason, Manicode, Inc will issue an electronic
             invoice indicating that you must proceed manually, within a certain
             deadline date, with the full payment corresponding to the billing
             period as indicated on the invoice.
@@ -86,25 +86,25 @@ export default function TermsOfServicePage() {
 
           <h2>Free Trial</h2>
           <p>
-            Codebuff, Inc may, at its sole discretion, offer a Subscription with
+            Manicode, Inc may, at its sole discretion, offer a Subscription with
             a free trial for a limited period of time (“Free Trial”). You may be
             required to enter your billing information in order to sign up for
             Free Trial. If you do enter your billing information when signing up
-            for Free Trial, you will not be charged by Codebuff, Inc until Free
+            for Free Trial, you will not be charged by Manicode, Inc until Free
             Trial has expired. On the last day of Free Trial period, unless you
             cancelled your Subscription, you will be automatically charged the
             applicable Subscription fees for the type of Subscription you have
-            selected. At any time and without notice, Codebuff, Inc reserves the
+            selected. At any time and without notice, Manicode, Inc reserves the
             right to (i) modify Terms of Service of Free Trial offer, or (ii)
             cancel such Free Trial offer.
           </p>
 
           <h2>Fee Changes</h2>
           <p>
-            Codebuff, Inc, in its sole discretion and at any time, may modify
+            Manicode, Inc, in its sole discretion and at any time, may modify
             Subscription fees for the Subscriptions. Any Subscription fee change
             will become effective at the end of the then-current Billing Cycle.
-            Codebuff, Inc will provide you with a reasonable prior notice of any
+            Manicode, Inc will provide you with a reasonable prior notice of any
             change in Subscription fees to give you an opportunity to terminate
             your Subscription before such change becomes effective. Your
             continued use of Service after Subscription fee change comes into
@@ -141,9 +141,9 @@ export default function TermsOfServicePage() {
             distribute such Content on and through Service. You agree that this
             license includes the right for us to make your Content available to
             other users of Service, who may also use your Content subject to
-            these Terms. Codebuff, Inc has the right but not the obligation to
+            these Terms. Manicode, Inc has the right but not the obligation to
             monitor and edit all Content provided by users. In addition, Content
-            found on or through this Service are the property of Codebuff, Inc
+            found on or through this Service are the property of Manicode, Inc
             or used with permission. You may not distribute, modify, transmit,
             reuse, download, repost, copy, or use said Content, whether in whole
             or in part, for commercial purposes or for personal gain, without
@@ -241,7 +241,7 @@ export default function TermsOfServicePage() {
           <p>
             Service and its original content (excluding Content provided by
             users), features and functionality are and will remain the exclusive
-            property of Codebuff, Inc and its licensors. Service is protected by
+            property of Manicode, Inc and its licensors. Service is protected by
             copyright, trademark, and other laws of the United States. Our
             trademarks and trade dress may not be used in connection with any
             product or service without the prior written consent of Codebuff,
@@ -321,12 +321,12 @@ export default function TermsOfServicePage() {
           <h2>Links To Other Web Sites</h2>
           <p>
             Our Service may contain links to third party web sites or services
-            that are not owned or controlled by Codebuff, Inc Codebuff, Inc has
+            that are not owned or controlled by Manicode, Inc Manicode, Inc has
             no control over, and assumes no responsibility for the content,
             privacy policies, or practices of any third party web sites or
             services. We do not warrant the offerings of any of these
             entities/individuals or their websites. YOU ACKNOWLEDGE AND AGREE
-            THAT Codebuff, Inc SHALL NOT BE RESPONSIBLE OR LIABLE, DIRECTLY OR
+            THAT Manicode, Inc SHALL NOT BE RESPONSIBLE OR LIABLE, DIRECTLY OR
             INDIRECTLY, FOR ANY DAMAGE OR LOSS CAUSED OR ALLEGED TO BE CAUSED BY
             OR IN CONNECTION WITH USE OF OR RELIANCE ON ANY SUCH CONTENT, GOODS
             OR SERVICES AVAILABLE ON OR THROUGH ANY SUCH THIRD PARTY WEB SITES
