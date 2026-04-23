@@ -9,7 +9,7 @@ export default function TermsOfServicePage() {
           Terms of Service
         </h1>
         <div className="prose prose-stone dark:prose-invert max-w-none">
-          <p>Last updated: 10/09/2024</p>
+          <p>Last updated: 04/23/2026</p>
 
           <h2>Introduction</h2>
 
@@ -244,7 +244,7 @@ export default function TermsOfServicePage() {
             property of Manicode, Inc and its licensors. Service is protected by
             copyright, trademark, and other laws of the United States. Our
             trademarks and trade dress may not be used in connection with any
-            product or service without the prior written consent of Codebuff,
+            product or service without the prior written consent of Manicode,
             Inc.
           </p>
 
