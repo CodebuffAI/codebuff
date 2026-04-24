@@ -174,7 +174,11 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { adData, recordImpression } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
+  const { adData, recordImpression } = useGravityAd({
+    enabled: IS_FREEBUFF || !hasSubscription,
+    provider: 'gravity',
+    fallbackProvider: 'carbon',
+  })
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
