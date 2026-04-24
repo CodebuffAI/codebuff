@@ -93,6 +93,13 @@ export type FreebuffSessionServerResponse =
       requestedModel: string
     }
   | {
+      /** Requested model is valid but not selectable right now. Currently
+       *  used for deployment-hours-only models such as Kimi K2.5. */
+      status: 'model_unavailable'
+      requestedModel: string
+      availableHours: string
+    }
+  | {
       /** Account is banned. Returned from every endpoint so banned bots can't
        *  join the queue at all (otherwise they inflate `queueDepth` until the
        *  15s admission tick's `evictBanned` sweeps them). Terminal — CLI

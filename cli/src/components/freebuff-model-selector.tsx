@@ -3,9 +3,15 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
-import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+import {
+  DEFAULT_FREEBUFF_MODEL_ID,
+  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  FREEBUFF_MODELS,
+  isFreebuffModelAvailable,
+} from '@codebuff/common/constants/freebuff-models'
 
 import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
+import { useNow } from '../hooks/use-now'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
@@ -33,7 +39,9 @@ export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
+  const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
+  const now = useNow(60_000)
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   // Keyboard cursor — separate from the actually-selected model so that
@@ -44,6 +52,15 @@ export const FreebuffModelSelector: React.FC = () => {
   useEffect(() => {
     setFocusedId(selectedModel)
   }, [selectedModel])
+
+  useEffect(() => {
+    if (
+      (session?.status === 'none' || !session) &&
+      !isFreebuffModelAvailable(selectedModel, new Date(now))
+    ) {
+      setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+    }
+  }, [now, selectedModel, session, setSelectedModel])
 
   // Landing ('none'): depths come from the server snapshot, no "self" to
   // subtract. In-queue ('queued'): for the user's queue, "ahead" is
@@ -85,7 +102,8 @@ export const FreebuffModelSelector: React.FC = () => {
   )
 
   // Decide row vs column layout based on whether both buttons actually fit
-  // side-by-side. Each button's inner text is "● {displayName} · {tagline}  {hint}",
+  // side-by-side. Each button's inner text is
+  // "● {displayName} · {tagline} · {hours}  {hint}",
   // plus 2 cols of border and 2 cols of padding. Buttons are separated by a
   // gap of 2. If the total exceeds the terminal width, stack vertically.
   const stackVertically = useMemo(() => {
@@ -97,6 +115,9 @@ export const FreebuffModelSelector: React.FC = () => {
         model.displayName.length +
         3 /* " · " */ +
         model.tagline.length +
+        (model.availability === 'deployment_hours'
+          ? 3 + FREEBUFF_DEPLOYMENT_HOURS_LABEL.length
+          : 0) +
         2 /* "  " */ +
         hintWidth
       return sum + inner + BUTTON_CHROME + (idx > 0 ? GAP : 0)
@@ -115,10 +136,11 @@ export const FreebuffModelSelector: React.FC = () => {
     (modelId: string) => {
       if (pending) return
       if (modelId === committedModelId) return
+      if (!isFreebuffModelAvailable(modelId, new Date(now))) return
       setPending(modelId)
       joinFreebuffQueue(modelId).finally(() => setPending(null))
     },
-    [pending, committedModelId],
+    [pending, committedModelId, now],
   )
 
   // Tab / Shift+Tab and arrow keys move the focus highlight only; Enter or
@@ -136,7 +158,10 @@ export const FreebuffModelSelector: React.FC = () => {
         const isCommit = name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
-          if (focusedId !== committedModelId) {
+          if (
+            focusedId !== committedModelId &&
+            isFreebuffModelAvailable(focusedId, new Date(now))
+          ) {
             key.preventDefault?.()
             pick(focusedId)
           }
@@ -154,7 +179,7 @@ export const FreebuffModelSelector: React.FC = () => {
           setFocusedId(target.id)
         }
       },
-      [pending, pick, focusedId, committedModelId],
+      [pending, pick, focusedId, committedModelId, now],
     ),
   )
 
@@ -181,15 +206,22 @@ export const FreebuffModelSelector: React.FC = () => {
           const isSelected = model.id === selectedModel
           const isHovered = hoveredId === model.id
           const isFocused = focusedId === model.id && !isSelected
+          const isAvailable = isFreebuffModelAvailable(model.id, new Date(now))
           const indicator = isSelected ? '●' : '○'
           const indicatorColor = isSelected ? theme.primary : theme.muted
-          const labelColor = isSelected ? theme.foreground : theme.muted
+          const labelColor = isSelected && isAvailable ? theme.foreground : theme.muted
           // Clickable whenever picking would actually do something — i.e.
           // anything except re-picking the queue we're already in.
-          const interactable = !pending && model.id !== committedModelId
+          const interactable = !pending && isAvailable && model.id !== committedModelId
           const ahead = aheadByModel?.[model.id]
           const hint =
-            ahead === undefined ? '' : ahead === 0 ? 'No wait' : `${ahead} ahead`
+            !isAvailable
+              ? 'Closed'
+              : ahead === undefined
+                ? ''
+                : ahead === 0
+                  ? 'No wait'
+                  : `${ahead} ahead`
 
           const borderColor = isSelected
             ? theme.primary
@@ -202,7 +234,7 @@ export const FreebuffModelSelector: React.FC = () => {
               key={model.id}
               onClick={() => {
                 setFocusedId(model.id)
-                pick(model.id)
+                if (isAvailable) pick(model.id)
               }}
               onMouseOver={() => interactable && setHoveredId(model.id)}
               onMouseOut={() => setHoveredId((curr) => (curr === model.id ? null : curr))}
@@ -223,6 +255,9 @@ export const FreebuffModelSelector: React.FC = () => {
                   {model.displayName}
                 </span>
                 <span fg={theme.muted}> · {model.tagline}</span>
+                {model.availability === 'deployment_hours' && (
+                  <span fg={theme.muted}> · {FREEBUFF_DEPLOYMENT_HOURS_LABEL}</span>
+                )}
                 <span fg={theme.muted}>  {hint.padEnd(hintWidth)}</span>
               </text>
             </Button>

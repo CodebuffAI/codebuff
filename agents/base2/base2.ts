@@ -25,16 +25,18 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  const model = isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.7'
+  const model = isFree ? 'minimax/minimax-m2.7' : 'anthropic/claude-opus-4.7'
 
   return {
     publisher,
     model,
-    providerOptions: isFree ? {
-      data_collection: 'deny',
-    } : {
-      only: ['amazon-bedrock'],
-    },
+    providerOptions: isFree
+      ? {
+          data_collection: 'deny',
+        }
+      : {
+          only: ['amazon-bedrock'],
+        },
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',

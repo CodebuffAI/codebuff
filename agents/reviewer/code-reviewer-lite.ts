@@ -5,7 +5,7 @@ import { createReviewer } from './code-reviewer'
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer-lite',
   publisher,
-  ...createReviewer('z-ai/glm-5.1'),
+  ...createReviewer('minimax/minimax-m2.7'),
 }
 
 export default definition

@@ -25,11 +25,11 @@
  *   # Default glm-5.1 serverless with default intervals
  *   bun scripts/test-fireworks-cache-intervals.ts
  *
- *   # Custom GLM deployment with a faster sweep
- *   bun scripts/test-fireworks-cache-intervals.ts glm-5.1 --deployment --intervals=30,60,120,300,600
+ *   # Custom Kimi deployment with a faster sweep
+ *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.5 --deployment --intervals=30,60,120,300,600
  *
  *   # Long sweep up to 1 hour
- *   bun scripts/test-fireworks-cache-intervals.ts glm-5.1 --deployment --intervals=60,300,600,1200,1800,2700,3600
+ *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.5 --deployment --intervals=60,300,600,1200,1800,2700,3600
  */
 
 export {}
@@ -39,7 +39,7 @@ const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 type ModelConfig = {
   id: string
   standardModel: string
-  deploymentModel: string
+  deploymentModel?: string
   inputCostPerToken: number
   cachedInputCostPerToken: number
   outputCostPerToken: number
@@ -49,7 +49,6 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'glm-5.1': {
     id: 'z-ai/glm-5.1',
     standardModel: 'accounts/fireworks/models/glm-5p1',
-    deploymentModel: 'accounts/james-65d217/deployments/mjb4i7ea',
     inputCostPerToken: 1.4 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.4 / 1_000_000,
@@ -57,7 +56,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'kimi-k2.5': {
     id: 'moonshotai/kimi-k2.5',
     standardModel: 'accounts/fireworks/models/kimi-k2p5',
-    deploymentModel: 'accounts/james-65d217/deployments/mx8l5rq2',
+    deploymentModel: 'accounts/james-65d217/deployments/y5b3z17u',
     inputCostPerToken: 0.6 / 1_000_000,
     cachedInputCostPerToken: 0.1 / 1_000_000,
     outputCostPerToken: 3.0 / 1_000_000,
@@ -117,8 +116,12 @@ function parseArgs(): {
 const { modelKey, useDeployment: USE_DEPLOYMENT, intervals: INTERVALS_SEC } =
   parseArgs()
 const MODEL = MODEL_CONFIGS[modelKey]
+if (USE_DEPLOYMENT && !MODEL.deploymentModel) {
+  console.error(`❌ No custom deployment configured for ${MODEL.id}`)
+  process.exit(1)
+}
 const FIREWORKS_MODEL = USE_DEPLOYMENT
-  ? MODEL.deploymentModel
+  ? MODEL.deploymentModel!
   : MODEL.standardModel
 const INPUT_COST_PER_TOKEN = MODEL.inputCostPerToken
 const CACHED_INPUT_COST_PER_TOKEN = MODEL.cachedInputCostPerToken

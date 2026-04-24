@@ -1,4 +1,7 @@
-import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_MODELS,
+  isFreebuffModelAvailable,
+} from '@codebuff/common/constants/freebuff-models'
 
 import {
   ADMISSION_TICK_MS,
@@ -111,7 +114,10 @@ export async function runAdmissionTick(
   // advisory locks and a single update each.
   const perModel = await Promise.all(
     models.map(async (model) => {
-      const health = fleet[model] ?? 'healthy'
+      const isRegisteredModel = FREEBUFF_MODELS.some((m) => m.id === model)
+      const health = !isRegisteredModel || isFreebuffModelAvailable(model, now)
+        ? fleet[model] ?? 'healthy'
+        : 'unhealthy'
       const { admitted, skipped } = await deps.admitFromQueue({
         model,
         sessionLengthMs: deps.sessionLengthMs,
