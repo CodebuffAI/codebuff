@@ -1,4 +1,5 @@
 import { env } from '@codebuff/common/env'
+import { DEFAULT_FREEBUFF_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 import { useEffect } from 'react'
 
 import {
@@ -75,14 +76,18 @@ async function callSession(
       return body
     }
   }
-  // 409 from POST means the user picked a different model than their active
-  // session is bound to. Surface as a non-throw `model_locked` so the UI can
-  // show a confirmation prompt (DELETE then re-POST to switch).
+  // 409 from POST means the selected model cannot be joined right now, either
+  // because an active session is locked to another model or because a
+  // Surface model-switch conflicts and temporary model availability closures
+  // as non-throw states.
   if (resp.status === 409 && method === 'POST') {
     const body = (await resp.json().catch(() => null)) as
       | FreebuffSessionResponse
       | null
-    if (body && body.status === 'model_locked') {
+    if (
+      body &&
+      (body.status === 'model_locked' || body.status === 'model_unavailable')
+    ) {
       return body
     }
   }
@@ -119,6 +124,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'country_blocked':
     case 'banned':
     case 'model_locked':
+    case 'model_unavailable':
       return null
   }
 }
@@ -395,6 +401,12 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // switch can /end-session deliberately.
         if (next.status === 'model_locked') {
           useFreebuffModelStore.getState().setSelectedModel(next.currentModel)
+          schedule(0)
+          return
+        }
+        if (next.status === 'model_unavailable') {
+          useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+          nextMethod = 'GET'
           schedule(0)
           return
         }

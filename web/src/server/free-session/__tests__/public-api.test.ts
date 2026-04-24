@@ -13,7 +13,7 @@ import type { InternalSessionRow } from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
 const GRACE_MS = 30 * 60 * 1000
-const DEFAULT_MODEL = 'z-ai/glm-5.1'
+const DEFAULT_MODEL = 'minimax/minimax-m2.7'
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   rows: Map<string, InternalSessionRow>
@@ -177,19 +177,34 @@ describe('requestSession', () => {
     expect(state.instanceId).toBe('inst-1')
   })
 
+  test('deployment-hours-only model is unavailable outside deployment hours', async () => {
+    const state = await requestSession({
+      userId: 'u1',
+      model: 'z-ai/glm-5.1',
+      deps,
+    })
+    expect(state).toEqual({
+      status: 'model_unavailable',
+      requestedModel: 'z-ai/glm-5.1',
+      availableHours: '9am ET-5pm PT',
+    })
+    expect(deps.rows.size).toBe(0)
+  })
+
   test('queued response includes a per-model depth snapshot for the selector', async () => {
-    // Seed 2 users in glm + 1 in minimax so the returned map captures both.
+    deps._tick(new Date('2026-04-17T16:00:00Z'))
+    // Seed 2 users in MiniMax + 1 in GLM so the returned map captures both.
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u3', model: 'minimax/minimax-m2.7', deps })
+    await requestSession({ userId: 'u3', model: 'z-ai/glm-5.1', deps })
 
     const state = await getSessionState({ userId: 'u1', deps })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.queueDepthByModel).toEqual({
       [DEFAULT_MODEL]: 2,
-      'minimax/minimax-m2.7': 1,
+      'z-ai/glm-5.1': 1,
     })
   })
 
@@ -264,11 +279,12 @@ describe('requestSession', () => {
   })
 
   test('instant-admit: per-model capacities are independent', async () => {
-    // GLM saturated at 1 active, MiniMax still has room.
+    // MiniMax saturated at 1 active, GLM still has room.
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: (model) =>
         model === DEFAULT_MODEL ? 1 : 10,
     })
+    admitDeps._tick(new Date('2026-04-17T16:00:00Z'))
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps: admitDeps })
     const s2 = await requestSession({
       userId: 'u2',
@@ -277,7 +293,7 @@ describe('requestSession', () => {
     })
     const s3 = await requestSession({
       userId: 'u3',
-      model: 'minimax/minimax-m2.7',
+      model: 'z-ai/glm-5.1',
       deps: admitDeps,
     })
     expect(s2.status).toBe('queued')

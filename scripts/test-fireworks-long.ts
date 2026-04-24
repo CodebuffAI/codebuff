@@ -12,11 +12,16 @@
  * Models:
  *   glm-5.1   (default) — z-ai/glm-5.1
  *   minimax             — minimax/minimax-m2.5
+ *   minimax-m2.7        — minimax/minimax-m2.7
  *
  * Flags:
  *   --deployment   Use custom deployment instead of serverless (standard API)
  *                  Serverless is the default
+ * Examples:
+ *   bun scripts/test-fireworks-long.ts glm-5.1 --deployment
  */
+
+import { FIREWORKS_DEPLOYMENT_MAP } from '../web/src/llm-api/fireworks-config'
 
 export { }
 
@@ -25,7 +30,7 @@ const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 type ModelConfig = {
   id: string              // OpenRouter-style ID (for display)
   standardModel: string  // Fireworks standard API model ID
-  deploymentModel: string // Fireworks custom deployment model ID
+  deploymentModel?: string // Fireworks custom deployment model ID
   inputCostPerToken: number
   cachedInputCostPerToken: number
   outputCostPerToken: number
@@ -35,18 +40,10 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'glm-5.1': {
     id: 'z-ai/glm-5.1',
     standardModel: 'accounts/fireworks/models/glm-5p1',
-    deploymentModel: 'accounts/james-65d217/deployments/mjb4i7ea',
+    deploymentModel: FIREWORKS_DEPLOYMENT_MAP['z-ai/glm-5.1'],
     inputCostPerToken: 1.40 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.40 / 1_000_000,
-  },
-  'kimi-k2.5': {
-    id: 'moonshotai/kimi-k2.5',
-    standardModel: 'accounts/fireworks/models/kimi-k2p5',
-    deploymentModel: 'accounts/james-65d217/deployments/mx8l5rq2',
-    inputCostPerToken: 0.60 / 1_000_000,
-    cachedInputCostPerToken: 0.10 / 1_000_000,
-    outputCostPerToken: 3.00 / 1_000_000,
   },
   minimax: {
     id: 'minimax/minimax-m2.5',
@@ -67,9 +64,16 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
 }
 
 const DEFAULT_MODEL = 'glm-5.1'
+const MODEL_ALIASES: Record<string, keyof typeof MODEL_CONFIGS> = {
+  glm: 'glm-5.1',
+  'z-ai/glm-5.1': 'glm-5.1',
+  'minimax/minimax-m2.5': 'minimax',
+  'minimax/minimax-m2.7': 'minimax-m2.7',
+}
 
 function getModelConfig(modelArg?: string): ModelConfig {
-  const key = modelArg ?? DEFAULT_MODEL
+  const rawKey = modelArg ?? DEFAULT_MODEL
+  const key = MODEL_ALIASES[rawKey] ?? rawKey
   const config = MODEL_CONFIGS[key]
   if (!config) {
     console.error(`❌ Unknown model: "${key}". Available models: ${Object.keys(MODEL_CONFIGS).join(', ')}`)
@@ -83,7 +87,11 @@ const modelArg = process.argv.find((a, i) => i > 1 && !a.startsWith('-') && a !=
 const MODEL = getModelConfig(modelArg)
 
 // Default to serverless (standard API); use --deployment for custom deployment
-const FIREWORKS_MODEL = USE_DEPLOYMENT ? MODEL.deploymentModel : MODEL.standardModel
+if (USE_DEPLOYMENT && !MODEL.deploymentModel) {
+  console.error(`❌ No custom deployment configured for ${MODEL.id}`)
+  process.exit(1)
+}
+const FIREWORKS_MODEL = USE_DEPLOYMENT ? MODEL.deploymentModel! : MODEL.standardModel
 const INPUT_COST_PER_TOKEN = MODEL.inputCostPerToken
 const CACHED_INPUT_COST_PER_TOKEN = MODEL.cachedInputCostPerToken
 const OUTPUT_COST_PER_TOKEN = MODEL.outputCostPerToken

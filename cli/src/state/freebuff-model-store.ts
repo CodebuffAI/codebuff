@@ -1,6 +1,6 @@
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
-  resolveFreebuffModel,
+  resolveAvailableFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
 import { create } from 'zustand'
 
@@ -24,11 +24,11 @@ interface FreebuffModelStore {
 }
 
 export const useFreebuffModelStore = create<FreebuffModelStore>((set) => ({
-  selectedModel: resolveFreebuffModel(
+  selectedModel: resolveAvailableFreebuffModel(
     loadFreebuffModelPreference() ?? DEFAULT_FREEBUFF_MODEL_ID,
   ),
   setSelectedModel: (model) => {
-    const resolved = resolveFreebuffModel(model)
+    const resolved = resolveAvailableFreebuffModel(model)
     saveFreebuffModelPreference(resolved)
     set({ selectedModel: resolved })
   },

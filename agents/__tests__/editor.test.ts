@@ -67,6 +67,11 @@ describe('editor agent', () => {
       expect(glmEditor.model).toBe('z-ai/glm-5.1')
     })
 
+    test('creates minimax editor', () => {
+      const minimaxEditor = createCodeEditor({ model: 'minimax' })
+      expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
+    })
+
     test('gpt-5 editor does not include think tags in instructions', () => {
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
       expect(gpt5Editor.instructionsPrompt).not.toContain('<think>')
@@ -77,6 +82,12 @@ describe('editor agent', () => {
       const glmEditor = createCodeEditor({ model: 'glm' })
       expect(glmEditor.instructionsPrompt).not.toContain('<think>')
       expect(glmEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('minimax editor does not include think tags in instructions', () => {
+      const minimaxEditor = createCodeEditor({ model: 'minimax' })
+      expect(minimaxEditor.instructionsPrompt).not.toContain('<think>')
+      expect(minimaxEditor.instructionsPrompt).not.toContain('</think>')
     })
 
     test('opus editor includes think tags in instructions', () => {

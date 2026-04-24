@@ -1,4 +1,6 @@
 import {
+  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  isFreebuffModelAvailable,
   isFreebuffModelId as isSelectableFreebuffModel,
   resolveFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
@@ -122,6 +124,11 @@ export type RequestSessionResult =
       currentModel: string
       requestedModel: string
     }
+  | {
+      status: 'model_unavailable'
+      requestedModel: string
+      availableHours: string
+    }
 
 /**
  * Client calls this on CLI startup with the model they want to use.
@@ -152,6 +159,7 @@ export async function requestSession(params: {
 }): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
   const model = resolveFreebuffModel(params.model)
+  const now = nowOf(deps)
   if (params.userBanned) {
     return { status: 'banned' }
   }
@@ -161,13 +169,20 @@ export async function requestSession(params: {
   ) {
     return { status: 'disabled' }
   }
+  if (!isFreebuffModelAvailable(model, now)) {
+    return {
+      status: 'model_unavailable',
+      requestedModel: model,
+      availableHours: FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+    }
+  }
 
   let row: InternalSessionRow
   try {
     row = await deps.joinOrTakeOver({
       userId: params.userId,
       model,
-      now: nowOf(deps),
+      now,
     })
   } catch (err) {
     if (err instanceof FreeSessionModelLockedError) {
@@ -199,7 +214,7 @@ export async function requestSession(params: {
           userId: params.userId,
           model,
           sessionLengthMs: deps.sessionLengthMs,
-          now: nowOf(deps),
+          now,
         })
         if (promoted) row = promoted
       }

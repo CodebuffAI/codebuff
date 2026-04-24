@@ -370,7 +370,7 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
   }
 
   // Override the model of free-mode agents to match the user's pick from the
-  // freebuff waiting room. Bundled definitions hardcode glm-5.1; we swap in
+  // freebuff waiting room. Bundled definitions hardcode a free model; we swap in
   // whatever the user chose so the chat-completions request body carries the
   // matching model and the server-side session gate doesn't reject it as a
   // model mismatch.

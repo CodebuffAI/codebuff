@@ -253,7 +253,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 ⚠ Account unavailable
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                This account can't use freebuff. If you think this is a
+                This account has been suspended and can't use freebuff. If you think this is a
                 mistake, contact support@codebuff.com. Press Ctrl+C to exit.
               </text>
             </>

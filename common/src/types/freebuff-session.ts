@@ -93,6 +93,12 @@ export type FreebuffSessionServerResponse =
       requestedModel: string
     }
   | {
+      /** Requested model is valid but not selectable right now. */
+      status: 'model_unavailable'
+      requestedModel: string
+      availableHours: string
+    }
+  | {
       /** Account is banned. Returned from every endpoint so banned bots can't
        *  join the queue at all (otherwise they inflate `queueDepth` until the
        *  15s admission tick's `evictBanned` sweeps them). Terminal — CLI

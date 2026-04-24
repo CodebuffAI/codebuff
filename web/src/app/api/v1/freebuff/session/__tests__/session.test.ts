@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   deleteFreebuffSession,
   FREEBUFF_INSTANCE_HEADER,
+  FREEBUFF_MODEL_HEADER,
   getFreebuffSession,
   postFreebuffSession,
 } from '../_handlers'
@@ -12,16 +13,17 @@ import type { SessionDeps } from '@/server/free-session/public-api'
 import type { InternalSessionRow } from '@/server/free-session/types'
 import type { NextRequest } from 'next/server'
 
-const DEFAULT_MODEL = 'z-ai/glm-5.1'
+const DEFAULT_MODEL = 'minimax/minimax-m2.7'
 
 function makeReq(
   apiKey: string | null,
-  opts: { instanceId?: string; cfCountry?: string } = {},
+  opts: { instanceId?: string; cfCountry?: string; model?: string } = {},
 ): NextRequest {
   const headers = new Headers()
   if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`)
   if (opts.instanceId) headers.set(FREEBUFF_INSTANCE_HEADER, opts.instanceId)
   if (opts.cfCountry) headers.set('cf-ipcountry', opts.cfCountry)
+  if (opts.model) headers.set(FREEBUFF_MODEL_HEADER, opts.model)
   return {
     headers,
   } as unknown as NextRequest
@@ -151,6 +153,19 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     const body = await resp.json()
     expect(body.status).toBe('queued')
+  })
+
+  test('returns model_unavailable for GLM outside deployment hours', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { model: 'z-ai/glm-5.1' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(409)
+    const body = await resp.json()
+    expect(body.status).toBe('model_unavailable')
+    expect(body.availableHours).toBe('9am ET-5pm PT')
+    expect(sessionDeps.rows.size).toBe(0)
   })
 
   // Banned bots with valid API keys were POSTing every few seconds and
