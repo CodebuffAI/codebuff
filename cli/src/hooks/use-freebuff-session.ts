@@ -1,5 +1,8 @@
 import { env } from '@codebuff/common/env'
-import { DEFAULT_FREEBUFF_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import {
+  FALLBACK_FREEBUFF_MODEL_ID,
+  resolveFreebuffModel,
+} from '@codebuff/common/constants/freebuff-models'
 import { useEffect } from 'react'
 
 import {
@@ -10,6 +13,7 @@ import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { getAuthTokenDetails } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
+import { saveFreebuffModelPreference } from '../utils/settings'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
@@ -280,7 +284,13 @@ export function returnToFreebuffLanding(
  */
 export function joinFreebuffQueue(model: string): Promise<void> {
   if (!IS_FREEBUFF) return Promise.resolve()
-  useFreebuffModelStore.getState().setSelectedModel(model)
+  // This is the only explicit user-pick path (called from the picker on
+  // click / Enter), so persistence belongs here — and ONLY here. Server-
+  // driven flips (`model_locked`, `model_unavailable`, takeover) go
+  // through `setSelectedModel` directly, which never writes to disk.
+  const resolved = resolveFreebuffModel(model)
+  useFreebuffModelStore.getState().setSelectedModel(resolved)
+  saveFreebuffModelPreference(resolved)
   return restartFreebuffSession('rejoin')
 }
 
@@ -419,7 +429,14 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           return
         }
         if (next.status === 'model_unavailable') {
-          useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+          // Server says the requested model isn't available right now (e.g.
+          // GLM outside deployment hours). Flip to the always-available
+          // fallback for this run. In-memory only — `setSelectedModel`
+          // doesn't persist, so the user's saved preference (e.g. GLM)
+          // is preserved for their next launch during deployment hours.
+          useFreebuffModelStore
+            .getState()
+            .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
           nextMethod = 'GET'
           schedule(0)
           return

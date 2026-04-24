@@ -19,10 +19,11 @@ export interface FreebuffModelOption {
 
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
+export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 
 export const FREEBUFF_MODELS = [
   {
-    id: 'minimax/minimax-m2.7',
+    id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
     tagline: 'Fastest',
     availability: 'always',
@@ -37,7 +38,18 @@ export const FREEBUFF_MODELS = [
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 
-export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_MODELS[0].id
+/** What new freebuff users see selected in the picker. May not be currently
+ *  available (GLM is closed outside deployment hours); callers that need an
+ *  always-available id for resolution / auto-fallbacks should use
+ *  FALLBACK_FREEBUFF_MODEL_ID instead. */
+export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_GLM_MODEL_ID
+
+/** Always-available fallback used when the requested model can't be served
+ *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
+ *  DEFAULT_FREEBUFF_MODEL_ID so a new user's "preferred default" can be the
+ *  smartest model without auto-flipping anyone to a closed deployment. */
+export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
+  FREEBUFF_MINIMAX_MODEL_ID
 
 export function isFreebuffModelId(
   id: string | null | undefined,
@@ -49,13 +61,13 @@ export function isFreebuffModelId(
 export function resolveFreebuffModel(
   id: string | null | undefined,
 ): FreebuffModelId {
-  return isFreebuffModelId(id) ? id : DEFAULT_FREEBUFF_MODEL_ID
+  return isFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
 }
 
 export function getFreebuffModel(id: string): FreebuffModelOption {
   return (
     FREEBUFF_MODELS.find((m) => m.id === id) ??
-    FREEBUFF_MODELS.find((m) => m.id === DEFAULT_FREEBUFF_MODEL_ID)!
+    FREEBUFF_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
   )
 }
 
@@ -102,5 +114,5 @@ export function resolveAvailableFreebuffModel(
   const resolved = resolveFreebuffModel(id)
   return isFreebuffModelAvailable(resolved, now)
     ? resolved
-    : DEFAULT_FREEBUFF_MODEL_ID
+    : FALLBACK_FREEBUFF_MODEL_ID
 }
