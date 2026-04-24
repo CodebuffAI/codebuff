@@ -250,22 +250,40 @@ export async function requestSession(params: {
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
   // create a queued row. Only models listed in RATE_LIMITS are gated; others
   // (Minimax today) fall through unchanged.
-  const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
-  if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
-    // Oldest admit's window-anniversary is when one slot opens back up.
-    // Clamped at 0 so a clock skew can't surface a negative retry-after.
-    const windowMs = snapshot.info.windowHours * 60 * 60 * 1000
-    const retryAfterMs = Math.max(
-      0,
-      (snapshot.oldest?.getTime() ?? 0) + windowMs - nowOf(deps).getTime(),
-    )
-    return {
-      status: 'rate_limited',
-      model,
-      limit: snapshot.info.limit,
-      windowHours: snapshot.info.windowHours,
-      recentCount: snapshot.info.recentCount,
-      retryAfterMs,
+  //
+  // Takeover/reclaim exception: a user who already holds a queued or
+  // active+unexpired row on this same model is re-anchoring (CLI restart,
+  // same-account tab switch) rather than starting a new session. Admit
+  // counts are written at promotion time, so the quota only needs to gate
+  // fresh admissions — blocking a reclaim here would strand a user with an
+  // active 5th session unable to reconnect after a CLI restart.
+  const existing = await deps.getSessionRow(params.userId)
+  const isReclaim =
+    !!existing &&
+    existing.model === model &&
+    (existing.status === 'queued' ||
+      (existing.status === 'active' &&
+        !!existing.expires_at &&
+        existing.expires_at.getTime() > now.getTime()))
+
+  if (!isReclaim) {
+    const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
+    if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
+      // Oldest admit's window-anniversary is when one slot opens back up.
+      // Clamped at 0 so a clock skew can't surface a negative retry-after.
+      const windowMs = snapshot.info.windowHours * 60 * 60 * 1000
+      const retryAfterMs = Math.max(
+        0,
+        (snapshot.oldest?.getTime() ?? 0) + windowMs - now.getTime(),
+      )
+      return {
+        status: 'rate_limited',
+        model,
+        limit: snapshot.info.limit,
+        windowHours: snapshot.info.windowHours,
+        recentCount: snapshot.info.recentCount,
+        retryAfterMs,
+      }
     }
   }
 

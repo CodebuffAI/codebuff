@@ -436,6 +436,125 @@ describe('requestSession', () => {
     })
   })
 
+  test('rate_limited: takeover of an active GLM row is allowed even when at cap', async () => {
+    // Reclaim path: user has an active+unexpired GLM session and restarts
+    // the CLI. POST must rotate their instance id (takeover) and NOT reject
+    // with rate_limited — otherwise they'd be stranded with a live session
+    // they can't reconnect to. The 5th admission is already in the log, so
+    // this also exercises "at the cap" rather than "over the cap".
+    deps._tick(GLM_OPEN_TIME)
+    const now = deps._now()
+    // Seed 5 prior admits (the cap), with the latest one matching the
+    // active row we're about to install.
+    const ages = [19, 4, 3, 2, 0]
+    for (const hoursAgo of ages) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: GLM_MODEL,
+        admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
+      })
+    }
+    // Install the active row directly (skipping the normal request path so
+    // we don't have to unwind the rate-limit gate to set up the fixture).
+    const admittedAt = new Date(now.getTime() - 30 * 60 * 1000)
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'inst-pre',
+      model: GLM_MODEL,
+      queued_at: admittedAt,
+      admitted_at: admittedAt,
+      expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
+      created_at: admittedAt,
+      updated_at: admittedAt,
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: GLM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // Instance id rotated; quota snapshot still reflects the full window.
+    expect(state.instanceId).not.toBe('inst-pre')
+    expect(state.rateLimit?.recentCount).toBe(GLM_LIMIT)
+  })
+
+  test('rate_limited: reclaim of a queued GLM row is allowed even when at cap', async () => {
+    // Same reclaim exception for queued rows: if a user has already queued
+    // (say they slipped in just before their 5th admit landed), a subsequent
+    // POST from the same CLI must preserve their queue position instead of
+    // flipping to rate_limited.
+    deps._tick(GLM_OPEN_TIME)
+    const now = deps._now()
+    for (let i = 0; i < GLM_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: GLM_MODEL,
+        admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
+      })
+    }
+    const queuedAt = new Date(now.getTime() - 5 * 60 * 1000)
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'inst-pre',
+      model: GLM_MODEL,
+      queued_at: queuedAt,
+      admitted_at: null,
+      expires_at: null,
+      created_at: queuedAt,
+      updated_at: queuedAt,
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: GLM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    // Same position (1) since we preserved queued_at and nobody else is
+    // ahead; the instance id rotated so any prior CLI is superseded.
+    expect(state.instanceId).not.toBe('inst-pre')
+    expect(state.rateLimit?.recentCount).toBe(GLM_LIMIT)
+  })
+
+  test('rate_limited: expired GLM row is not a reclaim — quota still applies', async () => {
+    // The stored row's expires_at is in the past, so it doesn't represent
+    // an in-flight session. This POST is effectively a fresh request and
+    // must be blocked by the quota.
+    deps._tick(GLM_OPEN_TIME)
+    const now = deps._now()
+    const ages = [19, 4, 3, 2, 1]
+    for (const hoursAgo of ages) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: GLM_MODEL,
+        admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
+      })
+    }
+    const admittedAt = new Date(now.getTime() - 2 * SESSION_LEN)
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'inst-pre',
+      model: GLM_MODEL,
+      queued_at: admittedAt,
+      admitted_at: admittedAt,
+      expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
+      created_at: admittedAt,
+      updated_at: admittedAt,
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: GLM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+  })
+
   test('instant-admit bumps the quota count for the freshly-written admit row', async () => {
     const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
     admitDeps._tick(GLM_OPEN_TIME)
