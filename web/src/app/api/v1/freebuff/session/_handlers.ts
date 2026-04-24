@@ -138,14 +138,15 @@ export async function postFreebuffSession(
       model: requestedModel,
       deps: deps.sessionDeps,
     })
-    // model_locked is a 409 so it's distinguishable from a normal queued/active
-    // response on the client. banned is a 403 (terminal, mirrors country_blocked)
-    // so older CLIs that don't know the status fall into their `!resp.ok` error
-    // path and back off instead of tight-polling on the unrecognized 200 body.
-    // rate_limited uses 429 so older CLIs fall into the error path (backing
-    // off on the 10s cadence) and newer CLIs parse the structured body below.
+    // model_locked / model_unavailable are 409 so they're distinguishable
+    // from normal queued/active responses on the client. banned is a 403
+    // (terminal, mirrors country_blocked) so older CLIs that don't know the
+    // status fall into their `!resp.ok` error path and back off instead of
+    // tight-polling on the unrecognized 200 body. rate_limited uses 429 for
+    // the same reason as banned — older CLIs back off, newer CLIs parse the
+    // structured body.
     const status =
-      state.status === 'model_locked'
+      state.status === 'model_locked' || state.status === 'model_unavailable'
         ? 409
         : state.status === 'banned'
           ? 403

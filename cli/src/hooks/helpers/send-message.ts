@@ -1,15 +1,18 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 
 import {
+  markFreebuffSessionCountryBlocked,
   markFreebuffSessionEnded,
   markFreebuffSessionSuperseded,
   refreshFreebuffSession,
 } from '../use-freebuff-session'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
+import { IS_FREEBUFF } from '../../utils/constants'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
+  getCountryCodeFromFreeModeError,
   getFreebuffGateErrorKind,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
@@ -389,6 +392,11 @@ export const handleRunCompletion = (params: {
 
     if (isFreeModeUnavailableError(output)) {
       updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+      if (IS_FREEBUFF) {
+        markFreebuffSessionCountryBlocked(
+          getCountryCodeFromFreeModeError(output) ?? 'UNKNOWN',
+        )
+      }
       finalizeAfterError()
       return
     }
@@ -484,6 +492,11 @@ export const handleRunError = (params: {
 
   if (isFreeModeUnavailableError(error)) {
     updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+    if (IS_FREEBUFF) {
+      markFreebuffSessionCountryBlocked(
+        getCountryCodeFromFreeModeError(error) ?? 'UNKNOWN',
+      )
+    }
     return
   }
 

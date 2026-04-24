@@ -13,7 +13,6 @@
  *
  * Models:
  *   glm-5.1   (default) — z-ai/glm-5.1
- *   kimi-k2.5           — moonshotai/kimi-k2.5
  *   minimax             — minimax/minimax-m2.5
  *
  * Flags:
@@ -39,7 +38,7 @@ const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 type ModelConfig = {
   id: string
   standardModel: string
-  deploymentModel: string
+  deploymentModel?: string
   inputCostPerToken: number
   cachedInputCostPerToken: number
   outputCostPerToken: number
@@ -53,14 +52,6 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     inputCostPerToken: 1.4 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.4 / 1_000_000,
-  },
-  'kimi-k2.5': {
-    id: 'moonshotai/kimi-k2.5',
-    standardModel: 'accounts/fireworks/models/kimi-k2p5',
-    deploymentModel: 'accounts/james-65d217/deployments/mx8l5rq2',
-    inputCostPerToken: 0.6 / 1_000_000,
-    cachedInputCostPerToken: 0.1 / 1_000_000,
-    outputCostPerToken: 3.0 / 1_000_000,
   },
   minimax: {
     id: 'minimax/minimax-m2.5',
@@ -117,8 +108,12 @@ function parseArgs(): {
 const { modelKey, useDeployment: USE_DEPLOYMENT, intervals: INTERVALS_SEC } =
   parseArgs()
 const MODEL = MODEL_CONFIGS[modelKey]
+if (USE_DEPLOYMENT && !MODEL.deploymentModel) {
+  console.error(`❌ No custom deployment configured for ${MODEL.id}`)
+  process.exit(1)
+}
 const FIREWORKS_MODEL = USE_DEPLOYMENT
-  ? MODEL.deploymentModel
+  ? MODEL.deploymentModel!
   : MODEL.standardModel
 const INPUT_COST_PER_TOKEN = MODEL.inputCostPerToken
 const CACHED_INPUT_COST_PER_TOKEN = MODEL.cachedInputCostPerToken
