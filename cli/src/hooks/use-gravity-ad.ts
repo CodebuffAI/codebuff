@@ -108,12 +108,15 @@ export const useGravityAd = (options?: {
   /** Skip the "wait for first user message" gate. Used by the freebuff
    *  waiting room, which has no conversation but still needs ads. */
   forceStart?: boolean
-  /** Which ad network to query. Defaults to Gravity. */
+  /** Primary ad network to query. Defaults to Gravity. */
   provider?: AdProvider
+  /** Backup ad network to try when the primary returns no fill or errors. */
+  fallbackProvider?: AdProvider
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
+  const fallbackProvider = options?.fallbackProvider
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [adData, setAdData] = useState<AdData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -278,49 +281,63 @@ export const useGravityAd = (options?: {
       }
     }
 
-    try {
-      const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          provider,
-          messages: adMessages,
-          sessionId: useChatStore.getState().chatSessionId,
-          device: getDeviceInfo(),
-          // Carbon requires a real browser-ish useragent for targeting/fraud
-          // detection. Gravity ignores it. We source one centrally so every
-          // provider that needs it sees the same value.
-          userAgent: getAdUserAgent(),
-        }),
-      })
+    const providersToTry =
+      fallbackProvider && fallbackProvider !== provider
+        ? [provider, fallbackProvider]
+        : [provider]
 
-      if (!response.ok) {
-        logger.warn(
-          { provider, status: response.status, response: await response.json() },
-          '[ads] Web API returned error',
-        )
-        return null
+    for (const providerToTry of providersToTry) {
+      try {
+        const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            provider: providerToTry,
+            messages: adMessages,
+            sessionId: useChatStore.getState().chatSessionId,
+            device: getDeviceInfo(),
+            // Carbon requires a real browser-ish useragent for targeting/fraud
+            // detection. Gravity ignores it. We source one centrally so every
+            // provider that needs it sees the same value.
+            userAgent: getAdUserAgent(),
+          }),
+        })
+
+        if (!response.ok) {
+          logger.warn(
+            {
+              provider: providerToTry,
+              status: response.status,
+              response: await response.json(),
+            },
+            '[ads] Web API returned error',
+          )
+          continue
+        }
+
+        const data = await response.json()
+        const variant = data.variant ?? 'banner'
+
+        if (
+          variant === 'choice' &&
+          Array.isArray(data.ads) &&
+          data.ads.length > 0
+        ) {
+          return { variant: 'choice', ads: data.ads as AdResponse[] }
+        }
+
+        if (data.ad) {
+          return { variant: 'banner', ad: data.ad as AdResponse }
+        }
+      } catch (err) {
+        logger.error({ err, provider: providerToTry }, '[ads] Failed to fetch ad')
       }
-
-      const data = await response.json()
-      const variant = data.variant ?? 'banner'
-
-      if (variant === 'choice' && Array.isArray(data.ads) && data.ads.length > 0) {
-        return { variant: 'choice', ads: data.ads as AdResponse[] }
-      }
-
-      if (data.ad) {
-        return { variant: 'banner', ad: data.ad as AdResponse }
-      }
-
-      return null
-    } catch (err) {
-      logger.error({ err }, '[ads] Failed to fetch ad')
-      return null
     }
+
+    return null
   }
 
   // Update tick function (uses ref to avoid useCallback dependency issues)
@@ -413,7 +430,7 @@ export const useGravityAd = (options?: {
       clearInterval(id)
       ctrlRef.current.intervalId = null
     }
-  }, [shouldStart, shouldHideAds])
+  }, [shouldStart, shouldHideAds, provider, fallbackProvider])
 
   // Don't return ad when ads should be hidden
   const visible = shouldStart && !shouldHideAds
