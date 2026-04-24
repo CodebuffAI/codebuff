@@ -11,11 +11,12 @@ import {
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const STANDARD_MODEL_ID = 'accounts/fireworks/models/kimi-k2p5'
-const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/y5b3z17u'
+const STANDARD_MODEL_ID = 'accounts/fireworks/models/kimi-k2p6'
+const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/j8ar2x0y'
 const IN_DEPLOYMENT_HOURS = new Date('2026-04-17T16:00:00Z') // Friday, 12pm ET / 9am PT
 const BEFORE_DEPLOYMENT_HOURS = new Date('2026-04-17T12:59:00Z') // Friday, 8:59am ET
 const AFTER_DEPLOYMENT_HOURS = new Date('2026-04-18T00:00:00Z') // Friday, 5pm PT
+const WEEKDAY_AFTER_DEPLOYMENT_HOURS = new Date('2026-04-21T00:01:00Z') // Monday, 5:01pm PT
 const WEEKEND_DEPLOYMENT_HOURS = new Date('2026-04-18T16:00:00Z') // Saturday
 
 function createMockLogger(): Logger {
@@ -33,6 +34,7 @@ describe('Fireworks deployment routing', () => {
       expect(isDeploymentHours(BEFORE_DEPLOYMENT_HOURS)).toBe(false)
       expect(isDeploymentHours(IN_DEPLOYMENT_HOURS)).toBe(true)
       expect(isDeploymentHours(AFTER_DEPLOYMENT_HOURS)).toBe(false)
+      expect(isDeploymentHours(WEEKDAY_AFTER_DEPLOYMENT_HOURS)).toBe(false)
     })
 
     it('is inactive on weekends', () => {
@@ -83,7 +85,7 @@ describe('Fireworks deployment routing', () => {
     })
 
     const minimalBody = {
-      model: 'moonshotai/kimi-k2.5',
+      model: 'moonshotai/kimi-k2.6',
       messages: [{ role: 'user' as const, content: 'test' }],
     }
 
@@ -98,7 +100,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -121,7 +123,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -154,7 +156,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -187,7 +189,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -214,7 +216,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -239,7 +241,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -283,7 +285,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -310,7 +312,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -338,7 +340,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { enabled: true },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -364,7 +366,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { effort: 'high' },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -390,7 +392,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { enabled: false, effort: 'high' },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -417,7 +419,7 @@ describe('Fireworks deployment routing', () => {
           reasoning: { effort: 'high' },
           tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -443,7 +445,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning_effort: 'low',
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -469,7 +471,7 @@ describe('Fireworks deployment routing', () => {
           reasoning_effort: 'low',
           tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
         } as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -496,7 +498,7 @@ describe('Fireworks deployment routing', () => {
 
       await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.5',
+        originalModel: 'moonshotai/kimi-k2.6',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,

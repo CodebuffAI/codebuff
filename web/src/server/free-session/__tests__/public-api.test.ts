@@ -180,12 +180,12 @@ describe('requestSession', () => {
   test('deployment-hours-only model is unavailable outside deployment hours', async () => {
     const state = await requestSession({
       userId: 'u1',
-      model: 'moonshotai/kimi-k2.5',
+      model: 'moonshotai/kimi-k2.6',
       deps,
     })
     expect(state).toEqual({
       status: 'model_unavailable',
-      requestedModel: 'moonshotai/kimi-k2.5',
+      requestedModel: 'moonshotai/kimi-k2.6',
       availableHours: '9am ET-5pm PT',
     })
     expect(deps.rows.size).toBe(0)
@@ -198,13 +198,13 @@ describe('requestSession', () => {
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u3', model: 'moonshotai/kimi-k2.5', deps })
+    await requestSession({ userId: 'u3', model: 'moonshotai/kimi-k2.6', deps })
 
     const state = await getSessionState({ userId: 'u1', deps })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.queueDepthByModel).toEqual({
       [DEFAULT_MODEL]: 2,
-      'moonshotai/kimi-k2.5': 1,
+      'moonshotai/kimi-k2.6': 1,
     })
   })
 
@@ -293,7 +293,7 @@ describe('requestSession', () => {
     })
     const s3 = await requestSession({
       userId: 'u3',
-      model: 'moonshotai/kimi-k2.5',
+      model: 'moonshotai/kimi-k2.6',
       deps: admitDeps,
     })
     expect(s2.status).toBe('queued')

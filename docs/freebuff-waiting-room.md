@@ -5,7 +5,7 @@
 The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployments. It has three jobs:
 
 1. **Drip-admit users per model** — each selectable freebuff model has its own FIFO queue. Admission runs one tick (default `ADMISSION_TICK_MS`, 15s) that tries to admit one user per model, so heavier models can sit cold without starving lighter ones.
-2. **Gate on per-deployment health and hours** — a single fleet probe per tick (`getFleetHealth` in `web/src/server/free-session/fireworks-health.ts`) hits the Fireworks metrics endpoint and classifies each dedicated deployment as `healthy | degraded | unhealthy`. Only models whose deployment is `healthy` and currently available admit that tick; Kimi K2.5 is available during 9am ET-5pm PT on weekdays, while MiniMax M2.7 is serverless and always available.
+2. **Gate on per-deployment health and hours** — a single fleet probe per tick (`getFleetHealth` in `web/src/server/free-session/fireworks-health.ts`) hits the Fireworks metrics endpoint and classifies each dedicated deployment as `healthy | degraded | unhealthy`. Only models whose deployment is `healthy` and currently available admit that tick; Kimi K2.6 is available during 9am ET-5pm PT on weekdays, while MiniMax M2.7 is serverless and always available.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
 Users who cannot be admitted immediately are placed in the queue for their chosen model and given an estimated wait time. Admitted users get a fixed-length session (default 1h) bound to the model they were admitted on; chat completions use that model for the life of the session.
@@ -149,8 +149,8 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | Constant | Location | Default | Purpose |
 |---|---|---|---|
 | `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. Up to one user is admitted per model per tick. |
-| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `minimax-m2.7`, `kimi-k2.5` | Selectable models; each gets its own queue and admission slot. |
-| `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | `kimi-k2.5` | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
+| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `minimax-m2.7`, `kimi-k2.6` | Selectable models; each gets its own queue and admission slot. |
+| `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | `kimi-k2.6` | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
 | `HEALTH_CACHE_TTL_MS` | `fireworks-health.ts` | 25000 | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit. |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
 | `FREEBUFF_SESSION_GRACE_MS` | env | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
@@ -185,7 +185,7 @@ Response shapes:
   "queueDepth": 43,        // size of this model's queue
   "queueDepthByModel": {   // snapshot of every model's queue — powers the
     "minimax/minimax-m2.7": 43, //  "N ahead" hint in the selector. Missing
-    "moonshotai/kimi-k2.5": 4   //  entries should be treated as 0.
+    "moonshotai/kimi-k2.6": 4   //  entries should be treated as 0.
   },
   "estimatedWaitMs": 384000,
   "queuedAt": "2026-04-17T12:00:00Z"
@@ -285,7 +285,7 @@ waitMs = (position - 1) * 24_000
 - Position 1 → 0 (next tick admits you)
 - Position 2 → 24s, and so on.
 
-`position` is scoped to this model's queue — a user at position 1 in the `minimax/minimax-m2.7` queue is not affected by the depth of the `moonshotai/kimi-k2.5` queue. The estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence, health-gated pauses, and deployment-hours availability (during a Kimi Fireworks incident or outside 9am ET-5pm PT, only Kimi's queue stalls; MiniMax keeps draining), so the real wait can be longer or shorter.
+`position` is scoped to this model's queue — a user at position 1 in the `minimax/minimax-m2.7` queue is not affected by the depth of the `moonshotai/kimi-k2.6` queue. The estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence, health-gated pauses, and deployment-hours availability (during a Kimi Fireworks incident or outside 9am ET-5pm PT, only Kimi's queue stalls; MiniMax keeps draining), so the real wait can be longer or shorter.
 
 ## CLI Integration (frontend-side contract)
 

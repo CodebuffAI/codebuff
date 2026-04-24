@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { isFreebuffDeploymentHours } from '@codebuff/common/constants/freebuff-models'
-
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -557,7 +555,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
     })
 
-    it('lets freebuff use Kimi K2.5 through Fireworks availability rules', async () => {
+    it('lets freebuff use Kimi K2.6 through Fireworks availability rules', async () => {
       const fetchedBodies: Record<string, unknown>[] = []
       const fetchViaFireworks = mock(
         async (_url: string | URL | Request, init?: RequestInit) => {
@@ -565,7 +563,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           return new Response(
             JSON.stringify({
               id: 'test-id',
-              model: 'accounts/james-65d217/deployments/y5b3z17u',
+              model: 'accounts/james-65d217/deployments/j8ar2x0y',
               choices: [{ message: { content: 'test response' } }],
               usage: {
                 prompt_tokens: 10,
@@ -587,7 +585,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-new-free' },
           body: JSON.stringify({
-            model: 'moonshotai/kimi-k2.5',
+            model: 'moonshotai/kimi-k2.6',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-free',
@@ -612,19 +610,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       })
 
       const body = await response.json()
-      if (isFreebuffDeploymentHours()) {
-        expect(response.status).toBe(200)
-        expect(fetchedBodies).toHaveLength(1)
-        expect(fetchedBodies[0].model).toBe(
-          'accounts/james-65d217/deployments/y5b3z17u',
-        )
-        expect(body.model).toBe('moonshotai/kimi-k2.5')
-        expect(body.provider).toBe('Fireworks')
-      } else {
-        expect(response.status).toBe(503)
-        expect(fetchedBodies).toHaveLength(0)
-        expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
-      }
+      expect(response.status).toBe(200)
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].model).toBe(
+        'accounts/james-65d217/deployments/j8ar2x0y',
+      )
+      expect(body.model).toBe('moonshotai/kimi-k2.6')
+      expect(body.provider).toBe('Fireworks')
     })
 
     it('skips credit check when in FREE mode even with 0 credits', async () => {

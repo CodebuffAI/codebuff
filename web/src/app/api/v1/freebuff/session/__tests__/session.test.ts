@@ -158,7 +158,7 @@ describe('POST /api/v1/freebuff/session', () => {
   test('returns model_unavailable for Kimi outside deployment hours', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
-      makeReq('ok', { model: 'moonshotai/kimi-k2.5' }),
+      makeReq('ok', { model: 'moonshotai/kimi-k2.6' }),
       makeDeps(sessionDeps, 'u1'),
     )
     expect(resp.status).toBe(409)

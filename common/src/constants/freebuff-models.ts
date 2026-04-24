@@ -18,7 +18,7 @@ export interface FreebuffModelOption {
 }
 
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT'
-export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.5'
+export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 
 export const FREEBUFF_MODELS = [
   {
@@ -29,7 +29,7 @@ export const FREEBUFF_MODELS = [
   },
   {
     id: FREEBUFF_KIMI_MODEL_ID,
-    displayName: 'Kimi K2.5',
+    displayName: 'Kimi K2.6',
     tagline: 'Balanced',
     availability: 'deployment_hours',
   },
@@ -83,7 +83,7 @@ export function isFreebuffDeploymentHours(now: Date = new Date()): boolean {
   const eastern = getZonedParts(now, 'America/New_York')
   const pacific = getZonedParts(now, 'America/Los_Angeles')
   if (eastern.weekday === 'Sat' || eastern.weekday === 'Sun') return false
-  return eastern.minutes >= 9 * 60 && pacific.minutes < 24 * 60
+  return eastern.minutes >= 9 * 60 && pacific.minutes < 17 * 60
 }
 
 export function isFreebuffModelAvailable(

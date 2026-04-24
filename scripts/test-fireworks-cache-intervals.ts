@@ -13,7 +13,7 @@
  *
  * Models:
  *   glm-5.1   (default) — z-ai/glm-5.1
- *   kimi-k2.5           — moonshotai/kimi-k2.5
+ *   kimi-k2.6           — moonshotai/kimi-k2.6
  *   minimax             — minimax/minimax-m2.5
  *
  * Flags:
@@ -26,10 +26,10 @@
  *   bun scripts/test-fireworks-cache-intervals.ts
  *
  *   # Custom Kimi deployment with a faster sweep
- *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.5 --deployment --intervals=30,60,120,300,600
+ *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.6 --deployment --intervals=30,60,120,300,600
  *
  *   # Long sweep up to 1 hour
- *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.5 --deployment --intervals=60,300,600,1200,1800,2700,3600
+ *   bun scripts/test-fireworks-cache-intervals.ts kimi-k2.6 --deployment --intervals=60,300,600,1200,1800,2700,3600
  */
 
 export {}
@@ -53,10 +53,10 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.4 / 1_000_000,
   },
-  'kimi-k2.5': {
-    id: 'moonshotai/kimi-k2.5',
-    standardModel: 'accounts/fireworks/models/kimi-k2p5',
-    deploymentModel: 'accounts/james-65d217/deployments/y5b3z17u',
+  'kimi-k2.6': {
+    id: 'moonshotai/kimi-k2.6',
+    standardModel: 'accounts/fireworks/models/kimi-k2p6',
+    deploymentModel: 'accounts/james-65d217/deployments/j8ar2x0y',
     inputCostPerToken: 0.6 / 1_000_000,
     cachedInputCostPerToken: 0.1 / 1_000_000,
     outputCostPerToken: 3.0 / 1_000_000,

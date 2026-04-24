@@ -78,7 +78,8 @@ async function callSession(
   }
   // 409 from POST means the selected model cannot be joined right now, either
   // because an active session is locked to another model or because a
-  // deployment-hours-only model is closed. Surface both as non-throw states.
+  // Surface model-switch conflicts and temporary model availability closures
+  // as non-throw states.
   if (resp.status === 409 && method === 'POST') {
     const body = (await resp.json().catch(() => null)) as
       | FreebuffSessionResponse

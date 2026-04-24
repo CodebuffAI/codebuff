@@ -48,7 +48,7 @@ export function getSessionGraceMs(): number {
  * queue).
  */
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
-  'moonshotai/kimi-k2.5': 100,
+  'moonshotai/kimi-k2.6': 100,
   'minimax/minimax-m2.7': 200,
 }
 
