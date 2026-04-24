@@ -6,6 +6,7 @@ import { Button } from './button'
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_MODELS,
   isFreebuffModelAvailable,
 } from '@codebuff/common/constants/freebuff-models'
@@ -18,6 +19,11 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 
 import type { KeyEvent } from '@opentui/core'
+
+const FREEBUFF_MODEL_SELECTOR_MODELS = [
+  ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_GLM_MODEL_ID),
+  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_GLM_MODEL_ID),
+]
 
 /**
  * Dual-purpose model picker:
@@ -109,7 +115,7 @@ export const FreebuffModelSelector: React.FC = () => {
   const stackVertically = useMemo(() => {
     const BUTTON_CHROME = 4 // 2 border + 2 padding
     const GAP = 2
-    const total = FREEBUFF_MODELS.reduce((sum, model, idx) => {
+    const total = FREEBUFF_MODEL_SELECTOR_MODELS.reduce((sum, model, idx) => {
       const inner =
         2 /* indicator + space */ +
         model.displayName.length +
@@ -167,13 +173,15 @@ export const FreebuffModelSelector: React.FC = () => {
           }
           return
         }
-        const currentIdx = FREEBUFF_MODELS.findIndex((m) => m.id === focusedId)
+        const currentIdx = FREEBUFF_MODEL_SELECTOR_MODELS.findIndex(
+          (m) => m.id === focusedId,
+        )
         if (currentIdx === -1) return
-        const len = FREEBUFF_MODELS.length
+        const len = FREEBUFF_MODEL_SELECTOR_MODELS.length
         const nextIdx = isForward
           ? (currentIdx + 1) % len
           : (currentIdx - 1 + len) % len
-        const target = FREEBUFF_MODELS[nextIdx]
+        const target = FREEBUFF_MODEL_SELECTOR_MODELS[nextIdx]
         if (target) {
           key.preventDefault?.()
           setFocusedId(target.id)
@@ -198,7 +206,7 @@ export const FreebuffModelSelector: React.FC = () => {
           alignItems: 'flex-start',
         }}
       >
-        {FREEBUFF_MODELS.map((model) => {
+        {FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => {
           // 'Selected' means the dot is filled and the label is bold. On the
           // landing screen ('none') this tracks the pre-focused pick; on the
           // queued screen it tracks the model the server has us on. Either

@@ -180,12 +180,12 @@ describe('requestSession', () => {
   test('deployment-hours-only model is unavailable outside deployment hours', async () => {
     const state = await requestSession({
       userId: 'u1',
-      model: 'moonshotai/kimi-k2.6',
+      model: 'z-ai/glm-5.1',
       deps,
     })
     expect(state).toEqual({
       status: 'model_unavailable',
-      requestedModel: 'moonshotai/kimi-k2.6',
+      requestedModel: 'z-ai/glm-5.1',
       availableHours: '9am ET-5pm PT',
     })
     expect(deps.rows.size).toBe(0)
@@ -193,18 +193,18 @@ describe('requestSession', () => {
 
   test('queued response includes a per-model depth snapshot for the selector', async () => {
     deps._tick(new Date('2026-04-17T16:00:00Z'))
-    // Seed 2 users in MiniMax + 1 in Kimi so the returned map captures both.
+    // Seed 2 users in MiniMax + 1 in GLM so the returned map captures both.
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u3', model: 'moonshotai/kimi-k2.6', deps })
+    await requestSession({ userId: 'u3', model: 'z-ai/glm-5.1', deps })
 
     const state = await getSessionState({ userId: 'u1', deps })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.queueDepthByModel).toEqual({
       [DEFAULT_MODEL]: 2,
-      'moonshotai/kimi-k2.6': 1,
+      'z-ai/glm-5.1': 1,
     })
   })
 
@@ -279,7 +279,7 @@ describe('requestSession', () => {
   })
 
   test('instant-admit: per-model capacities are independent', async () => {
-    // MiniMax saturated at 1 active, Kimi still has room.
+    // MiniMax saturated at 1 active, GLM still has room.
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: (model) =>
         model === DEFAULT_MODEL ? 1 : 10,
@@ -293,7 +293,7 @@ describe('requestSession', () => {
     })
     const s3 = await requestSession({
       userId: 'u3',
-      model: 'moonshotai/kimi-k2.6',
+      model: 'z-ai/glm-5.1',
       deps: admitDeps,
     })
     expect(s2.status).toBe('queued')

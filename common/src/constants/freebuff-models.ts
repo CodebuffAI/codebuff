@@ -18,7 +18,7 @@ export interface FreebuffModelOption {
 }
 
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT'
-export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
+export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 
 export const FREEBUFF_MODELS = [
   {
@@ -28,9 +28,9 @@ export const FREEBUFF_MODELS = [
     availability: 'always',
   },
   {
-    id: FREEBUFF_KIMI_MODEL_ID,
-    displayName: 'Kimi K2.6',
-    tagline: 'Balanced',
+    id: FREEBUFF_GLM_MODEL_ID,
+    displayName: 'GLM 5.1',
+    tagline: 'Smartest',
     availability: 'deployment_hours',
   },
 ] as const satisfies readonly FreebuffModelOption[]

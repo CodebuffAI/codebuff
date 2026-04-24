@@ -11,7 +11,6 @@
  *
  * Models:
  *   glm-5.1   (default) — z-ai/glm-5.1
- *   kimi-k2.6           — moonshotai/kimi-k2.6
  *   minimax             — minimax/minimax-m2.5
  *   minimax-m2.7        — minimax/minimax-m2.7
  *
@@ -19,7 +18,7 @@
  *   --deployment   Use custom deployment instead of serverless (standard API)
  *                  Serverless is the default
  * Examples:
- *   bun scripts/test-fireworks-long.ts kimi-k2.6 --deployment
+ *   bun scripts/test-fireworks-long.ts glm-5.1 --deployment
  */
 
 import { FIREWORKS_DEPLOYMENT_MAP } from '../web/src/llm-api/fireworks-config'
@@ -41,17 +40,10 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'glm-5.1': {
     id: 'z-ai/glm-5.1',
     standardModel: 'accounts/fireworks/models/glm-5p1',
+    deploymentModel: FIREWORKS_DEPLOYMENT_MAP['z-ai/glm-5.1'],
     inputCostPerToken: 1.40 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.40 / 1_000_000,
-  },
-  'kimi-k2.6': {
-    id: 'moonshotai/kimi-k2.6',
-    standardModel: 'accounts/fireworks/models/kimi-k2p6',
-    deploymentModel: FIREWORKS_DEPLOYMENT_MAP['moonshotai/kimi-k2.6'],
-    inputCostPerToken: 0.60 / 1_000_000,
-    cachedInputCostPerToken: 0.10 / 1_000_000,
-    outputCostPerToken: 3.00 / 1_000_000,
   },
   minimax: {
     id: 'minimax/minimax-m2.5',
@@ -75,9 +67,6 @@ const DEFAULT_MODEL = 'glm-5.1'
 const MODEL_ALIASES: Record<string, keyof typeof MODEL_CONFIGS> = {
   glm: 'glm-5.1',
   'z-ai/glm-5.1': 'glm-5.1',
-  kimi: 'kimi-k2.6',
-  'kimi-k2': 'kimi-k2.6',
-  'moonshotai/kimi-k2.6': 'kimi-k2.6',
   'minimax/minimax-m2.5': 'minimax',
   'minimax/minimax-m2.7': 'minimax-m2.7',
 }

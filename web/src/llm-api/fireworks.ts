@@ -36,7 +36,6 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
-  'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
 }
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
@@ -97,7 +96,7 @@ function createFireworksRequest(params: {
 
   // Transform OpenRouter-style `reasoning` object into Fireworks' `reasoning_effort`.
   // Unlike OpenAI, Fireworks supports reasoning_effort together with function tools
-  // (e.g. GLM-4.5/5.1 and Kimi K2 are designed for interleaved reasoning + tool use).
+  // (e.g. GLM-4.5/5.1 are designed for interleaved reasoning + tool use).
   if (fireworksBody.reasoning && typeof fireworksBody.reasoning === 'object') {
     const reasoning = fireworksBody.reasoning as {
       enabled?: boolean
@@ -168,11 +167,6 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 1.40 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.40 / 1_000_000,
-  },
-  'moonshotai/kimi-k2.6': {
-    inputCostPerToken: 0.60 / 1_000_000,
-    cachedInputCostPerToken: 0.10 / 1_000_000,
-    outputCostPerToken: 3.00 / 1_000_000,
   },
 }
 

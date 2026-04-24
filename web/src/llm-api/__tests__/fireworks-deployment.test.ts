@@ -11,8 +11,8 @@ import {
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const STANDARD_MODEL_ID = 'accounts/fireworks/models/kimi-k2p6'
-const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/j8ar2x0y'
+const STANDARD_MODEL_ID = 'accounts/fireworks/models/glm-5p1'
+const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/mjb4i7ea'
 const IN_DEPLOYMENT_HOURS = new Date('2026-04-17T16:00:00Z') // Friday, 12pm ET / 9am PT
 const BEFORE_DEPLOYMENT_HOURS = new Date('2026-04-17T12:59:00Z') // Friday, 8:59am ET
 const AFTER_DEPLOYMENT_HOURS = new Date('2026-04-18T00:00:00Z') // Friday, 5pm PT
@@ -85,7 +85,7 @@ describe('Fireworks deployment routing', () => {
     })
 
     const minimalBody = {
-      model: 'moonshotai/kimi-k2.6',
+      model: 'z-ai/glm-5.1',
       messages: [{ role: 'user' as const, content: 'test' }],
     }
 
@@ -100,7 +100,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -123,7 +123,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -156,7 +156,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -189,7 +189,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -216,7 +216,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -241,7 +241,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -285,7 +285,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -312,7 +312,7 @@ describe('Fireworks deployment routing', () => {
 
       const response = await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -340,7 +340,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { enabled: true },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -366,7 +366,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { effort: 'high' },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -392,7 +392,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning: { enabled: false, effort: 'high' },
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -419,7 +419,7 @@ describe('Fireworks deployment routing', () => {
           reasoning: { effort: 'high' },
           tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -445,7 +445,7 @@ describe('Fireworks deployment routing', () => {
           ...minimalBody,
           reasoning_effort: 'low',
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -471,7 +471,7 @@ describe('Fireworks deployment routing', () => {
           reasoning_effort: 'low',
           tools: [{ type: 'function', function: { name: 'test', arguments: '{}' } }],
         } as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
@@ -498,7 +498,7 @@ describe('Fireworks deployment routing', () => {
 
       await createFireworksRequestWithFallback({
         body: minimalBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
