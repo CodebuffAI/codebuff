@@ -43,6 +43,18 @@ const formatElapsed = (ms: number): string => {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
 }
 
+/** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
+ *  rate-limited screen so users know when they can try again. */
+const formatRetryAfter = (ms: number): string => {
+  if (!Number.isFinite(ms) || ms <= 0) return 'any moment now'
+  const minutes = Math.round(ms / 60_000)
+  if (minutes < 1) return 'under a minute'
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rem = minutes % 60
+  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
+}
+
 export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   session,
   error,
@@ -216,6 +228,18 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed  </span>
                   {formatElapsed(elapsedMs)}
                 </text>
+                {/* Per-model session quota (e.g. GLM 5.1 caps at 5/20h). Only
+                    rendered for rate-limited models so the Minimax queue stays
+                    clutter-free. */}
+                {session.rateLimit && (
+                  <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
+                    <span>Sessions </span>
+                    <span fg={theme.foreground}>
+                      {session.rateLimit.recentCount} / {session.rateLimit.limit}
+                    </span>
+                    <span> used in last {session.rateLimit.windowHours}h</span>
+                  </text>
+                )}
               </box>
             </>
           )}
@@ -255,6 +279,29 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
                 This account has been suspended and can't use freebuff. If you think this is a
                 mistake, contact support@codebuff.com. Press Ctrl+C to exit.
+              </text>
+            </>
+          )}
+
+          {/* Per-model session quota exhausted (e.g. 5+ GLM sessions in the
+              last 20h). Terminal for this run — the user can exit and come
+              back once the oldest session in the window rolls off. */}
+          {session?.status === 'rate_limited' && (
+            <>
+              <text style={{ fg: theme.secondary, marginBottom: 1 }}>
+                ⚠ Session limit reached
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                You've used{' '}
+                <span fg={theme.foreground}>
+                  {session.recentCount} of {session.limit}
+                </span>{' '}
+                hour-long sessions on {session.model} in the last{' '}
+                {session.windowHours}h. Try again in{' '}
+                <span fg={theme.foreground}>
+                  {formatRetryAfter(session.retryAfterMs)}
+                </span>
+                . Press Ctrl+C to exit.
               </text>
             </>
           )}

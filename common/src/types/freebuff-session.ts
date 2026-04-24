@@ -5,6 +5,22 @@
  *
  * The CLI uses these shapes directly; there are no client-only states.
  */
+
+/**
+ * Per-model usage counter surfaced to the CLI so the waiting-room UI can
+ * render "N of M sessions used" alongside queue/active state. Present when
+ * the joined model has a rate limit applied (today: GLM 5.1 with 5 admits
+ * per 20-hour window). `recentCount` is the number of admissions inside
+ * `windowHours` at the time the response was produced — see also the
+ * standalone `rate_limited` status for the reject path.
+ */
+export interface FreebuffSessionRateLimit {
+  model: string
+  limit: number
+  windowHours: number
+  recentCount: number
+}
+
 export type FreebuffSessionServerResponse =
   | {
       /** Waiting room is globally off; free-mode requests flow through
@@ -38,6 +54,10 @@ export type FreebuffSessionServerResponse =
       queueDepthByModel: Record<string, number>
       estimatedWaitMs: number
       queuedAt: string
+      /** Rate-limit quota for rate-limited models (GLM 5.1 today). Absent
+       *  for unlimited models or when the status was produced outside the
+       *  rate-limit check path (e.g. pure read via GET). */
+      rateLimit?: FreebuffSessionRateLimit
     }
   | {
       status: 'active'
@@ -47,6 +67,10 @@ export type FreebuffSessionServerResponse =
       admittedAt: string
       expiresAt: string
       remainingMs: number
+      /** Rate-limit quota for rate-limited models (GLM 5.1 today). Absent
+       *  for unlimited models or when the status was produced outside the
+       *  rate-limit check path (e.g. pure read via GET). */
+      rateLimit?: FreebuffSessionRateLimit
     }
   | {
       /** Session is over. While `instanceId` is present we're inside the
@@ -104,4 +128,25 @@ export type FreebuffSessionServerResponse =
        *  15s admission tick's `evictBanned` sweeps them). Terminal — CLI
        *  stops polling and shows a banned message. */
       status: 'banned'
+    }
+  | {
+      /** User has used up their per-model admission quota in the rolling
+       *  window (GLM 5.1: 5 one-hour sessions per 20h). Returned from POST
+       *  /session before the user is placed in the queue. `retryAfterMs` is
+       *  the time until the oldest admission inside the window falls off
+       *  and one quota slot opens up — clients should show the user when
+       *  they can try again. Terminal for the CLI's current poll session;
+       *  the user can exit and come back later. */
+      status: 'rate_limited'
+      /** The freebuff model the user tried to join. */
+      model: string
+      /** Max admissions permitted per window (e.g. 5). */
+      limit: number
+      /** Rolling window size in hours (e.g. 20). */
+      windowHours: number
+      /** Admission count inside the window at check time — will be ≥ limit. */
+      recentCount: number
+      /** Milliseconds from now until the oldest admission in the window
+       *  exits and the user regains one quota slot. */
+      retryAfterMs: number
     }

@@ -46,6 +46,9 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     getInstantAdmitCapacity: () => 0,
     activeCountForModel: async () => 0,
     promoteQueuedUser: async () => null,
+    // No admits in handler tests — the rate-limit check reads empty and
+    // every request falls through to the queue.
+    listRecentAdmits: async () => [],
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepthsByModel: async () => {

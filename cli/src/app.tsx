@@ -380,6 +380,7 @@ const AuthedSurface = ({
   //   'queued' → waiting our turn
   //   'country_blocked' → terminal region-gate message
   //   'banned' → terminal account-banned message
+  //   'rate_limited' → hit per-model session quota; terminal for this run
   //
   // 'ended' deliberately falls through to <Chat>: the agent may still be
   // finishing work under the server-side grace period, and the chat surface
@@ -390,7 +391,8 @@ const AuthedSurface = ({
       session.status === 'queued' ||
       session.status === 'none' ||
       session.status === 'country_blocked' ||
-      session.status === 'banned')
+      session.status === 'banned' ||
+      session.status === 'rate_limited')
   ) {
     return <WaitingRoomScreen session={session} error={sessionError} />
   }

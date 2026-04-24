@@ -1,7 +1,7 @@
 import { db } from '@codebuff/internal/db'
 import { coerceBool } from '@codebuff/internal/db/advisory-lock'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gte, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
@@ -369,6 +369,16 @@ export async function admitFromQueue(params: {
       )
       .returning()
 
+    if (admitted.length > 0) {
+      await tx.insert(schema.freeSessionAdmit).values(
+        admitted.map((r) => ({
+          user_id: r.user_id,
+          model: r.model,
+          admitted_at: now,
+        })),
+      )
+    }
+
     return { admitted: admitted as InternalSessionRow[], skipped: null }
   })
 }
@@ -391,23 +401,63 @@ export async function promoteQueuedUser(params: {
 }): Promise<InternalSessionRow | null> {
   const { userId, model, sessionLengthMs, now } = params
   const expiresAt = new Date(now.getTime() + sessionLengthMs)
-  const [row] = await db
-    .update(schema.freeSession)
-    .set({
-      status: 'active',
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(schema.freeSession)
+      .set({
+        status: 'active',
+        admitted_at: now,
+        expires_at: expiresAt,
+        updated_at: now,
+      })
+      .where(
+        and(
+          eq(schema.freeSession.user_id, userId),
+          eq(schema.freeSession.status, 'queued'),
+          eq(schema.freeSession.model, model),
+        ),
+      )
+      .returning()
+    if (!row) return null
+    await tx.insert(schema.freeSessionAdmit).values({
+      user_id: userId,
+      model,
       admitted_at: now,
-      expires_at: expiresAt,
-      updated_at: now,
     })
+    return row as InternalSessionRow
+  })
+}
+
+/**
+ * List admissions for `userId` on `model` whose `admitted_at` is within the
+ * window `[since, ∞)`, ordered oldest-first. Caller gets both the count
+ * (array length, capped at `limit`) and the oldest timestamp (`rows[0]`) —
+ * the oldest is needed to compute `retryAfterMs` when the window is full,
+ * so one query covers both the check and the reject path.
+ *
+ * Drives the per-user, per-model rate limit (e.g. at most 5 GLM sessions in
+ * the last 20h) enforced before `joinOrTakeOver`.
+ */
+export async function listRecentAdmits(params: {
+  userId: string
+  model: string
+  since: Date
+  limit: number
+}): Promise<Date[]> {
+  const { userId, model, since, limit } = params
+  const rows = await db
+    .select({ admitted_at: schema.freeSessionAdmit.admitted_at })
+    .from(schema.freeSessionAdmit)
     .where(
       and(
-        eq(schema.freeSession.user_id, userId),
-        eq(schema.freeSession.status, 'queued'),
-        eq(schema.freeSession.model, model),
+        eq(schema.freeSessionAdmit.user_id, userId),
+        eq(schema.freeSessionAdmit.model, model),
+        gte(schema.freeSessionAdmit.admitted_at, since),
       ),
     )
-    .returning()
-  return (row as InternalSessionRow | undefined) ?? null
+    .orderBy(asc(schema.freeSessionAdmit.admitted_at))
+    .limit(limit)
+  return rows.map((r) => r.admitted_at)
 }
 
 /** Stable 31-bit hash so model-keyed advisory lock ids don't overflow int4. */

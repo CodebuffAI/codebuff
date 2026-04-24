@@ -91,6 +91,19 @@ async function callSession(
       return body
     }
   }
+  // 429 from POST is the per-model session-quota reject (e.g. too many GLM
+  // sessions in the last 20h). Terminal for the current poll — the CLI shows
+  // a screen explaining the limit and when the user can try again. The 429
+  // status (rather than 200) keeps older CLIs in their error path so they
+  // back off instead of tight-polling an unrecognized 200 body.
+  if (resp.status === 429 && method === 'POST') {
+    const body = (await resp.json().catch(() => null)) as
+      | FreebuffSessionResponse
+      | null
+    if (body && body.status === 'rate_limited') {
+      return body
+    }
+  }
   if (!resp.ok) {
     const text = await resp.text().catch(() => '')
     throw new Error(
@@ -124,6 +137,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'country_blocked':
     case 'banned':
     case 'model_locked':
+    case 'rate_limited':
     case 'model_unavailable':
       return null
   }
