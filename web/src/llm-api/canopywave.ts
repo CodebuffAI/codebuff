@@ -26,18 +26,52 @@ const canopywaveAgent = new Agent({
   bodyTimeout: 0,
 })
 
-/** Map from OpenRouter model IDs to CanopyWave model IDs */
-const CANOPYWAVE_MODEL_MAP: Record<string, string> = {
-  'minimax/minimax-m2.5': 'minimax/minimax-m2.5',
-  'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
+// CanopyWave per-token pricing (dollars per token)
+interface CanopyWavePricing {
+  inputCostPerToken: number
+  cachedInputCostPerToken: number
+  outputCostPerToken: number
+}
+
+/** Single source of truth: which OpenRouter model IDs we route through
+ *  CanopyWave, the corresponding CanopyWave model ID, and per-model pricing.
+ *  Kept as one map so adding a model can't drift between routing and billing. */
+const CANOPYWAVE_MODELS: Record<
+  string,
+  { canopywaveId: string; pricing: CanopyWavePricing }
+> = {
+  'minimax/minimax-m2.5': {
+    canopywaveId: 'minimax/minimax-m2.5',
+    pricing: {
+      inputCostPerToken: 0.27 / 1_000_000,
+      cachedInputCostPerToken: 0.03 / 1_000_000,
+      outputCostPerToken: 1.08 / 1_000_000,
+    },
+  },
+  'moonshotai/kimi-k2.6': {
+    canopywaveId: 'moonshotai/kimi-k2.6',
+    pricing: {
+      inputCostPerToken: 0.60 / 1_000_000,
+      cachedInputCostPerToken: 0.15 / 1_000_000,
+      outputCostPerToken: 2.50 / 1_000_000,
+    },
+  },
 }
 
 export function isCanopyWaveModel(model: string): boolean {
-  return model in CANOPYWAVE_MODEL_MAP
+  return model in CANOPYWAVE_MODELS
 }
 
 function getCanopyWaveModelId(openrouterModel: string): string {
-  return CANOPYWAVE_MODEL_MAP[openrouterModel] ?? openrouterModel
+  return CANOPYWAVE_MODELS[openrouterModel]?.canopywaveId ?? openrouterModel
+}
+
+function getCanopyWavePricing(model: string): CanopyWavePricing {
+  const entry = CANOPYWAVE_MODELS[model]
+  if (!entry) {
+    throw new Error(`No CanopyWave pricing found for model: ${model}`)
+  }
+  return entry.pricing
 }
 
 type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null; billedAlready: boolean }
@@ -84,30 +118,6 @@ function createCanopyWaveRequest(params: {
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
     dispatcher: canopywaveAgent,
   })
-}
-
-// CanopyWave per-token pricing (dollars per token), keyed by OpenRouter model ID
-interface CanopyWavePricing {
-  inputCostPerToken: number
-  cachedInputCostPerToken: number
-  outputCostPerToken: number
-}
-
-const CANOPYWAVE_PRICING_MAP: Record<string, CanopyWavePricing> = {
-  'minimax/minimax-m2.5': {
-    inputCostPerToken: 0.27 / 1_000_000,
-    cachedInputCostPerToken: 0.03 / 1_000_000,
-    outputCostPerToken: 1.08 / 1_000_000,
-  },
-  'moonshotai/kimi-k2.6': {
-    inputCostPerToken: 0.60 / 1_000_000,
-    cachedInputCostPerToken: 0.15 / 1_000_000,
-    outputCostPerToken: 2.50 / 1_000_000,
-  },
-}
-
-function getCanopyWavePricing(model: string): CanopyWavePricing {
-  return CANOPYWAVE_PRICING_MAP[model] ?? CANOPYWAVE_PRICING_MAP['moonshotai/kimi-k2.6']
 }
 
 function extractUsageAndCost(usage: Record<string, unknown> | undefined | null, model: string): UsageData {
