@@ -12,7 +12,7 @@ describe('freebuff model availability', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('until 5:00 PM local')
+    ).toBe('until 5:00 PM')
   })
 
   test('formats the next open time in the user local timezone while deployment is closed', () => {
@@ -21,16 +21,16 @@ describe('freebuff model availability', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('opens 6:00 AM local')
+    ).toBe('opens 6:00 AM')
   })
 
   test('includes the weekday when the next opening is on a later local day', () => {
     expect(
-      getFreebuffDeploymentAvailabilityLabel(new Date('2026-01-10T20:00:00Z'), {
+      getFreebuffDeploymentAvailabilityLabel(new Date('2026-01-11T03:00:00Z'), {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('opens Mon 6:00 AM local')
+    ).toBe('opens Sun 6:00 AM')
   })
 
   test('tracks deployment hours correctly across the open and close boundaries', () => {
@@ -45,6 +45,9 @@ describe('freebuff model availability', () => {
     )
     expect(isFreebuffDeploymentHours(new Date('2026-01-06T01:00:00Z'))).toBe(
       false,
+    )
+    expect(isFreebuffDeploymentHours(new Date('2026-01-10T20:00:00Z'))).toBe(
+      true,
     )
   })
 })

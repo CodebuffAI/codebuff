@@ -30,15 +30,15 @@ function createMockLogger(): Logger {
 
 describe('Fireworks deployment routing', () => {
   describe('deployment hours', () => {
-    it('is active from 9am ET until before 5pm PT on weekdays', () => {
+    it('is active from 9am ET until before 5pm PT every day', () => {
       expect(isDeploymentHours(BEFORE_DEPLOYMENT_HOURS)).toBe(false)
       expect(isDeploymentHours(IN_DEPLOYMENT_HOURS)).toBe(true)
       expect(isDeploymentHours(AFTER_DEPLOYMENT_HOURS)).toBe(false)
       expect(isDeploymentHours(WEEKDAY_AFTER_DEPLOYMENT_HOURS)).toBe(false)
     })
 
-    it('is inactive on weekends', () => {
-      expect(isDeploymentHours(WEEKEND_DEPLOYMENT_HOURS)).toBe(false)
+    it('is active on weekends during deployment hours', () => {
+      expect(isDeploymentHours(WEEKEND_DEPLOYMENT_HOURS)).toBe(true)
     })
   })
 

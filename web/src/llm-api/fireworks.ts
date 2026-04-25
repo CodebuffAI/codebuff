@@ -41,7 +41,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 
-/** Check if current time is within deployment hours: Mon-Fri, 9am ET to 5pm PT. */
+/** Check if current time is within deployment hours: daily, 9am ET to 5pm PT. */
 export function isDeploymentHours(now: Date = new Date()): boolean {
   return isFreebuffDeploymentHours(now)
 }

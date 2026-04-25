@@ -167,7 +167,7 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(409)
     const body = await resp.json()
     expect(body.status).toBe('model_unavailable')
-    expect(body.availableHours).toBe('9am ET-5pm PT')
+    expect(body.availableHours).toBe('9am ET-5pm PT every day')
     expect(sessionDeps.rows.size).toBe(0)
   })
 

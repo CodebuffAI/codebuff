@@ -20,7 +20,7 @@ export interface FreebuffModelOption {
 /** Server-facing fallback copy for APIs and provider errors that can't know
  *  the caller's local timezone. The CLI should render
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
-export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT'
+export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
@@ -30,7 +30,6 @@ interface ZonedDateParts {
   year: number
   month: number
   day: number
-  weekday: string
   hour: number
   minute: number
 }
@@ -96,7 +95,6 @@ function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -112,7 +110,6 @@ function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
     year,
     month,
     day,
-    weekday: value('weekday') ?? '',
     hour,
     minute,
   }
@@ -165,34 +162,11 @@ function getUtcForZonedTime(
   return guess
 }
 
-function isWeekend(
-  parts: Pick<ZonedDateParts, 'year' | 'month' | 'day'>,
-): boolean {
-  const weekday = getWeekdayIndex(parts)
-  return weekday === 0 || weekday === 6
-}
-
-function getWeekdayIndex(
-  parts: Pick<ZonedDateParts, 'year' | 'month' | 'day'>,
-): number {
-  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()
-}
-
 function getNextFreebuffDeploymentStart(now: Date): Date {
   const easternNow = getZonedParts(now, FREEBUFF_EASTERN_TIMEZONE)
-  const weekday = getWeekdayIndex(easternNow)
   const isBeforeTodayOpen = easternNow.hour < 9
 
-  const offset =
-    weekday === 6
-      ? 2
-      : weekday === 0
-        ? 1
-        : isBeforeTodayOpen
-          ? 0
-          : weekday === 5
-            ? 3
-            : 1
+  const offset = isBeforeTodayOpen ? 0 : 1
 
   return getUtcForZonedTime(
     addDaysToYmd(easternNow.year, easternNow.month, easternNow.day, offset),
@@ -241,17 +215,16 @@ export function getFreebuffDeploymentAvailabilityLabel(
 ): string {
   if (isFreebuffDeploymentHours(now)) {
     const closesAt = getCurrentFreebuffDeploymentEnd(now)
-    return `until ${formatLocalTime(closesAt, now, options)} local`
+    return `until ${formatLocalTime(closesAt, now, options)}`
   }
 
   const opensAt = getNextFreebuffDeploymentStart(now)
-  return `opens ${formatLocalTime(opensAt, now, options)} local`
+  return `opens ${formatLocalTime(opensAt, now, options)}`
 }
 
 export function isFreebuffDeploymentHours(now: Date = new Date()): boolean {
   const eastern = getZonedParts(now, FREEBUFF_EASTERN_TIMEZONE)
   const pacific = getZonedParts(now, FREEBUFF_PACIFIC_TIMEZONE)
-  if (eastern.weekday === 'Sat' || eastern.weekday === 'Sun') return false
   return (
     eastern.hour * 60 + eastern.minute >= 9 * 60 &&
     pacific.hour * 60 + pacific.minute < 17 * 60
