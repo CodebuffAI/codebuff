@@ -7,20 +7,62 @@
  * to measure how well CanopyWave caches the shared prefix across turns.
  *
  * Usage:
- *   bun scripts/test-canopywave-long.ts
+ *   bun scripts/test-canopywave-long.ts [model]
+ *
+ * Models:
+ *   minimax   (default) — minimax/minimax-m2.5
+ *   kimi                — moonshotai/kimi-k2.6
  */
 
 export { }
 
 const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
-const CANOPYWAVE_MODEL = 'minimax/minimax-m2.5'
 
-// Pricing constants — same model as Fireworks/SiliconFlow
-const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+type ModelConfig = {
+  id: string
+  inputCostPerToken: number
+  cachedInputCostPerToken: number
+  outputCostPerToken: number
+}
 
-const MAX_TOKENS = 100
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  minimax: {
+    id: 'minimax/minimax-m2.5',
+    inputCostPerToken: 0.30 / 1_000_000,
+    cachedInputCostPerToken: 0.03 / 1_000_000,
+    outputCostPerToken: 1.20 / 1_000_000,
+  },
+  kimi: {
+    // Pricing is approximate — based on public Moonshot k2 rates; CanopyWave may differ.
+    id: 'moonshotai/kimi-k2.6',
+    inputCostPerToken: 0.60 / 1_000_000,
+    cachedInputCostPerToken: 0.15 / 1_000_000,
+    outputCostPerToken: 2.50 / 1_000_000,
+  },
+}
+
+const MODEL_ALIASES: Record<string, keyof typeof MODEL_CONFIGS> = {
+  'minimax/minimax-m2.5': 'minimax',
+  'moonshotai/kimi-k2.6': 'kimi',
+  'kimi-k2.6': 'kimi',
+}
+
+const DEFAULT_MODEL = 'minimax'
+const modelArg = process.argv[2]
+const modelKey = modelArg ? (MODEL_ALIASES[modelArg] ?? modelArg) : DEFAULT_MODEL
+const MODEL = MODEL_CONFIGS[modelKey]
+if (!MODEL) {
+  console.error(`❌ Unknown model: "${modelKey}". Available: ${Object.keys(MODEL_CONFIGS).join(', ')}`)
+  process.exit(1)
+}
+const CANOPYWAVE_MODEL = MODEL.id
+const INPUT_COST_PER_TOKEN = MODEL.inputCostPerToken
+const CACHED_INPUT_COST_PER_TOKEN = MODEL.cachedInputCostPerToken
+const OUTPUT_COST_PER_TOKEN = MODEL.outputCostPerToken
+
+// Higher cap accounts for reasoning models (e.g. kimi-k2.6) that consume tokens
+// on hidden reasoning before producing visible content.
+const MAX_TOKENS = 10000
 
 function computeCost(usage: Record<string, unknown>): { cost: number; breakdown: string } {
   const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
@@ -35,9 +77,9 @@ function computeCost(usage: Record<string, unknown>): { cost: number; breakdown:
   const totalCost = inputCost + cachedCost + outputCost
 
   const breakdown = [
-    `${nonCachedInput} non-cached input × $0.30/M = $${inputCost.toFixed(8)}`,
-    `${cachedTokens} cached input × $0.03/M = $${cachedCost.toFixed(8)}`,
-    `${outputTokens} output × $1.20/M = $${outputCost.toFixed(8)}`,
+    `${nonCachedInput} non-cached input × $${(INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${inputCost.toFixed(8)}`,
+    `${cachedTokens} cached input × $${(CACHED_INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${cachedCost.toFixed(8)}`,
+    `${outputTokens} output × $${(OUTPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M = $${outputCost.toFixed(8)}`,
     `Total: $${totalCost.toFixed(8)}`,
   ].join('\n         ')
 
@@ -275,7 +317,7 @@ async function main() {
   console.log(`Base URL:    ${CANOPYWAVE_BASE_URL}`)
   console.log(`Max tokens:  ${MAX_TOKENS} (low output per turn)`)
   console.log(`Turns:       ${TURN_PROMPTS.length}`)
-  console.log(`Pricing:     $0.30/M input, $0.03/M cached, $1.20/M output`)
+  console.log(`Pricing:     $${(INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M input, $${(CACHED_INPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M cached, $${(OUTPUT_COST_PER_TOKEN * 1_000_000).toFixed(2)}/M output`)
   console.log('='.repeat(60))
   console.log()
 

@@ -17,8 +17,8 @@
 export {}
 
 const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
-const CANOPYWAVE_MODEL = 'minimax/minimax-m2.5'
-const OPENROUTER_MODEL = 'minimax/minimax-m2.5'
+const CANOPYWAVE_MODEL = 'moonshotai/kimi-k2.6'
+const OPENROUTER_MODEL = 'moonshotai/kimi-k2.6'
 
 const testPrompt = 'Say "hello world" and nothing else.'
 
