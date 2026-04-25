@@ -209,7 +209,7 @@ describe('requestSession', () => {
     expect(state).toEqual({
       status: 'model_unavailable',
       requestedModel: 'z-ai/glm-5.1',
-      availableHours: '9am ET-5pm PT',
+      availableHours: '9am ET-5pm PT every day',
     })
     expect(deps.rows.size).toBe(0)
   })
