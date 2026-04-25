@@ -51,9 +51,9 @@ const CANOPYWAVE_MODELS: Record<
   'moonshotai/kimi-k2.6': {
     canopywaveId: 'moonshotai/kimi-k2.6',
     pricing: {
-      inputCostPerToken: 0.60 / 1_000_000,
-      cachedInputCostPerToken: 0.15 / 1_000_000,
-      outputCostPerToken: 2.50 / 1_000_000,
+      inputCostPerToken: 0.95 / 1_000_000,
+      cachedInputCostPerToken: 0.16 / 1_000_000,
+      outputCostPerToken: 4.00 / 1_000_000,
     },
   },
 }

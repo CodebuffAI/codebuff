@@ -33,11 +33,10 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     outputCostPerToken: 1.20 / 1_000_000,
   },
   kimi: {
-    // Pricing is approximate — based on public Moonshot k2 rates; CanopyWave may differ.
     id: 'moonshotai/kimi-k2.6',
-    inputCostPerToken: 0.60 / 1_000_000,
-    cachedInputCostPerToken: 0.15 / 1_000_000,
-    outputCostPerToken: 2.50 / 1_000_000,
+    inputCostPerToken: 0.95 / 1_000_000,
+    cachedInputCostPerToken: 0.16 / 1_000_000,
+    outputCostPerToken: 4.00 / 1_000_000,
   },
 }
 
