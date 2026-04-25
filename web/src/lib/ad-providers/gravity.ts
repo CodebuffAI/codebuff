@@ -111,18 +111,14 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         fetch,
       } = input
 
-      const requestedPlacementIds =
-        input.surface === 'waiting_room' ? WAITING_ROOM_PLACEMENT_IDS : undefined
-      const variant = requestedPlacementIds?.length
-        ? requestedPlacementIds.length === 1
-          ? 'banner'
-          : 'choice'
-        : getGravityVariant(userId)
+      const variant =
+        input.surface === 'waiting_room' ? 'choice' : getGravityVariant(userId)
       const filteredMessages = prepareGravityMessages(messages)
 
-      const placementIds = requestedPlacementIds?.length
-        ? requestedPlacementIds
-        : variant === 'choice'
+      const placementIds =
+        input.surface === 'waiting_room'
+          ? WAITING_ROOM_PLACEMENT_IDS
+          : variant === 'choice'
           ? CHOICE_PLACEMENT_IDS
           : [BANNER_PLACEMENT_ID]
 
