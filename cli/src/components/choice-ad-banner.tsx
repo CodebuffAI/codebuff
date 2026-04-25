@@ -25,13 +25,30 @@ function truncateToLines(text: string, lineWidth: number, maxLines: number): str
   return text.slice(0, maxChars - 1) + '…'
 }
 
-const extractDomain = (url: string): string => {
+function truncateToWidth(text: string, width: number): string {
+  if (width <= 0) return ''
+  if (text.length <= width) return text
+  return text.slice(0, width - 1) + '…'
+}
+
+export const extractDomain = (url: string): string => {
   try {
     const parsed = new URL(url)
     return parsed.hostname.replace(/^www\./, '')
   } catch {
     return url
   }
+}
+
+export function getAdDisplayLabel(
+  ad: Pick<AdResponse, 'title' | 'url'>,
+): { text: string; variant: 'domain' | 'title' } {
+  const url = ad.url.trim()
+  if (url) {
+    return { text: extractDomain(url), variant: 'domain' }
+  }
+
+  return { text: ad.title.trim() || 'Sponsored', variant: 'title' }
 }
 
 /**
@@ -89,8 +106,10 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
       >
         {visibleAds.map((ad, i) => {
           const isHovered = hoveredIndex === i
-          const domain = extractDomain(ad.url)
           const ctaText = ad.cta || ad.title || 'Learn more'
+          const label = getAdDisplayLabel(ad)
+          const labelMaxWidth = Math.max(0, widths[i] - ctaText.length - 5)
+          const labelText = truncateToWidth(label.text, labelMaxWidth)
 
           return (
             <Button
@@ -130,8 +149,16 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 >
                   {` ${ctaText} `}
                 </text>
-                <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
-                  {domain}
+                <text
+                  style={{
+                    fg: theme.muted,
+                    attributes:
+                      label.variant === 'domain'
+                        ? TextAttributes.UNDERLINE
+                        : TextAttributes.DIM,
+                  }}
+                >
+                  {labelText}
                 </text>
 
               </box>
