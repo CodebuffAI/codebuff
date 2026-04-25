@@ -35,6 +35,7 @@ export type AdVariant = 'banner' | 'choice'
  * same normalized response shape, so the rest of the hook is provider-agnostic.
  */
 export type AdProvider = 'gravity' | 'carbon'
+export type AdSurface = 'waiting_room'
 
 export type AdData =
   | { variant: 'banner'; ad: AdResponse }
@@ -112,11 +113,14 @@ export const useGravityAd = (options?: {
   provider?: AdProvider
   /** Backup ad network to try when the primary returns no fill or errors. */
   fallbackProvider?: AdProvider
+  /** Product surface requesting the ad. The server maps this to placements. */
+  surface?: AdSurface
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
   const fallbackProvider = options?.fallbackProvider
+  const surface = options?.surface
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [adData, setAdData] = useState<AdData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -299,6 +303,7 @@ export const useGravityAd = (options?: {
             messages: adMessages,
             sessionId: useChatStore.getState().chatSessionId,
             device: getDeviceInfo(),
+            ...(surface ? { surface } : {}),
             // Carbon requires a real browser-ish useragent for targeting/fraud
             // detection. Gravity ignores it. We source one centrally so every
             // provider that needs it sees the same value.
@@ -430,7 +435,7 @@ export const useGravityAd = (options?: {
       clearInterval(id)
       ctrlRef.current.intervalId = null
     }
-  }, [shouldStart, shouldHideAds, provider, fallbackProvider])
+  }, [shouldStart, shouldHideAds, provider, fallbackProvider, surface])
 
   // Don't return ad when ads should be hidden
   const visible = shouldStart && !shouldHideAds
