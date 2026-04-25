@@ -19,6 +19,12 @@ const CHOICE_PLACEMENT_IDS = [
   'choice-ad-3',
   'choice-ad-4',
 ]
+const WAITING_ROOM_PLACEMENT_IDS = [
+  'waiting-room-1',
+  'waiting-room-2',
+  'waiting-room-3',
+  'waiting-room-4',
+]
 
 type GravityRawAd = {
   adText: string
@@ -105,16 +111,21 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         fetch,
       } = input
 
-      const variant = getGravityVariant(userId)
+      const variant =
+        input.surface === 'waiting_room' ? 'choice' : getGravityVariant(userId)
       const filteredMessages = prepareGravityMessages(messages)
 
-      const placements =
-        variant === 'choice'
-          ? CHOICE_PLACEMENT_IDS.map((id) => ({
-              placement: 'below_response',
-              placement_id: id,
-            }))
-          : [{ placement: 'below_response', placement_id: BANNER_PLACEMENT_ID }]
+      const placementIds =
+        input.surface === 'waiting_room'
+          ? WAITING_ROOM_PLACEMENT_IDS
+          : variant === 'choice'
+          ? CHOICE_PLACEMENT_IDS
+          : [BANNER_PLACEMENT_ID]
+
+      const placements = placementIds.map((id) => ({
+        placement: 'below_response',
+        placement_id: id,
+      }))
 
       const deviceBody = clientIp
         ? {
