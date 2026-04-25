@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { isFreebuffDeploymentHours } from '@codebuff/common/constants/freebuff-models'
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -556,15 +555,15 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
     })
 
-    it('lets freebuff use GLM 5.1 through Fireworks availability rules', async () => {
+    it('lets freebuff use Kimi K2.6 through CanopyWave', async () => {
       const fetchedBodies: Record<string, unknown>[] = []
-      const fetchViaFireworks = mock(
+      const fetchViaCanopyWave = mock(
         async (_url: string | URL | Request, init?: RequestInit) => {
           fetchedBodies.push(JSON.parse(init?.body as string))
           return new Response(
             JSON.stringify({
               id: 'test-id',
-              model: 'accounts/james-65d217/deployments/mjb4i7ea',
+              model: 'moonshotai/kimi-k2.6',
               choices: [{ message: { content: 'test response' } }],
               usage: {
                 prompt_tokens: 10,
@@ -586,7 +585,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-new-free' },
           body: JSON.stringify({
-            model: 'z-ai/glm-5.1',
+            model: 'moonshotai/kimi-k2.6',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-free',
@@ -604,26 +603,18 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         trackEvent: mockTrackEvent,
         getUserUsageData: mockGetUserUsageData,
         getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: fetchViaFireworks,
+        fetch: fetchViaCanopyWave,
         insertMessageBigquery: mockInsertMessageBigquery,
         loggerWithContext: mockLoggerWithContext,
         checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
       })
 
       const body = await response.json()
-      if (isFreebuffDeploymentHours()) {
-        expect(response.status).toBe(200)
-        expect(fetchedBodies).toHaveLength(1)
-        expect(fetchedBodies[0].model).toBe(
-          'accounts/james-65d217/deployments/mjb4i7ea',
-        )
-        expect(body.model).toBe('z-ai/glm-5.1')
-        expect(body.provider).toBe('Fireworks')
-      } else {
-        expect(response.status).toBe(503)
-        expect(fetchedBodies).toHaveLength(0)
-        expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
-      }
+      expect(response.status).toBe(200)
+      expect(fetchedBodies).toHaveLength(1)
+      expect(fetchedBodies[0].model).toBe('moonshotai/kimi-k2.6')
+      expect(body.model).toBe('moonshotai/kimi-k2.6')
+      expect(body.provider).toBe('CanopyWave')
     })
 
     it('skips credit check when in FREE mode even with 0 credits', async () => {

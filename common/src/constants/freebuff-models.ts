@@ -39,7 +39,7 @@ interface LocalTimeFormatOptions {
   timeZone?: string
 }
 
-export const FREEBUFF_MODELS = [
+export const FREEBUFF_MODELS: readonly FreebuffModelOption[] = [
   {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
@@ -52,9 +52,11 @@ export const FREEBUFF_MODELS = [
     tagline: 'Smartest',
     availability: 'always',
   },
-] as const satisfies readonly FreebuffModelOption[]
+]
 
-export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
+export type FreebuffModelId =
+  | typeof FREEBUFF_MINIMAX_MODEL_ID
+  | typeof FREEBUFF_KIMI_MODEL_ID
 
 /** What new freebuff users see selected in the picker. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_KIMI_MODEL_ID
