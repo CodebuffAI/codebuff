@@ -5,9 +5,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_MODELS,
+  getFreebuffDeploymentAvailabilityLabel,
   isFreebuffModelAvailable,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -48,6 +48,10 @@ export const FreebuffModelSelector: React.FC = () => {
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
   const now = useNow(60_000)
+  const deploymentAvailabilityLabel = useMemo(
+    () => getFreebuffDeploymentAvailabilityLabel(new Date(now)),
+    [now],
+  )
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   // Keyboard cursor — separate from the actually-selected model so that
@@ -96,7 +100,7 @@ export const FreebuffModelSelector: React.FC = () => {
         out[id] =
           id === session.model
             ? Math.max(0, session.position - 1)
-            : depths[id] ?? 0
+            : (depths[id] ?? 0)
       }
       return out
     }
@@ -127,7 +131,7 @@ export const FreebuffModelSelector: React.FC = () => {
         3 /* " · " */ +
         model.tagline.length +
         (model.availability === 'deployment_hours'
-          ? 3 + FREEBUFF_DEPLOYMENT_HOURS_LABEL.length
+          ? 3 + deploymentAvailabilityLabel.length
           : 0) +
         2 /* "  " */ +
         hintWidth
@@ -135,13 +139,12 @@ export const FreebuffModelSelector: React.FC = () => {
     }, 0)
     // Leave a small margin for the surrounding padding on the waiting-room screen.
     return total > terminalWidth - 4
-  }, [hintWidth, terminalWidth])
+  }, [deploymentAvailabilityLabel, hintWidth, terminalWidth])
 
   // "Already committed to this model" — only when the server has us queued
   // on it. On the landing screen (status 'none'), nothing is committed yet,
   // so picking the focused model is always a real action (first join).
-  const committedModelId =
-    session?.status === 'queued' ? session.model : null
+  const committedModelId = session?.status === 'queued' ? session.model : null
 
   const pick = useCallback(
     (modelId: string) => {
@@ -166,7 +169,8 @@ export const FreebuffModelSelector: React.FC = () => {
           name === 'right' || name === 'down' || (name === 'tab' && !key.shift)
         const isBackward =
           name === 'left' || name === 'up' || (name === 'tab' && key.shift)
-        const isCommit = name === 'return' || name === 'enter' || name === 'space'
+        const isCommit =
+          name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
           if (
@@ -222,19 +226,20 @@ export const FreebuffModelSelector: React.FC = () => {
           const isAvailable = isFreebuffModelAvailable(model.id, new Date(now))
           const indicator = isSelected ? '●' : '○'
           const indicatorColor = isSelected ? theme.primary : theme.muted
-          const labelColor = isSelected && isAvailable ? theme.foreground : theme.muted
+          const labelColor =
+            isSelected && isAvailable ? theme.foreground : theme.muted
           // Clickable whenever picking would actually do something — i.e.
           // anything except re-picking the queue we're already in.
-          const interactable = !pending && isAvailable && model.id !== committedModelId
+          const interactable =
+            !pending && isAvailable && model.id !== committedModelId
           const ahead = aheadByModel?.[model.id]
-          const hint =
-            !isAvailable
-              ? 'Closed'
-              : ahead === undefined
-                ? ''
-                : ahead === 0
-                  ? 'No wait'
-                  : `${ahead} ahead`
+          const hint = !isAvailable
+            ? 'Closed'
+            : ahead === undefined
+              ? ''
+              : ahead === 0
+                ? 'No wait'
+                : `${ahead} ahead`
 
           const borderColor = isSelected
             ? theme.primary
@@ -250,7 +255,9 @@ export const FreebuffModelSelector: React.FC = () => {
                 if (isAvailable) pick(model.id)
               }}
               onMouseOver={() => interactable && setHoveredId(model.id)}
-              onMouseOut={() => setHoveredId((curr) => (curr === model.id ? null : curr))}
+              onMouseOut={() =>
+                setHoveredId((curr) => (curr === model.id ? null : curr))
+              }
               style={{
                 borderStyle: 'single',
                 borderColor,
@@ -263,15 +270,17 @@ export const FreebuffModelSelector: React.FC = () => {
                 <span fg={indicatorColor}>{indicator} </span>
                 <span
                   fg={labelColor}
-                  attributes={isSelected ? TextAttributes.BOLD : TextAttributes.NONE}
+                  attributes={
+                    isSelected ? TextAttributes.BOLD : TextAttributes.NONE
+                  }
                 >
                   {model.displayName}
                 </span>
                 <span fg={theme.muted}> · {model.tagline}</span>
                 {model.availability === 'deployment_hours' && (
-                  <span fg={theme.muted}> · {FREEBUFF_DEPLOYMENT_HOURS_LABEL}</span>
+                  <span fg={theme.muted}> · {deploymentAvailabilityLabel}</span>
                 )}
-                <span fg={theme.muted}>  {hint.padEnd(hintWidth)}</span>
+                <span fg={theme.muted}> {hint.padEnd(hintWidth)}</span>
               </text>
             </Button>
           )
