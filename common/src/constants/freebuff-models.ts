@@ -30,7 +30,6 @@ interface ZonedDateParts {
   year: number
   month: number
   day: number
-  weekday: string
   hour: number
   minute: number
 }
@@ -96,7 +95,6 @@ function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -112,7 +110,6 @@ function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
     year,
     month,
     day,
-    weekday: value('weekday') ?? '',
     hour,
     minute,
   }
