@@ -49,7 +49,7 @@ export function getSessionGraceMs(): number {
  */
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
   'z-ai/glm-5.1': 50,
-  'minimax/minimax-m2.7': 200,
+  'minimax/minimax-m2.7': 1000,
 }
 
 export function getInstantAdmitCapacity(id: string): number {
