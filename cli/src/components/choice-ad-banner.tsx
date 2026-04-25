@@ -28,7 +28,6 @@ function truncateToLines(text: string, lineWidth: number, maxLines: number): str
 function truncateToWidth(text: string, width: number): string {
   if (width <= 0) return ''
   if (text.length <= width) return text
-  if (width === 1) return '…'
   return text.slice(0, width - 1) + '…'
 }
 
