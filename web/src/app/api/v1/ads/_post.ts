@@ -35,12 +35,14 @@ const deviceSchema = z.object({
 })
 
 const providerSchema = z.enum(['gravity', 'carbon']).default('gravity')
+const surfaceSchema = z.enum(['waiting_room'])
 
 const bodySchema = z.object({
   provider: providerSchema.optional(),
   messages: z.array(messageSchema).optional().default([]),
   sessionId: z.string().optional(),
   device: deviceSchema.optional(),
+  surface: surfaceSchema.optional(),
   /** Browser/CLI useragent passed through to providers that require it. */
   userAgent: z.string().optional(),
 })
@@ -136,6 +138,7 @@ export async function postAds(params: {
       clientIp,
       userAgent,
       device: parsedBody.device,
+      surface: parsedBody.surface,
       messages: parsedBody.messages,
       testMode: serverEnv.CB_ENVIRONMENT !== 'prod',
       logger,

@@ -41,6 +41,8 @@ export type AdDeviceInfo = {
   locale?: string
 }
 
+export type AdSurface = 'waiting_room'
+
 export type FetchAdInput = {
   userId: string
   userEmail: string | null
@@ -50,6 +52,8 @@ export type FetchAdInput = {
   /** Browser/CLI useragent string, passed through to upstream. */
   userAgent?: string
   device?: AdDeviceInfo
+  /** Product surface requesting the ad. Providers may map this to placements. */
+  surface?: AdSurface
   /** Last user + last preceding assistant message, if any. Used by Gravity. */
   messages?: AdMessage[]
   /** Set in non-prod so providers can request test ads. */

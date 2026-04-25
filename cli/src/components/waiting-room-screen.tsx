@@ -90,6 +90,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     forceStart: true,
     provider: 'gravity',
     fallbackProvider: 'carbon',
+    surface: 'waiting_room',
   })
 
   useFreebuffCtrlCExit()
