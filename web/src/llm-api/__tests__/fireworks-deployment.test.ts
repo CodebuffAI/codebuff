@@ -88,6 +88,10 @@ describe('Fireworks deployment routing', () => {
       model: 'z-ai/glm-5.1',
       messages: [{ role: 'user' as const, content: 'test' }],
     }
+    const liteBody = {
+      ...minimalBody,
+      codebuff_metadata: { cost_mode: 'lite' },
+    }
 
     it('uses standard API when custom deployment is disabled', async () => {
       const fetchCalls: string[] = []
@@ -296,6 +300,29 @@ describe('Fireworks deployment routing', () => {
       expect(response.status).toBe(503)
       const body = await response.json()
       expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
+    })
+
+    it('falls back to the standard Fireworks API in lite mode outside deployment hours', async () => {
+      const fetchCalls: string[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: liteBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: BEFORE_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([STANDARD_MODEL_ID])
     })
 
     it('returns non-5xx responses from deployment without fallback (e.g. 429)', async () => {
@@ -507,6 +534,93 @@ describe('Fireworks deployment routing', () => {
       })
 
       expect(logger.info).toHaveBeenCalledTimes(2)
+    })
+
+    it('falls back to the standard Fireworks API in lite mode after deployment scaling 503', async () => {
+      const fetchCalls: string[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        if (fetchCalls.length === 1) {
+          return new Response(
+            JSON.stringify({
+              error: {
+                message: 'Deployment is currently scaled to zero and is scaling up. Please retry your request in a few minutes.',
+                code: 'DEPLOYMENT_SCALING_UP',
+                type: 'error',
+              },
+            }),
+            { status: 503, statusText: 'Service Unavailable' },
+          )
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: liteBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: IN_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([DEPLOYMENT_MODEL_ID, STANDARD_MODEL_ID])
+      expect(isDeploymentCoolingDown()).toBe(true)
+    })
+
+    it('falls back to the standard Fireworks API in lite mode during deployment cooldown', async () => {
+      markDeploymentScalingUp()
+
+      const fetchCalls: string[] = []
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: liteBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: IN_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([STANDARD_MODEL_ID])
+    })
+
+    it('falls back to the standard Fireworks API in lite mode when the deployment request throws', async () => {
+      const fetchCalls: string[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        if (fetchCalls.length === 1) {
+          throw new Error('socket hang up')
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: liteBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: IN_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([DEPLOYMENT_MODEL_ID, STANDARD_MODEL_ID])
+      expect(logger.warn).toHaveBeenCalledTimes(1)
     })
   })
 })

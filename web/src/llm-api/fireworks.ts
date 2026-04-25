@@ -725,8 +725,19 @@ export async function createFireworksRequestWithFallback(params: {
   const useCustomDeployment = params.useCustomDeployment ?? FIREWORKS_USE_CUSTOM_DEPLOYMENT
   const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
   const hasDeployment = useCustomDeployment && Boolean(deploymentModelId)
+  const shouldFallbackToStandardApi = body.codebuff_metadata?.cost_mode === 'lite'
+
+  const createStandardApiRequest = () =>
+    createFireworksRequest({ body, originalModel, fetch, sessionId })
 
   if (hasDeployment && !isDeploymentHours(now)) {
+    if (shouldFallbackToStandardApi) {
+      logger.info(
+        { model: originalModel },
+        'Falling back to Fireworks standard API outside deployment hours',
+      )
+      return createStandardApiRequest()
+    }
     return new Response(
       JSON.stringify({
         error: {
@@ -740,6 +751,13 @@ export async function createFireworksRequestWithFallback(params: {
   }
 
   if (hasDeployment && isDeploymentCoolingDown()) {
+    if (shouldFallbackToStandardApi) {
+      logger.info(
+        { model: originalModel },
+        'Falling back to Fireworks standard API during deployment cooldown',
+      )
+      return createStandardApiRequest()
+    }
     return new Response(
       JSON.stringify({
         error: {
@@ -757,13 +775,25 @@ export async function createFireworksRequestWithFallback(params: {
       { model: originalModel, deploymentModel: deploymentModelId },
       'Trying Fireworks custom deployment',
     )
-    const response = await createFireworksRequest({
-      body,
-      originalModel,
-      fetch,
-      modelIdOverride: deploymentModelId,
-      sessionId,
-    })
+    let response: Response
+    try {
+      response = await createFireworksRequest({
+        body,
+        originalModel,
+        fetch,
+        modelIdOverride: deploymentModelId,
+        sessionId,
+      })
+    } catch (error) {
+      if (shouldFallbackToStandardApi) {
+        logger.warn(
+          { model: originalModel, error: getErrorObject(error) },
+          'Fireworks custom deployment request failed, falling back to standard API',
+        )
+        return createStandardApiRequest()
+      }
+      throw error
+    }
 
     if (response.status >= 500) {
       const errorText = await response.text()
@@ -774,6 +804,13 @@ export async function createFireworksRequestWithFallback(params: {
       if (errorText.includes('DEPLOYMENT_SCALING_UP')) {
         markDeploymentScalingUp()
       }
+      if (shouldFallbackToStandardApi) {
+        logger.info(
+          { model: originalModel, status: response.status },
+          'Falling back to Fireworks standard API after deployment 5xx',
+        )
+        return createStandardApiRequest()
+      }
       return new Response(errorText, {
         status: response.status,
         statusText: response.statusText,
@@ -783,7 +820,7 @@ export async function createFireworksRequestWithFallback(params: {
     return response
   }
 
-  return createFireworksRequest({ body, originalModel, fetch, sessionId })
+  return createStandardApiRequest()
 }
 
 function creditsToFakeCost(credits: number): number {
