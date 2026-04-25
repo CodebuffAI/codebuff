@@ -17,6 +17,10 @@ import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
+import {
+  nextSelectableFreebuffModelId,
+  resolveFreebuffModelCommitTarget,
+} from '../utils/freebuff-model-navigation'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -173,30 +177,32 @@ export const FreebuffModelSelector: React.FC = () => {
           name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
-          if (
-            focusedId !== committedModelId &&
-            isFreebuffModelAvailable(focusedId, new Date(now))
-          ) {
+          const targetId = resolveFreebuffModelCommitTarget({
+            focusedId,
+            selectedId: selectedModel,
+            committedId: committedModelId,
+            isSelectable: (modelId) =>
+              isFreebuffModelAvailable(modelId, new Date(now)),
+          })
+          if (targetId) {
             key.preventDefault?.()
-            pick(focusedId)
+            pick(targetId)
           }
           return
         }
-        const currentIdx = FREEBUFF_MODEL_SELECTOR_MODELS.findIndex(
-          (m) => m.id === focusedId,
-        )
-        if (currentIdx === -1) return
-        const len = FREEBUFF_MODEL_SELECTOR_MODELS.length
-        const nextIdx = isForward
-          ? (currentIdx + 1) % len
-          : (currentIdx - 1 + len) % len
-        const target = FREEBUFF_MODEL_SELECTOR_MODELS[nextIdx]
-        if (target) {
+        const targetId = nextSelectableFreebuffModelId({
+          modelIds: FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => model.id),
+          focusedId,
+          direction: isForward ? 'forward' : 'backward',
+          isSelectable: (modelId) =>
+            isFreebuffModelAvailable(modelId, new Date(now)),
+        })
+        if (targetId) {
           key.preventDefault?.()
-          setFocusedId(target.id)
+          setFocusedId(targetId)
         }
       },
-      [pending, pick, focusedId, committedModelId, now],
+      [pending, pick, focusedId, selectedModel, committedModelId, now],
     ),
   )
 
@@ -219,7 +225,8 @@ export const FreebuffModelSelector: React.FC = () => {
           // 'Selected' means the dot is filled and the label is bold. On the
           // landing screen ('none') this tracks the pre-focused pick; on the
           // queued screen it tracks the model the server has us on. Either
-          // way, selectedModel reflects the intent of "what Enter commits to."
+          // way, selectedModel is the safe fallback if focus ever lands on a
+          // closed row (for example when deployment hours change).
           const isSelected = model.id === selectedModel
           const isHovered = hoveredId === model.id
           const isFocused = focusedId === model.id && !isSelected

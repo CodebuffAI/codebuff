@@ -376,6 +376,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let abortController = new AbortController()
     let timer: ReturnType<typeof setTimeout> | null = null
     let previousStatus: FreebuffSessionResponse['status'] | null = null
+    let restartGeneration = 0
     // Method for the NEXT tick. GET is read-only; POST claims/rotates a seat.
     // Startup is GET (probe before committing). After any POST completes we
     // flip back to GET. refresh() sets it to 'POST' for explicit join/rejoin;
@@ -489,6 +490,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
     controller = {
       restart: async (mode) => {
+        const generation = ++restartGeneration
         clearTimer()
         // Abort any in-flight fetch so it can't race us and overwrite state.
         abortController.abort()
@@ -498,6 +500,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // doesn't bounce a 'landing' restart straight back to 'ended'.
         previousStatus = null
         if (mode === 'landing') {
+          nextMethod = 'GET'
           // Land on the picker immediately. We can't go through the normal
           // tick/apply path because a server-side row that hasn't been
           // swept yet would trip the startup-takeover branch into an
@@ -511,7 +514,13 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           const fetchController = abortController
           callSession('GET', token, { signal: fetchController.signal })
             .then((response) => {
-              if (cancelled || fetchController.signal.aborted) return
+              if (
+                cancelled ||
+                fetchController.signal.aborted ||
+                generation !== restartGeneration
+              ) {
+                return
+              }
               const depths =
                 response.status === 'none' || response.status === 'queued'
                   ? response.queueDepthByModel

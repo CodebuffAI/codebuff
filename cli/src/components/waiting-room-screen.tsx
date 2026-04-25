@@ -173,7 +173,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             maxWidth: contentMaxWidth,
           }}
         >
-          {error && !session && (
+          {error && (!session || session.status === 'none') && (
             <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
               ⚠ {error}
             </text>
