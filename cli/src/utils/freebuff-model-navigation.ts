@@ -11,6 +11,8 @@ export function nextSelectableFreebuffModelId(params: {
   if (currentIdx === -1) return null
 
   const step = direction === 'forward' ? 1 : -1
+  // Include a full wrap back to the current item so arrows stay on the same
+  // selectable model when every peer is unavailable.
   for (let offset = 1; offset <= modelIds.length; offset++) {
     const idx =
       (currentIdx + step * offset + modelIds.length) % modelIds.length
@@ -30,7 +32,6 @@ export function resolveFreebuffModelCommitTarget(params: {
   const { focusedId, selectedId, committedId, isSelectable } = params
   const targetId = isSelectable(focusedId) ? focusedId : selectedId
 
-  if (targetId === committedId) return null
-  if (!isSelectable(targetId)) return null
+  if (!isSelectable(targetId) || targetId === committedId) return null
   return targetId
 }
