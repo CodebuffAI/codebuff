@@ -28,7 +28,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set([
     'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
+    'moonshotai/kimi-k2.6',
   ]),
 
   // File exploration agents
@@ -46,13 +46,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Editor for free mode
   'editor-lite': new Set([
     'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
+    'moonshotai/kimi-k2.6',
   ]),
 
   // Code reviewer for free mode
   'code-reviewer-lite': new Set([
     'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
+    'moonshotai/kimi-k2.6',
   ]),
 }
 

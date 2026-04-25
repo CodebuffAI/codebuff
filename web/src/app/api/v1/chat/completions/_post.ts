@@ -532,9 +532,10 @@ export async function postChatCompletions(params: {
       if (bodyStream) {
         // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
-        const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
-        const useFireworks = isFireworksModel(typedBody.model)
-        const useOpenAIDirect = !useFireworks && isOpenAIDirectModel(typedBody.model)
+        const useCanopyWave = isCanopyWaveModel(typedBody.model)
+        const useFireworks = !useCanopyWave && isFireworksModel(typedBody.model)
+        const useOpenAIDirect =
+          !useCanopyWave && !useFireworks && isOpenAIDirectModel(typedBody.model)
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream({
             body: typedBody,
@@ -606,12 +607,12 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
-        // TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
-        const useCanopyWave = false // isCanopyWaveModel(model)
-        const useFireworks = isFireworksModel(model)
-        const shouldUseOpenAIEndpoint = !useFireworks && isOpenAIDirectModel(model)
+        const useCanopyWave = isCanopyWaveModel(model)
+        const useFireworks = !useCanopyWave && isFireworksModel(model)
+        const shouldUseOpenAIEndpoint =
+          !useCanopyWave && !useFireworks && isOpenAIDirectModel(model)
 
         const nonStreamRequest = useSiliconFlow
           ? handleSiliconFlowNonStream({

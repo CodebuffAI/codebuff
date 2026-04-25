@@ -29,6 +29,7 @@ const canopywaveAgent = new Agent({
 /** Map from OpenRouter model IDs to CanopyWave model IDs */
 const CANOPYWAVE_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'minimax/minimax-m2.5',
+  'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
 }
 
 export function isCanopyWaveModel(model: string): boolean {
@@ -85,12 +86,31 @@ function createCanopyWaveRequest(params: {
   })
 }
 
-// CanopyWave per-token pricing (dollars per token) for MiniMax M2.5
-const CANOPYWAVE_INPUT_COST_PER_TOKEN = 0.27 / 1_000_000
-const CANOPYWAVE_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const CANOPYWAVE_OUTPUT_COST_PER_TOKEN = 1.08 / 1_000_000
+// CanopyWave per-token pricing (dollars per token), keyed by OpenRouter model ID
+interface CanopyWavePricing {
+  inputCostPerToken: number
+  cachedInputCostPerToken: number
+  outputCostPerToken: number
+}
 
-function extractUsageAndCost(usage: Record<string, unknown> | undefined | null): UsageData {
+const CANOPYWAVE_PRICING_MAP: Record<string, CanopyWavePricing> = {
+  'minimax/minimax-m2.5': {
+    inputCostPerToken: 0.27 / 1_000_000,
+    cachedInputCostPerToken: 0.03 / 1_000_000,
+    outputCostPerToken: 1.08 / 1_000_000,
+  },
+  'moonshotai/kimi-k2.6': {
+    inputCostPerToken: 0.60 / 1_000_000,
+    cachedInputCostPerToken: 0.15 / 1_000_000,
+    outputCostPerToken: 2.50 / 1_000_000,
+  },
+}
+
+function getCanopyWavePricing(model: string): CanopyWavePricing {
+  return CANOPYWAVE_PRICING_MAP[model] ?? CANOPYWAVE_PRICING_MAP['moonshotai/kimi-k2.6']
+}
+
+function extractUsageAndCost(usage: Record<string, unknown> | undefined | null, model: string): UsageData {
   if (!usage) return { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, reasoningTokens: 0, cost: 0 }
   const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined | null
   const completionDetails = usage.completion_tokens_details as Record<string, unknown> | undefined | null
@@ -100,11 +120,12 @@ function extractUsageAndCost(usage: Record<string, unknown> | undefined | null):
   const cacheReadInputTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
   const reasoningTokens = typeof completionDetails?.reasoning_tokens === 'number' ? completionDetails.reasoning_tokens : 0
 
+  const pricing = getCanopyWavePricing(model)
   const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadInputTokens)
   const cost =
-    nonCachedInputTokens * CANOPYWAVE_INPUT_COST_PER_TOKEN +
-    cacheReadInputTokens * CANOPYWAVE_CACHED_INPUT_COST_PER_TOKEN +
-    outputTokens * CANOPYWAVE_OUTPUT_COST_PER_TOKEN
+    nonCachedInputTokens * pricing.inputCostPerToken +
+    cacheReadInputTokens * pricing.cachedInputCostPerToken +
+    outputTokens * pricing.outputCostPerToken
 
   return { inputTokens, outputTokens, cacheReadInputTokens, reasoningTokens, cost }
 }
@@ -139,7 +160,7 @@ export async function handleCanopyWaveNonStream({
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content ?? ''
   const reasoningText = data.choices?.[0]?.message?.reasoning_content ?? data.choices?.[0]?.message?.reasoning ?? ''
-  const usageData = extractUsageAndCost(data.usage)
+  const usageData = extractUsageAndCost(data.usage, originalModel)
 
   insertMessageToBigQuery({
     messageId: data.id,
@@ -453,7 +474,7 @@ async function handleResponse({
     return { state }
   }
 
-  const usageData = extractUsageAndCost(data.usage as Record<string, unknown>)
+  const usageData = extractUsageAndCost(data.usage as Record<string, unknown>, originalModel)
   const messageId = typeof data.id === 'string' ? data.id : 'unknown'
 
   state.billedAlready = true

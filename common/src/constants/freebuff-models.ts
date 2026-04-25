@@ -21,7 +21,7 @@ export interface FreebuffModelOption {
  *  the caller's local timezone. The CLI should render
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
-export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
+export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
 const FREEBUFF_PACIFIC_TIMEZONE = 'America/Los_Angeles'
@@ -47,20 +47,17 @@ export const FREEBUFF_MODELS = [
     availability: 'always',
   },
   {
-    id: FREEBUFF_GLM_MODEL_ID,
-    displayName: 'GLM 5.1',
+    id: FREEBUFF_KIMI_MODEL_ID,
+    displayName: 'Kimi K2.6',
     tagline: 'Smartest',
-    availability: 'deployment_hours',
+    availability: 'always',
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 
-/** What new freebuff users see selected in the picker. May not be currently
- *  available (GLM is closed outside deployment hours); callers that need an
- *  always-available id for resolution / auto-fallbacks should use
- *  FALLBACK_FREEBUFF_MODEL_ID instead. */
-export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_GLM_MODEL_ID
+/** What new freebuff users see selected in the picker. */
+export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_KIMI_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
