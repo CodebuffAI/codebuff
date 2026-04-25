@@ -155,7 +155,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                     attributes:
                       label.variant === 'domain'
                         ? TextAttributes.UNDERLINE
-                        : TextAttributes.DIM,
+                        : TextAttributes.BOLD,
                   }}
                 >
                   {labelText}
@@ -168,6 +168,6 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
 
       </box>
 
-    </box>
+    </box >
   )
 }
