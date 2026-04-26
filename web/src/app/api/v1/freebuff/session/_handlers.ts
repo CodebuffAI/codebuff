@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { env } from '@codebuff/internal/env'
 
 import {
   endUserSession,
@@ -22,8 +23,13 @@ import type { NextRequest } from 'next/server'
  *  `country_blocked` status and would tight-poll on an unrecognized 200
  *  body — fall into their existing `!resp.ok` error path and back off on
  *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
-function countryBlockedResponse(req: NextRequest): NextResponse | null {
-  const countryAccess = getFreeModeCountryAccess(req)
+async function countryBlockedResponse(
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+): Promise<NextResponse | null> {
+  const countryAccess = await getFreeModeCountryAccess(req, {
+    ipinfoToken: env.IPINFO_TOKEN,
+  })
   if (countryAccess.allowed) return null
   return NextResponse.json(
     {
@@ -126,7 +132,7 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const blocked = countryBlockedResponse(req)
+  const blocked = await countryBlockedResponse(req, deps)
   if (blocked) return blocked
 
   const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
@@ -170,7 +176,7 @@ export async function getFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const blocked = countryBlockedResponse(req)
+  const blocked = await countryBlockedResponse(req, deps)
   if (blocked) return blocked
 
   try {

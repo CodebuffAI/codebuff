@@ -12,6 +12,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
+  IPINFO_TOKEN: z.string().min(1),
   // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
   // Optional: when unset the Carbon provider returns no ad and callers fall
   // back to their cached ads / fallback content. `CVADC53U` is the public
@@ -58,8 +59,16 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
-  FREEBUFF_SESSION_LENGTH_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
-  FREEBUFF_SESSION_GRACE_MS: z.coerce.number().int().nonnegative().default(30 * 60 * 1000),
+  FREEBUFF_SESSION_LENGTH_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
+  FREEBUFF_SESSION_GRACE_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(30 * 60 * 1000),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -87,6 +96,7 @@ export const serverProcessEnv: ServerInput = {
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
+  IPINFO_TOKEN: process.env.IPINFO_TOKEN,
   CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 
@@ -101,9 +111,12 @@ export const serverProcessEnv: ServerInput = {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
   STRIPE_TEAM_FEE_PRICE_ID: process.env.STRIPE_TEAM_FEE_PRICE_ID,
-  STRIPE_SUBSCRIPTION_100_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
-  STRIPE_SUBSCRIPTION_200_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
-  STRIPE_SUBSCRIPTION_500_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
+  STRIPE_SUBSCRIPTION_100_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
+  STRIPE_SUBSCRIPTION_200_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
+  STRIPE_SUBSCRIPTION_500_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
   LOOPS_API_KEY: process.env.LOOPS_API_KEY,
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,

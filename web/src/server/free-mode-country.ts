@@ -26,8 +26,21 @@ const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set(['T1', 'XX'])
 export type FreeModeCountryBlockReason =
   | 'country_not_allowed'
   | 'anonymized_or_unknown_country'
+  | 'anonymous_network'
   | 'missing_client_ip'
   | 'unresolved_client_ip'
+
+export type FreeModeIpPrivacySignal =
+  | 'vpn'
+  | 'proxy'
+  | 'tor'
+  | 'relay'
+  | 'hosting'
+  | 'service'
+
+export type FreeModeIpPrivacy = {
+  signals: FreeModeIpPrivacySignal[]
+}
 
 export type FreeModeCountryAccess = {
   allowed: boolean
@@ -35,8 +48,32 @@ export type FreeModeCountryAccess = {
   blockReason: FreeModeCountryBlockReason | null
   cfCountry: string | null
   geoipCountry: string | null
+  ipPrivacy: FreeModeIpPrivacy | null
   hasClientIp: boolean
 }
+
+export type LookupIpPrivacyFn = (
+  ip: string,
+) => Promise<FreeModeIpPrivacy | null>
+
+type FreeModeCountryAccessOptions = {
+  lookupIpPrivacy?: LookupIpPrivacyFn
+  fetch?: typeof globalThis.fetch
+  ipinfoToken: string
+}
+
+type ResolvedCountryAccess = Omit<
+  FreeModeCountryAccess,
+  'allowed' | 'blockReason' | 'ipPrivacy' | 'countryCode'
+> & {
+  countryCode: string
+}
+
+const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
+const ipinfoPrivacyCache = new Map<
+  string,
+  { expiresAt: number; privacy: FreeModeIpPrivacy | null }
+>()
 
 export function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
@@ -46,9 +83,76 @@ export function extractClientIp(req: NextRequest): string | undefined {
   return req.headers.get('x-real-ip') ?? undefined
 }
 
-export function getFreeModeCountryAccess(
+function privacySignalsFromIpinfo(
+  data: Record<string, unknown>,
+): FreeModeIpPrivacySignal[] {
+  const signals: FreeModeIpPrivacySignal[] = []
+  if (data.vpn === true) signals.push('vpn')
+  if (data.proxy === true) signals.push('proxy')
+  if (data.tor === true) signals.push('tor')
+  if (data.relay === true) signals.push('relay')
+  if (data.hosting === true) signals.push('hosting')
+  if (
+    data.service === true ||
+    (typeof data.service === 'string' && data.service.length > 0)
+  ) {
+    signals.push('service')
+  }
+  return signals
+}
+
+export async function lookupIpinfoPrivacy(params: {
+  ip: string
+  token: string
+  fetch: typeof globalThis.fetch
+}): Promise<FreeModeIpPrivacy | null> {
+  const cached = ipinfoPrivacyCache.get(params.ip)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.privacy
+  }
+
+  const response = await params.fetch(
+    `https://ipinfo.io/${encodeURIComponent(params.ip)}/privacy?token=${encodeURIComponent(params.token)}`,
+  )
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await response.json()) as Record<string, unknown>
+  const signals = privacySignalsFromIpinfo(data)
+  const privacy = {
+    signals,
+  }
+  ipinfoPrivacyCache.set(params.ip, {
+    expiresAt: Date.now() + IPINFO_PRIVACY_CACHE_TTL_MS,
+    privacy,
+  })
+  return privacy
+}
+
+async function getIpPrivacy(
+  clientIp: string | undefined,
+  options: FreeModeCountryAccessOptions,
+): Promise<FreeModeIpPrivacy | null> {
+  if (!clientIp) return null
+  try {
+    if (options.lookupIpPrivacy) {
+      return await options.lookupIpPrivacy(clientIp)
+    }
+    return await lookupIpinfoPrivacy({
+      ip: clientIp,
+      token: options.ipinfoToken,
+      fetch: options.fetch ?? globalThis.fetch,
+    })
+  } catch {
+    return null
+  }
+}
+
+export async function getFreeModeCountryAccess(
   req: NextRequest,
-): FreeModeCountryAccess {
+  options: FreeModeCountryAccessOptions,
+): Promise<FreeModeCountryAccess> {
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
   const clientIp = extractClientIp(req)
 
@@ -59,52 +163,75 @@ export function getFreeModeCountryAccess(
       blockReason: 'anonymized_or_unknown_country',
       cfCountry,
       geoipCountry: null,
+      ipPrivacy: null,
       hasClientIp: Boolean(clientIp),
     }
   }
 
+  let baseAccess: ResolvedCountryAccess
+
   if (cfCountry) {
-    const allowed = FREE_MODE_ALLOWED_COUNTRIES.has(cfCountry)
-    return {
-      allowed,
+    baseAccess = {
       countryCode: cfCountry,
-      blockReason: allowed ? null : 'country_not_allowed',
       cfCountry,
       geoipCountry: null,
       hasClientIp: Boolean(clientIp),
     }
-  }
-
-  if (!clientIp) {
+  } else if (!clientIp) {
     return {
       allowed: false,
       countryCode: null,
       blockReason: 'missing_client_ip',
       cfCountry: null,
       geoipCountry: null,
+      ipPrivacy: null,
       hasClientIp: false,
     }
-  }
+  } else {
+    const geoipCountry = geoip.lookup(clientIp)?.country ?? null
+    if (!geoipCountry) {
+      return {
+        allowed: false,
+        countryCode: null,
+        blockReason: 'unresolved_client_ip',
+        cfCountry: null,
+        geoipCountry: null,
+        ipPrivacy: null,
+        hasClientIp: true,
+      }
+    }
 
-  const geoipCountry = geoip.lookup(clientIp)?.country ?? null
-  if (!geoipCountry) {
-    return {
-      allowed: false,
-      countryCode: null,
-      blockReason: 'unresolved_client_ip',
+    baseAccess = {
+      countryCode: geoipCountry,
       cfCountry: null,
-      geoipCountry: null,
+      geoipCountry,
       hasClientIp: true,
     }
   }
 
-  const allowed = FREE_MODE_ALLOWED_COUNTRIES.has(geoipCountry)
+  if (!FREE_MODE_ALLOWED_COUNTRIES.has(baseAccess.countryCode)) {
+    return {
+      ...baseAccess,
+      allowed: false,
+      blockReason: 'country_not_allowed',
+      ipPrivacy: null,
+    }
+  }
+
+  const ipPrivacy = await getIpPrivacy(clientIp, options)
+  if (ipPrivacy?.signals.length) {
+    return {
+      ...baseAccess,
+      allowed: false,
+      blockReason: 'anonymous_network',
+      ipPrivacy,
+    }
+  }
+
   return {
-    allowed,
-    countryCode: geoipCountry,
-    blockReason: allowed ? null : 'country_not_allowed',
-    cfCountry: null,
-    geoipCountry,
-    hasClientIp: true,
+    ...baseAccess,
+    allowed: true,
+    blockReason: null,
+    ipPrivacy,
   }
 }
