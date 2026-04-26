@@ -17,6 +17,8 @@ const noAnonymousNetwork = {
   lookupIpPrivacy: async () => ({ signals: [] }),
 }
 
+const IPINFO_PRIVACY_TEST_IP = '198.51.100.42'
+
 describe('free mode country access', () => {
   test('allows allowlisted Cloudflare countries', async () => {
     const access = await getFreeModeCountryAccess(
@@ -151,7 +153,7 @@ describe('free mode country access', () => {
       })
 
     const privacy = await lookupIpinfoPrivacy({
-      ip: '203.0.113.10',
+      ip: IPINFO_PRIVACY_TEST_IP,
       token: 'test-token',
       fetch: fetch as unknown as typeof globalThis.fetch,
     })
