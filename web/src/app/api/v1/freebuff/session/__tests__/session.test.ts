@@ -17,12 +17,17 @@ const DEFAULT_MODEL = 'minimax/minimax-m2.7'
 
 function makeReq(
   apiKey: string | null,
-  opts: { instanceId?: string; cfCountry?: string; model?: string } = {},
+  opts: {
+    instanceId?: string
+    cfCountry?: string | null
+    model?: string
+  } = {},
 ): NextRequest {
   const headers = new Headers()
   if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`)
   if (opts.instanceId) headers.set(FREEBUFF_INSTANCE_HEADER, opts.instanceId)
-  if (opts.cfCountry) headers.set('cf-ipcountry', opts.cfCountry)
+  const cfCountry = opts.cfCountry === null ? null : (opts.cfCountry ?? 'US')
+  if (cfCountry) headers.set('cf-ipcountry', cfCountry)
   if (opts.model) headers.set(FREEBUFF_MODEL_HEADER, opts.model)
   return {
     headers,
@@ -107,19 +112,28 @@ function makeDeps(
 describe('POST /api/v1/freebuff/session', () => {
   test('401 when Authorization header is missing', async () => {
     const sessionDeps = makeSessionDeps()
-    const resp = await postFreebuffSession(makeReq(null), makeDeps(sessionDeps, null))
+    const resp = await postFreebuffSession(
+      makeReq(null),
+      makeDeps(sessionDeps, null),
+    )
     expect(resp.status).toBe(401)
   })
 
   test('401 when API key is invalid', async () => {
     const sessionDeps = makeSessionDeps()
-    const resp = await postFreebuffSession(makeReq('bad'), makeDeps(sessionDeps, null))
+    const resp = await postFreebuffSession(
+      makeReq('bad'),
+      makeDeps(sessionDeps, null),
+    )
     expect(resp.status).toBe(401)
   })
 
   test('creates a queued session for authed user', async () => {
     const sessionDeps = makeSessionDeps()
-    const resp = await postFreebuffSession(makeReq('ok'), makeDeps(sessionDeps, 'u1'))
+    const resp = await postFreebuffSession(
+      makeReq('ok'),
+      makeDeps(sessionDeps, 'u1'),
+    )
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('queued')
@@ -128,7 +142,10 @@ describe('POST /api/v1/freebuff/session', () => {
 
   test('returns disabled when waiting room flag is off', async () => {
     const sessionDeps = makeSessionDeps({ isWaitingRoomEnabled: () => false })
-    const resp = await postFreebuffSession(makeReq('ok'), makeDeps(sessionDeps, 'u1'))
+    const resp = await postFreebuffSession(
+      makeReq('ok'),
+      makeDeps(sessionDeps, 'u1'),
+    )
     const body = await resp.json()
     expect(body.status).toBe('disabled')
   })
@@ -145,6 +162,32 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('returns country_blocked without joining the queue when country is unknown', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: null }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.countryCode).toBe('UNKNOWN')
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('returns country_blocked without joining the queue for anonymized Cloudflare country', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'T1' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.countryCode).toBe('UNKNOWN')
     expect(sessionDeps.rows.size).toBe(0)
   })
 
@@ -191,7 +234,10 @@ describe('POST /api/v1/freebuff/session', () => {
 describe('GET /api/v1/freebuff/session', () => {
   test('returns { status: none } when user has no session', async () => {
     const sessionDeps = makeSessionDeps()
-    const resp = await getFreebuffSession(makeReq('ok'), makeDeps(sessionDeps, 'u1'))
+    const resp = await getFreebuffSession(
+      makeReq('ok'),
+      makeDeps(sessionDeps, 'u1'),
+    )
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('none')
@@ -257,7 +303,10 @@ describe('DELETE /api/v1/freebuff/session', () => {
       created_at: new Date(),
       updated_at: new Date(),
     })
-    const resp = await deleteFreebuffSession(makeReq('ok'), makeDeps(sessionDeps, 'u1'))
+    const resp = await deleteFreebuffSession(
+      makeReq('ok'),
+      makeDeps(sessionDeps, 'u1'),
+    )
     expect(resp.status).toBe(200)
     expect(sessionDeps.rows.has('u1')).toBe(false)
   })
