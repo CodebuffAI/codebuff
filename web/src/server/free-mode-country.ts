@@ -31,10 +31,12 @@ export type FreeModeCountryBlockReason =
   | 'unresolved_client_ip'
 
 export type FreeModeIpPrivacySignal =
+  | 'anonymous'
   | 'vpn'
   | 'proxy'
   | 'tor'
   | 'relay'
+  | 'res_proxy'
   | 'hosting'
   | 'service'
 
@@ -114,17 +116,27 @@ function setIpinfoPrivacyCache(
 function privacySignalsFromIpinfo(
   data: Record<string, unknown>,
 ): FreeModeIpPrivacySignal[] {
+  const anonymous =
+    data.anonymous && typeof data.anonymous === 'object'
+      ? (data.anonymous as Record<string, unknown>)
+      : {}
   const signals: FreeModeIpPrivacySignal[] = []
-  if (data.vpn === true) signals.push('vpn')
-  if (data.proxy === true) signals.push('proxy')
-  if (data.tor === true) signals.push('tor')
-  if (data.relay === true) signals.push('relay')
-  if (data.hosting === true) signals.push('hosting')
+  if (data.vpn === true || anonymous.is_vpn === true) signals.push('vpn')
+  if (data.proxy === true || anonymous.is_proxy === true) signals.push('proxy')
+  if (data.tor === true || anonymous.is_tor === true) signals.push('tor')
+  if (data.relay === true || anonymous.is_relay === true) signals.push('relay')
+  if (anonymous.is_res_proxy === true) signals.push('res_proxy')
+  if (data.hosting === true || data.is_hosting === true) {
+    signals.push('hosting')
+  }
   if (
     data.service === true ||
     (typeof data.service === 'string' && data.service.length > 0)
   ) {
     signals.push('service')
+  }
+  if (signals.length === 0 && data.is_anonymous === true) {
+    signals.push('anonymous')
   }
   return signals
 }
@@ -140,7 +152,7 @@ export async function lookupIpinfoPrivacy(params: {
   }
 
   const response = await params.fetch(
-    `https://ipinfo.io/${encodeURIComponent(params.ip)}/privacy?token=${encodeURIComponent(params.token)}`,
+    `https://api.ipinfo.io/lookup/${encodeURIComponent(params.ip)}?token=${encodeURIComponent(params.token)}`,
   )
   if (!response.ok) {
     return null

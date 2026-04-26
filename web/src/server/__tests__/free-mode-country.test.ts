@@ -106,6 +106,24 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['vpn'])
   })
 
+  test('blocks allowlisted countries when IPinfo reports a residential proxy', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['res_proxy'],
+        }),
+      },
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
+  })
+
   test('allows allowlisted countries when privacy lookup finds no anonymous signals', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
@@ -141,16 +159,22 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy).toBe(null)
   })
 
-  test('parses IPinfo privacy signals', async () => {
-    const fetch = async () =>
-      Response.json({
-        vpn: true,
-        proxy: false,
-        tor: true,
-        relay: false,
-        hosting: true,
-        service: 'Example VPN',
+  test('parses IPinfo Max anonymous signals', async () => {
+    let requestedUrl = ''
+    const fetch = async (url: string | URL | Request) => {
+      requestedUrl = String(url)
+      return Response.json({
+        anonymous: {
+          is_proxy: false,
+          is_relay: true,
+          is_tor: true,
+          is_vpn: false,
+          is_res_proxy: true,
+        },
+        is_anonymous: true,
+        is_hosting: true,
       })
+    }
 
     const privacy = await lookupIpinfoPrivacy({
       ip: IPINFO_PRIVACY_TEST_IP,
@@ -158,8 +182,26 @@ describe('free mode country access', () => {
       fetch: fetch as unknown as typeof globalThis.fetch,
     })
 
+    expect(requestedUrl).toContain('https://api.ipinfo.io/lookup/')
     expect(privacy).toEqual({
-      signals: ['vpn', 'tor', 'hosting', 'service'],
+      signals: ['tor', 'relay', 'res_proxy', 'hosting'],
+    })
+  })
+
+  test('blocks generic IPinfo anonymous results without a specific signal', async () => {
+    const fetch = async () =>
+      Response.json({
+        is_anonymous: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.43',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy).toEqual({
+      signals: ['anonymous'],
     })
   })
 })
