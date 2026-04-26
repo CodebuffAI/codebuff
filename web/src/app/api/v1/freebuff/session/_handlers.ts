@@ -25,7 +25,6 @@ import type { NextRequest } from 'next/server'
  *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
 async function countryBlockedResponse(
   req: NextRequest,
-  deps: FreebuffSessionDeps,
 ): Promise<NextResponse | null> {
   const countryAccess = await getFreeModeCountryAccess(req, {
     ipinfoToken: env.IPINFO_TOKEN,
@@ -132,7 +131,7 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const blocked = await countryBlockedResponse(req, deps)
+  const blocked = await countryBlockedResponse(req)
   if (blocked) return blocked
 
   const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
@@ -176,7 +175,7 @@ export async function getFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const blocked = await countryBlockedResponse(req, deps)
+  const blocked = await countryBlockedResponse(req)
   if (blocked) return blocked
 
   try {

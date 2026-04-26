@@ -69,6 +69,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   const allowedFreeModeHeaders = (apiKey: string) => ({
     Authorization: `Bearer ${apiKey}`,
     'cf-ipcountry': 'US',
+    'cf-connecting-ip': '203.0.113.10',
   })
 
   beforeEach(() => {

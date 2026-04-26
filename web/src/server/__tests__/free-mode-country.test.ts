@@ -20,7 +20,10 @@ const noAnonymousNetwork = {
 describe('free mode country access', () => {
   test('allows allowlisted Cloudflare countries', async () => {
     const access = await getFreeModeCountryAccess(
-      makeReq({ 'cf-ipcountry': 'us' }),
+      makeReq({
+        'cf-ipcountry': 'us',
+        'cf-connecting-ip': '203.0.113.10',
+      }),
       noAnonymousNetwork,
     )
     expect(access.allowed).toBe(true)
@@ -56,6 +59,30 @@ describe('free mode country access', () => {
     expect(access.allowed).toBe(false)
     expect(access.countryCode).toBe(null)
     expect(access.blockReason).toBe('missing_client_ip')
+  })
+
+  test('blocks allowlisted Cloudflare countries when client IP is missing', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({ 'cf-ipcountry': 'US' }),
+      noAnonymousNetwork,
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.countryCode).toBe(null)
+    expect(access.blockReason).toBe('missing_client_ip')
+    expect(access.cfCountry).toBe('US')
+  })
+
+  test('uses CF-Connecting-IP as a client IP fallback', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'cf-connecting-ip': '203.0.113.10',
+      }),
+      noAnonymousNetwork,
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.countryCode).toBe('US')
+    expect(access.hasClientIp).toBe(true)
   })
 
   test('blocks allowlisted countries when the client IP is an anonymous network', async () => {

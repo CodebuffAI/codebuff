@@ -70,6 +70,7 @@ type ResolvedCountryAccess = Omit<
 }
 
 const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
+const IPINFO_PRIVACY_CACHE_MAX_ENTRIES = 5000
 const ipinfoPrivacyCache = new Map<
   string,
   { expiresAt: number; privacy: FreeModeIpPrivacy | null }
@@ -80,7 +81,34 @@ export function extractClientIp(req: NextRequest): string | undefined {
   if (forwardedFor) {
     return forwardedFor.split(',')[0].trim()
   }
-  return req.headers.get('x-real-ip') ?? undefined
+  return (
+    req.headers.get('cf-connecting-ip') ??
+    req.headers.get('x-real-ip') ??
+    undefined
+  )
+}
+
+function setIpinfoPrivacyCache(
+  ip: string,
+  privacy: FreeModeIpPrivacy | null,
+): void {
+  const now = Date.now()
+  for (const [cachedIp, cached] of ipinfoPrivacyCache) {
+    if (cached.expiresAt <= now) {
+      ipinfoPrivacyCache.delete(cachedIp)
+    }
+  }
+
+  while (ipinfoPrivacyCache.size >= IPINFO_PRIVACY_CACHE_MAX_ENTRIES) {
+    const oldestIp = ipinfoPrivacyCache.keys().next().value
+    if (!oldestIp) break
+    ipinfoPrivacyCache.delete(oldestIp)
+  }
+
+  ipinfoPrivacyCache.set(ip, {
+    expiresAt: now + IPINFO_PRIVACY_CACHE_TTL_MS,
+    privacy,
+  })
 }
 
 function privacySignalsFromIpinfo(
@@ -123,10 +151,7 @@ export async function lookupIpinfoPrivacy(params: {
   const privacy = {
     signals,
   }
-  ipinfoPrivacyCache.set(params.ip, {
-    expiresAt: Date.now() + IPINFO_PRIVACY_CACHE_TTL_MS,
-    privacy,
-  })
+  setIpinfoPrivacyCache(params.ip, privacy)
   return privacy
 }
 
@@ -215,6 +240,18 @@ export async function getFreeModeCountryAccess(
       allowed: false,
       blockReason: 'country_not_allowed',
       ipPrivacy: null,
+    }
+  }
+
+  if (!clientIp) {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'missing_client_ip',
+      cfCountry,
+      geoipCountry: null,
+      ipPrivacy: null,
+      hasClientIp: false,
     }
   }
 

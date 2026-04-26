@@ -27,7 +27,10 @@ function makeReq(
   if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`)
   if (opts.instanceId) headers.set(FREEBUFF_INSTANCE_HEADER, opts.instanceId)
   const cfCountry = opts.cfCountry === null ? null : (opts.cfCountry ?? 'US')
-  if (cfCountry) headers.set('cf-ipcountry', cfCountry)
+  if (cfCountry) {
+    headers.set('cf-ipcountry', cfCountry)
+    headers.set('cf-connecting-ip', '203.0.113.10')
+  }
   if (opts.model) headers.set(FREEBUFF_MODEL_HEADER, opts.model)
   return {
     headers,
