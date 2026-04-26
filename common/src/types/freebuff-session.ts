@@ -10,7 +10,7 @@
  * Per-model usage counter surfaced to the CLI so the waiting-room UI can
  * render "N of M sessions used" alongside queue/active state. Present when
  * the joined model has a rate limit applied (today: GLM 5.1 with 5 admits
- * per 20-hour window). `recentCount` is the number of admissions inside
+ * per 12-hour window). `recentCount` is the number of admissions inside
  * `windowHours` at the time the response was produced — see also the
  * standalone `rate_limited` status for the reject path.
  */
@@ -132,7 +132,7 @@ export type FreebuffSessionServerResponse =
     }
   | {
       /** User has used up their per-model admission quota in the rolling
-       *  window (GLM 5.1: 5 one-hour sessions per 20h). Returned from POST
+       *  window (GLM 5.1: 5 one-hour sessions per 12h). Returned from POST
        *  /session before the user is placed in the queue. `retryAfterMs` is
        *  the time until the oldest admission inside the window falls off
        *  and one quota slot opens up — clients should show the user when

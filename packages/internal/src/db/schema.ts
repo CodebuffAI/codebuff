@@ -873,7 +873,7 @@ export const freeSession = pgTable(
 
 /**
  * Audit log of every admission — one row per queued→active transition. Used
- * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 20h).
+ * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 12h).
  *
  * Separate from `free_session` because that table is one-row-per-user (state,
  * not history); the UPSERT path there would otherwise destroy prior admissions.

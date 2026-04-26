@@ -41,7 +41,7 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  'z-ai/glm-5.1': { limit: 5, windowHours: 20 },
+  'z-ai/glm-5.1': { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the
