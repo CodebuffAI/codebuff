@@ -65,11 +65,7 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
-import {
-  extractClientIp,
-  getFreeModeCountryAccess,
-  getFreeModeCountryCodeForClient,
-} from '@/server/free-mode-country'
+import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
@@ -261,7 +257,6 @@ export async function postChatCompletions(params: {
     // For free mode requests, require a resolved allowlisted country.
     if (isFreeModeRequest) {
       const countryAccess = getFreeModeCountryAccess(req)
-      const clientIp = extractClientIp(req)
 
       logger.info(
         {
@@ -269,7 +264,7 @@ export async function postChatCompletions(params: {
           geoipResult: countryAccess.geoipCountry,
           resolvedCountry: countryAccess.countryCode,
           countryBlockReason: countryAccess.blockReason,
-          clientIp: clientIp ? '[redacted]' : undefined,
+          clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
         },
         'Free mode country detection',
       )
@@ -282,7 +277,7 @@ export async function postChatCompletions(params: {
             error: 'free_mode_not_available_in_country',
             countryCode: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
-            clientIp: clientIp ? '[redacted]' : undefined,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
           },
           logger,
         })
@@ -291,7 +286,7 @@ export async function postChatCompletions(params: {
           {
             error: 'free_mode_unavailable',
             message: 'Free mode is not available in your country.',
-            countryCode: getFreeModeCountryCodeForClient(countryAccess),
+            countryCode: countryAccess.countryCode ?? 'UNKNOWN',
           },
           { status: 403 },
         )

@@ -5,10 +5,7 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
-import {
-  getFreeModeCountryAccess,
-  getFreeModeCountryCodeForClient,
-} from '@/server/free-mode-country'
+import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { SessionDeps } from '@/server/free-session/public-api'
@@ -31,7 +28,7 @@ function countryBlockedResponse(req: NextRequest): NextResponse | null {
   return NextResponse.json(
     {
       status: 'country_blocked',
-      countryCode: getFreeModeCountryCodeForClient(countryAccess),
+      countryCode: countryAccess.countryCode ?? 'UNKNOWN',
     },
     { status: 403 },
   )

@@ -35,6 +35,7 @@ export type FreeModeCountryAccess = {
   blockReason: FreeModeCountryBlockReason | null
   cfCountry: string | null
   geoipCountry: string | null
+  hasClientIp: boolean
 }
 
 export function extractClientIp(req: NextRequest): string | undefined {
@@ -58,6 +59,7 @@ export function getFreeModeCountryAccess(
       blockReason: 'anonymized_or_unknown_country',
       cfCountry,
       geoipCountry: null,
+      hasClientIp: Boolean(clientIp),
     }
   }
 
@@ -69,6 +71,7 @@ export function getFreeModeCountryAccess(
       blockReason: allowed ? null : 'country_not_allowed',
       cfCountry,
       geoipCountry: null,
+      hasClientIp: Boolean(clientIp),
     }
   }
 
@@ -79,6 +82,7 @@ export function getFreeModeCountryAccess(
       blockReason: 'missing_client_ip',
       cfCountry: null,
       geoipCountry: null,
+      hasClientIp: false,
     }
   }
 
@@ -90,6 +94,7 @@ export function getFreeModeCountryAccess(
       blockReason: 'unresolved_client_ip',
       cfCountry: null,
       geoipCountry: null,
+      hasClientIp: true,
     }
   }
 
@@ -100,11 +105,6 @@ export function getFreeModeCountryAccess(
     blockReason: allowed ? null : 'country_not_allowed',
     cfCountry: null,
     geoipCountry,
+    hasClientIp: true,
   }
-}
-
-export function getFreeModeCountryCodeForClient(
-  countryAccess: FreeModeCountryAccess,
-): string {
-  return countryAccess.countryCode ?? 'UNKNOWN'
 }
