@@ -3,10 +3,40 @@ import geoip from 'geoip-lite'
 import type { NextRequest } from 'next/server'
 
 export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
-  'US', 'CA',
-  'GB', 'AU', 'NZ',
-  'NO', 'SE', 'NL', 'DK', 'DE', 'FI', 'BE', 'LU', 'CH', 'IE', 'IS',
+  'US',
+  'CA',
+  'GB',
+  'AU',
+  'NZ',
+  'NO',
+  'SE',
+  'NL',
+  'DK',
+  'DE',
+  'FI',
+  'BE',
+  'LU',
+  'CH',
+  'IE',
+  'IS',
 ])
+
+const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set(['T1', 'XX'])
+
+export type FreeModeCountryBlockReason =
+  | 'country_not_allowed'
+  | 'anonymized_or_unknown_country'
+  | 'missing_client_ip'
+  | 'unresolved_client_ip'
+
+export type FreeModeCountryAccess = {
+  allowed: boolean
+  countryCode: string | null
+  blockReason: FreeModeCountryBlockReason | null
+  cfCountry: string | null
+  geoipCountry: string | null
+  hasClientIp: boolean
+}
 
 export function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
@@ -16,28 +46,65 @@ export function extractClientIp(req: NextRequest): string | undefined {
   return req.headers.get('x-real-ip') ?? undefined
 }
 
-export function getCountryCode(req: NextRequest): string | null {
-  const cfCountry = req.headers.get('cf-ipcountry')
-  if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
-    return cfCountry.toUpperCase()
-  }
-
+export function getFreeModeCountryAccess(
+  req: NextRequest,
+): FreeModeCountryAccess {
+  const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
   const clientIp = extractClientIp(req)
-  if (!clientIp) {
-    return null
-  }
-  const geo = geoip.lookup(clientIp)
-  return geo?.country ?? null
-}
 
-/**
- * Returns true if the request's resolved country is allowed to use free
- * mode, false if it's explicitly disallowed. Returns null when country can't
- * be determined (VPN / localhost / corporate proxy) — callers should fail
- * open in that case to match the chat-completions gate.
- */
-export function isCountryAllowedForFreeMode(req: NextRequest): boolean | null {
-  const countryCode = getCountryCode(req)
-  if (!countryCode) return null
-  return FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)
+  if (cfCountry && CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES.has(cfCountry)) {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'anonymized_or_unknown_country',
+      cfCountry,
+      geoipCountry: null,
+      hasClientIp: Boolean(clientIp),
+    }
+  }
+
+  if (cfCountry) {
+    const allowed = FREE_MODE_ALLOWED_COUNTRIES.has(cfCountry)
+    return {
+      allowed,
+      countryCode: cfCountry,
+      blockReason: allowed ? null : 'country_not_allowed',
+      cfCountry,
+      geoipCountry: null,
+      hasClientIp: Boolean(clientIp),
+    }
+  }
+
+  if (!clientIp) {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'missing_client_ip',
+      cfCountry: null,
+      geoipCountry: null,
+      hasClientIp: false,
+    }
+  }
+
+  const geoipCountry = geoip.lookup(clientIp)?.country ?? null
+  if (!geoipCountry) {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'unresolved_client_ip',
+      cfCountry: null,
+      geoipCountry: null,
+      hasClientIp: true,
+    }
+  }
+
+  const allowed = FREE_MODE_ALLOWED_COUNTRIES.has(geoipCountry)
+  return {
+    allowed,
+    countryCode: geoipCountry,
+    blockReason: allowed ? null : 'country_not_allowed',
+    cfCountry: null,
+    geoipCountry,
+    hasClientIp: true,
+  }
 }

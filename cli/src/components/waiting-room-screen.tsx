@@ -221,13 +221,13 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span fg={theme.muted}> / {session.queueDepth}</span>
                 </text>
                 <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                  <span>Wait     </span>
+                  <span>Wait </span>
                   {session.position === 1
                     ? 'any moment now'
                     : formatWait(session.estimatedWaitMs)}
                 </text>
                 <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                  <span>Elapsed  </span>
+                  <span>Elapsed </span>
                   {formatElapsed(elapsedMs)}
                 </text>
                 {/* Per-model session quota (e.g. GLM 5.1 caps at 5/20h). Only
@@ -237,7 +237,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
                     <span>Sessions </span>
                     <span fg={theme.foreground}>
-                      {session.rateLimit.recentCount} / {session.rateLimit.limit}
+                      {session.rateLimit.recentCount} /{' '}
+                      {session.rateLimit.limit}
                     </span>
                     <span> used in last {session.rateLimit.windowHours}h</span>
                   </text>
@@ -262,10 +263,20 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 ⚠ Free mode isn't available in your region
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                We detected your location as{' '}
-                <span fg={theme.foreground}>{session.countryCode}</span>,
-                which is outside the countries where freebuff is currently
-                offered. Press Ctrl+C to exit.
+                {session.countryCode === 'UNKNOWN' ? (
+                  <>
+                    We couldn't verify an eligible location for this request.
+                    VPN, Tor, proxy, or unknown-location traffic can't use
+                    freebuff. Press Ctrl+C to exit.
+                  </>
+                ) : (
+                  <>
+                    We detected your location as{' '}
+                    <span fg={theme.foreground}>{session.countryCode}</span>,
+                    which is outside the countries where freebuff is currently
+                    offered. Press Ctrl+C to exit.
+                  </>
+                )}
               </text>
             </>
           )}
@@ -279,8 +290,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 ⚠ Account unavailable
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                This account has been suspended and can't use freebuff. If you think this is a
-                mistake, contact support@codebuff.com. Press Ctrl+C to exit.
+                This account has been suspended and can't use freebuff. If you
+                think this is a mistake, contact support@codebuff.com. Press
+                Ctrl+C to exit.
               </text>
             </>
           )}

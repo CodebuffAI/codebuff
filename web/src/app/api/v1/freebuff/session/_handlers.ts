@@ -5,10 +5,7 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
-import {
-  FREE_MODE_ALLOWED_COUNTRIES,
-  getCountryCode,
-} from '@/server/free-mode-country'
+import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { SessionDeps } from '@/server/free-session/public-api'
@@ -16,22 +13,23 @@ import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/d
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-/** Early country gate. Mirrors the chat/completions check: if we can resolve
- *  the caller's country and it's not on the allowlist, short-circuit with a
- *  terminal `country_blocked` response so the CLI can show the warning
- *  screen without ever joining the queue. Null country (VPN / localhost)
- *  fails open — chat/completions will catch it later if it matters.
+/** Early country gate. Mirrors the chat/completions check: require a resolved
+ *  allowlisted country before joining the queue. Unknown/anonymized locations
+ *  are treated as blocked because they commonly indicate VPN, Tor, localhost,
+ *  or proxy traffic.
  *
  *  Returns HTTP 403 (not 200) so older CLIs — which don't know the
  *  `country_blocked` status and would tight-poll on an unrecognized 200
  *  body — fall into their existing `!resp.ok` error path and back off on
  *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
 function countryBlockedResponse(req: NextRequest): NextResponse | null {
-  const countryCode = getCountryCode(req)
-  if (!countryCode) return null
-  if (FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)) return null
+  const countryAccess = getFreeModeCountryAccess(req)
+  if (countryAccess.allowed) return null
   return NextResponse.json(
-    { status: 'country_blocked', countryCode },
+    {
+      status: 'country_blocked',
+      countryCode: countryAccess.countryCode ?? 'UNKNOWN',
+    },
     { status: 403 },
   )
 }
@@ -52,7 +50,10 @@ type AuthResult =
   | { error: NextResponse }
   | { userId: string; userEmail: string | null; userBanned: boolean }
 
-async function resolveUser(req: NextRequest, deps: FreebuffSessionDeps): Promise<AuthResult> {
+async function resolveUser(
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+): Promise<AuthResult> {
   const apiKey = extractApiKeyFromHeader(req)
   if (!apiKey) {
     return {
@@ -173,7 +174,8 @@ export async function getFreebuffSession(
   if (blocked) return blocked
 
   try {
-    const claimedInstanceId = req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
+    const claimedInstanceId =
+      req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
     const state = await getSessionState({
       userId: auth.userId,
       userEmail: auth.userEmail,

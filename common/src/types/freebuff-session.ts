@@ -98,11 +98,12 @@ export type FreebuffSessionServerResponse =
       status: 'superseded'
     }
   | {
-      /** Request originated from a country outside the free-mode allowlist.
+      /** Request originated outside the free-mode allowlist, or from an
+       *  unknown/anonymized location that cannot be trusted for free mode.
        *  Returned before queue admission so users don't wait through the
        *  room only to be rejected on their first chat request. Terminal —
        *  CLI stops polling and shows a "not available in your country"
-       *  screen. `countryCode` is the resolved country for display. */
+       *  screen. `countryCode` is the resolved country, or UNKNOWN. */
       status: 'country_blocked'
       countryCode: string
     }
