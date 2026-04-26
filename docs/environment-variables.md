@@ -5,6 +5,7 @@
 - Public client env: `NEXT_PUBLIC_*` only, validated in `common/src/env-schema.ts` (used via `@codebuff/common/env`).
 - Server secrets: validated in `packages/internal/src/env-schema.ts` (used via `@codebuff/internal/env`).
 - Runtime/OS env: pass typed snapshots instead of reading `process.env` throughout the codebase.
+- `IPINFO_TOKEN` is required; free-mode country gating uses it to check IPinfo privacy signals for VPN/proxy/Tor/relay/hosting traffic.
 
 ## Env DI Helpers
 

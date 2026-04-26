@@ -256,7 +256,10 @@ export async function postChatCompletions(params: {
 
     // For free mode requests, require a resolved allowlisted country.
     if (isFreeModeRequest) {
-      const countryAccess = getFreeModeCountryAccess(req)
+      const countryAccess = await getFreeModeCountryAccess(req, {
+        fetch,
+        ipinfoToken: env.IPINFO_TOKEN,
+      })
 
       logger.info(
         {
@@ -264,6 +267,7 @@ export async function postChatCompletions(params: {
           geoipResult: countryAccess.geoipCountry,
           resolvedCountry: countryAccess.countryCode,
           countryBlockReason: countryAccess.blockReason,
+          ipPrivacySignals: countryAccess.ipPrivacy?.signals,
           clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
         },
         'Free mode country detection',
@@ -277,6 +281,7 @@ export async function postChatCompletions(params: {
             error: 'free_mode_not_available_in_country',
             countryCode: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
             clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
           },
           logger,
