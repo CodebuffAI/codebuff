@@ -1,6 +1,10 @@
 import { env } from '@codebuff/common/env'
 
 import type { ChatMessage } from '../types/chat'
+import type {
+  FreebuffCountryBlockReason,
+  FreebuffIpPrivacySignal,
+} from '@codebuff/common/types/freebuff-session'
 
 import { IS_FREEBUFF } from './constants'
 
@@ -57,20 +61,38 @@ export const isFreeModeUnavailableError = (error: unknown): boolean => {
   return false
 }
 
-/**
- * Extract the detected countryCode off a free_mode_unavailable error, if the
- * server included one. Used to populate the country_blocked screen after the
- * chat-completions gate rejects a user whose session-level country check did
- * not catch the request first.
- */
-export const getCountryCodeFromFreeModeError = (
+export const getCountryBlockFromFreeModeError = (
   error: unknown,
-): string | null => {
+): {
+  countryCode: string
+  countryBlockReason?: FreebuffCountryBlockReason
+  ipPrivacySignals?: FreebuffIpPrivacySignal[]
+} | null => {
   if (!isFreeModeUnavailableError(error)) return null
-  const candidate = (error as { countryCode?: unknown }).countryCode
-  return typeof candidate === 'string' && candidate.length > 0
-    ? candidate
-    : null
+  const errorDetails = error as {
+    countryCode?: unknown
+    countryBlockReason?: unknown
+    ipPrivacySignals?: unknown
+  }
+  const countryCode =
+    typeof errorDetails.countryCode === 'string' &&
+    errorDetails.countryCode.length > 0
+      ? errorDetails.countryCode
+      : 'UNKNOWN'
+
+  return {
+    countryCode,
+    countryBlockReason:
+      typeof errorDetails.countryBlockReason === 'string'
+        ? (errorDetails.countryBlockReason as FreebuffCountryBlockReason)
+        : undefined,
+    ipPrivacySignals: Array.isArray(errorDetails.ipPrivacySignals)
+      ? errorDetails.ipPrivacySignals.filter(
+          (signal): signal is FreebuffIpPrivacySignal =>
+            typeof signal === 'string',
+        )
+      : undefined,
+  }
 }
 
 /**

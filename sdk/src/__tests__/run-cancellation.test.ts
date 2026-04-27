@@ -1,4 +1,3 @@
-
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
 import { withSystemTags } from '@codebuff/agent-runtime/util/messages'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
@@ -37,9 +36,11 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     // Server session state already includes the user's message (as the server would normally do)
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     serverSessionState.mainAgentState.messageHistory.push(
-      userMessage('Please fix the bug'),  // Server added this
+      userMessage('Please fix the bug'), // Server added this
       assistantMessage('I will help you with that.'),
     )
 
@@ -82,10 +83,10 @@ describe('Run Cancellation Handling', () => {
     const messageHistory = result.sessionState!.mainAgentState.messageHistory
 
     const userMessages = messageHistory.filter((m) => m.role === 'user')
-    
+
     // Should have exactly 1 user message, not 2
     expect(userMessages.length).toBe(1)
-    
+
     // Total messages should be 2 (user + assistant), not 3
     expect(messageHistory.length).toBe(2)
   })
@@ -107,9 +108,11 @@ describe('Run Cancellation Handling', () => {
     const abortController = new AbortController()
 
     // Server session state already includes the user's message (server processed it)
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     serverSessionState.mainAgentState.messageHistory.push(
-      userMessage('Please fix the bug'),  // Server added the user's message
+      userMessage('Please fix the bug'), // Server added the user's message
       assistantMessage('I will help you with that.'),
     )
 
@@ -131,7 +134,11 @@ describe('Run Cancellation Handling', () => {
 
         // Simulate agent runtime adding interruption message on abort
         serverSessionState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         // Server still responds with its session state
@@ -169,16 +176,19 @@ describe('Run Cancellation Handling', () => {
 
     // The user's message should NOT be duplicated
     const messageHistory = result.sessionState!.mainAgentState.messageHistory
-    
+
     // Count user messages (excluding system interruption messages)
     const userPromptMessages = messageHistory.filter(
-      (m) => m.role === 'user' && 
-        m.content.some((c: any) => c.type === 'text' && c.text.includes('fix the bug'))
+      (m) =>
+        m.role === 'user' &&
+        m.content.some(
+          (c: any) => c.type === 'text' && c.text.includes('fix the bug'),
+        ),
     )
-    
+
     // Should have exactly 1 user message with the prompt, not 2
     expect(userPromptMessages.length).toBe(1)
-    
+
     // Total messages should be: 1 user + 1 assistant (original) + 1 interruption = 3
     // The server state already has the content; pendingAgentResponse is not duplicated.
     expect(messageHistory.length).toBe(3)
@@ -199,11 +209,17 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     // Simulate AI SDK's AI_APICallError with responseBody (what the server returns for free_mode_unavailable)
-    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    const apiError = new Error('Forbidden') as Error & {
+      statusCode: number
+      responseBody: string
+    }
     apiError.statusCode = 403
     apiError.responseBody = JSON.stringify({
       error: 'free_mode_unavailable',
       message: 'Free mode is not available in your country.',
+      countryCode: 'US',
+      countryBlockReason: 'anonymous_network',
+      ipPrivacySignals: ['vpn', 'hosting'],
     })
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
@@ -218,12 +234,23 @@ describe('Run Cancellation Handling', () => {
     })
 
     expect(result.output.type).toBe('error')
-    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
+    const output = result.output as {
+      type: 'error'
+      message: string
+      statusCode?: number
+      error?: string
+      countryCode?: string
+      countryBlockReason?: string
+      ipPrivacySignals?: string[]
+    }
     // Should use the message from the response body, not the generic "Forbidden"
     expect(output.message).toBe('Free mode is not available in your country.')
     expect(output.statusCode).toBe(403)
     // Should propagate the error code so isFreeModeUnavailableError can match
     expect(output.error).toBe('free_mode_unavailable')
+    expect(output.countryCode).toBe('US')
+    expect(output.countryBlockReason).toBe('anonymous_network')
+    expect(output.ipPrivacySignals).toEqual(['vpn', 'hosting'])
   })
 
   it('extracts error code from responseBody for account_suspended 403', async () => {
@@ -240,7 +267,10 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
-    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    const apiError = new Error('Forbidden') as Error & {
+      statusCode: number
+      responseBody: string
+    }
     apiError.statusCode = 403
     apiError.responseBody = JSON.stringify({
       error: 'account_suspended',
@@ -258,8 +288,15 @@ describe('Run Cancellation Handling', () => {
       prompt: 'hello',
     })
 
-    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
-    expect(output.message).toBe('Your account has been suspended due to billing issues.')
+    const output = result.output as {
+      type: 'error'
+      message: string
+      statusCode?: number
+      error?: string
+    }
+    expect(output.message).toBe(
+      'Your account has been suspended due to billing issues.',
+    )
     expect(output.statusCode).toBe(403)
     expect(output.error).toBe('account_suspended')
   })
@@ -278,7 +315,10 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
-    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    const apiError = new Error('Forbidden') as Error & {
+      statusCode: number
+      responseBody: string
+    }
     apiError.statusCode = 403
     apiError.responseBody = 'not valid json'
 
@@ -293,7 +333,12 @@ describe('Run Cancellation Handling', () => {
       prompt: 'hello',
     })
 
-    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
+    const output = result.output as {
+      type: 'error'
+      message: string
+      statusCode?: number
+      error?: string
+    }
     expect(output.message).toBe('Forbidden')
     expect(output.statusCode).toBe(403)
     expect(output.error).toBeUndefined()
@@ -329,7 +374,9 @@ describe('Run Cancellation Handling', () => {
 
     // Should return an error output
     expect(result.output.type).toBe('error')
-    expect((result.output as { type: 'error'; message: string }).message).toBe('Network connection failed')
+    expect((result.output as { type: 'error'; message: string }).message).toBe(
+      'Network connection failed',
+    )
 
     // The user's message should be preserved in the session state
     expect(result.sessionState).toBeDefined()
@@ -345,7 +392,9 @@ describe('Run Cancellation Handling', () => {
     expect(userPromptMessage).toBeDefined()
 
     // Verify the message content contains the original prompt
-    const textContent = userPromptMessage!.content.find((c: any) => c.type === 'text') as { type: 'text'; text: string } | undefined
+    const textContent = userPromptMessage!.content.find(
+      (c: any) => c.type === 'text',
+    ) as { type: 'text'; text: string } | undefined
     expect(textContent).toBeDefined()
     expect(textContent!.text).toContain('Please fix the bug in my code')
   })
@@ -365,11 +414,14 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     const abortController = new AbortController()
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     serverSessionState.mainAgentState.messageHistory.push(
       userMessage('User prompt'),
     )
-    const originalHistoryLength = serverSessionState.mainAgentState.messageHistory.length
+    const originalHistoryLength =
+      serverSessionState.mainAgentState.messageHistory.length
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -380,7 +432,11 @@ describe('Run Cancellation Handling', () => {
 
         // Simulate agent runtime adding interruption message on abort
         serverSessionState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         await sendAction({
@@ -423,7 +479,9 @@ describe('Run Cancellation Handling', () => {
     // The last message should be the interruption (user role), not an empty assistant message
     const lastMessage = messageHistory[messageHistory.length - 1]
     expect(lastMessage.role).toBe('user')
-    expect((lastMessage.content[0] as { type: 'text'; text: string }).text).toContain('User interrupted')
+    expect(
+      (lastMessage.content[0] as { type: 'text'; text: string }).text,
+    ).toContain('User interrupted')
 
     // Verify there's no empty assistant message before the interruption
     const secondToLastMessage = messageHistory[messageHistory.length - 2]
@@ -518,7 +576,9 @@ describe('Run Cancellation Handling', () => {
     const abortController = new AbortController()
 
     // Create a session state with some existing message history to verify it's preserved
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     serverSessionState.mainAgentState.messageHistory.push(
       userMessage('User prompt'),
       assistantMessage('I will help you with that.'),
@@ -541,10 +601,13 @@ describe('Run Cancellation Handling', () => {
       role: 'tool',
       toolCallId: 'tool-1',
       toolName: 'read_files',
-      content: [{ type: 'json', value: [{ path: 'file.ts', content: 'const x = 1;' }] }],
+      content: [
+        { type: 'json', value: [{ path: 'file.ts', content: 'const x = 1;' }] },
+      ],
     })
 
-    const originalHistoryLength = serverSessionState.mainAgentState.messageHistory.length
+    const originalHistoryLength =
+      serverSessionState.mainAgentState.messageHistory.length
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -564,7 +627,11 @@ describe('Run Cancellation Handling', () => {
 
         // Simulate agent runtime adding interruption message on abort
         serverSessionState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         // Server still sends the prompt-response with the full session state
@@ -615,7 +682,9 @@ describe('Run Cancellation Handling', () => {
     const toolCallMessage = messageHistory.find(
       (m) =>
         m.role === 'assistant' &&
-        m.content.some((c: any) => c.type === 'tool-call' && c.toolCallId === 'tool-1'),
+        m.content.some(
+          (c: any) => c.type === 'tool-call' && c.toolCallId === 'tool-1',
+        ),
     )
     expect(toolCallMessage).toBeDefined()
 
@@ -644,7 +713,9 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     const abortController = new AbortController()
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -655,7 +726,11 @@ describe('Run Cancellation Handling', () => {
 
         // Simulate agent runtime adding interruption message on abort
         serverSessionState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         await sendAction({
@@ -697,7 +772,9 @@ describe('Run Cancellation Handling', () => {
     expect(lastMessage.role).toBe('user')
     expect(Array.isArray(lastMessage.content)).toBe(true)
 
-    const textContent = lastMessage.content.find((c: any) => c.type === 'text') as { type: 'text'; text: string } | undefined
+    const textContent = lastMessage.content.find(
+      (c: any) => c.type === 'text',
+    ) as { type: 'text'; text: string } | undefined
     expect(textContent).toBeDefined()
 
     // The text should be wrapped in <system> tags
@@ -754,12 +831,15 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     serverSessionState.mainAgentState.messageHistory.push(
       userMessage('User prompt'),
       assistantMessage('Done!'),
     )
-    const originalHistoryLength = serverSessionState.mainAgentState.messageHistory.length
+    const originalHistoryLength =
+      serverSessionState.mainAgentState.messageHistory.length
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
@@ -823,7 +903,9 @@ describe('Run Cancellation Handling', () => {
     const abortController = new AbortController()
 
     // First run: server processes the user message and does some work, then user cancels
-    const firstRunServerState = getInitialSessionState(getStubProjectFileContext())
+    const firstRunServerState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
     firstRunServerState.mainAgentState.messageHistory.push(
       userMessage('Fix the bug in auth.ts'),
       assistantMessage('I will analyze the authentication module.'),
@@ -847,7 +929,11 @@ describe('Run Cancellation Handling', () => {
 
         // Agent runtime adds interruption message on abort
         firstRunServerState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         // Server still sends the prompt-response with its session state
@@ -886,12 +972,16 @@ describe('Run Cancellation Handling', () => {
 
     // Verify the first run preserved the user message and work
     expect(firstRunResult.sessionState).toBeDefined()
-    const firstHistory = firstRunResult.sessionState!.mainAgentState.messageHistory
+    const firstHistory =
+      firstRunResult.sessionState!.mainAgentState.messageHistory
     expect(firstHistory.length).toBe(3) // user + assistant + interruption
 
     const firstUserMsg = firstHistory.find(
-      (m) => m.role === 'user' &&
-        m.content.some((c: any) => c.type === 'text' && c.text.includes('Fix the bug'))
+      (m) =>
+        m.role === 'user' &&
+        m.content.some(
+          (c: any) => c.type === 'text' && c.text.includes('Fix the bug'),
+        ),
     )
     expect(firstUserMsg).toBeDefined()
 
@@ -911,7 +1001,9 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-2')
 
     // Second run: server receives the previous state and adds the new user message
-    const secondRunServerState = JSON.parse(JSON.stringify(firstRunResult.sessionState!)) as typeof firstRunServerState
+    const secondRunServerState = JSON.parse(
+      JSON.stringify(firstRunResult.sessionState!),
+    ) as typeof firstRunServerState
     secondRunServerState.mainAgentState.messageHistory.push(
       userMessage('Now also fix the login page'),
       assistantMessage('I will fix both issues.'),
@@ -952,29 +1044,41 @@ describe('Run Cancellation Handling', () => {
 
     // Verify the second run's session state includes history from BOTH runs
     expect(secondRunResult.sessionState).toBeDefined()
-    const secondHistory = secondRunResult.sessionState!.mainAgentState.messageHistory
+    const secondHistory =
+      secondRunResult.sessionState!.mainAgentState.messageHistory
 
     // Should have: first user msg + first assistant msg + interruption + second user msg + second assistant msg
     expect(secondHistory.length).toBe(5)
 
     // The first user message should be present
     const firstUserMsgInSecond = secondHistory.find(
-      (m) => m.role === 'user' &&
-        m.content.some((c: any) => c.type === 'text' && c.text.includes('Fix the bug'))
+      (m) =>
+        m.role === 'user' &&
+        m.content.some(
+          (c: any) => c.type === 'text' && c.text.includes('Fix the bug'),
+        ),
     )
     expect(firstUserMsgInSecond).toBeDefined()
 
     // The second user message should also be present
     const secondUserMsg = secondHistory.find(
-      (m) => m.role === 'user' &&
-        m.content.some((c: any) => c.type === 'text' && c.text.includes('fix the login page'))
+      (m) =>
+        m.role === 'user' &&
+        m.content.some(
+          (c: any) =>
+            c.type === 'text' && c.text.includes('fix the login page'),
+        ),
     )
     expect(secondUserMsg).toBeDefined()
 
     // The first assistant message should be preserved
     const firstAssistantMsg = secondHistory.find(
-      (m) => m.role === 'assistant' &&
-        m.content.some((c: any) => c.type === 'text' && c.text.includes('authentication module'))
+      (m) =>
+        m.role === 'assistant' &&
+        m.content.some(
+          (c: any) =>
+            c.type === 'text' && c.text.includes('authentication module'),
+        ),
     )
     expect(firstAssistantMsg).toBeDefined()
   })
@@ -994,7 +1098,9 @@ describe('Run Cancellation Handling', () => {
     spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     const abortController = new AbortController()
-    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    const serverSessionState = getInitialSessionState(
+      getStubProjectFileContext(),
+    )
 
     // Simulate multiple tool calls and results (more complex work done)
     serverSessionState.mainAgentState.messageHistory.push(
@@ -1015,7 +1121,12 @@ describe('Run Cancellation Handling', () => {
         role: 'tool',
         toolCallId: 'read-1',
         toolName: 'read_files',
-        content: [{ type: 'json', value: [{ path: 'src/bug.ts', content: 'buggy code' }] }],
+        content: [
+          {
+            type: 'json',
+            value: [{ path: 'src/bug.ts', content: 'buggy code' }],
+          },
+        ],
       },
       {
         role: 'assistant',
@@ -1033,7 +1144,12 @@ describe('Run Cancellation Handling', () => {
         role: 'tool',
         toolCallId: 'write-1',
         toolName: 'write_file',
-        content: [{ type: 'json', value: { file: 'src/bug.ts', message: 'File written' } }],
+        content: [
+          {
+            type: 'json',
+            value: { file: 'src/bug.ts', message: 'File written' },
+          },
+        ],
       },
     )
 
@@ -1059,7 +1175,11 @@ describe('Run Cancellation Handling', () => {
 
         // Simulate agent runtime adding interruption message on abort
         serverSessionState.mainAgentState.messageHistory.push(
-          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+          userMessage(
+            withSystemTags(
+              "User interrupted the response. The assistant's previous work has been preserved.",
+            ),
+          ),
         )
 
         // Server still returns the full session state
@@ -1117,6 +1237,8 @@ describe('Run Cancellation Handling', () => {
     // Verify interruption message was added at the end
     const lastMessage = messageHistory[messageHistory.length - 1]
     expect(lastMessage.role).toBe('user')
-    expect((lastMessage.content[0] as { type: 'text'; text: string }).text).toContain('User interrupted the response')
+    expect(
+      (lastMessage.content[0] as { type: 'text'; text: string }).text,
+    ).toContain('User interrupted the response')
   })
 })

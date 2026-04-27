@@ -955,6 +955,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
           responseBody: JSON.stringify({
             error: 'free_mode_unavailable',
             message: 'Free mode is not available in your country.',
+            countryCode: 'US',
+            countryBlockReason: 'anonymous_network',
+            ipPrivacySignals: ['vpn', 'hosting'],
           }),
           isRetryable: false,
         })
@@ -976,6 +979,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         expect(result.output.error).toBe('free_mode_unavailable')
         // Should propagate the status code
         expect(result.output.statusCode).toBe(403)
+        expect(result.output.countryCode).toBe('US')
+        expect(result.output.countryBlockReason).toBe('anonymous_network')
+        expect(result.output.ipPrivacySignals).toEqual(['vpn', 'hosting'])
       }
     })
 

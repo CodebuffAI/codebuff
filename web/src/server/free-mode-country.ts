@@ -1,6 +1,10 @@
 import geoip from 'geoip-lite'
 
 import type { NextRequest } from 'next/server'
+import type {
+  FreebuffCountryBlockReason,
+  FreebuffIpPrivacySignal,
+} from '@codebuff/common/types/freebuff-session'
 
 export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'US',
@@ -23,22 +27,8 @@ export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
 
 const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set(['T1', 'XX'])
 
-export type FreeModeCountryBlockReason =
-  | 'country_not_allowed'
-  | 'anonymized_or_unknown_country'
-  | 'anonymous_network'
-  | 'missing_client_ip'
-  | 'unresolved_client_ip'
-
-export type FreeModeIpPrivacySignal =
-  | 'anonymous'
-  | 'vpn'
-  | 'proxy'
-  | 'tor'
-  | 'relay'
-  | 'res_proxy'
-  | 'hosting'
-  | 'service'
+export type FreeModeCountryBlockReason = FreebuffCountryBlockReason
+export type FreeModeIpPrivacySignal = FreebuffIpPrivacySignal
 
 export type FreeModeIpPrivacy = {
   signals: FreeModeIpPrivacySignal[]
@@ -77,6 +67,15 @@ const ipinfoPrivacyCache = new Map<
   string,
   { expiresAt: number; privacy: FreeModeIpPrivacy | null }
 >()
+
+const FREE_MODE_BLOCKED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
+  'anonymous',
+  'vpn',
+  'proxy',
+  'tor',
+  'relay',
+  'res_proxy',
+])
 
 export function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
@@ -135,7 +134,10 @@ function privacySignalsFromIpinfo(
   ) {
     signals.push('service')
   }
-  if (signals.length === 0 && data.is_anonymous === true) {
+  if (
+    data.is_anonymous === true &&
+    !signals.some((signal) => FREE_MODE_BLOCKED_PRIVACY_SIGNALS.has(signal))
+  ) {
     signals.push('anonymous')
   }
   return signals
@@ -268,7 +270,11 @@ export async function getFreeModeCountryAccess(
   }
 
   const ipPrivacy = await getIpPrivacy(clientIp, options)
-  if (ipPrivacy?.signals.length) {
+  if (
+    ipPrivacy?.signals.some((signal) =>
+      FREE_MODE_BLOCKED_PRIVACY_SIGNALS.has(signal),
+    )
+  ) {
     return {
       ...baseAccess,
       allowed: false,

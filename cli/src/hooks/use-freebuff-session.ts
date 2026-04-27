@@ -16,6 +16,10 @@ import { logger } from '../utils/logger'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type {
+  FreebuffCountryBlockReason,
+  FreebuffIpPrivacySignal,
+} from '@codebuff/common/types/freebuff-session'
 
 const POLL_INTERVAL_QUEUED_MS = 5_000
 const POLL_INTERVAL_ACTIVE_MS = 30_000
@@ -319,10 +323,14 @@ export function markFreebuffSessionSuperseded(): void {
  *  Transitioning the session state here unmounts the Chat surface in favor of
  *  the waiting-room's country_blocked message, so the user can't keep typing
  *  and sending doomed requests. */
-export function markFreebuffSessionCountryBlocked(countryCode: string): void {
+export function markFreebuffSessionCountryBlocked(params: {
+  countryCode: string
+  countryBlockReason?: FreebuffCountryBlockReason
+  ipPrivacySignals?: FreebuffIpPrivacySignal[]
+}): void {
   if (!IS_FREEBUFF) return
   controller?.abort()
-  controller?.apply({ status: 'country_blocked', countryCode })
+  controller?.apply({ status: 'country_blocked', ...params })
   // Best-effort DELETE so we don't hold a waiting-room seat on a session the
   // server is already refusing to serve at chat time.
   releaseFreebuffSlot().catch(() => {})
