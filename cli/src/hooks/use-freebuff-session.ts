@@ -101,7 +101,7 @@ async function callSession(
     }
   }
   // 429 from POST is the per-model session-quota reject (e.g. too many GLM
-  // sessions in the last 20h). Terminal for the current poll — the CLI shows
+  // sessions in the last 12h). Terminal for the current poll — the CLI shows
   // a screen explaining the limit and when the user can try again. The 429
   // status (rather than 200) keeps older CLIs in their error path so they
   // back off instead of tight-polling an unrecognized 200 body.

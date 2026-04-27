@@ -41,25 +41,28 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  'z-ai/glm-5.1': { limit: 5, windowHours: 20 },
+  'z-ai/glm-5.1': { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the
  *  model isn't rate-limited. Used by both POST (after admit) and GET polls so
  *  the CLI's "N of M sessions used" line stays live instead of disappearing
- *  after the first poll. Also returns the oldest admit in-window so callers
- *  that need `retryAfterMs` don't have to re-query. */
+ *  after the first poll. Also returns the oldest admit in-window and the
+ *  window duration so callers that need `retryAfterMs` don't have to re-query
+ *  or duplicate the window math. */
 async function fetchRateLimitSnapshot(
   userId: string,
   model: string,
   deps: SessionDeps,
 ): Promise<
-  { info: FreebuffSessionRateLimit; oldest: Date | null } | undefined
+  | { info: FreebuffSessionRateLimit; oldest: Date | null; windowMs: number }
+  | undefined
 > {
   const cfg = RATE_LIMITS[model]
   if (!cfg) return undefined
   const now = nowOf(deps)
-  const since = new Date(now.getTime() - cfg.windowHours * 60 * 60 * 1000)
+  const windowMs = cfg.windowHours * 60 * 60 * 1000
+  const since = new Date(now.getTime() - windowMs)
   const admits = await deps.listRecentAdmits({
     userId,
     model,
@@ -74,6 +77,7 @@ async function fetchRateLimitSnapshot(
       recentCount: admits.length,
     },
     oldest: admits[0] ?? null,
+    windowMs,
   }
 }
 
@@ -271,10 +275,9 @@ export async function requestSession(params: {
     if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
       // Oldest admit's window-anniversary is when one slot opens back up.
       // Clamped at 0 so a clock skew can't surface a negative retry-after.
-      const windowMs = snapshot.info.windowHours * 60 * 60 * 1000
       const retryAfterMs = Math.max(
         0,
-        (snapshot.oldest?.getTime() ?? 0) + windowMs - now.getTime(),
+        (snapshot.oldest?.getTime() ?? 0) + snapshot.windowMs - now.getTime(),
       )
       return {
         status: 'rate_limited',
