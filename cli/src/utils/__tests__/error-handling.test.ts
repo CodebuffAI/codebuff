@@ -3,6 +3,7 @@ import { describe, test, expect } from 'bun:test'
 import {
   isOutOfCreditsError,
   isFreeModeUnavailableError,
+  getCountryBlockFromFreeModeError,
   OUT_OF_CREDITS_MESSAGE,
   FREE_MODE_UNAVAILABLE_MESSAGE,
   createErrorMessage,
@@ -70,7 +71,11 @@ describe('error-handling', () => {
 
   describe('isFreeModeUnavailableError', () => {
     test('returns true for error with statusCode 403 and error free_mode_unavailable', () => {
-      const error = { statusCode: 403, error: 'free_mode_unavailable', message: 'Free mode is not available in your country.' }
+      const error = {
+        statusCode: 403,
+        error: 'free_mode_unavailable',
+        message: 'Free mode is not available in your country.',
+      }
       expect(isFreeModeUnavailableError(error)).toBe(true)
     })
 
@@ -80,12 +85,20 @@ describe('error-handling', () => {
     })
 
     test('returns false for 403 with different error code', () => {
-      const error = { statusCode: 403, error: 'account_suspended', message: 'Suspended' }
+      const error = {
+        statusCode: 403,
+        error: 'account_suspended',
+        message: 'Suspended',
+      }
       expect(isFreeModeUnavailableError(error)).toBe(false)
     })
 
     test('returns false for non-403 status with free_mode_unavailable error', () => {
-      const error = { statusCode: 400, error: 'free_mode_unavailable', message: 'Bad request' }
+      const error = {
+        statusCode: 400,
+        error: 'free_mode_unavailable',
+        message: 'Bad request',
+      }
       expect(isFreeModeUnavailableError(error)).toBe(false)
     })
 
@@ -102,9 +115,51 @@ describe('error-handling', () => {
     })
   })
 
+  describe('getCountryBlockFromFreeModeError', () => {
+    test('extracts country block details from free-mode unavailable errors', () => {
+      const error = {
+        statusCode: 403,
+        error: 'free_mode_unavailable',
+        countryCode: 'US',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['vpn', 'hosting', 123],
+      }
+
+      expect(getCountryBlockFromFreeModeError(error)).toEqual({
+        countryCode: 'US',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['vpn', 'hosting'],
+      })
+    })
+
+    test('defaults missing country code to UNKNOWN', () => {
+      const error = {
+        statusCode: 403,
+        error: 'free_mode_unavailable',
+      }
+
+      expect(getCountryBlockFromFreeModeError(error)).toEqual({
+        countryCode: 'UNKNOWN',
+        countryBlockReason: undefined,
+        ipPrivacySignals: undefined,
+      })
+    })
+
+    test('returns null for non-free-mode errors', () => {
+      expect(
+        getCountryBlockFromFreeModeError({
+          statusCode: 403,
+          error: 'account_suspended',
+        }),
+      ).toBe(null)
+    })
+  })
+
   describe('FREE_MODE_UNAVAILABLE_MESSAGE', () => {
     test('mentions unavailability in country', () => {
-      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('not available in your country')
+      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain(
+        'not available in your country',
+      )
     })
   })
 

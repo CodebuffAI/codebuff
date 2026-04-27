@@ -323,30 +323,14 @@ export function markFreebuffSessionSuperseded(): void {
  *  Transitioning the session state here unmounts the Chat surface in favor of
  *  the waiting-room's country_blocked message, so the user can't keep typing
  *  and sending doomed requests. */
-export function markFreebuffSessionCountryBlocked(
-  params:
-    | string
-    | {
-        countryCode: string
-        countryBlockReason?: string
-        ipPrivacySignals?: string[]
-      },
-): void {
+export function markFreebuffSessionCountryBlocked(params: {
+  countryCode: string
+  countryBlockReason?: FreebuffCountryBlockReason
+  ipPrivacySignals?: FreebuffIpPrivacySignal[]
+}): void {
   if (!IS_FREEBUFF) return
-  const next =
-    typeof params === 'string'
-      ? { countryCode: params }
-      : {
-          countryCode: params.countryCode,
-          countryBlockReason: params.countryBlockReason as
-            | FreebuffCountryBlockReason
-            | undefined,
-          ipPrivacySignals: params.ipPrivacySignals as
-            | FreebuffIpPrivacySignal[]
-            | undefined,
-        }
   controller?.abort()
-  controller?.apply({ status: 'country_blocked', ...next })
+  controller?.apply({ status: 'country_blocked', ...params })
   // Best-effort DELETE so we don't hold a waiting-room seat on a session the
   // server is already refusing to serve at chat time.
   releaseFreebuffSlot().catch(() => {})

@@ -17,6 +17,7 @@ import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
 
 interface WaitingRoomScreenProps {
   session: FreebuffSessionResponse | null
@@ -53,6 +54,35 @@ const formatRetryAfter = (ms: number): string => {
   const hours = Math.floor(minutes / 60)
   const rem = minutes % 60
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
+}
+
+const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
+  {
+    anonymous: 'anonymized network',
+    proxy: 'proxy',
+    relay: 'relay',
+    res_proxy: 'residential proxy',
+    tor: 'Tor',
+    vpn: 'VPN',
+  }
+
+const formatPrivacySignalList = (
+  signals: FreebuffIpPrivacySignal[] | undefined,
+): string => {
+  const labels = Array.from(
+    new Set(
+      signals
+        ?.map((signal) => PRIVACY_SIGNAL_LABELS[signal])
+        .filter((label): label is string => Boolean(label)) ?? [],
+    ),
+  )
+
+  if (labels.length === 0) {
+    return 'VPN, Tor, proxy, relay, or anonymized network'
+  }
+  if (labels.length === 1) return labels[0]
+  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
 }
 
 export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
@@ -265,8 +295,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
                 {session.countryBlockReason === 'anonymous_network' ? (
                   <>
-                    We detected VPN, Tor, proxy, relay, or anonymized network
-                    traffic
+                    We detected{' '}
+                    {formatPrivacySignalList(session.ipPrivacySignals)} traffic
                     {session.countryCode === 'UNKNOWN' ? (
                       ''
                     ) : (
