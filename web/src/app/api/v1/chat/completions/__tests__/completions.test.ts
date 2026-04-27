@@ -140,6 +140,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
     // Mock global fetch to return OpenRouter-like responses
     mockFetch = (async (url: any, options: any) => {
+      if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+        return Response.json({})
+      }
+
       if (!options?.body) {
         throw new Error('Missing request body')
       }
