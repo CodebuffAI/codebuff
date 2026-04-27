@@ -538,7 +538,13 @@ async function runOnce({
       error && typeof error === 'object' && 'responseBody' in error
         ? (error as { responseBody: unknown }).responseBody
         : undefined
-    const { errorCode, message: parsedMessage } = parseApiErrorResponseBody(responseBody)
+    const {
+      countryBlockReason,
+      countryCode,
+      errorCode,
+      ipPrivacySignals,
+      message: parsedMessage,
+    } = parseApiErrorResponseBody(responseBody)
     if (parsedMessage) {
       errorMessage = parsedMessage
     }
@@ -550,6 +556,9 @@ async function runOnce({
         message: errorMessage,
         ...(statusCode !== undefined && { statusCode }),
         ...(errorCode !== undefined && { error: errorCode }),
+        ...(countryCode !== undefined && { countryCode }),
+        ...(countryBlockReason !== undefined && { countryBlockReason }),
+        ...(ipPrivacySignals !== undefined && { ipPrivacySignals }),
       },
     })
   })
