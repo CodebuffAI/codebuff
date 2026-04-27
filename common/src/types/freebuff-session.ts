@@ -21,6 +21,23 @@ export interface FreebuffSessionRateLimit {
   recentCount: number
 }
 
+export type FreebuffCountryBlockReason =
+  | 'country_not_allowed'
+  | 'anonymized_or_unknown_country'
+  | 'anonymous_network'
+  | 'missing_client_ip'
+  | 'unresolved_client_ip'
+
+export type FreebuffIpPrivacySignal =
+  | 'anonymous'
+  | 'vpn'
+  | 'proxy'
+  | 'tor'
+  | 'relay'
+  | 'res_proxy'
+  | 'hosting'
+  | 'service'
+
 export type FreebuffSessionServerResponse =
   | {
       /** Waiting room is globally off; free-mode requests flow through
@@ -106,6 +123,8 @@ export type FreebuffSessionServerResponse =
        *  screen. `countryCode` is the resolved country, or UNKNOWN. */
       status: 'country_blocked'
       countryCode: string
+      countryBlockReason?: FreebuffCountryBlockReason
+      ipPrivacySignals?: FreebuffIpPrivacySignal[]
     }
   | {
       /** User has an active session bound to a different model. Returned

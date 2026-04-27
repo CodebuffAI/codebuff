@@ -165,6 +165,7 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
+    expect(body.countryBlockReason).toBe('country_not_allowed')
     expect(sessionDeps.rows.size).toBe(0)
   })
 
@@ -178,6 +179,7 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('UNKNOWN')
+    expect(body.countryBlockReason).toBe('missing_client_ip')
     expect(sessionDeps.rows.size).toBe(0)
   })
 
@@ -191,6 +193,7 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('UNKNOWN')
+    expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
     expect(sessionDeps.rows.size).toBe(0)
   })
 
@@ -256,6 +259,7 @@ describe('GET /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
+    expect(body.countryBlockReason).toBe('country_not_allowed')
   })
 
   test('returns banned 403 on GET for banned user', async () => {

@@ -34,6 +34,8 @@ async function countryBlockedResponse(
     {
       status: 'country_blocked',
       countryCode: countryAccess.countryCode ?? 'UNKNOWN',
+      countryBlockReason: countryAccess.blockReason,
+      ipPrivacySignals: countryAccess.ipPrivacy?.signals,
     },
     { status: 403 },
   )

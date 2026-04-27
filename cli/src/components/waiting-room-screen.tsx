@@ -263,7 +263,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 ⚠ Free mode isn't available in your region
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                {session.countryCode === 'UNKNOWN' ? (
+                {session.countryBlockReason === 'anonymous_network' ? (
+                  <>
+                    We detected VPN, Tor, proxy, relay, or anonymized network
+                    traffic
+                    {session.countryCode === 'UNKNOWN' ? (
+                      ''
+                    ) : (
+                      <>
+                        {' '}
+                        from{' '}
+                        <span fg={theme.foreground}>{session.countryCode}</span>
+                      </>
+                    )}
+                    . Freebuff can't be used from anonymized networks. Press
+                    Ctrl+C to exit.
+                  </>
+                ) : session.countryCode === 'UNKNOWN' ? (
                   <>
                     We couldn't verify an eligible location for this request.
                     VPN, Tor, proxy, or unknown-location traffic can't use

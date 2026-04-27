@@ -593,6 +593,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.error).toBe('free_mode_unavailable')
       expect(body.countryCode).toBe('UNKNOWN')
+      expect(body.countryBlockReason).toBe('missing_client_ip')
     })
 
     it('rejects free-mode requests from anonymized Cloudflare country codes', async () => {
@@ -634,6 +635,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.error).toBe('free_mode_unavailable')
       expect(body.countryCode).toBe('UNKNOWN')
+      expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
     })
 
     it('lets freebuff use GLM 5.1 through Fireworks availability rules', async () => {

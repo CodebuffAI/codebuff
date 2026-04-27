@@ -292,6 +292,8 @@ export async function postChatCompletions(params: {
             error: 'free_mode_unavailable',
             message: 'Free mode is not available in your country.',
             countryCode: countryAccess.countryCode ?? 'UNKNOWN',
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
           },
           { status: 403 },
         )

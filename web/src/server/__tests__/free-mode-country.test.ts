@@ -124,6 +124,24 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
   })
 
+  test('allows allowlisted countries when IPinfo only reports hosting or service', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['hosting', 'service'],
+        }),
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
+    expect(access.ipPrivacy?.signals).toEqual(['hosting', 'service'])
+  })
+
   test('allows allowlisted countries when privacy lookup finds no anonymous signals', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
@@ -202,6 +220,24 @@ describe('free mode country access', () => {
 
     expect(privacy).toEqual({
       signals: ['anonymous'],
+    })
+  })
+
+  test('treats is_anonymous as blocking even when service is present', async () => {
+    const fetch = async () =>
+      Response.json({
+        service: 'Privacy Provider',
+        is_anonymous: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.44',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy).toEqual({
+      signals: ['service', 'anonymous'],
     })
   })
 })

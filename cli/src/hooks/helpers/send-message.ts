@@ -12,7 +12,7 @@ import { IS_FREEBUFF } from '../../utils/constants'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
-  getCountryCodeFromFreeModeError,
+  getCountryBlockFromFreeModeError,
   getFreebuffGateErrorKind,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
@@ -394,7 +394,9 @@ export const handleRunCompletion = (params: {
       updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
       if (IS_FREEBUFF) {
         markFreebuffSessionCountryBlocked(
-          getCountryCodeFromFreeModeError(output) ?? 'UNKNOWN',
+          getCountryBlockFromFreeModeError(output) ?? {
+            countryCode: 'UNKNOWN',
+          },
         )
       }
       finalizeAfterError()
@@ -494,7 +496,9 @@ export const handleRunError = (params: {
     updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
     if (IS_FREEBUFF) {
       markFreebuffSessionCountryBlocked(
-        getCountryCodeFromFreeModeError(error) ?? 'UNKNOWN',
+        getCountryBlockFromFreeModeError(error) ?? {
+          countryCode: 'UNKNOWN',
+        },
       )
     }
     return

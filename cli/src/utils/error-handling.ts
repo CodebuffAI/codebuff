@@ -73,6 +73,32 @@ export const getCountryCodeFromFreeModeError = (
     : null
 }
 
+export const getCountryBlockFromFreeModeError = (
+  error: unknown,
+): {
+  countryCode: string
+  countryBlockReason?: string
+  ipPrivacySignals?: string[]
+} | null => {
+  if (!isFreeModeUnavailableError(error)) return null
+  const countryCode = getCountryCodeFromFreeModeError(error) ?? 'UNKNOWN'
+  const countryBlockReason = (error as { countryBlockReason?: unknown })
+    .countryBlockReason
+  const ipPrivacySignals = (error as { ipPrivacySignals?: unknown })
+    .ipPrivacySignals
+
+  return {
+    countryCode,
+    countryBlockReason:
+      typeof countryBlockReason === 'string' ? countryBlockReason : undefined,
+    ipPrivacySignals: Array.isArray(ipPrivacySignals)
+      ? ipPrivacySignals.filter(
+          (signal): signal is string => typeof signal === 'string',
+        )
+      : undefined,
+  }
+}
+
 /**
  * Freebuff waiting-room gate errors returned by /api/v1/chat/completions.
  *
