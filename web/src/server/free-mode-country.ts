@@ -65,7 +65,7 @@ type ResolvedCountryAccess = Omit<
   countryCode: string
 }
 
-const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
+export const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
 const IPINFO_PRIVACY_CACHE_MAX_ENTRIES = 5000
 const ipinfoPrivacyCache = new Map<
   string,
@@ -109,13 +109,6 @@ function setIpinfoPrivacyCache(
   ip: string,
   privacy: FreeModeIpPrivacy | null,
 ): void {
-  const now = Date.now()
-  for (const [cachedIp, cached] of ipinfoPrivacyCache) {
-    if (cached.expiresAt <= now) {
-      ipinfoPrivacyCache.delete(cachedIp)
-    }
-  }
-
   while (ipinfoPrivacyCache.size >= IPINFO_PRIVACY_CACHE_MAX_ENTRIES) {
     const oldestIp = ipinfoPrivacyCache.keys().next().value
     if (!oldestIp) break
@@ -123,7 +116,7 @@ function setIpinfoPrivacyCache(
   }
 
   ipinfoPrivacyCache.set(ip, {
-    expiresAt: now + IPINFO_PRIVACY_CACHE_TTL_MS,
+    expiresAt: Date.now() + IPINFO_PRIVACY_CACHE_TTL_MS,
     privacy,
   })
 }
@@ -180,25 +173,6 @@ export async function lookupIpinfoPrivacy(params: {
   }
   setIpinfoPrivacyCache(params.ip, privacy)
   return privacy
-}
-
-async function getIpPrivacy(
-  clientIp: string | undefined,
-  options: FreeModeCountryAccessOptions,
-): Promise<FreeModeIpPrivacy | null> {
-  if (!clientIp) return null
-  try {
-    if (options.lookupIpPrivacy) {
-      return await options.lookupIpPrivacy(clientIp)
-    }
-    return await lookupIpinfoPrivacy({
-      ip: clientIp,
-      token: options.ipinfoToken,
-      fetch: options.fetch ?? globalThis.fetch,
-    })
-  } catch {
-    return null
-  }
 }
 
 export async function getFreeModeCountryAccess(
@@ -290,7 +264,19 @@ export async function getFreeModeCountryAccess(
     }
   }
 
-  const ipPrivacy = await getIpPrivacy(clientIp, options)
+  let ipPrivacy: FreeModeIpPrivacy | null
+  try {
+    ipPrivacy = options.lookupIpPrivacy
+      ? await options.lookupIpPrivacy(clientIp)
+      : await lookupIpinfoPrivacy({
+          ip: clientIp,
+          token: options.ipinfoToken,
+          fetch: options.fetch ?? globalThis.fetch,
+        })
+  } catch {
+    ipPrivacy = null
+  }
+
   if (!ipPrivacy) {
     return {
       ...baseAccess,

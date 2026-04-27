@@ -163,11 +163,15 @@ const LOGGER = {
 function makeDeps(
   sessionDeps: SessionDeps,
   userId: string | null,
-  opts: { banned?: boolean } = {},
+  opts: {
+    banned?: boolean
+    getCountryAccess?: FreebuffSessionDeps['getCountryAccess']
+  } = {},
 ): FreebuffSessionDeps {
   return {
     logger: LOGGER as unknown as FreebuffSessionDeps['logger'],
-    getCountryAccess: async (req) => testCountryAccess(req),
+    getCountryAccess:
+      opts.getCountryAccess ?? (async (req) => testCountryAccess(req)),
     getUserInfoFromApiKey: (async () =>
       userId
         ? { id: userId, banned: opts.banned ?? false }
@@ -330,6 +334,42 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
     expect(body.countryBlockReason).toBe('country_not_allowed')
+  })
+
+  test('skips country recheck on GET when the stored check is recent', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'inst-1',
+      model: DEFAULT_MODEL,
+      country_code: 'US',
+      cf_country: 'US',
+      geoip_country: null,
+      country_block_reason: null,
+      ip_privacy_signals: [],
+      client_ip_hash: 'test-ip-hash',
+      country_checked_at: new Date('2026-04-17T11:45:00Z'),
+      queued_at: new Date('2026-04-17T11:45:00Z'),
+      admitted_at: null,
+      expires_at: null,
+      created_at: new Date('2026-04-17T11:45:00Z'),
+      updated_at: new Date('2026-04-17T11:45:00Z'),
+    })
+    let countryChecks = 0
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'FR' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async (req) => {
+          countryChecks++
+          return testCountryAccess(req)
+        },
+      }),
+    )
+    const body = await resp.json()
+    expect(resp.status).toBe(200)
+    expect(body.status).toBe('queued')
+    expect(countryChecks).toBe(0)
   })
 
   test('returns banned 403 on GET for banned user', async () => {

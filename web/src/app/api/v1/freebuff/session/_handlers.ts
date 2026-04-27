@@ -6,11 +6,19 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
-import { getFreeModeCountryAccess } from '@/server/free-mode-country'
+import { getSessionRow as getStoredSessionRow } from '@/server/free-session/store'
+import {
+  FREE_MODE_ALLOWED_COUNTRIES,
+  getFreeModeCountryAccess,
+  IPINFO_PRIVACY_CACHE_TTL_MS,
+} from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
-import type { FreeSessionCountryAccessMetadata } from '@/server/free-session/types'
+import type {
+  FreeSessionCountryAccessMetadata,
+  InternalSessionRow,
+} from '@/server/free-session/types'
 import type { SessionDeps } from '@/server/free-session/public-api'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -57,10 +65,10 @@ function toSessionCountryAccess(
 async function countryBlockedResponse(
   req: NextRequest,
   deps: FreebuffSessionDeps,
-): Promise<
-  | { response: NextResponse; countryAccess: FreeModeCountryAccess }
-  | { response: null; countryAccess: FreeModeCountryAccess }
-> {
+): Promise<{
+  response: NextResponse | null
+  countryAccess: FreeModeCountryAccess
+}> {
   const countryAccess = await getCountryAccess(req, deps)
   if (countryAccess.allowed) {
     return { response: null, countryAccess }
@@ -77,6 +85,32 @@ async function countryBlockedResponse(
     ),
     countryAccess,
   }
+}
+
+function hasRecentAllowedCountryCheck(
+  row: InternalSessionRow | null,
+  now: Date,
+): boolean {
+  if (!row?.country_checked_at || row.country_block_reason !== null) {
+    return false
+  }
+  if (!row.country_code || !FREE_MODE_ALLOWED_COUNTRIES.has(row.country_code)) {
+    return false
+  }
+  return (
+    now.getTime() - row.country_checked_at.getTime() <
+    IPINFO_PRIVACY_CACHE_TTL_MS
+  )
+}
+
+async function shouldSkipGetCountryCheck(
+  userId: string,
+  deps: FreebuffSessionDeps,
+): Promise<boolean> {
+  const getSessionRow = deps.sessionDeps?.getSessionRow ?? getStoredSessionRow
+  const row = await getSessionRow(userId)
+  const now = deps.sessionDeps?.now?.() ?? new Date()
+  return hasRecentAllowedCountryCheck(row, now)
 }
 
 /** Header the CLI uses to identify which instance is polling. Used by GET to
@@ -220,10 +254,12 @@ export async function getFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const { response: blocked } = await countryBlockedResponse(req, deps)
-  if (blocked) return blocked
-
   try {
+    if (!(await shouldSkipGetCountryCheck(auth.userId, deps))) {
+      const { response: blocked } = await countryBlockedResponse(req, deps)
+      if (blocked) return blocked
+    }
+
     const claimedInstanceId =
       req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
     const state = await getSessionState({
