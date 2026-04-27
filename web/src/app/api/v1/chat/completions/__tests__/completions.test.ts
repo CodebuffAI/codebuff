@@ -646,7 +646,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           return new Response(
             JSON.stringify({
               id: 'test-id',
-              model: 'accounts/james-65d217/deployments/mjb4i7ea',
+              model: 'accounts/fireworks/models/glm-5p1',
               choices: [{ message: { content: 'test response' } }],
               usage: {
                 prompt_tokens: 10,
@@ -697,7 +697,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(response.status).toBe(200)
         expect(fetchedBodies).toHaveLength(1)
         expect(fetchedBodies[0].model).toBe(
-          'accounts/james-65d217/deployments/mjb4i7ea',
+          'accounts/fireworks/models/glm-5p1',
         )
         expect(body.model).toBe('z-ai/glm-5.1')
         expect(body.provider).toBe('Fireworks')

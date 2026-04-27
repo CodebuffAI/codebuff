@@ -13,6 +13,9 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const STANDARD_MODEL_ID = 'accounts/fireworks/models/glm-5p1'
 const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/mjb4i7ea'
+const TEST_DEPLOYMENT_MAP = {
+  'z-ai/glm-5.1': DEPLOYMENT_MODEL_ID,
+}
 const IN_DEPLOYMENT_HOURS = new Date('2026-04-17T16:00:00Z') // Friday, 12pm ET / 9am PT
 const BEFORE_DEPLOYMENT_HOURS = new Date('2026-04-17T12:59:00Z') // Friday, 8:59am ET
 const AFTER_DEPLOYMENT_HOURS = new Date('2026-04-18T00:00:00Z') // Friday, 5pm PT
@@ -108,12 +111,56 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
       expect(response.status).toBe(200)
       expect(fetchCalls).toHaveLength(1)
       expect(fetchCalls[0]).toBe(STANDARD_MODEL_ID)
+    })
+
+    it('uses standard API for GLM during hours when no deployment is mapped', async () => {
+      const fetchCalls: string[] = []
+
+      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string)
+        fetchCalls.push(body.model)
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: minimalBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: IN_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([STANDARD_MODEL_ID])
+    })
+
+    it('keeps GLM unavailable outside hours when no deployment is mapped', async () => {
+      const mockFetch = mock(async () => {
+        throw new Error('should not fetch outside deployment hours')
+      }) as unknown as typeof globalThis.fetch
+
+      const response = await createFireworksRequestWithFallback({
+        body: minimalBody as never,
+        originalModel: 'z-ai/glm-5.1',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: true,
+        sessionId: 'test-user-id',
+        now: BEFORE_DEPLOYMENT_HOURS,
+      })
+
+      expect(response.status).toBe(503)
+      const body = await response.json()
+      expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
     })
 
     it('tries custom deployment during deployment hours', async () => {
@@ -131,6 +178,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -164,6 +212,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -197,6 +246,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -224,6 +274,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -249,6 +300,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -272,6 +324,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: BEFORE_DEPLOYMENT_HOURS,
       })
@@ -293,6 +346,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: BEFORE_DEPLOYMENT_HOURS,
       })
@@ -317,6 +371,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: BEFORE_DEPLOYMENT_HOURS,
       })
@@ -343,6 +398,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -371,6 +427,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -397,6 +454,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -423,6 +481,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -450,6 +509,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -476,6 +536,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -502,6 +563,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: false,
+        now: IN_DEPLOYMENT_HOURS,
         sessionId: 'test-user-id',
       })
 
@@ -529,6 +591,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -563,6 +626,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -588,6 +652,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })
@@ -614,6 +679,7 @@ describe('Fireworks deployment routing', () => {
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
+        deploymentMap: TEST_DEPLOYMENT_MAP,
         sessionId: 'test-user-id',
         now: IN_DEPLOYMENT_HOURS,
       })

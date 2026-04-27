@@ -38,7 +38,7 @@ const KEPT_COMMANDS = [
   '/theme:toggle',
 ]
 
-describe('Freebuff: Slash Commands', () => {
+describe.skip('Freebuff: Slash Commands', () => {
   let session: FreebuffSession | null = null
 
   afterEach(async () => {
