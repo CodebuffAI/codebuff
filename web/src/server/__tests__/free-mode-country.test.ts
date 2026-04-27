@@ -87,6 +87,26 @@ describe('free mode country access', () => {
     expect(access.hasClientIp).toBe(true)
   })
 
+  test('prefers CF-Connecting-IP over X-Forwarded-For', async () => {
+    let checkedIp = ''
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'cf-connecting-ip': '203.0.113.10',
+        'x-forwarded-for': '198.51.100.42',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        lookupIpPrivacy: async (ip) => {
+          checkedIp = ip
+          return { signals: [] }
+        },
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(checkedIp).toBe('203.0.113.10')
+  })
+
   test('blocks allowlisted countries when the client IP is an anonymous network', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
@@ -124,7 +144,7 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
   })
 
-  test('allows allowlisted countries when IPinfo only reports hosting or service', async () => {
+  test('blocks allowlisted countries when IPinfo reports hosting or service', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -137,8 +157,8 @@ describe('free mode country access', () => {
         }),
       },
     )
-    expect(access.allowed).toBe(true)
-    expect(access.blockReason).toBe(null)
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
     expect(access.ipPrivacy?.signals).toEqual(['hosting', 'service'])
   })
 
@@ -159,7 +179,7 @@ describe('free mode country access', () => {
     expect(access.blockReason).toBe(null)
   })
 
-  test('allows allowlisted countries when privacy lookup fails', async () => {
+  test('blocks allowlisted countries when privacy lookup fails', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -172,8 +192,8 @@ describe('free mode country access', () => {
         },
       },
     )
-    expect(access.allowed).toBe(true)
-    expect(access.blockReason).toBe(null)
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('ip_privacy_lookup_failed')
     expect(access.ipPrivacy).toBe(null)
   })
 
@@ -202,8 +222,25 @@ describe('free mode country access', () => {
 
     expect(requestedUrl).toContain('https://api.ipinfo.io/lookup/')
     expect(privacy).toEqual({
-      signals: ['tor', 'relay', 'res_proxy', 'hosting'],
+      signals: ['tor', 'relay', 'res_proxy', 'hosting', 'anonymous'],
     })
+  })
+
+  test('hashes client IP when a hash secret is provided', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        ipHashSecret: 'secret',
+        lookupIpPrivacy: async () => ({ signals: [] }),
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.clientIpHash).toHaveLength(64)
+    expect(access.clientIpHash).not.toContain('203.0.113.10')
   })
 
   test('blocks generic IPinfo anonymous results without a specific signal', async () => {

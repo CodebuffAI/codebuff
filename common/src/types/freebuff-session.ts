@@ -27,6 +27,7 @@ export type FreebuffCountryBlockReason =
   | 'anonymous_network'
   | 'missing_client_ip'
   | 'unresolved_client_ip'
+  | 'ip_privacy_lookup_failed'
 
 export type FreebuffIpPrivacySignal =
   | 'anonymous'

@@ -6,7 +6,10 @@ import { and, asc, count, eq, gte, lt, sql } from 'drizzle-orm'
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
 import type { FireworksHealth } from './fireworks-health'
-import type { InternalSessionRow } from './types'
+import type {
+  FreeSessionCountryAccessMetadata,
+  InternalSessionRow,
+} from './types'
 
 /** Generate a cryptographically random instance id (token). */
 export function newInstanceId(): string {
@@ -51,13 +54,30 @@ export class FreeSessionModelLockedError extends Error {
   }
 }
 
+function countryAccessColumns(
+  countryAccess: FreeSessionCountryAccessMetadata | undefined,
+) {
+  if (!countryAccess) return {}
+  return {
+    country_code: countryAccess.countryCode,
+    cf_country: countryAccess.cfCountry,
+    geoip_country: countryAccess.geoipCountry,
+    country_block_reason: countryAccess.blockReason,
+    ip_privacy_signals: countryAccess.ipPrivacySignals,
+    client_ip_hash: countryAccess.clientIpHash,
+    country_checked_at: countryAccess.checkedAt,
+  }
+}
+
 export async function joinOrTakeOver(params: {
   userId: string
   model: string
   now: Date
+  countryAccess?: FreeSessionCountryAccessMetadata
 }): Promise<InternalSessionRow> {
-  const { userId, model, now } = params
+  const { userId, model, now, countryAccess } = params
   const nextInstanceId = newInstanceId()
+  const countryAccessUpdate = countryAccessColumns(countryAccess)
 
   // postgres-js does NOT coerce raw JS Date values when they're interpolated
   // inside a `sql\`...\`` fragment (the column-type hint that Drizzle's
@@ -93,6 +113,7 @@ export async function joinOrTakeOver(params: {
       status: 'queued',
       active_instance_id: nextInstanceId,
       model,
+      ...countryAccessUpdate,
       queued_at: now,
       created_at: now,
       updated_at: now,
@@ -108,6 +129,7 @@ export async function joinOrTakeOver(params: {
           WHEN ${activeUnexpired} AND NOT (${sameModel}) THEN ${schema.freeSession.active_instance_id}
           ELSE ${nextInstanceId}
         END`,
+        ...countryAccessUpdate,
         updated_at: now,
         status: sql`CASE WHEN ${activeUnexpired} THEN 'active'::free_session_status ELSE 'queued'::free_session_status END`,
         // Keep model when active+unexpired (locked); switch otherwise.
@@ -256,7 +278,10 @@ export async function queuePositionFor(params: {
  * Rows whose `expires_at` is in the past but still inside `expires_at + grace`
  * are kept so an in-flight agent run can finish. Safe to call repeatedly.
  */
-export async function sweepExpired(now: Date, graceMs: number): Promise<number> {
+export async function sweepExpired(
+  now: Date,
+  graceMs: number,
+): Promise<number> {
   const cutoff = new Date(now.getTime() - graceMs)
   const deleted = await db
     .delete(schema.freeSession)
@@ -314,7 +339,10 @@ export async function admitFromQueue(params: {
   sessionLengthMs: number
   now: Date
   health: FireworksHealth
-}): Promise<{ admitted: InternalSessionRow[]; skipped: FireworksHealth | null }> {
+}): Promise<{
+  admitted: InternalSessionRow[]
+  skipped: FireworksHealth | null
+}> {
   const { model, sessionLengthMs, now, health } = params
 
   if (health !== 'healthy') {
@@ -345,7 +373,10 @@ export async function admitFromQueue(params: {
           eq(schema.freeSession.model, model),
         ),
       )
-      .orderBy(asc(schema.freeSession.queued_at), asc(schema.freeSession.user_id))
+      .orderBy(
+        asc(schema.freeSession.queued_at),
+        asc(schema.freeSession.user_id),
+      )
       .limit(1)
       .for('update', { skipLocked: true })
 
