@@ -9,11 +9,67 @@ import {
 } from '../_handlers'
 
 import type { FreebuffSessionDeps } from '../_handlers'
+import type { FreeModeCountryAccess } from '@/server/free-mode-country'
 import type { SessionDeps } from '@/server/free-session/public-api'
 import type { InternalSessionRow } from '@/server/free-session/types'
 import type { NextRequest } from 'next/server'
 
 const DEFAULT_MODEL = 'minimax/minimax-m2.7'
+
+function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
+  const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
+  const hasClientIp = Boolean(
+    req.headers.get('x-forwarded-for') ??
+    req.headers.get('cf-connecting-ip') ??
+    req.headers.get('x-real-ip'),
+  )
+  if (cfCountry === 'T1' || cfCountry === 'XX') {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'anonymized_or_unknown_country',
+      cfCountry,
+      geoipCountry: null,
+      ipPrivacy: null,
+      hasClientIp,
+      clientIpHash: hasClientIp ? 'test-ip-hash' : null,
+    }
+  }
+  if (!cfCountry || !hasClientIp) {
+    return {
+      allowed: false,
+      countryCode: null,
+      blockReason: 'missing_client_ip',
+      cfCountry,
+      geoipCountry: null,
+      ipPrivacy: null,
+      hasClientIp,
+      clientIpHash: hasClientIp ? 'test-ip-hash' : null,
+    }
+  }
+  if (cfCountry !== 'US') {
+    return {
+      allowed: false,
+      countryCode: cfCountry,
+      blockReason: 'country_not_allowed',
+      cfCountry,
+      geoipCountry: null,
+      ipPrivacy: null,
+      hasClientIp,
+      clientIpHash: 'test-ip-hash',
+    }
+  }
+  return {
+    allowed: true,
+    countryCode: cfCountry,
+    blockReason: null,
+    cfCountry,
+    geoipCountry: null,
+    ipPrivacy: { signals: [] },
+    hasClientIp,
+    clientIpHash: 'test-ip-hash',
+  }
+}
 
 function makeReq(
   apiKey: string | null,
@@ -71,12 +127,19 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     endSession: async (userId) => {
       rows.delete(userId)
     },
-    joinOrTakeOver: async ({ userId, model, now }) => {
+    joinOrTakeOver: async ({ userId, model, now, countryAccess }) => {
       const r: InternalSessionRow = {
         user_id: userId,
         status: 'queued',
         active_instance_id: `inst-${++instanceCounter}`,
         model,
+        country_code: countryAccess?.countryCode ?? null,
+        cf_country: countryAccess?.cfCountry ?? null,
+        geoip_country: countryAccess?.geoipCountry ?? null,
+        country_block_reason: countryAccess?.blockReason ?? null,
+        ip_privacy_signals: countryAccess?.ipPrivacySignals ?? null,
+        client_ip_hash: countryAccess?.clientIpHash ?? null,
+        country_checked_at: countryAccess?.checkedAt ?? null,
         queued_at: now,
         admitted_at: null,
         expires_at: null,
@@ -100,10 +163,15 @@ const LOGGER = {
 function makeDeps(
   sessionDeps: SessionDeps,
   userId: string | null,
-  opts: { banned?: boolean } = {},
+  opts: {
+    banned?: boolean
+    getCountryAccess?: FreebuffSessionDeps['getCountryAccess']
+  } = {},
 ): FreebuffSessionDeps {
   return {
     logger: LOGGER as unknown as FreebuffSessionDeps['logger'],
+    getCountryAccess:
+      opts.getCountryAccess ?? (async (req) => testCountryAccess(req)),
     getUserInfoFromApiKey: (async () =>
       userId
         ? { id: userId, banned: opts.banned ?? false }
@@ -141,6 +209,12 @@ describe('POST /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('queued')
     expect(body.instanceId).toBe('inst-1')
+    expect(sessionDeps.rows.get('u1')).toMatchObject({
+      country_code: 'US',
+      cf_country: 'US',
+      ip_privacy_signals: [],
+      client_ip_hash: 'test-ip-hash',
+    })
   })
 
   test('returns disabled when waiting room flag is off', async () => {
@@ -260,6 +334,42 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.status).toBe('country_blocked')
     expect(body.countryCode).toBe('FR')
     expect(body.countryBlockReason).toBe('country_not_allowed')
+  })
+
+  test('skips country recheck on GET when the stored check is recent', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'inst-1',
+      model: DEFAULT_MODEL,
+      country_code: 'US',
+      cf_country: 'US',
+      geoip_country: null,
+      country_block_reason: null,
+      ip_privacy_signals: [],
+      client_ip_hash: 'test-ip-hash',
+      country_checked_at: new Date('2026-04-17T11:45:00Z'),
+      queued_at: new Date('2026-04-17T11:45:00Z'),
+      admitted_at: null,
+      expires_at: null,
+      created_at: new Date('2026-04-17T11:45:00Z'),
+      updated_at: new Date('2026-04-17T11:45:00Z'),
+    })
+    let countryChecks = 0
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'FR' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async (req) => {
+          countryChecks++
+          return testCountryAccess(req)
+        },
+      }),
+    )
+    const body = await resp.json()
+    expect(resp.status).toBe(200)
+    expect(body.status).toBe('queued')
+    expect(countryChecks).toBe(0)
   })
 
   test('returns banned 403 on GET for banned user', async () => {

@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto'
+
 import geoip from 'geoip-lite'
 
 import type { NextRequest } from 'next/server'
@@ -42,6 +44,7 @@ export type FreeModeCountryAccess = {
   geoipCountry: string | null
   ipPrivacy: FreeModeIpPrivacy | null
   hasClientIp: boolean
+  clientIpHash: string | null
 }
 
 export type LookupIpPrivacyFn = (
@@ -52,6 +55,7 @@ type FreeModeCountryAccessOptions = {
   lookupIpPrivacy?: LookupIpPrivacyFn
   fetch?: typeof globalThis.fetch
   ipinfoToken: string
+  ipHashSecret?: string
 }
 
 type ResolvedCountryAccess = Omit<
@@ -61,7 +65,7 @@ type ResolvedCountryAccess = Omit<
   countryCode: string
 }
 
-const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
+export const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
 const IPINFO_PRIVACY_CACHE_MAX_ENTRIES = 5000
 const ipinfoPrivacyCache = new Map<
   string,
@@ -75,31 +79,36 @@ const FREE_MODE_BLOCKED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
   'tor',
   'relay',
   'res_proxy',
+  'hosting',
+  'service',
 ])
 
 export function extractClientIp(req: NextRequest): string | undefined {
+  const cfConnectingIp = req.headers.get('cf-connecting-ip')?.trim()
+  if (cfConnectingIp) return cfConnectingIp
+
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+
   const forwardedFor = req.headers.get('x-forwarded-for')
   if (forwardedFor) {
     return forwardedFor.split(',')[0].trim()
   }
-  return (
-    req.headers.get('cf-connecting-ip') ??
-    req.headers.get('x-real-ip') ??
-    undefined
-  )
+  return undefined
+}
+
+function hashClientIp(
+  clientIp: string | undefined,
+  secret: string | undefined,
+): string | null {
+  if (!clientIp || !secret) return null
+  return createHmac('sha256', secret).update(clientIp).digest('hex')
 }
 
 function setIpinfoPrivacyCache(
   ip: string,
   privacy: FreeModeIpPrivacy | null,
 ): void {
-  const now = Date.now()
-  for (const [cachedIp, cached] of ipinfoPrivacyCache) {
-    if (cached.expiresAt <= now) {
-      ipinfoPrivacyCache.delete(cachedIp)
-    }
-  }
-
   while (ipinfoPrivacyCache.size >= IPINFO_PRIVACY_CACHE_MAX_ENTRIES) {
     const oldestIp = ipinfoPrivacyCache.keys().next().value
     if (!oldestIp) break
@@ -107,7 +116,7 @@ function setIpinfoPrivacyCache(
   }
 
   ipinfoPrivacyCache.set(ip, {
-    expiresAt: now + IPINFO_PRIVACY_CACHE_TTL_MS,
+    expiresAt: Date.now() + IPINFO_PRIVACY_CACHE_TTL_MS,
     privacy,
   })
 }
@@ -134,10 +143,7 @@ function privacySignalsFromIpinfo(
   ) {
     signals.push('service')
   }
-  if (
-    data.is_anonymous === true &&
-    !signals.some((signal) => FREE_MODE_BLOCKED_PRIVACY_SIGNALS.has(signal))
-  ) {
+  if (data.is_anonymous === true) {
     signals.push('anonymous')
   }
   return signals
@@ -169,31 +175,13 @@ export async function lookupIpinfoPrivacy(params: {
   return privacy
 }
 
-async function getIpPrivacy(
-  clientIp: string | undefined,
-  options: FreeModeCountryAccessOptions,
-): Promise<FreeModeIpPrivacy | null> {
-  if (!clientIp) return null
-  try {
-    if (options.lookupIpPrivacy) {
-      return await options.lookupIpPrivacy(clientIp)
-    }
-    return await lookupIpinfoPrivacy({
-      ip: clientIp,
-      token: options.ipinfoToken,
-      fetch: options.fetch ?? globalThis.fetch,
-    })
-  } catch {
-    return null
-  }
-}
-
 export async function getFreeModeCountryAccess(
   req: NextRequest,
   options: FreeModeCountryAccessOptions,
 ): Promise<FreeModeCountryAccess> {
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
   const clientIp = extractClientIp(req)
+  const clientIpHash = hashClientIp(clientIp, options.ipHashSecret)
 
   if (cfCountry && CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES.has(cfCountry)) {
     return {
@@ -204,6 +192,7 @@ export async function getFreeModeCountryAccess(
       geoipCountry: null,
       ipPrivacy: null,
       hasClientIp: Boolean(clientIp),
+      clientIpHash,
     }
   }
 
@@ -215,6 +204,7 @@ export async function getFreeModeCountryAccess(
       cfCountry,
       geoipCountry: null,
       hasClientIp: Boolean(clientIp),
+      clientIpHash,
     }
   } else if (!clientIp) {
     return {
@@ -225,6 +215,7 @@ export async function getFreeModeCountryAccess(
       geoipCountry: null,
       ipPrivacy: null,
       hasClientIp: false,
+      clientIpHash,
     }
   } else {
     const geoipCountry = geoip.lookup(clientIp)?.country ?? null
@@ -237,6 +228,7 @@ export async function getFreeModeCountryAccess(
         geoipCountry: null,
         ipPrivacy: null,
         hasClientIp: true,
+        clientIpHash,
       }
     }
 
@@ -245,6 +237,7 @@ export async function getFreeModeCountryAccess(
       cfCountry: null,
       geoipCountry,
       hasClientIp: true,
+      clientIpHash,
     }
   }
 
@@ -254,6 +247,7 @@ export async function getFreeModeCountryAccess(
       allowed: false,
       blockReason: 'country_not_allowed',
       ipPrivacy: null,
+      clientIpHash,
     }
   }
 
@@ -266,12 +260,35 @@ export async function getFreeModeCountryAccess(
       geoipCountry: null,
       ipPrivacy: null,
       hasClientIp: false,
+      clientIpHash,
     }
   }
 
-  const ipPrivacy = await getIpPrivacy(clientIp, options)
+  let ipPrivacy: FreeModeIpPrivacy | null
+  try {
+    ipPrivacy = options.lookupIpPrivacy
+      ? await options.lookupIpPrivacy(clientIp)
+      : await lookupIpinfoPrivacy({
+          ip: clientIp,
+          token: options.ipinfoToken,
+          fetch: options.fetch ?? globalThis.fetch,
+        })
+  } catch {
+    ipPrivacy = null
+  }
+
+  if (!ipPrivacy) {
+    return {
+      ...baseAccess,
+      allowed: false,
+      blockReason: 'ip_privacy_lookup_failed',
+      ipPrivacy: null,
+      clientIpHash,
+    }
+  }
+
   if (
-    ipPrivacy?.signals.some((signal) =>
+    ipPrivacy.signals.some((signal) =>
       FREE_MODE_BLOCKED_PRIVACY_SIGNALS.has(signal),
     )
   ) {
@@ -280,6 +297,7 @@ export async function getFreeModeCountryAccess(
       allowed: false,
       blockReason: 'anonymous_network',
       ipPrivacy,
+      clientIpHash,
     }
   }
 
@@ -288,5 +306,6 @@ export async function getFreeModeCountryAccess(
     allowed: true,
     blockReason: null,
     ipPrivacy,
+    clientIpHash,
   }
 }

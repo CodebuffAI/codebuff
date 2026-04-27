@@ -1,4 +1,8 @@
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
+import type {
+  FreebuffCountryBlockReason,
+  FreebuffIpPrivacySignal,
+} from '@codebuff/common/types/freebuff-session'
 
 export type FreeSessionStatus = 'queued' | 'active'
 
@@ -17,9 +21,26 @@ export interface InternalSessionRow {
   active_instance_id: string
   /** Freebuff model id this row is queued for (or locked to, once active). */
   model: string
+  country_code?: string | null
+  cf_country?: string | null
+  geoip_country?: string | null
+  country_block_reason?: FreebuffCountryBlockReason | null
+  ip_privacy_signals?: FreebuffIpPrivacySignal[] | null
+  client_ip_hash?: string | null
+  country_checked_at?: Date | null
   queued_at: Date
   admitted_at: Date | null
   expires_at: Date | null
   created_at: Date
   updated_at: Date
+}
+
+export interface FreeSessionCountryAccessMetadata {
+  countryCode: string | null
+  cfCountry: string | null
+  geoipCountry: string | null
+  blockReason: FreebuffCountryBlockReason | null
+  ipPrivacySignals: FreebuffIpPrivacySignal[] | null
+  clientIpHash: string | null
+  checkedAt: Date
 }

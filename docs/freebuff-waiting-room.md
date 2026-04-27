@@ -68,6 +68,13 @@ CREATE TABLE free_session (
   status              free_session_status NOT NULL,
   active_instance_id  text NOT NULL,
   model               text NOT NULL,
+  country_code        text,
+  cf_country          text,
+  geoip_country       text,
+  country_block_reason text,
+  ip_privacy_signals  text[],
+  client_ip_hash      text,
+  country_checked_at  timestamptz,
   queued_at           timestamptz NOT NULL DEFAULT now(),
   admitted_at         timestamptz,
   expires_at          timestamptz,
@@ -87,6 +94,7 @@ Migrations: `packages/internal/src/db/migrations/0043_vengeful_boomer.sql` (init
 - **PK on `user_id`** is the structural enforcement of "one session per account". No app-logic race can produce two rows for one user.
 - **`active_instance_id`** rotates on every `POST /session` call. This is how we enforce one-CLI-at-a-time (see [Single-instance enforcement](#single-instance-enforcement)).
 - **`model` column.** Populated by the POST handler; determines which queue the row belongs to while queued and is fixed for the life of an active session. Switching models while an active session is live is rejected (`model_locked`, 409).
+- **Country/privacy columns.** Populated from the POST `/session` country gate so active-session audits can see the resolved country, Cloudflare country header, GeoIP fallback country, IPinfo privacy signals, and a keyed hash of the client IP. Raw IPs are not stored.
 - **All timestamps server-supplied.** The client never sends `queued_at`, `admitted_at`, or `expires_at` — they are either `DEFAULT now()` or computed server-side during admission.
 - **FK CASCADE on user delete** keeps the table clean without a background job.
 
@@ -169,6 +177,8 @@ All endpoints authenticate via the standard `Authorization: Bearer <api-key>` or
 - Existing active+unexpired row, **same model** → rotate `active_instance_id`, preserve `status`/`admitted_at`/`expires_at`.
 - Existing active+unexpired row, **different model** → reject with `model_locked` (HTTP 409); `active_instance_id` is **not** rotated so the other CLI stays valid. Client must DELETE the session before switching.
 - Existing active+expired row → reset to queued with fresh `queued_at` and the requested `model` (re-queue at back).
+
+Before any of those state transitions, the handler requires a resolved allowlisted country and a successful IPinfo privacy check. IPinfo `anonymous`, `vpn`, `proxy`, `tor`, `relay`, `res_proxy`, `hosting`, and `service` signals are blocked; privacy lookup failures fail closed.
 
 Response shapes:
 
