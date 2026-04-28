@@ -281,10 +281,10 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(body.status).toBe('queued')
   })
 
-  test('returns model_unavailable for GLM outside deployment hours', async () => {
+  test('returns model_unavailable for Kimi outside deployment hours', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
-      makeReq('ok', { model: 'z-ai/glm-5.1' }),
+      makeReq('ok', { model: 'moonshotai/kimi-k2.6' }),
       makeDeps(sessionDeps, 'u1'),
     )
     expect(resp.status).toBe(409)

@@ -37,7 +37,7 @@ import type {
 
 /**
  * Per-model admission rate limits. Keyed by freebuff model id; a model not
- * in the map has no rate limit applied. Today only GLM 5.1 is limited
+ * in the map has no rate limit applied. Today only Kimi K2.6 is limited
  * (Minimax is cheap enough to leave unlimited).
  *
  * Hard-coded rather than env-driven: the values need to be observable in the
@@ -45,7 +45,7 @@ import type {
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  'z-ai/glm-5.1': { limit: 5, windowHours: 12 },
+  'moonshotai/kimi-k2.6': { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the

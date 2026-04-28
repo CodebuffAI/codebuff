@@ -67,6 +67,11 @@ describe('editor agent', () => {
       expect(glmEditor.model).toBe('z-ai/glm-5.1')
     })
 
+    test('creates kimi editor', () => {
+      const kimiEditor = createCodeEditor({ model: 'kimi' })
+      expect(kimiEditor.model).toBe('moonshotai/kimi-k2.6')
+    })
+
     test('creates minimax editor', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
       expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
@@ -82,6 +87,12 @@ describe('editor agent', () => {
       const glmEditor = createCodeEditor({ model: 'glm' })
       expect(glmEditor.instructionsPrompt).not.toContain('<think>')
       expect(glmEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('kimi editor does not include think tags in instructions', () => {
+      const kimiEditor = createCodeEditor({ model: 'kimi' })
+      expect(kimiEditor.instructionsPrompt).not.toContain('<think>')
+      expect(kimiEditor.instructionsPrompt).not.toContain('</think>')
     })
 
     test('minimax editor does not include think tags in instructions', () => {

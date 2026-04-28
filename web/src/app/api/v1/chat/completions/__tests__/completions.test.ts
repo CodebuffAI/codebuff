@@ -642,7 +642,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
     })
 
-    it('lets freebuff use GLM 5.1 through Fireworks availability rules', async () => {
+    it('lets freebuff use Kimi K2.6 through Fireworks availability rules', async () => {
       const fetchedBodies: Record<string, unknown>[] = []
       const fetchViaFireworks = mock(
         async (_url: string | URL | Request, init?: RequestInit) => {
@@ -650,7 +650,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           return new Response(
             JSON.stringify({
               id: 'test-id',
-              model: 'accounts/fireworks/models/glm-5p1',
+              model: 'accounts/fireworks/models/kimi-k2p6',
               choices: [{ message: { content: 'test response' } }],
               usage: {
                 prompt_tokens: 10,
@@ -672,7 +672,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
-            model: 'z-ai/glm-5.1',
+            model: 'moonshotai/kimi-k2.6',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-free',
@@ -701,9 +701,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(response.status).toBe(200)
         expect(fetchedBodies).toHaveLength(1)
         expect(fetchedBodies[0].model).toBe(
-          'accounts/fireworks/models/glm-5p1',
+          'accounts/fireworks/models/kimi-k2p6',
         )
-        expect(body.model).toBe('z-ai/glm-5.1')
+        expect(body.model).toBe('moonshotai/kimi-k2.6')
         expect(body.provider).toBe('Fireworks')
       } else {
         expect(response.status).toBe(503)

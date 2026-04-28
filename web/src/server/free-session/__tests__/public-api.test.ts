@@ -203,12 +203,12 @@ describe('requestSession', () => {
   test('deployment-hours-only model is unavailable outside deployment hours', async () => {
     const state = await requestSession({
       userId: 'u1',
-      model: 'z-ai/glm-5.1',
+      model: 'moonshotai/kimi-k2.6',
       deps,
     })
     expect(state).toEqual({
       status: 'model_unavailable',
-      requestedModel: 'z-ai/glm-5.1',
+      requestedModel: 'moonshotai/kimi-k2.6',
       availableHours: '9am ET-5pm PT every day',
     })
     expect(deps.rows.size).toBe(0)
@@ -216,18 +216,18 @@ describe('requestSession', () => {
 
   test('queued response includes a per-model depth snapshot for the selector', async () => {
     deps._tick(new Date('2026-04-17T16:00:00Z'))
-    // Seed 2 users in MiniMax + 1 in GLM so the returned map captures both.
+    // Seed 2 users in MiniMax + 1 in Kimi so the returned map captures both.
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u3', model: 'z-ai/glm-5.1', deps })
+    await requestSession({ userId: 'u3', model: 'moonshotai/kimi-k2.6', deps })
 
     const state = await getSessionState({ userId: 'u1', deps })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.queueDepthByModel).toEqual({
       [DEFAULT_MODEL]: 2,
-      'z-ai/glm-5.1': 1,
+      'moonshotai/kimi-k2.6': 1,
     })
   })
 
@@ -302,7 +302,7 @@ describe('requestSession', () => {
   })
 
   test('instant-admit: per-model capacities are independent', async () => {
-    // MiniMax saturated at 1 active, GLM still has room.
+    // MiniMax saturated at 1 active, Kimi still has room.
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: (model) =>
         model === DEFAULT_MODEL ? 1 : 10,
@@ -316,25 +316,25 @@ describe('requestSession', () => {
     })
     const s3 = await requestSession({
       userId: 'u3',
-      model: 'z-ai/glm-5.1',
+      model: 'moonshotai/kimi-k2.6',
       deps: admitDeps,
     })
     expect(s2.status).toBe('queued')
     expect(s3.status).toBe('active')
   })
 
-  // Per-user rate limit (5 GLM admissions per 12h) — the wire limit is
+  // Per-user rate limit (5 Kimi admissions per 12h) — the wire limit is
   // hard-coded in public-api.ts, so tests seed the fake admit log directly
-  // rather than configuring it. GLM also has deployment-hours gating, so
+  // rather than configuring it. Kimi also has deployment-hours gating, so
   // these tests bump `now` into the open window (12pm ET on a weekday)
   // before issuing the request.
-  const GLM_MODEL = 'z-ai/glm-5.1'
-  const GLM_LIMIT = 5
-  const GLM_WINDOW_HOURS = 12
-  const GLM_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
+  const KIMI_MODEL = 'moonshotai/kimi-k2.6'
+  const KIMI_LIMIT = 5
+  const KIMI_WINDOW_HOURS = 12
+  const KIMI_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
 
-  test('rate_limited: 5th GLM admit in window blocks the 6th attempt', async () => {
-    deps._tick(GLM_OPEN_TIME)
+  test('rate_limited: 5th Kimi admit in window blocks the 6th attempt', async () => {
+    deps._tick(KIMI_OPEN_TIME)
     // Seed 5 admits inside the 12h window, spaced so we can verify retryAfter
     // points at the oldest one sliding off.
     const now = deps._now()
@@ -343,22 +343,22 @@ describe('requestSession', () => {
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: GLM_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
 
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('rate_limited')
     if (state.status !== 'rate_limited') throw new Error('unreachable')
-    expect(state.model).toBe(GLM_MODEL)
-    expect(state.limit).toBe(GLM_LIMIT)
-    expect(state.windowHours).toBe(GLM_WINDOW_HOURS)
-    expect(state.recentCount).toBe(GLM_LIMIT)
+    expect(state.model).toBe(KIMI_MODEL)
+    expect(state.limit).toBe(KIMI_LIMIT)
+    expect(state.windowHours).toBe(KIMI_WINDOW_HOURS)
+    expect(state.recentCount).toBe(KIMI_LIMIT)
     // Oldest admit is 11h ago; slot opens when it hits 12h, i.e. in 1h.
     expect(state.retryAfterMs).toBe(60 * 60 * 1000)
     // Blocked before any row is written — the user doesn't take a queue slot.
@@ -366,21 +366,21 @@ describe('requestSession', () => {
   })
 
   test('rate_limited: admits outside the 12h window do not count', async () => {
-    deps._tick(GLM_OPEN_TIME)
+    deps._tick(KIMI_OPEN_TIME)
     // 5 admits, each just over 12h old → all fall off the window.
     const now = deps._now()
     for (let i = 0; i < 5; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: GLM_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(
-          now.getTime() - (GLM_WINDOW_HOURS * 60 * 60 * 1000 + 60_000 + i),
+          now.getTime() - (KIMI_WINDOW_HOURS * 60 * 60 * 1000 + 60_000 + i),
         ),
       })
     }
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('queued')
@@ -408,41 +408,41 @@ describe('requestSession', () => {
     expect(state.rateLimit).toBeUndefined()
   })
 
-  test('queued GLM response carries the current admit count', async () => {
-    deps._tick(GLM_OPEN_TIME)
+  test('queued Kimi response carries the current admit count', async () => {
+    deps._tick(KIMI_OPEN_TIME)
     const now = deps._now()
     // 2 admits in the window — under the limit so the user still queues.
     deps.admits.push({
       user_id: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       admitted_at: new Date(now.getTime() - 60 * 60 * 1000),
     })
     deps.admits.push({
       user_id: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       admitted_at: new Date(now.getTime() - 30 * 60 * 1000),
     })
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.rateLimit).toEqual({
-      model: GLM_MODEL,
-      limit: GLM_LIMIT,
-      windowHours: GLM_WINDOW_HOURS,
+      model: KIMI_MODEL,
+      limit: KIMI_LIMIT,
+      windowHours: KIMI_WINDOW_HOURS,
       recentCount: 2,
     })
   })
 
-  test('rate_limited: takeover of an active GLM row is allowed even when at cap', async () => {
-    // Reclaim path: user has an active+unexpired GLM session and restarts
+  test('rate_limited: takeover of an active Kimi row is allowed even when at cap', async () => {
+    // Reclaim path: user has an active+unexpired Kimi session and restarts
     // the CLI. POST must rotate their instance id (takeover) and NOT reject
     // with rate_limited — otherwise they'd be stranded with a live session
     // they can't reconnect to. The 5th admission is already in the log, so
     // this also exercises "at the cap" rather than "over the cap".
-    deps._tick(GLM_OPEN_TIME)
+    deps._tick(KIMI_OPEN_TIME)
     const now = deps._now()
     // Seed 5 prior admits (the cap), with the latest one matching the
     // active row we're about to install.
@@ -450,7 +450,7 @@ describe('requestSession', () => {
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: GLM_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
@@ -461,7 +461,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-pre',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       queued_at: admittedAt,
       admitted_at: admittedAt,
       expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
@@ -471,27 +471,27 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('active')
     if (state.status !== 'active') throw new Error('unreachable')
     // Instance id rotated; quota snapshot still reflects the full window.
     expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit?.recentCount).toBe(GLM_LIMIT)
+    expect(state.rateLimit?.recentCount).toBe(KIMI_LIMIT)
   })
 
-  test('rate_limited: reclaim of a queued GLM row is allowed even when at cap', async () => {
+  test('rate_limited: reclaim of a queued Kimi row is allowed even when at cap', async () => {
     // Same reclaim exception for queued rows: if a user has already queued
     // (say they slipped in just before their 5th admit landed), a subsequent
     // POST from the same CLI must preserve their queue position instead of
     // flipping to rate_limited.
-    deps._tick(GLM_OPEN_TIME)
+    deps._tick(KIMI_OPEN_TIME)
     const now = deps._now()
-    for (let i = 0; i < GLM_LIMIT; i++) {
+    for (let i = 0; i < KIMI_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: GLM_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
       })
     }
@@ -500,7 +500,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'queued',
       active_instance_id: 'inst-pre',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       queued_at: queuedAt,
       admitted_at: null,
       expires_at: null,
@@ -510,7 +510,7 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('queued')
@@ -518,20 +518,20 @@ describe('requestSession', () => {
     // Same position (1) since we preserved queued_at and nobody else is
     // ahead; the instance id rotated so any prior CLI is superseded.
     expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit?.recentCount).toBe(GLM_LIMIT)
+    expect(state.rateLimit?.recentCount).toBe(KIMI_LIMIT)
   })
 
-  test('rate_limited: expired GLM row is not a reclaim — quota still applies', async () => {
+  test('rate_limited: expired Kimi row is not a reclaim — quota still applies', async () => {
     // The stored row's expires_at is in the past, so it doesn't represent
     // an in-flight session. This POST is effectively a fresh request and
     // must be blocked by the quota.
-    deps._tick(GLM_OPEN_TIME)
+    deps._tick(KIMI_OPEN_TIME)
     const now = deps._now()
     const ages = [11, 4, 3, 2, 1]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: GLM_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
@@ -540,7 +540,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-pre',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       queued_at: admittedAt,
       admitted_at: admittedAt,
       expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
@@ -549,7 +549,7 @@ describe('requestSession', () => {
     })
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('rate_limited')
@@ -557,18 +557,18 @@ describe('requestSession', () => {
 
   test('instant-admit bumps the quota count for the freshly-written admit row', async () => {
     const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
-    admitDeps._tick(GLM_OPEN_TIME)
+    admitDeps._tick(KIMI_OPEN_TIME)
     // 1 existing admit in the window; this new call should instant-admit and
     // write a second row, so the response's recentCount reflects 2.
     const now = admitDeps._now()
     admitDeps.admits.push({
       user_id: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       admitted_at: new Date(now.getTime() - 30 * 60 * 1000),
     })
     const state = await requestSession({
       userId: 'u1',
-      model: GLM_MODEL,
+      model: KIMI_MODEL,
       deps: admitDeps,
     })
     if (state.status !== 'active') throw new Error('unreachable')
@@ -636,16 +636,16 @@ describe('getSessionState', () => {
     // Regression: the POST response attached rateLimit, but GET polls did
     // not — so the "Sessions N/M used" line flashed once then disappeared on
     // the next 5s poll. GET must attach the same quota snapshot. Rate
-    // limits only apply to GLM, so this test uses GLM explicitly (inside
+    // limits only apply to Kimi, so this test uses Kimi explicitly (inside
     // deployment hours) rather than the Minimax DEFAULT_MODEL.
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     const now = deps._now()
     deps.admits.push({
       user_id: 'u1',
-      model: 'z-ai/glm-5.1',
+      model: 'moonshotai/kimi-k2.6',
       admitted_at: new Date(now.getTime() - 60 * 60 * 1000),
     })
-    await requestSession({ userId: 'u1', model: 'z-ai/glm-5.1', deps })
+    await requestSession({ userId: 'u1', model: 'moonshotai/kimi-k2.6', deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = now
@@ -658,7 +658,7 @@ describe('getSessionState', () => {
     })
     if (state.status !== 'active') throw new Error('unreachable')
     expect(state.rateLimit).toEqual({
-      model: 'z-ai/glm-5.1',
+      model: 'moonshotai/kimi-k2.6',
       limit: 5,
       windowHours: 12,
       recentCount: 1,

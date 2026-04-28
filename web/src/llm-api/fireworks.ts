@@ -2,7 +2,7 @@ import { Agent } from 'undici'
 
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-  FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
@@ -36,12 +36,14 @@ const fireworksAgent = new Agent({
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
+  'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
 
 /** Models that stay limited to freebuff deployment hours even on serverless. */
 const FIREWORKS_HOURS_GATED_MODELS = new Set<string>([
-  FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+  'z-ai/glm-5.1',
 ])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
@@ -168,6 +170,11 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 0.30 / 1_000_000,
     cachedInputCostPerToken: 0.06 / 1_000_000,
     outputCostPerToken: 1.20 / 1_000_000,
+  },
+  'moonshotai/kimi-k2.6': {
+    inputCostPerToken: 0.95 / 1_000_000,
+    cachedInputCostPerToken: 0.16 / 1_000_000,
+    outputCostPerToken: 4.00 / 1_000_000,
   },
   'z-ai/glm-5.1': {
     inputCostPerToken: 1.40 / 1_000_000,
