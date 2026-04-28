@@ -498,8 +498,8 @@ export function validateAndNormalizeRepositoryUrl(url: string): {
   error?: string
 } {
   try {
-    // Basic URL validation
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+    const normalized = normalizeRepositoryUrl(url)
+    const urlObj = new URL(normalized)
 
     // Whitelist allowed domains
     const allowedDomains = ['github.com', 'gitlab.com', 'bitbucket.org']
@@ -507,8 +507,16 @@ export function validateAndNormalizeRepositoryUrl(url: string): {
       return { isValid: false, error: 'Repository domain not allowed' }
     }
 
-    // Normalize URL format
-    const normalized = normalizeRepositoryUrl(url)
+    const pathSegments = urlObj.pathname
+      .split('/')
+      .filter((segment) => segment.length > 0)
+
+    if (pathSegments.length < 2) {
+      return {
+        isValid: false,
+        error: 'Repository path must include owner and repo',
+      }
+    }
 
     return { isValid: true, normalizedUrl: normalized }
   } catch (error) {

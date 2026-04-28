@@ -190,6 +190,15 @@ describe('Organization Billing', () => {
       expect(result.error).toBeUndefined()
     })
 
+    it('should validate and normalize SSH URLs', () => {
+      const result = validateAndNormalizeRepositoryUrl(
+        'git@github.com:user/repo.git',
+      )
+      expect(result.isValid).toBe(true)
+      expect(result.normalizedUrl).toBe('https://github.com/user/repo')
+      expect(result.error).toBeUndefined()
+    })
+
     it('should reject invalid domains', () => {
       const result = validateAndNormalizeRepositoryUrl(
         'https://example.com/user/repo',
@@ -202,6 +211,12 @@ describe('Organization Billing', () => {
       const result = validateAndNormalizeRepositoryUrl('not-a-url')
       expect(result.isValid).toBe(false)
       expect(result.error).toBe('Repository domain not allowed')
+    })
+
+    it('should reject URLs without owner and repo path segments', () => {
+      const result = validateAndNormalizeRepositoryUrl('https://github.com')
+      expect(result.isValid).toBe(false)
+      expect(result.error).toBe('Repository path must include owner and repo')
     })
 
     it('should accept allowed domains', () => {
