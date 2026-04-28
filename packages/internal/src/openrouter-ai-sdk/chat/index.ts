@@ -166,7 +166,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       // TODO: support built-in tools
       const mappedTools = tools
         .filter((tool) => tool.type === 'function')
-        .map((tool) => ({
+        .map((tool, index) => ({
+          id: `tool_${index + 1}`,
           type: 'function' as const,
           function: {
             name: tool.name,

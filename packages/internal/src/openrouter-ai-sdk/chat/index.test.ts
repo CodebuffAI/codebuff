@@ -629,6 +629,7 @@ describe('doGenerate', () => {
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       tools: [
         {
+          id: 'tool_1',
           type: 'function',
           function: {
             name: 'test-tool',

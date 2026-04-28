@@ -147,6 +147,7 @@ describe('tool calls', () => {
       {
         role: 'tool',
         content: JSON.stringify({ oof: '321rab' }),
+        name: 'thwomp',
         tool_call_id: 'quux',
       },
     ])
@@ -196,6 +197,7 @@ describe('tool calls', () => {
       {
         role: 'tool',
         content: 'It is sunny today',
+        name: 'getWeather',
         tool_call_id: 'call-1',
       },
     ])
@@ -541,11 +543,13 @@ describe('provider-specific metadata merging', () => {
       {
         role: 'tool',
         tool_call_id: 'call123',
+        name: 'calculator',
         content: JSON.stringify({ stepOne: 'data chunk 1' }),
       },
       {
         role: 'tool',
         tool_call_id: 'call123',
+        name: 'calculator',
         content: JSON.stringify({ stepTwo: 'data chunk 2' }),
         partial: true,
       },
