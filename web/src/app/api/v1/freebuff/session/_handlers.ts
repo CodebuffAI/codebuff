@@ -44,6 +44,7 @@ async function getCountryAccess(
     getFreeModeCountryAccess(req, {
       ipinfoToken: env.IPINFO_TOKEN,
       ipHashSecret: env.NEXTAUTH_SECRET,
+      allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
     })
   )
 }

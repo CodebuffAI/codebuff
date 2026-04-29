@@ -56,6 +56,13 @@ type FreeModeCountryAccessOptions = {
   fetch?: typeof globalThis.fetch
   ipinfoToken: string
   ipHashSecret?: string
+  allowLocalhost?: boolean
+}
+
+const LOCALHOST_IPS = new Set(['::1', '::ffff:127.0.0.1'])
+
+function isLocalhostIp(ip: string): boolean {
+  return ip.startsWith('127.') || LOCALHOST_IPS.has(ip)
 }
 
 type ResolvedCountryAccess = Omit<
@@ -182,6 +189,28 @@ export async function getFreeModeCountryAccess(
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
   const clientIp = extractClientIp(req)
   const clientIpHash = hashClientIp(clientIp, options.ipHashSecret)
+
+  // Dev-only bypass: when no Cloudflare country header is set and the request
+  // is from loopback (or has no client IP at all), treat it as US-allowed so
+  // local development doesn't require ipinfo or geoip resolution. In
+  // production behind Cloudflare, cf-ipcountry is always set, so this branch
+  // is unreachable.
+  if (
+    options.allowLocalhost &&
+    !cfCountry &&
+    (!clientIp || isLocalhostIp(clientIp))
+  ) {
+    return {
+      allowed: true,
+      countryCode: 'US',
+      blockReason: null,
+      cfCountry: null,
+      geoipCountry: null,
+      ipPrivacy: { signals: [] },
+      hasClientIp: Boolean(clientIp),
+      clientIpHash,
+    }
+  }
 
   if (cfCountry && CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES.has(cfCountry)) {
     return {
