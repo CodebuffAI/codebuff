@@ -1,6 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  isFreebuffRootAgent,
   isFreeMode,
   isFreeModeAllowedAgentModel,
 } from '@codebuff/common/constants/free-agents'
@@ -323,7 +324,7 @@ export async function postChatCompletions(params: {
     const agentRun = await getAgentRunFromId({
       runId: runIdFromBody,
       userId,
-      fields: ['agent_id', 'status'],
+      fields: ['agent_id', 'ancestor_run_ids', 'status'],
     })
     if (!agentRun) {
       trackEvent({
@@ -341,7 +342,11 @@ export async function postChatCompletions(params: {
       )
     }
 
-    const { agent_id: agentId, status: agentRunStatus } = agentRun
+    const {
+      agent_id: agentId,
+      ancestor_run_ids: ancestorRunIds,
+      status: agentRunStatus,
+    } = agentRun
 
     if (agentRunStatus !== 'running') {
       trackEvent({
@@ -390,6 +395,42 @@ export async function postChatCompletions(params: {
         },
         { status: 403 },
       )
+    }
+
+    if (isFreeModeRequest && !isFreebuffRootAgent(agentId)) {
+      const rootRunId = ancestorRunIds[0]
+      const rootRun = rootRunId
+        ? await getAgentRunFromId({
+            runId: rootRunId,
+            userId,
+            fields: ['agent_id', 'status'],
+          })
+        : null
+      if (
+        !rootRun ||
+        rootRun.status !== 'running' ||
+        !isFreebuffRootAgent(rootRun.agent_id)
+      ) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error: 'free_mode_invalid_agent_hierarchy',
+            agentId,
+            runId: runIdFromBody,
+            rootRunId,
+          },
+          logger,
+        })
+        return NextResponse.json(
+          {
+            error: 'free_mode_invalid_agent_hierarchy',
+            message:
+              'Free mode subagents must run under an active freebuff session root.',
+          },
+          { status: 403 },
+        )
+      }
     }
 
     // Freebuff waiting-room gate. Only enforced for free-mode requests, and

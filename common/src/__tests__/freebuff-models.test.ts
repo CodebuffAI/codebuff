@@ -1,11 +1,32 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffDeploymentHours,
+  isFreebuffModelAvailable,
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
+  test('includes Gemini 3.1 Pro as an always-available option', () => {
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GEMINI_PRO_MODEL_ID,
+    )
+    expect(
+      isFreebuffModelAvailable(
+        FREEBUFF_GEMINI_PRO_MODEL_ID,
+        new Date('2026-01-05T18:00:00Z'),
+      ),
+    ).toBe(true)
+    expect(
+      isFreebuffModelAvailable(
+        FREEBUFF_GEMINI_PRO_MODEL_ID,
+        new Date('2026-01-05T12:00:00Z'),
+      ),
+    ).toBe(true)
+  })
+
   test('formats the close time in the user local timezone while deployment is open', () => {
     expect(
       getFreebuffDeploymentAvailabilityLabel(new Date('2026-01-05T18:00:00Z'), {

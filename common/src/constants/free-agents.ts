@@ -1,5 +1,7 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
+import { FREEBUFF_MODELS } from './freebuff-models'
+
 import type { CostMode } from './model-config'
 
 /**
@@ -15,6 +17,10 @@ export const FREE_COST_MODE = 'free' as const
  * every user's apparent activity.
  */
 export const FREEBUFF_ROOT_AGENT_IDS = ['base2-free'] as const
+const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
+  FREEBUFF_ROOT_AGENT_IDS,
+)
+const FREEBUFF_SELECTABLE_MODEL_IDS = FREEBUFF_MODELS.map((model) => model.id)
 
 /**
  * Agents that are allowed to run in FREE mode.
@@ -26,10 +32,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = ['base2-free'] as const
  */
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
-  'base2-free': new Set([
-    'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
-  ]),
+  'base2-free': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -44,16 +47,10 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'basher': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Editor for free mode
-  'editor-lite': new Set([
-    'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
-  ]),
+  'editor-lite': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
 
   // Code reviewer for free mode
-  'code-reviewer-lite': new Set([
-    'minimax/minimax-m2.7',
-    'z-ai/glm-5.1',
-  ]),
+  'code-reviewer-lite': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
 }
 
 /**
@@ -85,6 +82,13 @@ export const FREE_TIER_AGENTS = new Set([
  */
 export function isFreeMode(costMode: CostMode | string | undefined): boolean {
   return costMode === FREE_COST_MODE
+}
+
+export function isFreebuffRootAgent(fullAgentId: string): boolean {
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (!agentId) return false
+  if (publisherId && publisherId !== 'codebuff') return false
+  return FREEBUFF_ROOT_AGENT_ID_SET.has(agentId)
 }
 
 /**

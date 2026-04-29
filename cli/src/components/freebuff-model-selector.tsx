@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
@@ -25,8 +26,15 @@ import {
 import type { KeyEvent } from '@opentui/core'
 
 const FREEBUFF_MODEL_SELECTOR_MODELS = [
+  ...FREEBUFF_MODELS.filter(
+    (model) => model.id === FREEBUFF_GEMINI_PRO_MODEL_ID,
+  ),
   ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_GLM_MODEL_ID),
-  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_GLM_MODEL_ID),
+  ...FREEBUFF_MODELS.filter(
+    (model) =>
+      model.id !== FREEBUFF_GEMINI_PRO_MODEL_ID &&
+      model.id !== FREEBUFF_GLM_MODEL_ID,
+  ),
 ]
 
 /**

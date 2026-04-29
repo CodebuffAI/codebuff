@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { FREEBUFF_GEMINI_PRO_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+
 import {
   checkSessionAdmissible,
   endUserSession,
@@ -332,6 +334,56 @@ describe('requestSession', () => {
   const GLM_LIMIT = 5
   const GLM_WINDOW_HOURS = 12
   const GLM_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
+  const GEMINI_LIMIT = 1
+  const GEMINI_WINDOW_HOURS = 24
+
+  test('rate_limited: Gemini 3.1 Pro allows one admit per 24h', async () => {
+    deps._tick(GLM_OPEN_TIME)
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      admitted_at: new Date(now.getTime() - 23 * 60 * 60 * 1000),
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.model).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
+    expect(state.limit).toBe(GEMINI_LIMIT)
+    expect(state.windowHours).toBe(GEMINI_WINDOW_HOURS)
+    expect(state.recentCount).toBe(GEMINI_LIMIT)
+    expect(state.retryAfterMs).toBe(60 * 60 * 1000)
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('rate_limited: Gemini 3.1 Pro admit outside 24h window does not count', async () => {
+    deps._tick(GLM_OPEN_TIME)
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      admitted_at: new Date(now.getTime() - 25 * 60 * 60 * 1000),
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.rateLimit).toEqual({
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      limit: GEMINI_LIMIT,
+      windowHours: GEMINI_WINDOW_HOURS,
+      recentCount: 0,
+    })
+  })
 
   test('rate_limited: 5th GLM admit in window blocks the 6th attempt', async () => {
     deps._tick(GLM_OPEN_TIME)

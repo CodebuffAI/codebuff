@@ -1,8 +1,23 @@
-import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  it,
+  spyOn,
+} from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { isFreebuffDeploymentHours } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  isFreebuffDeploymentHours,
+} from '@codebuff/common/constants/freebuff-models'
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
+import {
+  resetFreeModeRateLimits,
+  FREE_MODE_RATE_LIMITS,
+} from '../free-mode-rate-limiter'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -34,6 +49,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     },
     'test-api-key-new-free': {
       id: 'user-new-free',
+      banned: false,
+    },
+    'test-api-key-new-free-gemini': {
+      id: 'user-new-free-gemini',
       banned: false,
     },
   }
@@ -73,6 +92,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   beforeEach(() => {
+    resetFreeModeRateLimits()
     nextQuotaReset = new Date(
       Date.now() + 3 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000,
     ).toISOString()
@@ -119,6 +139,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-123') {
         return {
           agent_id: 'agent-123',
+          ancestor_run_ids: [],
           status: 'running',
         }
       }
@@ -126,12 +147,28 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         return {
           // Real free-mode allowlisted agent (see FREE_MODE_AGENT_MODELS).
           agent_id: 'base2-free',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-reviewer-direct') {
+        return {
+          agent_id: 'code-reviewer-lite',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-reviewer-child') {
+        return {
+          agent_id: 'code-reviewer-lite',
+          ancestor_run_ids: ['run-free'],
           status: 'running',
         }
       }
       if (runId === 'run-completed') {
         return {
           agent_id: 'agent-123',
+          ancestor_run_ids: [],
           status: 'completed',
         }
       }
@@ -700,15 +737,133 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (isFreebuffDeploymentHours()) {
         expect(response.status).toBe(200)
         expect(fetchedBodies).toHaveLength(1)
-        expect(fetchedBodies[0].model).toBe(
-          'accounts/fireworks/models/glm-5p1',
-        )
+        expect(fetchedBodies[0].model).toBe('accounts/fireworks/models/glm-5p1')
         expect(body.model).toBe('z-ai/glm-5.1')
         expect(body.provider).toBe('Fireworks')
       } else {
         expect(response.status).toBe(503)
         expect(fetchedBodies).toHaveLength(0)
         expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
+      }
+    })
+
+    it('lets freebuff use Gemini 3.1 Pro through the free-mode allowlist', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      expect(response.status).toBe(200)
+    })
+
+    it('rejects standalone free-mode reviewer runs even when the model is allowlisted', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-reviewer-direct',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_invalid_agent_hierarchy')
+    })
+
+    it('counts child reviewer Gemini requests toward the free-mode request limit', async () => {
+      const nowSpy = spyOn(Date, 'now').mockImplementation(
+        () => 1_000_000_000_000,
+      )
+      try {
+        const postFreeRequest = (runId: string) =>
+          postChatCompletions({
+            req: new NextRequest(
+              'http://localhost:3000/api/v1/chat/completions',
+              {
+                method: 'POST',
+                headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+                body: JSON.stringify({
+                  model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+                  stream: false,
+                  codebuff_metadata: {
+                    run_id: runId,
+                    client_id: 'test-client-id-123',
+                    cost_mode: 'free',
+                  },
+                }),
+              },
+            ),
+            getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+            logger: mockLogger,
+            trackEvent: mockTrackEvent,
+            getUserUsageData: mockGetUserUsageData,
+            getAgentRunFromId: mockGetAgentRunFromId,
+            fetch: mockFetch,
+            insertMessageBigquery: mockInsertMessageBigquery,
+            loggerWithContext: mockLoggerWithContext,
+            checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+          })
+
+        for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+          const response = await postFreeRequest(
+            i === 0 ? 'run-reviewer-child' : 'run-free',
+          )
+          expect(response.status).toBe(200)
+        }
+
+        const limited = await postFreeRequest('run-free')
+        expect(limited.status).toBe(429)
+        const body = await limited.json()
+        expect(body.error).toBe('free_mode_rate_limited')
+      } finally {
+        nowSpy.mockRestore()
       }
     })
 

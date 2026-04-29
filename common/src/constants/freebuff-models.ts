@@ -21,6 +21,7 @@ export interface FreebuffModelOption {
  *  the caller's local timezone. The CLI should render
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
+export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
@@ -40,6 +41,12 @@ interface LocalTimeFormatOptions {
 }
 
 export const FREEBUFF_MODELS = [
+  {
+    id: FREEBUFF_GEMINI_PRO_MODEL_ID,
+    displayName: 'Gemini 3.1 Pro',
+    tagline: 'Deepest, 1/day',
+    availability: 'always',
+  },
   {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
