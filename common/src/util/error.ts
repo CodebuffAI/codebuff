@@ -198,17 +198,55 @@ export function unwrapPromptResult<T>(result: PromptResult<T>): T {
 export function parseApiErrorResponseBody(responseBody: unknown): {
   errorCode?: string
   message?: string
+  countryCode?: string
+  countryBlockReason?: string
+  ipPrivacySignals?: string[]
 } {
   if (typeof responseBody !== 'string') return {}
   try {
     const parsed: unknown = JSON.parse(responseBody)
     if (!parsed || typeof parsed !== 'object') return {}
-    const result: { errorCode?: string; message?: string } = {}
-    if ('error' in parsed && typeof (parsed as { error: unknown }).error === 'string') {
+    const result: {
+      errorCode?: string
+      message?: string
+      countryCode?: string
+      countryBlockReason?: string
+      ipPrivacySignals?: string[]
+    } = {}
+    if (
+      'error' in parsed &&
+      typeof (parsed as { error: unknown }).error === 'string'
+    ) {
       result.errorCode = (parsed as { error: string }).error
     }
-    if ('message' in parsed && typeof (parsed as { message: unknown }).message === 'string') {
+    if (
+      'message' in parsed &&
+      typeof (parsed as { message: unknown }).message === 'string'
+    ) {
       result.message = (parsed as { message: string }).message
+    }
+    if (
+      'countryCode' in parsed &&
+      typeof (parsed as { countryCode: unknown }).countryCode === 'string'
+    ) {
+      result.countryCode = (parsed as { countryCode: string }).countryCode
+    }
+    if (
+      'countryBlockReason' in parsed &&
+      typeof (parsed as { countryBlockReason: unknown }).countryBlockReason ===
+        'string'
+    ) {
+      result.countryBlockReason = (
+        parsed as { countryBlockReason: string }
+      ).countryBlockReason
+    }
+    if ('ipPrivacySignals' in parsed) {
+      const signals = (parsed as { ipPrivacySignals: unknown }).ipPrivacySignals
+      if (Array.isArray(signals)) {
+        result.ipPrivacySignals = signals.filter(
+          (signal): signal is string => typeof signal === 'string',
+        )
+      }
     }
     return result
   } catch {

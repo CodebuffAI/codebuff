@@ -1,10 +1,9 @@
-
 import { publisher } from '../constants'
 
 import type { AgentDefinition } from '../types/agent-definition'
 
 export const createCodeEditor = (options: {
-  model: 'gpt-5' | 'opus' | 'kimi' | 'minimax'
+  model: 'gpt-5' | 'opus' | 'glm' | 'kimi' | 'minimax'
 }): Omit<AgentDefinition, 'id'> => {
   const { model } = options
   return {
@@ -16,6 +15,8 @@ export const createCodeEditor = (options: {
           ? 'minimax/minimax-m2.7'
         : options.model === 'kimi'
           ? 'moonshotai/kimi-k2.6'
+        : options.model === 'glm'
+          ? 'z-ai/glm-5.1'
           : 'anthropic/claude-opus-4.7',
     ...(options.model === 'opus' && {
       providerOptions: {
@@ -32,7 +33,7 @@ export const createCodeEditor = (options: {
     inheritParentSystemPrompt: true,
 
     instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
-    
+
 Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
 
 Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
@@ -67,7 +68,7 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-${model === 'gpt-5' || model === 'kimi' || model === 'minimax'
+${model === 'gpt-5' || model === 'glm' || model === 'kimi' || model === 'minimax'
         ? ''
         : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
 

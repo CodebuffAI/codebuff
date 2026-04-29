@@ -8,8 +8,6 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  */
 export type AdProviderId = 'gravity' | 'carbon'
 
-export type AdVariant = 'banner' | 'choice'
-
 /**
  * Normalized ad shape returned by every provider. The CLI renders against
  * this shape; provider modules are responsible for mapping their upstream
@@ -62,10 +60,7 @@ export type FetchAdInput = {
   fetch: typeof globalThis.fetch
 }
 
-export type FetchAdResult =
-  | { variant: 'banner'; ad: NormalizedAd }
-  | { variant: 'choice'; ads: NormalizedAd[] }
-  | null
+export type FetchAdResult = { ads: NormalizedAd[] } | null
 
 export type AdProvider = {
   id: AdProviderId

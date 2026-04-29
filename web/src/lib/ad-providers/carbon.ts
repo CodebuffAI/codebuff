@@ -164,7 +164,7 @@ export function createCarbonProvider(config: {
         return null
       }
 
-      return { variant: 'choice', ads }
+      return { ads }
     },
   }
 }

@@ -18,10 +18,7 @@ import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { GetUserPreferencesFn } from '../_post'
 
 describe('/api/v1/chat/completions POST endpoint', () => {
-  const mockUserData: Record<
-    string,
-    { id: string; banned: boolean }
-  > = {
+  const mockUserData: Record<string, { id: string; banned: boolean }> = {
     'test-api-key-123': {
       id: 'user-123',
       banned: false,
@@ -66,7 +63,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   // flow without seeding a session. Matches the real return for the disabled
   // path so downstream logic proceeds normally.
   const mockCheckSessionAdmissibleAllow = async () =>
-    ({ ok: true, reason: 'disabled' } as const)
+    ({ ok: true, reason: 'disabled' }) as const
+
+  const allowedFreeModeHeaders = (apiKey: string) => ({
+    Authorization: `Bearer ${apiKey}`,
+    'cf-ipcountry': 'US',
+    'cf-connecting-ip': '203.0.113.10',
+  })
 
   beforeEach(() => {
     nextQuotaReset = new Date(
@@ -74,15 +77,15 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     ).toISOString()
 
     mockLogger = {
-      error: mock(() => { }),
-      warn: mock(() => { }),
-      info: mock(() => { }),
-      debug: mock(() => { }),
+      error: mock(() => {}),
+      warn: mock(() => {}),
+      info: mock(() => {}),
+      debug: mock(() => {}),
     }
 
     mockLoggerWithContext = mock(() => mockLogger)
 
-    mockTrackEvent = mock(() => { })
+    mockTrackEvent = mock(() => {})
 
     mockGetUserUsageData = mock(async ({ userId }: { userId: string }) => {
       if (userId === 'user-no-credits') {
@@ -136,6 +139,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
     // Mock global fetch to return OpenRouter-like responses
     mockFetch = (async (url: any, options: any) => {
+      if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+        return Response.json({})
+      }
+
       if (!options?.body) {
         throw new Error('Missing request body')
       }
@@ -484,7 +491,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
     })
 
-
     it('lets a BYOK free-tier new account through the paid-plan gate', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
@@ -526,7 +532,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
             model: 'minimax/minimax-m2.7',
             stream: false,
@@ -553,6 +559,86 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       })
 
       expect(response.status).toBe(200)
+    })
+
+    it('rejects free-mode requests when location is unknown', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          body: JSON.stringify({
+            model: 'minimax/minimax-m2.7',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_unavailable')
+      expect(body.countryCode).toBe('UNKNOWN')
+      expect(body.countryBlockReason).toBe('missing_client_ip')
+    })
+
+    it('rejects free-mode requests from anonymized Cloudflare country codes', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-ipcountry': 'T1',
+            'x-forwarded-for': '8.8.8.8',
+          },
+          body: JSON.stringify({
+            model: 'minimax/minimax-m2.7',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_unavailable')
+      expect(body.countryCode).toBe('UNKNOWN')
+      expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
     })
 
     it('lets freebuff use Kimi K2.6 through CanopyWave', async () => {
@@ -583,7 +669,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
             model: 'moonshotai/kimi-k2.6',
             stream: false,
@@ -622,7 +708,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-no-credits' },
+          headers: allowedFreeModeHeaders('test-api-key-no-credits'),
           body: JSON.stringify({
             model: 'minimax/minimax-m2.7',
             stream: false,
@@ -656,7 +742,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
             // Expensive model the attacker wants for free.
             model: 'anthropic/claude-4.7-opus',
@@ -695,7 +781,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
             model: 'anthropic/claude-4.7-opus',
             stream: true,
@@ -731,7 +817,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
             model: 'minimax/minimax-m2.7',
             stream: true,
@@ -863,183 +949,211 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         }),
       })
 
-    it('returns 429 when weekly limit reached and fallback disabled', async () => {
-      const weeklyLimitError: BlockGrantResult = {
-        error: 'weekly_limit_reached',
-        used: 3500,
-        limit: 3500,
-        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: false,
-      }))
+    it(
+      'returns 429 when weekly limit reached and fallback disabled',
+      async () => {
+        const weeklyLimitError: BlockGrantResult = {
+          error: 'weekly_limit_reached',
+          used: 3500,
+          limit: 3500,
+          resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        }
+        const mockEnsureSubscriberBlockGrant = mock(
+          async () => weeklyLimitError,
+        )
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: false,
+        }))
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(429)
-      const body = await response.json()
-      expect(body.error).toBe('rate_limit_exceeded')
-      expect(body.message).toContain('weekly limit reached')
-      expect(body.message).toContain('Enable "Continue with credits"')
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(429)
+        const body = await response.json()
+        expect(body.error).toBe('rate_limit_exceeded')
+        expect(body.message).toContain('weekly limit reached')
+        expect(body.message).toContain('Enable "Continue with credits"')
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
-    it('skips subscription limit check when in FREE mode even with fallback disabled', async () => {
-      const weeklyLimitError: BlockGrantResult = {
-        error: 'weekly_limit_reached',
-        used: 3500,
-        limit: 3500,
-        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: false,
-      }))
+    it(
+      'skips subscription limit check when in FREE mode even with fallback disabled',
+      async () => {
+        const weeklyLimitError: BlockGrantResult = {
+          error: 'weekly_limit_reached',
+          used: 3500,
+          limit: 3500,
+          resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        }
+        const mockEnsureSubscriberBlockGrant = mock(
+          async () => weeklyLimitError,
+        )
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: false,
+        }))
 
-      const freeModeRequest = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-123' },
-          body: JSON.stringify({
-            model: 'minimax/minimax-m2.7',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-free',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        },
-      )
+        const freeModeRequest = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-123'),
+            body: JSON.stringify({
+              model: 'minimax/minimax-m2.7',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req: freeModeRequest,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: freeModeRequest,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(200)
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
-    it('returns 429 when block exhausted and fallback disabled', async () => {
-      const blockExhaustedError: BlockGrantResult = {
-        error: 'block_exhausted',
-        blockUsed: 350,
-        blockLimit: 350,
-        resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => blockExhaustedError)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: false,
-      }))
+    it(
+      'returns 429 when block exhausted and fallback disabled',
+      async () => {
+        const blockExhaustedError: BlockGrantResult = {
+          error: 'block_exhausted',
+          blockUsed: 350,
+          blockLimit: 350,
+          resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+        }
+        const mockEnsureSubscriberBlockGrant = mock(
+          async () => blockExhaustedError,
+        )
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: false,
+        }))
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(429)
-      const body = await response.json()
-      expect(body.error).toBe('rate_limit_exceeded')
-      expect(body.message).toContain('5-hour session limit reached')
-      expect(body.message).toContain('Enable "Continue with credits"')
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(429)
+        const body = await response.json()
+        expect(body.error).toBe('rate_limit_exceeded')
+        expect(body.message).toContain('5-hour session limit reached')
+        expect(body.message).toContain('Enable "Continue with credits"')
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
-    it('continues when weekly limit reached but fallback is enabled', async () => {
-      const weeklyLimitError: BlockGrantResult = {
-        error: 'weekly_limit_reached',
-        used: 3500,
-        limit: 3500,
-        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: true,
-      }))
+    it(
+      'continues when weekly limit reached but fallback is enabled',
+      async () => {
+        const weeklyLimitError: BlockGrantResult = {
+          error: 'weekly_limit_reached',
+          used: 3500,
+          limit: 3500,
+          resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        }
+        const mockEnsureSubscriberBlockGrant = mock(
+          async () => weeklyLimitError,
+        )
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: true,
+        }))
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-      expect(mockLogger.info).toHaveBeenCalled()
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(200)
+        expect(mockLogger.info).toHaveBeenCalled()
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
-    it('continues when block grant is created successfully', async () => {
-      const blockGrant: BlockGrantResult = {
-        grantId: 'block-123',
-        credits: 350,
-        expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
-        isNew: true,
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: false,
-      }))
+    it(
+      'continues when block grant is created successfully',
+      async () => {
+        const blockGrant: BlockGrantResult = {
+          grantId: 'block-123',
+          credits: 350,
+          expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
+          isNew: true,
+        }
+        const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: false,
+        }))
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-      // getUserPreferences should not be called when block grant succeeds
-      expect(mockGetUserPreferences).not.toHaveBeenCalled()
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(200)
+        // getUserPreferences should not be called when block grant succeeds
+        expect(mockGetUserPreferences).not.toHaveBeenCalled()
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
     it.skip('continues when ensureSubscriberBlockGrant throws an error (fail open)', async () => {
       const mockEnsureSubscriberBlockGrant = mock(async () => {
@@ -1069,58 +1183,68 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(mockLogger.error).toHaveBeenCalled()
     })
 
-    it.skip('continues when user is not a subscriber (null result)', async () => {
-      const mockEnsureSubscriberBlockGrant = mock(async () => null)
-      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
-        fallbackToALaCarte: false,
-      }))
+    it.skip(
+      'continues when user is not a subscriber (null result)',
+      async () => {
+        const mockEnsureSubscriberBlockGrant = mock(async () => null)
+        const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+          fallbackToALaCarte: false,
+        }))
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        getUserPreferences: mockGetUserPreferences,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          getUserPreferences: mockGetUserPreferences,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-      // getUserPreferences should not be called for non-subscribers
-      expect(mockGetUserPreferences).not.toHaveBeenCalled()
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        expect(response.status).toBe(200)
+        // getUserPreferences should not be called for non-subscribers
+        expect(mockGetUserPreferences).not.toHaveBeenCalled()
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
-    it.skip('defaults to allowing fallback when getUserPreferences is not provided', async () => {
-      const weeklyLimitError: BlockGrantResult = {
-        error: 'weekly_limit_reached',
-        used: 3500,
-        limit: 3500,
-        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      }
-      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
+    it.skip(
+      'defaults to allowing fallback when getUserPreferences is not provided',
+      async () => {
+        const weeklyLimitError: BlockGrantResult = {
+          error: 'weekly_limit_reached',
+          used: 3500,
+          limit: 3500,
+          resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        }
+        const mockEnsureSubscriberBlockGrant = mock(
+          async () => weeklyLimitError,
+        )
 
-      const response = await postChatCompletions({
-        req: createValidRequest(),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
-        // Note: getUserPreferences is NOT provided
-      })
+        const response = await postChatCompletions({
+          req: createValidRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+          // Note: getUserPreferences is NOT provided
+        })
 
-      // Should continue processing (default to allowing a-la-carte)
-      expect(response.status).toBe(200)
-    }, SUBSCRIPTION_TEST_TIMEOUT_MS)
+        // Should continue processing (default to allowing a-la-carte)
+        expect(response.status).toBe(200)
+      },
+      SUBSCRIPTION_TEST_TIMEOUT_MS,
+    )
 
     it.skip('allows subscriber with 0 a-la-carte credits but active block grant', async () => {
       const blockGrant: BlockGrantResult = {
@@ -1132,17 +1256,23 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
 
       // Override mock: when subscription credits are included, simulate the block grant's credits
-      mockGetUserUsageData = mock(async ({ includeSubscriptionCredits }: { includeSubscriptionCredits?: boolean }) => ({
-        usageThisCycle: 0,
-        balance: {
-          totalRemaining: includeSubscriptionCredits ? 350 : 0,
-          totalDebt: 0,
-          netBalance: includeSubscriptionCredits ? 350 : 0,
-          breakdown: {},
-          principals: { subscription: 350 },
-        },
-        nextQuotaReset,
-      }))
+      mockGetUserUsageData = mock(
+        async ({
+          includeSubscriptionCredits,
+        }: {
+          includeSubscriptionCredits?: boolean
+        }) => ({
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: includeSubscriptionCredits ? 350 : 0,
+            totalDebt: 0,
+            netBalance: includeSubscriptionCredits ? 350 : 0,
+            breakdown: {},
+            principals: { subscription: 350 },
+          },
+          nextQuotaReset,
+        }),
+      )
 
       // Use the no-credits user (totalRemaining = 0 without subscription)
       const req = new NextRequest(

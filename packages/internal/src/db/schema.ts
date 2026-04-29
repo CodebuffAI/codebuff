@@ -19,6 +19,10 @@ import { ReferralStatusValues } from '../types/referral'
 
 import type { SQL } from 'drizzle-orm'
 import type { AdapterAccount } from 'next-auth/adapters'
+import type {
+  FreebuffCountryBlockReason,
+  FreebuffIpPrivacySignal,
+} from '@codebuff/common/types/freebuff-session'
 
 export const ReferralStatus = pgEnum('referral_status', [
   ReferralStatusValues[0],
@@ -836,6 +840,23 @@ export const freeSession = pgTable(
      *  its own queue (admission picks one queued user per model per tick) and
      *  the model is fixed for the life of an active session. */
     model: text('model').notNull(),
+    /** Resolved country/privacy metadata from the latest successful
+     *  free-session POST country gate. Raw IP is not stored; `client_ip_hash`
+     *  is HMAC-SHA256 with the server auth secret for correlation only. */
+    country_code: text('country_code'),
+    cf_country: text('cf_country'),
+    geoip_country: text('geoip_country'),
+    country_block_reason: text(
+      'country_block_reason',
+    ).$type<FreebuffCountryBlockReason | null>(),
+    ip_privacy_signals: text('ip_privacy_signals')
+      .array()
+      .$type<FreebuffIpPrivacySignal[] | null>(),
+    client_ip_hash: text('client_ip_hash'),
+    country_checked_at: timestamp('country_checked_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
     queued_at: timestamp('queued_at', {
       mode: 'date',
       withTimezone: true,
@@ -873,7 +894,7 @@ export const freeSession = pgTable(
 
 /**
  * Audit log of every admission — one row per queued→active transition. Used
- * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 20h).
+ * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 12h).
  *
  * Separate from `free_session` because that table is one-row-per-user (state,
  * not history); the UPSERT path there would otherwise destroy prior admissions.

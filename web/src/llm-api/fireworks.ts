@@ -2,6 +2,7 @@ import { Agent } from 'undici'
 
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
@@ -35,8 +36,15 @@ const fireworksAgent = new Agent({
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
+  'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
+
+/** Models that stay limited to freebuff deployment hours even on serverless. */
+const FIREWORKS_HOURS_GATED_MODELS = new Set<string>([
+  FREEBUFF_KIMI_MODEL_ID,
+  'z-ai/glm-5.1',
+])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
@@ -162,6 +170,11 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 0.30 / 1_000_000,
     cachedInputCostPerToken: 0.06 / 1_000_000,
     outputCostPerToken: 1.20 / 1_000_000,
+  },
+  'moonshotai/kimi-k2.6': {
+    inputCostPerToken: 0.95 / 1_000_000,
+    cachedInputCostPerToken: 0.16 / 1_000_000,
+    outputCostPerToken: 4.00 / 1_000_000,
   },
   'z-ai/glm-5.1': {
     inputCostPerToken: 1.40 / 1_000_000,
@@ -706,9 +719,10 @@ async function parseFireworksError(response: Response): Promise<FireworksError> 
 }
 
 /**
- * Uses custom Fireworks deployments only during deployment hours. Deployment
- * mapped models never fall back to the serverless API outside hours, during
- * cooldown, or after deployment 5xxs; those states surface as provider errors
+ * Uses custom Fireworks deployments only during deployment hours. Some models
+ * are still availability-gated even when served by the Fireworks serverless
+ * API. Deployment-mapped models never fall back to the serverless API during
+ * cooldown or after deployment 5xxs; those states surface as provider errors
  * so freebuff can offer MiniMax as the always-on option.
  */
 export async function createFireworksRequestWithFallback(params: {
@@ -717,20 +731,23 @@ export async function createFireworksRequestWithFallback(params: {
   fetch: typeof globalThis.fetch
   logger: Logger
   useCustomDeployment?: boolean
+  deploymentMap?: Record<string, string>
   sessionId: string
   now?: Date
 }): Promise<Response> {
   const { body, originalModel, fetch, logger, sessionId } = params
   const now = params.now ?? new Date()
   const useCustomDeployment = params.useCustomDeployment ?? FIREWORKS_USE_CUSTOM_DEPLOYMENT
-  const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
+  const deploymentMap = params.deploymentMap ?? FIREWORKS_DEPLOYMENT_MAP
+  const deploymentModelId = deploymentMap[originalModel]
   const hasDeployment = useCustomDeployment && Boolean(deploymentModelId)
+  const isHoursGatedModel = FIREWORKS_HOURS_GATED_MODELS.has(originalModel)
   const shouldFallbackToStandardApi = body.codebuff_metadata?.cost_mode === 'lite'
 
   const createStandardApiRequest = () =>
     createFireworksRequest({ body, originalModel, fetch, sessionId })
 
-  if (hasDeployment && !isDeploymentHours(now)) {
+  if (isHoursGatedModel && !isDeploymentHours(now)) {
     if (shouldFallbackToStandardApi) {
       logger.info(
         { model: originalModel },

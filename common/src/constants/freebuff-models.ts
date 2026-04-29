@@ -64,7 +64,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_KIMI_MODEL_ID
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
  *  DEFAULT_FREEBUFF_MODEL_ID so a new user's "preferred default" can be the
- *  smartest model without auto-flipping anyone to a closed deployment. */
+ *  smartest model without auto-flipping anyone to a closed serverless model. */
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MINIMAX_MODEL_ID
 

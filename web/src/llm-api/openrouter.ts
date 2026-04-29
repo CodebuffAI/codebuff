@@ -9,6 +9,7 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
+import { addKimiToolCompatibilityFields, isKimiModel } from './kimi-tool-compat'
 import {
   OpenRouterErrorResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
@@ -61,6 +62,10 @@ function createOpenRouterRequest(params: {
   fetch: typeof globalThis.fetch
 }) {
   const { body, openrouterApiKey, fetch } = params
+  const providerBody = isKimiModel(body.model)
+    ? addKimiToolCompatibilityFields(body)
+    : body
+
   return fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -69,7 +74,7 @@ function createOpenRouterRequest(params: {
       'X-Title': 'Codebuff',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(providerBody),
     // Use custom agent with extended headers timeout for deep-thinking models
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
     dispatcher: openrouterAgent,

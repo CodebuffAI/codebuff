@@ -29,7 +29,11 @@ import type {
   FreebuffSessionRateLimit,
   FreebuffSessionServerResponse,
 } from '@codebuff/common/types/freebuff-session'
-import type { InternalSessionRow, SessionStateResponse } from './types'
+import type {
+  FreeSessionCountryAccessMetadata,
+  InternalSessionRow,
+  SessionStateResponse,
+} from './types'
 
 /**
  * Per-model admission rate limits. Keyed by freebuff model id; a model not
@@ -41,25 +45,28 @@ import type { InternalSessionRow, SessionStateResponse } from './types'
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  'moonshotai/kimi-k2.6': { limit: 5, windowHours: 20 },
+  'moonshotai/kimi-k2.6': { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the
  *  model isn't rate-limited. Used by both POST (after admit) and GET polls so
  *  the CLI's "N of M sessions used" line stays live instead of disappearing
- *  after the first poll. Also returns the oldest admit in-window so callers
- *  that need `retryAfterMs` don't have to re-query. */
+ *  after the first poll. Also returns the oldest admit in-window and the
+ *  window duration so callers that need `retryAfterMs` don't have to re-query
+ *  or duplicate the window math. */
 async function fetchRateLimitSnapshot(
   userId: string,
   model: string,
   deps: SessionDeps,
 ): Promise<
-  { info: FreebuffSessionRateLimit; oldest: Date | null } | undefined
+  | { info: FreebuffSessionRateLimit; oldest: Date | null; windowMs: number }
+  | undefined
 > {
   const cfg = RATE_LIMITS[model]
   if (!cfg) return undefined
   const now = nowOf(deps)
-  const since = new Date(now.getTime() - cfg.windowHours * 60 * 60 * 1000)
+  const windowMs = cfg.windowHours * 60 * 60 * 1000
+  const since = new Date(now.getTime() - windowMs)
   const admits = await deps.listRecentAdmits({
     userId,
     model,
@@ -74,6 +81,7 @@ async function fetchRateLimitSnapshot(
       recentCount: admits.length,
     },
     oldest: admits[0] ?? null,
+    windowMs,
   }
 }
 
@@ -83,6 +91,7 @@ export interface SessionDeps {
     userId: string
     model: string
     now: Date
+    countryAccess?: FreeSessionCountryAccessMetadata
   }) => Promise<InternalSessionRow>
   endSession: (userId: string) => Promise<void>
   queueDepthsByModel: () => Promise<Record<string, number>>
@@ -221,6 +230,7 @@ export async function requestSession(params: {
   userId: string
   model: string
   userEmail?: string | null | undefined
+  countryAccess?: FreeSessionCountryAccessMetadata
   /** True if the account is banned. Short-circuited here so banned bots never
    *  create a queued row — otherwise they inflate `queueDepth` between the
    *  15s admission ticks that run `evictBanned`. */
@@ -271,10 +281,9 @@ export async function requestSession(params: {
     if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
       // Oldest admit's window-anniversary is when one slot opens back up.
       // Clamped at 0 so a clock skew can't surface a negative retry-after.
-      const windowMs = snapshot.info.windowHours * 60 * 60 * 1000
       const retryAfterMs = Math.max(
         0,
-        (snapshot.oldest?.getTime() ?? 0) + windowMs - now.getTime(),
+        (snapshot.oldest?.getTime() ?? 0) + snapshot.windowMs - now.getTime(),
       )
       return {
         status: 'rate_limited',
@@ -293,6 +302,7 @@ export async function requestSession(params: {
       userId: params.userId,
       model,
       now,
+      countryAccess: params.countryAccess,
     })
   } catch (err) {
     if (err instanceof FreeSessionModelLockedError) {
@@ -492,7 +502,8 @@ export async function checkSessionAdmissible(params: {
     return {
       ok: false,
       code: 'waiting_room_required',
-      message: 'No active free session. Call POST /api/v1/freebuff/session first.',
+      message:
+        'No active free session. Call POST /api/v1/freebuff/session first.',
     }
   }
 
@@ -500,7 +511,8 @@ export async function checkSessionAdmissible(params: {
     return {
       ok: false,
       code: 'waiting_room_queued',
-      message: 'You are in the waiting room. Poll GET /api/v1/freebuff/session for your position.',
+      message:
+        'You are in the waiting room. Poll GET /api/v1/freebuff/session for your position.',
     }
   }
 
@@ -515,7 +527,8 @@ export async function checkSessionAdmissible(params: {
     return {
       ok: false,
       code: 'session_expired',
-      message: 'Your free session has expired. Re-join the waiting room via POST /api/v1/freebuff/session.',
+      message:
+        'Your free session has expired. Re-join the waiting room via POST /api/v1/freebuff/session.',
     }
   }
 
@@ -523,7 +536,8 @@ export async function checkSessionAdmissible(params: {
     return {
       ok: false,
       code: 'session_superseded',
-      message: 'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+      message:
+        'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
     }
   }
 

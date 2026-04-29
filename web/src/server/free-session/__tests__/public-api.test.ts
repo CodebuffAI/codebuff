@@ -309,21 +309,21 @@ describe('requestSession', () => {
     expect(s3.status).toBe('active')
   })
 
-  // Per-user rate limit (5 Kimi admissions per 20h) — the wire limit is
+  // Per-user rate limit (5 Kimi admissions per 12h) — the wire limit is
   // hard-coded in public-api.ts, so tests seed the fake admit log directly
   // rather than configuring it.
   const KIMI_MODEL = 'moonshotai/kimi-k2.6'
   const KIMI_LIMIT = 5
-  const KIMI_WINDOW_HOURS = 20
+  const KIMI_WINDOW_HOURS = 12
   const KIMI_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
 
   test('rate_limited: 5th Kimi admit in window blocks the 6th attempt', async () => {
     deps._tick(KIMI_OPEN_TIME)
-    // Seed 5 admits inside the 20h window, spaced so we can verify retryAfter
+    // Seed 5 admits inside the 12h window, spaced so we can verify retryAfter
     // points at the oldest one sliding off.
     const now = deps._now()
-    // Oldest: 19h ago (still in window). Next 4: 1h, 2h, 3h, 4h ago.
-    const ages = [19, 4, 3, 2, 1]
+    // Oldest: 11h ago (still in window). Next 4: 1h, 2h, 3h, 4h ago.
+    const ages = [11, 4, 3, 2, 1]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
@@ -343,15 +343,15 @@ describe('requestSession', () => {
     expect(state.limit).toBe(KIMI_LIMIT)
     expect(state.windowHours).toBe(KIMI_WINDOW_HOURS)
     expect(state.recentCount).toBe(KIMI_LIMIT)
-    // Oldest admit is 19h ago; slot opens when it hits 20h, i.e. in 1h.
+    // Oldest admit is 11h ago; slot opens when it hits 12h, i.e. in 1h.
     expect(state.retryAfterMs).toBe(60 * 60 * 1000)
     // Blocked before any row is written — the user doesn't take a queue slot.
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rate_limited: admits outside the 20h window do not count', async () => {
+  test('rate_limited: admits outside the 12h window do not count', async () => {
     deps._tick(KIMI_OPEN_TIME)
-    // 5 admits, each just over 20h old → all fall off the window.
+    // 5 admits, each just over 12h old → all fall off the window.
     const now = deps._now()
     for (let i = 0; i < 5; i++) {
       deps.admits.push({
@@ -430,7 +430,7 @@ describe('requestSession', () => {
     const now = deps._now()
     // Seed 5 prior admits (the cap), with the latest one matching the
     // active row we're about to install.
-    const ages = [19, 4, 3, 2, 0]
+    const ages = [11, 4, 3, 2, 0]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
@@ -511,7 +511,7 @@ describe('requestSession', () => {
     // must be blocked by the quota.
     deps._tick(KIMI_OPEN_TIME)
     const now = deps._now()
-    const ages = [19, 4, 3, 2, 1]
+    const ages = [11, 4, 3, 2, 1]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
@@ -644,7 +644,7 @@ describe('getSessionState', () => {
     expect(state.rateLimit).toEqual({
       model: 'moonshotai/kimi-k2.6',
       limit: 5,
-      windowHours: 20,
+      windowHours: 12,
       recentCount: 1,
     })
   })

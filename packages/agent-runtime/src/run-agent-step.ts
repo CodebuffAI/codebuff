@@ -1097,11 +1097,21 @@ export async function loopAgentSteps(
 
     let errorMessage = ''
     let errorCode: string | undefined
+    let countryCode: string | undefined
+    let countryBlockReason: string | undefined
+    let ipPrivacySignals: string[] | undefined
     let hasServerMessage = false
     if (error instanceof APICallError) {
       errorMessage = `${error.message}`
       const parsed = parseApiErrorResponseBody(error.responseBody)
       if (parsed.errorCode) errorCode = parsed.errorCode
+      if (parsed.countryCode) countryCode = parsed.countryCode
+      if (parsed.countryBlockReason) {
+        countryBlockReason = parsed.countryBlockReason
+      }
+      if (parsed.ipPrivacySignals) {
+        ipPrivacySignals = parsed.ipPrivacySignals
+      }
       if (parsed.message) {
         errorMessage = parsed.message
         hasServerMessage = true
@@ -1139,6 +1149,9 @@ export async function loopAgentSteps(
         message: hasServerMessage ? errorMessage : 'Agent run error: ' + errorMessage,
         ...(statusCode !== undefined && { statusCode }),
         ...(errorCode !== undefined && { error: errorCode }),
+        ...(countryCode !== undefined && { countryCode }),
+        ...(countryBlockReason !== undefined && { countryBlockReason }),
+        ...(ipPrivacySignals !== undefined && { ipPrivacySignals }),
       },
     }
   }
