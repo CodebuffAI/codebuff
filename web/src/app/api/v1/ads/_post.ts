@@ -53,6 +53,10 @@ export type AdsEnv = {
   CB_ENVIRONMENT: string
 }
 
+function noAdsResponse(provider: AdProviderId) {
+  return NextResponse.json({ ads: [], provider }, { status: 200 })
+}
+
 export async function postAds(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -119,13 +123,13 @@ export async function postAds(params: {
   if (providerId === 'carbon') {
     if (!serverEnv.CARBON_ZONE_KEY) {
       logger.warn('[ads] CARBON_ZONE_KEY not configured')
-      return NextResponse.json({ ad: null, provider: providerId }, { status: 200 })
+      return noAdsResponse(providerId)
     }
     provider = createCarbonProvider({ zoneKey: serverEnv.CARBON_ZONE_KEY })
   } else {
     if (!serverEnv.GRAVITY_API_KEY) {
       logger.warn('[ads] GRAVITY_API_KEY not configured')
-      return NextResponse.json({ ad: null, provider: providerId }, { status: 200 })
+      return noAdsResponse(providerId)
     }
     provider = createGravityProvider({ apiKey: serverEnv.GRAVITY_API_KEY })
   }
@@ -146,20 +150,14 @@ export async function postAds(params: {
     })
 
     if (!result) {
-      return NextResponse.json(
-        { ad: null, provider: provider.id },
-        { status: 200 },
-      )
+      return noAdsResponse(provider.id)
     }
-
-    const adsToPersist: NormalizedAd[] =
-      result.variant === 'choice' ? result.ads : [result.ad]
 
     // Persist served ads so the impression endpoint can validate + fire the
     // correct pixels. Any DB failure is logged but doesn't block serving.
     try {
       await Promise.all(
-        adsToPersist.map((ad) =>
+        result.ads.map((ad) =>
           db
             .insert(schema.adImpression)
             .values({
@@ -184,7 +182,7 @@ export async function postAds(params: {
         {
           userId,
           provider: provider.id,
-          adCount: adsToPersist.length,
+          adCount: result.ads.length,
           error:
             dbError instanceof Error
               ? { name: dbError.name, message: dbError.message }
@@ -200,25 +198,12 @@ export async function postAds(params: {
       return rest
     }
 
-    if (result.variant === 'choice') {
-      logger.info(
-        { provider: provider.id, variant: 'choice', adCount: result.ads.length },
-        '[ads] Fetched choice ads',
-      )
-      return NextResponse.json({
-        ads: result.ads.map(toClient),
-        variant: 'choice',
-        provider: provider.id,
-      })
-    }
-
     logger.info(
-      { provider: provider.id, variant: 'banner' },
-      '[ads] Fetched banner ad',
+      { provider: provider.id, adCount: result.ads.length },
+      '[ads] Fetched ads',
     )
     return NextResponse.json({
-      ad: toClient(result.ad),
-      variant: 'banner',
+      ads: result.ads.map(toClient),
       provider: provider.id,
     })
   } catch (error) {
@@ -235,7 +220,7 @@ export async function postAds(params: {
     )
     return NextResponse.json(
       {
-        ad: null,
+        ads: [],
         provider: providerId,
         error: getErrorObject(error),
       },

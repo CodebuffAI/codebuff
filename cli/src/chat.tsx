@@ -174,7 +174,7 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { adData, recordImpression } = useGravityAd({
+  const { ads, recordImpression } = useGravityAd({
     enabled: IS_FREEBUFF || !hasSubscription,
     provider: 'gravity',
     fallbackProvider: 'carbon',
@@ -1463,11 +1463,8 @@ export const Chat = ({
           />
         )}
 
-        {adData && (IS_FREEBUFF || getAdsEnabled()) && (
-          <ChoiceAdBanner
-            ads={adData.variant === 'choice' ? adData.ads : [adData.ad]}
-            onImpression={recordImpression}
-          />
+        {ads && (IS_FREEBUFF || getAdsEnabled()) && (
+          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
         )}
 
         {reviewMode ? (

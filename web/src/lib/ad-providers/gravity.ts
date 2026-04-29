@@ -1,18 +1,14 @@
-import { createHash } from 'crypto'
-
 import { buildArray } from '@codebuff/common/util/array'
 
 import type {
   AdMessage,
   AdProvider,
-  AdVariant,
   FetchAdInput,
   FetchAdResult,
   NormalizedAd,
 } from './types'
 
 const GRAVITY_URL = 'https://server.trygravity.ai/api/v1/ad'
-const BANNER_PLACEMENT_ID = 'code-assist-ad'
 const CHOICE_PLACEMENT_IDS = [
   'choice-ad-1',
   'choice-ad-2',
@@ -48,15 +44,6 @@ function normalize(raw: GravityRawAd): NormalizedAd {
     impUrl: raw.impUrl,
     payout: raw.payout,
   }
-}
-
-/**
- * A/B test: deterministically assign a user to the `banner` or `choice`
- * variant based on their userId. Stable across requests.
- */
-function getGravityVariant(userId: string): AdVariant {
-  const hash = createHash('sha256').update(`ad-variant:${userId}`).digest()
-  return hash[0] % 2 === 0 ? 'banner' : 'choice'
 }
 
 /**
@@ -111,16 +98,12 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         fetch,
       } = input
 
-      const variant =
-        input.surface === 'waiting_room' ? 'choice' : getGravityVariant(userId)
       const filteredMessages = prepareGravityMessages(messages)
 
       const placementIds =
         input.surface === 'waiting_room'
           ? WAITING_ROOM_PLACEMENT_IDS
-          : variant === 'choice'
-          ? CHOICE_PLACEMENT_IDS
-          : [BANNER_PLACEMENT_ID]
+          : CHOICE_PLACEMENT_IDS
 
       const placements = placementIds.map((id) => ({
         placement: 'below_response',
@@ -192,10 +175,7 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         return null
       }
 
-      if (variant === 'choice') {
-        return { variant: 'choice', ads: ads.map(normalize) }
-      }
-      return { variant: 'banner', ad: normalize(ads[0]) }
+      return { ads: ads.map(normalize) }
     },
   }
 }
