@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffModelAvailable,
@@ -25,8 +25,8 @@ import {
 import type { KeyEvent } from '@opentui/core'
 
 const FREEBUFF_MODEL_SELECTOR_MODELS = [
-  ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_GLM_MODEL_ID),
-  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_GLM_MODEL_ID),
+  ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_KIMI_MODEL_ID),
+  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_KIMI_MODEL_ID),
 ]
 
 /**
@@ -72,7 +72,7 @@ export const FreebuffModelSelector: React.FC = () => {
     // unavailable (e.g. deployment hours close while the picker is open),
     // swap to the always-available fallback so Enter doesn't POST a model
     // the server will immediately reject. In-memory only — the user's saved
-    // preference (e.g. GLM) is preserved for the next launch.
+    // preference (e.g. Kimi) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
       !isFreebuffModelAvailable(selectedModel, new Date(now))
