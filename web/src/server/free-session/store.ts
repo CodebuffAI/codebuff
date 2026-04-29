@@ -466,7 +466,7 @@ export async function promoteQueuedUser(params: {
  * the oldest is needed to compute `retryAfterMs` when the window is full,
  * so one query covers both the check and the reject path.
  *
- * Drives the per-user, per-model rate limit (e.g. at most 5 Kimi sessions in
+ * Drives the per-user, per-model rate limit (e.g. at most 5 GLM sessions in
  * the last 12h) enforced before `joinOrTakeOver`.
  */
 export async function listRecentAdmits(params: {

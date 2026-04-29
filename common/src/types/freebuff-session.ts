@@ -9,7 +9,7 @@
 /**
  * Per-model usage counter surfaced to the CLI so the waiting-room UI can
  * render "N of M sessions used" alongside queue/active state. Present when
- * the joined model has a rate limit applied (today: Kimi K2.6 with 5 admits
+ * the joined model has a rate limit applied (today: GLM 5.1 with 5 admits
  * per 12-hour window). `recentCount` is the number of admissions inside
  * `windowHours` at the time the response was produced — see also the
  * standalone `rate_limited` status for the reject path.
@@ -72,7 +72,7 @@ export type FreebuffSessionServerResponse =
       queueDepthByModel: Record<string, number>
       estimatedWaitMs: number
       queuedAt: string
-      /** Rate-limit quota for rate-limited models (Kimi K2.6 today). Absent
+      /** Rate-limit quota for rate-limited models (GLM 5.1 today). Absent
        *  for unlimited models or when the status was produced outside the
        *  rate-limit check path (e.g. pure read via GET). */
       rateLimit?: FreebuffSessionRateLimit
@@ -85,7 +85,7 @@ export type FreebuffSessionServerResponse =
       admittedAt: string
       expiresAt: string
       remainingMs: number
-      /** Rate-limit quota for rate-limited models (Kimi K2.6 today). Absent
+      /** Rate-limit quota for rate-limited models (GLM 5.1 today). Absent
        *  for unlimited models or when the status was produced outside the
        *  rate-limit check path (e.g. pure read via GET). */
       rateLimit?: FreebuffSessionRateLimit
@@ -131,7 +131,7 @@ export type FreebuffSessionServerResponse =
       /** User has an active session bound to a different model. Returned
        *  from POST /session when they pick a new model without ending their
        *  current session first. The CLI shows a confirmation prompt: "End
-       *  your active Kimi session to switch?" → on confirm, DELETE then
+       *  your active GLM session to switch?" → on confirm, DELETE then
        *  re-POST with the new model. */
       status: 'model_locked'
       currentModel: string
@@ -152,7 +152,7 @@ export type FreebuffSessionServerResponse =
     }
   | {
       /** User has used up their per-model admission quota in the rolling
-       *  window (Kimi K2.6: 5 one-hour sessions per 12h). Returned from POST
+       *  window (GLM 5.1: 5 one-hour sessions per 12h). Returned from POST
        *  /session before the user is placed in the queue. `retryAfterMs` is
        *  the time until the oldest admission inside the window falls off
        *  and one quota slot opens up — clients should show the user when

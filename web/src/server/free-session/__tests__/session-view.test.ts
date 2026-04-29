@@ -7,7 +7,7 @@ import type { InternalSessionRow } from '../types'
 const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
-const TEST_MODEL = 'moonshotai/kimi-k2.6'
+const TEST_MODEL = 'z-ai/glm-5.1'
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   const now = new Date('2026-04-17T12:00:00Z')

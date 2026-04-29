@@ -12,7 +12,6 @@ import {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const STANDARD_MODEL_ID = 'accounts/fireworks/models/glm-5p1'
-const KIMI_STANDARD_MODEL_ID = 'accounts/fireworks/models/kimi-k2p6'
 const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/mjb4i7ea'
 const TEST_DEPLOYMENT_MAP = {
   'z-ai/glm-5.1': DEPLOYMENT_MODEL_ID,
@@ -92,14 +91,6 @@ describe('Fireworks deployment routing', () => {
       model: 'z-ai/glm-5.1',
       messages: [{ role: 'user' as const, content: 'test' }],
     }
-    const kimiBody = {
-      model: 'moonshotai/kimi-k2.6',
-      messages: [{ role: 'user' as const, content: 'test' }],
-    }
-    const kimiLiteBody = {
-      ...kimiBody,
-      codebuff_metadata: { cost_mode: 'lite' },
-    }
     const liteBody = {
       ...minimalBody,
       codebuff_metadata: { cost_mode: 'lite' },
@@ -150,55 +141,6 @@ describe('Fireworks deployment routing', () => {
 
       expect(response.status).toBe(200)
       expect(fetchCalls).toEqual([STANDARD_MODEL_ID])
-    })
-
-    it('uses serverless API for Kimi during hours without a deployment', async () => {
-      const fetchCalls: string[] = []
-
-      const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
-        const body = JSON.parse(init?.body as string)
-        fetchCalls.push(body.model)
-        return new Response(JSON.stringify({ ok: true }), { status: 200 })
-      }) as unknown as typeof globalThis.fetch
-
-      const response = await createFireworksRequestWithFallback({
-        body: kimiBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
-        fetch: mockFetch,
-        logger,
-        useCustomDeployment: true,
-        deploymentMap: {
-          'z-ai/glm-5.1': DEPLOYMENT_MODEL_ID,
-        },
-        sessionId: 'test-user-id',
-        now: IN_DEPLOYMENT_HOURS,
-      })
-
-      expect(response.status).toBe(200)
-      expect(fetchCalls).toEqual([KIMI_STANDARD_MODEL_ID])
-    })
-
-    it('keeps Kimi unavailable outside hours when no deployment is mapped', async () => {
-      const mockFetch = mock(async () => {
-        throw new Error('should not fetch outside deployment hours')
-      }) as unknown as typeof globalThis.fetch
-
-      const response = await createFireworksRequestWithFallback({
-        body: kimiBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
-        fetch: mockFetch,
-        logger,
-        useCustomDeployment: true,
-        deploymentMap: {
-          'z-ai/glm-5.1': DEPLOYMENT_MODEL_ID,
-        },
-        sessionId: 'test-user-id',
-        now: BEFORE_DEPLOYMENT_HOURS,
-      })
-
-      expect(response.status).toBe(503)
-      const body = await response.json()
-      expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
     })
 
     it('keeps GLM unavailable outside hours when no deployment is mapped', async () => {
@@ -414,7 +356,7 @@ describe('Fireworks deployment routing', () => {
       expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
     })
 
-    it('falls back to the standard Fireworks API for Kimi lite mode outside deployment hours', async () => {
+    it('falls back to the standard Fireworks API in lite mode outside deployment hours', async () => {
       const fetchCalls: string[] = []
 
       const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
@@ -424,8 +366,8 @@ describe('Fireworks deployment routing', () => {
       }) as unknown as typeof globalThis.fetch
 
       const response = await createFireworksRequestWithFallback({
-        body: kimiLiteBody as never,
-        originalModel: 'moonshotai/kimi-k2.6',
+        body: liteBody as never,
+        originalModel: 'z-ai/glm-5.1',
         fetch: mockFetch,
         logger,
         useCustomDeployment: true,
@@ -435,7 +377,7 @@ describe('Fireworks deployment routing', () => {
       })
 
       expect(response.status).toBe(200)
-      expect(fetchCalls).toEqual([KIMI_STANDARD_MODEL_ID])
+      expect(fetchCalls).toEqual([STANDARD_MODEL_ID])
     })
 
     it('returns non-5xx responses from deployment without fallback (e.g. 429)', async () => {

@@ -260,7 +260,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed </span>
                   {formatElapsed(elapsedMs)}
                 </text>
-                {/* Per-model session quota (e.g. Kimi K2.6 caps at 5/12h). Only
+                {/* Per-model session quota (e.g. GLM 5.1 caps at 5/12h). Only
                     rendered for rate-limited models so the Minimax queue stays
                     clutter-free. */}
                 {session.rateLimit && (
@@ -343,7 +343,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </>
           )}
 
-          {/* Per-model session quota exhausted (e.g. 5+ Kimi sessions in the
+          {/* Per-model session quota exhausted (e.g. 5+ GLM sessions in the
               last 12h). Terminal for this run — the user can exit and come
               back once the oldest session in the window rolls off. */}
           {session?.status === 'rate_limited' && (
