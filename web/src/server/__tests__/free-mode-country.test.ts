@@ -260,6 +260,50 @@ describe('free mode country access', () => {
     })
   })
 
+  test('allowLocalhost bypasses gating when no CF country and no client IP', async () => {
+    const access = await getFreeModeCountryAccess(makeReq(), {
+      ipinfoToken: 'test-token',
+      allowLocalhost: true,
+    })
+    expect(access.allowed).toBe(true)
+    expect(access.countryCode).toBe('US')
+    expect(access.blockReason).toBe(null)
+    expect(access.ipPrivacy?.signals).toEqual([])
+  })
+
+  test('allowLocalhost bypasses gating for loopback client IPs', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({ 'x-forwarded-for': '127.0.0.1' }),
+      {
+        ipinfoToken: 'test-token',
+        allowLocalhost: true,
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.countryCode).toBe('US')
+    expect(access.blockReason).toBe(null)
+  })
+
+  test('allowLocalhost does not bypass when cf-ipcountry is set', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({ 'cf-ipcountry': 'FR' }),
+      {
+        ipinfoToken: 'test-token',
+        allowLocalhost: true,
+      },
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('country_not_allowed')
+  })
+
+  test('allowLocalhost off (default) keeps the strict missing-IP block', async () => {
+    const access = await getFreeModeCountryAccess(makeReq(), {
+      ipinfoToken: 'test-token',
+    })
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('missing_client_ip')
+  })
+
   test('treats is_anonymous as blocking even when service is present', async () => {
     const fetch = async () =>
       Response.json({
