@@ -115,7 +115,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
   // Try Gravity first, then fall back to Carbon when Gravity doesn't fill.
-  const { adData, recordImpression } = useGravityAd({
+  const { ads, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
     provider: 'gravity',
@@ -369,17 +369,14 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       </box>
 
       {/* Ad banner pinned to the bottom, same look-and-feel as in chat. */}
-      {adData && (
+      {ads && (
         <box style={{ flexShrink: 0 }}>
-          <ChoiceAdBanner
-            ads={adData.variant === 'choice' ? adData.ads : [adData.ad]}
-            onImpression={recordImpression}
-          />
+          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
         </box>
       )}
 
       {/* Horizontal separator (mirrors chat input divider style) */}
-      {!adData && (
+      {!ads && (
         <text style={{ fg: theme.muted, flexShrink: 0 }}>
           {'─'.repeat(terminalWidth)}
         </text>
