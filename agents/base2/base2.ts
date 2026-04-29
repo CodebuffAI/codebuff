@@ -25,12 +25,7 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  const model =
-    mode === 'free'
-      ? 'moonshotai/kimi-k2.6'
-      : mode === 'lite'
-        ? 'moonshotai/kimi-k2.6'
-        : 'anthropic/claude-opus-4.7'
+  const model = isFree ? 'moonshotai/kimi-k2.6' : 'anthropic/claude-opus-4.7'
 
   return {
     publisher,
