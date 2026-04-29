@@ -180,11 +180,6 @@ export const useGravityAd = (options?: {
       })
   }
 
-  // Show a choice ad set (impressions are fired by the component for visible ads only)
-  const showChoiceAds = (ads: AdResponse[]): void => {
-    setAds(ads)
-  }
-
   type FetchAdResult = { ads: AdResponse[] } | null
 
   // Fetch an ad via web API
@@ -303,13 +298,13 @@ export const useGravityAd = (options?: {
         if (result) {
           addToChoiceCache(ctrl, result.ads)
           ctrl.adsShownSinceActivity += 1
-          showChoiceAds(result.ads)
+          setAds(result.ads)
         } else {
           // Fall back to cached ads
           const cachedSet = nextFromChoiceCache(ctrl)
           if (cachedSet) {
             ctrl.adsShownSinceActivity += 1
-            showChoiceAds(cachedSet)
+            setAds(cachedSet)
           }
         }
       } finally {
@@ -338,7 +333,7 @@ export const useGravityAd = (options?: {
       if (result) {
         const ctrl = ctrlRef.current
         addToChoiceCache(ctrl, result.ads)
-        showChoiceAds(result.ads)
+        setAds(result.ads)
         ctrl.adsShownSinceActivity = 1
       }
       setIsLoading(false)

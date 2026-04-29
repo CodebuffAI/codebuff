@@ -54,10 +54,7 @@ export type AdsEnv = {
 }
 
 function noAdsResponse(provider: AdProviderId) {
-  return NextResponse.json(
-    { ads: [], variant: 'choice', provider },
-    { status: 200 },
-  )
+  return NextResponse.json({ ads: [], provider }, { status: 200 })
 }
 
 export async function postAds(params: {
@@ -202,12 +199,11 @@ export async function postAds(params: {
     }
 
     logger.info(
-      { provider: provider.id, variant: 'choice', adCount: result.ads.length },
-      '[ads] Fetched choice ads',
+      { provider: provider.id, adCount: result.ads.length },
+      '[ads] Fetched ads',
     )
     return NextResponse.json({
       ads: result.ads.map(toClient),
-      variant: 'choice',
       provider: provider.id,
     })
   } catch (error) {
@@ -225,7 +221,6 @@ export async function postAds(params: {
     return NextResponse.json(
       {
         ads: [],
-        variant: 'choice',
         provider: providerId,
         error: getErrorObject(error),
       },
