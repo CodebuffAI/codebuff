@@ -1,7 +1,11 @@
 import z from 'zod/v4'
 
 import { jsonObjectSchema } from '../../../types/json'
-import { $getNativeToolCallExampleString, coerceToArray, jsonToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  coerceToArray,
+  jsonToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -25,19 +29,66 @@ const inputSchema = z
           params: z
             .object({
               // Common agent fields (all optional hints — each agent validates its own required fields)
-              command: z.string().optional().describe('Terminal command to run (basher, tmux-cli)'),
-              what_to_summarize: z.string().optional().describe('What information from the command output is desired (basher)'),
-              timeout_seconds: z.number().optional().describe('Timeout for command. Set to -1 for no timeout. Default 30 (basher)'),
-              searchQueries: z.array(z.object({
-                pattern: z.string().describe('The pattern to search for'),
-                flags: z.string().optional().describe('Optional ripgrep flags (e.g., "-i", "-g *.ts")'),
-                cwd: z.string().optional().describe('Optional working directory relative to project root'),
-                maxResults: z.number().optional().describe('Max results per file. Default 15'),
-              })).optional().describe('Array of code search queries (code-searcher)'),
-              filePaths: z.array(z.string()).optional().describe('Relevant file paths to read (opus-agent, gpt-5-agent)'),
-              directories: z.array(z.string()).optional().describe('Directories to search within (file-picker)'),
-              url: z.string().optional().describe('Starting URL to navigate to (browser-use)'),
-              prompts: z.array(z.string()).optional().describe('Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt)'),
+              command: z
+                .string()
+                .optional()
+                .describe('Terminal command to run (basher, tmux-cli)'),
+              what_to_summarize: z
+                .string()
+                .optional()
+                .describe(
+                  'What information from the command output is desired (basher)',
+                ),
+              timeout_seconds: z
+                .number()
+                .optional()
+                .describe(
+                  'Timeout for command. Set to -1 for no timeout. Default 30 (basher)',
+                ),
+              searchQueries: z
+                .array(
+                  z.object({
+                    pattern: z.string().describe('The pattern to search for'),
+                    flags: z
+                      .string()
+                      .optional()
+                      .describe(
+                        'Optional ripgrep flags (e.g., "-i", "-g *.ts")',
+                      ),
+                    cwd: z
+                      .string()
+                      .optional()
+                      .describe(
+                        'Optional working directory relative to project root',
+                      ),
+                    maxResults: z
+                      .number()
+                      .optional()
+                      .describe('Max results per file. Default 15'),
+                  }),
+                )
+                .optional()
+                .describe('Array of code search queries (code-searcher)'),
+              filePaths: z
+                .array(z.string())
+                .optional()
+                .describe(
+                  'Relevant file paths to read (opus-agent, gpt-5-agent)',
+                ),
+              directories: z
+                .array(z.string())
+                .optional()
+                .describe('Directories to search within (file-picker)'),
+              url: z
+                .string()
+                .optional()
+                .describe('Starting URL to navigate to (browser-use)'),
+              prompts: z
+                .array(z.string())
+                .optional()
+                .describe(
+                  'Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt)',
+                ),
             })
             .catchall(z.any())
             .optional()
@@ -58,7 +109,7 @@ Each agent available is already defined as another tool, or, dynamically defined
 
 **IMPORTANT**: \`agent_type\` must be an actual agent name (e.g., \`basher\`, \`code-searcher\`, \`opus-agent\`), NOT a tool name like \`read_files\`, \`str_replace\`, \`code_search\`, etc. If you need to call a tool, use it directly as a tool call instead of wrapping it in spawn_agents.
 
-You can call agents either as direct tool calls (e.g., \`example-agent\`) or use \`spawn_agents\`. Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. Both use the same schema with nested \`prompt\` and \`params\` fields.
+You can call agents either as direct tool calls (using the listed tool name, e.g. \`example_agent\`) or use \`spawn_agents\` with the canonical agent name in \`agent_type\` (e.g. \`example-agent\`). Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. Both use the same schema with nested \`prompt\` and \`params\` fields.
 
 **IMPORTANT**: Many agents have REQUIRED fields in their params schema. Check the agent's schema before spawning - if params has required fields, you MUST include them in the params object. For example, code-searcher requires \`searchQueries\`, basher requires \`command\`.
 

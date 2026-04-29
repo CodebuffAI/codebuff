@@ -3,7 +3,11 @@ import { describe, test, expect, mock } from 'bun:test'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { z } from 'zod/v4'
 
-import { buildAgentToolInputSchema, buildAgentToolSet } from '../templates/prompts'
+import {
+  buildAgentToolInputSchema,
+  buildAgentToolSet,
+} from '../templates/prompts'
+import { tryTransformAgentToolCall } from '../tools/tool-executor'
 import { handleLookupAgentInfo } from '../tools/handlers/tool/lookup-agent-info'
 import {
   ensureZodSchema,
@@ -35,7 +39,9 @@ describe('Schema handling error recovery', () => {
         model: 'gpt-4o-mini',
         inputSchema: {
           prompt: z.string().describe('A test prompt'),
-          params: problematicSchema as unknown as z.ZodType<Record<string, unknown> | undefined>,
+          params: problematicSchema as unknown as z.ZodType<
+            Record<string, unknown> | undefined
+          >,
         },
         outputMode: 'last_message',
         includeMessageHistory: false,
@@ -60,7 +66,8 @@ describe('Schema handling error recovery', () => {
       })
 
       // Should have created a tool without throwing
-      expect(toolSet['test-agent']).toBeDefined()
+      expect(toolSet['test_agent']).toBeDefined()
+      expect(toolSet['test-agent']).toBeUndefined()
     })
 
     test('buildAgentToolInputSchema handles valid schemas', () => {
@@ -112,6 +119,28 @@ describe('Schema handling error recovery', () => {
 
       // Should return a valid schema
       expect(() => z.toJSONSchema(inputSchema, { io: 'input' })).not.toThrow()
+    })
+  })
+
+  describe('direct subagent tool names', () => {
+    test('uses underscored tool aliases while preserving hyphenated agent IDs', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'file_picker',
+        input: { prompt: 'Find relevant files' },
+        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'codebuff/file-picker@1.0.0',
+              prompt: 'Find relevant files',
+            },
+          ],
+        },
+      })
     })
   })
 
@@ -295,7 +324,10 @@ describe('Schema handling error recovery', () => {
       const outputValue = result.output[0]
       expect(outputValue.type).toBe('json')
       if (outputValue.type === 'json') {
-        const parsed = outputValue.value as { found: boolean; agent?: { outputSchema?: unknown } }
+        const parsed = outputValue.value as {
+          found: boolean
+          agent?: { outputSchema?: unknown }
+        }
         expect(parsed.found).toBe(true)
         // The outputSchema should be the fallback
         expect(parsed.agent?.outputSchema).toEqual({
@@ -356,7 +388,10 @@ describe('Schema handling error recovery', () => {
         const parsed = outputValue.value as {
           found: boolean
           agent?: {
-            outputSchema?: { type?: string; properties?: Record<string, unknown> }
+            outputSchema?: {
+              type?: string
+              properties?: Record<string, unknown>
+            }
             inputSchema?: { prompt?: unknown; params?: unknown }
           }
         }
