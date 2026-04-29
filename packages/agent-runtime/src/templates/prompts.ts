@@ -31,6 +31,14 @@ export function getAgentShortName(agentType: AgentTemplateType): string {
 }
 
 /**
+ * Converts an agent ID into the provider-facing tool name used for direct
+ * subagent calls. Agent IDs remain hyphenated; tool names use underscores.
+ */
+export function getAgentToolName(agentType: AgentTemplateType): string {
+  return getAgentShortName(agentType).replace(/-/g, '_')
+}
+
+/**
  * Builds an input schema for an agent tool with prompt and params as top-level fields.
  * This matches the spawn_agents schema structure: { prompt?: string, params?: object }
  */
@@ -59,7 +67,6 @@ export function buildAgentToolInputSchema(
     )
 }
 
-
 /**
  * Builds AI SDK tool definitions for spawnable agents.
  * These tools allow the model to call agents directly as tool calls.
@@ -87,13 +94,13 @@ export async function buildAgentToolSet(
 
     if (!agentTemplate) continue
 
-    const shortName = getAgentShortName(agentType)
+    const toolName = getAgentToolName(agentType)
     const inputSchema = ensureJsonSchemaCompatible(
       buildAgentToolInputSchema(agentTemplate),
     )
 
     // Use the same structure as other tools in toolParams
-    toolSet[shortName] = {
+    toolSet[toolName] = {
       description:
         agentTemplate.spawnerPrompt ||
         `Spawn the ${agentTemplate.displayName} agent`,
