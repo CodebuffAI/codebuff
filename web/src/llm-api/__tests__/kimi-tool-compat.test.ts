@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { addKimiToolCompatibilityFields } from '../kimi-tool-compat'
+import { addKimiToolCompatibilityFields, isKimiModel } from '../kimi-tool-compat'
 
 import type { ChatCompletionRequestBody } from '../types'
 
@@ -100,5 +100,13 @@ describe('addKimiToolCompatibilityFields', () => {
     }
 
     expect(addKimiToolCompatibilityFields(body)).toEqual(body)
+  })
+})
+
+describe('isKimiModel', () => {
+  it('matches only Moonshot model ids', () => {
+    expect(isKimiModel('moonshotai/kimi-k2.6')).toBe(true)
+    expect(isKimiModel('anthropic/claude-sonnet-4.5')).toBe(false)
+    expect(isKimiModel(undefined)).toBe(false)
   })
 })

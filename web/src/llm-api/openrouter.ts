@@ -9,7 +9,7 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
-import { addKimiToolCompatibilityFields } from './kimi-tool-compat'
+import { addKimiToolCompatibilityFields, isKimiModel } from './kimi-tool-compat'
 import {
   OpenRouterErrorResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
@@ -62,7 +62,7 @@ function createOpenRouterRequest(params: {
   fetch: typeof globalThis.fetch
 }) {
   const { body, openrouterApiKey, fetch } = params
-  const providerBody = body.model.startsWith('moonshotai/')
+  const providerBody = isKimiModel(body.model)
     ? addKimiToolCompatibilityFields(body)
     : body
 

@@ -9,7 +9,7 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
-import { addKimiToolCompatibilityFields } from './kimi-tool-compat'
+import { addKimiToolCompatibilityFields, isKimiModel } from './kimi-tool-compat'
 
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -89,7 +89,7 @@ function createCanopyWaveRequest(params: {
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const providerBody = originalModel.startsWith('moonshotai/')
+  const providerBody = isKimiModel(originalModel)
     ? addKimiToolCompatibilityFields(body)
     : body
   const canopywaveBody: Record<string, unknown> = {

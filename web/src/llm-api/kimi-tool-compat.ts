@@ -1,5 +1,9 @@
 import type { ChatCompletionRequestBody } from './types'
 
+export function isKimiModel(model: unknown): model is string {
+  return typeof model === 'string' && model.startsWith('moonshotai/')
+}
+
 function getToolCallNamesById(
   messages: ChatCompletionRequestBody['messages'],
 ): Map<string, string> {
