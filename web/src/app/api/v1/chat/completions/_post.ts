@@ -260,7 +260,7 @@ export async function postChatCompletions(params: {
         fetch,
         ipinfoToken: env.IPINFO_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
-        allowLocalhost: process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod',
+        allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
       })
 
       logger.info(
