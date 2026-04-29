@@ -16,7 +16,6 @@ export function prepareTools({
   tools:
     | undefined
     | Array<{
-        id: string;
         type: 'function';
         function: {
           name: string;
@@ -42,7 +41,6 @@ export function prepareTools({
   }
 
   const openaiCompatTools: Array<{
-    id: string;
     type: 'function';
     function: {
       name: string;
@@ -51,12 +49,11 @@ export function prepareTools({
     };
   }> = [];
 
-  for (const [index, tool] of tools.entries()) {
+  for (const tool of tools) {
     if (tool.type === 'provider-defined') {
       toolWarnings.push({ type: 'unsupported-tool', tool });
     } else {
       openaiCompatTools.push({
-        id: `tool_${index + 1}`,
         type: 'function',
         function: {
           name: tool.name,

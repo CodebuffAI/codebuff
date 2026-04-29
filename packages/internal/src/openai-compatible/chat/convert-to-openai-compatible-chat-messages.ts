@@ -124,7 +124,6 @@ export function convertToOpenAICompatibleChatMessages(
           messages.push({
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
-            name: toolResponse.toolName,
             content: contentValue,
             ...toolResponseMetadata,
           })

@@ -481,7 +481,6 @@ describe('cache control', () => {
       {
         role: 'tool',
         tool_call_id: 'call-123',
-        name: 'calculator',
         content: JSON.stringify({ answer: 42 }),
         cache_control: { type: 'ephemeral' },
       },

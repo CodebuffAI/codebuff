@@ -198,7 +198,6 @@ export function convertToOpenRouterChatMessages(
           messages.push({
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
-            name: toolResponse.toolName,
             content,
             cache_control:
               getCacheControl(providerOptions) ??

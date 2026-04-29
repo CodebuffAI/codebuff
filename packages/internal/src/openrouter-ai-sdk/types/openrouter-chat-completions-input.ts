@@ -73,7 +73,6 @@ export interface ChatCompletionMessageToolCall {
 export interface ChatCompletionToolMessageParam {
   role: 'tool'
   content: string
-  name?: string
   tool_call_id: string
   cache_control?: OpenRouterCacheControl
 }
