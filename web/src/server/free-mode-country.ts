@@ -59,11 +59,10 @@ type FreeModeCountryAccessOptions = {
   allowLocalhost?: boolean
 }
 
-const LOCALHOST_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
+const LOCALHOST_IPS = new Set(['::1', '::ffff:127.0.0.1'])
 
-function isLocalhostIp(ip: string | undefined): boolean {
-  if (!ip) return false
-  return LOCALHOST_IPS.has(ip) || ip.startsWith('127.')
+function isLocalhostIp(ip: string): boolean {
+  return ip.startsWith('127.') || LOCALHOST_IPS.has(ip)
 }
 
 type ResolvedCountryAccess = Omit<
