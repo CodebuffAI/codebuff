@@ -28,9 +28,21 @@ export interface ChatMessage {
   tool_call_id?: string
 }
 
+export interface ChatCompletionTool {
+  id?: string
+  type: string
+  function?: {
+    name: string
+    description?: string
+    parameters?: unknown
+    strict?: boolean
+  }
+}
+
 export interface ChatCompletionRequestBody {
   model: string
   messages: ChatMessage[]
+  tools?: ChatCompletionTool[]
   stream?: boolean
   temperature?: number
   max_tokens?: number
