@@ -291,6 +291,12 @@ const definition: AgentDefinition = {
           const query = input.query as string | undefined
           return query ? `Web search: "${query}"` : 'Web search'
         }
+        case 'gravity_index_search': {
+          const query = input.query as string | undefined
+          return query
+            ? `Gravity Index search: "${query}"`
+            : 'Gravity Index search'
+        }
         case 'read_docs': {
           const libraryTitle = input.libraryTitle as string | undefined
           const topic = input.topic as string | undefined

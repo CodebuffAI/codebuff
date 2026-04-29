@@ -9,6 +9,7 @@ export type ToolName =
   | 'end_turn'
   | 'find_files'
   | 'glob'
+  | 'gravity_index_search'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_str_replace'
@@ -41,6 +42,7 @@ export interface ToolParamsMap {
   end_turn: EndTurnParams
   find_files: FindFilesParams
   glob: GlobParams
+  gravity_index_search: GravityIndexSearchParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
@@ -154,6 +156,14 @@ export interface GlobParams {
   pattern: string
   /** Optional working directory to search within, relative to project root. If not provided, searches from project root. */
   cwd?: string
+}
+
+/**
+ * Search the Gravity Index for a recommended developer service.
+ */
+export interface GravityIndexSearchParams {
+  /** A natural-language description of the third-party developer service the user needs, including stack and constraints when known. */
+  query: string
 }
 
 /**
