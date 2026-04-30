@@ -18,11 +18,13 @@ describe('/api/v1/gravity-index/search POST endpoint', () => {
   let mockTrackEvent: TrackEventFn
   let mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   let mockFetch: typeof globalThis.fetch
+  let mockWarn: ReturnType<typeof mock>
 
   beforeEach(() => {
+    mockWarn = mock(() => {})
     mockLogger = {
       error: mock(() => {}),
-      warn: mock(() => {}),
+      warn: mockWarn,
       info: mock(() => {}),
       debug: mock(() => {}),
     }
@@ -193,5 +195,49 @@ describe('/api/v1/gravity-index/search POST endpoint', () => {
 
     expect(res.status).toBe(502)
     expect(await res.json()).toEqual({ error: 'bad request' })
+  })
+
+  test('redacts Gravity API key from upstream error responses and logs', async () => {
+    mockFetch = Object.assign(
+      mock(async () =>
+        new Response(
+          JSON.stringify({
+            detail: [
+              {
+                input: {
+                  query: '',
+                  platform_api_key: 'gravity-key',
+                },
+              },
+            ],
+          }),
+          { status: 422, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+      { preconnect: () => {} },
+    ) as typeof fetch
+    const req = new NextRequest(
+      'http://localhost:3000/api/v1/gravity-index/search',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid' },
+        body: JSON.stringify({ query: 'transactional email' }),
+      },
+    )
+
+    const res = await postGravityIndexSearch({
+      req,
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      fetch: mockFetch,
+      serverEnv: testServerEnv,
+    })
+
+    expect(res.status).toBe(502)
+    expect(JSON.stringify(await res.json())).not.toContain('gravity-key')
+    expect(JSON.stringify(mockWarn.mock.calls)).not.toContain('gravity-key')
+    expect(JSON.stringify(mockWarn.mock.calls)).toContain('[redacted]')
   })
 })

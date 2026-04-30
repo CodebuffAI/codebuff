@@ -34,6 +34,9 @@ const getErrorMessage = (value: unknown): string | undefined => {
   return typeof message === 'string' ? message : undefined
 }
 
+const redactGravityApiKey = (text: string, gravityApiKey: string) =>
+  text.split(gravityApiKey).join('[redacted]')
+
 export async function postGravityIndexSearch(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -116,15 +119,20 @@ export async function postGravityIndexSearch(params: {
     })
 
     const text = await response.text()
+    const redactedText = redactGravityApiKey(text, publisherKey)
     const json = tryParseJson(text)
 
     if (!response.ok) {
-      const error = (getErrorMessage(json) ?? text) || 'Gravity Index failed'
+      const upstreamError = getErrorMessage(json)
+      const error =
+        (upstreamError
+          ? redactGravityApiKey(upstreamError, publisherKey)
+          : redactedText) || 'Gravity Index failed'
       logger.warn(
         {
           status: response.status,
           statusText: response.statusText,
-          body: text.slice(0, 500),
+          body: redactedText.slice(0, 500),
         },
         'Gravity Index upstream request failed',
       )
@@ -138,7 +146,10 @@ export async function postGravityIndexSearch(params: {
     }
 
     if (!json || typeof json !== 'object' || Array.isArray(json)) {
-      logger.warn({ body: text.slice(0, 500) }, 'Invalid Gravity Index JSON')
+      logger.warn(
+        { body: redactedText.slice(0, 500) },
+        'Invalid Gravity Index JSON',
+      )
       return NextResponse.json(
         { error: 'Invalid Gravity Index response' },
         { status: 502 },
