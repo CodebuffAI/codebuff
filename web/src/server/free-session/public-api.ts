@@ -1,5 +1,7 @@
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_MODEL_ID,
   isFreebuffModelAvailable,
   isFreebuffModelId as isSelectableFreebuffModel,
   resolveFreebuffModel,
@@ -37,15 +39,16 @@ import type {
 
 /**
  * Per-model admission rate limits. Keyed by freebuff model id; a model not
- * in the map has no rate limit applied. Today only GLM 5.1 is limited
- * (Minimax is cheap enough to leave unlimited).
+ * in the map has no rate limit applied. Minimax is cheap enough to leave
+ * unlimited.
  *
  * Hard-coded rather than env-driven: the values need to be observable in the
  * code review, and the CLI already renders the numbers via `rateLimit` on
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  'z-ai/glm-5.1': { limit: 5, windowHours: 12 },
+  [FREEBUFF_GEMINI_PRO_MODEL_ID]: { limit: 1, windowHours: 24 },
+  [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the

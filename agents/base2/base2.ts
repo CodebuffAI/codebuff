@@ -12,12 +12,16 @@ export function createBase2(
     hasNoValidation?: boolean
     planOnly?: boolean
     noAskUser?: boolean
+    model?: SecretAgentDefinition['model']
+    providerOptions?: SecretAgentDefinition['providerOptions']
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
     hasNoValidation = mode === 'fast',
     planOnly = false,
     noAskUser = false,
+    model: modelOverride,
+    providerOptions,
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -25,16 +29,20 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  const model = isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.7'
+  const model =
+    modelOverride ?? (isFree ? 'z-ai/glm-5.1' : 'anthropic/claude-opus-4.7')
+  const defaultProviderOptions = isFree
+    ? {
+        data_collection: 'deny' as const,
+      }
+    : {
+        only: ['amazon-bedrock'],
+      }
 
   return {
     publisher,
     model,
-    providerOptions: isFree ? {
-      data_collection: 'deny',
-    } : {
-      only: ['amazon-bedrock'],
-    },
+    providerOptions: providerOptions ?? defaultProviderOptions,
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -149,8 +157,6 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
         `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
         isMax &&
         `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
-        isFree &&
-        '- Implement code changes using the str_replace or write_file tools directly.',
         isFree &&
         '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
         '- Spawn bashers sequentially if the second command depends on the the first.',

@@ -35,6 +35,7 @@ export type GetUserInfoFromApiKeyFn = <T extends UserColumn>(
 
 type AgentRun = {
   agent_id: string
+  ancestor_run_ids: string[]
   status: 'running' | 'completed' | 'failed' | 'cancelled'
 }
 export type AgentRunColumn = keyof AgentRun
