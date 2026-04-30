@@ -229,6 +229,7 @@ export async function executeToolCall<T extends ToolName>(
             }
           }
 
+          let agentIdToLoad = agentTypeStr
           if (!isBaseAgent) {
             const matchingSpawn = getMatchingSpawn(
               agentTemplate.spawnableAgents,
@@ -246,11 +247,12 @@ export async function executeToolCall<T extends ToolName>(
                 error: `Agent "${agentTypeStr}" is not available to spawn`,
               }
             }
+            agentIdToLoad = matchingSpawn
           }
 
           try {
             const template = await getAgentTemplate({
-              agentId: agentTypeStr,
+              agentId: agentIdToLoad,
               localAgentTemplates: params.localAgentTemplates,
               fetchAgentFromDatabase: params.fetchAgentFromDatabase,
               databaseAgentCache: params.databaseAgentCache,

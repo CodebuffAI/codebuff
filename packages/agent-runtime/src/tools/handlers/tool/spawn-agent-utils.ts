@@ -1,6 +1,9 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { toolNames } from '@codebuff/common/tools/constants'
-import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
+import {
+  normalizeAgentIdForLookup,
+  parseAgentId,
+} from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
@@ -115,7 +118,7 @@ export function getMatchingSpawn(
     publisherId: childPublisherId,
     agentId: childAgentId,
     version: childVersion,
-  } = parseAgentId(childFullAgentId)
+  } = parseAgentId(normalizeAgentIdForLookup(childFullAgentId))
 
   if (!childAgentId) {
     return null
@@ -126,7 +129,7 @@ export function getMatchingSpawn(
       publisherId: spawnablePublisherId,
       agentId: spawnableAgentId,
       version: spawnableVersion,
-    } = parseAgentId(spawnableAgent)
+    } = parseAgentId(normalizeAgentIdForLookup(spawnableAgent))
 
     if (!spawnableAgentId) {
       continue
@@ -177,9 +180,26 @@ export async function validateAndGetAgentTemplate(
   } & ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
   const { agentTypeStr, parentAgentTemplate } = params
+  const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']
+  const isBaseAgent = BASE_AGENTS.includes(parentAgentTemplate.id)
+  const agentType = isBaseAgent
+    ? normalizeAgentIdForLookup(agentTypeStr)
+    : getMatchingSpawn(parentAgentTemplate.spawnableAgents, agentTypeStr)
+
+  if (!agentType) {
+    if (toolNames.includes(agentTypeStr as any)) {
+      throw new Error(
+        `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+      )
+    }
+    throw new Error(
+      `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentTypeStr}.`,
+    )
+  }
+
   const agentTemplate = await getAgentTemplate({
     ...params,
-    agentId: agentTypeStr,
+    agentId: agentType,
   })
 
   if (!agentTemplate) {
@@ -189,21 +209,6 @@ export async function validateAndGetAgentTemplate(
       )
     }
     throw new Error(`Agent type ${agentTypeStr} not found.`)
-  }
-  const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']
-  // Base agent can spawn any agent
-  if (BASE_AGENTS.includes(parentAgentTemplate.id)) {
-    return { agentTemplate, agentType: agentTypeStr }
-  }
-
-  const agentType = getMatchingSpawn(
-    parentAgentTemplate.spawnableAgents,
-    agentTypeStr,
-  )
-  if (!agentType) {
-    throw new Error(
-      `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentTypeStr}.`,
-    )
   }
 
   return { agentTemplate, agentType }
