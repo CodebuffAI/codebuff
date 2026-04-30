@@ -1,5 +1,6 @@
 import z from 'zod/v4'
 
+import { gravityIndexInputSchema } from '../../../types/gravity-index'
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 import { jsonObjectSchema } from '../../../types/json'
 
@@ -7,73 +8,6 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'gravity_index'
 const endsAgentStep = true
-
-const inputSchema = z
-  .discriminatedUnion('action', [
-    z.object({
-      action: z.literal('search').describe('Search for the best service.'),
-      query: z
-        .string()
-        .min(1, 'Query cannot be empty')
-        .max(1000, 'Query cannot exceed 1000 characters')
-        .describe(
-          `What the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app".`,
-        ),
-      search_id: z
-        .string()
-        .optional()
-        .describe('Continue a previous Gravity Index search as a follow-up.'),
-      context: z
-        .record(z.string(), z.unknown())
-        .optional()
-        .describe(
-          'Optional structured context about the project, stack, or constraints.',
-        ),
-    }),
-    z.object({
-      action: z
-        .literal('browse')
-        .describe('Browse catalog services by category and/or keyword.'),
-      category: z
-        .string()
-        .optional()
-        .describe(
-          'Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, Cache, Monitoring, Analytics, AI, Storage, CMS, Search, Realtime, Background Jobs, Infrastructure, CRM, Support, Productivity, Commerce, Video, Webhooks, SMS.',
-        ),
-      q: z
-        .string()
-        .optional()
-        .describe('Optional keyword filter, e.g. sendgrid or postgres.'),
-    }),
-    z.object({
-      action: z
-        .literal('list_categories')
-        .describe('List every category with service counts.'),
-    }),
-    z.object({
-      action: z
-        .literal('get_service')
-        .describe('Fetch full detail for a single service by slug.'),
-      slug: z
-        .string()
-        .min(1, 'Slug cannot be empty')
-        .describe('Service slug, e.g. supabase, stripe, sendgrid.'),
-    }),
-    z.object({
-      action: z
-        .literal('report_integration')
-        .describe('Report that an integration from a prior search was done.'),
-      search_id: z
-        .string()
-        .min(1, 'search_id cannot be empty')
-        .describe('search_id from the earlier search result.'),
-      integrated_slug: z
-        .string()
-        .min(1, 'integrated_slug cannot be empty')
-        .describe('Slug of the service that was actually integrated.'),
-    }),
-  ])
-  .describe(`Use the Gravity Index catalog and conversion API.`)
 
 const description = `
 Purpose: Use the Gravity Index to discover, inspect, and report integrations for third-party developer services such as databases, auth, payments, hosting, email, cache, monitoring, analytics, AI, storage, CMS, search, realtime, background jobs, infrastructure, CRM, support, productivity, commerce, video, webhooks, and SMS.
@@ -98,7 +32,7 @@ Implementation guidance:
 Examples:
 ${$getNativeToolCallExampleString({
   toolName,
-  inputSchema,
+  inputSchema: gravityIndexInputSchema,
   input: {
     action: 'search',
     query:
@@ -109,7 +43,7 @@ ${$getNativeToolCallExampleString({
 
 ${$getNativeToolCallExampleString({
   toolName,
-  inputSchema,
+  inputSchema: gravityIndexInputSchema,
   input: {
     action: 'browse',
     category: 'Email',
@@ -120,7 +54,7 @@ ${$getNativeToolCallExampleString({
 
 ${$getNativeToolCallExampleString({
   toolName,
-  inputSchema,
+  inputSchema: gravityIndexInputSchema,
   input: {
     action: 'get_service',
     slug: 'sendgrid',
@@ -130,7 +64,7 @@ ${$getNativeToolCallExampleString({
 
 ${$getNativeToolCallExampleString({
   toolName,
-  inputSchema,
+  inputSchema: gravityIndexInputSchema,
   input: {
     action: 'report_integration',
     search_id: 'search_id_from_previous_search',
@@ -144,7 +78,7 @@ export const gravityIndexParams = {
   toolName,
   endsAgentStep,
   description,
-  inputSchema,
+  inputSchema: gravityIndexInputSchema,
   outputSchema: jsonToolResultSchema(
     z.union([
       jsonObjectSchema,
