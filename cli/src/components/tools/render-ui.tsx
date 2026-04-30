@@ -1,12 +1,11 @@
 import { TextAttributes } from '@opentui/core'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import { safeOpen } from '../../utils/open-url'
 import { Button } from '../button'
 
-import type { ChatTheme } from '../../types/theme-system'
 import type { ToolRenderConfig } from './types'
 import type { RenderUIButtonWidget } from '@codebuff/common/tools/params/tool/render-ui'
 
@@ -33,25 +32,10 @@ const isRenderUIButtonWidget = (
 }
 
 const getButtonColors = (
-  theme: ChatTheme,
+  theme: ReturnType<typeof useTheme>,
   variant: RenderUIButtonVariant,
   isHovered: boolean,
-  status: 'idle' | 'opened' | 'failed',
 ) => {
-  if (status === 'failed') {
-    return {
-      backgroundColor: theme.surface,
-      foregroundColor: theme.error,
-    }
-  }
-
-  if (status === 'opened') {
-    return {
-      backgroundColor: theme.surface,
-      foregroundColor: theme.success,
-    }
-  }
-
   if (variant === 'secondary') {
     return {
       backgroundColor: isHovered ? theme.surfaceHover : theme.surface,
@@ -65,36 +49,51 @@ const getButtonColors = (
   }
 }
 
+const CLICK_FLASH_DURATION_MS = 150
+
 const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
-  const [status, setStatus] = useState<'idle' | 'opened' | 'failed'>('idle')
+  const [isClicked, setIsClicked] = useState(false)
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const variant = widget.variant ?? 'primary'
   const { backgroundColor, foregroundColor } = getButtonColors(
     theme,
     variant,
     isHovered,
-    status,
   )
 
-  const handleClick = useCallback(async () => {
-    const opened = await safeOpen(widget.link)
-    setStatus(opened ? 'opened' : 'failed')
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleClick = useCallback(() => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+    }
+    setIsClicked(true)
+    safeOpen(widget.link)
+    clickTimeoutRef.current = setTimeout(
+      () => setIsClicked(false),
+      CLICK_FLASH_DURATION_MS,
+    )
   }, [widget.link])
 
-  const statusText =
-    status === 'opened'
-      ? 'Opened'
-      : status === 'failed'
-        ? `Could not open: ${widget.link}`
-        : ''
+  const textAttributes = isClicked
+    ? TextAttributes.DIM
+    : isHovered
+      ? TextAttributes.BOLD
+      : undefined
 
   return (
     <box
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: statusText ? 1 : 0,
       }}
     >
       <Button
@@ -108,19 +107,11 @@ const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
         }}
       >
         <text>
-          <span
-            fg={foregroundColor}
-            attributes={isHovered ? TextAttributes.BOLD : undefined}
-          >
+          <span fg={foregroundColor} attributes={textAttributes}>
             {widget.text}
           </span>
         </text>
       </Button>
-      <text style={{ wrapMode: 'word' }}>
-        <span fg={status === 'failed' ? theme.error : theme.muted}>
-          {statusText}
-        </span>
-      </text>
     </box>
   )
 }
