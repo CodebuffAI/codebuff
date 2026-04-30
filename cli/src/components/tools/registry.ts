@@ -1,6 +1,7 @@
 import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
 import { GlobComponent } from './glob'
+import { GravityIndexComponent } from './gravity-index'
 import { ListDirectoryComponent } from './list-directory'
 import { ReadDocsComponent } from './read-docs'
 import { ReadFilesComponent } from './read-files'
@@ -31,6 +32,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ApplyPatchComponent.toolName, ApplyPatchComponent],
   [CodeSearchComponent.toolName, CodeSearchComponent],
   [GlobComponent.toolName, GlobComponent],
+  [GravityIndexComponent.toolName, GravityIndexComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
   [ReadDocsComponent.toolName, ReadDocsComponent],
