@@ -1,5 +1,8 @@
 import { validateAgents } from '@codebuff/common/templates/agent-validation'
-import { parsePublishedAgentId } from '@codebuff/common/util/agent-id-parsing'
+import {
+  normalizeAgentIdForLookup,
+  parsePublishedAgentId,
+} from '@codebuff/common/util/agent-id-parsing'
 import { DEFAULT_ORG_PREFIX } from '@codebuff/common/util/agent-name-normalization'
 
 import type { DynamicAgentValidationError } from '@codebuff/common/templates/agent-validation'
@@ -31,20 +34,32 @@ export async function getAgentTemplate(
     databaseAgentCache,
     logger,
   } = params
+  const normalizedAgentId = normalizeAgentIdForLookup(agentId)
+
   // 1. Check localAgentTemplates first (dynamic agents + static templates)
   if (localAgentTemplates[agentId]) {
     return localAgentTemplates[agentId]
   }
+  if (normalizedAgentId !== agentId && localAgentTemplates[normalizedAgentId]) {
+    return localAgentTemplates[normalizedAgentId]
+  }
+
   // 2. Check database cache
   if (databaseAgentCache.has(agentId)) {
     return databaseAgentCache.get(agentId) || null
   }
+  if (
+    normalizedAgentId !== agentId &&
+    databaseAgentCache.has(normalizedAgentId)
+  ) {
+    return databaseAgentCache.get(normalizedAgentId) || null
+  }
 
-  const parsed = parsePublishedAgentId(agentId)
+  const parsed = parsePublishedAgentId(normalizedAgentId)
   if (!parsed) {
     // If agentId doesn't parse as publisher/agent format, try as codebuff/agentId
     const codebuffParsed = parsePublishedAgentId(
-      `${DEFAULT_ORG_PREFIX}${agentId}`,
+      `${DEFAULT_ORG_PREFIX}${normalizedAgentId}`,
     )
     if (codebuffParsed) {
       const dbAgent = await fetchAgentFromDatabase({
