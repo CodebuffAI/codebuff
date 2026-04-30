@@ -276,6 +276,7 @@ export async function getFreebuffSession(
           status: 'none',
           message: 'Call POST to join the waiting room.',
           queueDepthByModel: state.queueDepthByModel,
+          rateLimitsByModel: state.rateLimitsByModel,
         },
         { status: 200 },
       )

@@ -745,6 +745,25 @@ describe('getSessionState', () => {
     expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
   })
 
+  test('no row surfaces exhausted Gemini quota before joining', async () => {
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      admitted_at: new Date(now.getTime() - 23 * 60 * 60 * 1000),
+    })
+
+    const state = await getSessionState({ userId: 'u1', deps })
+    expect(state.status).toBe('none')
+    if (state.status !== 'none') throw new Error('unreachable')
+    expect(state.rateLimitsByModel?.[FREEBUFF_GEMINI_PRO_MODEL_ID]).toEqual({
+      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      limit: 1,
+      windowHours: 24,
+      recentCount: 1,
+    })
+  })
+
   test('active session with matching instance id returns active', async () => {
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
