@@ -111,9 +111,10 @@ function getTypeFromJsonSchema(prop: any): string {
   if (prop.const !== undefined) {
     return JSON.stringify(prop.const)
   }
+
   if (prop.type === 'string') {
     if (prop.enum) {
-      return prop.enum.map((v: string) => `"${v}"`).join(' | ')
+      return prop.enum.map((v: string) => JSON.stringify(v)).join(' | ')
     }
     return 'string'
   }
