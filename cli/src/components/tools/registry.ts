@@ -5,6 +5,7 @@ import { ListDirectoryComponent } from './list-directory'
 import { ReadDocsComponent } from './read-docs'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
+import { RenderUIComponent } from './render-ui'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { SkillComponent } from './skill'
 import { StrReplaceComponent } from './str-replace'
@@ -35,6 +36,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ReadDocsComponent.toolName, ReadDocsComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
+  [RenderUIComponent.toolName, RenderUIComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
   [StrReplaceComponent.toolName, StrReplaceComponent],
   [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],

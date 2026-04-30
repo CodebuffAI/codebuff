@@ -14,6 +14,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'add_message',
   'update_subgoal',
   'create_plan',
+  'render_ui',
   'suggest_followups',
   'task_completed',
 ]
@@ -38,6 +39,7 @@ export const toolNames = [
   'read_docs',
   'read_files',
   'read_subtree',
+  'render_ui',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
@@ -71,6 +73,7 @@ export const publishedTools = [
   'read_docs',
   'read_files',
   'read_subtree',
+  'render_ui',
   'run_file_change_hooks',
   'run_terminal_command',
   'set_messages',
