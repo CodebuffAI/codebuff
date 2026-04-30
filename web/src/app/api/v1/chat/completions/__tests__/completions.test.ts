@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import {
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   isFreebuffDeploymentHours,
@@ -143,6 +144,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         return {
           // Real free-mode allowlisted agent (see FREE_MODE_AGENT_MODELS).
           agent_id: 'base2-free',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-deepseek-v4') {
+        return {
+          agent_id: 'base2-free-deepseek-v4',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -822,6 +830,111 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
+
+    it(
+      'lets the DeepSeek V4 free agent use the direct DeepSeek provider',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchedUrls: string[] = []
+        const fetchViaDeepSeek = mock(
+          async (url: string | URL | Request, init?: RequestInit) => {
+            fetchedUrls.push(String(url))
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'deepseek-v4-pro',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  prompt_cache_hit_tokens: 4,
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free-deepseek-v4',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaDeepSeek,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(fetchedUrls[0]).toBe('https://api.deepseek.com/chat/completions')
+        expect(fetchedBodies[0].model).toBe('deepseek-v4-pro')
+        expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+        expect(body.provider).toBe('DeepSeek')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it('rejects the DeepSeek V4 free agent when it requests another free model', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free-deepseek-v4',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      const body = await response.json()
+      expect(response.status).toBe(403)
+      expect(body.error).toBe('free_mode_invalid_agent_model')
+    })
 
     it('lets freebuff use Gemini 3.1 Pro through the free-mode allowlist', async () => {
       const req = new NextRequest(

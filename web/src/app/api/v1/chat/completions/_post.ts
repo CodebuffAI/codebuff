@@ -49,6 +49,12 @@ import {
   isFireworksModel,
 } from '@/llm-api/fireworks'
 import {
+  DeepSeekError,
+  handleDeepSeekNonStream,
+  handleDeepSeekStream,
+  isDeepSeekModel,
+} from '@/llm-api/deepseek'
+import {
   SiliconFlowError,
   handleSiliconFlowNonStream,
   handleSiliconFlowStream,
@@ -597,12 +603,15 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Streaming request — route supported models to direct providers.
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = isCanopyWaveModel(typedBody.model)
-        const useFireworks = !useCanopyWave && isFireworksModel(typedBody.model)
+        const useDeepSeek = !useCanopyWave && isDeepSeekModel(typedBody.model)
+        const useFireworks =
+          !useCanopyWave && !useDeepSeek && isFireworksModel(typedBody.model)
         const useOpenAIDirect =
           !useCanopyWave &&
+          !useDeepSeek &&
           !useFireworks &&
           isOpenAIDirectModel(typedBody.model)
         const stream = useSiliconFlow
@@ -625,8 +634,8 @@ export async function postChatCompletions(params: {
                 logger,
                 insertMessageBigquery,
               })
-            : useFireworks
-              ? await handleFireworksStream({
+            : useDeepSeek
+              ? await handleDeepSeekStream({
                   body: typedBody,
                   userId,
                   stripeCustomerId,
@@ -635,8 +644,8 @@ export async function postChatCompletions(params: {
                   logger,
                   insertMessageBigquery,
                 })
-              : useOpenAIDirect
-                ? await handleOpenAIStream({
+              : useFireworks
+                ? await handleFireworksStream({
                     body: typedBody,
                     userId,
                     stripeCustomerId,
@@ -645,16 +654,26 @@ export async function postChatCompletions(params: {
                     logger,
                     insertMessageBigquery,
                   })
-                : await handleOpenRouterStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    openrouterApiKey,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
+                : useOpenAIDirect
+                  ? await handleOpenAIStream({
+                      body: typedBody,
+                      userId,
+                      stripeCustomerId,
+                      agentId,
+                      fetch,
+                      logger,
+                      insertMessageBigquery,
+                    })
+                  : await handleOpenRouterStream({
+                      body: typedBody,
+                      userId,
+                      stripeCustomerId,
+                      agentId,
+                      openrouterApiKey,
+                      fetch,
+                      logger,
+                      insertMessageBigquery,
+                    })
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -679,9 +698,14 @@ export async function postChatCompletions(params: {
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = isCanopyWaveModel(model)
-        const useFireworks = !useCanopyWave && isFireworksModel(model)
+        const useDeepSeek = !useCanopyWave && isDeepSeekModel(model)
+        const useFireworks =
+          !useCanopyWave && !useDeepSeek && isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
-          !useCanopyWave && !useFireworks && isOpenAIDirectModel(model)
+          !useCanopyWave &&
+          !useDeepSeek &&
+          !useFireworks &&
+          isOpenAIDirectModel(model)
 
         const nonStreamRequest = useSiliconFlow
           ? handleSiliconFlowNonStream({
@@ -703,8 +727,8 @@ export async function postChatCompletions(params: {
                 logger,
                 insertMessageBigquery,
               })
-            : useFireworks
-              ? handleFireworksNonStream({
+            : useDeepSeek
+              ? handleDeepSeekNonStream({
                   body: typedBody,
                   userId,
                   stripeCustomerId,
@@ -713,8 +737,8 @@ export async function postChatCompletions(params: {
                   logger,
                   insertMessageBigquery,
                 })
-              : shouldUseOpenAIEndpoint
-                ? handleOpenAINonStream({
+              : useFireworks
+                ? handleFireworksNonStream({
                     body: typedBody,
                     userId,
                     stripeCustomerId,
@@ -723,16 +747,26 @@ export async function postChatCompletions(params: {
                     logger,
                     insertMessageBigquery,
                   })
-                : handleOpenRouterNonStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    openrouterApiKey,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
+                : shouldUseOpenAIEndpoint
+                  ? handleOpenAINonStream({
+                      body: typedBody,
+                      userId,
+                      stripeCustomerId,
+                      agentId,
+                      fetch,
+                      logger,
+                      insertMessageBigquery,
+                    })
+                  : handleOpenRouterNonStream({
+                      body: typedBody,
+                      userId,
+                      stripeCustomerId,
+                      agentId,
+                      openrouterApiKey,
+                      fetch,
+                      logger,
+                      insertMessageBigquery,
+                    })
         const result = await nonStreamRequest
 
         trackEvent({
@@ -761,6 +795,10 @@ export async function postChatCompletions(params: {
       if (error instanceof CanopyWaveError) {
         canopywaveError = error
       }
+      let deepseekError: DeepSeekError | undefined
+      if (error instanceof DeepSeekError) {
+        deepseekError = error
+      }
       let siliconflowError: SiliconFlowError | undefined
       if (error instanceof SiliconFlowError) {
         siliconflowError = error
@@ -776,11 +814,13 @@ export async function postChatCompletions(params: {
         ? 'SiliconFlow'
         : canopywaveError
           ? 'CanopyWave'
-          : fireworksError
-            ? 'Fireworks'
-            : openaiError
-              ? 'OpenAI'
-              : 'OpenRouter'
+          : deepseekError
+            ? 'DeepSeek'
+            : fireworksError
+              ? 'Fireworks'
+              : openaiError
+                ? 'OpenAI'
+                : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -798,6 +838,7 @@ export async function postChatCompletions(params: {
             openrouterError ??
             fireworksError ??
             canopywaveError ??
+            deepseekError ??
             siliconflowError ??
             openaiError
           )?.statusCode,
@@ -805,6 +846,7 @@ export async function postChatCompletions(params: {
             openrouterError ??
             fireworksError ??
             canopywaveError ??
+            deepseekError ??
             siliconflowError ??
             openaiError
           )?.statusText,
@@ -836,6 +878,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof CanopyWaveError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof DeepSeekError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {

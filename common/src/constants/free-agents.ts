@@ -1,6 +1,9 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
-import { SUPPORTED_FREEBUFF_MODELS } from './freebuff-models'
+import {
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  SUPPORTED_FREEBUFF_MODELS,
+} from './freebuff-models'
 
 import type { CostMode } from './model-config'
 
@@ -16,7 +19,10 @@ export const FREE_COST_MODE = 'free' as const
  * excluded — they're spawned by the root, so counting them would inflate
  * every user's apparent activity.
  */
-export const FREEBUFF_ROOT_AGENT_IDS = ['base2-free'] as const
+export const FREEBUFF_ROOT_AGENT_IDS = [
+  'base2-free',
+  'base2-free-deepseek-v4',
+] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
 )
@@ -35,6 +41,7 @@ const FREEBUFF_ALLOWED_MODEL_IDS = SUPPORTED_FREEBUFF_MODELS.map(
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
+  'base2-free-deepseek-v4': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),

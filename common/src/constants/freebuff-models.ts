@@ -22,6 +22,7 @@ export interface FreebuffModelOption {
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
+export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
@@ -46,6 +47,12 @@ export const FREEBUFF_MODELS = [
     id: FREEBUFF_GEMINI_PRO_MODEL_ID,
     displayName: 'Gemini 3.1 Pro',
     tagline: 'Deepest, 1/day',
+    availability: 'always',
+  },
+  {
+    id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    displayName: 'DeepSeek V4 Pro',
+    tagline: 'Experimental',
     availability: 'always',
   },
   {

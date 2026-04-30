@@ -415,6 +415,8 @@ export type ModelName =
   | 'qwen/qwen3-30b-a3b:nitro'
 
   // DeepSeek
+  | 'deepseek/deepseek-v4-pro'
+  | 'deepseek-v4-pro'
   | 'deepseek/deepseek-chat-v3-0324'
   | 'deepseek/deepseek-chat-v3-0324:nitro'
   | 'deepseek/deepseek-r1-0528'

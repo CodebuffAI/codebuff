@@ -6,6 +6,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'openai',
   'google',
   'x-ai',
+  'deepseek',
 ] as const
 
 export const costModes = [
@@ -55,6 +56,8 @@ export type openrouterModel =
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
+  deepseekV4ProDirect: 'deepseek-v4-pro',
+  deepseekV4Pro: 'deepseek/deepseek-v4-pro',
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
