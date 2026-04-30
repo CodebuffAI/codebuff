@@ -18,18 +18,24 @@ export function compileToolDefinitions(): string {
 
       // Convert Zod schema to TypeScript interface using JSON schema
       let typeDefinition: string
+      let jsonSchema: unknown
       try {
-        const jsonSchema = z.toJSONSchema(parameterSchema, { io: 'input' })
+        jsonSchema = z.toJSONSchema(parameterSchema, { io: 'input' })
         typeDefinition = jsonSchemaToTypeScript(jsonSchema)
       } catch (error) {
         console.warn(`Failed to convert schema for ${toolName}:`, error)
         typeDefinition = '{ [key: string]: any }'
       }
 
+      const typeName = `${toPascalCase(toolName)}Params`
+      const declaration = canEmitInterface(jsonSchema)
+        ? `export interface ${typeName} ${typeDefinition}`
+        : `export type ${typeName} = ${typeDefinition}`
+
       return `/**
  * ${parameterSchema.description || `Parameters for ${toolName} tool`}
  */
-export interface ${toPascalCase(toolName)}Params ${typeDefinition}`
+${declaration}`
     })
     .join('\n\n')
 
@@ -89,10 +95,22 @@ function jsonSchemaToTypeScript(schema: any): string {
   return getTypeFromJsonSchema(schema)
 }
 
+function canEmitInterface(schema: any): boolean {
+  return (
+    schema.type === 'object' &&
+    !!schema.properties &&
+    !schema.anyOf &&
+    !schema.oneOf
+  )
+}
+
 /**
  * Gets TypeScript type from JSON Schema property
  */
 function getTypeFromJsonSchema(prop: any): string {
+  if (prop.const !== undefined) {
+    return JSON.stringify(prop.const)
+  }
   if (prop.type === 'string') {
     if (prop.enum) {
       return prop.enum.map((v: string) => `"${v}"`).join(' | ')
