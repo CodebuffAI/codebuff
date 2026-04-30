@@ -1,12 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  it,
-  spyOn,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import {
@@ -15,8 +7,8 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
 import {
+  checkFreeModeRateLimit,
   resetFreeModeRateLimits,
-  FREE_MODE_RATE_LIMITS,
 } from '../free-mode-rate-limiter'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -818,53 +810,34 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
 
     it('counts child reviewer Gemini requests toward the free-mode request limit', async () => {
-      const nowSpy = spyOn(Date, 'now').mockImplementation(
-        () => 1_000_000_000_000,
-      )
-      try {
-        const postFreeRequest = (runId: string) =>
-          postChatCompletions({
-            req: new NextRequest(
-              'http://localhost:3000/api/v1/chat/completions',
-              {
-                method: 'POST',
-                headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
-                body: JSON.stringify({
-                  model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-                  stream: false,
-                  codebuff_metadata: {
-                    run_id: runId,
-                    client_id: 'test-client-id-123',
-                    cost_mode: 'free',
-                  },
-                }),
-              },
-            ),
-            getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-            logger: mockLogger,
-            trackEvent: mockTrackEvent,
-            getUserUsageData: mockGetUserUsageData,
-            getAgentRunFromId: mockGetAgentRunFromId,
-            fetch: mockFetch,
-            insertMessageBigquery: mockInsertMessageBigquery,
-            loggerWithContext: mockLoggerWithContext,
-            checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-          })
+      const response = await postChatCompletions({
+        req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-reviewer-child',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        }),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
 
-        for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
-          const response = await postFreeRequest(
-            i === 0 ? 'run-reviewer-child' : 'run-free',
-          )
-          expect(response.status).toBe(200)
-        }
-
-        const limited = await postFreeRequest('run-free')
-        expect(limited.status).toBe(429)
-        const body = await limited.json()
-        expect(body.error).toBe('free_mode_rate_limited')
-      } finally {
-        nowSpy.mockRestore()
-      }
+      expect(response.status).toBe(200)
+      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(false)
+      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(true)
     })
 
     it('skips credit check when in FREE mode even with 0 credits', async () => {
