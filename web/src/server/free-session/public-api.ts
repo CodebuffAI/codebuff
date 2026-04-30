@@ -392,6 +392,11 @@ async function attachRateLimit(
   deps: SessionDeps,
 ): Promise<SessionStateResponse> {
   if (view.status !== 'queued' && view.status !== 'active') return view
+  if (view.status === 'active') {
+    const snapshot = await fetchRateLimitSnapshot(userId, view.model, deps)
+    return snapshot ? { ...view, rateLimit: snapshot.info } : view
+  }
+
   const allRateLimitsByModel = await fetchRateLimitSnapshotsByModel(
     userId,
     deps,

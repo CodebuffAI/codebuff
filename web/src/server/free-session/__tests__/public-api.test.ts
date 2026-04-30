@@ -827,6 +827,32 @@ describe('getSessionState', () => {
     })
   })
 
+  test('active session only fetches quota for its own model', async () => {
+    deps._tick(new Date('2026-04-17T16:00:00Z'))
+    let listRecentAdmitsCalls = 0
+    const originalListRecentAdmits = deps.listRecentAdmits
+    deps.listRecentAdmits = async (params) => {
+      listRecentAdmitsCalls++
+      return originalListRecentAdmits(params)
+    }
+
+    await requestSession({ userId: 'u1', model: 'moonshotai/kimi-k2.6', deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+    listRecentAdmitsCalls = 0
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+
+    expect(state.status).toBe('active')
+    expect(listRecentAdmitsCalls).toBe(1)
+  })
+
   test('omitted claimedInstanceId on active session returns active (read-only)', async () => {
     // Polling without an id (e.g. very first GET before POST has resolved)
     // must not be classified as superseded — only an explicit mismatch is.
