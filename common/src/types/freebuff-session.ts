@@ -20,6 +20,11 @@ export interface FreebuffSessionRateLimit {
   recentCount: number
 }
 
+export type FreebuffSessionRateLimitByModel = Record<
+  string,
+  FreebuffSessionRateLimit
+>
+
 export type FreebuffCountryBlockReason =
   | 'country_not_allowed'
   | 'anonymized_or_unknown_country'
@@ -55,6 +60,10 @@ export type FreebuffSessionServerResponse =
        *  committing the user to a queue. Present on GET responses; not
        *  returned from POST (POST never produces `none`). */
       queueDepthByModel?: Record<string, number>
+      /** Current quota snapshots for rate-limited models, keyed by model id.
+       *  Lets the picker show exhausted daily/session caps before the user
+       *  commits to a queue. */
+      rateLimitsByModel?: FreebuffSessionRateLimitByModel
     }
   | {
       status: 'queued'
@@ -75,6 +84,7 @@ export type FreebuffSessionServerResponse =
        *  for unlimited models or when the status was produced outside the
        *  rate-limit check path (e.g. pure read via GET). */
       rateLimit?: FreebuffSessionRateLimit
+      rateLimitsByModel?: FreebuffSessionRateLimitByModel
     }
   | {
       status: 'active'
@@ -88,6 +98,7 @@ export type FreebuffSessionServerResponse =
        *  for unlimited models or when the status was produced outside the
        *  rate-limit check path (e.g. pure read via GET). */
       rateLimit?: FreebuffSessionRateLimit
+      rateLimitsByModel?: FreebuffSessionRateLimitByModel
     }
   | {
       /** Session is over. While `instanceId` is present we're inside the

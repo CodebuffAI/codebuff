@@ -90,6 +90,40 @@ async function fetchRateLimitSnapshot(
   }
 }
 
+async function fetchRateLimitsByModel(
+  userId: string,
+  deps: SessionDeps,
+): Promise<Record<string, FreebuffSessionRateLimit>> {
+  const entries = await Promise.all(
+    Object.keys(RATE_LIMITS).map(async (model) => {
+      const snapshot = await fetchRateLimitSnapshot(userId, model, deps)
+      return snapshot ? ([model, snapshot.info] as const) : null
+    }),
+  )
+  return Object.fromEntries(
+    entries.filter(
+      (entry): entry is readonly [string, FreebuffSessionRateLimit] =>
+        entry !== null,
+    ),
+  )
+}
+
+function onlyUsedRateLimitsByModel(
+  rateLimitsByModel: Record<string, FreebuffSessionRateLimit>,
+): Record<string, FreebuffSessionRateLimit> {
+  return Object.fromEntries(
+    Object.entries(rateLimitsByModel).filter(
+      ([, snapshot]) => snapshot.recentCount > 0,
+    ),
+  )
+}
+
+function nonEmptyRateLimitsByModel(
+  rateLimitsByModel: Record<string, FreebuffSessionRateLimit>,
+): { rateLimitsByModel: Record<string, FreebuffSessionRateLimit> } | {} {
+  return Object.keys(rateLimitsByModel).length > 0 ? { rateLimitsByModel } : {}
+}
+
 export interface SessionDeps {
   getSessionRow: (userId: string) => Promise<InternalSessionRow | null>
   joinOrTakeOver: (params: {
@@ -365,9 +399,20 @@ async function attachRateLimit(
   deps: SessionDeps,
 ): Promise<SessionStateResponse> {
   if (view.status !== 'queued' && view.status !== 'active') return view
-  const snapshot = await fetchRateLimitSnapshot(userId, view.model, deps)
-  if (!snapshot) return view
-  return { ...view, rateLimit: snapshot.info }
+  if (view.status === 'active') {
+    const snapshot = await fetchRateLimitSnapshot(userId, view.model, deps)
+    return snapshot ? { ...view, rateLimit: snapshot.info } : view
+  }
+
+  const allRateLimitsByModel = await fetchRateLimitsByModel(userId, deps)
+  const rateLimit = allRateLimitsByModel[view.model]
+  return {
+    ...view,
+    ...(rateLimit ? { rateLimit } : {}),
+    ...nonEmptyRateLimitsByModel(
+      onlyUsedRateLimitsByModel(allRateLimitsByModel),
+    ),
+  }
 }
 
 /**
@@ -404,11 +449,21 @@ export async function getSessionState(params: {
 
   // Build a `none` response with live queue depths so the CLI's pre-join
   // picker can show "N ahead" hints without first committing the user to a
-  // queue. Cheap snapshot — no user-scoped state.
-  const noneResponse = async (): Promise<FreebuffSessionServerResponse> => ({
-    status: 'none',
-    queueDepthByModel: await deps.queueDepthsByModel(),
-  })
+  // queue, plus per-user quota snapshots so exhausted models are visible
+  // before POST.
+  const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
+    const [queueDepthByModel, rateLimitsByModel] = await Promise.all([
+      deps.queueDepthsByModel(),
+      fetchRateLimitsByModel(params.userId, deps),
+    ])
+    return {
+      status: 'none',
+      queueDepthByModel,
+      ...nonEmptyRateLimitsByModel(
+        onlyUsedRateLimitsByModel(rateLimitsByModel),
+      ),
+    }
+  }
 
   if (!row) return noneResponse()
 
