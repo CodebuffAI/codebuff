@@ -2,11 +2,7 @@
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  Check,
-  ChevronDown,
-  Copy,
-} from 'lucide-react'
+import { Check, ChevronDown, Copy } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import posthog from 'posthog-js'
@@ -20,18 +16,17 @@ import { cn } from '@/lib/utils'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
 
-const headlineWords = ["The", "free", "coding", "agent"]
+const headlineWords = ['The', 'free', 'coding', 'agent']
 
 const faqs = [
   {
     question: 'How can it be free?',
-    answer:
-      'Freebuff is supported by text ads shown in the CLI.',
+    answer: 'Freebuff is supported by text ads shown in the CLI.',
   },
   {
     question: 'What models do you use?',
     answer:
-      'GLM 5.1 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'Kimi K2.6 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -41,7 +36,7 @@ const faqs = [
   {
     question: 'Are you training on my data?',
     answer:
-      'No. We do not share your data with third parties that would train on it or use it for another purpose.\n\nIn the future, we may use request data to train custom models to improve Freebuff — this will be opt-out, so you\'ll always have control.',
+      "No. We do not share your data with third parties that would train on it or use it for another purpose.\n\nIn the future, we may use request data to train custom models to improve Freebuff — this will be opt-out, so you'll always have control.",
   },
   {
     question: 'What data do you store?',
@@ -50,8 +45,7 @@ const faqs = [
   },
   {
     question: 'What else is cool in Freebuff?',
-    answer:
-      `Freebuff comes with 9 specialized subagents:
+    answer: `Freebuff comes with 9 specialized subagents:
 - file-picker finds relevant files across your codebase
 - code-reviewer gives critical feedback on your changes
 - browser-use lets the AI control a real browser to test your app
@@ -67,7 +61,8 @@ For big tasks, try the commands /interview → /plan → (implement) → /review
 const setupSteps = [
   {
     label: 'Open your terminal',
-    description: 'Use any terminal — within VS Code, plain terminal, PowerShell, etc.',
+    description:
+      'Use any terminal — within VS Code, plain terminal, PowerShell, etc.',
   },
   {
     label: 'Navigate to your project',
@@ -91,9 +86,7 @@ function SetupGuide() {
       <button
         onClick={() => {
           if (!isOpen) {
-            posthog.capture(
-              AnalyticsEvent.FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED,
-            )
+            posthog.capture(AnalyticsEvent.FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED)
           }
           setIsOpen(!isOpen)
         }}
@@ -126,9 +119,13 @@ function SetupGuide() {
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white/90">{step.label}</p>
+                      <p className="text-sm font-medium text-white/90">
+                        {step.label}
+                      </p>
                       {'description' in step && step.description && (
-                        <p className="text-xs text-zinc-500 mt-0.5">{step.description}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          {step.description}
+                        </p>
                       )}
                       {'command' in step && step.command && (
                         <div className="mt-1.5 flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/40 rounded-md px-3 py-1.5 hover:border-acid-matrix/30 transition-colors duration-200">
@@ -156,20 +153,21 @@ function InstallCommand({ className }: { className?: string }) {
   const [copied, setCopied] = useState(false)
   const [copyCount, setCopyCount] = useState(0)
 
-  const particles = useMemo(() =>
-    Array.from({ length: PARTICLE_COUNT }).map((_, i) => ({
-      angle: (i / PARTICLE_COUNT) * 360 + (Math.random() - 0.5) * 25,
-      distance: 35 + Math.random() * 35,
-      size: 3 + Math.random() * 4,
-      durationExtra: Math.random() * 0.3,
-    })),
+  const particles = useMemo(
+    () =>
+      Array.from({ length: PARTICLE_COUNT }).map((_, i) => ({
+        angle: (i / PARTICLE_COUNT) * 360 + (Math.random() - 0.5) * 25,
+        distance: 35 + Math.random() * 35,
+        size: 3 + Math.random() * 4,
+        durationExtra: Math.random() * 0.3,
+      })),
     [copyCount],
   )
 
   const handleCopy = () => {
     navigator.clipboard.writeText(INSTALL_COMMAND)
     setCopied(true)
-    setCopyCount(c => c + 1)
+    setCopyCount((c) => c + 1)
     posthog.capture(AnalyticsEvent.FREEBUFF_HOME_INSTALL_COMMAND_COPIED)
     setTimeout(() => setCopied(false), 1800)
   }
@@ -240,13 +238,20 @@ function InstallCommand({ className }: { className?: string }) {
                   y: Math.sin(rad) * p.distance,
                 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 + p.durationExtra, ease: 'easeOut' }}
+                transition={{
+                  duration: 0.5 + p.durationExtra,
+                  ease: 'easeOut',
+                }}
                 className="absolute right-5 top-1/2 rounded-full pointer-events-none"
                 style={{
                   width: p.size,
                   height: p.size,
                   backgroundColor:
-                    i % 3 === 0 ? '#7CFF3F' : i % 3 === 1 ? '#a8ff7a' : '#ffffff',
+                    i % 3 === 0
+                      ? '#7CFF3F'
+                      : i % 3 === 1
+                        ? '#a8ff7a'
+                        : '#ffffff',
                 }}
               />
             )
@@ -278,10 +283,9 @@ function FAQList() {
             <button
               onClick={() => {
                 if (!isOpen) {
-                  posthog.capture(
-                    AnalyticsEvent.FREEBUFF_HOME_FAQ_OPENED,
-                    { question: faq.question },
-                  )
+                  posthog.capture(AnalyticsEvent.FREEBUFF_HOME_FAQ_OPENED, {
+                    question: faq.question,
+                  })
                 }
                 setOpenIndex(isOpen ? null : i)
               }}
@@ -290,7 +294,9 @@ function FAQList() {
               <span
                 className={cn(
                   'flex-shrink-0 font-mono text-xs transition-colors duration-300',
-                  isOpen ? 'text-acid-matrix' : 'text-zinc-600 group-hover:text-zinc-400',
+                  isOpen
+                    ? 'text-acid-matrix'
+                    : 'text-zinc-600 group-hover:text-zinc-400',
                 )}
               >
                 {String(i + 1).padStart(2, '0')}
@@ -298,7 +304,9 @@ function FAQList() {
               <span
                 className={cn(
                   'font-semibold flex-1 transition-colors duration-300',
-                  isOpen ? 'text-white' : 'text-zinc-300 group-hover:text-white',
+                  isOpen
+                    ? 'text-white'
+                    : 'text-zinc-300 group-hover:text-white',
                 )}
               >
                 {faq.question}
@@ -343,15 +351,22 @@ function FAQList() {
 
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
-  { word: 'FAST', description: '2–5x speed up via fast models and quick context gathering.' },
-  { word: 'LOADED', description: '9 specialized subagents: code review, browser use, deep thinking with your ChatGPT subscription, and more.' },
+  {
+    word: 'FAST',
+    description: '2–5x speed up via fast models and quick context gathering.',
+  },
+  {
+    word: 'LOADED',
+    description:
+      '9 specialized subagents: code review, browser use, deep thinking with your ChatGPT subscription, and more.',
+  },
 ]
 
 function PhilosophySection() {
   const [litWords, setLitWords] = useState<Set<number>>(new Set())
 
   const lightUp = (i: number) => {
-    setLitWords(prev => {
+    setLitWords((prev) => {
       const next = new Set(prev)
       next.add(i)
       return next
@@ -359,7 +374,7 @@ function PhilosophySection() {
   }
 
   const dimDown = (i: number) => {
-    setLitWords(prev => {
+    setLitWords((prev) => {
       const next = new Set(prev)
       next.delete(i)
       return next
@@ -480,7 +495,11 @@ export default function HomeClient() {
                 <motion.span
                   key={i}
                   variants={wordVariant}
-                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-matrix neon-text animate-glow-pulse cursor-default hover-glow-flare' : 'inline-block mr-[0.3em] text-white'}
+                  className={
+                    word === 'free'
+                      ? 'inline-block mr-[0.3em] text-acid-matrix neon-text animate-glow-pulse cursor-default hover-glow-flare'
+                      : 'inline-block mr-[0.3em] text-white'
+                  }
                 >
                   {word}
                 </motion.span>
@@ -535,9 +554,7 @@ export default function HomeClient() {
                 transition={{ duration: 0.6 }}
                 className="text-center lg:text-left mb-12"
               >
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  FAQ
-                </h2>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">FAQ</h2>
               </motion.div>
 
               <FAQList />

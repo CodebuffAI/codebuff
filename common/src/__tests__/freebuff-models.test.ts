@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  DEFAULT_FREEBUFF_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffDeploymentHours,
@@ -25,6 +27,10 @@ describe('freebuff model availability', () => {
         new Date('2026-01-05T12:00:00Z'),
       ),
     ).toBe(true)
+  })
+
+  test('defaults to Kimi K2.6', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_KIMI_MODEL_ID)
   })
 
   test('formats the close time in the user local timezone while deployment is open', () => {

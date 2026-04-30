@@ -1,7 +1,7 @@
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffModelAvailable,
   isFreebuffModelId as isSelectableFreebuffModel,
   resolveFreebuffModel,
@@ -48,7 +48,7 @@ import type {
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
   [FREEBUFF_GEMINI_PRO_MODEL_ID]: { limit: 1, windowHours: 24 },
-  [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
+  [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the

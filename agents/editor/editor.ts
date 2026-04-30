@@ -1,10 +1,9 @@
-
 import { publisher } from '../constants'
 
 import type { AgentDefinition } from '../types/agent-definition'
 
 export const createCodeEditor = (options: {
-  model: 'gpt-5' | 'opus' | 'glm' | 'minimax'
+  model: 'gpt-5' | 'opus' | 'glm' | 'kimi' | 'minimax'
 }): Omit<AgentDefinition, 'id'> => {
   const { model } = options
   return {
@@ -14,9 +13,11 @@ export const createCodeEditor = (options: {
         ? 'openai/gpt-5.1'
         : options.model === 'minimax'
           ? 'minimax/minimax-m2.7'
-        : options.model === 'glm'
-          ? 'z-ai/glm-5.1'
-          : 'anthropic/claude-opus-4.7',
+          : options.model === 'kimi'
+            ? 'moonshotai/kimi-k2.6'
+            : options.model === 'glm'
+              ? 'z-ai/glm-5.1'
+              : 'anthropic/claude-opus-4.7',
     ...(options.model === 'opus' && {
       providerOptions: {
         only: ['amazon-bedrock'],
@@ -67,9 +68,13 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-${model === 'gpt-5' || model === 'glm' || model === 'minimax'
-        ? ''
-        : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
+${
+  model === 'gpt-5' ||
+  model === 'glm' ||
+  model === 'kimi' ||
+  model === 'minimax'
+    ? ''
+    : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
 
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
 
@@ -96,7 +101,7 @@ You can also use <think> tags interspersed between tool calls to think about the
 </codebuff_tool_call>
 
 </example>`
-      }
+}
 
 Your implementation should:
 - Be complete and comprehensive

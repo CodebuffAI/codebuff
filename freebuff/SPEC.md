@@ -25,17 +25,17 @@ This enables dead-code elimination in production builds — all `if (!IS_FREEBUF
 
 ## 2. Branding Changes
 
-| Area | Codebuff | Freebuff |
-|---|---|---|
-| Terminal title prefix | `Codebuff: ` | `Freebuff: ` |
-| CLI commander name | `codebuff` | `freebuff` |
-| npm package name | `codebuff` | `freebuff` |
-| Binary name | `codebuff` | `freebuff` |
-| App header text | "Codebuff will run commands on your behalf to help you build." | "Freebuff will run commands on your behalf to help you build." |
-| ASCII logo | `CODEBUFF` block letters | `FREEBUFF` block letters (new logo) |
-| Description | "AI coding agent" | "Free AI coding assistant" |
-| Homepage | codebuff.com | codebuff.com/free (or same) |
-| `WEBSITE_URL` usage | Points to codebuff.com | Same (login, feedback, etc. stay on codebuff.com) |
+| Area                  | Codebuff                                                       | Freebuff                                                       |
+| --------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
+| Terminal title prefix | `Codebuff: `                                                   | `Freebuff: `                                                   |
+| CLI commander name    | `codebuff`                                                     | `freebuff`                                                     |
+| npm package name      | `codebuff`                                                     | `freebuff`                                                     |
+| Binary name           | `codebuff`                                                     | `freebuff`                                                     |
+| App header text       | "Codebuff will run commands on your behalf to help you build." | "Freebuff will run commands on your behalf to help you build." |
+| ASCII logo            | `CODEBUFF` block letters                                       | `FREEBUFF` block letters (new logo)                            |
+| Description           | "AI coding agent"                                              | "Free AI coding assistant"                                     |
+| Homepage              | codebuff.com                                                   | codebuff.com/free (or same)                                    |
+| `WEBSITE_URL` usage   | Points to codebuff.com                                         | Same (login, feedback, etc. stay on codebuff.com)              |
 
 ### Files to modify (conditional on `IS_FREEBUFF`)
 
@@ -72,34 +72,34 @@ Freebuff only supports **FREE mode**. All mode-related features are stripped.
 
 ### Commands to REMOVE in Freebuff
 
-| Command | Reason |
-|---|---|
-| `/subscribe` (+ `/strong`, `/sub`, `/buy-credits`) | No subscription model |
-| `/usage` (+ `/credits`) | No credits display |
-| `/ads:enable` | Ads always on, not toggleable |
-| `/ads:disable` | Ads always on, not toggleable |
-| `/connect:claude` (+ `/claude`) | Claude subscription not available |
-| `/refer-friends` (+ `/referral`, `/redeem`) | Referrals earn credits, not applicable |
-| `/mode:*` (all mode commands) | Only FREE mode |
-| `/agent:gpt-5` | Premium agent, not available in free tier |
-| `/review` | Uses thinker-gpt under the hood |
-| `/publish` | Agent publishing not available in free tier |
-| `/image` (+ `/img`, `/attach`) | Image attachments unavailable with free model (GLM 5.1) |
+| Command                                            | Reason                                                    |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `/subscribe` (+ `/strong`, `/sub`, `/buy-credits`) | No subscription model                                     |
+| `/usage` (+ `/credits`)                            | No credits display                                        |
+| `/ads:enable`                                      | Ads always on, not toggleable                             |
+| `/ads:disable`                                     | Ads always on, not toggleable                             |
+| `/connect:claude` (+ `/claude`)                    | Claude subscription not available                         |
+| `/refer-friends` (+ `/referral`, `/redeem`)        | Referrals earn credits, not applicable                    |
+| `/mode:*` (all mode commands)                      | Only FREE mode                                            |
+| `/agent:gpt-5`                                     | Premium agent, not available in free tier                 |
+| `/review`                                          | Uses thinker-gpt under the hood                           |
+| `/publish`                                         | Agent publishing not available in free tier               |
+| `/image` (+ `/img`, `/attach`)                     | Image attachments unavailable with free model (Kimi K2.6) |
 
 ### Commands to KEEP
 
-| Command | Notes |
-|---|---|
-| `/help` | Modified help content (see §6) |
-| `/new` (+ `/clear`, `/reset`, `/n`, `/c`) | Clear conversation |
-| `/history` (+ `/chats`) | Browse past conversations |
-| `/feedback` (+ `/bug`, `/report`) | Share feedback |
-| `/bash` (+ `/!`) | Bash mode |
-| `/theme:toggle` | Light/dark toggle |
-| `/logout` (+ `/signout`) | Sign out |
-| `/exit` (+ `/quit`, `/q`) | Quit |
-| `/login` (+ `/signin`) | Already-logged-in message |
-| Skill commands (`/skill:*`) | Keep if skills are loaded |
+| Command                                   | Notes                          |
+| ----------------------------------------- | ------------------------------ |
+| `/help`                                   | Modified help content (see §6) |
+| `/new` (+ `/clear`, `/reset`, `/n`, `/c`) | Clear conversation             |
+| `/history` (+ `/chats`)                   | Browse past conversations      |
+| `/feedback` (+ `/bug`, `/report`)         | Share feedback                 |
+| `/bash` (+ `/!`)                          | Bash mode                      |
+| `/theme:toggle`                           | Light/dark toggle              |
+| `/logout` (+ `/signout`)                  | Sign out                       |
+| `/exit` (+ `/quit`, `/q`)                 | Quit                           |
+| `/login` (+ `/signin`)                    | Already-logged-in message      |
+| Skill commands (`/skill:*`)               | Keep if skills are loaded      |
 
 ### Implementation
 
@@ -114,14 +114,14 @@ Freebuff never displays credits, usage, subscription info, or out-of-credits sta
 
 ### Components to suppress (render `null` when `IS_FREEBUFF`)
 
-| Component | File | Behavior |
-|---|---|---|
-| `UsageBanner` | `components/usage-banner.tsx` | Never rendered |
-| `OutOfCreditsBanner` | `components/out-of-credits-banner.tsx` | Never rendered |
-| `SubscriptionLimitBanner` | `components/subscription-limit-banner.tsx` | Never rendered |
-| `BottomStatusLine` | `components/bottom-status-line.tsx` | Never rendered (Claude subscription status) |
-| Credits in `MessageFooter` | `components/message-footer.tsx` | Remove `CreditsOrSubscriptionIndicator` — no credits or "✓ Strong" shown |
-| `ClaudeConnectBanner` | `components/claude-connect-banner.tsx` | Never rendered |
+| Component                  | File                                       | Behavior                                                                 |
+| -------------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
+| `UsageBanner`              | `components/usage-banner.tsx`              | Never rendered                                                           |
+| `OutOfCreditsBanner`       | `components/out-of-credits-banner.tsx`     | Never rendered                                                           |
+| `SubscriptionLimitBanner`  | `components/subscription-limit-banner.tsx` | Never rendered                                                           |
+| `BottomStatusLine`         | `components/bottom-status-line.tsx`        | Never rendered (Claude subscription status)                              |
+| Credits in `MessageFooter` | `components/message-footer.tsx`            | Remove `CreditsOrSubscriptionIndicator` — no credits or "✓ Strong" shown |
+| `ClaudeConnectBanner`      | `components/claude-connect-banner.tsx`     | Never rendered                                                           |
 
 ### Input modes to disable
 
@@ -258,7 +258,10 @@ const defineFlags = [
   ['process.env.NODE_ENV', '"production"'],
   ['process.env.CODEBUFF_IS_BINARY', '"true"'],
   ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
-  ['process.env.CODEBUFF_CLI_TARGET', `"${targetInfo.platform}-${targetInfo.arch}"`],
+  [
+    'process.env.CODEBUFF_CLI_TARGET',
+    `"${targetInfo.platform}-${targetInfo.arch}"`,
+  ],
   // Freebuff mode flag
   ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
   ...nextPublicEnvVars,
@@ -336,11 +339,13 @@ No server-side changes are needed for Freebuff, **except** the release download 
 ## 14. Implementation Phases
 
 ### Phase 1: Core Flag & Branding
+
 1. Add `IS_FREEBUFF` constant
 2. Update `build-binary.ts` to pass through `FREEBUFF_MODE`
 3. Conditional branding (title, logo, app header, CLI name)
 
 ### Phase 2: Feature Stripping
+
 4. Filter slash commands and command registry
 5. Hide agent mode toggle
 6. Suppress credits/subscription UI components
@@ -348,16 +353,19 @@ No server-side changes are needed for Freebuff, **except** the release download 
 8. Simplify help banner
 
 ### Phase 3: Ads & Cleanup
+
 9. Always-on ads behavior
 10. Disable unreachable input modes
 11. Hide `BuildModeButtons` and `ModeDivider` components
 
 ### Phase 4: Build & Release Infrastructure
+
 11. Create `freebuff/cli/release/` package files
 12. Create `freebuff/cli/build.ts` script
 13. Create `.github/workflows/freebuff-release.yml`
 
 ### Phase 5: Testing
+
 14. Add unit tests for IS_FREEBUFF guards
 15. Add integration/E2E tests
 16. Manual QA of built binary
