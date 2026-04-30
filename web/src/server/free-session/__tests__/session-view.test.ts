@@ -7,7 +7,7 @@ import type { InternalSessionRow } from '../types'
 const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
-const TEST_MODEL = 'z-ai/glm-5.1'
+const TEST_MODEL = 'moonshotai/kimi-k2.6'
 
 function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   const now = new Date('2026-04-17T12:00:00Z')
@@ -81,7 +81,11 @@ describe('toSessionStateResponse', () => {
     const admittedAt = new Date(now.getTime() - 10 * 60_000)
     const expiresAt = new Date(now.getTime() + 50 * 60_000)
     const view = toSessionStateResponse({
-      row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
+      row: row({
+        status: 'active',
+        admitted_at: admittedAt,
+        expires_at: expiresAt,
+      }),
       position: 0,
       ...baseArgs,
       now,
@@ -100,7 +104,11 @@ describe('toSessionStateResponse', () => {
     const admittedAt = new Date(now.getTime() - 65 * 60_000)
     const expiresAt = new Date(now.getTime() - 5 * 60_000) // 5 min past expiry
     const view = toSessionStateResponse({
-      row: row({ status: 'active', admitted_at: admittedAt, expires_at: expiresAt }),
+      row: row({
+        status: 'active',
+        admitted_at: admittedAt,
+        expires_at: expiresAt,
+      }),
       position: 0,
       ...baseArgs,
       now,

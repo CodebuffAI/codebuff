@@ -1,6 +1,7 @@
 import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import { env } from '@codebuff/internal/env'
@@ -55,6 +56,7 @@ export function getSessionGraceMs(): number {
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
   [FREEBUFF_GEMINI_PRO_MODEL_ID]: 50,
   [FREEBUFF_GLM_MODEL_ID]: 50,
+  [FREEBUFF_KIMI_MODEL_ID]: 50,
   [FREEBUFF_MINIMAX_MODEL_ID]: 1000,
 }
 

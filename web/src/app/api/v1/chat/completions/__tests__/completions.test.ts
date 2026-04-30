@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
@@ -82,6 +83,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     'cf-ipcountry': 'US',
     'cf-connecting-ip': '203.0.113.10',
   })
+  // Some provider-path tests can cross Bun's 5s default on loaded CI runners
+  // when the mocked network path waits behind unrelated DB reconnect timers.
+  const FETCH_PATH_TEST_TIMEOUT_MS = 15000
 
   beforeEach(() => {
     resetFreeModeRateLimits()
@@ -671,73 +675,153 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
     })
 
-    it('lets freebuff use GLM 5.1 through Fireworks availability rules', async () => {
-      const fetchedBodies: Record<string, unknown>[] = []
-      const fetchViaFireworks = mock(
-        async (_url: string | URL | Request, init?: RequestInit) => {
-          fetchedBodies.push(JSON.parse(init?.body as string))
-          return new Response(
-            JSON.stringify({
-              id: 'test-id',
-              model: 'accounts/fireworks/models/glm-5p1',
-              choices: [{ message: { content: 'test response' } }],
-              usage: {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
+    it(
+      'lets freebuff use Kimi K2.6 through Fireworks availability rules',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchViaFireworks = mock(
+          async (_url: string | URL | Request, init?: RequestInit) => {
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'accounts/fireworks/models/kimi-k2p6',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: 'moonshotai/kimi-k2.6',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
               },
             }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            },
+          },
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaFireworks,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        if (isFreebuffDeploymentHours()) {
+          expect(response.status).toBe(200)
+          expect(fetchedBodies).toHaveLength(1)
+          expect(fetchedBodies[0].model).toBe(
+            'accounts/fireworks/models/kimi-k2p6',
           )
-        },
-      ) as unknown as typeof globalThis.fetch
+          expect(body.model).toBe('moonshotai/kimi-k2.6')
+          expect(body.provider).toBe('Fireworks')
+        } else {
+          expect(response.status).toBe(503)
+          expect(fetchedBodies).toHaveLength(0)
+          expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
+        }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free'),
-          body: JSON.stringify({
-            model: 'z-ai/glm-5.1',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-free',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        },
-      )
+    it(
+      'lets old freebuff clients keep using GLM 5.1 through Fireworks availability rules',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchViaFireworks = mock(
+          async (_url: string | URL | Request, init?: RequestInit) => {
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'accounts/fireworks/models/glm-5p1',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: fetchViaFireworks,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: FREEBUFF_GLM_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
 
-      const body = await response.json()
-      if (isFreebuffDeploymentHours()) {
-        expect(response.status).toBe(200)
-        expect(fetchedBodies).toHaveLength(1)
-        expect(fetchedBodies[0].model).toBe('accounts/fireworks/models/glm-5p1')
-        expect(body.model).toBe('z-ai/glm-5.1')
-        expect(body.provider).toBe('Fireworks')
-      } else {
-        expect(response.status).toBe(503)
-        expect(fetchedBodies).toHaveLength(0)
-        expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
-      }
-    })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaFireworks,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        if (isFreebuffDeploymentHours()) {
+          expect(response.status).toBe(200)
+          expect(fetchedBodies).toHaveLength(1)
+          expect(fetchedBodies[0].model).toBe(
+            'accounts/fireworks/models/glm-5p1',
+          )
+          expect(body.model).toBe(FREEBUFF_GLM_MODEL_ID)
+          expect(body.provider).toBe('Fireworks')
+        } else {
+          expect(response.status).toBe(503)
+          expect(fetchedBodies).toHaveLength(0)
+          expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
+        }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it('lets freebuff use Gemini 3.1 Pro through the free-mode allowlist', async () => {
       const req = new NextRequest(
@@ -840,39 +924,43 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(true)
     })
 
-    it('skips credit check when in FREE mode even with 0 credits', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-no-credits'),
-          body: JSON.stringify({
-            model: 'minimax/minimax-m2.7',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-free',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        },
-      )
+    it(
+      'skips credit check when in FREE mode even with 0 credits',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-no-credits'),
+            body: JSON.stringify({
+              model: 'minimax/minimax-m2.7',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-    })
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it('rejects free-mode requests using a non-allowlisted model (e.g. Opus)', async () => {
       const req = new NextRequest(
@@ -1027,43 +1115,49 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.headers.get('Connection')).toBe('keep-alive')
     })
 
-    it('returns JSON response for non-streaming requests', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-123' },
-          body: JSON.stringify({
-            model: 'test/test-model',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-123',
-              client_id: 'test-client-id-123',
-              client_request_id: 'test-client-session-id-123',
-            },
-          }),
-        },
-      )
+    it(
+      'returns JSON response for non-streaming requests',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: { Authorization: 'Bearer test-api-key-123' },
+            body: JSON.stringify({
+              model: 'test/test-model',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+                client_request_id: 'test-client-session-id-123',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-      expect(response.headers.get('Content-Type')).toContain('application/json')
-      const body = await response.json()
-      expect(body.id).toBe('test-id')
-      expect(body.choices[0].message.content).toBe('test response')
-    })
+        expect(response.status).toBe(200)
+        expect(response.headers.get('Content-Type')).toContain(
+          'application/json',
+        )
+        const body = await response.json()
+        expect(body.id).toBe('test-id')
+        expect(body.choices[0].message.content).toBe('test response')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
   })
 
   describe('Subscription limit enforcement', () => {

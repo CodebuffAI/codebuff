@@ -130,7 +130,7 @@ export type FreebuffSessionServerResponse =
       /** User has an active session bound to a different model. Returned
        *  from POST /session when they pick a new model without ending their
        *  current session first. The CLI shows a confirmation prompt: "End
-       *  your active GLM session to switch?" → on confirm, DELETE then
+       *  your active Kimi session to switch?" → on confirm, DELETE then
        *  re-POST with the new model. */
       status: 'model_locked'
       currentModel: string

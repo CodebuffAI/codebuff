@@ -2,9 +2,10 @@ import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffModelAvailable,
-  isFreebuffModelId as isSelectableFreebuffModel,
-  resolveFreebuffModel,
+  isSupportedFreebuffModelId,
+  resolveSupportedFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
 
 import {
@@ -49,6 +50,7 @@ import type {
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
   [FREEBUFF_GEMINI_PRO_MODEL_ID]: { limit: 1, windowHours: 24 },
   [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
+  [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 12 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the
@@ -241,7 +243,7 @@ export async function requestSession(params: {
   deps?: SessionDeps
 }): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
-  const model = resolveFreebuffModel(params.model)
+  const model = resolveSupportedFreebuffModel(params.model)
   const now = nowOf(deps)
   if (params.userBanned) {
     return { status: 'banned' }
@@ -251,13 +253,6 @@ export async function requestSession(params: {
     isWaitingRoomBypassedForEmail(params.userEmail)
   ) {
     return { status: 'disabled' }
-  }
-  if (!isFreebuffModelAvailable(model, now)) {
-    return {
-      status: 'model_unavailable',
-      requestedModel: model,
-      availableHours: FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-    }
   }
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
@@ -278,6 +273,14 @@ export async function requestSession(params: {
       (existing.status === 'active' &&
         !!existing.expires_at &&
         existing.expires_at.getTime() > now.getTime()))
+
+  if (!isReclaim && !isFreebuffModelAvailable(model, now)) {
+    return {
+      status: 'model_unavailable',
+      requestedModel: model,
+      availableHours: FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+    }
+  }
 
   if (!isReclaim) {
     const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
@@ -547,11 +550,11 @@ export async function checkSessionAdmissible(params: {
   // Reject requests for a model the session isn't bound to. Sub-agents may
   // legitimately use other models (Gemini Flash etc.) so we only enforce this
   // when the caller provides a requestedModel — and only against the set of
-  // selectable freebuff models (resolveFreebuffModel returns the canonical id
-  // or the default for anything outside the registry).
+  // supported freebuff models. This includes legacy ids so in-flight sessions
+  // created by older clients stay bound to the model they actually requested.
   if (
     params.requestedModel &&
-    isSelectableFreebuffModel(params.requestedModel) &&
+    isSupportedFreebuffModelId(params.requestedModel) &&
     params.requestedModel !== row.model
   ) {
     return {

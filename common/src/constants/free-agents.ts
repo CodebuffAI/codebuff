@@ -1,6 +1,6 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
-import { FREEBUFF_MODELS } from './freebuff-models'
+import { SUPPORTED_FREEBUFF_MODELS } from './freebuff-models'
 
 import type { CostMode } from './model-config'
 
@@ -20,7 +20,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = ['base2-free'] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
 )
-const FREEBUFF_SELECTABLE_MODEL_IDS = FREEBUFF_MODELS.map((model) => model.id)
+const FREEBUFF_ALLOWED_MODEL_IDS = SUPPORTED_FREEBUFF_MODELS.map(
+  (model) => model.id,
+)
 
 /**
  * Agents that are allowed to run in FREE mode.
@@ -32,7 +34,7 @@ const FREEBUFF_SELECTABLE_MODEL_IDS = FREEBUFF_MODELS.map((model) => model.id)
  */
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
-  'base2-free': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
+  'base2-free': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -44,13 +46,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'researcher-docs': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Command execution
-  'basher': new Set(['google/gemini-3.1-flash-lite-preview']),
+  basher: new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Editor for free mode
-  'editor-lite': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
+  'editor-lite': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
 
   // Code reviewer for free mode
-  'code-reviewer-lite': new Set(FREEBUFF_SELECTABLE_MODEL_IDS),
+  'code-reviewer-lite': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
 }
 
 /**

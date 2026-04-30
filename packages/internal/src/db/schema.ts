@@ -91,7 +91,9 @@ export const user = pgTable('user', {
   auto_topup_threshold: integer('auto_topup_threshold'),
   auto_topup_amount: integer('auto_topup_amount'),
   banned: boolean('banned').notNull().default(false),
-  fallback_to_a_la_carte: boolean('fallback_to_a_la_carte').notNull().default(false),
+  fallback_to_a_la_carte: boolean('fallback_to_a_la_carte')
+    .notNull()
+    .default(false),
 })
 
 export const account = pgTable(
@@ -886,7 +888,11 @@ export const freeSession = pgTable(
   },
   (table) => [
     // Per-model dequeue: WHERE status='queued' AND model=$1 ORDER BY queued_at
-    index('idx_free_session_queue').on(table.status, table.model, table.queued_at),
+    index('idx_free_session_queue').on(
+      table.status,
+      table.model,
+      table.queued_at,
+    ),
     // Expiry sweep: SELECT ... WHERE status='active' AND expires_at < now()
     index('idx_free_session_expiry').on(table.expires_at),
   ],
@@ -894,7 +900,7 @@ export const freeSession = pgTable(
 
 /**
  * Audit log of every admission — one row per queued→active transition. Used
- * to rate-limit heavy users (e.g. no more than 5 GLM sessions per 12h).
+ * to rate-limit heavy users (e.g. no more than 5 Kimi sessions per 12h).
  *
  * Separate from `free_session` because that table is one-row-per-user (state,
  * not history); the UPSERT path there would otherwise destroy prior admissions.

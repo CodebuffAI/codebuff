@@ -34,8 +34,7 @@ interface CanopyWavePricing {
   outputCostPerToken: number
 }
 
-/** Single source of truth: which OpenRouter model IDs we route through
- *  CanopyWave, the corresponding CanopyWave model ID, and per-model pricing.
+/** Single source of truth for CanopyWave model metadata and pricing.
  *  Kept as one map so adding a model can't drift between routing and billing. */
 const CANOPYWAVE_MODELS: Record<
   string,
@@ -59,8 +58,10 @@ const CANOPYWAVE_MODELS: Record<
   },
 }
 
+const CANOPYWAVE_ROUTED_MODELS = new Set<string>(['minimax/minimax-m2.5'])
+
 export function isCanopyWaveModel(model: string): boolean {
-  return model in CANOPYWAVE_MODELS
+  return CANOPYWAVE_ROUTED_MODELS.has(model)
 }
 
 function getCanopyWaveModelId(openrouterModel: string): string {
