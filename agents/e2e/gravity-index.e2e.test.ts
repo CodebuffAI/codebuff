@@ -12,7 +12,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('Gravity Index SDK E2E', () => {
   it(
-    'base2-free uses gravity_index_search for third-party service selection',
+    'base2-free uses gravity_index for third-party service selection',
     async () => {
       const apiKey = process.env[API_KEY_ENV_VAR]
       if (!apiKey) {
@@ -58,7 +58,7 @@ describe('Gravity Index SDK E2E', () => {
         expect(
           toolCalls.some(
             (event) =>
-              'toolName' in event && event.toolName === 'gravity_index_search',
+              'toolName' in event && event.toolName === 'gravity_index',
           ),
         ).toBe(true)
 

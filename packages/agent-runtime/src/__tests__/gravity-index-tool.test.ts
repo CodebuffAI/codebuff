@@ -43,11 +43,11 @@ const gravityTestAgent = {
   id: 'gravity-test-agent',
   displayName: 'Gravity Test Agent',
   model: 'openai/gpt-4o-mini',
-  toolNames: ['gravity_index_search', 'end_turn'],
+  toolNames: ['gravity_index', 'end_turn'],
   systemPrompt: 'Use Gravity Index when choosing developer services.',
 }
 
-describe('gravity_index_search tool', () => {
+describe('gravity_index tool', () => {
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
@@ -90,7 +90,7 @@ describe('gravity_index_search tool', () => {
   })
 
   test('calls Gravity Index facade with the query', async () => {
-    const spy = spyOn(webApi, 'callGravityIndexSearchAPI').mockResolvedValue({
+    const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {
         search_id: 'search-1',
         recommendation: { name: 'SendGrid', slug: 'sendgrid' },
@@ -99,7 +99,8 @@ describe('gravity_index_search tool', () => {
     })
 
     mockAgentStream([
-      createToolCallChunk('gravity_index_search', {
+      createToolCallChunk('gravity_index', {
+        action: 'search',
         query: 'transactional email for Next.js',
       }),
       createToolCallChunk('end_turn', {}),
@@ -126,12 +127,17 @@ describe('gravity_index_search tool', () => {
     })
 
     expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({ query: 'transactional email for Next.js' }),
+      expect.objectContaining({
+        input: {
+          action: 'search',
+          query: 'transactional email for Next.js',
+        },
+      }),
     )
   })
 
   test('stores recommendation and conversion URL in tool output', async () => {
-    spyOn(webApi, 'callGravityIndexSearchAPI').mockResolvedValue({
+    spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {
         search_id: 'search-1',
         recommendation: {
@@ -145,7 +151,8 @@ describe('gravity_index_search tool', () => {
     })
 
     mockAgentStream([
-      createToolCallChunk('gravity_index_search', {
+      createToolCallChunk('gravity_index', {
+        action: 'search',
         query: 'transactional email for Next.js',
       }),
       createToolCallChunk('end_turn', {}),
@@ -172,7 +179,7 @@ describe('gravity_index_search tool', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'gravity_index_search',
+      (m) => m.role === 'tool' && m.toolName === 'gravity_index',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -181,12 +188,13 @@ describe('gravity_index_search tool', () => {
   })
 
   test('surfaces API errors in tool output', async () => {
-    spyOn(webApi, 'callGravityIndexSearchAPI').mockResolvedValue({
+    spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       error: 'Gravity Index is not configured',
     })
 
     mockAgentStream([
-      createToolCallChunk('gravity_index_search', {
+      createToolCallChunk('gravity_index', {
+        action: 'search',
         query: 'transactional email for Next.js',
       }),
       createToolCallChunk('end_turn', {}),
@@ -213,10 +221,58 @@ describe('gravity_index_search tool', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'gravity_index_search',
+      (m) => m.role === 'tool' && m.toolName === 'gravity_index',
     )
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
     expect(last).toContain('errorMessage')
     expect(last).toContain('Gravity Index is not configured')
+  })
+
+  test('passes non-search actions through the unified facade', async () => {
+    const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
+      result: {
+        services: [{ name: 'SendGrid', slug: 'sendgrid' }],
+        total: 1,
+      },
+    })
+
+    mockAgentStream([
+      createToolCallChunk('gravity_index', {
+        action: 'browse',
+        category: 'Email',
+        q: 'send',
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+
+    const sessionState = getInitialSessionState(
+      runAgentStepBaseParams.fileContext,
+    )
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'gravity-test-agent',
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext: runAgentStepBaseParams.fileContext,
+    })
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['gravity-test-agent'],
+      agentState,
+      prompt: 'Browse email providers',
+    })
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          action: 'browse',
+          category: 'Email',
+          q: 'send',
+        },
+      }),
+    )
   })
 })

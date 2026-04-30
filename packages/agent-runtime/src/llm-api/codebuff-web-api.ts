@@ -40,14 +40,14 @@ const callCodebuffV1 = async (params: {
   endpoint:
     | '/api/v1/web-search'
     | '/api/v1/docs-search'
-    | '/api/v1/gravity-index/search'
+    | '/api/v1/gravity-index'
   payload: unknown
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
-  requestName: 'web-search' | 'docs-search' | 'gravity-index-search'
+  requestName: 'web-search' | 'docs-search' | 'gravity-index'
 }): Promise<{ json?: unknown; error?: string; creditsUsed?: number }> => {
   const { endpoint, payload, fetch, logger, env, requestName } = params
   const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
@@ -230,8 +230,8 @@ export async function callDocsSearchAPI(params: {
   return { error: error ?? 'Invalid response format' }
 }
 
-export async function callGravityIndexSearchAPI(params: {
-  query: string
+export async function callGravityIndexAPI(params: {
+  input: JSONObject
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
@@ -242,17 +242,17 @@ export async function callGravityIndexSearchAPI(params: {
   error?: string
   creditsUsed?: number
 }> {
-  const { query, fetch, logger, env } = params
+  const { input, fetch, logger, env } = params
 
   const res = await callCodebuffV1({
-    endpoint: '/api/v1/gravity-index/search',
-    payload: { query },
+    endpoint: '/api/v1/gravity-index',
+    payload: input,
     fetch,
     logger,
     env,
     baseUrl: params.baseUrl,
     apiKey: params.apiKey,
-    requestName: 'gravity-index-search',
+    requestName: 'gravity-index',
   })
   if (res.error) return { error: res.error }
 

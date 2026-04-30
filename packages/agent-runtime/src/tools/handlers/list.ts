@@ -8,7 +8,7 @@ import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
-import { handleGravityIndexSearch } from './tool/gravity-index-search'
+import { handleGravityIndex } from './tool/gravity-index'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleProposeStrReplace } from './tool/propose-str-replace'
@@ -55,7 +55,7 @@ export const codebuffToolHandlers = {
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   glob: handleGlob,
-  gravity_index_search: handleGravityIndexSearch,
+  gravity_index: handleGravityIndex,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
   propose_str_replace: handleProposeStrReplace,

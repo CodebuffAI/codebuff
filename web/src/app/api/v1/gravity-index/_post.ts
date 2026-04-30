@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
-import { parseJsonBody, requireUserFromApiKey } from '../../_helpers'
+import { parseJsonBody, requireUserFromApiKey } from '../_helpers'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
@@ -15,9 +15,31 @@ import type { NextRequest } from 'next/server'
 const GRAVITY_INDEX_BASE_URL = 'https://index.trygravity.ai'
 const FETCH_TIMEOUT_MS = 30_000
 
-const bodySchema = z.object({
-  query: z.string().min(1, 'query is required'),
-})
+const bodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('search'),
+    query: z.string().min(1, 'query is required').max(1000),
+    search_id: z.string().optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
+  }),
+  z.object({
+    action: z.literal('browse'),
+    category: z.string().optional(),
+    q: z.string().optional(),
+  }),
+  z.object({
+    action: z.literal('list_categories'),
+  }),
+  z.object({
+    action: z.literal('get_service'),
+    slug: z.string().min(1, 'slug is required'),
+  }),
+  z.object({
+    action: z.literal('report_integration'),
+    search_id: z.string().min(1, 'search_id is required'),
+    integrated_slug: z.string().min(1, 'integrated_slug is required'),
+  }),
+])
 
 const tryParseJson = (text: string): unknown => {
   try {
@@ -34,10 +56,24 @@ const getErrorMessage = (value: unknown): string | undefined => {
   return typeof message === 'string' ? message : undefined
 }
 
-const redactGravityApiKey = (text: string, gravityApiKey: string) =>
-  text.split(gravityApiKey).join('[redacted]')
+const redactGravityApiKey = (
+  text: string,
+  gravityApiKey: string | undefined,
+) => (gravityApiKey ? text.split(gravityApiKey).join('[redacted]') : text)
 
-export async function postGravityIndexSearch(params: {
+const withQuery = (
+  path: string,
+  params: Record<string, string | undefined>,
+) => {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value) qs.set(key, value)
+  }
+  const query = qs.toString()
+  return query ? `${path}?${query}` : path
+}
+
+export async function postGravityIndex(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   logger: Logger
@@ -63,7 +99,7 @@ export async function postGravityIndexSearch(params: {
     schema: bodySchema,
     logger: baseLogger,
     trackEvent,
-    validationErrorEvent: AnalyticsEvent.GRAVITY_INDEX_SEARCH_VALIDATION_ERROR,
+    validationErrorEvent: AnalyticsEvent.GRAVITY_INDEX_VALIDATION_ERROR,
   })
   if (!parsedBody.ok) return parsedBody.response
 
@@ -73,25 +109,28 @@ export async function postGravityIndexSearch(params: {
     logger: baseLogger,
     loggerWithContext,
     trackEvent,
-    authErrorEvent: AnalyticsEvent.GRAVITY_INDEX_SEARCH_AUTH_ERROR,
+    authErrorEvent: AnalyticsEvent.GRAVITY_INDEX_AUTH_ERROR,
   })
   if (!authed.ok) return authed.response
 
   const { userId, logger } = authed.data
-  const { query } = parsedBody.data
+  const input = parsedBody.data
   const publisherKey = serverEnv.GRAVITY_API_KEY
 
   trackEvent({
-    event: AnalyticsEvent.GRAVITY_INDEX_SEARCH_REQUEST,
+    event: AnalyticsEvent.GRAVITY_INDEX_REQUEST,
     userId,
-    properties: { queryLength: query.length },
+    properties: { action: input.action },
     logger,
   })
 
-  if (!publisherKey) {
+  const needsPublisherKey =
+    input.action === 'search' || input.action === 'report_integration'
+
+  if (needsPublisherKey && !publisherKey) {
     logger.error('GRAVITY_API_KEY is not configured')
     trackEvent({
-      event: AnalyticsEvent.GRAVITY_INDEX_SEARCH_ERROR,
+      event: AnalyticsEvent.GRAVITY_INDEX_ERROR,
       userId,
       properties: { reason: 'missing_gravity_api_key' },
       logger,
@@ -106,17 +145,58 @@ export async function postGravityIndexSearch(params: {
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${GRAVITY_INDEX_BASE_URL}/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        platform_api_key: publisherKey,
-      }),
-      signal: controller.signal,
-    })
+    let response: Response
+    if (input.action === 'search') {
+      if (!publisherKey) {
+        throw new Error('GRAVITY_API_KEY is not configured')
+      }
+      response = await fetch(`${GRAVITY_INDEX_BASE_URL}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: input.query,
+          ...(input.search_id ? { search_id: input.search_id } : {}),
+          ...(input.context ? { context: input.context } : {}),
+          platform_api_key: publisherKey,
+        }),
+        signal: controller.signal,
+      })
+    } else if (input.action === 'browse') {
+      response = await fetch(
+        `${GRAVITY_INDEX_BASE_URL}${withQuery('/services', {
+          category: input.category,
+          q: input.q,
+        })}`,
+        { signal: controller.signal },
+      )
+    } else if (input.action === 'list_categories') {
+      response = await fetch(`${GRAVITY_INDEX_BASE_URL}/categories`, {
+        signal: controller.signal,
+      })
+    } else if (input.action === 'get_service') {
+      response = await fetch(
+        `${GRAVITY_INDEX_BASE_URL}/services/${encodeURIComponent(input.slug)}`,
+        { signal: controller.signal },
+      )
+    } else {
+      if (!publisherKey) {
+        throw new Error('GRAVITY_API_KEY is not configured')
+      }
+      response = await fetch(`${GRAVITY_INDEX_BASE_URL}/integrations/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          search_id: input.search_id,
+          integrated_slug: input.integrated_slug,
+          platform_api_key: publisherKey,
+        }),
+        signal: controller.signal,
+      })
+    }
 
     const text = await response.text()
     const redactedText = redactGravityApiKey(text, publisherKey)
@@ -137,9 +217,9 @@ export async function postGravityIndexSearch(params: {
         'Gravity Index upstream request failed',
       )
       trackEvent({
-        event: AnalyticsEvent.GRAVITY_INDEX_SEARCH_ERROR,
+        event: AnalyticsEvent.GRAVITY_INDEX_ERROR,
         userId,
-        properties: { status: response.status, error },
+        properties: { action: input.action, status: response.status, error },
         logger,
       })
       return NextResponse.json({ error }, { status: 502 })
@@ -164,7 +244,7 @@ export async function postGravityIndexSearch(params: {
     const message =
       error instanceof Error && error.name === 'AbortError'
         ? 'Gravity Index request timed out'
-        : 'Error searching Gravity Index'
+        : 'Error calling Gravity Index'
     logger.error(
       {
         error:
@@ -175,9 +255,10 @@ export async function postGravityIndexSearch(params: {
       message,
     )
     trackEvent({
-      event: AnalyticsEvent.GRAVITY_INDEX_SEARCH_ERROR,
+      event: AnalyticsEvent.GRAVITY_INDEX_ERROR,
       userId,
       properties: {
+        action: input.action,
         error: error instanceof Error ? error.message : 'Unknown error',
       },
       logger,

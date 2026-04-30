@@ -9,7 +9,7 @@ export type ToolName =
   | 'end_turn'
   | 'find_files'
   | 'glob'
-  | 'gravity_index_search'
+  | 'gravity_index'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_str_replace'
@@ -42,7 +42,7 @@ export interface ToolParamsMap {
   end_turn: EndTurnParams
   find_files: FindFilesParams
   glob: GlobParams
-  gravity_index_search: GravityIndexSearchParams
+  gravity_index: GravityIndexParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
@@ -159,12 +159,45 @@ export interface GlobParams {
 }
 
 /**
- * Search the Gravity Index for a recommended developer service.
+ * Search, browse, inspect, or report integrations in the Gravity Index.
  */
-export interface GravityIndexSearchParams {
-  /** A natural-language description of the third-party developer service the user needs, including stack and constraints when known. */
-  query: string
-}
+export type GravityIndexParams =
+  | {
+      /** Search for the best service recommendation. */
+      action: 'search'
+      /** What the user needs, including stack, constraints, and required capabilities when known. */
+      query: string
+      /** Continue a previous Gravity Index search as a follow-up. */
+      search_id?: string
+      /** Optional structured context about the project, stack, or constraints. */
+      context?: Record<string, any>
+    }
+  | {
+      /** Browse catalog services by category and/or keyword. */
+      action: 'browse'
+      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, AI. */
+      category?: string
+      /** Optional keyword filter, e.g. sendgrid or postgres. */
+      q?: string
+    }
+  | {
+      /** List every category with service counts. */
+      action: 'list_categories'
+    }
+  | {
+      /** Fetch full detail for a single service by slug. */
+      action: 'get_service'
+      /** Service slug, e.g. supabase, stripe, sendgrid. */
+      slug: string
+    }
+  | {
+      /** Report that an integration from a prior search was completed. */
+      action: 'report_integration'
+      /** search_id from the earlier search result. */
+      search_id: string
+      /** Slug of the service that was actually integrated. */
+      integrated_slug: string
+    }
 
 /**
  * List files and directories in the specified path. Returns separate arrays of file names and directory names.

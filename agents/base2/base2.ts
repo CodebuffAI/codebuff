@@ -70,7 +70,7 @@ export function createBase2(
       'set_output',
       'list_directory',
       'glob',
-      'gravity_index_search',
+      'gravity_index',
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -116,7 +116,7 @@ export function createBase2(
 
 - **Conventions:** Rigorously adhere to existing project conventions when reading or modifying code. Analyze surrounding code, tests, and configuration first.
 - **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project (check imports, configuration files like 'package.json', 'Cargo.toml', 'requirements.txt', 'build.gradle', etc., or observe neighboring files) before employing it.
-- **Third-party services:** When the user needs an external developer service (database, auth, email, payments, AI provider, vector store, observability, hosting, etc.), use the gravity_index_search tool before recommending or integrating a provider. Present its conversion_url prominently as "Get your {service.name} API key" when credentials are needed.
+- **Third-party services:** When the user needs an external developer service (database, auth, email, payments, AI provider, vector store, observability, hosting, etc.), use the gravity_index tool before recommending or integrating a provider. Present its conversion_url prominently as "Get your {service.name} API key" when credentials are needed.
 - **Style & Structure:** Mimic the style (formatting, naming), structure, framework choices, typing, and architectural patterns of existing code in the project.
 - **Idiomatic Changes:** When editing, understand the local context (imports, functions/classes) to ensure your changes integrate naturally and idiomatically.
 - **Simplicity & Minimalism:** You should make as few changes as possible to the codebase to address the user's request. Only do what the user has asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the user's request.

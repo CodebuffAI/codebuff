@@ -1,7 +1,7 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { env } from '@codebuff/internal/env'
 
-import { postGravityIndexSearch } from './_post'
+import { postGravityIndex } from './_post'
 
 import type { NextRequest } from 'next/server'
 
@@ -9,7 +9,7 @@ import { getUserInfoFromApiKey } from '@/db/user'
 import { logger, loggerWithContext } from '@/util/logger'
 
 export async function POST(req: NextRequest) {
-  return postGravityIndexSearch({
+  return postGravityIndex({
     req,
     getUserInfoFromApiKey,
     logger,

@@ -1,6 +1,6 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
-import { callGravityIndexSearchAPI } from '../../../llm-api/codebuff-web-api'
+import { callGravityIndexAPI } from '../../../llm-api/codebuff-web-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -8,11 +8,12 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
+import type { JSONObject } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export const handleGravityIndexSearch = (async (params: {
+export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'gravity_index_search'>
+  toolCall: CodebuffToolCall<'gravity_index'>
   logger: Logger
   apiKey: string
 
@@ -27,7 +28,7 @@ export const handleGravityIndexSearch = (async (params: {
   clientEnv: ClientEnv
   ciEnv: CiEnv
 }): Promise<{
-  output: CodebuffToolOutput<'gravity_index_search'>
+  output: CodebuffToolOutput<'gravity_index'>
   creditsUsed: number
 }> => {
   const {
@@ -45,12 +46,12 @@ export const handleGravityIndexSearch = (async (params: {
     clientEnv,
     ciEnv,
   } = params
-  const { query } = toolCall.input
+  const { action } = toolCall.input
 
   const startedAt = Date.now()
-  const searchContext = {
+  const gravityContext = {
     toolCallId: toolCall.toolCallId,
-    query,
+    action,
     userId,
     agentStepId,
     clientSessionId,
@@ -63,8 +64,8 @@ export const handleGravityIndexSearch = (async (params: {
 
   let creditsUsed = 0
   try {
-    const webApi = await callGravityIndexSearchAPI({
-      query,
+    const webApi = await callGravityIndexAPI({
+      input: toolCall.input as JSONObject,
       fetch,
       logger,
       apiKey,
@@ -74,12 +75,12 @@ export const handleGravityIndexSearch = (async (params: {
     if (webApi.error || !webApi.result) {
       logger.warn(
         {
-          ...searchContext,
+          ...gravityContext,
           durationMs: Date.now() - startedAt,
           success: false,
           error: webApi.error,
         },
-        'Gravity Index search returned error',
+        'Gravity Index returned error',
       )
       return {
         output: jsonToolResult({
@@ -95,7 +96,7 @@ export const handleGravityIndexSearch = (async (params: {
 
     logger.info(
       {
-        ...searchContext,
+        ...gravityContext,
         durationMs: Date.now() - startedAt,
         recommendation:
           typeof webApi.result.recommendation === 'object'
@@ -104,7 +105,7 @@ export const handleGravityIndexSearch = (async (params: {
         creditsUsed,
         success: true,
       },
-      'Gravity Index search completed via web API',
+      'Gravity Index request completed via web API',
     )
 
     return {
@@ -112,12 +113,12 @@ export const handleGravityIndexSearch = (async (params: {
       creditsUsed,
     }
   } catch (error) {
-    const errorMessage = `Error searching Gravity Index for "${query}": ${
+    const errorMessage = `Error calling Gravity Index action "${action}": ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
     logger.error(
       {
-        ...searchContext,
+        ...gravityContext,
         error:
           error instanceof Error
             ? {
@@ -129,8 +130,8 @@ export const handleGravityIndexSearch = (async (params: {
         durationMs: Date.now() - startedAt,
         success: false,
       },
-      'Gravity Index search failed with error',
+      'Gravity Index request failed with error',
     )
     return { output: jsonToolResult({ errorMessage }), creditsUsed }
   }
-}) satisfies CodebuffToolHandlerFunction<'gravity_index_search'>
+}) satisfies CodebuffToolHandlerFunction<'gravity_index'>
