@@ -11,6 +11,7 @@ import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
+import { gravityIndexParams } from './params/tool/gravity-index'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
@@ -49,6 +50,7 @@ export const toolParams = {
   end_turn: endTurnParams,
   find_files: findFilesParams,
   glob: globParams,
+  gravity_index: gravityIndexParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
   propose_str_replace: proposeStrReplaceParams,

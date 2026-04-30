@@ -1,6 +1,7 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
+import type { JSONObject } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const FETCH_TIMEOUT_MS = 30_000
@@ -36,14 +37,17 @@ const getNumberField = (value: unknown, key: string): number | undefined => {
 }
 
 const callCodebuffV1 = async (params: {
-  endpoint: '/api/v1/web-search' | '/api/v1/docs-search'
+  endpoint:
+    | '/api/v1/web-search'
+    | '/api/v1/docs-search'
+    | '/api/v1/gravity-index'
   payload: unknown
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
-  requestName: 'web-search' | 'docs-search'
+  requestName: 'web-search' | 'docs-search' | 'gravity-index'
 }): Promise<{ json?: unknown; error?: string; creditsUsed?: number }> => {
   const { endpoint, payload, fetch, logger, env, requestName } = params
   const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
@@ -220,6 +224,43 @@ export async function callDocsSearchAPI(params: {
   const documentation = getStringField(res.json, 'documentation')
   if (documentation) {
     return { documentation, creditsUsed: res.creditsUsed }
+  }
+
+  const error = getStringField(res.json, 'error')
+  return { error: error ?? 'Invalid response format' }
+}
+
+export async function callGravityIndexAPI(params: {
+  input: JSONObject
+  fetch: typeof globalThis.fetch
+  logger: Logger
+  env: CodebuffWebApiEnv
+  baseUrl?: string
+  apiKey?: string
+}): Promise<{
+  result?: JSONObject
+  error?: string
+  creditsUsed?: number
+}> {
+  const { input, fetch, logger, env } = params
+
+  const res = await callCodebuffV1({
+    endpoint: '/api/v1/gravity-index',
+    payload: input,
+    fetch,
+    logger,
+    env,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    requestName: 'gravity-index',
+  })
+  if (res.error) return { error: res.error }
+
+  if (res.json && typeof res.json === 'object' && !Array.isArray(res.json)) {
+    return {
+      result: res.json as JSONObject,
+      creditsUsed: res.creditsUsed,
+    }
   }
 
   const error = getStringField(res.json, 'error')

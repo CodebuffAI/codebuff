@@ -124,6 +124,11 @@ export enum AnalyticsEvent {
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
 
+  GRAVITY_INDEX_REQUEST = 'api.gravity_index_request',
+  GRAVITY_INDEX_AUTH_ERROR = 'api.gravity_index_auth_error',
+  GRAVITY_INDEX_VALIDATION_ERROR = 'api.gravity_index_validation_error',
+  GRAVITY_INDEX_ERROR = 'api.gravity_index_error',
+
   // Web - Feedback API
   FEEDBACK_SUBMITTED = 'api.feedback_submitted',
   FEEDBACK_AUTH_ERROR = 'api.feedback_auth_error',
