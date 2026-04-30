@@ -17,6 +17,7 @@ if (isCI) {
   ensureEnvDefault('OPENAI_API_KEY', 'test')
   ensureEnvDefault('ANTHROPIC_API_KEY', 'test')
   ensureEnvDefault('FIREWORKS_API_KEY', 'test')
+  ensureEnvDefault('CANOPYWAVE_API_KEY', 'test')
   ensureEnvDefault('LINKUP_API_KEY', 'test')
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')
