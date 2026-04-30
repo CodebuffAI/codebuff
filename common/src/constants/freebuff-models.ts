@@ -22,6 +22,7 @@ export interface FreebuffModelOption {
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
+export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
@@ -61,7 +62,23 @@ export const FREEBUFF_MODELS = [
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
+export const LEGACY_FREEBUFF_MODELS = [
+  {
+    id: FREEBUFF_GLM_MODEL_ID,
+    displayName: 'GLM 5.1',
+    tagline: 'Legacy',
+    availability: 'deployment_hours',
+  },
+] as const satisfies readonly FreebuffModelOption[]
+
+export const SUPPORTED_FREEBUFF_MODELS = [
+  ...FREEBUFF_MODELS,
+  ...LEGACY_FREEBUFF_MODELS,
+] as const satisfies readonly FreebuffModelOption[]
+
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
+export type SupportedFreebuffModelId =
+  (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 
 /** What new freebuff users see selected in the picker. May not be currently
  *  available (Kimi is closed outside deployment hours); callers that need an
@@ -89,9 +106,22 @@ export function resolveFreebuffModel(
   return isFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
 }
 
+export function isSupportedFreebuffModelId(
+  id: string | null | undefined,
+): id is SupportedFreebuffModelId {
+  if (!id) return false
+  return SUPPORTED_FREEBUFF_MODELS.some((m) => m.id === id)
+}
+
+export function resolveSupportedFreebuffModel(
+  id: string | null | undefined,
+): SupportedFreebuffModelId {
+  return isSupportedFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
+}
+
 export function getFreebuffModel(id: string): FreebuffModelOption {
   return (
-    FREEBUFF_MODELS.find((m) => m.id === id) ??
+    SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id) ??
     FREEBUFF_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
   )
 }
@@ -242,7 +272,7 @@ export function isFreebuffModelAvailable(
   id: string,
   now: Date = new Date(),
 ): boolean {
-  const model = FREEBUFF_MODELS.find((m) => m.id === id)
+  const model = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id)
   if (!model) return false
   return model.availability === 'always' || isFreebuffDeploymentHours(now)
 }

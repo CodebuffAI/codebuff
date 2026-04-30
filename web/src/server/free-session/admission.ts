@@ -1,5 +1,5 @@
 import {
-  FREEBUFF_MODELS,
+  SUPPORTED_FREEBUFF_MODELS,
   isFreebuffModelAvailable,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -32,7 +32,10 @@ export interface AdmissionDeps {
     sessionLengthMs: number
     now: Date
     health: FireworksHealth
-  }) => Promise<{ admitted: { user_id: string }[]; skipped: FireworksHealth | null }>
+  }) => Promise<{
+    admitted: { user_id: string }[]
+    skipped: FireworksHealth | null
+  }>
   getFleetHealth: () => Promise<FleetHealth>
   /** Plain values, not thunks — these never change at runtime. */
   sessionLengthMs: number
@@ -101,7 +104,7 @@ export async function runAdmissionTick(
     deps.evictBanned(),
   ])
 
-  const models = deps.models ?? FREEBUFF_MODELS.map((m) => m.id)
+  const models = deps.models ?? SUPPORTED_FREEBUFF_MODELS.map((m) => m.id)
 
   // One probe per tick covers every model — the Fireworks metrics endpoint
   // returns all deployments in a single response. Models without a dedicated
@@ -114,10 +117,13 @@ export async function runAdmissionTick(
   // advisory locks and a single update each.
   const perModel = await Promise.all(
     models.map(async (model) => {
-      const isRegisteredModel = FREEBUFF_MODELS.some((m) => m.id === model)
-      const health = !isRegisteredModel || isFreebuffModelAvailable(model, now)
-        ? fleet[model] ?? 'healthy'
-        : 'unhealthy'
+      const isRegisteredModel = SUPPORTED_FREEBUFF_MODELS.some(
+        (m) => m.id === model,
+      )
+      const health =
+        !isRegisteredModel || isFreebuffModelAvailable(model, now)
+          ? (fleet[model] ?? 'healthy')
+          : 'unhealthy'
       const { admitted, skipped } = await deps.admitFromQueue({
         model,
         sessionLengthMs: deps.sessionLengthMs,
@@ -184,16 +190,16 @@ function runTick() {
 export function startFreeSessionAdmission(): boolean {
   if (interval) return true
   if (!isWaitingRoomEnabled()) {
-    logger.info({}, '[FreeSessionAdmission] Waiting room disabled — ticker not started')
+    logger.info(
+      {},
+      '[FreeSessionAdmission] Waiting room disabled — ticker not started',
+    )
     return false
   }
   interval = setInterval(runTick, ADMISSION_TICK_MS)
   if (typeof interval.unref === 'function') interval.unref()
   runTick() // fire first tick immediately
-  logger.info(
-    { tickMs: ADMISSION_TICK_MS },
-    '[FreeSessionAdmission] Started',
-  )
+  logger.info({ tickMs: ADMISSION_TICK_MS }, '[FreeSessionAdmission] Started')
   return true
 }
 

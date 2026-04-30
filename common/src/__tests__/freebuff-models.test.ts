@@ -3,11 +3,15 @@ import { describe, expect, test } from 'bun:test'
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
+  SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffDeploymentHours,
+  isFreebuffModelId,
   isFreebuffModelAvailable,
+  isSupportedFreebuffModelId,
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
@@ -31,6 +35,17 @@ describe('freebuff model availability', () => {
 
   test('defaults to Kimi K2.6', () => {
     expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_KIMI_MODEL_ID)
+  })
+
+  test('supports GLM 5.1 as a legacy server-side model without selecting it for new clients', () => {
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_GLM_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_GLM_MODEL_ID,
+    )
+    expect(isFreebuffModelId(FREEBUFF_GLM_MODEL_ID)).toBe(false)
+    expect(isSupportedFreebuffModelId(FREEBUFF_GLM_MODEL_ID)).toBe(true)
   })
 
   test('formats the close time in the user local timezone while deployment is open', () => {

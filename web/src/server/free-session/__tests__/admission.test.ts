@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { FREEBUFF_GLM_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+
 import { runAdmissionTick } from '../admission'
 
 import type { AdmissionDeps } from '../admission'
@@ -8,7 +10,9 @@ import type { FireworksHealth, FleetHealth } from '../fireworks-health'
 const NOW = new Date('2026-04-17T12:00:00Z')
 const TEST_MODEL = 'test-model'
 
-function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDeps & {
+function makeAdmissionDeps(
+  overrides: Partial<AdmissionDeps> = {},
+): AdmissionDeps & {
   calls: { admit: number }
 } {
   const calls = { admit: 0 }
@@ -37,7 +41,10 @@ function makeAdmissionDeps(overrides: Partial<AdmissionDeps> = {}): AdmissionDep
   return deps
 }
 
-function fleet(health: FireworksHealth, model: string = TEST_MODEL): FleetHealth {
+function fleet(
+  health: FireworksHealth,
+  model: string = TEST_MODEL,
+): FleetHealth {
   return { [model]: health }
 }
 
@@ -100,6 +107,17 @@ describe('runAdmissionTick', () => {
     const deps = makeAdmissionDeps({
       models: ['serverless-model'],
       getFleetHealth: async () => ({}),
+    })
+    const result = await runAdmissionTick(deps)
+    expect(result.admitted).toBe(1)
+    expect(result.skipped).toBeNull()
+  })
+
+  test('legacy GLM 5.1 is admitted during deployment hours', async () => {
+    const deps = makeAdmissionDeps({
+      models: [FREEBUFF_GLM_MODEL_ID],
+      now: () => new Date('2026-04-17T16:00:00Z'),
+      getFleetHealth: async () => ({ [FREEBUFF_GLM_MODEL_ID]: 'healthy' }),
     })
     const result = await runAdmissionTick(deps)
     expect(result.admitted).toBe(1)

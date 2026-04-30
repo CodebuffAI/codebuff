@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -223,6 +224,54 @@ describe('requestSession', () => {
     expect(deps.rows.size).toBe(0)
   })
 
+  test('legacy GLM 5.1 model is still accepted for old clients during deployment hours', async () => {
+    deps._tick(new Date('2026-04-17T16:00:00Z'))
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(deps.rows.get('u1')?.model).toBe(FREEBUFF_GLM_MODEL_ID)
+    expect(state.rateLimit).toEqual({
+      model: FREEBUFF_GLM_MODEL_ID,
+      limit: 5,
+      windowHours: 12,
+      recentCount: 0,
+    })
+  })
+
+  test('legacy GLM 5.1 active session can be reclaimed outside deployment hours', async () => {
+    const admittedAt = new Date(deps._now().getTime() - 10 * 60 * 1000)
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'inst-pre',
+      model: FREEBUFF_GLM_MODEL_ID,
+      queued_at: admittedAt,
+      admitted_at: admittedAt,
+      expires_at: new Date(deps._now().getTime() + SESSION_LEN),
+      created_at: admittedAt,
+      updated_at: admittedAt,
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.instanceId).not.toBe('inst-pre')
+    expect(state.rateLimit).toEqual({
+      model: FREEBUFF_GLM_MODEL_ID,
+      limit: 5,
+      windowHours: 12,
+      recentCount: 0,
+    })
+  })
+
   test('queued response includes a per-model depth snapshot for the selector', async () => {
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     // Seed 2 users in MiniMax + 1 in Kimi so the returned map captures both.
@@ -434,6 +483,29 @@ describe('requestSession', () => {
     expect(state.retryAfterMs).toBe(60 * 60 * 1000)
     // Blocked before any row is written — the user doesn't take a queue slot.
     expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('rate_limited: legacy GLM 5.1 keeps the deployment-hours quota', async () => {
+    deps._tick(KIMI_OPEN_TIME)
+    const now = deps._now()
+    for (let i = 0; i < KIMI_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: FREEBUFF_GLM_MODEL_ID,
+        admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
+      })
+    }
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.model).toBe(FREEBUFF_GLM_MODEL_ID)
+    expect(state.limit).toBe(KIMI_LIMIT)
+    expect(state.windowHours).toBe(KIMI_WINDOW_HOURS)
   })
 
   test('rate_limited: admits outside the 12h window do not count', async () => {
