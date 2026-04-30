@@ -18,10 +18,7 @@ import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import {
-  nextFreebuffModelId,
-  resolveFreebuffModelCommitTarget,
-} from '../utils/freebuff-model-navigation'
+import { nextFreebuffModelId } from '../utils/freebuff-model-navigation'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -203,14 +200,9 @@ export const FreebuffModelSelector: React.FC = () => {
           name === 'return' || name === 'enter' || name === 'space'
         if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
-          const targetId = resolveFreebuffModelCommitTarget({
-            focusedId,
-            committedId: committedModelId,
-            isSelectable: isJoinable,
-          })
-          if (targetId) {
+          if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
-            pick(targetId)
+            pick(focusedId)
           }
           return
         }

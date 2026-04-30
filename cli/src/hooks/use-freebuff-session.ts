@@ -532,19 +532,11 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
               ) {
                 return
               }
-              const depths =
-                response.status === 'none' || response.status === 'queued'
-                  ? response.queueDepthByModel
-                  : undefined
-              const rateLimits =
-                'rateLimitsByModel' in response
-                  ? response.rateLimitsByModel
-                  : undefined
-              if (depths || rateLimits) {
+              if (response.status === 'none' || response.status === 'queued') {
                 apply({
                   status: 'none',
-                  ...(depths ? { queueDepthByModel: depths } : {}),
-                  ...(rateLimits ? { rateLimitsByModel: rateLimits } : {}),
+                  queueDepthByModel: response.queueDepthByModel,
+                  rateLimitsByModel: response.rateLimitsByModel,
                 })
               }
             })

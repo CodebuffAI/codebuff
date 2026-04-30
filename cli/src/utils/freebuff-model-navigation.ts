@@ -12,14 +12,3 @@ export function nextFreebuffModelId(params: {
   const step = direction === 'forward' ? 1 : -1
   return modelIds[(currentIdx + step + modelIds.length) % modelIds.length]
 }
-
-export function resolveFreebuffModelCommitTarget(params: {
-  focusedId: string
-  committedId: string | null
-  isSelectable: (modelId: string) => boolean
-}): string | null {
-  const { focusedId, committedId, isSelectable } = params
-
-  if (!isSelectable(focusedId) || focusedId === committedId) return null
-  return focusedId
-}

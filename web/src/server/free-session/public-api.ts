@@ -90,23 +90,30 @@ async function fetchRateLimitSnapshot(
   }
 }
 
-async function fetchRateLimitSnapshotsByModel(
+async function fetchRateLimitsByModel(
   userId: string,
   deps: SessionDeps,
-  opts: { includeUnused?: boolean } = {},
 ): Promise<Record<string, FreebuffSessionRateLimit>> {
   const entries = await Promise.all(
     Object.keys(RATE_LIMITS).map(async (model) => {
       const snapshot = await fetchRateLimitSnapshot(userId, model, deps)
-      return snapshot && (opts.includeUnused || snapshot.info.recentCount > 0)
-        ? ([model, snapshot.info] as const)
-        : null
+      return snapshot ? ([model, snapshot.info] as const) : null
     }),
   )
   return Object.fromEntries(
     entries.filter(
       (entry): entry is readonly [string, FreebuffSessionRateLimit] =>
         entry !== null,
+    ),
+  )
+}
+
+function onlyUsedRateLimitsByModel(
+  rateLimitsByModel: Record<string, FreebuffSessionRateLimit>,
+): Record<string, FreebuffSessionRateLimit> {
+  return Object.fromEntries(
+    Object.entries(rateLimitsByModel).filter(
+      ([, snapshot]) => snapshot.recentCount > 0,
     ),
   )
 }
@@ -397,21 +404,14 @@ async function attachRateLimit(
     return snapshot ? { ...view, rateLimit: snapshot.info } : view
   }
 
-  const allRateLimitsByModel = await fetchRateLimitSnapshotsByModel(
-    userId,
-    deps,
-    { includeUnused: true },
-  )
+  const allRateLimitsByModel = await fetchRateLimitsByModel(userId, deps)
   const rateLimit = allRateLimitsByModel[view.model]
-  const rateLimitsByModel = Object.fromEntries(
-    Object.entries(allRateLimitsByModel).filter(
-      ([, snapshot]) => snapshot.recentCount > 0,
-    ),
-  )
   return {
     ...view,
     ...(rateLimit ? { rateLimit } : {}),
-    ...nonEmptyRateLimitsByModel(rateLimitsByModel),
+    ...nonEmptyRateLimitsByModel(
+      onlyUsedRateLimitsByModel(allRateLimitsByModel),
+    ),
   }
 }
 
@@ -454,12 +454,14 @@ export async function getSessionState(params: {
   const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
     const [queueDepthByModel, rateLimitsByModel] = await Promise.all([
       deps.queueDepthsByModel(),
-      fetchRateLimitSnapshotsByModel(params.userId, deps),
+      fetchRateLimitsByModel(params.userId, deps),
     ])
     return {
       status: 'none',
       queueDepthByModel,
-      ...nonEmptyRateLimitsByModel(rateLimitsByModel),
+      ...nonEmptyRateLimitsByModel(
+        onlyUsedRateLimitsByModel(rateLimitsByModel),
+      ),
     }
   }
 
