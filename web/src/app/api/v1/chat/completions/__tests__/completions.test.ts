@@ -8,10 +8,7 @@ import {
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
-import {
-  checkFreeModeRateLimit,
-  resetFreeModeRateLimits,
-} from '../free-mode-rate-limiter'
+import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -47,6 +44,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     },
     'test-api-key-new-free-gemini': {
       id: 'user-new-free-gemini',
+      banned: false,
+    },
+    'test-api-key-reviewer-rate-limit': {
+      id: 'user-reviewer-rate-limit',
       banned: false,
     },
   }
@@ -1006,36 +1007,49 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('free_mode_invalid_agent_hierarchy')
     })
 
-    it('counts child reviewer Gemini requests toward the free-mode request limit', async () => {
-      const response = await postChatCompletions({
-        req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
-          body: JSON.stringify({
-            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-reviewer-child',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        }),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+    it(
+      'counts child reviewer Gemini requests toward the free-mode request limit',
+      async () => {
+        const createRequest = () =>
+          new NextRequest('http://localhost:3000/api/v1/chat/completions', {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-reviewer-rate-limit'),
+            body: JSON.stringify({
+              model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-reviewer-child',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          })
 
-      expect(response.status).toBe(200)
-      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(false)
-      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(true)
-    })
+        const createPostParams = () => ({
+          req: createRequest(),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const firstResponse = await postChatCompletions(createPostParams())
+        const secondResponse = await postChatCompletions(createPostParams())
+        const limitedResponse = await postChatCompletions(createPostParams())
+
+        expect(firstResponse.status).toBe(200)
+        expect(secondResponse.status).toBe(200)
+        expect(limitedResponse.status).toBe(429)
+        const body = await limitedResponse.json()
+        expect(body.error).toBe('free_mode_rate_limited')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it(
       'skips credit check when in FREE mode even with 0 credits',
