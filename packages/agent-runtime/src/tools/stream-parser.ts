@@ -276,6 +276,11 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
+        if (chunk.text) {
+          assistantMessages.push(
+            assistantMessage({ type: 'reasoning', text: chunk.text }),
+          )
+        }
         onResponseChunk({
           type: 'reasoning_delta',
           text: chunk.text,
