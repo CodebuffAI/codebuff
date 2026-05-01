@@ -18,9 +18,8 @@ The entire system is gated by the env flag `FREEBUFF_WAITING_ROOM_ENABLED`. When
 # Disable entirely (both the gate on chat/completions and the admission loop)
 FREEBUFF_WAITING_ROOM_ENABLED=false
 
-# Other knobs (only read when enabled)
+# Other knob (only read when enabled)
 FREEBUFF_SESSION_LENGTH_MS=3600000         # 1 hour
-FREEBUFF_SESSION_GRACE_MS=1800000          # 30 min — drain window after expiry
 ```
 
 Flipping the flag is safe at runtime: existing rows stay in the DB and will be admitted / expired correctly whenever the flag is flipped back on.
@@ -161,7 +160,7 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | `glm-5.1` | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
 | `HEALTH_CACHE_TTL_MS` | `fireworks-health.ts` | 25000 | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit. |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
-| `FREEBUFF_SESSION_GRACE_MS` | env | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
+| `SESSION_GRACE_MS` | `web/src/server/free-session/config.ts` | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
 ## HTTP API
 
@@ -275,7 +274,7 @@ When the waiting room is disabled, the gate returns `{ ok: true, reason: 'disabl
 
 ## Drain / Grace Window
 
-We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a "draining" state for `FREEBUFF_SESSION_GRACE_MS` (default 30 min). During the drain window:
+We don't want to kill an agent mid-run just because the user's session ticked over. After `expires_at`, the row enters a "draining" state for `SESSION_GRACE_MS` (30 min). During the drain window:
 
 - `checkSessionAdmissible` returns `{ ok: true, reason: 'draining', gracePeriodRemainingMs }` — chat completions still go through.
 - `getSessionState` / `requestSession` return `{ status: 'ended', instanceId, ... }` on the wire. The CLI hides the input and shows the Enter-to-rejoin banner while still forwarding the instance id so in-flight agent work can keep streaming.

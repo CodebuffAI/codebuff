@@ -185,9 +185,8 @@ const defaultDeps: SessionDeps = {
   getInstantAdmitCapacity,
   isWaitingRoomEnabled,
   get graceMs() {
-    // Read-through getter so test overrides via env still work; the value
-    // itself is materialized once per call. Cheaper than a thunk because
-    // callers don't have to invoke a function.
+    // Read-through getter keeps the default deps aligned with config while
+    // tests can still inject a plain graceMs value through SessionDeps.
     return getSessionGraceMs()
   },
   get sessionLengthMs() {
