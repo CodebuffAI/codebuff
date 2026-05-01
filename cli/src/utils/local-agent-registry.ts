@@ -3,18 +3,30 @@ import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
-import { loadLocalAgents as sdkLoadLocalAgents, loadMCPConfigSync } from '@codebuff/sdk'
+import {
+  loadLocalAgents as sdkLoadLocalAgents,
+  loadMCPConfigSync,
+} from '@codebuff/sdk'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
 import { FREE_MODE_AGENT_MODELS } from '@codebuff/common/constants/free-agents'
-import { FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_GEMINI_THINKER_AGENT_ID,
+  FREEBUFF_GEMINI_THINKER_PROMPT_LINES,
+} from '@codebuff/common/constants/freebuff-gemini-thinker'
+import {
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MODELS,
+} from '@codebuff/common/constants/freebuff-models'
 
 import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, IS_FREEBUFF, type AgentMode } from './constants'
 import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
+
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 /** Agents whose hardcoded model gets swapped out for the user's currently
  *  selected freebuff model. Derived from the server's
@@ -26,8 +38,55 @@ const FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS: ReadonlySet<string> = new Set(
     .filter(([, allowed]) => FREEBUFF_MODELS.every((m) => allowed.has(m.id)))
     .map(([agentId]) => agentId),
 )
+const FREEBUFF_GEMINI_THINKER_PROMPT_LINE_SET = new Set<string>(
+  FREEBUFF_GEMINI_THINKER_PROMPT_LINES,
+)
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+type ConfigurableFreebuffBaseAgent = {
+  id: string
+  spawnableAgents?: string[]
+  systemPrompt?: string
+  instructionsPrompt?: string
+  stepPrompt?: string
+}
+
+function stripFreebuffGeminiThinkerPrompt(prompt: string): string {
+  return prompt
+    .split('\n')
+    .filter((line) => !FREEBUFF_GEMINI_THINKER_PROMPT_LINE_SET.has(line.trim()))
+    .join('\n')
+}
+
+export function configureFreebuffBaseAgentForModel(
+  def: ConfigurableFreebuffBaseAgent,
+  selectedModel: string,
+): void {
+  if (def.id !== 'base2-free') return
+
+  const hasGeminiThinker = selectedModel === FREEBUFF_KIMI_MODEL_ID
+  const spawnableAgents = def.spawnableAgents ?? []
+
+  def.spawnableAgents = hasGeminiThinker
+    ? Array.from(
+        new Set([...spawnableAgents, FREEBUFF_GEMINI_THINKER_AGENT_ID]),
+      )
+    : spawnableAgents.filter(
+        (agentId) => agentId !== FREEBUFF_GEMINI_THINKER_AGENT_ID,
+      )
+
+  if (hasGeminiThinker) return
+
+  for (const key of [
+    'systemPrompt',
+    'instructionsPrompt',
+    'stepPrompt',
+  ] as const) {
+    const prompt = def[key]
+    if (typeof prompt === 'string') {
+      def[key] = stripFreebuffGeminiThinkerPrompt(prompt)
+    }
+  }
+}
 
 // ============================================================================
 // Constants and types
@@ -56,12 +115,12 @@ let mcpServersCache: Record<string, MCPConfig> = {}
 /**
  * Initialize the agent registry by loading user agents via the SDK.
  * This must be called at CLI startup before any sync agent loading functions.
- * 
+ *
  * Agents are loaded from:
  * - {cwd}/.agents (project)
  * - {cwd}/../.agents (parent, e.g. monorepo root)
  * - ~/.agents (global, user's home directory)
- * 
+ *
  * Later directories take precedence, so project agents override global ones.
  */
 export async function initializeAgentRegistry(): Promise<void> {
@@ -72,7 +131,10 @@ export async function initializeAgentRegistry(): Promise<void> {
     userAgentFilePaths = buildAgentFilePathMap(getDefaultAgentDirs())
   } catch (error) {
     // Fall back to empty cache if SDK loading fails, but log a warning
-    logger.warn({ error }, 'Failed to load user agents from .agents directories')
+    logger.warn(
+      { error },
+      'Failed to load user agents from .agents directories',
+    )
     userAgentsCache = {}
     userAgentFilePaths = new Map()
   }
@@ -83,7 +145,10 @@ export async function initializeAgentRegistry(): Promise<void> {
     mcpServersCache = mcpConfig.mcpServers
     if (Object.keys(mcpServersCache).length > 0) {
       logger.debug(
-        { mcpServers: Object.keys(mcpServersCache), source: mcpConfig._sourceFilePath },
+        {
+          mcpServers: Object.keys(mcpServersCache),
+          source: mcpConfig._sourceFilePath,
+        },
         '[agents] Loaded MCP servers from mcp.json',
       )
     }
@@ -112,7 +177,7 @@ const getDefaultAgentDirs = (): string[] => {
 const buildAgentFilePathMap = (agentsDirs: string[]): Map<string, string> => {
   const idToPath = new Map<string, string>()
   const idRegex = /id\s*:\s*['"`]([^'"`]+)['"`]/i
-  
+
   const scanDirectory = (dir: string): void => {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -122,7 +187,12 @@ const buildAgentFilePathMap = (agentsDirs: string[]): Map<string, string> => {
           scanDirectory(fullPath)
           continue
         }
-        if (!entry.isFile() || !entry.name.endsWith('.ts') || entry.name.endsWith('.d.ts') || entry.name.endsWith('.test.ts')) {
+        if (
+          !entry.isFile() ||
+          !entry.name.endsWith('.ts') ||
+          entry.name.endsWith('.d.ts') ||
+          entry.name.endsWith('.test.ts')
+        ) {
           continue
         }
         try {
@@ -139,7 +209,7 @@ const buildAgentFilePathMap = (agentsDirs: string[]): Map<string, string> => {
       // Skip directories that can't be read
     }
   }
-  
+
   // Scan all directories - later directories override earlier ones
   for (const agentsDir of agentsDirs) {
     scanDirectory(agentsDir)
@@ -235,13 +305,18 @@ const cachedAgentsByMode: Map<string, LocalAgentInfo[]> = new Map()
 
 /**
  * Load local agents for display in the '@' menu.
- * 
+ *
  * @param currentAgentMode - If provided, filters bundled agents to only include
  *   subagents of the current mode's agent (e.g., base2's spawnableAgents for DEFAULT mode).
  *   User's local agents from .agents/ are always included regardless of mode.
  */
-export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] => {
-  const cacheKey = currentAgentMode ?? 'all'
+export const loadLocalAgents = (
+  currentAgentMode?: AgentMode,
+): LocalAgentInfo[] => {
+  const selectedFreebuffModel = IS_FREEBUFF ? getSelectedFreebuffModel() : null
+  const cacheKey = selectedFreebuffModel
+    ? `${currentAgentMode ?? 'all'}:${selectedFreebuffModel}`
+    : (currentAgentMode ?? 'all')
   const cached = cachedAgentsByMode.get(cacheKey)
   if (cached) {
     return cached
@@ -251,35 +326,45 @@ export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] 
   // compiled into the CLI binary at build time
   const bundledAgentsInfo = getBundledAgentsAsLocalInfo()
   const bundledAgents = getBundledAgents()
-  
+
   // Filter bundled agents to only include subagents of the current mode's agent
   let filteredBundledAgents: LocalAgentInfo[]
   if (currentAgentMode) {
     const currentAgentId = AGENT_MODE_TO_ID[currentAgentMode]
     const currentAgentDef = bundledAgents[currentAgentId]
+      ? {
+          ...bundledAgents[currentAgentId],
+          spawnableAgents: [
+            ...(bundledAgents[currentAgentId].spawnableAgents ?? []),
+          ],
+        }
+      : undefined
+    if (selectedFreebuffModel && currentAgentDef) {
+      configureFreebuffBaseAgentForModel(currentAgentDef, selectedFreebuffModel)
+    }
     const spawnableAgentIds = new Set(currentAgentDef?.spawnableAgents ?? [])
-    
+
     // Only include bundled agents that are in the spawnableAgents list
-    filteredBundledAgents = bundledAgentsInfo.filter(agent => 
-      spawnableAgentIds.has(agent.id)
+    filteredBundledAgents = bundledAgentsInfo.filter((agent) =>
+      spawnableAgentIds.has(agent.id),
     )
   } else {
     filteredBundledAgents = bundledAgentsInfo
   }
-  
+
   const results: LocalAgentInfo[] = [...filteredBundledAgents]
-  const includedIds = new Set(filteredBundledAgents.map(a => a.id))
+  const includedIds = new Set(filteredBundledAgents.map((a) => a.id))
 
   // Get user agents from the SDK-loaded cache
   // User agents are always included (not filtered by mode) and can override bundled agents
   const userAgents = getUserAgentsAsLocalInfo()
-  
+
   // Merge user agents - they override bundled agents with same ID
   // and are always included regardless of mode filtering
   for (const userAgent of userAgents) {
     if (includedIds.has(userAgent.id)) {
       // Replace bundled agent with user's version
-      const idx = results.findIndex(a => a.id === userAgent.id)
+      const idx = results.findIndex((a) => a.id === userAgent.id)
       if (idx !== -1) {
         results[idx] = userAgent
       }
@@ -292,7 +377,7 @@ export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] 
   const sorted = results.sort((a, b) =>
     a.displayName.localeCompare(b.displayName, 'en'),
   )
-  
+
   cachedAgentsByMode.set(cacheKey, sorted)
   return sorted
 }
@@ -306,7 +391,7 @@ export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] 
  * Bundled agents are compiled into the CLI binary at build time.
  * User agents from .agents/ are loaded via SDK at startup and cached.
  * User agents can override bundled agents with the same ID.
- * 
+ *
  * Additionally, all user agent IDs are automatically added to the spawnableAgents
  * of any base agent (agents with IDs starting with 'base'), so users can spawn
  * their custom agents without needing to modify the base agent definition.
@@ -314,17 +399,19 @@ export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] 
 export const loadAgentDefinitions = (): AgentDefinition[] => {
   // Start with bundled agents - these are the default Codebuff agents
   const bundledAgents = getBundledAgents()
-  const definitions: AgentDefinition[] = Object.values(bundledAgents).map(def => ({ ...def }))
+  const definitions: AgentDefinition[] = Object.values(bundledAgents).map(
+    (def) => ({ ...def }),
+  )
   const bundledIds = new Set(Object.keys(bundledAgents))
 
   // Get user agents from the SDK-loaded cache
   const userAgentDefs = getUserAgentDefinitions()
-  const userAgentIds = userAgentDefs.map(def => def.id)
+  const userAgentIds = userAgentDefs.map((def) => def.id)
 
   for (const agentDef of userAgentDefs) {
     // User agents override bundled agents with the same ID
     if (bundledIds.has(agentDef.id)) {
-      const idx = definitions.findIndex(d => d.id === agentDef.id)
+      const idx = definitions.findIndex((d) => d.id === agentDef.id)
       if (idx !== -1) {
         definitions[idx] = { ...agentDef }
       }
@@ -380,6 +467,7 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
       if (FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS.has(def.id)) {
         def.model = selectedModel
       }
+      configureFreebuffBaseAgentForModel(def, selectedModel)
     }
   }
 

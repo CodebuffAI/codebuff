@@ -48,7 +48,6 @@ import type {
  * queued/active responses — changing them is a deliberate, typed edit.
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  [FREEBUFF_GEMINI_PRO_MODEL_ID]: { limit: 1, windowHours: 24 },
   [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
   [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 12 },
 }
@@ -529,6 +528,10 @@ export async function checkSessionAdmissible(params: {
   userId: string
   userEmail?: string | null | undefined
   claimedInstanceId: string | null | undefined
+  /** Forces a real active session row check even when the waiting room is
+   *  globally disabled or the user email normally bypasses it. Use for
+   *  subagent/model combinations that must be bound to trusted session state. */
+  requireActiveSession?: boolean
   /** Model the chat-completions request is for. When provided, the gate
    *  rejects requests whose model doesn't match the active session's model
    *  so a stale CLI tab can't slip a request through under the wrong model. */
@@ -537,8 +540,9 @@ export async function checkSessionAdmissible(params: {
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
   if (
-    !deps.isWaitingRoomEnabled() ||
-    isWaitingRoomBypassedForEmail(params.userEmail)
+    !params.requireActiveSession &&
+    (!deps.isWaitingRoomEnabled() ||
+      isWaitingRoomBypassedForEmail(params.userEmail))
   ) {
     return { ok: true, reason: 'disabled' }
   }
@@ -601,15 +605,21 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
+  const isKimiSessionGeminiThinker =
+    params.requireActiveSession === true &&
+    params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID &&
+    row.model === FREEBUFF_KIMI_MODEL_ID
+
   // Reject requests for a model the session isn't bound to. Sub-agents may
   // legitimately use other models (Gemini Flash etc.) so we only enforce this
-  // when the caller provides a requestedModel — and only against the set of
-  // supported freebuff models. This includes legacy ids so in-flight sessions
-  // created by older clients stay bound to the model they actually requested.
+  // when the caller provides a requestedModel and it is either a supported
+  // freebuff root model or Kimi's Gemini thinker model.
   if (
     params.requestedModel &&
-    isSupportedFreebuffModelId(params.requestedModel) &&
-    params.requestedModel !== row.model
+    (isSupportedFreebuffModelId(params.requestedModel) ||
+      params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+    params.requestedModel !== row.model &&
+    !isKimiSessionGeminiThinker
   ) {
     return {
       ok: false,

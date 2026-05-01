@@ -161,6 +161,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           status: 'running',
         }
       }
+      if (runId === 'run-gemini-thinker-child') {
+        return {
+          agent_id: 'thinker-with-files-gemini',
+          ancestor_run_ids: ['run-free'],
+          status: 'running',
+        }
+      }
       if (runId === 'run-completed') {
         return {
           agent_id: 'agent-123',
@@ -823,7 +830,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
-    it('lets freebuff use Gemini 3.1 Pro through the free-mode allowlist', async () => {
+    it('rejects Gemini 3.1 Pro as a root freebuff model', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -854,7 +861,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
       })
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_invalid_agent_model')
     })
 
     it('rejects standalone free-mode reviewer runs even when the model is allowlisted', async () => {
@@ -864,7 +873,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
           body: JSON.stringify({
-            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            model: 'minimax/minimax-m2.7',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-reviewer-direct',
@@ -893,7 +902,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('free_mode_invalid_agent_hierarchy')
     })
 
-    it('counts child reviewer Gemini requests toward the free-mode request limit', async () => {
+    it('rejects the Gemini thinker subagent when the session gate rejects it', async () => {
       const response = await postChatCompletions({
         req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
           method: 'POST',
@@ -902,9 +911,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             model: FREEBUFF_GEMINI_PRO_MODEL_ID,
             stream: false,
             codebuff_metadata: {
-              run_id: 'run-reviewer-child',
+              run_id: 'run-gemini-thinker-child',
               client_id: 'test-client-id-123',
               cost_mode: 'free',
+              freebuff_instance_id: 'inst-123',
             },
           }),
         }),
@@ -916,7 +926,53 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
         loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        checkSessionAdmissible: async (params) => {
+          expect(params.requireActiveSession).toBe(true)
+          expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
+          expect(params.claimedInstanceId).toBe('inst-123')
+          return {
+            ok: false,
+            code: 'session_model_mismatch',
+            message: 'This session is bound to minimax/minimax-m2.7.',
+          }
+        },
+      })
+
+      expect(response.status).toBe(409)
+      const body = await response.json()
+      expect(body.error).toBe('session_model_mismatch')
+    })
+
+    it('requires an active session check for the Gemini thinker subagent', async () => {
+      const response = await postChatCompletions({
+        req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-gemini-thinker-child',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+              freebuff_instance_id: 'inst-123',
+            },
+          }),
+        }),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: async (params) => {
+          expect(params.requireActiveSession).toBe(true)
+          expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
+          expect(params.claimedInstanceId).toBe('inst-123')
+          return { ok: true, reason: 'active', remainingMs: 60_000 }
+        },
       })
 
       expect(response.status).toBe(200)

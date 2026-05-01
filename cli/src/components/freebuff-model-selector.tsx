@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
@@ -23,15 +22,8 @@ import { nextFreebuffModelId } from '../utils/freebuff-model-navigation'
 import type { KeyEvent } from '@opentui/core'
 
 const FREEBUFF_MODEL_SELECTOR_MODELS = [
-  ...FREEBUFF_MODELS.filter(
-    (model) => model.id === FREEBUFF_GEMINI_PRO_MODEL_ID,
-  ),
   ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_KIMI_MODEL_ID),
-  ...FREEBUFF_MODELS.filter(
-    (model) =>
-      model.id !== FREEBUFF_GEMINI_PRO_MODEL_ID &&
-      model.id !== FREEBUFF_KIMI_MODEL_ID,
-  ),
+  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_KIMI_MODEL_ID),
 ]
 
 /**
@@ -121,13 +113,7 @@ export const FreebuffModelSelector: React.FC = () => {
   // when the user's selection moves between queues. The tagline is shown
   // inline with the name now, so it's no longer part of this slot.
   const hintWidth = useMemo(
-    () =>
-      Math.max(
-        'No wait'.length,
-        '999 ahead'.length,
-        'Used today'.length,
-        'Limit used'.length,
-      ),
+    () => Math.max('No wait'.length, '999 ahead'.length, 'Limit used'.length),
     [],
   )
 
@@ -267,9 +253,7 @@ export const FreebuffModelSelector: React.FC = () => {
           const hint = !isAvailable
             ? 'Closed'
             : isQuotaExhausted
-              ? model.id === FREEBUFF_GEMINI_PRO_MODEL_ID
-                ? 'Used today'
-                : 'Limit used'
+              ? 'Limit used'
               : ahead === undefined
                 ? ''
                 : ahead === 0
