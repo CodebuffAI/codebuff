@@ -1104,9 +1104,18 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     it(
       'counts child Gemini thinker requests toward the free-mode request limit',
       async () => {
-        expect(checkFreeModeRateLimit('user-gemini-rate-limit').limited).toBe(
-          false,
-        )
+        let rateLimitChecks = 0
+        const checkFreeModeRateLimitForTest = mock((userId: string) => {
+          expect(userId).toBe('user-gemini-rate-limit')
+          rateLimitChecks += 1
+          return rateLimitChecks === 1
+            ? { limited: false as const }
+            : {
+                limited: true as const,
+                windowName: '1 second',
+                retryAfterMs: 1_000,
+              }
+        })
 
         const createRequest = () =>
           new NextRequest('http://localhost:3000/api/v1/chat/completions', {
@@ -1135,6 +1144,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           insertMessageBigquery: mockInsertMessageBigquery,
           loggerWithContext: mockLoggerWithContext,
           checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+          checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
         })
 
         const firstResponse = await postChatCompletions(createPostParams())
@@ -1144,6 +1154,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(limitedResponse.status).toBe(429)
         const body = await limitedResponse.json()
         expect(body.error).toBe('free_mode_rate_limited')
+        expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(2)
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

@@ -78,7 +78,7 @@ import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
-import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
+import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,
@@ -117,6 +117,7 @@ export const formatQuotaResetCountdown = (
 }
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
+export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
 
 type GateRejectCode = Extract<SessionGateResult, { ok: false }>['code']
 
@@ -147,6 +148,9 @@ export async function postChatCompletions(params: {
   /** Optional override for the freebuff waiting-room gate. Defaults to the
    *  real check backed by Postgres; tests inject a no-op. */
   checkSessionAdmissible?: CheckSessionAdmissibleFn
+  /** Optional override for the free-mode rate limiter. Tests inject this to
+   *  avoid coupling to process-global limiter state. */
+  checkFreeModeRateLimit?: CheckFreeModeRateLimitFn
 }) {
   const {
     req,
@@ -159,6 +163,7 @@ export async function postChatCompletions(params: {
     ensureSubscriberBlockGrant,
     getUserPreferences,
     checkSessionAdmissible: checkSession = checkSessionAdmissible,
+    checkFreeModeRateLimit = defaultCheckFreeModeRateLimit,
   } = params
   let { logger } = params
   let { trackEvent } = params
