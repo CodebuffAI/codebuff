@@ -70,7 +70,6 @@ export function createBase2(
       'read_subtree',
       !isFast && 'write_todos',
       !isFast && !noAskUser && 'suggest_followups',
-      !isFast && 'render_ui',
       'str_replace',
       'write_file',
       !isFree && 'propose_str_replace',
