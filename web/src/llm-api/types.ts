@@ -83,9 +83,7 @@ export function isChatCompletionRequestBody(
 /**
  * Type guard to check if a value is CodebuffMetadata
  */
-export function isCodebuffMetadata(
-  value: unknown,
-): value is CodebuffMetadata {
+export function isCodebuffMetadata(value: unknown): value is CodebuffMetadata {
   if (typeof value !== 'object' || value === null) {
     return false
   }

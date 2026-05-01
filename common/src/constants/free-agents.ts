@@ -1,7 +1,9 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
+import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from './freebuff-gemini-thinker'
 import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
 } from './freebuff-models'
 
@@ -60,6 +62,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Code reviewer for free mode
   'code-reviewer-lite': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
+
+  // Kimi freebuff root may spawn Gemini Pro for deeper thinking.
+  [FREEBUFF_GEMINI_THINKER_AGENT_ID]: new Set([FREEBUFF_GEMINI_PRO_MODEL_ID]),
 }
 
 /**
@@ -98,6 +103,13 @@ export function isFreebuffRootAgent(fullAgentId: string): boolean {
   if (!agentId) return false
   if (publisherId && publisherId !== 'codebuff') return false
   return FREEBUFF_ROOT_AGENT_ID_SET.has(agentId)
+}
+
+export function isFreebuffGeminiThinkerAgent(fullAgentId: string): boolean {
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (!agentId) return false
+  if (publisherId && publisherId !== 'codebuff') return false
+  return agentId === FREEBUFF_GEMINI_THINKER_AGENT_ID
 }
 
 /**

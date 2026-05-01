@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
@@ -10,29 +9,10 @@ import {
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffDeploymentHours,
   isFreebuffModelId,
-  isFreebuffModelAvailable,
   isSupportedFreebuffModelId,
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
-  test('includes Gemini 3.1 Pro as an always-available option', () => {
-    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_GEMINI_PRO_MODEL_ID,
-    )
-    expect(
-      isFreebuffModelAvailable(
-        FREEBUFF_GEMINI_PRO_MODEL_ID,
-        new Date('2026-01-05T18:00:00Z'),
-      ),
-    ).toBe(true)
-    expect(
-      isFreebuffModelAvailable(
-        FREEBUFF_GEMINI_PRO_MODEL_ID,
-        new Date('2026-01-05T12:00:00Z'),
-      ),
-    ).toBe(true)
-  })
-
   test('defaults to Kimi K2.6', () => {
     expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_KIMI_MODEL_ID)
   })

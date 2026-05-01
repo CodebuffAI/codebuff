@@ -1,6 +1,5 @@
 import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
@@ -18,6 +17,7 @@ export const FREEBUFF_ADMISSION_LOCK_ID = 573924815
  *  drip rate: staggering admissions keeps newly-admitted CLIs from all hitting
  *  Fireworks simultaneously even when a large block of sessions expires at once. */
 export const ADMISSION_TICK_MS = 15_000
+export const SESSION_GRACE_MS = 30 * 60 * 1000
 
 export function isWaitingRoomEnabled(): boolean {
   return env.FREEBUFF_WAITING_ROOM_ENABLED
@@ -44,7 +44,7 @@ export function getSessionLengthMs(): number {
  *  expected to stop accepting new user prompts. Hard cutoff at
  *  `expires_at + grace`; past that the gate returns `session_expired`. */
 export function getSessionGraceMs(): number {
-  return env.FREEBUFF_SESSION_GRACE_MS
+  return SESSION_GRACE_MS
 }
 
 /**
@@ -56,7 +56,6 @@ export function getSessionGraceMs(): number {
  */
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 50,
-  [FREEBUFF_GEMINI_PRO_MODEL_ID]: 50,
   [FREEBUFF_GLM_MODEL_ID]: 50,
   [FREEBUFF_KIMI_MODEL_ID]: 50,
   [FREEBUFF_MINIMAX_MODEL_ID]: 1000,
