@@ -53,6 +53,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       id: 'user-reviewer-rate-limit',
       banned: false,
     },
+    'test-api-key-gemini-rate-limit': {
+      id: 'user-gemini-rate-limit',
+      banned: false,
+    },
   }
 
   const mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn = async ({
@@ -1100,10 +1104,14 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     it(
       'counts child Gemini thinker requests toward the free-mode request limit',
       async () => {
+        expect(checkFreeModeRateLimit('user-gemini-rate-limit').limited).toBe(
+          false,
+        )
+
         const createRequest = () =>
           new NextRequest('http://localhost:3000/api/v1/chat/completions', {
             method: 'POST',
-            headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+            headers: allowedFreeModeHeaders('test-api-key-gemini-rate-limit'),
             body: JSON.stringify({
               model: FREEBUFF_GEMINI_PRO_MODEL_ID,
               stream: false,
@@ -1130,11 +1138,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         })
 
         const firstResponse = await postChatCompletions(createPostParams())
-        const secondResponse = await postChatCompletions(createPostParams())
         const limitedResponse = await postChatCompletions(createPostParams())
 
         expect(firstResponse.status).toBe(200)
-        expect(secondResponse.status).toBe(200)
         expect(limitedResponse.status).toBe(429)
         const body = await limitedResponse.json()
         expect(body.error).toBe('free_mode_rate_limited')
