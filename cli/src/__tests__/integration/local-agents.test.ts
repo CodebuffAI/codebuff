@@ -4,13 +4,16 @@ import path from 'path'
 
 import { validateAgents } from '@codebuff/sdk'
 import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-} from 'bun:test'
+  FREEBUFF_GEMINI_THINKER_AGENT_ID,
+  FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
+  FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
+  FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
+} from '@codebuff/common/constants/freebuff-gemini-thinker'
+import {
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 // Mock the logger to prevent analytics initialization errors in tests
 mock.module('../../utils/logger', () => ({
@@ -27,6 +30,7 @@ import { setProjectRoot, getProjectRoot } from '../../project-files'
 import {
   loadAgentDefinitions,
   loadLocalAgents,
+  configureFreebuffBaseAgentForModel,
   initializeAgentRegistry,
   findAgentsDirectory,
   getLoadedAgentsData,
@@ -36,6 +40,67 @@ import {
 } from '../../utils/local-agent-registry'
 
 const MODEL_NAME = 'anthropic/claude-sonnet-4'
+
+describe('configureFreebuffBaseAgentForModel', () => {
+  const makeBase2Free = () => ({
+    id: 'base2-free',
+    spawnableAgents: ['file-picker', FREEBUFF_GEMINI_THINKER_AGENT_ID],
+    systemPrompt: [
+      'before',
+      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
+      'after',
+    ].join('\n'),
+    instructionsPrompt: [
+      'before',
+      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
+      'after',
+    ].join('\n'),
+    stepPrompt: ['before', FREEBUFF_GEMINI_THINKER_STEP_PROMPT, 'after'].join(
+      '\n',
+    ),
+  })
+
+  test('keeps the Gemini thinker and prompt guidance for Kimi', () => {
+    const definition = makeBase2Free()
+
+    configureFreebuffBaseAgentForModel(definition, FREEBUFF_KIMI_MODEL_ID)
+
+    expect(definition.spawnableAgents).toContain(
+      FREEBUFF_GEMINI_THINKER_AGENT_ID,
+    )
+    expect(definition.systemPrompt).toContain(
+      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
+    )
+    expect(definition.instructionsPrompt).toContain(
+      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
+    )
+    expect(definition.stepPrompt).toContain(FREEBUFF_GEMINI_THINKER_STEP_PROMPT)
+  })
+
+  test('removes only exact Gemini thinker prompt guidance for MiniMax', () => {
+    const definition = makeBase2Free()
+    definition.systemPrompt +=
+      '\nUser text mentioning thinker-with-files-gemini should stay.'
+
+    configureFreebuffBaseAgentForModel(definition, FREEBUFF_MINIMAX_MODEL_ID)
+
+    expect(definition.spawnableAgents).not.toContain(
+      FREEBUFF_GEMINI_THINKER_AGENT_ID,
+    )
+    expect(definition.systemPrompt).not.toContain(
+      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
+    )
+    expect(definition.instructionsPrompt).not.toContain(
+      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
+    )
+    expect(definition.stepPrompt).not.toContain(
+      FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
+    )
+    expect(definition.systemPrompt).toContain(
+      'User text mentioning thinker-with-files-gemini should stay.',
+    )
+  })
+})
 
 const writeAgentFile = (
   agentsDir: string,
@@ -408,7 +473,9 @@ describe('Local Agent Integration', () => {
     expect(uiAgent!.id).toBe('test-ui-agent')
     // File path should be populated for "Open file" UI links
     // Use realpathSync to normalize paths (on macOS, /var is a symlink to /private/var)
-    expect(realpathSync(uiAgent!.filePath!)).toBe(realpathSync(path.join(agentsDir, 'ui-agent.ts')))
+    expect(realpathSync(uiAgent!.filePath!)).toBe(
+      realpathSync(path.join(agentsDir, 'ui-agent.ts')),
+    )
   })
 
   test('loadLocalAgents sorts agents alphabetically by displayName', async () => {
@@ -735,7 +802,9 @@ describe('Local Agent Integration', () => {
     const data = getLoadedAgentsData()
     expect(data).not.toBeNull()
     expect(data!.agents.some((a) => a.id === 'test-announce-agent')).toBe(true)
-    expect(data!.agents.some((a) => a.displayName === 'Announce Test Agent')).toBe(true)
+    expect(
+      data!.agents.some((a) => a.displayName === 'Announce Test Agent'),
+    ).toBe(true)
   })
 
   // ============================================================================

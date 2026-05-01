@@ -1,6 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeMode,
   isFreeModeAllowedAgentModel,
@@ -433,11 +434,11 @@ export async function postChatCompletions(params: {
       }
     }
 
-    // Freebuff waiting-room gate. Only enforced for free-mode requests, and
-    // only when FREEBUFF_WAITING_ROOM_ENABLED=true — otherwise this is a
-    // no-op that returns { ok: true, reason: 'disabled' } without a DB hit.
-    // Runs before the rate limiter so rejected requests don't burn a queued
-    // user's free-mode counters.
+    // Freebuff waiting-room gate. Usually enforced only when
+    // FREEBUFF_WAITING_ROOM_ENABLED=true; Gemini thinker children still force
+    // a DB-backed active-session check so their Kimi-only allowance comes from
+    // trusted server state. Runs before the rate limiter so rejected requests
+    // don't burn a queued user's free-mode counters.
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
@@ -446,6 +447,7 @@ export async function postChatCompletions(params: {
         userEmail: userInfo.email,
         claimedInstanceId,
         requestedModel: typedBody.model,
+        requireActiveSession: isFreebuffGeminiThinkerAgent(agentId),
       })
       if (!gate.ok) {
         trackEvent({

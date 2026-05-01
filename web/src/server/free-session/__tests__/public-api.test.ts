@@ -402,56 +402,6 @@ describe('requestSession', () => {
   const KIMI_LIMIT = 5
   const KIMI_WINDOW_HOURS = 12
   const KIMI_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
-  const GEMINI_LIMIT = 1
-  const GEMINI_WINDOW_HOURS = 24
-
-  test('rate_limited: Gemini 3.1 Pro allows one admit per 24h', async () => {
-    deps._tick(KIMI_OPEN_TIME)
-    const now = deps._now()
-    deps.admits.push({
-      user_id: 'u1',
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      admitted_at: new Date(now.getTime() - 23 * 60 * 60 * 1000),
-    })
-
-    const state = await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      deps,
-    })
-    expect(state.status).toBe('rate_limited')
-    if (state.status !== 'rate_limited') throw new Error('unreachable')
-    expect(state.model).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
-    expect(state.limit).toBe(GEMINI_LIMIT)
-    expect(state.windowHours).toBe(GEMINI_WINDOW_HOURS)
-    expect(state.recentCount).toBe(GEMINI_LIMIT)
-    expect(state.retryAfterMs).toBe(60 * 60 * 1000)
-    expect(deps.rows.has('u1')).toBe(false)
-  })
-
-  test('rate_limited: Gemini 3.1 Pro admit outside 24h window does not count', async () => {
-    deps._tick(KIMI_OPEN_TIME)
-    const now = deps._now()
-    deps.admits.push({
-      user_id: 'u1',
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      admitted_at: new Date(now.getTime() - 25 * 60 * 60 * 1000),
-    })
-
-    const state = await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      deps,
-    })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit).toEqual({
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      limit: GEMINI_LIMIT,
-      windowHours: GEMINI_WINDOW_HOURS,
-      recentCount: 0,
-    })
-  })
 
   test('rate_limited: 5th Kimi admit in window blocks the 6th attempt', async () => {
     deps._tick(KIMI_OPEN_TIME)
@@ -745,25 +695,6 @@ describe('getSessionState', () => {
     expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
   })
 
-  test('no row surfaces exhausted Gemini quota before joining', async () => {
-    const now = deps._now()
-    deps.admits.push({
-      user_id: 'u1',
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      admitted_at: new Date(now.getTime() - 23 * 60 * 60 * 1000),
-    })
-
-    const state = await getSessionState({ userId: 'u1', deps })
-    expect(state.status).toBe('none')
-    if (state.status !== 'none') throw new Error('unreachable')
-    expect(state.rateLimitsByModel?.[FREEBUFF_GEMINI_PRO_MODEL_ID]).toEqual({
-      model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-      limit: 1,
-      windowHours: 24,
-      recentCount: 1,
-    })
-  })
-
   test('active session with matching instance id returns active', async () => {
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
@@ -916,6 +847,20 @@ describe('checkSessionAdmissible', () => {
     expect(result.ok).toBe(true)
   })
 
+  test('requireActiveSession ignores disabled shortcut and requires a row', async () => {
+    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: 'inst-1',
+      requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps: offDeps,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('waiting_room_required')
+  })
+
   test('no session → waiting_room_required', async () => {
     const result = await checkSessionAdmissible({
       userId: 'u1',
@@ -940,12 +885,51 @@ describe('checkSessionAdmissible', () => {
     expect(deps.rows.size).toBe(0)
   })
 
+  test('requireActiveSession ignores bypassed emails', async () => {
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      userEmail: 'team@codebuff.com',
+      claimedInstanceId: 'inst-1',
+      requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps,
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('waiting_room_required')
+  })
+
   test('bypassed email is case-insensitive', async () => {
     const result = await checkSessionAdmissible({
       userId: 'u1',
       userEmail: 'Team@Codebuff.COM',
       claimedInstanceId: undefined,
       deps,
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test('requireActiveSession still admits Gemini thinker for Kimi rows when disabled', async () => {
+    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
+    const now = offDeps._now()
+    offDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'inst-1',
+      model: FREEBUFF_KIMI_MODEL_ID,
+      queued_at: now,
+      admitted_at: now,
+      expires_at: new Date(now.getTime() + SESSION_LEN),
+      created_at: now,
+      updated_at: now,
+    })
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: 'inst-1',
+      requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps: offDeps,
     })
     expect(result.ok).toBe(true)
   })
@@ -976,6 +960,42 @@ describe('checkSessionAdmissible', () => {
     expect(result.ok).toBe(true)
     if (!result.ok || result.reason !== 'active') throw new Error('unreachable')
     expect(result.remainingMs).toBe(SESSION_LEN)
+  })
+
+  test('active Kimi session admits Gemini thinker requests', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.model = FREEBUFF_KIMI_MODEL_ID
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps,
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test('active MiniMax session rejects Gemini thinker requests', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps,
+    })
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('session_model_mismatch')
   })
 
   test('active + wrong instance id → session_superseded', async () => {

@@ -43,12 +43,6 @@ interface LocalTimeFormatOptions {
 
 export const FREEBUFF_MODELS = [
   {
-    id: FREEBUFF_GEMINI_PRO_MODEL_ID,
-    displayName: 'Gemini 3.1 Pro',
-    tagline: 'Deepest, 1/day',
-    availability: 'always',
-  },
-  {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
     tagline: 'Fastest',

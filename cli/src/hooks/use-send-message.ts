@@ -5,7 +5,11 @@ import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getFreebuffInstanceId } from './use-freebuff-session'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { AGENT_MODE_TO_ID, AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
+import {
+  AGENT_MODE_TO_ID,
+  AGENT_MODE_TO_COST_MODE,
+  IS_FREEBUFF,
+} from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
@@ -108,7 +112,7 @@ export const useSendMessage = ({
   onBeforeMessageSend,
   mainAgentTimer,
   scrollToLatest,
-  onTimerEvent = () => { },
+  onTimerEvent = () => {},
   isQueuePausedRef,
   isProcessingQueueRef,
   resumeQueue,
@@ -295,13 +299,13 @@ export const useSendMessage = ({
           const errorsToAttach =
             validationResult.errors.length === 0
               ? [
-                // Hide this for now, as validate endpoint may be flaky and we don't want to bother users.
-                // {
-                //   id: NETWORK_ERROR_ID,
-                //   message:
-                //     'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
-                // },
-              ]
+                  // Hide this for now, as validate endpoint may be flaky and we don't want to bother users.
+                  // {
+                  //   id: NETWORK_ERROR_ID,
+                  //   message:
+                  //     'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
+                  // },
+                ]
               : validationResult.errors
 
           setMessages((prev) =>
@@ -457,12 +461,16 @@ export const useSendMessage = ({
           eventHandlerState,
           signal: abortController.signal,
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
-          extraCodebuffMetadata: freebuffInstanceId
-            ? { freebuff_instance_id: freebuffInstanceId }
-            : undefined,
+          extraCodebuffMetadata:
+            IS_FREEBUFF && freebuffInstanceId
+              ? { freebuff_instance_id: freebuffInstanceId }
+              : undefined,
         })
 
-        logger.info({ runConfig }, '[send-message] Sending message with sdk run config')
+        logger.info(
+          { runConfig },
+          '[send-message] Sending message with sdk run config',
+        )
         const runState = await client.run(runConfig)
 
         // Finalize: persist state and mark complete
