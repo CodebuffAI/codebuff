@@ -50,12 +50,6 @@ export const FREEBUFF_MODELS = [
     availability: 'always',
   },
   {
-    id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    displayName: 'DeepSeek V4 Pro',
-    tagline: 'Experimental',
-    availability: 'always',
-  },
-  {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
     tagline: 'Fastest',
