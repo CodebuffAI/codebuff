@@ -509,6 +509,43 @@ describe('provider-specific metadata merging', () => {
     ])
   })
 
+  it('should preserve assistant reasoning content with tool calls', () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'reasoning', text: 'Need the date first. ' },
+          { type: 'reasoning', text: 'Then call weather.' },
+          { type: 'text', text: 'Checking that now...' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call1',
+            toolName: 'get_weather',
+            input: { location: 'Hangzhou' },
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Checking that now...',
+        reasoning_content: 'Need the date first. Then call weather.',
+        tool_calls: [
+          {
+            id: 'call1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: JSON.stringify({ location: 'Hangzhou' }),
+            },
+          },
+        ],
+      },
+    ])
+  })
+
   it('should handle a single tool role message with multiple tool-result parts', () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

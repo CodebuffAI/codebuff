@@ -18,6 +18,7 @@ if (isCI) {
   ensureEnvDefault('ANTHROPIC_API_KEY', 'test')
   ensureEnvDefault('FIREWORKS_API_KEY', 'test')
   ensureEnvDefault('CANOPYWAVE_API_KEY', 'test')
+  ensureEnvDefault('DEEPSEEK_API_KEY', 'test')
   ensureEnvDefault('LINKUP_API_KEY', 'test')
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')

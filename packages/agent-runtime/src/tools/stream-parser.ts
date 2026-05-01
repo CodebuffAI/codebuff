@@ -8,6 +8,7 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { processStreamWithTools } from '../tool-stream-parser'
+import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
 import {
   executeCustomToolCall,
   executeToolCall,
@@ -276,6 +277,11 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
+        if (INCLUDE_REASONING_IN_MESSAGE_HISTORY && chunk.text) {
+          assistantMessages.push(
+            assistantMessage({ type: 'reasoning', text: chunk.text }),
+          )
+        }
         onResponseChunk({
           type: 'reasoning_delta',
           text: chunk.text,
