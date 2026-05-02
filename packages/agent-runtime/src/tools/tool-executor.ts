@@ -48,30 +48,107 @@ export type CustomToolCall = {
 
 export type ToolCallError = {
   toolName?: string
-  input: Record<string, unknown>
+  input: unknown
   error: string
 } & Pick<CodebuffToolCall, 'toolCallId'>
+
+const bareStringFieldRepairAllowlist: Partial<
+  Record<string, readonly string[]>
+> = {
+  code_search: ['pattern'],
+  find_files: ['prompt'],
+  glob: ['pattern'],
+  list_directory: ['path'],
+  lookup_agent_info: ['agentId'],
+  read_files: ['paths'],
+  read_subtree: ['paths'],
+  skill: ['name'],
+  web_search: ['query'],
+}
+
+function repairBareStringFieldObject(input: string, toolName: string): unknown {
+  const allowedFields = bareStringFieldRepairAllowlist[toolName]
+  if (!allowedFields) {
+    return undefined
+  }
+
+  const match = input
+    .trim()
+    .match(
+      /^\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*([^"{}\[\],][^{}\[\],]*)\s*\}$/,
+    )
+  if (!match) {
+    return undefined
+  }
+
+  const [, field, rawValue] = match
+  if (!allowedFields.includes(field)) {
+    return undefined
+  }
+
+  const value = rawValue.trim()
+  if (!value || value === 'null' || value === 'undefined') {
+    return undefined
+  }
+
+  return { [field]: value }
+}
+
+function parseStringifiedToolInput(input: unknown, toolName: string): unknown {
+  let parsed = input
+
+  // Some providers/models double-encode tool arguments, for example an input
+  // value like "\"{\\\"path\\\":\\\"file.ts\\\"}\"". Repeated JSON.parse
+  // handles that before falling back to narrow, tool-specific repairs.
+  for (let i = 0; i < 3 && typeof parsed === 'string'; i++) {
+    const stringInput = parsed
+    try {
+      parsed = JSON.parse(stringInput)
+    } catch {
+      const repaired = repairBareStringFieldObject(stringInput, toolName)
+      if (repaired !== undefined) {
+        parsed = repaired
+      }
+      break
+    }
+  }
+
+  return parsed
+}
 
 function stringInputError(toolName: string, toolCallId: string): ToolCallError {
   return {
     toolName,
     toolCallId,
     input: {},
-    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. This usually means the model emitted malformed JSON (e.g. unescaped newlines or quotes inside a string value). Re-issue the tool call with properly escaped JSON.`,
+    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. The runtime tried to parse stringified JSON before validation, but the value was still not a JSON object. Re-issue the tool call as a JSON object with properly escaped string values.`,
   }
+}
+
+function getToolValidationHint(toolName: string): string | undefined {
+  if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
+    return 'Expected shape: { "path": string, "replacements": [{ "old": string, "new": string, "allowMultiple"?: boolean }] }.'
+  }
+  if (toolName === 'write_file' || toolName === 'propose_write_file') {
+    return 'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'
+  }
+  return undefined
 }
 
 export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   rawToolCall: {
     toolName: T
     toolCallId: string
-    input: Record<string, unknown>
+    input: unknown
   }
 }): CodebuffToolCall<T> | ToolCallError {
   const { rawToolCall } = params
   const toolName = rawToolCall.toolName
 
-  const processedParameters = rawToolCall.input
+  const processedParameters = parseStringifiedToolInput(
+    rawToolCall.input,
+    toolName,
+  )
   const paramsSchema = toolParams[toolName].inputSchema
 
   if (typeof processedParameters === 'string') {
@@ -81,6 +158,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   const result = paramsSchema.safeParse(processedParameters)
 
   if (!result.success) {
+    const hint = getToolValidationHint(toolName)
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
@@ -89,7 +167,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
         result.error.issues,
         null,
         2,
-      )}`,
+      )}${hint ? `\n\n${hint}` : ''}`,
     }
   }
 
@@ -209,9 +287,9 @@ export async function executeToolCall<T extends ToolName>(
 
   // TODO: Allow tools to provide a validation function, and move this logic into the spawn_agents validation function.
   // Pre-validate spawn_agents to filter out non-existent agents before streaming
-  let effectiveInput = input
+  let effectiveInput = toolCall.input as Record<string, unknown>
   if (toolName === 'spawn_agents') {
-    const agents = (input as Record<string, unknown>).agents
+    const agents = effectiveInput.agents
     if (Array.isArray(agents)) {
       const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']
       const isBaseAgent = BASE_AGENTS.includes(agentTemplate.id)
@@ -307,7 +385,7 @@ export async function executeToolCall<T extends ToolName>(
         }
         const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
         onResponseChunk({ type: 'error', message: errorMsg })
-        effectiveInput = { ...input, agents: validAgents }
+        effectiveInput = { ...effectiveInput, agents: validAgents }
       }
     }
   }
@@ -397,7 +475,7 @@ export function parseRawCustomToolCall(params: {
   rawToolCall: {
     toolName: string
     toolCallId: string
-    input: Record<string, unknown>
+    input: unknown
   }
   autoInsertEndStepParam?: boolean
 }): CustomToolCall | ToolCallError {
@@ -416,12 +494,14 @@ export function parseRawCustomToolCall(params: {
     }
   }
 
-  if (typeof rawToolCall.input === 'string') {
+  const parsedInput = parseStringifiedToolInput(rawToolCall.input, toolName)
+
+  if (typeof parsedInput === 'string') {
     return stringInputError(toolName, rawToolCall.toolCallId)
   }
 
   const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.input ?? {})) {
+  for (const [param, val] of Object.entries(parsedInput ?? {})) {
     processedParameters[param] = val
   }
 
@@ -450,7 +530,7 @@ export function parseRawCustomToolCall(params: {
     }
   }
 
-  const input = JSON.parse(JSON.stringify(rawToolCall.input))
+  const input = JSON.parse(JSON.stringify(parsedInput))
   if (endsAgentStepParam in input) {
     delete input[endsAgentStepParam]
   }

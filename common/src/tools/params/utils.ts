@@ -32,6 +32,31 @@ export function coerceToArray(val: unknown): unknown {
   return val
 }
 
+/**
+ * Handles common replacement-key aliases emitted by some models while keeping
+ * the documented schema stable.
+ */
+export function normalizeReplacementAliases(val: unknown): unknown {
+  if (val === null || typeof val !== 'object' || Array.isArray(val)) {
+    return val
+  }
+
+  const replacement = { ...(val as Record<string, unknown>) }
+  for (const [target, aliases] of [
+    ['old', ['old_str', 'old_string']],
+    ['new', ['new_str', 'new_string']],
+  ] as const) {
+    if (replacement[target] !== undefined) {
+      continue
+    }
+    const alias = aliases.find((key) => typeof replacement[key] === 'string')
+    if (alias) {
+      replacement[target] = replacement[alias]
+    }
+  }
+  return replacement
+}
+
 /** Only used for generating tool call strings before all tools are defined.
  *
  * @param toolName - The name of the tool to call
