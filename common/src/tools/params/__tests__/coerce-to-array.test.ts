@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 import z from 'zod/v4'
 
-import { coerceToArray } from '../utils'
+import { coerceToArray, normalizeReplacementAliases } from '../utils'
 
 describe('coerceToArray', () => {
   it('passes through arrays unchanged', () => {
     expect(coerceToArray(['a', 'b'])).toEqual(['a', 'b'])
-    expect(coerceToArray([{ old: 'x', new: 'y' }])).toEqual([{ old: 'x', new: 'y' }])
+    expect(coerceToArray([{ old: 'x', new: 'y' }])).toEqual([
+      { old: 'x', new: 'y' },
+    ])
     expect(coerceToArray([])).toEqual([])
   })
 
@@ -15,7 +17,9 @@ describe('coerceToArray', () => {
   })
 
   it('wraps a single object in an array', () => {
-    expect(coerceToArray({ old: 'x', new: 'y' })).toEqual([{ old: 'x', new: 'y' }])
+    expect(coerceToArray({ old: 'x', new: 'y' })).toEqual([
+      { old: 'x', new: 'y' },
+    ])
   })
 
   it('wraps a single number in an array', () => {
@@ -23,7 +27,10 @@ describe('coerceToArray', () => {
   })
 
   it('parses a stringified JSON array', () => {
-    expect(coerceToArray('["file1.ts", "file2.ts"]')).toEqual(['file1.ts', 'file2.ts'])
+    expect(coerceToArray('["file1.ts", "file2.ts"]')).toEqual([
+      'file1.ts',
+      'file2.ts',
+    ])
   })
 
   it('wraps a non-JSON string (does not parse as array)', () => {
@@ -114,5 +121,53 @@ describe('coerceToArray with Zod schemas', () => {
     const plainSchema = z.toJSONSchema(plain, { io: 'input' })
     const coercedSchema = z.toJSONSchema(coerced, { io: 'input' })
     expect(coercedSchema).toEqual(plainSchema)
+  })
+})
+
+describe('normalizeReplacementAliases', () => {
+  it('maps old_str and new_str onto the documented replacement keys', () => {
+    expect(
+      normalizeReplacementAliases({
+        old_str: 'before',
+        new_str: 'after',
+        allowMultiple: true,
+      }),
+    ).toEqual({
+      old_str: 'before',
+      new_str: 'after',
+      old: 'before',
+      new: 'after',
+      allowMultiple: true,
+    })
+  })
+
+  it('maps old_string and new_string onto the documented replacement keys', () => {
+    expect(
+      normalizeReplacementAliases({
+        old_string: 'before',
+        new_string: 'after',
+      }),
+    ).toEqual({
+      old_string: 'before',
+      new_string: 'after',
+      old: 'before',
+      new: 'after',
+    })
+  })
+
+  it('does not overwrite documented replacement keys', () => {
+    expect(
+      normalizeReplacementAliases({
+        old: 'before',
+        new: 'after',
+        old_str: 'ignored',
+        new_str: 'ignored',
+      }),
+    ).toEqual({
+      old: 'before',
+      new: 'after',
+      old_str: 'ignored',
+      new_str: 'ignored',
+    })
   })
 })
