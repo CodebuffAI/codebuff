@@ -72,7 +72,7 @@ export const FREEBUFF_MODELS = [
   {
     id: FREEBUFF_KIMI_MODEL_ID,
     displayName: 'Kimi K2.6',
-    tagline: 'Smart',
+    tagline: 'Balanced',
     availability: 'always',
   },
   {

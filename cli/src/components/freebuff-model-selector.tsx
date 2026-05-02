@@ -39,17 +39,25 @@ const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
  *     the user to the back of that queue (lose place in original). Picking the
  *     model they're already in is a no-op.
  *
- * To prevent accidental queue loss while queued, keyboard navigation is
- * two-step: Tab / arrow keys move a focus highlight, and Enter commits the
- * switch. Mouse clicks are still one-step. On the landing screen, pressing
- * Enter on the already-focused model also commits — there's nothing to lose.
+ * Keyboard navigation: Tab / arrow keys move the green highlight; Enter (or
+ * Space) commits the focused row. Mouse click commits in one step.
  *
- * Each row shows a live "N ahead" count sourced from the server's
- * `queueDepthByModel` snapshot so the choice is informed.
+ * Always stacked vertically. On narrow terminals where the longest one-line
+ * label wouldn't fit, the secondary details (warning / deployment hours)
+ * spill onto an indented second line under the name.
+ *
+ * No queue-position hint: traffic doesn't reach the threshold where a wait
+ * would form, so showing "N in line" everywhere just adds noise (and width).
+ * The picker still surfaces "Closed" (outside deployment hours) and "Limit
+ * used" (per-user quota) inline since those gate the actual click.
  */
 export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
-  const { terminalWidth } = useTerminalDimensions()
+  // contentMaxWidth (not terminalWidth) is the real budget — the parent
+  // waiting-room screen wraps this picker in a `maxWidth: contentMaxWidth`
+  // box (capped at 80 cols), so a wide terminal doesn't actually let us
+  // sprawl the buttons across it.
+  const { contentMaxWidth } = useTerminalDimensions()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
@@ -83,70 +91,64 @@ export const FreebuffModelSelector: React.FC = () => {
     }
   }, [now, selectedModel, session, setSelectedModel])
 
-  // Landing ('none'): depths come from the server snapshot, no "self" to
-  // subtract. In-queue ('queued'): for the user's queue, "ahead" is
-  // `position - 1` (themselves don't count); for every other queue, switching
-  // would land them at the back, so it's that queue's full depth. Null before
-  // any snapshot so the UI doesn't flash misleading zeros — in particular,
-  // landing mode after a session ends initially sets status='none' with no
-  // queueDepthByModel; returning null here keeps the hint blank until the
-  // fetch lands, instead of showing "No wait" on every row.
-  const aheadByModel = useMemo<Record<string, number> | null>(() => {
-    if (session?.status === 'none') {
-      if (!session.queueDepthByModel) return null
-      const depths = session.queueDepthByModel
-      const out: Record<string, number> = {}
-      for (const { id } of FREEBUFF_MODELS) out[id] = depths[id] ?? 0
-      return out
-    }
-    if (session?.status === 'queued') {
-      const depths = session.queueDepthByModel ?? {}
-      const out: Record<string, number> = {}
-      for (const { id } of FREEBUFF_MODELS) {
-        out[id] =
-          id === session.model
-            ? Math.max(0, session.position - 1)
-            : (depths[id] ?? 0)
+  const BUTTON_CHROME = 4 // 2 border + 2 padding
+
+  // Decide whether secondary details (warning / deployment hours) get their
+  // own indented line under the name. Trigger: the widest one-line button
+  // wouldn't fit in our content budget. All buttons share a uniform width so
+  // the column reads as a clean stack of equal choices. We size to the
+  // *label* — Closed / Limit used hints can transiently push the text past
+  // this width, but they're rare (deployment hours closing, daily quota hit)
+  // and a small one-time grow is fine.
+  const { wrapDetails, buttonOuterWidth } = useMemo(() => {
+    const detailsTextLen = (model: FreebuffModelOption): number => {
+      const parts: number[] = []
+      if (model.availability === 'deployment_hours') {
+        parts.push(deploymentAvailabilityLabel.length)
       }
-      return out
+      if (model.warning) parts.push(model.warning.length)
+      if (parts.length === 0) return 0
+      return parts.reduce((a, b) => a + b, 0) + (parts.length - 1) * 3 /* " · " */
     }
-    return null
-  }, [session])
 
-  // Pad the trailing hint ("3 ahead", "No wait", "…") to a fixed width so
-  // buttons don't visibly resize when the queue depth ticks down (12 → 9) or
-  // when the user's selection moves between queues. The tagline is shown
-  // inline with the name now, so it's no longer part of this slot.
-  const hintWidth = useMemo(
-    () => Math.max('No wait'.length, '999 ahead'.length, 'Limit used'.length),
-    [],
-  )
-
-  // Decide row vs column layout based on whether the buttons actually fit
-  // side-by-side. Each button's inner text is
-  // "● {displayName} · {tagline} · {hours/warning}  {hint}",
-  // plus 2 cols of border and 2 cols of padding. Buttons are separated by a
-  // gap of 2. If the total exceeds the terminal width, stack vertically.
-  const stackVertically = useMemo(() => {
-    const BUTTON_CHROME = 4 // 2 border + 2 padding
-    const GAP = 2
-    const total = FREEBUFF_MODEL_SELECTOR_MODELS.reduce((sum, model, idx) => {
-      const inner =
+    const oneLineLen = (model: FreebuffModelOption): number => {
+      const inlineDetails = detailsTextLen(model)
+      return (
         2 /* indicator + space */ +
         model.displayName.length +
         3 /* " · " */ +
         model.tagline.length +
-        (model.availability === 'deployment_hours'
-          ? 3 + deploymentAvailabilityLabel.length
-          : 0) +
-        (model.warning ? 3 + model.warning.length : 0) +
-        2 /* "  " */ +
-        hintWidth
-      return sum + inner + BUTTON_CHROME + (idx > 0 ? GAP : 0)
-    }, 0)
-    // Leave a small margin for the surrounding padding on the waiting-room screen.
-    return total > terminalWidth - 4
-  }, [deploymentAvailabilityLabel, hintWidth, terminalWidth])
+        (inlineDetails > 0 ? 3 + inlineDetails : 0)
+      )
+    }
+
+    const labelLineLen = (model: FreebuffModelOption): number =>
+      2 + model.displayName.length + 3 + model.tagline.length
+
+    const detailsLineLen = (model: FreebuffModelOption): number => {
+      const len = detailsTextLen(model)
+      return len === 0 ? 0 : 2 /* indent */ + len
+    }
+
+    const maxOneLineOuter =
+      Math.max(...FREEBUFF_MODEL_SELECTOR_MODELS.map(oneLineLen)) +
+      BUTTON_CHROME
+    if (maxOneLineOuter <= contentMaxWidth) {
+      return { wrapDetails: false, buttonOuterWidth: maxOneLineOuter }
+    }
+    const maxTwoLineInner = Math.max(
+      ...FREEBUFF_MODEL_SELECTOR_MODELS.map((m) =>
+        Math.max(labelLineLen(m), detailsLineLen(m)),
+      ),
+    )
+    return {
+      wrapDetails: true,
+      buttonOuterWidth: Math.min(
+        maxTwoLineInner + BUTTON_CHROME,
+        contentMaxWidth,
+      ),
+    }
+  }, [contentMaxWidth, deploymentAvailabilityLabel])
 
   // "Already committed to this model" — only when the server has us queued
   // on it. On the landing screen (status 'none'), nothing is committed yet,
@@ -177,8 +179,8 @@ export const FreebuffModelSelector: React.FC = () => {
   )
 
   // Tab / Shift+Tab and arrow keys move the focus highlight only; Enter or
-  // Space commits the switch. Two-step navigation prevents the user from
-  // accidentally giving up their place in line by tabbing past their queue.
+  // Space commits the focused row. Two-step navigation lets the user preview
+  // the highlight before committing.
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
@@ -220,103 +222,109 @@ export const FreebuffModelSelector: React.FC = () => {
         gap: 0,
       }}
     >
-      <box
-        style={{
-          flexDirection: stackVertically ? 'column' : 'row',
-          gap: stackVertically ? 0 : 2,
-          alignItems: 'flex-start',
-        }}
-      >
-        {FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => {
-          // 'Selected' means the dot is filled and the label is bold. On the
-          // landing screen ('none') this tracks the pre-focused pick; on the
-          // queued screen it tracks the model the server has us on. Either
-          // way, selectedModel marks the user's current preference even if
-          // focus has moved to a different row.
-          const isSelected = model.id === selectedModel
-          const isHovered = hoveredId === model.id
-          const isFocused = focusedId === model.id && !isSelected
-          const isAvailable = isFreebuffModelAvailable(model.id, new Date(now))
-          const rateLimit = rateLimitsByModel?.[model.id]
-          const isQuotaExhausted =
-            rateLimit !== undefined && rateLimit.recentCount >= rateLimit.limit
-          const canJoin = isAvailable && !isQuotaExhausted
-          const indicator = isSelected ? '●' : isFocused ? '›' : '○'
-          const indicatorColor = isSelected
-            ? theme.primary
-            : isFocused
-              ? theme.foreground
-              : theme.muted
-          const labelColor =
-            (isSelected || isFocused) && canJoin
-              ? theme.foreground
-              : theme.muted
-          // Clickable whenever picking would actually do something — i.e.
-          // anything except re-picking the queue we're already in.
-          const interactable =
-            !pending && canJoin && model.id !== committedModelId
-          const ahead = aheadByModel?.[model.id]
-          const hint = !isAvailable
-            ? 'Closed'
-            : isQuotaExhausted
-              ? 'Limit used'
-              : ahead === undefined
-                ? ''
-                : ahead === 0
-                  ? 'No wait'
-                  : `${ahead} ahead`
-          const hintColor = canJoin ? theme.muted : theme.secondary
+      {FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => {
+        // Single visual state: the focused row IS the highlight. The user's
+        // saved/committed pick is not shown separately — it just sets where
+        // focus lands when the picker opens. Pressing Enter on the focused
+        // row commits it.
+        const isHovered = hoveredId === model.id
+        const isFocused = focusedId === model.id
+        const isAvailable = isFreebuffModelAvailable(model.id, new Date(now))
+        const rateLimit = rateLimitsByModel?.[model.id]
+        const isQuotaExhausted =
+          rateLimit !== undefined && rateLimit.recentCount >= rateLimit.limit
+        const canJoin = isAvailable && !isQuotaExhausted
+        // Clickable whenever picking would actually do something — i.e.
+        // anything except re-picking the queue we're already in.
+        const interactable =
+          !pending && canJoin && model.id !== committedModelId
+        const hint = !isAvailable
+          ? 'Closed'
+          : isQuotaExhausted
+            ? 'Limit used'
+            : ''
 
-          const borderColor = isSelected
-            ? theme.primary
-            : isFocused || isHovered
-              ? theme.foreground
-              : theme.border
+        // Focused row: green border + green name to tie back to the border.
+        // The rest of the row keeps the normal muted/secondary palette so
+        // the highlight stays subtle. Off-focus rows are entirely default.
+        const indicator = isFocused ? '›' : ' '
+        const fgColor = isFocused
+          ? theme.primary
+          : canJoin
+            ? theme.foreground
+            : theme.muted
+        const mutedColor = theme.muted
+        const warningColor = theme.secondary
+        const hintColor = theme.secondary
 
-          return (
-            <Button
-              key={model.id}
-              onClick={() => {
-                setFocusedId(model.id)
-                if (canJoin) pick(model.id)
-              }}
-              onMouseOver={() => interactable && setHoveredId(model.id)}
-              onMouseOut={() =>
-                setHoveredId((curr) => (curr === model.id ? null : curr))
-              }
-              style={{
-                borderStyle: 'single',
-                borderColor,
-                paddingLeft: 1,
-                paddingRight: 1,
-              }}
-              border={['top', 'bottom', 'left', 'right']}
-            >
+        const borderColor = isFocused
+          ? theme.primary
+          : isHovered
+            ? theme.foreground
+            : theme.border
+
+        const showInlineHours =
+          !wrapDetails && model.availability === 'deployment_hours'
+        const showInlineWarning = !wrapDetails && !!model.warning
+        const showWrappedDetails =
+          wrapDetails &&
+          (model.availability === 'deployment_hours' || !!model.warning)
+
+        return (
+          <Button
+            key={model.id}
+            onClick={() => {
+              setFocusedId(model.id)
+              if (canJoin) pick(model.id)
+            }}
+            onMouseOver={() => interactable && setHoveredId(model.id)}
+            onMouseOut={() =>
+              setHoveredId((curr) => (curr === model.id ? null : curr))
+            }
+            style={{
+              borderStyle: 'single',
+              borderColor,
+              paddingLeft: 1,
+              paddingRight: 1,
+              width: buttonOuterWidth,
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
+            <text>
+              <span fg={fgColor}>{indicator} </span>
+              <span
+                fg={fgColor}
+                attributes={
+                  isFocused ? TextAttributes.BOLD : TextAttributes.NONE
+                }
+              >
+                {model.displayName}
+              </span>
+              <span fg={mutedColor}> · {model.tagline}</span>
+              {showInlineHours && (
+                <span fg={mutedColor}> · {deploymentAvailabilityLabel}</span>
+              )}
+              {showInlineWarning && (
+                <span fg={warningColor}> · {model.warning}</span>
+              )}
+              {hint && <span fg={hintColor}> {hint}</span>}
+            </text>
+            {showWrappedDetails && (
               <text>
-                <span fg={indicatorColor}>{indicator} </span>
-                <span
-                  fg={labelColor}
-                  attributes={
-                    isSelected || isFocused
-                      ? TextAttributes.BOLD
-                      : TextAttributes.NONE
-                  }
-                >
-                  {model.displayName}
-                </span>
-                <span fg={theme.muted}> · {model.tagline}</span>
+                <span>  </span>
                 {model.availability === 'deployment_hours' && (
-                  <span fg={theme.muted}> · {deploymentAvailabilityLabel}</span>
+                  <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
                 )}
+                {model.availability === 'deployment_hours' &&
+                  model.warning && <span fg={mutedColor}> · </span>}
                 {model.warning && (
-                  <span fg={theme.secondary}> · {model.warning}</span>
+                  <span fg={warningColor}>{model.warning}</span>
                 )}
-                <span fg={hintColor}> {hint.padEnd(hintWidth)}</span>
               </text>
-            </Button>
-          )
-        })}
-      </box>
+            )}
+          </Button>
+        )
+      })}
     </box>
   )
 }

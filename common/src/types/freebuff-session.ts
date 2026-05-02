@@ -55,10 +55,11 @@ export type FreebuffSessionServerResponse =
        *  grace window. */
       status: 'none'
       message?: string
-      /** Snapshot of every model's queue depth so the CLI can render live
-       *  "N ahead" hints on the pre-join model picker without first
-       *  committing the user to a queue. Present on GET responses; not
-       *  returned from POST (POST never produces `none`). */
+      /** Snapshot of every model's queue depth at GET time. The picker no
+       *  longer renders this (queues effectively never form at current
+       *  traffic), but it's still surfaced for diagnostics and future use.
+       *  Present on GET responses; not returned from POST (POST never
+       *  produces `none`). */
       queueDepthByModel?: Record<string, number>
       /** Current quota snapshots for rate-limited models, keyed by model id.
        *  Lets the picker show exhausted daily/session caps before the user
@@ -73,10 +74,10 @@ export type FreebuffSessionServerResponse =
       /** 1-indexed position in the queue for `model`. */
       position: number
       queueDepth: number
-      /** Current depth of every model's queue, so the CLI can show a live
-       *  "N ahead" hint on each row of the model selector. Models with no
-       *  queued rows at snapshot time may be absent; the CLI should treat a
-       *  missing entry as 0. */
+      /** Current depth of every model's queue. Retained for diagnostics —
+       *  the CLI no longer renders per-row queue hints. Models with no
+       *  queued rows at snapshot time may be absent; treat a missing entry
+       *  as 0. */
       queueDepthByModel: Record<string, number>
       estimatedWaitMs: number
       queuedAt: string
