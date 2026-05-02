@@ -446,10 +446,8 @@ export async function postChatCompletions(params: {
     }
 
     // Freebuff waiting-room gate. Usually enforced only when
-    // FREEBUFF_WAITING_ROOM_ENABLED=true; Gemini thinker children still force
-    // a DB-backed active-session check so their Kimi-only allowance comes from
-    // trusted server state. Runs before the rate limiter so rejected requests
-    // don't burn a queued user's free-mode counters.
+    // FREEBUFF_WAITING_ROOM_ENABLED=true. Runs before the rate limiter so
+    // rejected requests don't burn a queued user's free-mode counters.
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id

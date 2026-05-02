@@ -10,6 +10,7 @@ import {
   FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
 } from '@codebuff/common/constants/freebuff-gemini-thinker'
 import {
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
@@ -64,6 +65,26 @@ describe('configureFreebuffBaseAgentForModel', () => {
     const definition = makeBase2Free()
 
     configureFreebuffBaseAgentForModel(definition, FREEBUFF_KIMI_MODEL_ID)
+
+    expect(definition.spawnableAgents).toContain(
+      FREEBUFF_GEMINI_THINKER_AGENT_ID,
+    )
+    expect(definition.systemPrompt).toContain(
+      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
+    )
+    expect(definition.instructionsPrompt).toContain(
+      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
+    )
+    expect(definition.stepPrompt).toContain(FREEBUFF_GEMINI_THINKER_STEP_PROMPT)
+  })
+
+  test('keeps the Gemini thinker and prompt guidance for DeepSeek', () => {
+    const definition = makeBase2Free()
+
+    configureFreebuffBaseAgentForModel(
+      definition,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
 
     expect(definition.spawnableAgents).toContain(
       FREEBUFF_GEMINI_THINKER_AGENT_ID,

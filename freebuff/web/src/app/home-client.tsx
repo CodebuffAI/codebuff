@@ -26,7 +26,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'Kimi K2.6 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'Pick DeepSeek V4 Pro (default and smartest, but its API collects data for training) or Kimi K2.6 (no data retention) as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',

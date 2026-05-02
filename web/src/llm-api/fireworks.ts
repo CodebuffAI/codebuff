@@ -2,7 +2,6 @@ import { Agent } from 'undici'
 
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
@@ -42,7 +41,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
 
 /** Models that stay limited to freebuff deployment hours even on serverless. */
 const FIREWORKS_HOURS_GATED_MODELS = new Set<string>([
-  FREEBUFF_KIMI_MODEL_ID,
+  'moonshotai/kimi-k2.6',
   'z-ai/glm-5.1',
 ])
 
@@ -199,7 +198,7 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
 function getFireworksPricing(model: string): FireworksPricing {
   return (
     FIREWORKS_PRICING_MAP[model] ??
-    FIREWORKS_PRICING_MAP[FREEBUFF_KIMI_MODEL_ID]
+    FIREWORKS_PRICING_MAP['moonshotai/kimi-k2.6']
   )
 }
 

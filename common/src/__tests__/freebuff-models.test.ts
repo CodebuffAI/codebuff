@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MODELS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
@@ -13,8 +16,25 @@ import {
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
-  test('defaults to Kimi K2.6', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_KIMI_MODEL_ID)
+  test('defaults to DeepSeek V4 Pro (the smartest free model)', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+  })
+
+  test('DeepSeek carries the data-collection warning so users see it before picking', () => {
+    const deepseek = FREEBUFF_MODELS.find(
+      (m) => m.id === FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(deepseek?.warning).toBe('Collects data for training')
+  })
+
+  test('only smart freebuff models can spawn the gemini-thinker subagent', () => {
+    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(
+      canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe(true)
+    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
+      false,
+    )
   })
 
   test('supports GLM 5.1 as a legacy server-side model without selecting it for new clients', () => {

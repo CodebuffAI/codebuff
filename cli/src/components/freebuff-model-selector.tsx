@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import {
+  DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffModelAvailable,
@@ -19,11 +19,16 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { nextFreebuffModelId } from '../utils/freebuff-model-navigation'
 
+import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent } from '@opentui/core'
 
-const FREEBUFF_MODEL_SELECTOR_MODELS = [
-  ...FREEBUFF_MODELS.filter((model) => model.id === FREEBUFF_KIMI_MODEL_ID),
-  ...FREEBUFF_MODELS.filter((model) => model.id !== FREEBUFF_KIMI_MODEL_ID),
+// Widen the readonly tuple from FREEBUFF_MODELS to FreebuffModelOption[] so
+// the selector can branch on optional fields (e.g. `warning`) and on
+// availability values that aren't present in today's set but might be added
+// later, without TS narrowing the literal types away.
+const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
+  ...FREEBUFF_MODELS.filter((model) => model.id === DEFAULT_FREEBUFF_MODEL_ID),
+  ...FREEBUFF_MODELS.filter((model) => model.id !== DEFAULT_FREEBUFF_MODEL_ID),
 ]
 
 /**
@@ -69,7 +74,7 @@ export const FreebuffModelSelector: React.FC = () => {
     // unavailable (e.g. deployment hours close while the picker is open),
     // swap to the always-available fallback so Enter doesn't POST a model
     // the server will immediately reject. In-memory only — the user's saved
-    // preference (e.g. Kimi) is preserved for the next launch.
+    // preference (e.g. Kimi or DeepSeek) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
       !isFreebuffModelAvailable(selectedModel, new Date(now))
@@ -119,7 +124,7 @@ export const FreebuffModelSelector: React.FC = () => {
 
   // Decide row vs column layout based on whether the buttons actually fit
   // side-by-side. Each button's inner text is
-  // "● {displayName} · {tagline} · {hours}  {hint}",
+  // "● {displayName} · {tagline} · {hours/warning}  {hint}",
   // plus 2 cols of border and 2 cols of padding. Buttons are separated by a
   // gap of 2. If the total exceeds the terminal width, stack vertically.
   const stackVertically = useMemo(() => {
@@ -134,6 +139,7 @@ export const FreebuffModelSelector: React.FC = () => {
         (model.availability === 'deployment_hours'
           ? 3 + deploymentAvailabilityLabel.length
           : 0) +
+        (model.warning ? 3 + model.warning.length : 0) +
         2 /* "  " */ +
         hintWidth
       return sum + inner + BUTTON_CHROME + (idx > 0 ? GAP : 0)
@@ -301,6 +307,9 @@ export const FreebuffModelSelector: React.FC = () => {
                 <span fg={theme.muted}> · {model.tagline}</span>
                 {model.availability === 'deployment_hours' && (
                   <span fg={theme.muted}> · {deploymentAvailabilityLabel}</span>
+                )}
+                {model.warning && (
+                  <span fg={theme.secondary}> · {model.warning}</span>
                 )}
                 <span fg={hintColor}> {hint.padEnd(hintWidth)}</span>
               </text>

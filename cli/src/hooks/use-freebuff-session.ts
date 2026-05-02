@@ -104,7 +104,7 @@ async function callSession(
       return body
     }
   }
-  // 429 from POST is the per-model session-quota reject (e.g. too many Kimi
+  // 429 from POST is the per-model session-quota reject (e.g. too many DeepSeek
   // sessions in the last 12h). Terminal for the current poll — the CLI shows
   // a screen explaining the limit and when the user can try again. The 429
   // status (rather than 200) keeps older CLIs in their error path so they
@@ -442,10 +442,10 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         }
         if (next.status === 'model_unavailable') {
           // Server says the requested model isn't available right now (e.g.
-          // Kimi outside deployment hours). Flip to the always-available
-          // fallback for this run. In-memory only — `setSelectedModel`
-          // doesn't persist, so the user's saved preference (e.g. Kimi)
-          // is preserved for their next launch during deployment hours.
+          // legacy GLM 5.1 outside deployment hours). Flip to the
+          // always-available fallback for this run. In-memory only —
+          // `setSelectedModel` doesn't persist, so the user's saved preference
+          // is preserved for their next launch.
           useFreebuffModelStore
             .getState()
             .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
