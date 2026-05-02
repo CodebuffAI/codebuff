@@ -174,6 +174,51 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should summarize missing replacement fields without implying deletion', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'missing-new-tool-call-id',
+        input: {
+          path: 'test.ts',
+          replacements: [
+            { old: 'before', new: 'after' },
+            { old: 'delete me' },
+            { old: 'delete me too' },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Missing required replacement fields:')
+      expect(result.error).toContain('- replacements[1].new')
+      expect(result.error).toContain('- replacements[2].new')
+      expect(result.error).toContain(
+        'If the intent is deletion, set "new": "" explicitly.',
+      )
+      expect(result.error).toContain('Raw validation issues:')
+    }
+  })
+
+  it('should include JSON parse details for incomplete stringified input', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'write_file',
+        toolCallId: 'incomplete-stringified-tool-call-id',
+        input:
+          '{"path": ".agents/deep-thinkers/meta-coordinator.ts", "instructions": "Creates a meta-coordinator"',
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The JSON parser reported:')
+      expect(result.error).toContain('If the arguments are incomplete')
+    }
+  })
+
   it('should emit error event instead of tool result when spawn_agents receives invalid parameters', async () => {
     // This simulates what happens when the LLM passes a string instead of an array to spawn_agents
     // The error from Anthropic was: "Invalid parameters for spawn_agents: expected array, received string"

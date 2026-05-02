@@ -94,8 +94,12 @@ function repairBareStringFieldObject(input: string, toolName: string): unknown {
   return { [field]: value }
 }
 
-function parseStringifiedToolInput(input: unknown, toolName: string): unknown {
+function parseStringifiedToolInput(
+  input: unknown,
+  toolName: string,
+): { input: unknown; parseError?: string } {
   let parsed = input
+  let parseError: string | undefined
 
   // Some providers/models double-encode tool arguments, for example an input
   // value like "\"{\\\"path\\\":\\\"file.ts\\\"}\"". Repeated JSON.parse
@@ -104,25 +108,74 @@ function parseStringifiedToolInput(input: unknown, toolName: string): unknown {
     const stringInput = parsed
     try {
       parsed = JSON.parse(stringInput)
-    } catch {
+      parseError = undefined
+    } catch (error) {
       const repaired = repairBareStringFieldObject(stringInput, toolName)
       if (repaired !== undefined) {
         parsed = repaired
+        parseError = undefined
+      } else {
+        parseError = error instanceof Error ? error.message : String(error)
       }
       break
     }
   }
 
-  return parsed
+  return { input: parsed, parseError }
 }
 
-function stringInputError(toolName: string, toolCallId: string): ToolCallError {
+function stringInputError(
+  toolName: string,
+  toolCallId: string,
+  parseError?: string,
+): ToolCallError {
+  const parseDetails = parseError
+    ? ` The JSON parser reported: ${parseError}. If the arguments are incomplete, re-issue the full object.`
+    : ''
   return {
     toolName,
     toolCallId,
     input: {},
-    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. The runtime tried to parse stringified JSON before validation, but the value was still not a JSON object. Re-issue the tool call as a JSON object with properly escaped string values.`,
+    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. The runtime tried to parse stringified JSON before validation, but the value was still not a JSON object.${parseDetails} Re-issue the tool call as a JSON object with properly escaped string values.`,
   }
+}
+
+function summarizeMissingReplacementFields(
+  toolName: string,
+  issues: Array<{
+    expected?: unknown
+    code?: string
+    path?: PropertyKey[]
+    message?: string
+  }>,
+): string | undefined {
+  if (toolName !== 'str_replace' && toolName !== 'propose_str_replace') {
+    return undefined
+  }
+
+  const missingFields = issues.flatMap((issue) => {
+    const [root, index, field] = issue.path ?? []
+    const isMissingReplacementString =
+      issue.code === 'invalid_type' &&
+      issue.expected === 'string' &&
+      issue.message?.includes('received undefined') &&
+      root === 'replacements' &&
+      typeof index === 'number' &&
+      (field === 'old' || field === 'new')
+
+    return isMissingReplacementString ? [`replacements[${index}].${field}`] : []
+  })
+
+  if (missingFields.length !== issues.length || missingFields.length === 0) {
+    return undefined
+  }
+
+  return [
+    'Missing required replacement fields:',
+    ...missingFields.map((field) => `- ${field}`),
+    '',
+    'If the intent is deletion, set "new": "" explicitly.',
+  ].join('\n')
 }
 
 function getToolValidationHint(toolName: string): string | undefined {
@@ -151,23 +204,32 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   )
   const paramsSchema = toolParams[toolName].inputSchema
 
-  if (typeof processedParameters === 'string') {
-    return stringInputError(toolName, rawToolCall.toolCallId)
+  if (typeof processedParameters.input === 'string') {
+    return stringInputError(
+      toolName,
+      rawToolCall.toolCallId,
+      processedParameters.parseError,
+    )
   }
 
-  const result = paramsSchema.safeParse(processedParameters)
+  const result = paramsSchema.safeParse(processedParameters.input)
 
   if (!result.success) {
     const hint = getToolValidationHint(toolName)
+    const summary = summarizeMissingReplacementFields(
+      toolName,
+      result.error.issues,
+    )
+    const validationDetails = JSON.stringify(result.error.issues, null, 2)
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
       input: rawToolCall.input,
-      error: `Invalid parameters for ${toolName}: ${JSON.stringify(
-        result.error.issues,
-        null,
-        2,
-      )}${hint ? `\n\n${hint}` : ''}`,
+      error: `Invalid parameters for ${toolName}: ${
+        summary
+          ? `${summary}\n\nRaw validation issues:\n${validationDetails}`
+          : validationDetails
+      }${hint ? `\n\n${hint}` : ''}`,
     }
   }
 
@@ -496,12 +558,16 @@ export function parseRawCustomToolCall(params: {
 
   const parsedInput = parseStringifiedToolInput(rawToolCall.input, toolName)
 
-  if (typeof parsedInput === 'string') {
-    return stringInputError(toolName, rawToolCall.toolCallId)
+  if (typeof parsedInput.input === 'string') {
+    return stringInputError(
+      toolName,
+      rawToolCall.toolCallId,
+      parsedInput.parseError,
+    )
   }
 
   const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(parsedInput ?? {})) {
+  for (const [param, val] of Object.entries(parsedInput.input ?? {})) {
     processedParameters[param] = val
   }
 
@@ -530,7 +596,7 @@ export function parseRawCustomToolCall(params: {
     }
   }
 
-  const input = JSON.parse(JSON.stringify(parsedInput))
+  const input = JSON.parse(JSON.stringify(parsedInput.input))
   if (endsAgentStepParam in input) {
     delete input[endsAgentStepParam]
   }
