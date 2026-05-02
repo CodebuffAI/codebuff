@@ -15,6 +15,10 @@ export interface FreebuffModelOption {
   tagline: string
   /** Availability policy for the selector and server-side admission. */
   availability: 'always' | 'deployment_hours'
+  /** Optional caveat shown in the picker (e.g. data-collection warning).
+   *  Rendered in the warning/secondary color so users spot it before
+   *  picking the model. */
+  warning?: string
 }
 
 /** Server-facing fallback copy for APIs and provider errors that can't know
@@ -42,18 +46,40 @@ interface LocalTimeFormatOptions {
   timeZone?: string
 }
 
+/** Smart freebuff models that benefit from spawning the gemini-thinker
+ *  subagent for deeper reasoning. Fast models (e.g. MiniMax) skip it because
+ *  the extra round-trip would defeat the "fastest" tier. Used by the CLI to
+ *  toggle the gemini-thinker spawnable + prompts based on the user's pick,
+ *  and by the server to admit gemini-thinker child requests against a parent
+ *  session bound to one of these models. */
+export const FREEBUFF_GEMINI_THINKER_PARENT_MODELS = new Set<string>([
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+])
+
+export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
+  return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
+}
+
 export const FREEBUFF_MODELS = [
+  {
+    id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    displayName: 'DeepSeek V4 Pro',
+    tagline: 'Smartest',
+    availability: 'always',
+    warning: 'Collects data for training',
+  },
+  {
+    id: FREEBUFF_KIMI_MODEL_ID,
+    displayName: 'Kimi K2.6',
+    tagline: 'Smart',
+    availability: 'always',
+  },
   {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
     tagline: 'Fastest',
     availability: 'always',
-  },
-  {
-    id: FREEBUFF_KIMI_MODEL_ID,
-    displayName: 'Kimi K2.6',
-    tagline: 'Smartest',
-    availability: 'deployment_hours',
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -75,11 +101,13 @@ export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 
-/** What new freebuff users see selected in the picker. May not be currently
- *  available (Kimi is closed outside deployment hours); callers that need an
- *  always-available id for resolution / auto-fallbacks should use
- *  FALLBACK_FREEBUFF_MODEL_ID instead. */
-export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId = FREEBUFF_KIMI_MODEL_ID
+/** What new freebuff users see selected in the picker. DeepSeek is the
+ *  smartest of the free options; the picker surfaces its data-collection
+ *  caveat (`warning`) so users can opt out to Kimi if that's a concern.
+ *  Callers that need a guaranteed-available id for resolution / auto-fallbacks
+ *  should use FALLBACK_FREEBUFF_MODEL_ID instead. */
+export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from

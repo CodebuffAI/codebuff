@@ -55,9 +55,9 @@ export function getSessionGraceMs(): number {
  * queue).
  */
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 50,
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 1000,
   [FREEBUFF_GLM_MODEL_ID]: 50,
-  [FREEBUFF_KIMI_MODEL_ID]: 50,
+  [FREEBUFF_KIMI_MODEL_ID]: 1000,
   [FREEBUFF_MINIMAX_MODEL_ID]: 1000,
 }
 

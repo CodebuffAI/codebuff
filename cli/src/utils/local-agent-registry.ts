@@ -16,7 +16,7 @@ import {
   FREEBUFF_GEMINI_THINKER_PROMPT_LINES,
 } from '@codebuff/common/constants/freebuff-gemini-thinker'
 import {
-  FREEBUFF_KIMI_MODEL_ID,
+  canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -57,24 +57,23 @@ function stripFreebuffGeminiThinkerPrompt(prompt: string): string {
     .join('\n')
 }
 
+/** The bundled `base2-free` ships with the gemini-thinker spawnable + prompts
+ *  so the smart freebuff models (Kimi, DeepSeek) can offload deeper reasoning.
+ *  When the user picks a model that doesn't support gemini-thinker (e.g.
+ *  MiniMax — fastest tier, extra round-trip would defeat that), strip the
+ *  spawnable and the inlined prompt guidance so the agent doesn't try to call
+ *  a tool we just removed. */
 export function configureFreebuffBaseAgentForModel(
   def: ConfigurableFreebuffBaseAgent,
   selectedModel: string,
 ): void {
   if (def.id !== 'base2-free') return
+  if (canFreebuffModelSpawnGeminiThinker(selectedModel)) return
 
-  const hasGeminiThinker = selectedModel === FREEBUFF_KIMI_MODEL_ID
   const spawnableAgents = def.spawnableAgents ?? []
-
-  def.spawnableAgents = hasGeminiThinker
-    ? Array.from(
-        new Set([...spawnableAgents, FREEBUFF_GEMINI_THINKER_AGENT_ID]),
-      )
-    : spawnableAgents.filter(
-        (agentId) => agentId !== FREEBUFF_GEMINI_THINKER_AGENT_ID,
-      )
-
-  if (hasGeminiThinker) return
+  def.spawnableAgents = spawnableAgents.filter(
+    (agentId) => agentId !== FREEBUFF_GEMINI_THINKER_AGENT_ID,
+  )
 
   for (const key of [
     'systemPrompt',

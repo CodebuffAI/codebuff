@@ -70,6 +70,11 @@ describe('editor agent', () => {
       expect(kimiEditor.model).toBe('moonshotai/kimi-k2.6')
     })
 
+    test('creates deepseek editor', () => {
+      const deepseekEditor = createCodeEditor({ model: 'deepseek' })
+      expect(deepseekEditor.model).toBe('deepseek/deepseek-v4-pro')
+    })
+
     test('creates minimax editor', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
       expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
@@ -91,6 +96,12 @@ describe('editor agent', () => {
       const kimiEditor = createCodeEditor({ model: 'kimi' })
       expect(kimiEditor.instructionsPrompt).not.toContain('<think>')
       expect(kimiEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('deepseek editor does not include think tags in instructions', () => {
+      const deepseekEditor = createCodeEditor({ model: 'deepseek' })
+      expect(deepseekEditor.instructionsPrompt).not.toContain('<think>')
+      expect(deepseekEditor.instructionsPrompt).not.toContain('</think>')
     })
 
     test('minimax editor does not include think tags in instructions', () => {

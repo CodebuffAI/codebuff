@@ -2,7 +2,6 @@ import { Agent } from 'undici'
 
 import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-  FREEBUFF_KIMI_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
@@ -40,11 +39,11 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
 
-/** Models that stay limited to freebuff deployment hours even on serverless. */
-const FIREWORKS_HOURS_GATED_MODELS = new Set<string>([
-  FREEBUFF_KIMI_MODEL_ID,
-  'z-ai/glm-5.1',
-])
+/** Models that stay limited to freebuff deployment hours even on serverless.
+ *  Kimi/DeepSeek now run 24/7 via the freebuff selector; only legacy GLM 5.1
+ *  is left under the deployment-hours gate so old clients hitting it during
+ *  off-hours get a clear `model_unavailable` instead of a serverless surprise. */
+const FIREWORKS_HOURS_GATED_MODELS = new Set<string>(['z-ai/glm-5.1'])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
@@ -199,7 +198,7 @@ const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
 function getFireworksPricing(model: string): FireworksPricing {
   return (
     FIREWORKS_PRICING_MAP[model] ??
-    FIREWORKS_PRICING_MAP[FREEBUFF_KIMI_MODEL_ID]
+    FIREWORKS_PRICING_MAP['moonshotai/kimi-k2.6']
   )
 }
 

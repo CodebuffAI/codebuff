@@ -1,5 +1,4 @@
 import { buildArray } from '@codebuff/common/util/array'
-import { FREEBUFF_KIMI_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -36,10 +35,23 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
+  // Lite (paid Codebuff) defaults to Kimi: no data-retention surface in the
+  // CLI today, so we don't want to silently route Codebuff prompts through a
+  // model whose provider trains on user data. Free (freebuff) defaults to
+  // DeepSeek and surfaces the data-collection caveat in the picker; the CLI
+  // overrides the model anyway based on the user's freebuff selection.
   const model =
     modelOverride ??
-    (isFree ? 'moonshotai/kimi-k2.6' : 'anthropic/claude-opus-4.7')
-  const hasFreeGeminiThinker = isFree && model === FREEBUFF_KIMI_MODEL_ID
+    (mode === 'lite'
+      ? 'moonshotai/kimi-k2.6'
+      : mode === 'free'
+        ? 'deepseek/deepseek-v4-pro'
+        : 'anthropic/claude-opus-4.7')
+  // Bundled free-mode definitions ship with the gemini-thinker spawnable +
+  // prompts; the CLI strips them at runtime if the user picks a fast model
+  // that doesn't benefit (e.g. MiniMax). Smart freebuff models (Kimi,
+  // DeepSeek) keep it so they can offload deeper reasoning.
+  const hasFreeGeminiThinker = isFree
   const defaultProviderOptions = isFree
     ? {
         data_collection: 'deny' as const,

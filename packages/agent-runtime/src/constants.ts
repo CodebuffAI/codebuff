@@ -10,6 +10,7 @@ export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
  */
 export const CACHE_DEBUG_FULL_LOGGING = false
 
-// Keep disabled by default to preserve mainline behavior until reasoning-token
-// replay has been tested more thoroughly.
+// When true, reasoning chunks emitted by the model are appended to the
+// assistant message history so they replay on the next turn. Consecutive
+// reasoning chunks are consolidated into a single message.
 export const INCLUDE_REASONING_IN_MESSAGE_HISTORY = false

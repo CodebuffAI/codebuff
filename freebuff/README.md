@@ -54,7 +54,7 @@ freebuff
 
 **How can it be free?** Freebuff is supported by ads shown in the CLI.
 
-**What models do you use?** Kimi K2.6 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.
+**What models do you use?** DeepSeek V4 Pro (default, but its API collects data for training) or Kimi K2.6 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.
 
 **Are you training on my data?** No. We only use model providers that do not train on our requests. Your code stays yours.
 

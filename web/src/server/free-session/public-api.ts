@@ -1,4 +1,6 @@
 import {
+  canFreebuffModelSpawnGeminiThinker,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
@@ -49,7 +51,8 @@ import type {
  */
 const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
   [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
-  [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 12 },
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: { limit: 5, windowHours: 18 },
+  [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 18 },
 }
 
 /** Fetch the caller's current quota snapshot for `model`, or undefined if the
@@ -605,21 +608,25 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
-  const isKimiSessionGeminiThinker =
+  // Smart freebuff models (Kimi, DeepSeek) can spawn the gemini-thinker
+  // child agent which calls Gemini Pro under the hood. The cost-mode gate
+  // already allowlists that combo; here we allow the request through against
+  // the parent's session row instead of rejecting on model mismatch.
+  const isSmartSessionGeminiThinker =
     params.requireActiveSession === true &&
     params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID &&
-    row.model === FREEBUFF_KIMI_MODEL_ID
+    canFreebuffModelSpawnGeminiThinker(row.model)
 
   // Reject requests for a model the session isn't bound to. Sub-agents may
   // legitimately use other models (Gemini Flash etc.) so we only enforce this
   // when the caller provides a requestedModel and it is either a supported
-  // freebuff root model or Kimi's Gemini thinker model.
+  // freebuff root model or the gemini-thinker model.
   if (
     params.requestedModel &&
     (isSupportedFreebuffModelId(params.requestedModel) ||
       params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
     params.requestedModel !== row.model &&
-    !isKimiSessionGeminiThinker
+    !isSmartSessionGeminiThinker
   ) {
     return {
       ok: false,
