@@ -244,15 +244,11 @@ export const FreebuffModelSelector: React.FC = () => {
             ? 'Limit used'
             : ''
 
-        // Focused row: green border + green name to tie back to the border.
-        // The rest of the row keeps the normal muted/secondary palette so
-        // the highlight stays subtle. Off-focus rows are entirely default.
+        // Focused row: green border + arrow indicator + bold name. The name
+        // itself stays the normal foreground color so it doesn't shout — the
+        // border and arrow do the highlighting. Off-focus rows are default.
         const indicator = isFocused ? '›' : ' '
-        const fgColor = isFocused
-          ? theme.primary
-          : canJoin
-            ? theme.foreground
-            : theme.muted
+        const fgColor = canJoin ? theme.foreground : theme.muted
         const mutedColor = theme.muted
         const warningColor = theme.secondary
         const hintColor = theme.secondary
