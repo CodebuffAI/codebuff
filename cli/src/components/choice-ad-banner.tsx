@@ -14,7 +14,7 @@ interface ChoiceAdBannerProps {
   onImpression?: (impUrl: string) => void
 }
 
-const CARD_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
+export const CHOICE_AD_BANNER_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
 const MAX_DESC_LINES = 2
 const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
 
@@ -121,7 +121,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
               onMouseOut={() => setHoveredIndex(null)}
               style={{
                 width: widths[i],
-                height: CARD_HEIGHT,
+                height: CHOICE_AD_BANNER_HEIGHT,
                 borderStyle: 'single',
                 borderColor: isHovered ? hoverBorderColor : theme.muted,
                 customBorderChars: BORDER_CHARS,
