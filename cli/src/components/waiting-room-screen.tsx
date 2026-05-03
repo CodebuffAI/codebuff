@@ -3,7 +3,10 @@ import { useRenderer } from '@opentui/react'
 import React, { useMemo, useState } from 'react'
 
 import { Button } from './button'
-import { ChoiceAdBanner } from './choice-ad-banner'
+import {
+  ChoiceAdBanner,
+  CHOICE_AD_BANNER_HEIGHT,
+} from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
@@ -368,19 +371,21 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         </box>
       </box>
 
-      {/* Ad banner pinned to the bottom, same look-and-feel as in chat. */}
-      {ads && (
-        <box style={{ flexShrink: 0 }}>
+      {/* Reserve the ad banner slot before the async ad fetch resolves so the
+          waiting-room content does not jump when the banner fills. */}
+      <box
+        style={{
+          width: '100%',
+          flexShrink: 0,
+          height: CHOICE_AD_BANNER_HEIGHT,
+        }}
+      >
+        {ads ? (
           <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
-        </box>
-      )}
-
-      {/* Horizontal separator (mirrors chat input divider style) */}
-      {!ads && (
-        <text style={{ fg: theme.muted, flexShrink: 0 }}>
-          {'─'.repeat(terminalWidth)}
-        </text>
-      )}
+        ) : (
+          <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
+        )}
+      </box>
     </box>
   )
 }
