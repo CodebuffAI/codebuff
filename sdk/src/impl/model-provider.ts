@@ -20,7 +20,6 @@ import {
   toOpenAIModelId,
 } from '@codebuff/common/constants/chatgpt-oauth'
 import {
-  CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
   CLAUDE_OAUTH_BETA_HEADERS,
   CLAUDE_OAUTH_ENABLED,
   isClaudeModel,
@@ -356,53 +355,8 @@ function createAnthropicOAuthModel(
     ].join(',')
     headers.set('anthropic-beta', mergedBetas)
 
-    // Transform the request body to use the correct system prompt format for Claude OAuth
-    // Anthropic requires the system prompt to be split into two separate blocks:
-    // 1. First block: Claude Code identifier (required for OAuth access)
-    // 2. Second block: The actual system prompt (if any)
-    let modifiedInit = init
-    if (init?.body && typeof init.body === 'string') {
-      try {
-        const body = JSON.parse(init.body)
-        // Always inject the Claude Code identifier for OAuth requests
-        // Extract existing system prompt if present
-        const existingSystem = body.system
-          ? Array.isArray(body.system)
-            ? body.system
-                .map(
-                  (s: { text?: string; content?: string }) =>
-                    s.text ?? s.content ?? '',
-                )
-                .join('\n\n')
-            : typeof body.system === 'string'
-              ? body.system
-              : ''
-          : ''
-
-        // Build the system array with Claude Code identifier first
-        body.system = [
-          {
-            type: 'text',
-            text: CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
-          },
-          // Only add second block if there's actual content
-          ...(existingSystem
-            ? [
-                {
-                  type: 'text',
-                  text: existingSystem,
-                },
-              ]
-            : []),
-        ]
-        modifiedInit = { ...init, body: JSON.stringify(body) }
-      } catch {
-        // If parsing fails, continue with original body
-      }
-    }
-
     return globalThis.fetch(input, {
-      ...modifiedInit,
+      ...init,
       headers,
     })
   }

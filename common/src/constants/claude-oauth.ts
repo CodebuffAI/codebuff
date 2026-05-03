@@ -40,13 +40,6 @@ export const CLAUDE_OAUTH_BETA_HEADERS = [
 ] as const
 
 /**
- * System prompt prefix required by Anthropic to allow OAuth access to Claude 4+ models.
- * This must be prepended to the system prompt when using Claude OAuth with Claude 4+ models.
- * Without this prefix, requests will fail with "This credential is only authorized for use with Claude Code".
- */
-export const CLAUDE_CODE_SYSTEM_PROMPT_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude."
-
-/**
  * Model ID mapping from OpenRouter format to Anthropic format.
  * OpenRouter uses prefixed IDs like "anthropic/claude-sonnet-4",
  * while Anthropic uses versioned IDs like "claude-3-5-haiku-20241022".
