@@ -73,7 +73,20 @@ jobs:
       - uses: ./.github/actions/setup-project
 
       - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        run: |
+          if command -v tmux >/dev/null 2>&1; then
+            tmux -V
+            exit 0
+          fi
+
+          timeout 120s sudo apt-get install -y --no-install-recommends tmux || (
+            timeout 120s sudo apt-get update \
+              -o Acquire::Retries=3 \
+              -o Acquire::http::Timeout=20 \
+              -o Acquire::https::Timeout=20 &&
+            timeout 120s sudo apt-get install -y --no-install-recommends tmux
+          )
+          tmux -V
 
       - name: Download Freebuff binary
         uses: actions/download-artifact@v8
