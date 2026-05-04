@@ -222,23 +222,34 @@ async function main(): Promise<void> {
 
     try {
       const { Parser } = await import('web-tree-sitter')
-      if (wasmBinary) {
-        await Parser.init({ wasmBinary })
+      // Pick the best wasm source available, falling back to the
+      // sibling-of-execPath lookup if pre-init couldn't reach it. By
+      // main() time process.execPath has stabilized to the disk path
+      // even on Windows, where it was the bunfs path during pre-init.
+      let effectiveBinary = wasmBinary
+      let effectivePath = wasmPath
+      if (!effectiveBinary && !effectivePath && fs.existsSync(siblingPath)) {
+        effectivePath = siblingPath
+        effectiveBinary = new Uint8Array(fs.readFileSync(siblingPath))
+      }
+
+      if (effectiveBinary) {
+        await Parser.init({ wasmBinary: effectiveBinary })
         // Marker grepped by cli/scripts/smoke-binary.ts — keep this exact text.
         console.log(
-          `tree-sitter smoke ok (wasmBinary, ${wasmBinary.byteLength} bytes)`,
+          `tree-sitter smoke ok (wasmBinary, ${effectiveBinary.byteLength} bytes)`,
         )
-      } else if (wasmPath) {
+      } else if (effectivePath) {
         await Parser.init({
           locateFile: (name: string) =>
-            name === 'tree-sitter.wasm' ? wasmPath : name,
+            name === 'tree-sitter.wasm' ? effectivePath! : name,
         })
-        console.log(`tree-sitter smoke ok (locateFile, path=${wasmPath})`)
+        console.log(`tree-sitter smoke ok (locateFile, path=${effectivePath})`)
       } else {
         console.error(
-          'tree-sitter smoke FAIL: pre-init published neither globalThis bytes ' +
-            'nor an env path. Sibling tree-sitter.wasm not found relative to ' +
-            'process.execPath. See diag above for the actual paths.',
+          'tree-sitter smoke FAIL: no wasm available — pre-init published ' +
+            'nothing and the sibling-of-execPath fallback also missed. See ' +
+            'the diag above for paths.',
         )
         process.exit(1)
       }
