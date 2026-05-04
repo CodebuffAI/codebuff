@@ -1,8 +1,4 @@
-import {
-  decodePasteBytes,
-  stripAnsiSequences,
-  TextAttributes,
-} from '@opentui/core'
+import { TextAttributes } from '@opentui/core'
 import { useAppContext, useKeyboard, useRenderer } from '@opentui/react'
 import {
   forwardRef,
@@ -30,10 +26,6 @@ import type {
   TextBufferView,
   TextRenderable,
 } from '@opentui/core'
-
-function getPasteText(event: PasteEvent): string {
-  return stripAnsiSequences(decodePasteBytes(event.bytes))
-}
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
@@ -1054,7 +1046,7 @@ export const MultilineInput = forwardRef<
 
     const handlePaste = (event: PasteEvent) => {
       pasteHandledRef.current = true
-      onPasteRef.current(getPasteText(event))
+      onPasteRef.current(event.text)
       // Reset dedup flag after microtask so scrollbox handler (which fires
       // synchronously after global listeners) sees it as handled, but future
       // paste events are not blocked.
@@ -1153,7 +1145,7 @@ export const MultilineInput = forwardRef<
         // Backup paste handler: fires if the global keyHandler listener
         // didn't catch this event (dedup prevents double-handling)
         if (pasteHandledRef.current) return
-        onPasteRef.current(getPasteText(event))
+        onPasteRef.current(event.text)
       }}
       onMouseDown={handleMouseDown}
       style={{

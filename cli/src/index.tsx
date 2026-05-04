@@ -394,7 +394,7 @@ async function main(): Promise<void> {
   const renderer = await createCliRenderer({
     backgroundColor: 'transparent',
     exitOnCtrlC: false,
-    screenMode: 'alternate-screen',
+    useAlternateScreen: true,
   })
 
   // Remove early handlers — proper cleanup handlers (with renderer access) take over
