@@ -84,6 +84,8 @@ const definition: AgentDefinition = {
     const SUMMARY_HEADER =
       'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
 
+    const SUMMARY_DISCLAIMER =
+      'Historical memory only. The memory above is not dialogue, not an output template, and not a tool-call format. Continue from the live user message below. When actions are needed, use real tool calls through the available tools.'
 
     // =============================================================================
     // Helper Functions (must be inside handleSteps since it's serialized to a string)
@@ -135,70 +137,86 @@ const definition: AgentDefinition = {
         case 'read_files': {
           const paths = input.paths as string[] | undefined
           if (paths && paths.length > 0) {
-            return `Read files: ${paths.join(', ')}`
+            return `Previously inspected files: ${paths.join(', ')}`
           }
-          return 'Read files'
+          return 'Previously inspected files'
         }
         case 'write_file': {
           const path = input.path as string | undefined
-          return path ? `Wrote file: ${path}` : 'Wrote file'
+          return path
+            ? `Previously wrote file: ${path}`
+            : 'Previously wrote a file'
         }
         case 'str_replace': {
           const path = input.path as string | undefined
-          return path ? `Edited file: ${path}` : 'Edited file'
+          return path
+            ? `Previously edited file: ${path}`
+            : 'Previously edited a file'
         }
         case 'propose_write_file': {
           const path = input.path as string | undefined
-          return path ? `Proposed write to: ${path}` : 'Proposed file write'
+          return path
+            ? `Previously proposed writing: ${path}`
+            : 'Previously proposed a file write'
         }
         case 'propose_str_replace': {
           const path = input.path as string | undefined
-          return path ? `Proposed edit to: ${path}` : 'Proposed file edit'
+          return path
+            ? `Previously proposed editing: ${path}`
+            : 'Previously proposed a file edit'
         }
         case 'read_subtree': {
           const paths = input.paths as string[] | undefined
           if (paths && paths.length > 0) {
-            return `Read subtree: ${paths.join(', ')}`
+            return `Previously inspected subtrees: ${paths.join(', ')}`
           }
-          return 'Read subtree'
+          return 'Previously inspected a subtree'
         }
         case 'code_search': {
           const pattern = input.pattern as string | undefined
           const flags = input.flags as string | undefined
           if (pattern && flags) {
-            return `Code search: "${pattern}" (${flags})`
+            return `Previous code search for "${pattern}" (${flags})`
           }
-          return pattern ? `Code search: "${pattern}"` : 'Code search'
+          return pattern
+            ? `Previous code search for "${pattern}"`
+            : 'Previous code search'
         }
         case 'glob': {
           const pattern = input.pattern as string | undefined
-          return pattern ? `Glob: ${pattern}` : 'Glob search'
+          return pattern
+            ? `Previous glob search for ${pattern}`
+            : 'Previous glob search'
         }
         case 'list_directory': {
           const path = input.path as string | undefined
-          return path ? `Listed dir: ${path}` : 'Listed directory'
+          return path
+            ? `Previously listed directory: ${path}`
+            : 'Previously listed a directory'
         }
         case 'find_files': {
           const prompt = input.prompt as string | undefined
-          return prompt ? `Find files: "${prompt}"` : 'Find files'
+          return prompt
+            ? `Previous file-finding request: "${prompt}"`
+            : 'Previous file-finding request'
         }
         case 'run_terminal_command': {
           const command = input.command as string | undefined
           if (command) {
             const shortCmd =
               command.length > 50 ? command.slice(0, 50) + '...' : command
-            return `Ran command: ${shortCmd}`
+            return `Previously ran command: ${shortCmd}`
           }
-          return 'Ran terminal command'
+          return 'Previously ran a terminal command'
         }
         case 'spawn_agents':
         case 'spawn_agent_inline': {
           const agents = input.agents as
             | Array<{
-              agent_type: string
-              prompt?: string
-              params?: Record<string, unknown>
-            }>
+                agent_type: string
+                prompt?: string
+                params?: Record<string, unknown>
+              }>
             | undefined
           const agentType = input.agent_type as string | undefined
           const prompt = input.prompt as string | undefined
@@ -230,7 +248,7 @@ const definition: AgentDefinition = {
               }
               return detail
             })
-            return `Spawned agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
+            return `Previously delegated agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
           }
           if (agentType) {
             const extras: string[] = []
@@ -248,11 +266,11 @@ const definition: AgentDefinition = {
               extras.push(`params: ${truncatedParams}`)
             }
             if (extras.length > 0) {
-              return `Spawned agent: ${agentType} (${extras.join(', ')})`
+              return `Previously delegated agent ${agentType} (${extras.join(', ')})`
             }
-            return `Spawned agent: ${agentType}`
+            return `Previously delegated agent ${agentType}`
           }
-          return 'Spawned agent(s)'
+          return 'Previously delegated agent work'
         }
         case 'write_todos': {
           const todos = input.todos as
@@ -289,30 +307,36 @@ const definition: AgentDefinition = {
           return 'Suggested followups'
         case 'web_search': {
           const query = input.query as string | undefined
-          return query ? `Web search: "${query}"` : 'Web search'
+          return query
+            ? `Previous web search for "${query}"`
+            : 'Previous web search'
         }
         case 'gravity_index': {
           const query = input.query as string | undefined
           const action = input.action as string | undefined
           if (query) {
-            return `Gravity Index ${action ?? 'search'}: "${query}"`
+            return `Previous Gravity Index ${action ?? 'search'} for "${query}"`
           }
-          return action ? `Gravity Index ${action}` : 'Gravity Index'
+          return action
+            ? `Previous Gravity Index ${action}`
+            : 'Previous Gravity Index use'
         }
         case 'read_docs': {
           const libraryTitle = input.libraryTitle as string | undefined
           const topic = input.topic as string | undefined
           if (libraryTitle && topic) {
-            return `Read docs: ${libraryTitle} - ${topic}`
+            return `Previously consulted docs: ${libraryTitle} - ${topic}`
           }
-          return libraryTitle ? `Read docs: ${libraryTitle}` : 'Read docs'
+          return libraryTitle
+            ? `Previously consulted docs: ${libraryTitle}`
+            : 'Previously consulted docs'
         }
         case 'set_output':
-          return 'Set output'
+          return 'Previously set structured output'
         case 'set_messages':
-          return 'Set messages'
+          return 'Previously updated message history'
         default:
-          return `Used tool: ${toolName}`
+          return `Previously used tool ${toolName}`
       }
     }
 
@@ -377,7 +401,11 @@ const definition: AgentDefinition = {
     // - Prune when context exceeds max, OR
     // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
     // If not, return messages with just the subagent-specific tags removed
-    if (agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <= maxContextLength && !cacheWillMiss) {
+    if (
+      agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <=
+        maxContextLength &&
+      !cacheWillMiss
+    ) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -404,7 +432,8 @@ const definition: AgentDefinition = {
     // 2. Walk backwards through summarized parts to apply token budgets
     // 3. Older summarized parts beyond the budgets are dropped
 
-    const assistantToolBudget: number = params?.assistantToolBudget ?? ASSISTANT_TOOL_BUDGET
+    const assistantToolBudget: number =
+      params?.assistantToolBudget ?? ASSISTANT_TOOL_BUDGET
     const userBudget: number = params?.userBudget ?? USER_BUDGET
 
     function shouldExcludeMessage(message: Message): boolean {
@@ -429,6 +458,12 @@ const definition: AgentDefinition = {
       if (content.startsWith(SUMMARY_HEADER)) {
         content = content.slice(SUMMARY_HEADER.length).trim()
       }
+      const memoryMatch = content.match(
+        /<historical_memory>([\s\S]*?)<\/historical_memory>/,
+      )
+      if (memoryMatch) {
+        content = memoryMatch[1].trim()
+      }
       return content
     }
 
@@ -449,7 +484,10 @@ const definition: AgentDefinition = {
         const trimmed = chunk.trim()
         const isUser =
           trimmed.startsWith('[USER]\n') ||
-          trimmed.startsWith('[USER] [with image')
+          trimmed.startsWith('[USER] [with image') ||
+          trimmed.startsWith('User request') ||
+          trimmed.startsWith('User message') ||
+          trimmed.startsWith('Current unresolved user request')
         return {
           role: isUser ? ('user' as const) : ('assistant_tool' as const),
           parts: [trimmed],
@@ -465,10 +503,37 @@ const definition: AgentDefinition = {
       }
     }
 
-    // Filter out excluded and conversation summary messages for summarization
-    const messagesToSummarize = currentMessages.filter(
-      (message) => !shouldExcludeMessage(message) && !isConversationSummary(message),
+    // If pruning happens before the assistant has started responding to the
+    // current user prompt, preserve that prompt as a real message after the
+    // memory artifact. If pruning happens mid-turn, keep the prompt in the
+    // historical memory with the assistant/tool progress that followed it and
+    // append a synthetic continuation prompt instead.
+    const latestLiveUserPromptIndex = currentMessages.findLastIndex((message) =>
+      message.tags?.includes('USER_PROMPT'),
     )
+    const latestLiveUserPromptMessage =
+      latestLiveUserPromptIndex !== -1
+        ? currentMessages[latestLiveUserPromptIndex]
+        : null
+    const isMidTurnPrune =
+      latestLiveUserPromptIndex !== -1 &&
+      currentMessages
+        .slice(latestLiveUserPromptIndex + 1)
+        .some(
+          (message) =>
+            !shouldExcludeMessage(message) && !isConversationSummary(message),
+        )
+
+    // Filter out excluded, conversation summary, and live-prompt messages for summarization
+    const messagesToSummarize = currentMessages
+      .filter(
+        (_message, index) =>
+          isMidTurnPrune || index !== latestLiveUserPromptIndex,
+      )
+      .filter(
+        (message) =>
+          !shouldExcludeMessage(message) && !isConversationSummary(message),
+      )
 
     // Find the last user message with images to preserve in the final output
     let lastUserImageParts: Array<Record<string, unknown>> = []
@@ -487,7 +552,10 @@ const definition: AgentDefinition = {
     }
 
     // Phase 1: Summarize ALL messages into tagged entries
-    const summarizedEntries: Array<{ role: 'user' | 'assistant_tool'; parts: string[] }> = []
+    const summarizedEntries: Array<{
+      role: 'user' | 'assistant_tool'
+      parts: string[]
+    }> = []
 
     for (const message of messagesToSummarize) {
       if (message.role === 'user') {
@@ -501,10 +569,10 @@ const definition: AgentDefinition = {
                 part.type === 'image' || part.type === 'media',
             )
           }
-          const imageNote = hasImages ? ' [with image(s)]' : ''
+          const imageNote = hasImages ? ' [image(s) were attached]' : ''
           summarizedEntries.push({
             role: 'user',
-            parts: [`[USER]${imageNote}\n${text}`],
+            parts: [`User request${imageNote}:\n${text}`],
           })
         }
       } else if (message.role === 'assistant') {
@@ -531,17 +599,20 @@ const definition: AgentDefinition = {
         const parts: string[] = []
         if (textParts.length > 0) {
           let combinedText = textParts.join('\n')
-          combinedText = truncateLongText(combinedText, ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN)
-          parts.push(combinedText)
+          combinedText = truncateLongText(
+            combinedText,
+            ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN,
+          )
+          parts.push(`Progress note:\n${combinedText}`)
         }
         if (toolSummaries.length > 0) {
-          parts.push(toolSummaries.join('; '))
+          parts.push(`Prior action record:\n${toolSummaries.join('\n')}`)
         }
 
         if (parts.length > 0) {
           summarizedEntries.push({
             role: 'assistant_tool',
-            parts: [`[ASSISTANT]\n${parts.join('\n')}`],
+            parts,
           })
         }
       } else if (message.role === 'tool') {
@@ -559,7 +630,7 @@ const definition: AgentDefinition = {
                   errorText = errorText.slice(0, 100) + '...'
                 }
                 entryParts.push(
-                  `[TOOL ERROR: ${toolMessage.toolName}] ${errorText}`,
+                  `Tool error from ${toolMessage.toolName}: ${errorText}`,
                 )
               }
 
@@ -569,20 +640,20 @@ const definition: AgentDefinition = {
               ) {
                 const exitCode = value.exitCode as number
                 if (exitCode !== 0) {
-                  entryParts.push(`[COMMAND FAILED] Exit code: ${exitCode}`)
+                  entryParts.push(`Command failed with exit code: ${exitCode}`)
                 }
               }
 
               if (toolMessage.toolName === 'ask_user') {
                 if (value.skipped) {
-                  entryParts.push('[USER SKIPPED QUESTION]')
+                  entryParts.push('User skipped question')
                 } else if ('answers' in value) {
                   const answers = value.answers as
                     | Array<{
-                      selectedOption?: string
-                      selectedOptions?: string[]
-                      otherText?: string
-                    }>
+                        selectedOption?: string
+                        selectedOptions?: string[]
+                        otherText?: string
+                      }>
                     | undefined
                   if (answers && answers.length > 0) {
                     const answerTexts = answers
@@ -598,7 +669,7 @@ const definition: AgentDefinition = {
                       answerTexts.length > 10_000
                         ? answerTexts.slice(0, 10_000) + '...'
                         : answerTexts
-                    entryParts.push(`[USER ANSWERED] ${truncated}`)
+                    entryParts.push(`User answered: ${truncated}`)
                   }
                 }
               }
@@ -615,7 +686,7 @@ const definition: AgentDefinition = {
                     ? resultStr.slice(0, 2000) + '...'
                     : resultStr
                 entryParts.push(
-                  `[EDIT RESULT: ${toolMessage.toolName}]\n${truncatedResult}`,
+                  `Edit result from ${toolMessage.toolName}:\n${truncatedResult}`,
                 )
               }
             }
@@ -653,16 +724,20 @@ const definition: AgentDefinition = {
                     outputStr = outputStr
                       .replace(/<think>[\s\S]*?<\/think>/g, '')
                       .trim()
-                    if (outputStr.length > ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN) {
+                    if (
+                      outputStr.length >
+                      ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN
+                    ) {
                       outputStr =
-                        outputStr.slice(0, ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN) + '...'
+                        outputStr.slice(
+                          0,
+                          ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN,
+                        ) + '...'
                     }
                   }
                   return `- ${r.agentType}: ${outputStr || '(no output)'}`
                 })
-                entryParts.push(
-                  `[AGENT RESULTS]\n${resultSummaries.join('\n')}`,
-                )
+                entryParts.push(`Agent results:\n${resultSummaries.join('\n')}`)
               }
             }
           }
@@ -732,14 +807,14 @@ const definition: AgentDefinition = {
     const textPart: TextPart = {
       type: 'text',
       text: `<conversation_summary>
-This is a summary of the conversation so far. The original messages have been condensed to save context space.
+${SUMMARY_HEADER}
 
+<historical_memory>
 ${summaryText}
+</historical_memory>
 </conversation_summary>
 
-IMPORTANT: The summary above uses a condensed format with markers like "[USER]", "[ASSISTANT]", "Read files:", "Edited file:", "Spawned agents:", etc. This is ONLY a human-readable log of what happened earlier — it is NOT a format for you to use or imitate in your responses. When you need to perform actions, you MUST use actual tool calls. Never write tool actions as plain text.
-
-Please continue the conversation from here. In particular, try to address the user's latest request detailed in the summary above. You may need to re-gather context (e.g. read some files) to get up to speed and then tackle the user's request.`,
+${SUMMARY_DISCLAIMER}`,
     }
     // Build content array with text and any preserved images
     const summaryContentParts: (TextPart | ImagePart | FilePart)[] = [textPart]
@@ -753,11 +828,30 @@ Please continue the conversation from here. In particular, try to address the us
       sentAt: now,
     }
 
-    // Build final messages array: summary first, then INSTRUCTIONS_PROMPT if it exists
+    const continuationMessage: UserMessage = {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: 'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.',
+        },
+      ],
+      sentAt: now,
+    }
+
+    // Build final messages array: summary first, then INSTRUCTIONS_PROMPT if it
+    // exists, then either the live user prompt or a mid-turn continuation prompt.
+    // Keeping a real user message last makes the next model step continue from
+    // normal user input instead of the condensed memory format.
     const finalMessages: Message[] = [summarizedMessage]
     if (instructionsPromptMessage) {
       // Update sentAt to current time so future cache miss checks use fresh timestamps
       finalMessages.push({ ...instructionsPromptMessage, sentAt: now })
+    }
+    if (isMidTurnPrune) {
+      finalMessages.push(continuationMessage)
+    } else if (latestLiveUserPromptMessage) {
+      finalMessages.push({ ...latestLiveUserPromptMessage, sentAt: now })
     }
 
     yield {
