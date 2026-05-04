@@ -10,7 +10,7 @@ import {
   type AgentDefinition,
   type Message,
 } from '@codebuff/sdk'
-import { describe, expect, it } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 
 import base2Free from '../base2/base2-free'
 import contextPruner from '../context-pruner'
@@ -62,6 +62,33 @@ function detectSummaryImitation(text: string): string[] {
     }
   }
   return matches
+}
+
+const loadEnvFile = async (filePath: string) => {
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8')
+    for (const rawLine of content.split('\n')) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#')) continue
+      const normalized = line.startsWith('export ')
+        ? line.slice('export '.length)
+        : line
+      const equalsIndex = normalized.indexOf('=')
+      if (equalsIndex <= 0) continue
+      const key = normalized.slice(0, equalsIndex).trim()
+      if (!key || process.env[key]) continue
+      let value = normalized.slice(equalsIndex + 1).trim()
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+      process.env[key] = value
+    }
+  } catch {
+    // ignore missing env files
+  }
 }
 
 /**
@@ -212,6 +239,11 @@ const PROJECT_FILES: Record<string, string> = {
  */
 describe('Base2-Free Summary Format Compliance', () => {
   const NUM_PARALLEL_RUNS = 3
+
+  beforeAll(async () => {
+    await loadEnvFile(path.resolve(process.cwd(), '.env.local'))
+    await loadEnvFile(path.resolve(process.cwd(), '../.env.local'))
+  })
 
   const getApiKeyOrSkip = (): string | null => {
     const apiKey = process.env[API_KEY_ENV_VAR]
