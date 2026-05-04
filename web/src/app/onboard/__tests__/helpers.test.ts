@@ -1,7 +1,6 @@
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-
 import { parseAuthCode, validateAuthCode, isAuthCodeExpired } from '../_helpers'
 
 describe('onboard/_helpers', () => {
@@ -227,15 +226,16 @@ describe('onboard/_helpers', () => {
       expect(isAuthCodeExpired(notYetExpired)).toBe(false)
     })
 
-    test('handles string comparison correctly for timestamps', () => {
-      // The function uses string comparison (expiresAt < Date.now().toString())
-      // This tests that it works correctly with numeric strings
+    test('compares numeric timestamp strings', () => {
       const fixedNow = 1704067200000
       Date.now = () => fixedNow
 
-      // String "1704067199999" < "1704067200000" lexicographically (and numerically)
       expect(isAuthCodeExpired('1704067199999')).toBe(true)
       expect(isAuthCodeExpired('1704067200001')).toBe(false)
+    })
+
+    test('treats malformed timestamps as expired', () => {
+      expect(isAuthCodeExpired('not-a-number')).toBe(true)
     })
 
     test('handles very old timestamps', () => {

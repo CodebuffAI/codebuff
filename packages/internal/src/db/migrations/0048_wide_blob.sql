@@ -1,0 +1,1 @@
+ALTER TABLE "session" ADD COLUMN "cli_auth_hash" text;

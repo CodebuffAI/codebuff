@@ -20,5 +20,6 @@ export function validateAuthCode(
 }
 
 export function isAuthCodeExpired(expiresAt: string): boolean {
-  return expiresAt < Date.now().toString()
+  const expiresAtMs = Number(expiresAt)
+  return !Number.isFinite(expiresAtMs) || expiresAtMs < Date.now()
 }
