@@ -186,6 +186,44 @@ function parseArgs(): ParsedArgs {
 }
 
 async function main(): Promise<void> {
+  // CI gate: `<binary> --smoke-tree-sitter` proves the embedded wasm boots
+  // through Parser.init end-to-end. Has to live BEFORE commander.parse() —
+  // an earlier attempt put this in a pre-init module with top-level await,
+  // and on Windows that didn't actually pause module evaluation (commander
+  // still ran first and rejected the unknown flag).
+  if (process.argv.includes('--smoke-tree-sitter')) {
+    const wasmBinary = (
+      globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
+    ).__CODEBUFF_TREE_SITTER_WASM_BINARY__
+    const wasmPath = process.env.CODEBUFF_TREE_SITTER_WASM_PATH
+    try {
+      const { Parser } = await import('web-tree-sitter')
+      if (wasmBinary) {
+        await Parser.init({ wasmBinary })
+        // Marker grepped by cli/scripts/smoke-binary.ts — keep this exact text.
+        console.log(
+          `tree-sitter smoke ok (wasmBinary, ${wasmBinary.byteLength} bytes)`,
+        )
+      } else if (wasmPath) {
+        await Parser.init({
+          locateFile: (name: string) =>
+            name === 'tree-sitter.wasm' ? wasmPath : name,
+        })
+        console.log(`tree-sitter smoke ok (locateFile, path=${wasmPath})`)
+      } else {
+        console.error(
+          'tree-sitter smoke FAIL: pre-init published neither globalThis bytes nor an env path. ' +
+            'The `with { type: \'file\' }` import returned falsy.',
+        )
+        process.exit(1)
+      }
+      process.exit(0)
+    } catch (err) {
+      console.error('tree-sitter smoke FAIL:', err)
+      process.exit(1)
+    }
+  }
+
   // Run OSC theme detection BEFORE anything else.
   // This MUST happen before OpenTUI starts because OSC responses come through stdin,
   // and OpenTUI also listens to stdin. Running detection here ensures stdin is clean.

@@ -50,50 +50,11 @@ if (treeSitterWasmPath) {
   }
 }
 
-// Deterministic CI gate: `<binary> --smoke-tree-sitter` proves the embed
-// shipped end-to-end. Lives here, in the very first import, on purpose:
-//
-// - We're testing whether the *embed* works. Going through commander +
-//   initTreeSitterForNode would pass via the path-resolution fallback
-//   when the embed is empty (e.g. dev mode), giving false positives that
-//   mask a broken production build.
-// - Failing here, before any other module loads, gives a sharp signal:
-//   either the wasm reached the runtime or it didn't.
-//
-// Top-level await (not a fire-and-forget IIFE) because subsequent module
-// evaluation has to *wait* — otherwise `commander.parse()` runs first and
-// fails on the unknown flag before our handler can exit cleanly.
-if (process.argv.includes('--smoke-tree-sitter')) {
-  try {
-    const { Parser } = await import('web-tree-sitter')
-    // Prefer the wasmBinary path (no filesystem step). Fall back to
-    // letting Parser.init resolve the path via its locateFile callback,
-    // which init-node.ts wires up to accept bunfs paths even when
-    // fs.existsSync says otherwise.
-    if (embeddedWasm) {
-      await Parser.init({ wasmBinary: embeddedWasm })
-      console.log(
-        `tree-sitter smoke ok (wasmBinary, ${embeddedWasm.byteLength} bytes)`,
-      )
-    } else if (treeSitterWasmPath) {
-      await Parser.init({
-        locateFile: (name: string) =>
-          name === 'tree-sitter.wasm' ? treeSitterWasmPath : name,
-      })
-      console.log(
-        `tree-sitter smoke ok (locateFile, path=${treeSitterWasmPath})`,
-      )
-    } else {
-      console.error(
-        'tree-sitter smoke FAIL: no embedded wasm path. The `with { type: ' +
-          "'file' }` import returned a falsy value, which means the bundler " +
-          'did not embed the asset.',
-      )
-      process.exit(1)
-    }
-    process.exit(0)
-  } catch (err) {
-    console.error('tree-sitter smoke FAIL:', err)
-    process.exit(1)
-  }
-}
+// `--smoke-tree-sitter` is the deterministic CI gate. We can't handle it
+// here with top-level await — bun --compile on Windows didn't preserve the
+// blocking semantics in our last attempt, so commander still ran and
+// rejected the unknown flag. Instead, the handler lives at the top of
+// main() in cli/src/index.tsx (before parseArgs), where we can synchronously
+// short-circuit before commander parses argv. This module's job is just to
+// publish the wasm bytes / path on globalThis + process.env so that the
+// handler (and the SDK's eager Parser.init) can find them.
