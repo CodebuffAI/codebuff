@@ -15,22 +15,24 @@ describe('Freebuff: Startup', () => {
   })
 
   test(
-    'binary reaches the model selection screen',
+    'binary renders its boot screen',
     async () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
 
-      // Wait for the model selector to render. This proves the binary survived
-      // module init (including the eager tree-sitter Parser.init that crashed
-      // Windows binaries after the OpenTUI 0.2.2 upgrade), passed the auth /
-      // session API call, and successfully mounted the React tree. A pure
-      // "non-empty output" check would pass on a half-rendered crash screen.
-      const output = await session.waitForText('Pick a model to start')
+      // The 3rd row of the FREEBUFF ASCII logo: the crossbars of F and R
+      // adjacent. Picked because the logo renders for *every* valid boot
+      // state — model picker, waiting room, country-blocked (which is what
+      // CI runners hit, since GitHub Actions egress is flagged as anonymized
+      // network) — but never appears if module init crashes before React
+      // mounts (the post-OpenTUI-upgrade tree-sitter wasm regression). This
+      // gives us a positive "boot succeeded" signal that's robust against
+      // novel error modes, not just the ones we listed below.
+      const output = await session.waitForText('█████╗  ██████╔╝')
 
-      // earlyFatalHandler in cli/src/index.tsx writes this to stderr on
-      // unhandled rejections during startup. Belt-and-braces: the wait above
-      // would already have timed out, but if some race ever surfaces a fatal
-      // *after* the model selector renders, we still want it to fail.
+      // Belt-and-braces: known fatal markers should never coexist with a
+      // rendered logo, but if some race ever surfaces one we still want to
+      // see it called out clearly rather than buried in raw output.
       expect(output).not.toContain('Fatal error during startup')
       expect(output).not.toContain('Internal error: tree-sitter.wasm not found')
       expect(output).not.toContain('FATAL')
