@@ -196,6 +196,30 @@ async function main(): Promise<void> {
       globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
     ).__CODEBUFF_TREE_SITTER_WASM_BINARY__
     const wasmPath = process.env.CODEBUFF_TREE_SITTER_WASM_PATH
+
+    // Diagnostic dump so CI logs (and bug reports) show exactly what
+    // the runtime saw when smoke fails. process.execPath, the
+    // siblingPath we expect, and what's actually in that directory.
+    const fs = await import('fs')
+    const path = await import('path')
+    const execDir = path.dirname(process.execPath)
+    const siblingPath = path.join(execDir, 'tree-sitter.wasm')
+    let dirListing: string[] = []
+    try {
+      dirListing = fs.readdirSync(execDir)
+    } catch (err) {
+      dirListing = [`<readdir failed: ${err instanceof Error ? err.message : err}>`]
+    }
+    console.error(
+      `[smoke diag] execPath=${process.execPath}\n` +
+        `[smoke diag] execDir=${execDir}\n` +
+        `[smoke diag] siblingPath=${siblingPath}\n` +
+        `[smoke diag] siblingExists=${fs.existsSync(siblingPath)}\n` +
+        `[smoke diag] dir contents (${dirListing.length}): ${dirListing.slice(0, 30).join(', ')}\n` +
+        `[smoke diag] env.CODEBUFF_TREE_SITTER_WASM_PATH=${wasmPath ?? '<unset>'}\n` +
+        `[smoke diag] globalThis wasmBinary bytes=${wasmBinary?.byteLength ?? 0}\n`,
+    )
+
     try {
       const { Parser } = await import('web-tree-sitter')
       if (wasmBinary) {
@@ -212,8 +236,9 @@ async function main(): Promise<void> {
         console.log(`tree-sitter smoke ok (locateFile, path=${wasmPath})`)
       } else {
         console.error(
-          'tree-sitter smoke FAIL: pre-init published neither globalThis bytes nor an env path. ' +
-            'The `with { type: \'file\' }` import returned falsy.',
+          'tree-sitter smoke FAIL: pre-init published neither globalThis bytes ' +
+            'nor an env path. Sibling tree-sitter.wasm not found relative to ' +
+            'process.execPath. See diag above for the actual paths.',
         )
         process.exit(1)
       }
