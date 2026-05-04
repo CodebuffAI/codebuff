@@ -30,14 +30,20 @@ function getEmbeddedWasmBinary(): Uint8Array | undefined {
   )[WASM_BINARY_GLOBAL_KEY]
 }
 
+function isBunEmbeddedPath(filePath: string): boolean {
+  return filePath.replace(/\\/g, '/').includes('/~BUN/root/')
+}
+
 function resolveTreeSitterWasm(scriptDir: string): string {
   const override = process.env[TREE_SITTER_WASM_ENV_VAR]
-  if (override && fs.existsSync(override)) {
-    return override
+  if (override) {
+    if (fs.existsSync(override) || isBunEmbeddedPath(override)) {
+      return override
+    }
   }
 
   const fallback = path.join(scriptDir, 'tree-sitter.wasm')
-  if (fs.existsSync(fallback)) {
+  if (fs.existsSync(fallback) || isBunEmbeddedPath(fallback)) {
     return fallback
   }
 

@@ -81,6 +81,39 @@ const FATAL_PATTERNS = [
 // the renderer is up).
 const DEFAULT_RUN_SECONDS = 10
 
+function runTreeSitterSmoke(binary: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(binary, ['--smoke-tree-sitter'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
+    })
+
+    let captured = ''
+    const append = (chunk: Buffer): void => {
+      captured += chunk.toString('utf8')
+    }
+    proc.stdout?.on('data', append)
+    proc.stderr?.on('data', append)
+
+    proc.once('error', reject)
+    proc.once('exit', (code) => {
+      if (code === 0 && /tree-sitter smoke ok/.test(captured)) {
+        resolve()
+        return
+      }
+
+      reject(
+        new Error(
+          `tree-sitter smoke failed with exit code ${code}\n${captured.slice(
+            0,
+            8 * 1024,
+          )}`,
+        ),
+      )
+    })
+  })
+}
+
 async function main(): Promise<void> {
   const binary = process.argv[2]
   const runSeconds = Number(process.argv[3] ?? DEFAULT_RUN_SECONDS)
@@ -99,6 +132,9 @@ async function main(): Promise<void> {
   }
 
   console.log(`smoke-binary: spawning ${binary} for ${runSeconds}s…`)
+
+  await runTreeSitterSmoke(binary)
+  console.log('smoke-binary: tree-sitter init OK.')
 
   const proc = spawn(binary, [], {
     stdio: ['ignore', 'pipe', 'pipe'],

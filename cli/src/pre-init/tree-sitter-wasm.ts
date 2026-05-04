@@ -18,8 +18,10 @@
 
 import { TREE_SITTER_WASM_BASE64 } from './tree-sitter-wasm-bytes'
 
+let embeddedWasm: Uint8Array | undefined
 if (TREE_SITTER_WASM_BASE64.length > 0) {
   const buf = Buffer.from(TREE_SITTER_WASM_BASE64, 'base64')
+  embeddedWasm = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
   // globalThis is the only cross-bundle channel: the SDK pre-built bundle
   // inlines its own copy of `init-node.ts`, so a module-level variable in
   // the source package isn't visible to the singleton initialized via the
@@ -27,9 +29,43 @@ if (TREE_SITTER_WASM_BASE64.length > 0) {
   // Buffer's shared underlying ArrayBuffer.
   ;(
     globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
-  ).__CODEBUFF_TREE_SITTER_WASM_BINARY__ = new Uint8Array(
-    buf.buffer,
-    buf.byteOffset,
-    buf.byteLength,
-  )
+  ).__CODEBUFF_TREE_SITTER_WASM_BINARY__ = embeddedWasm
+}
+
+// Deterministic CI gate: `<binary> --smoke-tree-sitter` proves the embed
+// shipped end-to-end. Lives here, in the very first import, on purpose:
+//
+// - We're testing whether the *embed* works. Going through commander +
+//   initTreeSitterForNode would also pass via the path-resolution
+//   fallback when the embed is empty (e.g. dev mode), giving false
+//   positives that mask a broken production build.
+// - Failing here, before any other module loads, gives a sharp signal:
+//   the embed either worked or it didn't. No render-loop timing, no
+//   commander wiring, no SDK init order to debug.
+//
+// Async IIFE because Parser.init returns a promise; process.exit tears
+// the process down before parallel top-level imports can fire side
+// effects we'd have to clean up.
+if (process.argv.includes('--smoke-tree-sitter')) {
+  void (async () => {
+    try {
+      if (!embeddedWasm) {
+        console.error(
+          'tree-sitter smoke FAIL: TREE_SITTER_WASM_BASE64 stub is empty — ' +
+            'the build-binary.ts embed step did not run or did not write the file.',
+        )
+        process.exit(1)
+      }
+      const { Parser } = await import('web-tree-sitter')
+      await Parser.init({ wasmBinary: embeddedWasm })
+      // Marker grepped by cli/scripts/smoke-binary.ts — keep this exact text.
+      console.log(
+        `tree-sitter smoke ok (${embeddedWasm.byteLength} bytes wasm initialized)`,
+      )
+      process.exit(0)
+    } catch (err) {
+      console.error('tree-sitter smoke FAIL:', err)
+      process.exit(1)
+    }
+  })()
 }
