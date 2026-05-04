@@ -176,10 +176,19 @@ jobs:
         run: |
           cd cli/bin
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./${{ inputs.binary-name }}.exe --version
+            BIN="./${{ inputs.binary-name }}.exe"
           else
-            ./${{ inputs.binary-name }} --version
+            BIN="./${{ inputs.binary-name }}"
           fi
+
+          # Fast path: --version exits synchronously through commander, so it
+          # only catches early sync failures. Run it for parity with old CI.
+          "$BIN" --version
+
+          # Slow path: keep the binary alive long enough for *async* startup
+          # failures (e.g. the Parser.init rejection that crashed the
+          # post-OpenTUI-upgrade Windows build) to surface in stdout/stderr.
+          bun ../scripts/smoke-binary.ts "$BIN"
 
       - name: Create tarball
         shell: bash
@@ -317,7 +326,15 @@ jobs:
         shell: bash
         run: |
           cd cli/bin
-          ./${{ inputs.binary-name }}.exe --version
+          BIN="./${{ inputs.binary-name }}.exe"
+
+          # Sync check — exits via commander before async tasks fire.
+          "$BIN" --version
+
+          # Long-running check — gives async startup failures time to surface.
+          # This is the step that would have caught the post-OpenTUI-upgrade
+          # tree-sitter wasm crash on Windows.
+          bun ../scripts/smoke-binary.ts "$BIN"
 
       - name: Create tarball
         shell: bash

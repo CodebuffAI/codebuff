@@ -15,24 +15,27 @@ describe('Freebuff: Startup', () => {
   })
 
   test(
-    'binary starts without crashing',
+    'binary reaches the model selection screen',
     async () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
-      await session.waitForReady()
 
-      const output = await session.capture()
+      // Wait for the model selector to render. This proves the binary survived
+      // module init (including the eager tree-sitter Parser.init that crashed
+      // Windows binaries after the OpenTUI 0.2.2 upgrade), passed the auth /
+      // session API call, and successfully mounted the React tree. A pure
+      // "non-empty output" check would pass on a half-rendered crash screen.
+      const output = await session.waitForText('Pick a model to start')
 
-      // Should not contain fatal errors
+      // earlyFatalHandler in cli/src/index.tsx writes this to stderr on
+      // unhandled rejections during startup. Belt-and-braces: the wait above
+      // would already have timed out, but if some race ever surfaces a fatal
+      // *after* the model selector renders, we still want it to fail.
+      expect(output).not.toContain('Fatal error during startup')
+      expect(output).not.toContain('Internal error: tree-sitter.wasm not found')
       expect(output).not.toContain('FATAL')
       expect(output).not.toContain('panic')
       expect(output).not.toContain('Segmentation fault')
-
-      // Should have some visible output (not a blank screen)
-      const nonEmptyLines = output
-        .split('\n')
-        .filter((line) => line.trim().length > 0)
-      expect(nonEmptyLines.length).toBeGreaterThan(0)
     },
     STARTUP_TIMEOUT,
   )

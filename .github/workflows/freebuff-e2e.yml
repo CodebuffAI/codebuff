@@ -40,7 +40,13 @@ jobs:
       - name: Smoke test binary
         run: |
           chmod +x cli/bin/freebuff
+          # --version exits via commander synchronously and won't see async
+          # startup failures (e.g. the Parser.init rejection from a broken
+          # tree-sitter wasm load).
           cli/bin/freebuff --version
+          # Run for a few seconds so unhandled rejections during module init
+          # have a chance to fire and trip earlyFatalHandler.
+          bun cli/scripts/smoke-binary.ts cli/bin/freebuff
 
       - name: Upload binary
         uses: actions/upload-artifact@v7
