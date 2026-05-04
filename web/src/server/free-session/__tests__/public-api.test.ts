@@ -5,6 +5,8 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
+  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
 
 import {
@@ -26,6 +28,7 @@ interface AdmitRecord {
   user_id: string
   model: string
   admitted_at: Date
+  session_units?: number
 }
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
@@ -67,17 +70,20 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return n
     },
-    listRecentAdmits: async ({ userId, model, since, limit }) => {
+    listRecentPremiumAdmits: async ({ userId, models, since }) => {
       return admits
         .filter(
           (a) =>
             a.user_id === userId &&
-            a.model === model &&
+            models.includes(a.model) &&
             a.admitted_at.getTime() >= since.getTime(),
         )
         .sort((a, b) => a.admitted_at.getTime() - b.admitted_at.getTime())
-        .slice(0, limit)
-        .map((a) => a.admitted_at)
+        .map((a) => ({
+          admittedAt: a.admitted_at,
+          model: a.model,
+          sessionUnits: a.session_units ?? 1,
+        }))
     },
     promoteQueuedUser: async ({ userId, model, sessionLengthMs, now }) => {
       const row = rows.get(userId)
@@ -86,12 +92,38 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       row.admitted_at = now
       row.expires_at = new Date(now.getTime() + sessionLengthMs)
       row.updated_at = now
-      admits.push({ user_id: userId, model, admitted_at: now })
+      admits.push({
+        user_id: userId,
+        model,
+        admitted_at: now,
+        session_units: 1,
+      })
       return row
     },
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
-    endSession: async (userId) => {
+    endSession: async ({ userId, now, sessionLengthMs }) => {
+      const row = rows.get(userId)
+      if (
+        row?.status === 'active' &&
+        row.admitted_at &&
+        row.expires_at &&
+        row.expires_at.getTime() > now.getTime()
+      ) {
+        const latest = admits
+          .filter((a) => a.user_id === userId && a.model === row.model)
+          .sort((a, b) => b.admitted_at.getTime() - a.admitted_at.getTime())[0]
+        if (latest) {
+          const usedMs = Math.max(
+            0,
+            Math.min(
+              sessionLengthMs,
+              now.getTime() - row.admitted_at.getTime(),
+            ),
+          )
+          latest.session_units = Math.ceil((usedMs / sessionLengthMs) * 10) / 10
+        }
+      }
       rows.delete(userId)
     },
     queueDepthsByModel: async () => {
@@ -239,8 +271,8 @@ describe('requestSession', () => {
     expect(deps.rows.get('u1')?.model).toBe(FREEBUFF_GLM_MODEL_ID)
     expect(state.rateLimit).toEqual({
       model: FREEBUFF_GLM_MODEL_ID,
-      limit: 5,
-      windowHours: 12,
+      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
       recentCount: 0,
     })
   })
@@ -269,8 +301,8 @@ describe('requestSession', () => {
     expect(state.instanceId).not.toBe('inst-pre')
     expect(state.rateLimit).toEqual({
       model: FREEBUFF_GLM_MODEL_ID,
-      limit: 5,
-      windowHours: 12,
+      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
       recentCount: 0,
     })
   })
@@ -282,7 +314,11 @@ describe('requestSession', () => {
     deps._tick(new Date(deps._now().getTime() + 1000))
     await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
     deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u3', model: 'deepseek/deepseek-v4-pro', deps })
+    await requestSession({
+      userId: 'u3',
+      model: 'deepseek/deepseek-v4-pro',
+      deps,
+    })
 
     const state = await getSessionState({ userId: 'u1', deps })
     if (state.status !== 'queued') throw new Error('unreachable')
@@ -396,51 +432,101 @@ describe('requestSession', () => {
     expect(s3.status).toBe('active')
   })
 
-  // Per-user rate limit (5 DeepSeek admissions per 18h) — the wire limit is
+  // Per-user premium session limit (5 units per 20h) — the wire limit is
   // hard-coded in public-api.ts, so tests seed the fake admit log directly
-  // rather than configuring it. DeepSeek runs 24/7, so the open-time anchor
-  // here just keeps these scenarios deterministic against the test clock.
-  const DEEPSEEK_MODEL = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
-  const DEEPSEEK_LIMIT = 5
-  const DEEPSEEK_WINDOW_HOURS = 18
-  const DEEPSEEK_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
+  // rather than configuring it.
+  const PREMIUM_MODEL = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  const KIMI_MODEL = FREEBUFF_KIMI_MODEL_ID
+  const PREMIUM_LIMIT = FREEBUFF_PREMIUM_SESSION_LIMIT
+  const PREMIUM_WINDOW_HOURS = FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
+  const PREMIUM_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
 
-  test('rate_limited: 5th DeepSeek admit in window blocks the 6th attempt', async () => {
-    deps._tick(DEEPSEEK_OPEN_TIME)
-    // Seed 5 admits inside the 18h window, spaced so we can verify retryAfter
+  test('rate_limited: shared premium pool blocks the next premium session at 5 units', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    const now = deps._now()
+    for (let i = 0; i < PREMIUM_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: i === 0 ? KIMI_MODEL : PREMIUM_MODEL,
+        admitted_at: new Date(now.getTime() - (19 - i) * 60 * 60 * 1000),
+      })
+    }
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: PREMIUM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.model).toBe(PREMIUM_MODEL)
+    expect(state.limit).toBe(PREMIUM_LIMIT)
+    expect(state.windowHours).toBe(PREMIUM_WINDOW_HOURS)
+    expect(state.recentCount).toBe(PREMIUM_LIMIT)
+    expect(state.retryAfterMs).toBe(60 * 60 * 1000)
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('rate_limited: DeepSeek admit outside 20h window does not count', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: PREMIUM_MODEL,
+      admitted_at: new Date(now.getTime() - 21 * 60 * 60 * 1000),
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: PREMIUM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.rateLimit).toEqual({
+      model: PREMIUM_MODEL,
+      limit: PREMIUM_LIMIT,
+      windowHours: PREMIUM_WINDOW_HOURS,
+      recentCount: 0,
+    })
+  })
+
+  test('rate_limited: 5th Kimi admit in window blocks the 6th attempt', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    // Seed 5 admits inside the 20h window, spaced so we can verify retryAfter
     // points at the oldest one sliding off.
     const now = deps._now()
-    // Oldest: 17h ago (still in window). Next 4: 1h, 2h, 3h, 4h ago.
-    const ages = [17, 4, 3, 2, 1]
+    // Oldest: 19h ago (still in window). Next 4: 1h, 2h, 3h, 4h ago.
+    const ages = [19, 4, 3, 2, 1]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: DEEPSEEK_MODEL,
+        model: KIMI_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
 
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: KIMI_MODEL,
       deps,
     })
     expect(state.status).toBe('rate_limited')
     if (state.status !== 'rate_limited') throw new Error('unreachable')
-    expect(state.model).toBe(DEEPSEEK_MODEL)
-    expect(state.limit).toBe(DEEPSEEK_LIMIT)
-    expect(state.windowHours).toBe(DEEPSEEK_WINDOW_HOURS)
-    expect(state.recentCount).toBe(DEEPSEEK_LIMIT)
-    // Oldest admit is 17h ago; slot opens when it hits 18h, i.e. in 1h.
+    expect(state.model).toBe(KIMI_MODEL)
+    expect(state.limit).toBe(PREMIUM_LIMIT)
+    expect(state.windowHours).toBe(PREMIUM_WINDOW_HOURS)
+    expect(state.recentCount).toBe(PREMIUM_LIMIT)
+    // Oldest admit is 19h ago; slot opens when it hits 20h, i.e. in 1h.
     expect(state.retryAfterMs).toBe(60 * 60 * 1000)
     // Blocked before any row is written — the user doesn't take a queue slot.
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rate_limited: legacy GLM 5.1 keeps the deployment-hours quota', async () => {
-    deps._tick(DEEPSEEK_OPEN_TIME)
+  test('rate_limited: legacy GLM 5.1 uses the shared premium quota', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
-    for (let i = 0; i < DEEPSEEK_LIMIT; i++) {
+    for (let i = 0; i < PREMIUM_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
         model: FREEBUFF_GLM_MODEL_ID,
@@ -456,26 +542,26 @@ describe('requestSession', () => {
     expect(state.status).toBe('rate_limited')
     if (state.status !== 'rate_limited') throw new Error('unreachable')
     expect(state.model).toBe(FREEBUFF_GLM_MODEL_ID)
-    expect(state.limit).toBe(DEEPSEEK_LIMIT)
-    expect(state.windowHours).toBe(12)
+    expect(state.limit).toBe(PREMIUM_LIMIT)
+    expect(state.windowHours).toBe(PREMIUM_WINDOW_HOURS)
   })
 
-  test('rate_limited: admits outside the 18h window do not count', async () => {
-    deps._tick(DEEPSEEK_OPEN_TIME)
-    // 5 admits, each just over 18h old → all fall off the window.
+  test('rate_limited: admits outside the 20h window do not count', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    // 5 admits, each just over 20h old → all fall off the window.
     const now = deps._now()
     for (let i = 0; i < 5; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: DEEPSEEK_MODEL,
+        model: PREMIUM_MODEL,
         admitted_at: new Date(
-          now.getTime() - (DEEPSEEK_WINDOW_HOURS * 60 * 60 * 1000 + 60_000 + i),
+          now.getTime() - (PREMIUM_WINDOW_HOURS * 60 * 60 * 1000 + 60_000 + i),
         ),
       })
     }
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps,
     })
     expect(state.status).toBe('queued')
@@ -504,48 +590,76 @@ describe('requestSession', () => {
   })
 
   test('queued DeepSeek response carries the current admit count', async () => {
-    deps._tick(DEEPSEEK_OPEN_TIME)
+    deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     // 2 admits in the window — under the limit so the user still queues.
     deps.admits.push({
       user_id: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       admitted_at: new Date(now.getTime() - 60 * 60 * 1000),
     })
     deps.admits.push({
       user_id: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       admitted_at: new Date(now.getTime() - 30 * 60 * 1000),
     })
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps,
     })
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.rateLimit).toEqual({
-      model: DEEPSEEK_MODEL,
-      limit: DEEPSEEK_LIMIT,
-      windowHours: DEEPSEEK_WINDOW_HOURS,
+      model: PREMIUM_MODEL,
+      limit: PREMIUM_LIMIT,
+      windowHours: PREMIUM_WINDOW_HOURS,
       recentCount: 2,
     })
   })
 
-  test('rate_limited: takeover of an active DeepSeek row is allowed even when at cap', async () => {
-    // Reclaim path: user has an active+unexpired DeepSeek session and restarts
+  test('rate_limited: fractional premium usage under the cap can start another session', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: KIMI_MODEL,
+      admitted_at: new Date(now.getTime() - 19 * 60 * 60 * 1000),
+      session_units: 0.9,
+    })
+    for (let i = 0; i < 4; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: KIMI_MODEL,
+        admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
+      })
+    }
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: KIMI_MODEL,
+      deps,
+    })
+
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.rateLimit?.recentCount).toBe(4.9)
+  })
+
+  test('rate_limited: takeover of an active premium row is allowed even when at cap', async () => {
+    // Reclaim path: user has an active+unexpired premium session and restarts
     // the CLI. POST must rotate their instance id (takeover) and NOT reject
     // with rate_limited — otherwise they'd be stranded with a live session
     // they can't reconnect to. The 5th admission is already in the log, so
     // this also exercises "at the cap" rather than "over the cap".
-    deps._tick(DEEPSEEK_OPEN_TIME)
+    deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     // Seed 5 prior admits (the cap), with the latest one matching the
     // active row we're about to install.
-    const ages = [11, 4, 3, 2, 0]
+    const ages = [19, 4, 3, 2, 0]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: DEEPSEEK_MODEL,
+        model: PREMIUM_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
@@ -556,7 +670,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-pre',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       queued_at: admittedAt,
       admitted_at: admittedAt,
       expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
@@ -566,27 +680,27 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps,
     })
     expect(state.status).toBe('active')
     if (state.status !== 'active') throw new Error('unreachable')
     // Instance id rotated; quota snapshot still reflects the full window.
     expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit?.recentCount).toBe(DEEPSEEK_LIMIT)
+    expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT)
   })
 
-  test('rate_limited: reclaim of a queued DeepSeek row is allowed even when at cap', async () => {
+  test('rate_limited: reclaim of a queued premium row is allowed even when at cap', async () => {
     // Same reclaim exception for queued rows: if a user has already queued
     // (say they slipped in just before their 5th admit landed), a subsequent
     // POST from the same CLI must preserve their queue position instead of
     // flipping to rate_limited.
-    deps._tick(DEEPSEEK_OPEN_TIME)
+    deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
-    for (let i = 0; i < DEEPSEEK_LIMIT; i++) {
+    for (let i = 0; i < PREMIUM_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: DEEPSEEK_MODEL,
+        model: PREMIUM_MODEL,
         admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
       })
     }
@@ -595,7 +709,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'queued',
       active_instance_id: 'inst-pre',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       queued_at: queuedAt,
       admitted_at: null,
       expires_at: null,
@@ -605,7 +719,7 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps,
     })
     expect(state.status).toBe('queued')
@@ -613,20 +727,20 @@ describe('requestSession', () => {
     // Same position (1) since we preserved queued_at and nobody else is
     // ahead; the instance id rotated so any prior CLI is superseded.
     expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit?.recentCount).toBe(DEEPSEEK_LIMIT)
+    expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT)
   })
 
-  test('rate_limited: expired DeepSeek row is not a reclaim — quota still applies', async () => {
+  test('rate_limited: expired premium row is not a reclaim — quota still applies', async () => {
     // The stored row's expires_at is in the past, so it doesn't represent
     // an in-flight session. This POST is effectively a fresh request and
     // must be blocked by the quota.
-    deps._tick(DEEPSEEK_OPEN_TIME)
+    deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
-    const ages = [11, 4, 3, 2, 1]
+    const ages = [19, 4, 3, 2, 1]
     for (const hoursAgo of ages) {
       deps.admits.push({
         user_id: 'u1',
-        model: DEEPSEEK_MODEL,
+        model: PREMIUM_MODEL,
         admitted_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
       })
     }
@@ -635,7 +749,7 @@ describe('requestSession', () => {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-pre',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       queued_at: admittedAt,
       admitted_at: admittedAt,
       expires_at: new Date(admittedAt.getTime() + SESSION_LEN),
@@ -644,7 +758,7 @@ describe('requestSession', () => {
     })
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps,
     })
     expect(state.status).toBe('rate_limited')
@@ -652,18 +766,18 @@ describe('requestSession', () => {
 
   test('instant-admit bumps the quota count for the freshly-written admit row', async () => {
     const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
-    admitDeps._tick(DEEPSEEK_OPEN_TIME)
+    admitDeps._tick(PREMIUM_OPEN_TIME)
     // 1 existing admit in the window; this new call should instant-admit and
     // write a second row, so the response's recentCount reflects 2.
     const now = admitDeps._now()
     admitDeps.admits.push({
       user_id: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       admitted_at: new Date(now.getTime() - 30 * 60 * 1000),
     })
     const state = await requestSession({
       userId: 'u1',
-      model: DEEPSEEK_MODEL,
+      model: PREMIUM_MODEL,
       deps: admitDeps,
     })
     if (state.status !== 'active') throw new Error('unreachable')
@@ -695,6 +809,27 @@ describe('getSessionState', () => {
   test('no row returns none with empty queue-depth snapshot', async () => {
     const state = await getSessionState({ userId: 'u1', deps })
     expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
+  })
+
+  test('no row surfaces used premium quota before joining', async () => {
+    const now = deps._now()
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      admitted_at: new Date(now.getTime() - 19 * 60 * 60 * 1000),
+    })
+
+    const state = await getSessionState({ userId: 'u1', deps })
+    expect(state.status).toBe('none')
+    if (state.status !== 'none') throw new Error('unreachable')
+    expect(
+      state.rateLimitsByModel?.[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
+    ).toEqual({
+      model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+      recentCount: 1,
+    })
   })
 
   test('active session with matching instance id returns active', async () => {
@@ -740,7 +875,11 @@ describe('getSessionState', () => {
       model: 'deepseek/deepseek-v4-pro',
       admitted_at: new Date(now.getTime() - 60 * 60 * 1000),
     })
-    await requestSession({ userId: 'u1', model: 'deepseek/deepseek-v4-pro', deps })
+    await requestSession({
+      userId: 'u1',
+      model: 'deepseek/deepseek-v4-pro',
+      deps,
+    })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = now
@@ -753,23 +892,27 @@ describe('getSessionState', () => {
     })
     if (state.status !== 'active') throw new Error('unreachable')
     expect(state.rateLimit).toEqual({
-      model: 'deepseek/deepseek-v4-pro',
-      limit: 5,
-      windowHours: 18,
+      model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
       recentCount: 1,
     })
   })
 
-  test('active session only fetches quota for its own model', async () => {
+  test('active session only fetches one shared premium quota snapshot', async () => {
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     let listRecentAdmitsCalls = 0
-    const originalListRecentAdmits = deps.listRecentAdmits
-    deps.listRecentAdmits = async (params) => {
+    const originalListRecentAdmits = deps.listRecentPremiumAdmits
+    deps.listRecentPremiumAdmits = async (params) => {
       listRecentAdmitsCalls++
       return originalListRecentAdmits(params)
     }
 
-    await requestSession({ userId: 'u1', model: 'deepseek/deepseek-v4-pro', deps })
+    await requestSession({
+      userId: 'u1',
+      model: 'deepseek/deepseek-v4-pro',
+      deps,
+    })
     const row = deps.rows.get('u1')!
     row.status = 'active'
     row.admitted_at = deps._now()
@@ -1115,6 +1258,23 @@ describe('endUserSession', () => {
     expect(deps.rows.has('u1')).toBe(true)
     await endUserSession({ userId: 'u1', deps })
     expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('rounds active premium session usage up to nearest tenth on early end', async () => {
+    const deps = makeDeps({ getInstantAdmitCapacity: () => 3 })
+    deps._tick(new Date('2026-04-17T16:00:00Z'))
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_KIMI_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    deps._tick(new Date(deps._now().getTime() + 14 * 60 * 1000))
+
+    await endUserSession({ userId: 'u1', deps })
+
+    expect(deps.rows.has('u1')).toBe(false)
+    expect(deps.admits[0]?.session_units).toBe(0.3)
   })
 
   test('is no-op when disabled', async () => {

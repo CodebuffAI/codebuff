@@ -66,6 +66,9 @@ const formatSessionRemaining = (ms: number): string => {
   return minutes === 0 ? `${hours}h left` : `${hours}h ${minutes}m left`
 }
 
+const formatSessionUnits = (units: number): string =>
+  Number.isInteger(units) ? String(units) : units.toFixed(1)
+
 interface StatusBarProps {
   timerStartTime: number | null
   isAtBottom: boolean
@@ -131,7 +134,8 @@ export const StatusBar = ({
 
       case 'clipboard':
         // Use green color for feedback success messages
-        const isFeedbackSuccess = statusIndicatorState.message.includes('Feedback sent')
+        const isFeedbackSuccess =
+          statusIndicatorState.message.includes('Feedback sent')
         return (
           <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
             {statusIndicatorState.message}
@@ -142,12 +146,7 @@ export const StatusBar = ({
         return <span fg={theme.success}>Reconnected</span>
 
       case 'retrying':
-        return (
-          <ShimmerText
-            text="retrying..."
-            primaryColor={theme.warning}
-          />
-        )
+        return <ShimmerText text="retrying..." primaryColor={theme.warning} />
 
       case 'connecting':
         return <ShimmerText text="connecting..." />
@@ -180,8 +179,17 @@ export const StatusBar = ({
             freebuffSession?.status === 'active'
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
+          const quotaText =
+            freebuffSession?.status === 'active' && freebuffSession.rateLimit
+              ? `Premium ${formatSessionUnits(freebuffSession.rateLimit.recentCount)}/${freebuffSession.rateLimit.limit} used · `
+              : freebuffSession?.status === 'active'
+                ? 'Unlimited · '
+                : ''
           return (
-            <span fg={isUrgent ? theme.warning : theme.secondary}>{modelName ? `${modelName} · ` : ''}{formatSessionRemaining(sessionProgress.remainingMs)}
+            <span fg={isUrgent ? theme.warning : theme.secondary}>
+              {modelName ? `${modelName} · ` : ''}
+              {quotaText}Free session ·{' '}
+              {formatSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
@@ -258,12 +266,18 @@ export const StatusBar = ({
         }}
       >
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
-        {onStop && (statusIndicatorState.kind === 'waiting' || statusIndicatorState.kind === 'streaming') && (
-          <StatusActionButton onClick={onStop}>■ Esc</StatusActionButton>
-        )}
-        {onEndSession && statusIndicatorState.kind === 'idle' && freebuffSession?.status === 'active' && (
-          <StatusActionButton onClick={onEndSession}>✕ End session</StatusActionButton>
-        )}
+        {onStop &&
+          (statusIndicatorState.kind === 'waiting' ||
+            statusIndicatorState.kind === 'streaming') && (
+            <StatusActionButton onClick={onStop}>■ Esc</StatusActionButton>
+          )}
+        {onEndSession &&
+          statusIndicatorState.kind === 'idle' &&
+          freebuffSession?.status === 'active' && (
+            <StatusActionButton onClick={onEndSession}>
+              ✕ End session
+            </StatusActionButton>
+          )}
         {sessionProgress !== null &&
           sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS &&
           statusIndicatorState.kind !== 'idle' && (

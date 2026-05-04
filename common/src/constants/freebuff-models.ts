@@ -30,6 +30,8 @@ export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
+export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
+export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 20
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
 const FREEBUFF_PACIFIC_TIMEZONE = 'America/Los_Angeles'
 
@@ -78,7 +80,7 @@ export const FREEBUFF_MODELS = [
   {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
-    tagline: 'Fastest',
+    tagline: 'Fastest, unlimited',
     availability: 'always',
   },
 ] as const satisfies readonly FreebuffModelOption[]
@@ -92,6 +94,12 @@ export const LEGACY_FREEBUFF_MODELS = [
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
+export const FREEBUFF_PREMIUM_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_GLM_MODEL_ID,
+] as const
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   ...FREEBUFF_MODELS,
   ...LEGACY_FREEBUFF_MODELS,
@@ -100,6 +108,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
+export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the picker. DeepSeek is the
  *  smartest of the free options; the picker surfaces its data-collection
@@ -134,6 +143,13 @@ export function isSupportedFreebuffModelId(
 ): id is SupportedFreebuffModelId {
   if (!id) return false
   return SUPPORTED_FREEBUFF_MODELS.some((m) => m.id === id)
+}
+
+export function isFreebuffPremiumModelId(
+  id: string | null | undefined,
+): id is FreebuffPremiumModelId {
+  if (!id) return false
+  return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) => modelId === id)
 }
 
 export function resolveSupportedFreebuffModel(
