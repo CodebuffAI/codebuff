@@ -57,14 +57,29 @@ const BOOT_SIGNAL_PATTERNS = [
 // regressions of bugs we've already seen. The boot-signal check above is
 // the real gate: it fails on *any* startup problem, including ones whose
 // error text we never thought to add here.
+//
+// Note both paths the cli error handlers print: "Fatal error during
+// startup" (earlyFatalHandler in cli/src/index.tsx, fires while main()
+// is still wiring up) and "Unhandled rejection:" / "Uncaught exception:"
+// (installProcessCleanupHandlers in cli/src/utils/renderer-cleanup.ts,
+// fires after the renderer is up). The wasm-load rejection on freebuff
+// 0.0.62 surfaced through the *late* renderer-cleanup path, after the
+// boot screen had already rendered.
 const FATAL_PATTERNS = [
   /Fatal error during startup/i,
+  /Unhandled rejection:/i,
+  /Uncaught exception:/i,
   /Internal error: tree-sitter\.wasm not found/i,
   /UnhandledPromiseRejection/i,
   /Cannot find module/i,
 ] as const
 
-const DEFAULT_RUN_SECONDS = 5
+// Long enough that an unhandled rejection from the eager Parser.init has
+// time to surface through the renderer-cleanup handler — that path is
+// what tripped freebuff 0.0.62 in the wild while a 5s window let CI pass.
+// Async wasm rejections can fire >5s after spawn (after React mounts and
+// the renderer is up).
+const DEFAULT_RUN_SECONDS = 10
 
 async function main(): Promise<void> {
   const binary = process.argv[2]
