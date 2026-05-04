@@ -62,6 +62,13 @@ if (siblingPath) {
   // emscripten, which fs.readFile's it.
   process.env.CODEBUFF_TREE_SITTER_WASM_PATH = siblingPath
 
+  // Also publish on globalThis so the smoke handler in index.tsx can
+  // read it without touching process.env (which is gated by the env
+  // architecture check outside the allowlisted pre-init files).
+  ;(
+    globalThis as { __CODEBUFF_TREE_SITTER_WASM_PATH__?: string }
+  ).__CODEBUFF_TREE_SITTER_WASM_PATH__ = siblingPath
+
   // Also try the synchronous-bytes path: hand the bytes straight to
   // Parser.init({ wasmBinary }) so the SDK doesn't need to round-trip
   // through emscripten's path resolution. Both channels feed the same

@@ -195,7 +195,9 @@ async function main(): Promise<void> {
     const wasmBinary = (
       globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
     ).__CODEBUFF_TREE_SITTER_WASM_BINARY__
-    const wasmPath = process.env.CODEBUFF_TREE_SITTER_WASM_PATH
+    const wasmPath = (
+      globalThis as { __CODEBUFF_TREE_SITTER_WASM_PATH__?: string }
+    ).__CODEBUFF_TREE_SITTER_WASM_PATH__
 
     // Diagnostic dump so CI logs (and bug reports) show exactly what
     // the runtime saw when smoke fails. process.execPath, the
@@ -216,7 +218,7 @@ async function main(): Promise<void> {
         `[smoke diag] siblingPath=${siblingPath}\n` +
         `[smoke diag] siblingExists=${fs.existsSync(siblingPath)}\n` +
         `[smoke diag] dir contents (${dirListing.length}): ${dirListing.slice(0, 30).join(', ')}\n` +
-        `[smoke diag] env.CODEBUFF_TREE_SITTER_WASM_PATH=${wasmPath ?? '<unset>'}\n` +
+        `[smoke diag] globalThis wasmPath=${wasmPath ?? '<unset>'}\n` +
         `[smoke diag] globalThis wasmBinary bytes=${wasmBinary?.byteLength ?? 0}\n`,
     )
 
