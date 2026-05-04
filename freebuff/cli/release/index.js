@@ -373,6 +373,27 @@ async function downloadBinary(version) {
     }
     fs.renameSync(tempBinaryPath, CONFIG.binaryPath)
 
+    // Move tree-sitter.wasm next to the binary if the tarball included
+    // it. The CLI binary loads this at startup; embedding it inside the
+    // binary itself was unreliable on Windows (bun --compile asset
+    // bundling silently dropped or unbound it across several attempts),
+    // so we ship it as a sibling file instead. Older artifacts that
+    // pre-date this change won't have the wasm and will still install —
+    // they'll just hit the same crash they had before, which is fine.
+    const tempWasmPath = path.join(CONFIG.tempDownloadDir, 'tree-sitter.wasm')
+    if (fs.existsSync(tempWasmPath)) {
+      const targetWasmPath = path.join(
+        path.dirname(CONFIG.binaryPath),
+        'tree-sitter.wasm',
+      )
+      try {
+        if (fs.existsSync(targetWasmPath)) fs.unlinkSync(targetWasmPath)
+      } catch {
+        // best effort; rename below will surface the real error if it matters
+      }
+      fs.renameSync(tempWasmPath, targetWasmPath)
+    }
+
     fs.writeFileSync(
       CONFIG.metadataPath,
       JSON.stringify({ version }, null, 2),

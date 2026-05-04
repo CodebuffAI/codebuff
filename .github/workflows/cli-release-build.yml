@@ -197,7 +197,10 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             BINARY_FILE="${{ inputs.binary-name }}.exe"
           fi
-          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
+          # Bundle the binary alongside tree-sitter.wasm — the CLI loads
+          # the wasm as a sibling file at runtime since bun --compile
+          # asset embedding wasn't reliable on Windows.
+          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
@@ -340,7 +343,9 @@ jobs:
         shell: bash
         run: |
           BINARY_FILE="${{ inputs.binary-name }}.exe"
-          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE"
+          # Bundle tree-sitter.wasm next to the binary; see the
+          # equivalent matrix-job tar step for context.
+          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
