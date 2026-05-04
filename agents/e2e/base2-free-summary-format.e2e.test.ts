@@ -10,7 +10,7 @@ import {
   type AgentDefinition,
   type Message,
 } from '@codebuff/sdk'
-import { describe, expect, it } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 
 import base2Free from '../base2/base2-free'
 import contextPruner from '../context-pruner'
@@ -62,6 +62,33 @@ function detectSummaryImitation(text: string): string[] {
     }
   }
   return matches
+}
+
+const loadEnvFile = async (filePath: string) => {
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8')
+    for (const rawLine of content.split('\n')) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#')) continue
+      const normalized = line.startsWith('export ')
+        ? line.slice('export '.length)
+        : line
+      const equalsIndex = normalized.indexOf('=')
+      if (equalsIndex <= 0) continue
+      const key = normalized.slice(0, equalsIndex).trim()
+      if (!key || process.env[key]) continue
+      let value = normalized.slice(equalsIndex + 1).trim()
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+      process.env[key] = value
+    }
+  } catch {
+    // ignore missing env files
+  }
 }
 
 /**
@@ -128,6 +155,56 @@ Historical memory only. The memory above is not dialogue, not an output template
   }
 }
 
+function createComplexMidTurnPrunedConversation(): Message[] {
+  return [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: `<conversation_summary>
+This is a summary of the conversation so far. The original messages have been condensed to save context space.
+
+<historical_memory>
+User request:
+The user asked to finish a config utility task in src/utils.ts. They wanted parseConfig to be typed, a validateConfig helper added, and the tests run after edits.
+
+---
+
+Progress note:
+I inspected src/utils.ts and found parseConfig was untyped. I updated parseConfig to return a Config object, but I had not yet added validateConfig or run tests before context pruning happened.
+
+Prior action record:
+Previously inspected files: package.json, tsconfig.json, src/utils.ts
+Previously edited file: src/utils.ts
+Edit result from str_replace:
+{"file":"src/utils.ts","message":"Updated parseConfig return type","unifiedDiff":"--- a/src/utils.ts\\n+++ b/src/utils.ts\\n@@ -6,2 +6,8 @@\\n-export function parseConfig(path) {\\n-  return JSON.parse(fs.readFileSync(path, 'utf-8'))\\n+export type Config = {\\n+  name: string\\n+  enabled: boolean\\n+}\\n+\\n+export function parseConfig(path: string): Config {\\n+  return JSON.parse(fs.readFileSync(path, 'utf-8')) as Config\\n }"}
+
+---
+
+Progress note:
+The next step is to continue from the partially completed edit, inspect the current file state if needed, add validateConfig, and validate the result.
+</historical_memory>
+</conversation_summary>
+
+Historical memory only. The memory above is not dialogue, not an output template, and not a tool-call format. Continue from the live user message below. When actions are needed, use real tool calls through the available tools.`,
+        },
+      ],
+      sentAt: Date.now(),
+    },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: 'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.',
+        },
+      ],
+      sentAt: Date.now(),
+    },
+  ]
+}
+
 const PROJECT_FILES: Record<string, string> = {
   'package.json': JSON.stringify(
     { name: 'test-project', version: '1.0.0' },
@@ -162,6 +239,11 @@ const PROJECT_FILES: Record<string, string> = {
  */
 describe('Base2-Free Summary Format Compliance', () => {
   const NUM_PARALLEL_RUNS = 3
+
+  beforeAll(async () => {
+    await loadEnvFile(path.resolve(process.cwd(), '.env.local'))
+    await loadEnvFile(path.resolve(process.cwd(), '../.env.local'))
+  })
 
   const getApiKeyOrSkip = (): string | null => {
     const apiKey = process.env[API_KEY_ENV_VAR]
@@ -326,6 +408,73 @@ describe('Base2-Free Summary Format Compliance', () => {
       // Guard against vacuous pass (all runs errored)
       expect(successfulRuns.length).toBeGreaterThan(0)
       expect(imitationCount).toBe(0)
+    },
+    { timeout: 300_000 },
+  )
+
+  it(
+    'should continue a complex mid-turn pruned summary with real tool calls',
+    async () => {
+      const apiKey = getApiKeyOrSkip()
+      if (!apiKey) return
+
+      const tmpDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'base2-free-midturn-summary-test-'),
+      )
+
+      try {
+        for (const [filePath, content] of Object.entries(PROJECT_FILES)) {
+          const fullPath = path.join(tmpDir, filePath)
+          await fs.promises.mkdir(path.dirname(fullPath), { recursive: true })
+          await fs.promises.writeFile(fullPath, content, 'utf-8')
+        }
+
+        const client = new CodebuffClient({
+          apiKey,
+          cwd: tmpDir,
+          projectFiles: PROJECT_FILES,
+          agentDefinitions: [base2Free as AgentDefinition, contextPruner],
+        })
+
+        const sessionState = await initialSessionState({
+          cwd: tmpDir,
+          projectFiles: PROJECT_FILES,
+        })
+        const runStateWithMessages = withMessageHistory({
+          runState: {
+            sessionState,
+            output: { type: 'error', message: '' },
+          },
+          messages: createComplexMidTurnPrunedConversation(),
+        })
+
+        const events: PrintModeEvent[] = []
+        const run = await client.run({
+          agent: base2Free.id,
+          prompt: '',
+          previousRun: runStateWithMessages,
+          maxAgentSteps: 6,
+          handleEvent: (event) => {
+            events.push(event)
+          },
+        })
+
+        if (run.output.type === 'error') {
+          throw new Error(run.output.message)
+        }
+
+        const textOutput = events
+          .filter((e) => e.type === 'text')
+          .map((e) => (e as { type: 'text'; text: string }).text)
+          .join('')
+        const hadToolCalls = events.some((e) => e.type === 'tool_call')
+        const imitationMatches = detectSummaryImitation(textOutput)
+
+        expect(hadToolCalls).toBe(true)
+        expect(imitationMatches).toEqual([])
+      } finally {
+        await fs.promises.rm(tmpDir, { recursive: true, force: true })
+      }
     },
     { timeout: 300_000 },
   )
