@@ -188,8 +188,7 @@ export const StatusBar = ({
           return (
             <span fg={isUrgent ? theme.warning : theme.secondary}>
               {modelName ? `${modelName} · ` : ''}
-              {quotaText}Free session ·{' '}
-              {formatSessionRemaining(sessionProgress.remainingMs)}
+              {quotaText}{formatSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
