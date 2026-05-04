@@ -82,6 +82,7 @@ const packageConfigs: PackageConfig[] = [
     enforceRestrictedImports: true,
     additionalProcessEnvAllowlist: [
       'cli/src/init/init-direnv.ts', // Loads direnv vars into process.env at startup
+      'cli/src/pre-init/tree-sitter-wasm.ts', // Stashes embedded wasm path for code-map's locateFile callback
     ],
   },
   {
