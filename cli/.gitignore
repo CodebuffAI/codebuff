@@ -7,7 +7,3 @@ debug/
 
 # Generated files
 src/agents/bundled-agents.generated.ts
-
-# Staged by build-binary.ts before `bun build --compile`, removed after.
-# See cli/src/pre-init/tree-sitter-wasm.ts for why we copy this in.
-src/pre-init/tree-sitter.wasm
