@@ -1,14 +1,19 @@
-// Stub committed for dev mode and tests. The real wasm chunks are written
+// Stub committed for dev mode and tests. The real chunks are written
 // here by `cli/scripts/build-binary.ts` immediately before
-// `bun build --compile`, then restored to an empty array after the build
-// completes. Dev mode and unit tests see the empty stub and fall back to
-// path-based resolution in `packages/code-map/src/init-node.ts` (which
-// works locally because `node_modules/web-tree-sitter/tree-sitter.wasm`
-// exists on the filesystem).
+// `bun build --compile`, then restored to this empty stub after.
 //
-// Why an array of small chunks rather than one big string: a single
-// 274KB string literal got dropped/transformed by bun's Windows
-// minifier (the binary built clean but ran without the bytes). Many
-// small string literals slip under whatever threshold caused that. See
-// `cli/src/pre-init/tree-sitter-wasm.ts` for the full failure history.
-export const TREE_SITTER_WASM_BASE64_CHUNKS: readonly string[] = []
+// Why a *function* return rather than a top-level const: prior
+// approaches kept getting eliminated on Windows even with 268
+// individual chunks. The bundler appears to evaluate the imported
+// value at static-analysis time (we suspect either filesystem write
+// timing or an AST cache), inlines it as the empty stub, and DCEs
+// any conditional that depends on `.length > 0`. A function call's
+// return value is not statically inlinable in the same way — the
+// chunks live inside the function body, only materialized on call.
+//
+// Why a function instead of `export const X = (() => [...])()`:
+// same reason — IIFEs can be folded by aggressive minifiers, but
+// imported functions called at runtime are preserved.
+export function getTreeSitterWasmChunks(): string[] {
+  return []
+}
