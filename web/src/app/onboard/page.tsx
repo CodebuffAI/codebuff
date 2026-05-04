@@ -4,12 +4,11 @@ import { env } from '@codebuff/internal/env'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 
-
 import {
   checkFingerprintConflict,
-  checkReplayAttack,
   createCliSession,
   getSessionTokenFromCookies,
+  hasCliSessionForAuthHash,
 } from './_db'
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
@@ -17,7 +16,6 @@ import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
 import { WelcomeCard } from '@/components/onboard/welcome-card'
 import { logger } from '@/util/logger'
-
 
 interface PageProps {
   searchParams?: Promise<{
@@ -32,7 +30,12 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const user = session?.user
 
   if (!user) {
-    return redirect(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
+    const params = new URLSearchParams()
+    if (authCode) params.set('auth_code', authCode)
+    const query = params.toString()
+    return redirect(
+      query ? `/login?${query}` : env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+    )
   }
 
   if (!authCode) {
@@ -83,7 +86,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const isReplay = await checkReplayAttack(fingerprintHash, user.id)
+  const isReplay = await hasCliSessionForAuthHash(fingerprintHash, user.id)
   if (isReplay) {
     return (
       <CardWithBeams

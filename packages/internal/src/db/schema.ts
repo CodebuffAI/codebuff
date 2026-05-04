@@ -255,16 +255,27 @@ export const message = pgTable(
   ],
 )
 
-export const session = pgTable('session', {
-  sessionToken: text('sessionToken').notNull().primaryKey(),
-  userId: text('userId')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-  fingerprint_id: text('fingerprint_id').references(() => fingerprint.id),
-  type: sessionTypeEnum('type').notNull().default('web'),
-  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-})
+export const session = pgTable(
+  'session',
+  {
+    sessionToken: text('sessionToken').notNull().primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { mode: 'date' }).notNull(),
+    fingerprint_id: text('fingerprint_id').references(() => fingerprint.id),
+    cli_auth_hash: text('cli_auth_hash'),
+    type: sessionTypeEnum('type').notNull().default('web'),
+    created_at: timestamp('created_at', { mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('session_cli_auth_code_idx')
+      .on(table.fingerprint_id, table.cli_auth_hash)
+      .where(sql`${table.cli_auth_hash} IS NOT NULL`),
+  ],
+)
 
 export const verificationToken = pgTable(
   'verificationToken',

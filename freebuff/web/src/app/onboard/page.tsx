@@ -6,9 +6,9 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
-  checkReplayAttack,
   createCliSession,
   getSessionTokenFromCookies,
+  hasCliSessionForAuthHash,
 } from './_db'
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
@@ -119,7 +119,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const isReplay = await checkReplayAttack(fingerprintHash, user.id)
+  const isReplay = await hasCliSessionForAuthHash(fingerprintHash, user.id)
   if (isReplay) {
     return (
       <StatusCard

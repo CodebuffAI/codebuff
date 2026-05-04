@@ -337,6 +337,20 @@
       "when": 1777317033289,
       "tag": "0047_tough_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1777925902147,
+      "tag": "0048_wide_blob",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1777929052630,
+      "tag": "0049_loud_madame_masque",
+      "breakpoints": true
     }
   ]
 }
