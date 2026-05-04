@@ -55,6 +55,130 @@ jobs:
           path: cli/bin/freebuff
           retention-days: 1
 
+  # Windows-native build + smoke. The full tmux-based e2e matrix below can't
+  # run here (Windows runners don't have tmux), but the smoke-binary.ts
+  # check is what would have caught the post-OpenTUI-upgrade tree-sitter
+  # wasm regression: that bug only manifested on real Windows, while CI was
+  # Linux-only and macOS dev machines saw it work. Now every push gets a
+  # real Windows boot test.
+  build-and-smoke-freebuff-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Ensure CLI dependencies
+        run: bun install --frozen-lockfile --cwd cli
+        shell: bash
+
+      # Mirror the symlink fix from cli-release-build.yml's Windows job: bun
+      # workspace symlinks aren't created reliably on Windows runners, so
+      # the cli's @opentui imports need explicit junctions to the root
+      # @opentui packages.
+      - name: Fix OpenTUI module symlinks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun - <<'BUN'
+          import fs from 'fs';
+          import path from 'path';
+
+          const rootDir = process.cwd();
+          const rootOpenTui = path.join(rootDir, 'node_modules', '@opentui');
+          const cliNodeModules = path.join(rootDir, 'cli', 'node_modules');
+          const cliOpenTui = path.join(cliNodeModules, '@opentui');
+
+          if (!fs.existsSync(rootOpenTui)) {
+            console.log('Root @opentui packages missing; skipping fix');
+            process.exit(0);
+          }
+
+          fs.mkdirSync(cliOpenTui, { recursive: true });
+
+          const packages = ['core', 'react'];
+          for (const pkg of packages) {
+            const target = path.join(rootOpenTui, pkg);
+            const link = path.join(cliOpenTui, pkg);
+
+            if (!fs.existsSync(target)) {
+              console.log(`Target ${target} missing; skipping ${pkg}`);
+              continue;
+            }
+
+            let linkStats = null;
+            try {
+              linkStats = fs.lstatSync(link);
+            } catch (error) {
+              if (error?.code !== 'ENOENT') {
+                throw error;
+              }
+            }
+
+            if (linkStats) {
+              let alreadyLinked = false;
+              try {
+                const actual = fs.realpathSync(link);
+                alreadyLinked = actual === target;
+              } catch {
+                // Broken symlink or unreadable target; we'll replace it.
+              }
+
+              if (alreadyLinked) {
+                continue;
+              }
+
+              fs.rmSync(link, { recursive: true, force: true });
+            }
+
+            const type = process.platform === 'win32' ? 'junction' : 'dir';
+            try {
+              fs.symlinkSync(target, link, type);
+              console.log(`Linked ${link} -> ${target}`);
+            } catch (error) {
+              if (error?.code === 'EEXIST') {
+                fs.rmSync(link, { recursive: true, force: true });
+                fs.symlinkSync(target, link, type);
+                console.log(`Re-linked ${link} -> ${target}`);
+              } else {
+                throw error;
+              }
+            }
+          }
+          BUN
+
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        shell: bash
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "FREEBUFF_MODE=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=prod" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+
+      - name: Build Freebuff binary
+        run: bun freebuff/cli/build.ts 0.0.0-e2e
+        shell: bash
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          # --version exits via commander synchronously and won't see async
+          # startup failures (e.g. the Parser.init rejection from a broken
+          # tree-sitter wasm load).
+          ./cli/bin/freebuff.exe --version
+          # Run for several seconds so unhandled rejections during module
+          # init have time to fire — the freebuff 0.0.62 wasm regression
+          # surfaced through the *late* renderer-cleanup handler, after the
+          # boot screen had rendered, so a too-short window can miss it.
+          bun cli/scripts/smoke-binary.ts cli/bin/freebuff.exe
+
   e2e:
     needs: build-freebuff
     runs-on: ubuntu-latest
