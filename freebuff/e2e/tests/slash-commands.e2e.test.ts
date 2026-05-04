@@ -16,7 +16,6 @@ const REMOVED_COMMANDS = [
   '/credits',
   '/ads:enable',
   '/ads:disable',
-  '/connect:claude',
   '/refer-friends',
   '/agent:gpt-5',
   '/image',

@@ -1,5 +1,4 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 
@@ -33,7 +32,6 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
     }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
-  'connect:claude',
   'ads:enable',
   'ads:disable',
   'usage',
@@ -58,16 +56,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['h', '?'],
     implicitCommand: true,
   },
-  ...(CLAUDE_OAUTH_ENABLED
-    ? [
-        {
-          id: 'connect:claude',
-          label: 'connect:claude (deprecated)',
-          description: 'Claude subscription will be removed March 1st',
-          aliases: ['claude'],
-        },
-      ]
-    : []),
   ...(CHATGPT_OAUTH_ENABLED
     ? [
         {

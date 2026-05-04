@@ -1,5 +1,4 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
@@ -173,7 +172,6 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'image',
   'publish',
   'gpt-5-agent',
-  'connect:claude',
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set([
@@ -452,27 +450,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       })
       params.inputRef.current?.focus()
       // Don't save to history - this is just a UI shortcut
-    },
-  }),
-  defineCommand({
-    name: 'connect:claude',
-    aliases: ['claude'],
-    handler: (params) => {
-      if (!CLAUDE_OAUTH_ENABLED) {
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          getSystemMessage(
-            'Claude OAuth connection has been disabled. Use /subscribe for usage across all models.',
-          ),
-        ])
-        clearInput(params)
-        return
-      }
-      // Enter connect:claude mode to show the OAuth banner
-      useChatStore.getState().setInputMode('connect:claude')
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
     },
   }),
   ...(CHATGPT_OAUTH_ENABLED

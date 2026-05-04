@@ -93,5 +93,4 @@ export {
 } from './impl/llm'
 export {
   resetChatGptOAuthRateLimit,
-  resetClaudeOAuthRateLimit,
 } from './impl/model-provider'

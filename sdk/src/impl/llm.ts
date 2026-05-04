@@ -19,12 +19,10 @@ import {
 } from 'ai'
 
 import {
-  fetchClaudeOAuthResetTime,
   getModelForRequest,
   markChatGptOAuthRateLimited,
-  markClaudeOAuthRateLimited,
 } from './model-provider'
-import { getValidClaudeOAuthCredentials, refreshClaudeOAuthToken, refreshChatGptOAuthToken } from '../credentials'
+import { refreshChatGptOAuthToken } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
 
 import type { ModelRequestParams } from './model-provider'
@@ -281,11 +279,8 @@ export function classifyChatGptOAuthStreamError(params: {
 
 export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn> & {
-    skipClaudeOAuth?: boolean
     skipChatGptOAuth?: boolean
-    claudeOAuthRetried?: boolean
     chatGptOAuthRetried?: boolean
-    onClaudeOAuthStatusChange?: (isActive: boolean) => void
   },
 ): ReturnType<PromptAiSdkStreamFn> {
   const {
@@ -311,28 +306,11 @@ export async function* promptAiSdkStream(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipClaudeOAuth: params.skipClaudeOAuth,
     skipChatGptOAuth: params.skipChatGptOAuth,
     costMode: params.costMode,
   }
-  const { model: aiSDKModel, isClaudeOAuth, isChatGptOAuth } =
+  const { model: aiSDKModel, isChatGptOAuth } =
     await getModelForRequest(modelParams)
-
-  // Track and notify about Claude OAuth usage
-  if (isClaudeOAuth) {
-    trackEvent({
-      event: AnalyticsEvent.CLAUDE_OAUTH_REQUEST,
-      userId: userId ?? '',
-      properties: {
-        model: requestedModel,
-        userInputId,
-      },
-      logger,
-    })
-    if (params.onClaudeOAuthStatusChange) {
-      params.onClaudeOAuthStatusChange(true)
-    }
-  }
 
   if (isChatGptOAuth) {
     trackEvent({
@@ -351,9 +329,7 @@ export async function* promptAiSdkStream(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    // When using Claude OAuth, disable retries so we can immediately fall back to Codebuff
-    // backend on rate limit errors instead of retrying 4 times first
-    ...((isClaudeOAuth || isChatGptOAuth) && { maxRetries: 0 }),
+    ...(isChatGptOAuth && { maxRetries: 0 }),
     // For ChatGPT OAuth direct, don't send codebuff metadata/provider options to OpenAI
     ...(isChatGptOAuth
       ? {}
@@ -532,45 +508,6 @@ export async function* promptAiSdkStream(
         continue
       }
 
-      // Check if this is a Claude OAuth rate limit error - only fall back if no content yielded yet
-      if (
-        isClaudeOAuth &&
-        !params.skipClaudeOAuth &&
-        !hasYieldedContent &&
-        isOAuthRateLimitError(chunkValue.error)
-      ) {
-        logger.info(
-          { error: getErrorObject(chunkValue.error) },
-          'Claude OAuth rate limited during stream, falling back to Codebuff backend',
-        )
-        // Track the rate limit event
-        trackEvent({
-          event: AnalyticsEvent.CLAUDE_OAUTH_RATE_LIMITED,
-          userId: userId ?? '',
-          properties: {
-            model: requestedModel,
-            userInputId,
-          },
-          logger,
-        })
-        // Try to get the actual reset time from the quota API, fall back to default cooldown
-        const credentials = await getValidClaudeOAuthCredentials()
-        const resetTime = credentials?.accessToken
-          ? await fetchClaudeOAuthResetTime(credentials.accessToken)
-          : null
-        // Mark as rate-limited so subsequent requests skip Claude OAuth
-        markClaudeOAuthRateLimited(resetTime ?? undefined)
-        if (params.onClaudeOAuthStatusChange) {
-          params.onClaudeOAuthStatusChange(false)
-        }
-        // Retry with Codebuff backend
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipClaudeOAuth: true,
-        })
-        return fallbackResult
-      }
-
       const chatGptErrorPolicy = classifyChatGptOAuthStreamError({
         isChatGptOAuth,
         skipChatGptOAuth: params.skipChatGptOAuth,
@@ -607,52 +544,6 @@ export async function* promptAiSdkStream(
         const fallbackResult = yield* promptAiSdkStream({
           ...params,
           skipChatGptOAuth: true,
-        })
-        return fallbackResult
-      }
-
-      // Check if this is a Claude OAuth authentication error (expired/revoked token) - only handle if no content yielded yet
-      if (
-        isClaudeOAuth &&
-        !params.skipClaudeOAuth &&
-        !hasYieldedContent &&
-        isOAuthAuthError(chunkValue.error)
-      ) {
-        logger.info(
-          { error: getErrorObject(chunkValue.error) },
-          'Claude OAuth auth error during stream, attempting token refresh',
-        )
-        trackEvent({
-          event: AnalyticsEvent.CLAUDE_OAUTH_AUTH_ERROR,
-          userId: userId ?? '',
-          properties: {
-            model: requestedModel,
-            userInputId,
-          },
-          logger,
-        })
-
-        // Try refreshing the token and retrying once before falling back
-        if (!params.claudeOAuthRetried) {
-          const refreshed = await refreshClaudeOAuthToken()
-          if (refreshed) {
-            logger.info({ model: requestedModel }, 'Claude OAuth token refreshed, retrying request')
-            const retryResult = yield* promptAiSdkStream({
-              ...params,
-              claudeOAuthRetried: true,
-            })
-            return retryResult
-          }
-        }
-
-        // Refresh failed or already retried — fall back to Codebuff backend
-        logger.info({ model: requestedModel }, 'Claude OAuth token refresh unsuccessful, falling back to Codebuff backend')
-        if (params.onClaudeOAuthStatusChange) {
-          params.onClaudeOAuthStatusChange(false)
-        }
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipClaudeOAuth: true,
         })
         return fallbackResult
       }
@@ -783,8 +674,8 @@ export async function* promptAiSdkStream(
     usage: usageResult,
   })
 
-  // Skip cost tracking for Claude OAuth (user is on their own subscription)
-  if (!isClaudeOAuth && !isChatGptOAuth) {
+  // Skip cost tracking for ChatGPT OAuth (user is on their own subscription)
+  if (!isChatGptOAuth) {
     const providerMetadataResult = await response.providerMetadata
     const providerMetadata = providerMetadataResult ?? {}
 
@@ -830,7 +721,6 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
     skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
@@ -898,7 +788,6 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
     skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)

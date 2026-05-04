@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   isClaudeModel,
   toAnthropicModelId,
-} from '@codebuff/common/constants/claude-oauth'
+} from '@codebuff/common/constants/anthropic'
 import { isOpenAIProviderModel } from '@codebuff/common/constants/chatgpt-oauth'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
