@@ -13,8 +13,8 @@ const config = {
     '^@codebuff/internal/env$': '<rootDir>/../packages/internal/src/env.ts',
     '^@codebuff/internal/xml-parser$': '<rootDir>/src/test-stubs/xml-parser.ts',
     '^bun:test$': '<rootDir>/src/test-stubs/bun-test.ts',
-    '^react$': '<rootDir>/node_modules/react',
-    '^react-dom$': '<rootDir>/node_modules/react-dom',
+    '^react$': '<rootDir>/../node_modules/react',
+    '^react-dom$': '<rootDir>/../node_modules/react-dom',
   },
   // Bun-specific tests that use top-level await or bun:test features
   testPathIgnorePatterns: [

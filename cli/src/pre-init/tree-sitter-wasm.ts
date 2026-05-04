@@ -7,6 +7,8 @@
 // per the package's split `import`/`require` exports map — returns the build-time
 // absolute path of `tree-sitter.cjs` and fails on user machines.
 
+// @ts-expect-error - Bun's `with { type: 'file' }` returns a string path; TS resolves
+// the .wasm file via web-tree-sitter's exports map and has no loader for it.
 import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm' with {
   type: 'file',
 }
