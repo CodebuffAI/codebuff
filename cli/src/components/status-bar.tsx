@@ -181,9 +181,7 @@ export const StatusBar = ({
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
           return (
-            <span fg={isUrgent ? theme.warning : theme.secondary}>
-              {modelName ? `${modelName} · ` : ''}Free session ·{' '}
-              {formatSessionRemaining(sessionProgress.remainingMs)}
+            <span fg={isUrgent ? theme.warning : theme.secondary}>{modelName ? `${modelName} · ` : ''}{formatSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
