@@ -145,6 +145,10 @@ async function main() {
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
 
+  const wasmCopy = stagePreInitWasm()
+  // Even on a build-script crash, leave the developer's working tree clean.
+  process.on('exit', wasmCopy.cleanup)
+
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
@@ -186,6 +190,11 @@ async function main() {
 
   runCommand('bun', buildArgs, { cwd: cliRoot })
 
+  // Remove the staged pre-init wasm now that the build has read it. Eager
+  // cleanup keeps a successful build clean; the exit handler above is a
+  // backstop for crashes between stage and now.
+  wasmCopy.cleanup()
+
   // Fail the build if the wasm asset didn't actually make it into the
   // compiled binary. The pre-init imports tree-sitter.wasm with `with {
   // type: 'file' }`, which Bun should embed; this scan catches silent
@@ -212,6 +221,70 @@ main().catch((error: unknown) => {
 })
 
 /**
+ * Find web-tree-sitter's tree-sitter.wasm in any plausible node_modules
+ * layout — bun hoists differently across platforms and `bun install`
+ * variants, and CI Windows lays it out differently than monorepo-root
+ * installs.
+ */
+function findWebTreeSitterWasm(): string {
+  const candidates = [
+    join(cliRoot, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
+    join(cliRoot, '..', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
+    join(cliRoot, '..', 'sdk', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
+  ]
+  const found = candidates.find((p) => existsSync(p))
+  if (found) return found
+  try {
+    const cliRequire = createRequire(join(cliRoot, 'package.json'))
+    return cliRequire.resolve('web-tree-sitter/tree-sitter.wasm')
+  } catch (err) {
+    throw new Error(
+      `Could not locate web-tree-sitter/tree-sitter.wasm. Searched:\n  - ` +
+        candidates.join('\n  - ') +
+        `\nAnd createRequire failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+}
+
+/**
+ * Copy `tree-sitter.wasm` into `cli/src/pre-init/` so the pre-init module
+ * can import it via a relative `with { type: 'file' }` path. We can't
+ * import it directly as a node_modules subpath: on Windows, bun's
+ * `with { type: 'file' }` resolution returned falsy at runtime for
+ * `web-tree-sitter/tree-sitter.wasm` even though the bytes ended up in
+ * the binary, breaking the pre-init's runtime path lookup. OpenTUI's own
+ * tree-sitter assets work because they're imported relatively from
+ * inside the package — same trick here.
+ *
+ * Returns a cleanup function. The build calls it eagerly after compile
+ * and registers it as an exit handler so a mid-build crash doesn't leave
+ * a multi-MB untracked file in the working tree.
+ */
+function stagePreInitWasm(): { cleanup: () => void } {
+  const sourceWasm = findWebTreeSitterWasm()
+  const stagedPath = join(cliRoot, 'src', 'pre-init', 'tree-sitter.wasm')
+  let cleaned = false
+  const cleanup = (): void => {
+    if (cleaned) return
+    cleaned = true
+    if (existsSync(stagedPath)) {
+      try {
+        rmSync(stagedPath)
+      } catch (error) {
+        console.error('Failed to remove staged pre-init wasm:', error)
+      }
+    }
+  }
+
+  // Read + write rather than copyFile so we don't accidentally hardlink
+  // (some Windows hosts fail to delete hardlinks while bun has the file
+  // mmapped from the compile step).
+  writeFileSync(stagedPath, readFileSync(sourceWasm))
+  logAlways(`Staged pre-init wasm: ${sourceWasm} → ${stagedPath}`)
+  return { cleanup }
+}
+
+/**
  * Sanity-check the compiled binary actually contains web-tree-sitter's
  * tree-sitter.wasm. The pre-init imports it via `with { type: 'file' }`,
  * which should bundle the asset at a bunfs path. If tree-shaking or a
@@ -226,25 +299,7 @@ main().catch((error: unknown) => {
  * proves *this specific* wasm shipped.
  */
 function verifyTreeSitterWasmEmbedded(outputFile: string): void {
-  const candidates = [
-    join(cliRoot, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
-    join(cliRoot, '..', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
-    join(cliRoot, '..', 'sdk', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
-  ]
-  let wasmPath = candidates.find((p) => existsSync(p))
-  if (!wasmPath) {
-    try {
-      const cliRequire = createRequire(join(cliRoot, 'package.json'))
-      wasmPath = cliRequire.resolve('web-tree-sitter/tree-sitter.wasm')
-    } catch (err) {
-      throw new Error(
-        `Could not locate web-tree-sitter/tree-sitter.wasm to verify against. Searched:\n  - ` +
-          candidates.join('\n  - ') +
-          `\nAnd createRequire failed: ${err instanceof Error ? err.message : String(err)}`,
-      )
-    }
-  }
-
+  const wasmPath = findWebTreeSitterWasm()
   const wasm = readFileSync(wasmPath)
   // Take a 64-byte slice from the middle of the file. The header has
   // generic wasm magic + section markers; the tail can be padding. The

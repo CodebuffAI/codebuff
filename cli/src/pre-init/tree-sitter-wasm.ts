@@ -13,11 +13,22 @@
 
 import { readFileSync } from 'fs'
 
-// @ts-expect-error - Bun's `with { type: 'file' }` returns a string path; TS
-// has no loader for the .wasm subpath of web-tree-sitter's package exports.
-import treeSitterWasmPath from 'web-tree-sitter/tree-sitter.wasm' with {
-  type: 'file',
-}
+// Important: this is a *relative* import of a wasm file the build script
+// copies in from `web-tree-sitter/tree-sitter.wasm` immediately before
+// `bun build --compile`. On Windows, bun's `with { type: 'file' }`
+// returned falsy at runtime when this import was a node_modules subpath
+// (`web-tree-sitter/tree-sitter.wasm`) even though the bytes ended up in
+// the binary — OpenTUI works around the same issue by using relative
+// paths from inside its own package, which is what we're mirroring here.
+//
+// The `.wasm` lives at `./tree-sitter.wasm` next to this file. It is
+// .gitignored; build-binary.ts copies it in before compile and removes
+// it after, so dev-mode runs see no `.wasm` here and fall back to
+// path-based resolution via init-node.ts (which works locally).
+//
+// @ts-expect-error - TS has no loader for .wasm; bun's `with { type: 'file' }`
+// returns a string path at compile time.
+import treeSitterWasmPath from './tree-sitter.wasm' with { type: 'file' }
 
 let embeddedWasm: Uint8Array | undefined
 
