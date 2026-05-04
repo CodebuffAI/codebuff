@@ -145,11 +145,6 @@ async function main() {
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
 
-  const treeSitterEmbed = embedTreeSitterWasmAsBase64()
-  // Restore the stub even on build failure so a developer's git working
-  // tree doesn't end up with a multi-megabyte modified file.
-  process.on('exit', treeSitterEmbed.restore)
-
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
@@ -191,20 +186,12 @@ async function main() {
 
   runCommand('bun', buildArgs, { cwd: cliRoot })
 
-  // Build done — restore the stub so a developer's working tree doesn't show
-  // a multi-megabyte diff. (The exit handler above is a backstop for crashes;
-  // the eager call here keeps a successful build clean.)
-  treeSitterEmbed.restore()
-
-  // Fail the build if the wasm bytes didn't actually make it into the
-  // compiled binary. Catches silent regressions (e.g. bun dropping a huge
-  // string literal, or some future bundler optimization) before we ship a
-  // broken artifact to users.
-  verifyTreeSitterWasmEmbedded(
-    outputFile,
-    treeSitterEmbed.wasmBase64Prefix,
-    treeSitterEmbed.wasmByteLength,
-  )
+  // Fail the build if the wasm asset didn't actually make it into the
+  // compiled binary. The pre-init imports tree-sitter.wasm with `with {
+  // type: 'file' }`, which Bun should embed; this scan catches silent
+  // regressions (e.g. tree-shaking eliminating the import) before we ship
+  // a broken artifact.
+  verifyTreeSitterWasmEmbedded(outputFile)
 
   if (targetInfo.platform !== 'win32') {
     chmodSync(outputFile, 0o755)
@@ -225,39 +212,20 @@ main().catch((error: unknown) => {
 })
 
 /**
- * Inline the contents of `web-tree-sitter/tree-sitter.wasm` as a base64 string
- * literal in `cli/src/pre-init/tree-sitter-wasm-bytes.ts`. The committed
- * file is a stub; this overwrites it with the real bytes immediately before
- * `bun build --compile`, so the bytes get baked into the binary's text
- * segment instead of being placed at a bunfs path that has to be fs-read at
- * runtime.
+ * Sanity-check the compiled binary actually contains web-tree-sitter's
+ * tree-sitter.wasm. The pre-init imports it via `with { type: 'file' }`,
+ * which should bundle the asset at a bunfs path. If tree-shaking or a
+ * future bundler change drops the import, the binary still compiles but
+ * tree-sitter init fails at runtime — this scan fails the build before
+ * we upload that artifact.
  *
- * Returns a function that restores the stub. Always invoke it (success or
- * failure) so a developer's working tree doesn't show a multi-MB diff.
+ * Looks for the actual wasm bytes (a unique 64-byte chunk pulled from
+ * the source file's interior), not just the wasm magic header — OpenTUI
+ * embeds its own tree-sitter language wasms, so a magic-bytes-only scan
+ * would false-pass even without our import. A literal bytes match
+ * proves *this specific* wasm shipped.
  */
-function embedTreeSitterWasmAsBase64(): {
-  restore: () => void
-  wasmBase64Prefix: string
-  wasmByteLength: number
-} {
-  const stubPath = join(cliRoot, 'src', 'pre-init', 'tree-sitter-wasm-bytes.ts')
-  const originalStub = readFileSync(stubPath, 'utf8')
-  let restored = false
-  const restore = (): void => {
-    if (restored) return
-    restored = true
-    try {
-      writeFileSync(stubPath, originalStub)
-    } catch (error) {
-      console.error('Failed to restore tree-sitter-wasm-bytes stub:', error)
-    }
-  }
-
-  // Try multiple candidate locations because bun's hoisting differs by
-  // platform and install command — Windows CI does `bun install --cwd cli`
-  // which can leave web-tree-sitter in cli/node_modules, while monorepo
-  // root installs hoist it to ../node_modules. Fall back to createRequire
-  // last so any failure surfaces with the full search trail.
+function verifyTreeSitterWasmEmbedded(outputFile: string): void {
   const candidates = [
     join(cliRoot, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
     join(cliRoot, '..', 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm'),
@@ -270,64 +238,37 @@ function embedTreeSitterWasmAsBase64(): {
       wasmPath = cliRequire.resolve('web-tree-sitter/tree-sitter.wasm')
     } catch (err) {
       throw new Error(
-        `Could not locate web-tree-sitter/tree-sitter.wasm. Searched:\n  - ` +
+        `Could not locate web-tree-sitter/tree-sitter.wasm to verify against. Searched:\n  - ` +
           candidates.join('\n  - ') +
           `\nAnd createRequire failed: ${err instanceof Error ? err.message : String(err)}`,
       )
     }
   }
 
-  const wasmBytes = readFileSync(wasmPath)
-  const base64 = wasmBytes.toString('base64')
+  const wasm = readFileSync(wasmPath)
+  // Take a 64-byte slice from the middle of the file. The header has
+  // generic wasm magic + section markers; the tail can be padding. The
+  // middle is densely packed code/data unique to this specific wasm
+  // module.
+  const needleStart = Math.floor(wasm.length / 2)
+  const needle = wasm.subarray(needleStart, needleStart + 64)
 
-  const generated =
-    `// AUTO-GENERATED by cli/scripts/build-binary.ts during \`bun build --compile\`.\n` +
-    `// Restored to the empty stub after the build finishes — do not commit a\n` +
-    `// non-empty value here.\n` +
-    `export const TREE_SITTER_WASM_BASE64 = ${JSON.stringify(base64)}\n`
-
-  writeFileSync(stubPath, generated)
-  // Always-on log (not behind VERBOSE) so CI shows which path was used and
-  // whether the embed succeeded — this is the single most useful breadcrumb
-  // when the runtime check fails on a user machine.
-  logAlways(
-    `Embedded tree-sitter.wasm from ${wasmPath} (${wasmBytes.length} bytes → ${base64.length} chars base64)`,
-  )
-  return {
-    restore,
-    wasmBase64Prefix: base64.slice(0, 40),
-    wasmByteLength: wasmBytes.length,
-  }
-}
-
-/**
- * Sanity-check the compiled binary actually contains the embedded base64.
- * If bun --compile ever silently drops a large string literal, or our embed
- * step's file write didn't take effect before the bundle ran, we want the
- * build to fail here instead of producing a binary that crashes for users.
- */
-function verifyTreeSitterWasmEmbedded(
-  outputFile: string,
-  wasmBase64Prefix: string,
-  wasmByteLength: number,
-): void {
   const binary = readFileSync(outputFile)
-  // Search as a Buffer so we don't have to load the whole binary as a UTF-8
-  // string (binaries are not valid UTF-8 and toString would corrupt bytes).
-  const needle = Buffer.from(wasmBase64Prefix, 'utf8')
   const idx = binary.indexOf(needle)
   if (idx === -1) {
     throw new Error(
-      `Embedded tree-sitter wasm prefix not found in ${outputFile}.\n` +
-        `Expected base64 prefix (first 40 chars): ${wasmBase64Prefix}\n` +
-        `Original wasm size: ${wasmByteLength} bytes.\n` +
-        `This means the build-binary.ts embed step ran but bun --compile\n` +
-        `did not include the bytes in the output. The runtime smoke test\n` +
-        `would fall back to path-based wasm resolution, which is broken on\n` +
-        `Windows.`,
+      `web-tree-sitter wasm content not found in ${outputFile}.\n` +
+        `Source wasm: ${wasmPath} (${wasm.length} bytes)\n` +
+        `Searched for 64 bytes from offset ${needleStart} of the source.\n` +
+        `Either the \`with { type: 'file' }\` import in the pre-init was\n` +
+        `tree-shaken out, or bun --compile didn't embed the asset on this\n` +
+        `platform. The runtime tree-sitter init would fail with\n` +
+        `"Internal error: tree-sitter.wasm not found".`,
     )
   }
-  logAlways(`Verified embedded wasm prefix at offset ${idx} of compiled binary.`)
+  logAlways(
+    `Verified embedded tree-sitter.wasm at offset ${idx} of compiled binary (source: ${wasmPath}).`,
+  )
 }
 
 function patchOpenTuiAssetPaths() {
