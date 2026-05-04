@@ -20,16 +20,29 @@
 // zero bundler involvement.
 
 import { existsSync, readFileSync } from 'fs'
-import { dirname, join } from 'path'
+import { dirname, isAbsolute, join, resolve } from 'path'
 
-// Sibling path: same directory as the running binary. Works for both
-// production binaries (where the downloader places tree-sitter.wasm
-// next to the executable) and dev runs (path won't exist, falls
-// through to init-node.ts's path-based resolution which finds the
-// node_modules copy).
-const siblingPath = join(dirname(process.execPath), 'tree-sitter.wasm')
+// Where to look for the sibling tree-sitter.wasm. We can't just use
+// `dirname(process.execPath)`: at pre-init time inside a bun --compile
+// binary on Windows, `process.execPath` returns the *bunfs* internal
+// path (`B:\~BUN\root\<binary>.exe`) rather than the on-disk path of
+// the .exe the user invoked. By the time main() runs it switches to
+// the disk path, but pre-init has long since bailed out.
+//
+// Try several sources in order; the first whose sibling .wasm exists
+// wins. argv[0] is normally the path the binary was invoked with —
+// always a real disk path, never bunfs. execPath is kept as a fallback
+// for environments where argv[0] is something exotic.
+const candidates = (
+  [process.argv[0], process.execPath] as Array<string | undefined>
+)
+  .filter((p): p is string => typeof p === 'string' && p.length > 0)
+  .map((p) => (isAbsolute(p) ? p : resolve(p)))
+  .map((p) => join(dirname(p), 'tree-sitter.wasm'))
 
-if (existsSync(siblingPath)) {
+const siblingPath = candidates.find((p) => existsSync(p))
+
+if (siblingPath) {
   // Tell init-node.ts (in code-map / the SDK bundle) where the wasm
   // is. The locateFile callback there will hand this path to
   // emscripten, which fs.readFile's it.
