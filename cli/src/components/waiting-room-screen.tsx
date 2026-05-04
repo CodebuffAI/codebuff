@@ -3,10 +3,7 @@ import { useRenderer } from '@opentui/react'
 import React, { useMemo, useState } from 'react'
 
 import { Button } from './button'
-import {
-  ChoiceAdBanner,
-  CHOICE_AD_BANNER_HEIGHT,
-} from './choice-ad-banner'
+import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
@@ -58,6 +55,9 @@ const formatRetryAfter = (ms: number): string => {
   const rem = minutes % 60
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
 }
+
+const formatSessionUnits = (units: number): string =>
+  Number.isInteger(units) ? String(units) : units.toFixed(1)
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {
@@ -263,17 +263,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed </span>
                   {formatElapsed(elapsedMs)}
                 </text>
-                {/* Per-model session quota (e.g. DeepSeek V4 Pro caps at 5/12h).
-                    Only rendered for rate-limited models so the Minimax queue
-                    stays clutter-free. */}
+                {/* Premium session quota. Minimax is unlimited, so it has no
+                    rateLimit payload and skips this line. */}
                 {session.rateLimit && (
                   <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                    <span>Sessions </span>
+                    <span>Premium sessions </span>
                     <span fg={theme.foreground}>
-                      {session.rateLimit.recentCount} /{' '}
+                      {formatSessionUnits(session.rateLimit.recentCount)} /{' '}
                       {session.rateLimit.limit}
                     </span>
-                    <span> used in last {session.rateLimit.windowHours}h</span>
+                    <span> used in the last 20 hours</span>
                   </text>
                 )}
               </box>
@@ -346,8 +345,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </>
           )}
 
-          {/* Per-model session quota exhausted (e.g. 5+ DeepSeek sessions in
-              the last 12h). Terminal for this run — the user can exit and come
+          {/* Shared premium-session quota exhausted. Terminal for this run —
+              the user can exit and come
               back once the oldest session in the window rolls off. */}
           {session?.status === 'rate_limited' && (
             <>
@@ -357,10 +356,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
                 You've used{' '}
                 <span fg={theme.foreground}>
-                  {session.recentCount} of {session.limit}
+                  {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                hour-long sessions on {session.model} in the last{' '}
-                {session.windowHours}h. Try again in{' '}
+                premium sessions in the last 20 hours. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>

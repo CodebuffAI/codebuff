@@ -351,6 +351,13 @@
       "when": 1777929052630,
       "tag": "0049_loud_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1777936763321,
+      "tag": "0050_overrated_stellaris",
+      "breakpoints": true
     }
   ]
 }

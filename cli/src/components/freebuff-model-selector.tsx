@@ -7,8 +7,10 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_MODELS,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffModelAvailable,
+  isFreebuffPremiumModelId,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
@@ -31,6 +33,10 @@ const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
   ...FREEBUFF_MODELS.filter((model) => model.id !== DEFAULT_FREEBUFF_MODEL_ID),
 ]
 
+function formatSessionUnits(units: number): string {
+  return Number.isInteger(units) ? String(units) : units.toFixed(1)
+}
+
 /**
  * Dual-purpose model picker:
  *   - Pre-chat landing (session 'none'): user hasn't joined any queue. Picking
@@ -45,11 +51,6 @@ const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
  * Always stacked vertically. On narrow terminals where the longest one-line
  * label wouldn't fit, the secondary details (warning / deployment hours)
  * spill onto an indented second line under the name.
- *
- * No queue-position hint: traffic doesn't reach the threshold where a wait
- * would form, so showing "N in line" everywhere just adds noise (and width).
- * The picker still surfaces "Closed" (outside deployment hours) and "Limit
- * used" (per-user quota) inline since those gate the actual click.
  */
 export const FreebuffModelSelector: React.FC = () => {
   const theme = useTheme()
@@ -91,15 +92,30 @@ export const FreebuffModelSelector: React.FC = () => {
     }
   }, [now, selectedModel, session, setSelectedModel])
 
+  const committedModelId = session?.status === 'queued' ? session.model : null
+  const rateLimitsByModel =
+    session && 'rateLimitsByModel' in session
+      ? session.rateLimitsByModel
+      : undefined
+
+  const getQuotaHint = useCallback(
+    (modelId: string): string => {
+      const rateLimit = rateLimitsByModel?.[modelId]
+      if (rateLimit) {
+        return `${formatSessionUnits(rateLimit.recentCount)}/${rateLimit.limit} used`
+      }
+      return isFreebuffPremiumModelId(modelId)
+        ? `0/${FREEBUFF_PREMIUM_SESSION_LIMIT} used`
+        : 'Unlimited'
+    },
+    [rateLimitsByModel],
+  )
+
   const BUTTON_CHROME = 4 // 2 border + 2 padding
 
   // Decide whether secondary details (warning / deployment hours) get their
-  // own indented line under the name. Trigger: the widest one-line button
-  // wouldn't fit in our content budget. All buttons share a uniform width so
-  // the column reads as a clean stack of equal choices. We size to the
-  // *label* — Closed / Limit used hints can transiently push the text past
-  // this width, but they're rare (deployment hours closing, daily quota hit)
-  // and a small one-time grow is fine.
+  // own indented line under the name. All buttons share a uniform width so
+  // the column reads as a clean stack of equal choices.
   const { wrapDetails, buttonOuterWidth } = useMemo(() => {
     const detailsTextLen = (model: FreebuffModelOption): number => {
       const parts: number[] = []
@@ -108,8 +124,13 @@ export const FreebuffModelSelector: React.FC = () => {
       }
       if (model.warning) parts.push(model.warning.length)
       if (parts.length === 0) return 0
-      return parts.reduce((a, b) => a + b, 0) + (parts.length - 1) * 3 /* " · " */
+      return (
+        parts.reduce((a, b) => a + b, 0) + (parts.length - 1) * 3
+      ) /* " · " */
     }
+
+    const hintLen = (model: FreebuffModelOption): number =>
+      Math.max(getQuotaHint(model.id).length, 'Closed'.length)
 
     const oneLineLen = (model: FreebuffModelOption): number => {
       const inlineDetails = detailsTextLen(model)
@@ -118,12 +139,19 @@ export const FreebuffModelSelector: React.FC = () => {
         model.displayName.length +
         3 /* " · " */ +
         model.tagline.length +
-        (inlineDetails > 0 ? 3 + inlineDetails : 0)
+        (inlineDetails > 0 ? 3 + inlineDetails : 0) +
+        1 /* space before hint */ +
+        hintLen(model)
       )
     }
 
     const labelLineLen = (model: FreebuffModelOption): number =>
-      2 + model.displayName.length + 3 + model.tagline.length
+      2 +
+      model.displayName.length +
+      3 +
+      model.tagline.length +
+      1 +
+      hintLen(model)
 
     const detailsLineLen = (model: FreebuffModelOption): number => {
       const len = detailsTextLen(model)
@@ -148,16 +176,8 @@ export const FreebuffModelSelector: React.FC = () => {
         contentMaxWidth,
       ),
     }
-  }, [contentMaxWidth, deploymentAvailabilityLabel])
+  }, [contentMaxWidth, deploymentAvailabilityLabel, getQuotaHint])
 
-  // "Already committed to this model" — only when the server has us queued
-  // on it. On the landing screen (status 'none'), nothing is committed yet,
-  // so picking the focused model is always a real action (first join).
-  const committedModelId = session?.status === 'queued' ? session.model : null
-  const rateLimitsByModel =
-    session && 'rateLimitsByModel' in session
-      ? session.rateLimitsByModel
-      : undefined
   const isJoinable = useCallback(
     (modelId: string) => {
       if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
@@ -230,19 +250,13 @@ export const FreebuffModelSelector: React.FC = () => {
         const isHovered = hoveredId === model.id
         const isFocused = focusedId === model.id
         const isAvailable = isFreebuffModelAvailable(model.id, new Date(now))
-        const rateLimit = rateLimitsByModel?.[model.id]
-        const isQuotaExhausted =
-          rateLimit !== undefined && rateLimit.recentCount >= rateLimit.limit
-        const canJoin = isAvailable && !isQuotaExhausted
+        const canJoin = isJoinable(model.id)
         // Clickable whenever picking would actually do something — i.e.
         // anything except re-picking the queue we're already in.
         const interactable =
           !pending && canJoin && model.id !== committedModelId
-        const hint = !isAvailable
-          ? 'Closed'
-          : isQuotaExhausted
-            ? 'Limit used'
-            : ''
+        const quotaHint = getQuotaHint(model.id)
+        const hint = isAvailable ? quotaHint : 'Closed'
 
         // Focused row: green border + arrow indicator + bold name. The name
         // itself stays the normal foreground color so it doesn't shout — the
@@ -251,7 +265,7 @@ export const FreebuffModelSelector: React.FC = () => {
         const fgColor = canJoin ? theme.foreground : theme.muted
         const mutedColor = theme.muted
         const warningColor = theme.secondary
-        const hintColor = theme.secondary
+        const hintColor = canJoin ? theme.muted : theme.secondary
 
         const borderColor = isFocused
           ? theme.primary
@@ -303,16 +317,17 @@ export const FreebuffModelSelector: React.FC = () => {
               {showInlineWarning && (
                 <span fg={warningColor}> · {model.warning}</span>
               )}
-              {hint && <span fg={hintColor}> {hint}</span>}
+              <span fg={hintColor}> {hint}</span>
             </text>
             {showWrappedDetails && (
               <text>
-                <span>  </span>
+                <span> </span>
                 {model.availability === 'deployment_hours' && (
                   <span fg={mutedColor}>{deploymentAvailabilityLabel}</span>
                 )}
-                {model.availability === 'deployment_hours' &&
-                  model.warning && <span fg={mutedColor}> · </span>}
+                {model.availability === 'deployment_hours' && model.warning && (
+                  <span fg={mutedColor}> · </span>
+                )}
                 {model.warning && (
                   <span fg={warningColor}>{model.warning}</span>
                 )}

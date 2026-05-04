@@ -1,7 +1,7 @@
 import { db } from '@codebuff/internal/db'
 import { coerceBool } from '@codebuff/internal/db/advisory-lock'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, asc, count, eq, gte, lt, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
@@ -161,10 +161,70 @@ export async function joinOrTakeOver(params: {
   return row as InternalSessionRow
 }
 
-export async function endSession(userId: string): Promise<void> {
-  await db
-    .delete(schema.freeSession)
-    .where(eq(schema.freeSession.user_id, userId))
+export function getRoundedSessionUnits(params: {
+  admittedAt: Date | null
+  now: Date
+  sessionLengthMs: number
+}): number {
+  const { admittedAt, now, sessionLengthMs } = params
+  if (!admittedAt || sessionLengthMs <= 0) return 0
+  const usedMs = Math.max(
+    0,
+    Math.min(sessionLengthMs, now.getTime() - admittedAt.getTime()),
+  )
+  return Math.ceil((usedMs / sessionLengthMs) * 10) / 10
+}
+
+export async function endSession(params: {
+  userId: string
+  now: Date
+  sessionLengthMs: number
+}): Promise<void> {
+  const { userId, now, sessionLengthMs } = params
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(schema.freeSession)
+      .where(eq(schema.freeSession.user_id, userId))
+      .for('update')
+      .limit(1)
+
+    if (
+      row?.status === 'active' &&
+      row.admitted_at &&
+      row.expires_at &&
+      row.expires_at.getTime() > now.getTime()
+    ) {
+      const sessionUnits = getRoundedSessionUnits({
+        admittedAt: row.admitted_at,
+        now,
+        sessionLengthMs,
+      }).toFixed(1)
+
+      const [latestAdmit] = await tx
+        .select({ id: schema.freeSessionAdmit.id })
+        .from(schema.freeSessionAdmit)
+        .where(
+          and(
+            eq(schema.freeSessionAdmit.user_id, userId),
+            eq(schema.freeSessionAdmit.model, row.model),
+          ),
+        )
+        .orderBy(desc(schema.freeSessionAdmit.admitted_at))
+        .limit(1)
+
+      if (latestAdmit) {
+        await tx
+          .update(schema.freeSessionAdmit)
+          .set({ session_units: sessionUnits })
+          .where(eq(schema.freeSessionAdmit.id, latestAdmit.id))
+      }
+    }
+
+    await tx
+      .delete(schema.freeSession)
+      .where(eq(schema.freeSession.user_id, userId))
+  })
 }
 
 export async function queueDepth(params: { model: string }): Promise<number> {
@@ -459,36 +519,44 @@ export async function promoteQueuedUser(params: {
   })
 }
 
-/**
- * List admissions for `userId` on `model` whose `admitted_at` is within the
- * window `[since, ∞)`, ordered oldest-first. Caller gets both the count
- * (array length, capped at `limit`) and the oldest timestamp (`rows[0]`) —
- * the oldest is needed to compute `retryAfterMs` when the window is full,
- * so one query covers both the check and the reject path.
- *
- * Drives the per-user, per-model rate limit (e.g. at most 5 DeepSeek sessions
- * in the last 12h) enforced before `joinOrTakeOver`.
- */
-export async function listRecentAdmits(params: {
-  userId: string
+export interface RecentSessionAdmit {
+  admittedAt: Date
   model: string
+  sessionUnits: number
+}
+
+/**
+ * List premium-model admissions for `userId` inside `[since, ∞)`, ordered
+ * oldest-first. Each row carries charged session units; manual early end can
+ * revise a freshly written 1.0-unit admit down to a fractional value.
+ */
+export async function listRecentPremiumAdmits(params: {
+  userId: string
+  models: readonly string[]
   since: Date
-  limit: number
-}): Promise<Date[]> {
-  const { userId, model, since, limit } = params
+}): Promise<RecentSessionAdmit[]> {
+  const { userId, models, since } = params
+  if (models.length === 0) return []
   const rows = await db
-    .select({ admitted_at: schema.freeSessionAdmit.admitted_at })
+    .select({
+      admitted_at: schema.freeSessionAdmit.admitted_at,
+      model: schema.freeSessionAdmit.model,
+      session_units: schema.freeSessionAdmit.session_units,
+    })
     .from(schema.freeSessionAdmit)
     .where(
       and(
         eq(schema.freeSessionAdmit.user_id, userId),
-        eq(schema.freeSessionAdmit.model, model),
+        inArray(schema.freeSessionAdmit.model, [...models]),
         gte(schema.freeSessionAdmit.admitted_at, since),
       ),
     )
     .orderBy(asc(schema.freeSessionAdmit.admitted_at))
-    .limit(limit)
-  return rows.map((r) => r.admitted_at)
+  return rows.map((r) => ({
+    admittedAt: r.admitted_at,
+    model: r.model,
+    sessionUnits: Number(r.session_units),
+  }))
 }
 
 /** Stable 31-bit hash so model-keyed advisory lock ids don't overflow int4. */

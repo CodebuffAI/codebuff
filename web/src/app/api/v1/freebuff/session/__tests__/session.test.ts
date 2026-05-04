@@ -112,7 +112,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     promoteQueuedUser: async () => null,
     // No admits in handler tests — the rate-limit check reads empty and
     // every request falls through to the queue.
-    listRecentAdmits: async () => [],
+    listRecentPremiumAdmits: async () => [],
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepthsByModel: async () => {
@@ -124,7 +124,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       return out
     },
     queuePositionFor: async () => 1,
-    endSession: async (userId) => {
+    endSession: async ({ userId }) => {
       rows.delete(userId)
     },
     joinOrTakeOver: async ({ userId, model, now, countryAccess }) => {

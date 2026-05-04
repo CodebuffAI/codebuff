@@ -3,9 +3,11 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
+  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
   isFreebuffModelAvailable,
+  isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
   resolveSupportedFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
@@ -23,7 +25,7 @@ import {
   FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
-  listRecentAdmits,
+  listRecentPremiumAdmits,
   promoteQueuedUser,
   queueDepthsByModel,
   queuePositionFor,
@@ -40,55 +42,95 @@ import type {
   SessionStateResponse,
 } from './types'
 
-/**
- * Per-model admission rate limits. Keyed by freebuff model id; a model not
- * in the map has no rate limit applied. Minimax is cheap enough to leave
- * unlimited.
- *
- * Hard-coded rather than env-driven: the values need to be observable in the
- * code review, and the CLI already renders the numbers via `rateLimit` on
- * queued/active responses — changing them is a deliberate, typed edit.
- */
-const RATE_LIMITS: Record<string, { limit: number; windowHours: number }> = {
-  [FREEBUFF_GLM_MODEL_ID]: { limit: 5, windowHours: 12 },
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: { limit: 5, windowHours: 18 },
-  [FREEBUFF_KIMI_MODEL_ID]: { limit: 5, windowHours: 18 },
+function roundSessionUnits(units: number): number {
+  return Math.round(units * 10) / 10
 }
 
-/** Fetch the caller's current quota snapshot for `model`, or undefined if the
- *  model isn't rate-limited. Used by both POST (after admit) and GET polls so
- *  the CLI's "N of M sessions used" line stays live instead of disappearing
- *  after the first poll. Also returns the oldest admit in-window and the
- *  window duration so callers that need `retryAfterMs` don't have to re-query
- *  or duplicate the window math. */
+function getRetryAfterMsForPremiumLimit(params: {
+  admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
+  totalUnits: number
+  targetUnits: number
+  windowMs: number
+  now: Date
+}): number {
+  let remainingUnits = params.totalUnits
+  for (const admit of params.admits) {
+    remainingUnits = roundSessionUnits(remainingUnits - admit.sessionUnits)
+    if (remainingUnits <= params.targetUnits) {
+      return Math.max(
+        0,
+        admit.admittedAt.getTime() + params.windowMs - params.now.getTime(),
+      )
+    }
+  }
+  return 0
+}
+
+function canStartPremiumSession(snapshot: FreebuffSessionRateLimit): boolean {
+  return snapshot.recentCount < snapshot.limit
+}
+
+interface PremiumQuotaSnapshot {
+  recentCount: number
+  admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
+  windowMs: number
+}
+
+async function fetchPremiumQuotaSnapshot(
+  userId: string,
+  deps: SessionDeps,
+): Promise<PremiumQuotaSnapshot> {
+  const now = nowOf(deps)
+  const windowMs = FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS * 60 * 60 * 1000
+  const since = new Date(now.getTime() - windowMs)
+  const admits = await deps.listRecentPremiumAdmits({
+    userId,
+    since,
+    models: FREEBUFF_PREMIUM_MODEL_IDS,
+  })
+  return {
+    recentCount: roundSessionUnits(
+      admits.reduce((sum, admit) => sum + admit.sessionUnits, 0),
+    ),
+    admits,
+    windowMs,
+  }
+}
+
+function toRateLimitInfo(
+  model: string,
+  snapshot: PremiumQuotaSnapshot,
+): FreebuffSessionRateLimit {
+  return {
+    model,
+    limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+    windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+    recentCount: snapshot.recentCount,
+  }
+}
+
+/** Fetch the caller's current shared premium-session quota snapshot for
+ *  `model`, or undefined if the model is unlimited. Used by both POST (after
+ *  admit) and GET polls so the CLI's "N of M sessions used" line stays live
+ *  instead of disappearing after the first poll. */
 async function fetchRateLimitSnapshot(
   userId: string,
   model: string,
   deps: SessionDeps,
 ): Promise<
-  | { info: FreebuffSessionRateLimit; oldest: Date | null; windowMs: number }
+  | {
+      info: FreebuffSessionRateLimit
+      admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
+      windowMs: number
+    }
   | undefined
 > {
-  const cfg = RATE_LIMITS[model]
-  if (!cfg) return undefined
-  const now = nowOf(deps)
-  const windowMs = cfg.windowHours * 60 * 60 * 1000
-  const since = new Date(now.getTime() - windowMs)
-  const admits = await deps.listRecentAdmits({
-    userId,
-    model,
-    since,
-    limit: cfg.limit,
-  })
+  if (!isFreebuffPremiumModelId(model)) return undefined
+  const snapshot = await fetchPremiumQuotaSnapshot(userId, deps)
   return {
-    info: {
-      model,
-      limit: cfg.limit,
-      windowHours: cfg.windowHours,
-      recentCount: admits.length,
-    },
-    oldest: admits[0] ?? null,
-    windowMs,
+    info: toRateLimitInfo(model, snapshot),
+    admits: snapshot.admits,
+    windowMs: snapshot.windowMs,
   }
 }
 
@@ -96,16 +138,10 @@ async function fetchRateLimitsByModel(
   userId: string,
   deps: SessionDeps,
 ): Promise<Record<string, FreebuffSessionRateLimit>> {
-  const entries = await Promise.all(
-    Object.keys(RATE_LIMITS).map(async (model) => {
-      const snapshot = await fetchRateLimitSnapshot(userId, model, deps)
-      return snapshot ? ([model, snapshot.info] as const) : null
-    }),
-  )
+  const snapshot = await fetchPremiumQuotaSnapshot(userId, deps)
   return Object.fromEntries(
-    entries.filter(
-      (entry): entry is readonly [string, FreebuffSessionRateLimit] =>
-        entry !== null,
+    FREEBUFF_PREMIUM_MODEL_IDS.map(
+      (model) => [model, toRateLimitInfo(model, snapshot)] as const,
     ),
   )
 }
@@ -134,7 +170,11 @@ export interface SessionDeps {
     now: Date
     countryAccess?: FreeSessionCountryAccessMetadata
   }) => Promise<InternalSessionRow>
-  endSession: (userId: string) => Promise<void>
+  endSession: (params: {
+    userId: string
+    now: Date
+    sessionLengthMs: number
+  }) => Promise<void>
   queueDepthsByModel: () => Promise<Record<string, number>>
   queuePositionFor: (params: {
     userId: string
@@ -145,15 +185,12 @@ export interface SessionDeps {
    *  bound to a given model. Compared against the model's configured
    *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
   activeCountForModel: (model: string) => Promise<number>
-  /** Rate-limit helper: oldest-first admission timestamps for (userId, model)
-   *  inside the window. The caller uses `rows.length` as the count (capped
-   *  at `limit`) and `rows[0]` as the oldest for `retryAfterMs`. */
-  listRecentAdmits: (params: {
+  /** Rate-limit helper: oldest-first premium admissions inside the window. */
+  listRecentPremiumAdmits: (params: {
     userId: string
-    model: string
+    models: readonly string[]
     since: Date
-    limit: number
-  }) => Promise<Date[]>
+  }) => Promise<{ admittedAt: Date; model: string; sessionUnits: number }[]>
   /** Instant-admit promotion: flips a specific queued row to active. Returns
    *  the updated row or null if the row wasn't in a queued state. */
   promoteQueuedUser: (params: {
@@ -182,7 +219,7 @@ const defaultDeps: SessionDeps = {
   queueDepthsByModel,
   queuePositionFor,
   activeCountForModel,
-  listRecentAdmits,
+  listRecentPremiumAdmits,
   promoteQueuedUser,
   getInstantAdmitCapacity,
   isWaitingRoomEnabled,
@@ -291,8 +328,8 @@ export async function requestSession(params: {
   }
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
-  // create a queued row. Only models listed in RATE_LIMITS are gated; others
-  // (Minimax today) fall through unchanged.
+  // create a queued row. Premium models share one 20h session-unit pool;
+  // Minimax falls through unchanged as unlimited.
   //
   // Takeover/reclaim exception: a user who already holds a queued or
   // active+unexpired row on this same model is re-anchoring (CLI restart,
@@ -319,13 +356,14 @@ export async function requestSession(params: {
 
   if (!isReclaim) {
     const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
-    if (snapshot && snapshot.info.recentCount >= snapshot.info.limit) {
-      // Oldest admit's window-anniversary is when one slot opens back up.
-      // Clamped at 0 so a clock skew can't surface a negative retry-after.
-      const retryAfterMs = Math.max(
-        0,
-        (snapshot.oldest?.getTime() ?? 0) + snapshot.windowMs - now.getTime(),
-      )
+    if (snapshot && !canStartPremiumSession(snapshot.info)) {
+      const retryAfterMs = getRetryAfterMsForPremiumLimit({
+        admits: snapshot.admits,
+        totalUnits: snapshot.info.recentCount,
+        targetUnits: snapshot.info.limit,
+        windowMs: snapshot.windowMs,
+        now,
+      })
       return {
         status: 'rate_limited',
         model,
@@ -493,7 +531,11 @@ export async function endUserSession(params: {
   ) {
     return
   }
-  await deps.endSession(params.userId)
+  await deps.endSession({
+    userId: params.userId,
+    now: nowOf(deps),
+    sessionLengthMs: deps.sessionLengthMs,
+  })
 }
 
 export type SessionGateResult =

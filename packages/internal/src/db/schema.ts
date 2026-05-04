@@ -911,7 +911,9 @@ export const freeSession = pgTable(
 
 /**
  * Audit log of every admission — one row per queued→active transition. Used
- * to rate-limit heavy users (e.g. no more than 5 DeepSeek sessions per 12h).
+ * to track shared premium-session usage for Freebuff's 5 sessions / 20h
+ * allowance. `session_units` starts at 1.0 and may be reduced when users end
+ * active sessions early.
  *
  * Separate from `free_session` because that table is one-row-per-user (state,
  * not history); the UPSERT path there would otherwise destroy prior admissions.
@@ -932,6 +934,12 @@ export const freeSessionAdmit = pgTable(
     })
       .notNull()
       .defaultNow(),
+    session_units: numeric('session_units', {
+      precision: 3,
+      scale: 1,
+    })
+      .notNull()
+      .default('1.0'),
   },
   (table) => [
     // Rate-limit lookup: WHERE user_id=$1 AND model=$2 AND admitted_at > $cutoff
