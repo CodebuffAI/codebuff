@@ -30,21 +30,21 @@ function getEmbeddedWasmBinary(): Uint8Array | undefined {
   )[WASM_BINARY_GLOBAL_KEY]
 }
 
-function isBunEmbeddedPath(filePath: string): boolean {
-  return filePath.replace(/\\/g, '/').includes('/~BUN/root/')
-}
-
 function resolveTreeSitterWasm(scriptDir: string): string {
+  // Only return paths that fs.existsSync confirms — emscripten will
+  // fs.readFile whatever we hand it, and bunfs internal paths (the
+  // `B:\~BUN\root\...` form on Windows) ENOENT under that read even
+  // though they look right. An earlier `isBunEmbeddedPath` shortcut
+  // assumed those paths were readable; they aren't.
+
   const override = process.env[TREE_SITTER_WASM_ENV_VAR]
-  if (override) {
-    if (fs.existsSync(override) || isBunEmbeddedPath(override)) {
-      return override
-    }
+  if (override && fs.existsSync(override)) {
+    return override
   }
 
-  const fallback = path.join(scriptDir, 'tree-sitter.wasm')
-  if (fs.existsSync(fallback) || isBunEmbeddedPath(fallback)) {
-    return fallback
+  const scriptDirFallback = path.join(scriptDir, 'tree-sitter.wasm')
+  if (fs.existsSync(scriptDirFallback)) {
+    return scriptDirFallback
   }
 
   // Sibling file next to the running binary. The CLI ships
@@ -56,7 +56,10 @@ function resolveTreeSitterWasm(scriptDir: string): string {
   // path later. emscripten calls this locateFile callback during
   // Parser.init's async work, by which time execPath has stabilized.
   try {
-    const sibling = path.join(path.dirname(process.execPath), 'tree-sitter.wasm')
+    const sibling = path.join(
+      path.dirname(process.execPath),
+      'tree-sitter.wasm',
+    )
     if (fs.existsSync(sibling)) {
       return sibling
     }
