@@ -1,5 +1,12 @@
 #!/usr/bin/env bun
 
+// Embed tree-sitter.wasm into the bun-compile binary at a bunfs path the runtime
+// can find. Without this, web-tree-sitter resolves the wasm via require.resolve,
+// which (since 0.25.10's split exports map) returns the build-time absolute path
+// of tree-sitter.cjs and fails on user machines. Must run before the SDK / code-map
+// import chain triggers Parser.init.
+import './pre-init/tree-sitter-wasm'
+
 import fs from 'fs'
 import { createRequire } from 'module'
 import os from 'os'

@@ -23,7 +23,9 @@
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
     "typecheck": "tsc --noEmit -p ."
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/pre-init/*.ts"
+  ],
   "engines": {
     "bun": "1.3.11"
   },
