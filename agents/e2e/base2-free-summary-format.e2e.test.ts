@@ -22,8 +22,28 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
  * instead of using actual tool calls via the API.
  *
  * These patterns come from the context pruner's summarizeToolCall function.
+ * Both the current format (lowercase bare verbs, [USER] role tag) and
+ * historical formats are matched as defensive checks.
  */
 const SUMMARY_IMITATION_PATTERNS = [
+  // Current format (new bare-verb style)
+  /^\[USER\](?:\s|\[|$)/m,
+  /^\[ASSISTANT\]\n/m,
+  /^Progress note:\s/m,
+  /^inspected files?:\s/m,
+  /^inspected subtrees?:\s/m,
+  /^wrote file:\s/m,
+  /^edited file:\s/m,
+  /^proposed writing:\s/m,
+  /^proposed editing:\s/m,
+  /^listed directory:\s/m,
+  /^code search for\s/m,
+  /^glob search for\s/m,
+  /^ran command:\s/m,
+  /^delegated agents?:\s*\n/m,
+  /^delegated agent\s/m,
+  /^Edit result from \w+:/m,
+  // Older format (kept as defensive checks)
   /^Read files?:\s/m,
   /^Edited file:\s/m,
   /^Wrote file:\s/m,
@@ -36,15 +56,11 @@ const SUMMARY_IMITATION_PATTERNS = [
   /^Listed dir:\s/m,
   /^Read subtree:\s/m,
   /^Used tool:\s/m,
-  /^\[ASSISTANT\]\n/m,
-  /^\[USER\]\n/m,
   /^User request(?:\s|\[|:)/m,
-  /^Progress note:\s/m,
   /^Prior action record:\s/m,
   /^Previously inspected files:\s/m,
   /^Previously edited file:\s/m,
   /^Previously delegated agents:\s*\n/m,
-  /^Edit result from \w+:/m,
 ]
 
 /**
@@ -106,7 +122,7 @@ function createSummarizedConversation(): Message {
 This is a summary of the conversation so far. The original messages have been condensed to save context space.
 
 <historical_memory>
-User request:
+[USER]
 The user asked to set up a new TypeScript project with a simple utility file at src/utils.ts containing a helper function called formatDate.
 
 ---
@@ -114,13 +130,14 @@ The user asked to set up a new TypeScript project with a simple utility file at 
 Progress note:
 Sure, I'll help set up the project.
 
-Prior action record:
-Previously inspected files: package.json, tsconfig.json
-Previously wrote file: src/utils.ts
+---
+
+inspected files: package.json, tsconfig.json
+wrote file: src/utils.ts
 
 ---
 
-User request:
+[USER]
 Thanks! Now can you also add a function called parseConfig that reads a JSON config file?
 
 ---
@@ -128,21 +145,23 @@ Thanks! Now can you also add a function called parseConfig that reads a JSON con
 Progress note:
 I'll add the parseConfig function to the utils file.
 
-Prior action record:
-Previously inspected files: src/utils.ts
-Previously edited file: src/utils.ts
+---
+
+inspected files: src/utils.ts
+edited file: src/utils.ts
 
 ---
 
-Prior action record:
-Previously delegated agents:
+delegated agents:
 - file-picker (prompt: "Find config-related files")
 - basher (params: {"command":"cat src/utils.ts"})
 
 ---
 
-Prior action record:
-Previously ran command: cat src/utils.ts
+ran command: cat src/utils.ts
+
+---
+
 Edit result from str_replace:
 {"file":"src/utils.ts","message":"Updated file","unifiedDiff":"--- a/src/utils.ts\\n+++ b/src/utils.ts\\n@@ -5,0 +6,10 @@\\n+export function parseConfig(path: string) {\\n+  return JSON.parse(fs.readFileSync(path, 'utf-8'))\\n+}"}
 </historical_memory>

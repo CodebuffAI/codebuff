@@ -294,9 +294,8 @@ describe('context-pruner handleSteps', () => {
 
     // Should use a memory artifact format, not transcript role markers
     expect(content).toContain('<historical_memory>')
-    expect(content).toContain('User request:')
+    expect(content).toContain('[USER]')
     expect(content).toContain('Progress note:')
-    expect(content).not.toContain('[USER]')
     expect(content).not.toContain('[ASSISTANT]')
   })
 
@@ -321,8 +320,8 @@ describe('context-pruner handleSteps', () => {
     const content = results[0].input.messages[0].content[0].text
 
     // Should contain tool summaries
-    expect(content).toContain('Previously inspected files: file1.ts, file2.ts')
-    expect(content).toContain('Previously edited file: file1.ts')
+    expect(content).toContain('inspected files: file1.ts, file2.ts')
+    expect(content).toContain('edited file: file1.ts')
   })
 
   test('summarizes various tool types correctly', () => {
@@ -350,10 +349,10 @@ describe('context-pruner handleSteps', () => {
     const results = runHandleSteps(messages, 50000, 10000)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('Previously wrote file: new-file.ts')
-    expect(content).toContain('Previously ran command: npm test')
-    expect(content).toContain('Previous code search for "function"')
-    expect(content).toContain('Previously delegated agents:')
+    expect(content).toContain('wrote file: new-file.ts')
+    expect(content).toContain('ran command: npm test')
+    expect(content).toContain('code search for "function"')
+    expect(content).toContain('delegated agents:')
     expect(content).toContain('- file-picker')
     expect(content).toContain('- commander')
   })
@@ -387,7 +386,7 @@ describe('context-pruner handleSteps', () => {
     const results = runHandleSteps(messages, 50000, 10000)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('User request [image(s) were attached]:')
+    expect(content).toContain('[USER] [image(s) were attached]')
   })
 
   test('removes only INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN when under context limit', () => {
@@ -569,7 +568,7 @@ describe('context-pruner handleSteps', () => {
       .text
     expect(summaryContent).toContain('PLEASE FIX THE BUG')
     expect(summaryContent).toContain('I found the likely issue.')
-    expect(summaryContent).toContain('Previously inspected files: src/bug.ts')
+    expect(summaryContent).toContain('inspected files: src/bug.ts')
 
     expect(resultMessages[1].role).toBe('user')
     expect(resultMessages[1].tags).toBeUndefined()
@@ -653,7 +652,7 @@ describe('context-pruner handleSteps', () => {
     const results = runHandleSteps(messages, 50000, 10000)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('Previously delegated agent file-picker')
+    expect(content).toContain('delegated agent file-picker')
   })
 
   test('handles long terminal commands by truncating', () => {
@@ -672,7 +671,7 @@ describe('context-pruner handleSteps', () => {
 
     // Should truncate to 50 chars + ...
     expect(content).toContain(
-      'Previously ran command: npm run build -- --config=production --verbose --o...',
+      'ran command: npm run build -- --config=production --verbose --o...',
     )
   })
 
@@ -686,7 +685,7 @@ describe('context-pruner handleSteps', () => {
     const results = runHandleSteps(messages, 50000, 10000)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('Previously used tool unknown_tool_name')
+    expect(content).toContain('used tool unknown_tool_name')
   })
 
   test('handles multiple tool calls in single assistant message', () => {
@@ -719,8 +718,8 @@ describe('context-pruner handleSteps', () => {
     const content = results[0].input.messages[0].content[0].text
 
     // Both tool calls should be in the summary
-    expect(content).toContain('Previously inspected files: a.ts')
-    expect(content).toContain('Previously inspected files: b.ts')
+    expect(content).toContain('inspected files: a.ts')
+    expect(content).toContain('inspected files: b.ts')
   })
 
   test('handles mixed text and tool calls in assistant message', () => {
@@ -748,7 +747,7 @@ describe('context-pruner handleSteps', () => {
 
     // Should have both text and tool summary
     expect(content).toContain('Let me read that file for you')
-    expect(content).toContain('Previously inspected files: test.ts')
+    expect(content).toContain('inspected files: test.ts')
   })
 })
 
@@ -893,7 +892,7 @@ describe('context-pruner code_search with flags', () => {
     const content = results[0].input.messages[0].content[0].text
 
     expect(content).toContain(
-      'Previous code search for "myFunction" (-g *.ts -i)',
+      'code search for "myFunction" (-g *.ts -i)',
     )
   })
 })
@@ -1775,7 +1774,7 @@ describe('context-pruner str_replace and write_file tool results', () => {
     const content = results[0].input.messages[0].content[0].text
 
     // Should have both the tool call summary and the full result
-    expect(content).toContain('Previously edited file: src/file.ts')
+    expect(content).toContain('edited file: src/file.ts')
     expect(content).toContain('Edit result from str_replace:')
     expect(content).toContain('errorMessage')
     expect(content).toContain('No match found for old string')
@@ -1826,7 +1825,7 @@ describe('context-pruner glob and list_directory tools', () => {
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('Previous glob search for **/*.ts')
+    expect(content).toContain('glob search for **/*.ts')
   })
 
   test('summarizes list_directory tool with path', () => {
@@ -1841,7 +1840,7 @@ describe('context-pruner glob and list_directory tools', () => {
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('Previously listed directory: src')
+    expect(content).toContain('listed directory: src')
   })
 
   test('summarizes read_subtree tool with paths', () => {
@@ -1857,7 +1856,7 @@ describe('context-pruner glob and list_directory tools', () => {
     const content = results[0].input.messages[0].content[0].text
 
     expect(content).toContain(
-      'Previously inspected subtrees: src/components, src/utils',
+      'inspected subtrees: src/components, src/utils',
     )
   })
 })
@@ -2357,10 +2356,10 @@ describe('context-pruner dual-budget behavior', () => {
 
     // === Tool call summaries present ===
     expect(content).toContain(
-      'Previously inspected files: src/model.ts, src/service.ts',
+      'inspected files: src/model.ts, src/service.ts',
     )
-    expect(content).toContain('Previously edited file: src/model.ts')
-    expect(content).toContain('Previously delegated agents:')
+    expect(content).toContain('edited file: src/model.ts')
+    expect(content).toContain('delegated agents:')
 
     // === str_replace result: present but truncated at 2k chars ===
     expect(content).toContain('Edit result from str_replace:')

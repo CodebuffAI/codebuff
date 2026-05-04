@@ -137,77 +137,73 @@ const definition: AgentDefinition = {
         case 'read_files': {
           const paths = input.paths as string[] | undefined
           if (paths && paths.length > 0) {
-            return `Previously inspected files: ${paths.join(', ')}`
+            return `inspected files: ${paths.join(', ')}`
           }
-          return 'Previously inspected files'
+          return 'inspected files'
         }
         case 'write_file': {
           const path = input.path as string | undefined
-          return path
-            ? `Previously wrote file: ${path}`
-            : 'Previously wrote a file'
+          return path ? `wrote file: ${path}` : 'wrote a file'
         }
         case 'str_replace': {
           const path = input.path as string | undefined
-          return path
-            ? `Previously edited file: ${path}`
-            : 'Previously edited a file'
+          return path ? `edited file: ${path}` : 'edited a file'
         }
         case 'propose_write_file': {
           const path = input.path as string | undefined
           return path
-            ? `Previously proposed writing: ${path}`
-            : 'Previously proposed a file write'
+            ? `proposed writing: ${path}`
+            : 'proposed a file write'
         }
         case 'propose_str_replace': {
           const path = input.path as string | undefined
           return path
-            ? `Previously proposed editing: ${path}`
-            : 'Previously proposed a file edit'
+            ? `proposed editing: ${path}`
+            : 'proposed a file edit'
         }
         case 'read_subtree': {
           const paths = input.paths as string[] | undefined
           if (paths && paths.length > 0) {
-            return `Previously inspected subtrees: ${paths.join(', ')}`
+            return `inspected subtrees: ${paths.join(', ')}`
           }
-          return 'Previously inspected a subtree'
+          return 'inspected a subtree'
         }
         case 'code_search': {
           const pattern = input.pattern as string | undefined
           const flags = input.flags as string | undefined
           if (pattern && flags) {
-            return `Previous code search for "${pattern}" (${flags})`
+            return `code search for "${pattern}" (${flags})`
           }
           return pattern
-            ? `Previous code search for "${pattern}"`
-            : 'Previous code search'
+            ? `code search for "${pattern}"`
+            : 'code search'
         }
         case 'glob': {
           const pattern = input.pattern as string | undefined
           return pattern
-            ? `Previous glob search for ${pattern}`
-            : 'Previous glob search'
+            ? `glob search for ${pattern}`
+            : 'glob search'
         }
         case 'list_directory': {
           const path = input.path as string | undefined
           return path
-            ? `Previously listed directory: ${path}`
-            : 'Previously listed a directory'
+            ? `listed directory: ${path}`
+            : 'listed a directory'
         }
         case 'find_files': {
           const prompt = input.prompt as string | undefined
           return prompt
-            ? `Previous file-finding request: "${prompt}"`
-            : 'Previous file-finding request'
+            ? `file-finding request: "${prompt}"`
+            : 'file-finding request'
         }
         case 'run_terminal_command': {
           const command = input.command as string | undefined
           if (command) {
             const shortCmd =
               command.length > 50 ? command.slice(0, 50) + '...' : command
-            return `Previously ran command: ${shortCmd}`
+            return `ran command: ${shortCmd}`
           }
-          return 'Previously ran a terminal command'
+          return 'ran a terminal command'
         }
         case 'spawn_agents':
         case 'spawn_agent_inline': {
@@ -248,7 +244,7 @@ const definition: AgentDefinition = {
               }
               return detail
             })
-            return `Previously delegated agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
+            return `delegated agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
           }
           if (agentType) {
             const extras: string[] = []
@@ -266,11 +262,11 @@ const definition: AgentDefinition = {
               extras.push(`params: ${truncatedParams}`)
             }
             if (extras.length > 0) {
-              return `Previously delegated agent ${agentType} (${extras.join(', ')})`
+              return `delegated agent ${agentType} (${extras.join(', ')})`
             }
-            return `Previously delegated agent ${agentType}`
+            return `delegated agent ${agentType}`
           }
-          return 'Previously delegated agent work'
+          return 'delegated agent work'
         }
         case 'write_todos': {
           const todos = input.todos as
@@ -308,35 +304,35 @@ const definition: AgentDefinition = {
         case 'web_search': {
           const query = input.query as string | undefined
           return query
-            ? `Previous web search for "${query}"`
-            : 'Previous web search'
+            ? `web search for "${query}"`
+            : 'web search'
         }
         case 'gravity_index': {
           const query = input.query as string | undefined
           const action = input.action as string | undefined
           if (query) {
-            return `Previous Gravity Index ${action ?? 'search'} for "${query}"`
+            return `Gravity Index ${action ?? 'search'} for "${query}"`
           }
           return action
-            ? `Previous Gravity Index ${action}`
-            : 'Previous Gravity Index use'
+            ? `Gravity Index ${action}`
+            : 'Gravity Index use'
         }
         case 'read_docs': {
           const libraryTitle = input.libraryTitle as string | undefined
           const topic = input.topic as string | undefined
           if (libraryTitle && topic) {
-            return `Previously consulted docs: ${libraryTitle} - ${topic}`
+            return `consulted docs: ${libraryTitle} - ${topic}`
           }
           return libraryTitle
-            ? `Previously consulted docs: ${libraryTitle}`
-            : 'Previously consulted docs'
+            ? `consulted docs: ${libraryTitle}`
+            : 'consulted docs'
         }
         case 'set_output':
-          return 'Previously set structured output'
+          return 'set structured output'
         case 'set_messages':
-          return 'Previously updated message history'
+          return 'updated message history'
         default:
-          return `Previously used tool ${toolName}`
+          return `used tool ${toolName}`
       }
     }
 
@@ -483,8 +479,7 @@ const definition: AgentDefinition = {
       return chunks.map((chunk) => {
         const trimmed = chunk.trim()
         const isUser =
-          trimmed.startsWith('[USER]\n') ||
-          trimmed.startsWith('[USER] [with image') ||
+          trimmed.startsWith('[USER]') ||
           trimmed.startsWith('User request') ||
           trimmed.startsWith('User message') ||
           trimmed.startsWith('Current unresolved user request')
@@ -572,7 +567,7 @@ const definition: AgentDefinition = {
           const imageNote = hasImages ? ' [image(s) were attached]' : ''
           summarizedEntries.push({
             role: 'user',
-            parts: [`User request${imageNote}:\n${text}`],
+            parts: [`[USER]${imageNote}\n${text}`],
           })
         }
       } else if (message.role === 'assistant') {
@@ -606,7 +601,7 @@ const definition: AgentDefinition = {
           parts.push(`Progress note:\n${combinedText}`)
         }
         if (toolSummaries.length > 0) {
-          parts.push(`Prior action record:\n${toolSummaries.join('\n')}`)
+          parts.push(toolSummaries.join('\n'))
         }
 
         if (parts.length > 0) {
