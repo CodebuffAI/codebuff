@@ -251,4 +251,142 @@ describe('sdk-event-handlers', () => {
     })
     expect(getStreamingAgents().size).toBe(0)
   })
+
+  test('handles spawn_agents tool results for agents with tool blocks (lastMessage mode)', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+
+    // Create an agent block with an existing tool block (simulating thinker agent's read_files)
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'tool-1-0',
+        agentName: 'Thinker',
+        agentType: 'thinker-with-files-gemini',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'tool',
+            toolCallId: 'read-1',
+            toolName: 'read_files',
+            input: { paths: ['package.json'] },
+            output: 'package contents',
+          },
+        ],
+        initialPrompt: 'Think about this',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      } as any,
+    ])
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    const toolResultEvent: ToolResultEvent = {
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'thinker-with-files-gemini',
+              value: {
+                type: 'lastMessage',
+                value: [
+                  {
+                    role: 'assistant',
+                    content: [
+                      { type: 'text', text: 'Here is the analysis result.' },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+    handleEvent(toolResultEvent)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    // Should have the tool block AND the final text content
+    expect(agentBlock.blocks).toHaveLength(2)
+    expect(agentBlock.blocks?.[0]).toMatchObject({
+      type: 'tool',
+      toolName: 'read_files',
+    })
+    expect(agentBlock.blocks?.[1]).toMatchObject({
+      type: 'text',
+      content: 'Here is the analysis result.',
+    })
+    expect(getStreamingAgents().size).toBe(0)
+  })
+
+  test('preserves streamed text content and skips duplicate final content', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+
+    // Create an agent block with existing text blocks (simulating streamed output like basher)
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'tool-1-0',
+        agentName: 'Basher',
+        agentType: 'basher',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Streamed output from basher',
+            textType: 'text',
+          },
+        ],
+        initialPrompt: 'Run a command',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      } as any,
+    ])
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    const toolResultEvent: ToolResultEvent = {
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'basher',
+              value: {
+                type: 'lastMessage',
+                value: [
+                  {
+                    role: 'assistant',
+                    content: [
+                      { type: 'text', text: 'Streamed output from basher' },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+    handleEvent(toolResultEvent)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    // Should NOT duplicate the streamed text — only the original text block
+    expect(agentBlock.blocks).toHaveLength(1)
+    expect(agentBlock.blocks?.[0]).toMatchObject({
+      type: 'text',
+      content: 'Streamed output from basher',
+    })
+    expect(getStreamingAgents().size).toBe(0)
+  })
 })

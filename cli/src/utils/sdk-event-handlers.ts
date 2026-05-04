@@ -371,12 +371,19 @@ const updateSpawnAgentBlocks = (
 
       if (result?.value) {
         const { content, hasError } = extractSpawnAgentResultContent(result.value)
-        // Preserve streamed content (agents like basher stream their output)
-        const hasStreamedContent = block.blocks.length > 0
-        if (hasError || content || hasStreamedContent) {
+        // Check if the agent already streamed text content (e.g., basher).
+        // Agents like thinker return all output at the end via lastMessage,
+        // so we should add final content even if they have tool blocks.
+        const hasStreamedTextContent = block.blocks.some(
+          (b) => b.type === 'text' && b.textType === 'text'
+        )
+        const finalBlocks = content && !hasStreamedTextContent
+          ? [...block.blocks, { type: 'text', content } as ContentBlock]
+          : block.blocks
+        if (hasError || finalBlocks.length > 0) {
           return {
             ...block,
-            blocks: hasStreamedContent ? block.blocks : [{ type: 'text', content } as ContentBlock],
+            blocks: finalBlocks,
             status: hasError ? ('failed' as const) : ('complete' as const),
           }
         }
