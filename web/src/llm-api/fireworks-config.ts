@@ -10,8 +10,8 @@ export const FIREWORKS_ACCOUNT_ID = 'james-65d217'
 
 export const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
   // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/lnfid5h9',
-  // Disabled: route Kimi K2.6 through the Fireworks serverless API during
-  // availability hours instead of the dedicated deployment.
+  // Disabled: route Kimi K2.6 through the Fireworks serverless API (24/7)
+  // instead of the dedicated deployment.
   // 'moonshotai/kimi-k2.6': 'accounts/james-65d217/deployments/mjb4i7ea',
   // 'minimax/minimax-m2.7': 'accounts/james-65d217/deployments/nrdudqxd',
 }

@@ -184,10 +184,16 @@ describe('Fireworks deployment routing', () => {
       expect(fetchCalls).toEqual([KIMI_STANDARD_MODEL_ID])
     })
 
-    it('keeps Kimi unavailable outside hours when no deployment is mapped', async () => {
-      const mockFetch = mock(async () => {
-        throw new Error('should not fetch outside deployment hours')
-      }) as unknown as typeof globalThis.fetch
+    it('uses serverless API for Kimi outside deployment hours (Kimi is 24/7)', async () => {
+      const fetchCalls: string[] = []
+
+      const mockFetch = mock(
+        async (_url: string | URL | Request, init?: RequestInit) => {
+          const body = JSON.parse(init?.body as string)
+          fetchCalls.push(body.model)
+          return new Response(JSON.stringify({ ok: true }), { status: 200 })
+        },
+      ) as unknown as typeof globalThis.fetch
 
       const response = await createFireworksRequestWithFallback({
         body: kimiBody as never,
@@ -202,9 +208,8 @@ describe('Fireworks deployment routing', () => {
         now: BEFORE_DEPLOYMENT_HOURS,
       })
 
-      expect(response.status).toBe(503)
-      const body = await response.json()
-      expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toEqual([KIMI_STANDARD_MODEL_ID])
     })
 
     it('keeps GLM unavailable outside hours when no deployment is mapped', async () => {
@@ -433,7 +438,7 @@ describe('Fireworks deployment routing', () => {
       expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
     })
 
-    it('falls back to the standard Fireworks API for Kimi lite mode outside deployment hours', async () => {
+    it('uses the standard Fireworks API for Kimi lite mode outside deployment hours', async () => {
       const fetchCalls: string[] = []
 
       const mockFetch = mock(

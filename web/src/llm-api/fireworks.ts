@@ -40,10 +40,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
 }
 
 /** Models that stay limited to freebuff deployment hours even on serverless. */
-const FIREWORKS_HOURS_GATED_MODELS = new Set<string>([
-  'moonshotai/kimi-k2.6',
-  'z-ai/glm-5.1',
-])
+const FIREWORKS_HOURS_GATED_MODELS = new Set<string>(['z-ai/glm-5.1'])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
