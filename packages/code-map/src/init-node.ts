@@ -47,6 +47,23 @@ function resolveTreeSitterWasm(scriptDir: string): string {
     return fallback
   }
 
+  // Sibling file next to the running binary. The CLI ships
+  // tree-sitter.wasm alongside `freebuff.exe` / `codebuff.exe` because
+  // bun --compile asset embedding was unreliable on Windows. We do this
+  // lookup *here* (not in pre-init) on purpose: inside a bun --compile
+  // binary on Windows, `process.execPath` returns the bunfs internal
+  // path during early module evaluation and only switches to the disk
+  // path later. emscripten calls this locateFile callback during
+  // Parser.init's async work, by which time execPath has stabilized.
+  try {
+    const sibling = path.join(path.dirname(process.execPath), 'tree-sitter.wasm')
+    if (fs.existsSync(sibling)) {
+      return sibling
+    }
+  } catch {
+    // process.execPath may be unavailable in exotic runtimes; fall through.
+  }
+
   try {
     const pkgDir = path.dirname(require.resolve('web-tree-sitter'))
     const wasm = path.join(pkgDir, 'tree-sitter.wasm')
@@ -61,7 +78,7 @@ function resolveTreeSitterWasm(scriptDir: string): string {
     ? ` (env ${TREE_SITTER_WASM_ENV_VAR}=${override} did not exist)`
     : ''
   throw new Error(
-    `Internal error: tree-sitter.wasm not found (looked at scriptDir=${scriptDir} and via web-tree-sitter package${overrideDiagnostic}). Set ${TREE_SITTER_WASM_ENV_VAR} or ensure the file is included in your deployment bundle.`,
+    `Internal error: tree-sitter.wasm not found (looked at scriptDir=${scriptDir}, dirname(process.execPath)=${path.dirname(process.execPath)}, and via web-tree-sitter package${overrideDiagnostic}). Set ${TREE_SITTER_WASM_ENV_VAR} or ensure the file is included in your deployment bundle.`,
   )
 }
 

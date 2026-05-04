@@ -42,6 +42,20 @@ const candidates = (
 
 const siblingPath = candidates.find((p) => existsSync(p))
 
+// Pre-init diagnostic — only fires when --smoke-tree-sitter is set so we
+// don't spam every run. We need to see what argv[0] / execPath looked
+// like at this exact phase on Windows: the round-7 main() diag showed
+// disk paths, but pre-init silently bailed, meaning module-init time
+// gives different values. argv[0] alone wasn't enough to fix it.
+if (process.argv.includes('--smoke-tree-sitter')) {
+  console.error(
+    `[pre-init diag] argv[0]=${process.argv[0]}\n` +
+      `[pre-init diag] execPath=${process.execPath}\n` +
+      `[pre-init diag] candidates=${JSON.stringify(candidates)}\n` +
+      `[pre-init diag] resolved siblingPath=${siblingPath ?? '<none>'}\n`,
+  )
+}
+
 if (siblingPath) {
   // Tell init-node.ts (in code-map / the SDK bundle) where the wasm
   // is. The locateFile callback there will hand this path to
