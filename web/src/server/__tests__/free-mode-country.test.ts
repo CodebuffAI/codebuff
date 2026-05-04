@@ -20,16 +20,25 @@ const noAnonymousNetwork = {
 const IPINFO_PRIVACY_TEST_IP = '198.51.100.42'
 
 describe('free mode country access', () => {
-  test('allows allowlisted Cloudflare countries', async () => {
+  test.each([
+    ['us', 'US'],
+    ['LU', 'LU'],
+    ['LI', 'LI'],
+    ['CH', 'CH'],
+    ['AT', 'AT'],
+    ['SG', 'SG'],
+    ['MT', 'MT'],
+    ['IL', 'IL'],
+  ])('allows allowlisted Cloudflare country %s', async (header, expected) => {
     const access = await getFreeModeCountryAccess(
       makeReq({
-        'cf-ipcountry': 'us',
+        'cf-ipcountry': header,
         'cf-connecting-ip': '203.0.113.10',
       }),
       noAnonymousNetwork,
     )
     expect(access.allowed).toBe(true)
-    expect(access.countryCode).toBe('US')
+    expect(access.countryCode).toBe(expected)
     expect(access.blockReason).toBe(null)
   })
 
