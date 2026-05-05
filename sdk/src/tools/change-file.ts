@@ -50,22 +50,24 @@ export async function changeFile(params: {
   })
 
   const results: CodebuffToolOutput<'str_replace'>[0]['value'][] = []
-  const successMessage =
-    fileChange.type === 'patch'
-      ? 'String replace applied successfully.'
-      : 'Wrote file successfully.'
 
   for (const file of created) {
     results.push({
       file,
-      message: successMessage,
+      message:
+        fileChange.type === 'patch'
+          ? 'String replace applied successfully.'
+          : 'Created file successfully.',
     })
   }
 
   for (const file of modified) {
     results.push({
       file,
-      message: successMessage,
+      message:
+        fileChange.type === 'patch'
+          ? 'String replace applied successfully.'
+          : 'Overwrote file successfully.',
     })
   }
 

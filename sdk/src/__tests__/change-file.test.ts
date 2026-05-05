@@ -36,7 +36,7 @@ describe('changeFile', () => {
     )
   })
 
-  test('returns a simple success message for file writes', async () => {
+  test('returns a simple success message for new file writes', async () => {
     const fs = createMockFs()
 
     const result = await changeFile({
@@ -54,12 +54,43 @@ describe('changeFile', () => {
         type: 'json',
         value: {
           file: 'src/file.ts',
-          message: 'Wrote file successfully.',
+          message: 'Created file successfully.',
         },
       },
     ])
     expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
       'const value = 1\n',
+    )
+  })
+
+  test('returns a simple success message for overwritten file writes', async () => {
+    const fs = createMockFs({
+      files: {
+        '/repo/src/file.ts': 'const value = 1\n',
+      },
+    })
+
+    const result = await changeFile({
+      parameters: {
+        type: 'file',
+        path: 'src/file.ts',
+        content: 'const value = 2\n',
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          file: 'src/file.ts',
+          message: 'Overwrote file successfully.',
+        },
+      },
+    ])
+    expect(await fs.readFile('/repo/src/file.ts', 'utf-8')).toBe(
+      'const value = 2\n',
     )
   })
 })
