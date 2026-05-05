@@ -779,6 +779,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         const fetchedUrls: string[] = []
         const fetchViaDeepSeek = mock(
           async (url: string | URL | Request, init?: RequestInit) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
             fetchedUrls.push(String(url))
             fetchedBodies.push(JSON.parse(init?.body as string))
             return new Response(

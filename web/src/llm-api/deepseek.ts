@@ -1,6 +1,5 @@
 import { Agent } from 'undici'
 
-import { deepseekModels } from '@codebuff/common/constants/model-config'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
@@ -10,6 +9,10 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
+import {
+  buildDeepSeekRequestBody,
+  DEEPSEEK_MODEL_IDS,
+} from './deepseek-request-body'
 
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -40,30 +43,23 @@ const DEEPSEEK_V4_PRO_PRICING: DeepSeekPricing = {
   outputCostPerToken: 0.87 / 1_000_000,
 }
 
-/** Single source of truth for DeepSeek model metadata and pricing.
- *  Kept as one map so adding a model can't drift between routing and billing. */
 const DEEPSEEK_MODELS: Record<
   string,
   { deepseekId: string; pricing: DeepSeekPricing }
-> = {
-  [deepseekModels.deepseekV4ProDirect]: {
-    deepseekId: deepseekModels.deepseekV4ProDirect,
-    pricing: DEEPSEEK_V4_PRO_PRICING,
-  },
-  [deepseekModels.deepseekV4Pro]: {
-    deepseekId: deepseekModels.deepseekV4ProDirect,
-    pricing: DEEPSEEK_V4_PRO_PRICING,
-  },
-}
+> = Object.fromEntries(
+  Object.entries(DEEPSEEK_MODEL_IDS).map(([model, deepseekId]) => [
+    model,
+    {
+      deepseekId,
+      pricing: DEEPSEEK_V4_PRO_PRICING,
+    },
+  ]),
+)
 
 const DEEPSEEK_ROUTED_MODELS = new Set<string>(Object.keys(DEEPSEEK_MODELS))
 
 export function isDeepSeekModel(model: string): boolean {
   return DEEPSEEK_ROUTED_MODELS.has(model)
-}
-
-function getDeepSeekModelId(openrouterModel: string): string {
-  return DEEPSEEK_MODELS[openrouterModel]?.deepseekId ?? openrouterModel
 }
 
 function getDeepSeekPricing(model: string): DeepSeekPricing {
@@ -87,52 +83,13 @@ type LineResult = {
   patchedLine: string
 }
 
-function toDeepSeekReasoningEffort(effort: unknown): 'high' | 'max' {
-  return effort === 'max' || effort === 'xhigh' ? 'max' : 'high'
-}
-
-function createDeepSeekRequest(params: {
+export function createDeepSeekRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const deepseekBody: Record<string, unknown> = {
-    ...body,
-    model: getDeepSeekModelId(originalModel),
-  }
-
-  // DeepSeek uses `thinking` instead of OpenRouter's `reasoning`.
-  if (deepseekBody.reasoning && typeof deepseekBody.reasoning === 'object') {
-    const reasoning = deepseekBody.reasoning as {
-      enabled?: boolean
-      effort?: 'high' | 'medium' | 'low'
-    }
-    deepseekBody.thinking = {
-      type: reasoning.enabled === false ? 'disabled' : 'enabled',
-      reasoning_effort: toDeepSeekReasoningEffort(reasoning.effort),
-    }
-  } else if (deepseekBody.reasoning_effort) {
-    deepseekBody.thinking = {
-      type: 'enabled',
-      reasoning_effort: toDeepSeekReasoningEffort(
-        deepseekBody.reasoning_effort,
-      ),
-    }
-  }
-  delete deepseekBody.reasoning
-  delete deepseekBody.reasoning_effort
-
-  // Strip OpenRouter-specific / internal fields
-  delete deepseekBody.provider
-  delete deepseekBody.transforms
-  delete deepseekBody.codebuff_metadata
-  delete deepseekBody.usage
-
-  // For streaming, request usage in the final chunk
-  if (deepseekBody.stream) {
-    deepseekBody.stream_options = { include_usage: true }
-  }
+  const deepseekBody = buildDeepSeekRequestBody(body, originalModel)
 
   if (!env.DEEPSEEK_API_KEY) {
     throw new Error('DEEPSEEK_API_KEY is not configured')
