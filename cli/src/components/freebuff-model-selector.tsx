@@ -19,7 +19,10 @@ import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { nextFreebuffModelId } from '../utils/freebuff-model-navigation'
+import {
+  freebuffModelNavigationDirectionForKey,
+  nextFreebuffModelId,
+} from '../utils/freebuff-model-navigation'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent } from '@opentui/core'
@@ -213,27 +216,27 @@ export const FreebuffModelSelector: React.FC = () => {
       (key: KeyEvent) => {
         if (pending) return
         const name = key.name ?? ''
-        const isForward =
-          name === 'right' || name === 'down' || (name === 'tab' && !key.shift)
-        const isBackward =
-          name === 'left' || name === 'up' || (name === 'tab' && key.shift)
+        const direction = freebuffModelNavigationDirectionForKey(key)
         const isCommit =
           name === 'return' || name === 'enter' || name === 'space'
-        if (!isForward && !isBackward && !isCommit) return
+        if (!direction && !isCommit) return
         if (isCommit) {
           if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
+            key.stopPropagation?.()
             pick(focusedId)
           }
           return
         }
+        if (!direction) return
         const targetId = nextFreebuffModelId({
           modelIds: FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => model.id),
           focusedId,
-          direction: isForward ? 'forward' : 'backward',
+          direction,
         })
         if (targetId) {
           key.preventDefault?.()
+          key.stopPropagation?.()
           setFocusedId(targetId)
         }
       },

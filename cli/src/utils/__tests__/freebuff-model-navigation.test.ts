@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { nextFreebuffModelId } from '../freebuff-model-navigation'
+import {
+  freebuffModelNavigationDirectionForKey,
+  nextFreebuffModelId,
+} from '../freebuff-model-navigation'
 
 describe('nextFreebuffModelId', () => {
   test('moves to the next model when moving forward', () => {
@@ -47,5 +50,53 @@ describe('nextFreebuffModelId', () => {
         direction: 'forward',
       }),
     ).toBeNull()
+  })
+})
+
+describe('freebuffModelNavigationDirectionForKey', () => {
+  test('maps arrow keys to model navigation directions', () => {
+    expect(freebuffModelNavigationDirectionForKey({ name: 'down' })).toBe(
+      'forward',
+    )
+    expect(freebuffModelNavigationDirectionForKey({ name: 'right' })).toBe(
+      'forward',
+    )
+    expect(freebuffModelNavigationDirectionForKey({ name: 'up' })).toBe(
+      'backward',
+    )
+    expect(freebuffModelNavigationDirectionForKey({ name: 'left' })).toBe(
+      'backward',
+    )
+  })
+
+  test('maps tab and shift-tab to model navigation directions', () => {
+    expect(freebuffModelNavigationDirectionForKey({ name: 'tab' })).toBe(
+      'forward',
+    )
+    expect(
+      freebuffModelNavigationDirectionForKey({ name: 'tab', shift: true }),
+    ).toBe('backward')
+  })
+
+  test('maps terminal tab sequences to model navigation directions', () => {
+    expect(freebuffModelNavigationDirectionForKey({ sequence: '\t' })).toBe(
+      'forward',
+    )
+    expect(
+      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[9u' }),
+    ).toBe('forward')
+    expect(
+      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[Z' }),
+    ).toBe('backward')
+    expect(
+      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[9;2u' }),
+    ).toBe('backward')
+    expect(
+      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[27;2;9~' }),
+    ).toBe('backward')
+  })
+
+  test('ignores non-navigation keys', () => {
+    expect(freebuffModelNavigationDirectionForKey({ name: 'enter' })).toBeNull()
   })
 })
