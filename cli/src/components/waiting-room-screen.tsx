@@ -455,7 +455,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
           {/* Shared premium-session quota exhausted. Terminal for this run —
               the user can exit and come
-              back once the oldest session in the window rolls off. */}
+              back once the daily Pacific reset passes. */}
           {session?.status === 'rate_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
@@ -466,7 +466,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                premium sessions in the last 20 hours. Try again in{' '}
+                premium sessions today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>

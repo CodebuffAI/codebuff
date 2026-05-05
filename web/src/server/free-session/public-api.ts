@@ -4,13 +4,16 @@ import {
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_PREMIUM_SESSION_PERIOD,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
   resolveSupportedFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
+import { getZonedDayBounds } from '@codebuff/common/util/zoned-time'
 
 import {
   getInstantAdmitCapacity,
@@ -46,34 +49,15 @@ function roundSessionUnits(units: number): number {
   return Math.round(units * 10) / 10
 }
 
-function getRetryAfterMsForPremiumLimit(params: {
-  admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
-  totalUnits: number
-  targetUnits: number
-  windowMs: number
-  now: Date
-}): number {
-  let remainingUnits = params.totalUnits
-  for (const admit of params.admits) {
-    remainingUnits = roundSessionUnits(remainingUnits - admit.sessionUnits)
-    if (remainingUnits <= params.targetUnits) {
-      return Math.max(
-        0,
-        admit.admittedAt.getTime() + params.windowMs - params.now.getTime(),
-      )
-    }
-  }
-  return 0
-}
-
 function canStartPremiumSession(snapshot: FreebuffSessionRateLimit): boolean {
   return snapshot.recentCount < snapshot.limit
 }
 
+type PremiumQuotaInfo = Omit<FreebuffSessionRateLimit, 'model'>
+
 interface PremiumQuotaSnapshot {
-  recentCount: number
-  admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
-  windowMs: number
+  info: PremiumQuotaInfo
+  resetsAt: Date
 }
 
 async function fetchPremiumQuotaSnapshot(
@@ -81,19 +65,28 @@ async function fetchPremiumQuotaSnapshot(
   deps: SessionDeps,
 ): Promise<PremiumQuotaSnapshot> {
   const now = nowOf(deps)
-  const windowMs = FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS * 60 * 60 * 1000
-  const since = new Date(now.getTime() - windowMs)
+  const premiumDay = getZonedDayBounds(
+    now,
+    FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+  )
   const admits = await deps.listRecentPremiumAdmits({
     userId,
-    since,
+    since: premiumDay.startsAt,
     models: FREEBUFF_PREMIUM_MODEL_IDS,
   })
+  const recentCount = roundSessionUnits(
+    admits.reduce((sum, admit) => sum + admit.sessionUnits, 0),
+  )
   return {
-    recentCount: roundSessionUnits(
-      admits.reduce((sum, admit) => sum + admit.sessionUnits, 0),
-    ),
-    admits,
-    windowMs,
+    info: {
+      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+      period: FREEBUFF_PREMIUM_SESSION_PERIOD,
+      resetTimeZone: FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+      resetAt: premiumDay.resetsAt.toISOString(),
+      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+      recentCount,
+    },
+    resetsAt: premiumDay.resetsAt,
   }
 }
 
@@ -103,9 +96,7 @@ function toRateLimitInfo(
 ): FreebuffSessionRateLimit {
   return {
     model,
-    limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
-    windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
-    recentCount: snapshot.recentCount,
+    ...snapshot.info,
   }
 }
 
@@ -120,8 +111,7 @@ async function fetchRateLimitSnapshot(
 ): Promise<
   | {
       info: FreebuffSessionRateLimit
-      admits: Awaited<ReturnType<SessionDeps['listRecentPremiumAdmits']>>
-      windowMs: number
+      resetsAt: Date
     }
   | undefined
 > {
@@ -129,8 +119,7 @@ async function fetchRateLimitSnapshot(
   const snapshot = await fetchPremiumQuotaSnapshot(userId, deps)
   return {
     info: toRateLimitInfo(model, snapshot),
-    admits: snapshot.admits,
-    windowMs: snapshot.windowMs,
+    resetsAt: snapshot.resetsAt,
   }
 }
 
@@ -185,7 +174,8 @@ export interface SessionDeps {
    *  bound to a given model. Compared against the model's configured
    *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
   activeCountForModel: (model: string) => Promise<number>
-  /** Rate-limit helper: oldest-first premium admissions inside the window. */
+  /** Rate-limit helper: oldest-first premium admissions since today's
+   *  Pacific midnight reset. */
   listRecentPremiumAdmits: (params: {
     userId: string
     models: readonly string[]
@@ -271,11 +261,14 @@ export type RequestSessionResult =
       requestedModel: string
     }
   | {
-      /** User has hit the per-model admission quota in the rolling window.
+      /** User has hit the per-model admission quota for the current Pacific day.
        *  See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
       status: 'rate_limited'
       model: string
       limit: number
+      period: 'pacific_day'
+      resetTimeZone: string
+      resetAt: string
       windowHours: number
       recentCount: number
       retryAfterMs: number
@@ -328,8 +321,8 @@ export async function requestSession(params: {
   }
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
-  // create a queued row. Premium models share one 20h session-unit pool;
-  // Minimax falls through unchanged as unlimited.
+  // create a queued row. Premium models share one daily Pacific-time
+  // session-unit pool; Minimax falls through unchanged as unlimited.
   //
   // Takeover/reclaim exception: a user who already holds a queued or
   // active+unexpired row on this same model is re-anchoring (CLI restart,
@@ -357,19 +350,13 @@ export async function requestSession(params: {
   if (!isReclaim) {
     const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
     if (snapshot && !canStartPremiumSession(snapshot.info)) {
-      const retryAfterMs = getRetryAfterMsForPremiumLimit({
-        admits: snapshot.admits,
-        totalUnits: snapshot.info.recentCount,
-        targetUnits: snapshot.info.limit,
-        windowMs: snapshot.windowMs,
-        now,
-      })
+      const retryAfterMs = Math.max(
+        0,
+        snapshot.resetsAt.getTime() - now.getTime(),
+      )
       return {
+        ...snapshot.info,
         status: 'rate_limited',
-        model,
-        limit: snapshot.info.limit,
-        windowHours: snapshot.info.windowHours,
-        recentCount: snapshot.info.recentCount,
         retryAfterMs,
       }
     }
