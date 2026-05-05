@@ -114,11 +114,12 @@ export async function processStream(
         if (chunk.type === 'error') {
           hadToolCallError = true
           errorMessages.push(
-            userMessage(
-              withSystemTags(
+            userMessage({
+              content: withSystemTags(
                 `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
               ),
-            ),
+              tags: ['TOOL_CALL_ERROR'],
+            }),
           )
         }
       }
@@ -304,11 +305,12 @@ export async function processStream(
         onResponseChunk(chunk)
         hadToolCallError = true
         errorMessages.push(
-          userMessage(
-            withSystemTags(
+          userMessage({
+            content: withSystemTags(
               `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
             ),
-          ),
+            tags: ['TOOL_CALL_ERROR'],
+          }),
         )
       } else if (chunk.type === 'tool-call') {
       } else {
