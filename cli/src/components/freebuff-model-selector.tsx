@@ -35,6 +35,9 @@ const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
   ...FREEBUFF_MODELS.filter((model) => model.id === DEFAULT_FREEBUFF_MODEL_ID),
   ...FREEBUFF_MODELS.filter((model) => model.id !== DEFAULT_FREEBUFF_MODEL_ID),
 ]
+const FREEBUFF_MODEL_SELECTOR_MODEL_IDS = FREEBUFF_MODEL_SELECTOR_MODELS.map(
+  (model) => model.id,
+)
 
 function formatSessionUnits(units: number): string {
   return Number.isInteger(units) ? String(units) : units.toFixed(1)
@@ -219,7 +222,6 @@ export const FreebuffModelSelector: React.FC = () => {
         const direction = freebuffModelNavigationDirectionForKey(key)
         const isCommit =
           name === 'return' || name === 'enter' || name === 'space'
-        if (!direction && !isCommit) return
         if (isCommit) {
           if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
@@ -230,7 +232,7 @@ export const FreebuffModelSelector: React.FC = () => {
         }
         if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => model.id),
+          modelIds: FREEBUFF_MODEL_SELECTOR_MODEL_IDS,
           focusedId,
           direction,
         })

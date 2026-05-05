@@ -1,5 +1,14 @@
 export type FreebuffModelNavigationDirection = 'forward' | 'backward'
 
+const FORWARD_KEY_NAMES = new Set(['right', 'down'])
+const BACKWARD_KEY_NAMES = new Set(['left', 'up'])
+const FORWARD_TAB_SEQUENCES = new Set(['\t', '\x1b[9u'])
+const BACKWARD_TAB_SEQUENCES = new Set([
+  '\x1b[Z',
+  '\x1b[9;2u',
+  '\x1b[27;2;9~',
+])
+
 export function nextFreebuffModelId(params: {
   modelIds: readonly string[]
   focusedId: string
@@ -24,17 +33,16 @@ export function freebuffModelNavigationDirectionForKey(key: {
   const name = (key.name ?? '').toLowerCase()
   const sequence = key.sequence ?? key.raw ?? ''
 
-  if (name === 'right' || name === 'down') return 'forward'
-  if (name === 'left' || name === 'up') return 'backward'
+  if (FORWARD_KEY_NAMES.has(name)) return 'forward'
+  if (BACKWARD_KEY_NAMES.has(name)) return 'backward'
 
-  const isShiftTab =
+  if (
     (name === 'tab' && Boolean(key.shift)) ||
-    sequence === '\x1b[Z' ||
-    sequence === '\x1b[9;2u' ||
-    sequence === '\x1b[27;2;9~'
-  if (isShiftTab) return 'backward'
-
-  if (name === 'tab' || sequence === '\t' || sequence === '\x1b[9u') {
+    BACKWARD_TAB_SEQUENCES.has(sequence)
+  ) {
+    return 'backward'
+  }
+  if (name === 'tab' || FORWARD_TAB_SEQUENCES.has(sequence)) {
     return 'forward'
   }
 
