@@ -50,6 +50,18 @@ describe('normalizeDeepSeekRequestBody', () => {
       model: 'deepseek-v4-pro',
     })
   })
+
+  it('does not throw on minimal provider-path bodies without messages', () => {
+    const body = {
+      model: 'deepseek/deepseek-v4-pro',
+      stream: false,
+    } as ChatCompletionRequestBody
+
+    expect(normalizeDeepSeekRequestBody(body)).toEqual({
+      ...body,
+      model: 'deepseek-v4-pro',
+    })
+  })
 })
 
 describe('buildDeepSeekRequestBody', () => {

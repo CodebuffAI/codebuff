@@ -77,16 +77,20 @@ export function normalizeDeepSeekRequestBody(
   body: ChatCompletionRequestBody,
   originalModel: string = body.model,
 ): ChatCompletionRequestBody {
+  const messages = Array.isArray(body.messages)
+    ? body.messages.map((message) => ({
+        ...message,
+        content:
+          message.content === undefined || message.content === null
+            ? message.content
+            : contentPartsToDeepSeekText(message.content),
+      }))
+    : body.messages
+
   return {
     ...body,
     model: getDeepSeekModelId(originalModel),
-    messages: body.messages.map((message) => ({
-      ...message,
-      content:
-        message.content === undefined || message.content === null
-          ? message.content
-          : contentPartsToDeepSeekText(message.content),
-    })),
+    messages,
   }
 }
 
