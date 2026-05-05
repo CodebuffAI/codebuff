@@ -1,11 +1,12 @@
 import { TextAttributes } from '@opentui/core'
-import { useRenderer } from '@opentui/react'
-import React, { useMemo, useState } from 'react'
+import { useKeyboard, useRenderer } from '@opentui/react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
+import { takeOverFreebuffSession } from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
@@ -18,6 +19,7 @@ import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
+import type { KeyEvent } from '@opentui/core'
 
 interface WaitingRoomScreenProps {
   session: FreebuffSessionResponse | null
@@ -86,6 +88,86 @@ const formatPrivacySignalList = (
   if (labels.length === 1) return labels[0]
   if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
   return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
+}
+
+const TakeoverPrompt: React.FC = () => {
+  const theme = useTheme()
+  const [pending, setPending] = useState(false)
+  const [takeoverHover, setTakeoverHover] = useState(false)
+  const [exitHover, setExitHover] = useState(false)
+
+  const handleTakeover = useCallback(() => {
+    if (pending) return
+    setPending(true)
+    takeOverFreebuffSession().finally(() => setPending(false))
+  }, [pending])
+
+  useKeyboard(
+    useCallback(
+      (key: KeyEvent) => {
+        const name = key.name ?? ''
+        const isConfirm = name === 'return' || name === 'enter'
+        const isExit = name === 'escape' || name === 'esc'
+        if (!isConfirm && !isExit) return
+        key.preventDefault?.()
+        if (isConfirm) {
+          handleTakeover()
+        } else {
+          exitFreebuffCleanly()
+        }
+      },
+      [handleTakeover],
+    ),
+  )
+
+  return (
+    <>
+      <text
+        style={{ fg: theme.foreground, marginBottom: 1 }}
+        attributes={TextAttributes.BOLD}
+      >
+        Freebuff is already running
+      </text>
+      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+        Only one freebuff instance can run at a time. Take over the other
+        instance here, or exit and keep using the one already running.
+      </text>
+      <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
+        <Button
+          onClick={handleTakeover}
+          onMouseOver={() => setTakeoverHover(true)}
+          onMouseOut={() => setTakeoverHover(false)}
+          style={{ paddingLeft: 1, paddingRight: 1 }}
+        >
+          <text
+            style={{
+              fg: takeoverHover ? theme.background : theme.foreground,
+              bg: takeoverHover ? theme.primary : undefined,
+            }}
+            attributes={TextAttributes.BOLD}
+          >
+            {pending ? 'Taking over...' : 'Take over'}
+          </text>
+        </Button>
+        <Button
+          onClick={exitFreebuffCleanly}
+          onMouseOver={() => setExitHover(true)}
+          onMouseOut={() => setExitHover(false)}
+          style={{ paddingLeft: 1, paddingRight: 1 }}
+        >
+          <text
+            style={{ fg: exitHover ? theme.foreground : theme.muted }}
+            attributes={exitHover ? TextAttributes.BOLD : TextAttributes.NONE}
+          >
+            Exit
+          </text>
+        </Button>
+      </box>
+      <text style={{ fg: theme.muted, marginTop: 1 }}>
+        Enter takes over · Esc exits
+      </text>
+    </>
+  )
 }
 
 export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
@@ -227,6 +309,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               <FreebuffModelSelector />
             </>
           )}
+
+          {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
 
           {isQueued && session && (
             <>

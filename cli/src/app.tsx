@@ -381,6 +381,7 @@ const AuthedSurface = ({
   //   'country_blocked' → terminal region-gate message
   //   'banned' → terminal account-banned message
   //   'rate_limited' → hit per-model session quota; terminal for this run
+  //   'takeover_prompt' → another local CLI already holds this account
   //
   // 'ended' deliberately falls through to <Chat>: the agent may still be
   // finishing work under the server-side grace period, and the chat surface
@@ -392,7 +393,8 @@ const AuthedSurface = ({
       session.status === 'none' ||
       session.status === 'country_blocked' ||
       session.status === 'banned' ||
-      session.status === 'rate_limited')
+      session.status === 'rate_limited' ||
+      session.status === 'takeover_prompt')
   ) {
     return <WaitingRoomScreen session={session} error={sessionError} />
   }
