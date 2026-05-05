@@ -19,6 +19,7 @@ import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
+  FreebuffSessionServerResponse,
 } from '@codebuff/common/types/freebuff-session'
 
 const POLL_INTERVAL_QUEUED_MS = 5_000
@@ -52,7 +53,7 @@ async function callSession(
   method: 'POST' | 'GET' | 'DELETE',
   token: string,
   opts: { instanceId?: string; model?: string; signal?: AbortSignal } = {},
-): Promise<FreebuffSessionResponse> {
+): Promise<FreebuffSessionServerResponse> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
   if (method === 'GET' && opts.instanceId) {
     headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
@@ -81,7 +82,7 @@ async function callSession(
   if (resp.status === 403) {
     const body = (await resp
       .json()
-      .catch(() => null)) as FreebuffSessionResponse | null
+      .catch(() => null)) as FreebuffSessionServerResponse | null
     if (
       body &&
       (body.status === 'country_blocked' || body.status === 'banned')
@@ -96,7 +97,7 @@ async function callSession(
   if (resp.status === 409 && method === 'POST') {
     const body = (await resp
       .json()
-      .catch(() => null)) as FreebuffSessionResponse | null
+      .catch(() => null)) as FreebuffSessionServerResponse | null
     if (
       body &&
       (body.status === 'model_locked' || body.status === 'model_unavailable')
@@ -112,7 +113,7 @@ async function callSession(
   if (resp.status === 429 && method === 'POST') {
     const body = (await resp
       .json()
-      .catch(() => null)) as FreebuffSessionResponse | null
+      .catch(() => null)) as FreebuffSessionServerResponse | null
     if (body && body.status === 'rate_limited') {
       return body
     }
@@ -123,7 +124,7 @@ async function callSession(
       `freebuff session ${method} failed: ${resp.status} ${text.slice(0, 200)}`,
     )
   }
-  return (await resp.json()) as FreebuffSessionResponse
+  return (await resp.json()) as FreebuffSessionServerResponse
 }
 
 /** Picks the poll delay after a successful tick. Returns null when the state
@@ -147,6 +148,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'none':
     case 'disabled':
     case 'superseded':
+    case 'takeover_prompt':
     case 'country_blocked':
     case 'banned':
     case 'model_locked':
@@ -301,6 +303,14 @@ export function joinFreebuffQueue(model: string): Promise<void> {
   return restartFreebuffSession('rejoin')
 }
 
+export function takeOverFreebuffSession(): Promise<void> {
+  if (!IS_FREEBUFF) return Promise.resolve()
+  const current = useFreebuffSessionStore.getState().session
+  if (current?.status !== 'takeover_prompt') return Promise.resolve()
+  useFreebuffModelStore.getState().setSelectedModel(current.model)
+  return restartFreebuffSession('rejoin')
+}
+
 /**
  * Best-effort DELETE of the caller's session row. Used by exit paths that
  * skip React unmount (process.exit on Ctrl+C) so the seat frees up quickly
@@ -353,8 +363,9 @@ interface UseFreebuffSessionResult {
  * Manages the freebuff waiting-room session lifecycle:
  *   - GET on mount to probe state (no auto-join; the user picks a model in
  *     the landing screen, which calls joinFreebuffQueue)
- *   - if the probe sees an existing seat, POSTs once to take over (rotates
- *     the instance id so any other CLI on the same account is superseded)
+ *   - if the probe sees an existing seat, asks before POSTing to take over
+ *     (rotates the instance id so any other CLI on the same account is
+ *     superseded)
  *   - polls GET while queued (fast) or active (slow) to keep state fresh
  *   - re-POSTs on explicit refresh (chat gate rejected us, user switched
  *     models, user rejoined after ending)
@@ -455,19 +466,20 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         }
 
         // Startup takeover: the initial probe GET saw we already hold a seat
-        // (from a prior CLI instance). POST now to rotate our instance id so
-        // any other CLI on this account is superseded on its next poll.
+        // (from a prior CLI instance). Stop here and ask before POSTing to
+        // rotate our instance id; otherwise opening a second freebuff would
+        // immediately supersede the first one.
         // `previousStatus === null` fences this to the very first tick only.
         // Pin the selected model to whatever the server thinks we're on so
-        // the POST preserves our queue position instead of switching queues.
+        // an explicit takeover preserves our queue position instead of
+        // switching queues.
         if (
           method === 'GET' &&
           previousStatus === null &&
           (next.status === 'queued' || next.status === 'active')
         ) {
           useFreebuffModelStore.getState().setSelectedModel(next.model)
-          nextMethod = 'POST'
-          schedule(0)
+          apply({ status: 'takeover_prompt', model: next.model })
           return
         }
 
