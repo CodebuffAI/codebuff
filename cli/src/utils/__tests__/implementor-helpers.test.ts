@@ -215,6 +215,17 @@ describe('getFileChangeType', () => {
     expect(getFileChangeType(block)).toBe('A')
   })
 
+  test('returns A for successful file creation', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: {},
+      output: 'message: Created file successfully.',
+    }
+    expect(getFileChangeType(block)).toBe('A')
+  })
+
   test('returns M for write_file modification', () => {
     const block: ToolContentBlock = {
       type: 'tool',

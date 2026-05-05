@@ -325,7 +325,8 @@ export function isCreateFile(toolBlock: ToolContentBlock): boolean {
   const message = extractValueForKey(outputStr, 'message')
   return (
     typeof message === 'string' &&
-    (message.startsWith('Created new file') ||
+    (message.startsWith('Created file successfully') ||
+      message.startsWith('Created new file') ||
       message.startsWith('Proposed new file'))
   )
 }

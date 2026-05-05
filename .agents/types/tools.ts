@@ -181,10 +181,10 @@ export interface ProposeStrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }
@@ -305,10 +305,10 @@ export interface StrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }

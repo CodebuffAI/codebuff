@@ -40,6 +40,10 @@ function extractValueForKey(output: string, key: string): string | null {
   return null
 }
 
+function isCreatedFileMessage(message: string | null): boolean {
+  return message === 'Created file successfully.' || message === 'Created new file'
+}
+
 interface EditHeaderProps {
   name: string
   filePath: string | null
@@ -97,7 +101,7 @@ export const StrReplaceComponent = defineToolComponent({
         ? (toolBlock.input as any).path
         : null)
     const message = extractValueForKey(outputStr, 'message')
-    const isCreate = message === 'Created new file'
+    const isCreate = isCreatedFileMessage(message)
 
     return {
       content: (
