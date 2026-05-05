@@ -51,7 +51,9 @@ describe('codeSearch', () => {
       const result = await searchPromise
       expect(result[0].type).toBe('json')
       const value = asCodeSearchResult(result[0])
+      expect(value.stdout).toContain('Found 3 matches')
       expect(value.stdout).toContain('file1.ts:')
+      expect(value.stdout).toContain('  Line 1: import foo from "bar"')
       expect(value.stdout).toContain('file2.ts:')
     })
   })
@@ -81,6 +83,8 @@ describe('codeSearch', () => {
       expect(result[0].type).toBe('json')
       const value = asCodeSearchResult(result[0])
 
+      expect(value.stdout).toContain('Found 2 matches')
+
       // Should contain match lines
       expect(value.stdout).toContain('import { env } from "./config"')
       expect(value.stdout).toContain('import env from "process"')
@@ -104,7 +108,11 @@ describe('codeSearch', () => {
         createRgJsonContext('app.ts', 1, 'import React from "react"'),
         createRgJsonContext('app.ts', 2, ''),
         createRgJsonMatch('app.ts', 3, 'export const main = () => {}'),
-        createRgJsonContext('utils.ts', 8, 'function validateInput(x: string) {'),
+        createRgJsonContext(
+          'utils.ts',
+          8,
+          'function validateInput(x: string) {',
+        ),
         createRgJsonContext('utils.ts', 9, '  return x.length > 0'),
         createRgJsonMatch('utils.ts', 10, 'export function helper() {}'),
       ].join('\n')
@@ -343,6 +351,28 @@ describe('codeSearch', () => {
       }
     })
 
+    it('should not report truncation when matches exactly equal maxResults', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        maxResults: 2,
+      })
+
+      const output = [
+        createRgJsonMatch('file.ts', 1, 'test 1'),
+        createRgJsonMatch('file.ts', 2, 'test 2'),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = asCodeSearchResult(result[0])
+
+      expect(value.stdout).toContain('Found 2 matches')
+      expect(value.stdout).not.toContain('Results limited')
+    })
+
     it('should respect globalMaxResults with context lines', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
@@ -447,8 +477,7 @@ describe('codeSearch', () => {
       const result = await searchPromise
       const value = asCodeSearchResult(result[0])
 
-      // formatCodeSearchOutput returns 'No results' for empty input
-      expect(value.stdout).toBe('No results')
+      expect(value.stdout).toBe('Found 0 matches')
     })
   })
 
@@ -544,7 +573,13 @@ describe('codeSearch', () => {
       // Generate matches with long content to quickly exceed output size
       const matches: string[] = []
       for (let i = 0; i < 20; i++) {
-        matches.push(createRgJsonMatch('file.ts', i, `test line ${i} with some content that is quite long to fill up the buffer quickly`))
+        matches.push(
+          createRgJsonMatch(
+            'file.ts',
+            i,
+            `test line ${i} with some content that is quite long to fill up the buffer quickly`,
+          ),
+        )
       }
       const output = matches.join('\n')
 
@@ -559,8 +594,8 @@ describe('codeSearch', () => {
       const matchCount = (value.stdout!.match(/test line \d+/g) || []).length
       expect(matchCount).toBeLessThan(20)
       // Should indicate truncation happened
-      const hasTruncationMessage = 
-        value.stdout!.includes('truncated') || 
+      const hasTruncationMessage =
+        value.stdout!.includes('truncated') ||
         value.stdout!.includes('limit reached') ||
         value.stdout!.includes('Output size limit')
       expect(hasTruncationMessage).toBe(true)
@@ -616,7 +651,7 @@ describe('codeSearch', () => {
       expect(result[0].type).toBe('json')
       const value = asCodeSearchResult(result[0])
       expect(value.stdout).toContain('file.ts:')
-      
+
       // Verify the args passed to spawn include the glob flag correctly
       expect(mockSpawn).toHaveBeenCalled()
       const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
@@ -631,7 +666,11 @@ describe('codeSearch', () => {
         flags: '-g *.ts -g *.tsx',
       })
 
-      const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
+      const output = createRgJsonMatch(
+        'file.tsx',
+        1,
+        'import React from "react"',
+      )
 
       mockProcess.stdout.emit('data', Buffer.from(output))
       mockProcess.emit('close', 0)
@@ -640,11 +679,13 @@ describe('codeSearch', () => {
       expect(result[0].type).toBe('json')
       const value = asCodeSearchResult(result[0])
       expect(value.stdout).toContain('file.tsx:')
-      
+
       // Verify both glob patterns are passed correctly
       const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
       // Should have two -g flags, each followed by its pattern
-      const gFlagIndices = spawnArgs.map((arg, i) => arg === '-g' ? i : -1).filter(i => i !== -1)
+      const gFlagIndices = spawnArgs
+        .map((arg, i) => (arg === '-g' ? i : -1))
+        .filter((i) => i !== -1)
       expect(gFlagIndices.length).toBe(2)
       expect(spawnArgs[gFlagIndices[0]! + 1]).toBe('*.ts')
       expect(spawnArgs[gFlagIndices[1]! + 1]).toBe('*.tsx')
@@ -657,7 +698,11 @@ describe('codeSearch', () => {
         flags: "-g 'authentication.knowledge.md'",
       })
 
-      const output = createRgJsonMatch('authentication.knowledge.md', 5, 'auth content')
+      const output = createRgJsonMatch(
+        'authentication.knowledge.md',
+        5,
+        'auth content',
+      )
 
       mockProcess.stdout.emit('data', Buffer.from(output))
       mockProcess.emit('close', 0)
@@ -721,13 +766,17 @@ describe('codeSearch', () => {
         flags: '-g *.ts -i -g *.tsx',
       })
 
-      const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
+      const output = createRgJsonMatch(
+        'file.tsx',
+        1,
+        'import React from "react"',
+      )
 
       mockProcess.stdout.emit('data', Buffer.from(output))
       mockProcess.emit('close', 0)
 
       const result = await searchPromise
-      
+
       // Verify flags are preserved in order without deduplication
       const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
       const flagsSection = spawnArgs.slice(0, spawnArgs.indexOf('--'))
@@ -735,9 +784,9 @@ describe('codeSearch', () => {
       expect(flagsSection).toContain('*.ts')
       expect(flagsSection).toContain('-i')
       expect(flagsSection).toContain('*.tsx')
-      
+
       // Count -g flags - should be 2, not deduplicated to 1
-      const gCount = flagsSection.filter(arg => arg === '-g').length
+      const gCount = flagsSection.filter((arg) => arg === '-g').length
       expect(gCount).toBe(2)
     })
   })
