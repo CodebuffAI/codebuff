@@ -10,7 +10,11 @@ function normalizeLineEndings(params: { str: string }): string {
 
 export async function processStrReplace(params: {
   path: string
-  replacements: { old: string; new: string; allowMultiple: boolean }[]
+  replacements: {
+    oldString: string
+    newString: string
+    allowMultiple: boolean
+  }[]
   initialContentPromise: Promise<string | null>
   logger: Logger
 }): Promise<
@@ -34,12 +38,16 @@ export async function processStrReplace(params: {
     }
   }
 
-  // Process each old/new string pair
+  // Process each oldString/newString pair
   let currentContent = initialContent
   let messages: string[] = []
   const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
 
-  for (const { old: oldStr, new: newStr, allowMultiple } of replacements) {
+  for (const {
+    oldString: oldStr,
+    newString: newStr,
+    allowMultiple,
+  } of replacements) {
     // Regular case: require oldStr for replacements
     if (!oldStr) {
       messages.push(

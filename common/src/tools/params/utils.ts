@@ -43,8 +43,8 @@ export function normalizeReplacementAliases(val: unknown): unknown {
 
   const replacement = { ...(val as Record<string, unknown>) }
   for (const [target, aliases] of [
-    ['old', ['old_str', 'old_string']],
-    ['new', ['new_str', 'new_string']],
+    ['oldString', ['old', 'old_str', 'old_string']],
+    ['newString', ['new', 'new_str', 'new_string']],
   ] as const) {
     if (replacement[target] !== undefined) {
       continue

@@ -25,6 +25,18 @@ const isProposedToolName = (toolName: ToolContentBlock['toolName']): boolean =>
 const getBaseToolName = (toolName: ToolContentBlock['toolName']): string =>
   isProposedToolName(toolName) ? toolName.slice('propose_'.length) : toolName
 
+const SUCCESSFUL_EDIT_MESSAGES = [
+  'String replace applied successfully',
+  'Created file successfully',
+  'Created new file',
+  'Overwrote file successfully',
+  'Wrote file successfully',
+  'Updated file',
+  'Proposed new file',
+  'Proposed changes',
+  'Proposed string replacement',
+] as const
+
 const hasProposedTools = (blocks?: ContentBlock[]): boolean => {
   if (!blocks || blocks.length === 0) return false
 
@@ -221,38 +233,61 @@ export function extractFilePath(toolBlock: ToolContentBlock): string | null {
  * For proposed tools (implementors): construct diff from input replacements.
  */
 export function extractDiff(toolBlock: ToolContentBlock): string | null {
+  let hasSuccessfulOutput = false
+
   // First try to get from outputRaw (for executed tool results)
   // outputRaw is typically an array like [{type: "json", value: {unifiedDiff: "..."}}]
   const outputRaw = toolBlock.outputRaw as unknown
   if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
     const value = outputRaw[0].value as Record<string, unknown>
+    if (hasErrorMessage(value)) return null
+    if (isSuccessfulEditMessage(value.message)) hasSuccessfulOutput = true
     if (value.unifiedDiff) return value.unifiedDiff as string
     if (value.patch) return value.patch as string
   }
   // Also check direct properties (in case format differs)
   if (typeof outputRaw === 'object' && outputRaw !== null) {
     const rawObj = outputRaw as Record<string, unknown>
+    if (hasErrorMessage(rawObj)) return null
+    if (isSuccessfulEditMessage(rawObj.message)) hasSuccessfulOutput = true
     if (rawObj.unifiedDiff) return rawObj.unifiedDiff as string
     if (rawObj.patch) return rawObj.patch as string
   }
 
   // Try to get from output string (key: value format)
   const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
+  const message = extractValueForKey(outputStr, 'message')
   const diffFromOutput =
     extractValueForKey(outputStr, 'unifiedDiff') ||
     extractValueForKey(outputStr, 'patch')
+
+  if (hasFailedEditOutput({ outputStr, message, diffFromOutput })) {
+    return null
+  }
+  if (isSuccessfulEditMessage(message)) {
+    hasSuccessfulOutput = true
+  }
 
   if (diffFromOutput) {
     return diffFromOutput
   }
 
-  // For proposed edits (no output yet): construct diff from input
+  // For proposed/pending edits, or confirmed successful executions, construct
+  // the preview from input when the result omits a diff.
+  const canUseInputFallback =
+    isProposedToolName(toolBlock.toolName) ||
+    outputStr === '' ||
+    hasSuccessfulOutput
+  if (!canUseInputFallback) {
+    return null
+  }
+
   const input = toolBlock.input as Record<string, unknown>
   const baseToolName = getBaseToolName(toolBlock.toolName)
 
   // Handle str_replace: construct diff from replacements
   if (baseToolName === 'str_replace' && Array.isArray(input?.replacements)) {
-    const replacements = input.replacements as { old: string; new: string }[]
+    const replacements = input.replacements as ReplacementInput[]
     if (replacements.length > 0) {
       return constructDiffFromReplacements(replacements)
     }
@@ -271,22 +306,96 @@ export function extractDiff(toolBlock: ToolContentBlock): string | null {
   return null
 }
 
+function hasErrorMessage(value: Record<string, unknown>): boolean {
+  return Boolean(value.errorMessage || (value.value as any)?.errorMessage)
+}
+
+function hasFailedEditOutput(params: {
+  outputStr: string
+  message: string | null
+  diffFromOutput: string | null
+}): boolean {
+  const { outputStr, message, diffFromOutput } = params
+  const trimmedOutput = outputStr.trim()
+  if (!trimmedOutput) {
+    return false
+  }
+  if (
+    extractValueForKey(outputStr, 'errorMessage') ||
+    isErrorOutput(outputStr)
+  ) {
+    return true
+  }
+  if (diffFromOutput || isSuccessfulEditMessage(message)) {
+    return false
+  }
+  return !isSuccessfulEditMessage(trimmedOutput)
+}
+
+function isFailedEditToolBlock(toolBlock: ToolContentBlock): boolean {
+  const outputRaw = toolBlock.outputRaw as unknown
+  if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
+    const value = outputRaw[0].value as Record<string, unknown>
+    if (hasErrorMessage(value)) return true
+  }
+  if (typeof outputRaw === 'object' && outputRaw !== null) {
+    const rawObj = outputRaw as Record<string, unknown>
+    if (hasErrorMessage(rawObj)) return true
+  }
+
+  const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
+  const message = extractValueForKey(outputStr, 'message')
+  const diffFromOutput =
+    extractValueForKey(outputStr, 'unifiedDiff') ||
+    extractValueForKey(outputStr, 'patch')
+  return hasFailedEditOutput({ outputStr, message, diffFromOutput })
+}
+
+function isSuccessfulEditMessage(message: unknown): boolean {
+  if (typeof message !== 'string') {
+    return false
+  }
+
+  return message
+    .split('\n')
+    .some((line) =>
+      SUCCESSFUL_EDIT_MESSAGES.some((successMessage) =>
+        line.trim().startsWith(successMessage),
+      ),
+    )
+}
+
+function isErrorOutput(output: string): boolean {
+  const trimmedOutput = output.trim()
+  return trimmedOutput.startsWith('Error:') || trimmedOutput.startsWith('Failed ')
+}
+
 /**
  * Construct a simple diff view from str_replace replacements.
  */
+type ReplacementInput = {
+  oldString?: string
+  newString?: string
+  old?: string
+  new?: string
+}
+
 function constructDiffFromReplacements(
-  replacements: { old: string; new: string }[],
+  replacements: ReplacementInput[],
 ): string {
   const lines: string[] = []
 
   for (const replacement of replacements) {
+    const oldString = replacement.oldString ?? replacement.old ?? ''
+    const newString = replacement.newString ?? replacement.new ?? ''
+
     // Add old lines as removals
-    const oldLines = replacement.old.split('\n')
+    const oldLines = oldString.split('\n')
     for (const line of oldLines) {
       lines.push(`- ${line}`)
     }
     // Add new lines as additions
-    const newLines = replacement.new.split('\n')
+    const newLines = newString.split('\n')
     for (const line of newLines) {
       lines.push(`+ ${line}`)
     }
@@ -315,7 +424,8 @@ export function isCreateFile(toolBlock: ToolContentBlock): boolean {
   const message = extractValueForKey(outputStr, 'message')
   return (
     typeof message === 'string' &&
-    (message.startsWith('Created new file') ||
+    (message.startsWith('Created file successfully') ||
+      message.startsWith('Created new file') ||
       message.startsWith('Proposed new file'))
   )
 }
@@ -400,7 +510,9 @@ export function getFileChangeType(toolBlock: ToolContentBlock): FileChangeType {
  * Get aggregated file stats from all edit blocks.
  * Groups by file path and sums up the stats.
  */
-export function getFileStatsFromBlocks(blocks: ContentBlock[] | undefined): FileStats[] {
+export function getFileStatsFromBlocks(
+  blocks: ContentBlock[] | undefined,
+): FileStats[] {
   if (!blocks || blocks.length === 0) return []
 
   const fileMap = new Map<string, FileStats>()
@@ -408,8 +520,12 @@ export function getFileStatsFromBlocks(blocks: ContentBlock[] | undefined): File
   for (const block of blocks) {
     if (
       block.type === 'tool' &&
-      ALL_EDIT_TOOL_NAMES.includes(block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number])
+      ALL_EDIT_TOOL_NAMES.includes(
+        block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
+      )
     ) {
+      if (isFailedEditToolBlock(block)) continue
+
       const filePath = extractFilePath(block)
       if (!filePath) continue
 
@@ -456,8 +572,12 @@ export function buildActivityTimeline(
       }
     } else if (
       block.type === 'tool' &&
-      ALL_EDIT_TOOL_NAMES.includes(block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number])
+      ALL_EDIT_TOOL_NAMES.includes(
+        block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
+      )
     ) {
+      if (isFailedEditToolBlock(block)) continue
+
       const filePath = extractFilePath(block)
       const diff = extractDiff(block)
       const isCreate = isCreateFile(block)
@@ -519,8 +639,7 @@ export function getMultiPromptProgress(
 
   const selectorAgent = blocks.find(
     (block): block is AgentContentBlock =>
-      block.type === 'agent' &&
-      block.agentType.includes('best-of-n-selector'),
+      block.type === 'agent' && block.agentType.includes('best-of-n-selector'),
   )
   const isSelecting = selectorAgent?.status === 'running'
 
@@ -562,7 +681,9 @@ function hasSetOutputData(input: unknown): input is SetOutputInput {
  * Extract the selection reason from multi-prompt agent's set_output block.
  * set_output wraps data in a 'data' property, so we need to access input.data.reason
  */
-function extractSelectionReason(blocks: ContentBlock[] | undefined): string | null {
+function extractSelectionReason(
+  blocks: ContentBlock[] | undefined,
+): string | null {
   if (!blocks || blocks.length === 0) return null
 
   const setOutputBlock = blocks.find(
@@ -604,7 +725,9 @@ export function getMultiPromptPreview(
       const formattedReason = reason.charAt(0).toUpperCase() + reason.slice(1)
       const lines = formattedReason.split('\n')
       const truncatedReason =
-        lines.length > 2 ? lines.slice(0, 2).join('\n').trimEnd() + '...' : formattedReason
+        lines.length > 2
+          ? lines.slice(0, 2).join('\n').trimEnd() + '...'
+          : formattedReason
       return `${total} proposals evaluated\n${truncatedReason}`
     }
     return `${total} proposals evaluated`

@@ -161,7 +161,7 @@ function summarizeMissingReplacementFields(
       issue.message?.includes('received undefined') &&
       root === 'replacements' &&
       typeof index === 'number' &&
-      (field === 'old' || field === 'new')
+      (field === 'oldString' || field === 'newString')
 
     return isMissingReplacementString ? [`replacements[${index}].${field}`] : []
   })
@@ -174,13 +174,13 @@ function summarizeMissingReplacementFields(
     'Missing required replacement fields:',
     ...missingFields.map((field) => `- ${field}`),
     '',
-    'If the intent is deletion, set "new": "" explicitly.',
+    'If the intent is deletion, set "newString": "" explicitly.',
   ].join('\n')
 }
 
 function getToolValidationHint(toolName: string): string | undefined {
   if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
-    return 'Expected shape: { "path": string, "replacements": [{ "old": string, "new": string, "allowMultiple"?: boolean }] }.'
+    return 'Expected shape: { "path": string, "replacements": [{ "oldString": string, "newString": string, "allowMultiple"?: boolean }] }.'
   }
   if (toolName === 'write_file' || toolName === 'propose_write_file') {
     return 'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'

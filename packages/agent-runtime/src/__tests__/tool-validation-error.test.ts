@@ -144,7 +144,32 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
       expect(result.input.replacements).toEqual([
-        { old: 'before', new: 'after', allowMultiple: false },
+        { oldString: 'before', newString: 'after', allowMultiple: false },
+      ])
+    }
+  })
+
+  it('should accept old/new aliases for str_replace replacements', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'short-alias-tool-call-id',
+        input: {
+          path: 'test.ts',
+          replacements: [
+            {
+              old: 'before',
+              new: 'after',
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.replacements).toEqual([
+        { oldString: 'before', newString: 'after', allowMultiple: false },
       ])
     }
   })
@@ -169,7 +194,7 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
       expect(result.input.replacements).toEqual([
-        { old: 'before', new: 'after', allowMultiple: false },
+        { oldString: 'before', newString: 'after', allowMultiple: false },
       ])
     }
   })
@@ -182,9 +207,9 @@ describe('tool validation error handling', () => {
         input: {
           path: 'test.ts',
           replacements: [
-            { old: 'before', new: 'after' },
-            { old: 'delete me' },
-            { old: 'delete me too' },
+            { oldString: 'before', newString: 'after' },
+            { oldString: 'delete me' },
+            { oldString: 'delete me too' },
           ],
         },
       },
@@ -193,10 +218,10 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('Missing required replacement fields:')
-      expect(result.error).toContain('- replacements[1].new')
-      expect(result.error).toContain('- replacements[2].new')
+      expect(result.error).toContain('- replacements[1].newString')
+      expect(result.error).toContain('- replacements[2].newString')
       expect(result.error).toContain(
-        'If the intent is deletion, set "new": "" explicitly.',
+        'If the intent is deletion, set "newString": "" explicitly.',
       )
       expect(result.error).toContain('Raw validation issues:')
     }

@@ -61,12 +61,12 @@ Write out what changes you would make using the tool call format below. Use this
   "path": "path/to/file",
   "replacements": [
     {
-      "old": "exact old code",
-      "new": "exact new code"
+      "oldString": "exact old code",
+      "newString": "exact new code"
     },
     {
-      "old": "exact old code 2",
-      "new": "exact new code 2"
+      "oldString": "exact old code 2",
+      "newString": "exact new code 2"
     },
   ]
 }
