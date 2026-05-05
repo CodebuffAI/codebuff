@@ -93,8 +93,7 @@ const formatPrivacySignalList = (
 const TakeoverPrompt: React.FC = () => {
   const theme = useTheme()
   const [pending, setPending] = useState(false)
-  const [takeoverHover, setTakeoverHover] = useState(false)
-  const [exitHover, setExitHover] = useState(false)
+  const [focusedIndex, setFocusedIndex] = useState(0) // 0 = Take over, 1 = Exit
 
   const handleTakeover = useCallback(() => {
     if (pending) return
@@ -108,41 +107,79 @@ const TakeoverPrompt: React.FC = () => {
         const name = key.name ?? ''
         const isConfirm = name === 'return' || name === 'enter'
         const isExit = name === 'escape' || name === 'esc'
-        if (!isConfirm && !isExit) return
-        key.preventDefault?.()
-        if (isConfirm) {
-          handleTakeover()
-        } else {
+        const isTab = name === 'tab'
+        const isShiftTab = key.shift === true && isTab
+        const isRight = name === 'right'
+        const isLeft = name === 'left'
+
+        if (isExit) {
+          key.preventDefault?.()
           exitFreebuffCleanly()
+          return
+        }
+
+        if (isConfirm) {
+          key.preventDefault?.()
+          if (focusedIndex === 0) {
+            handleTakeover()
+          } else {
+            exitFreebuffCleanly()
+          }
+          return
+        }
+
+        if (isRight || isTab) {
+          key.preventDefault?.()
+          setFocusedIndex((prev) => (prev + 1) % 2)
+          return
+        }
+
+        if (isLeft || isShiftTab) {
+          key.preventDefault?.()
+          setFocusedIndex((prev) => (prev - 1 + 2) % 2)
+          return
         }
       },
-      [handleTakeover],
+      [focusedIndex, handleTakeover],
     ),
   )
 
+  const isTakeoverFocused = focusedIndex === 0
+  const isExitFocused = focusedIndex === 1
+
   return (
-    <>
+    <box
+      style={{
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+      }}
+    >
       <text
-        style={{ fg: theme.foreground, marginBottom: 1 }}
+        style={{ fg: theme.foreground }}
         attributes={TextAttributes.BOLD}
       >
         Freebuff is already running
       </text>
-      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-        Only one freebuff instance can run at a time. Take over the other
-        instance here, or exit and keep using the one already running.
+
+      <text style={{ fg: theme.muted }}>
+        Only one freebuff instance is allowed at a time.
       </text>
+
       <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
         <Button
           onClick={handleTakeover}
-          onMouseOver={() => setTakeoverHover(true)}
-          onMouseOut={() => setTakeoverHover(false)}
+          onMouseOver={() => setFocusedIndex(0)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
+          border={['top', 'bottom', 'left', 'right']}
+          borderStyle="single"
+          borderColor={theme.primary}
         >
           <text
             style={{
-              fg: takeoverHover ? theme.background : theme.foreground,
-              bg: takeoverHover ? theme.primary : undefined,
+              fg: isTakeoverFocused ? theme.background : theme.foreground,
+              bg: isTakeoverFocused ? theme.primary : undefined,
             }}
             attributes={TextAttributes.BOLD}
           >
@@ -151,22 +188,21 @@ const TakeoverPrompt: React.FC = () => {
         </Button>
         <Button
           onClick={exitFreebuffCleanly}
-          onMouseOver={() => setExitHover(true)}
-          onMouseOut={() => setExitHover(false)}
+          onMouseOver={() => setFocusedIndex(1)}
           style={{ paddingLeft: 1, paddingRight: 1 }}
+          border={['top', 'bottom', 'left', 'right']}
+          borderStyle="single"
+          borderColor={isExitFocused ? theme.foreground : theme.muted}
         >
           <text
-            style={{ fg: exitHover ? theme.foreground : theme.muted }}
-            attributes={exitHover ? TextAttributes.BOLD : TextAttributes.NONE}
+            style={{ fg: isExitFocused ? theme.foreground : theme.muted }}
+            attributes={isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE}
           >
             Exit
           </text>
         </Button>
       </box>
-      <text style={{ fg: theme.muted, marginTop: 1 }}>
-        Enter takes over · Esc exits
-      </text>
-    </>
+    </box>
   )
 }
 
@@ -258,7 +294,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         >
           <text
             style={{ fg: exitHover ? theme.foreground : theme.muted }}
-            attributes={exitHover ? TextAttributes.BOLD : TextAttributes.NONE}
+            attributes={TextAttributes.BOLD}
           >
             ✕
           </text>
