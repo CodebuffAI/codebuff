@@ -1,24 +1,31 @@
 /**
  * Formats code search output to group matches by file.
  *
- * Input format: ./file.ts:line content
+ * Input format: ./file.ts:line:content
  * Output format:
+ * Found 3 matches
  * ./file.ts:
- * line content
- * another line content
- * yet another line content
+ *   Line 1: content
+ *   Line 2: another line content
+ *   Line 3: yet another line content
  *
  * (double newline between distinct files)
  *
  * @param stdout The raw stdout from ripgrep
+ * @param options.matchCount The number of actual matches, excluding context lines
  * @returns Formatted output with matches grouped by file
  */
-export function formatCodeSearchOutput(stdout: string): string {
+export function formatCodeSearchOutput(
+  stdout: string,
+  options: { matchCount?: number } = {},
+): string {
   if (!stdout) {
-    return 'No results'
+    return 'Found 0 matches'
   }
   const lines = stdout.split('\n')
-  const formatted: string[] = []
+  const formatted: string[] = [
+    `Found ${options.matchCount ?? countFormattedMatches(lines)} matches`,
+  ]
   let currentFile: string | null = null
 
   for (const line of lines) {
@@ -38,30 +45,13 @@ export function formatCodeSearchOutput(stdout: string): string {
 
     // Use regex to find the pattern: separator + digits + separator
     // This handles filenames with hyphens/colons by matching the line number pattern
-    let separatorIndex = -1
-    let filePath = ''
+    const parsedLine = parseRipgrepLine(line)
 
-    // Try match line pattern: filename:digits:content
-    const matchLinePattern = /(.*?):(\d+):(.*)$/
-    const matchLineMatch = line.match(matchLinePattern)
-    if (matchLineMatch) {
-      filePath = matchLineMatch[1]
-      separatorIndex = matchLineMatch[1].length
-    } else {
-      // Try context line pattern: filename-digits-content
-      const contextLinePattern = /(.*?)-(\d+)-(.*)$/
-      const contextLineMatch = line.match(contextLinePattern)
-      if (contextLineMatch) {
-        filePath = contextLineMatch[1]
-        separatorIndex = contextLineMatch[1].length
-      }
-    }
-
-    if (separatorIndex === -1) {
+    if (!parsedLine) {
       formatted.push(line)
       continue
     }
-    const content = line.substring(separatorIndex)
+    const { filePath, lineNumber, content } = parsedLine
 
     // Check if this is a new file (file paths don't start with whitespace)
     if (filePath && !filePath.startsWith(' ') && !filePath.startsWith('\t')) {
@@ -73,11 +63,9 @@ export function formatCodeSearchOutput(stdout: string): string {
         currentFile = filePath
         // Show file path with colon on its own line
         formatted.push(filePath + ':')
-        // Show content without leading separator on next line
-        formatted.push(content.substring(1))
+        formatted.push(`  Line ${lineNumber}: ${content}`)
       } else {
-        // Same file - just show content without leading separator
-        formatted.push(content.substring(1))
+        formatted.push(`  Line ${lineNumber}: ${content}`)
       }
     } else {
       // Line doesn't match expected format, keep as-is
@@ -86,4 +74,42 @@ export function formatCodeSearchOutput(stdout: string): string {
   }
 
   return formatted.join('\n')
+}
+
+function parseRipgrepLine(line: string): {
+  filePath: string
+  lineNumber: string
+  content: string
+  isContext: boolean
+} | null {
+  // Try match line pattern: filename:digits:content
+  const matchLineMatch = line.match(/(.*?):(\d+):(.*)$/)
+  if (matchLineMatch) {
+    return {
+      filePath: matchLineMatch[1],
+      lineNumber: matchLineMatch[2],
+      content: matchLineMatch[3],
+      isContext: false,
+    }
+  }
+
+  // Try context line pattern: filename-digits-content
+  const contextLineMatch = line.match(/(.*?)-(\d+)-(.*)$/)
+  if (contextLineMatch) {
+    return {
+      filePath: contextLineMatch[1],
+      lineNumber: contextLineMatch[2],
+      content: contextLineMatch[3],
+      isContext: true,
+    }
+  }
+
+  return null
+}
+
+function countFormattedMatches(lines: string[]): number {
+  return lines.filter((line) => {
+    const parsedLine = parseRipgrepLine(line)
+    return parsedLine && !parsedLine.isContext
+  }).length
 }
