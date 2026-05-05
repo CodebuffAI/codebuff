@@ -1,3 +1,10 @@
+import {
+  addDaysToYmd,
+  getUtcForZonedTime,
+  getZonedParts,
+  type ZonedDateParts,
+} from '../util/zoned-time'
+
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
  *
@@ -31,17 +38,13 @@ export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
-export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 20
+export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
+export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
+/** Deprecated wire compatibility field. Premium usage now resets at midnight
+ *  Pacific time rather than using a rolling hourly window. */
+export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
 const FREEBUFF_PACIFIC_TIMEZONE = 'America/Los_Angeles'
-
-interface ZonedDateParts {
-  year: number
-  month: number
-  day: number
-  hour: number
-  minute: number
-}
 
 interface LocalTimeFormatOptions {
   locale?: string
@@ -163,79 +166,6 @@ export function getFreebuffModel(id: string): FreebuffModelOption {
     SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === id) ??
     FREEBUFF_MODELS.find((m) => m.id === FALLBACK_FREEBUFF_MODEL_ID)!
   )
-}
-
-function getZonedParts(date: Date, timeZone: string): ZonedDateParts {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
-  const value = (type: string) =>
-    parts.find((part) => part.type === type)?.value
-  const year = Number(value('year') ?? 0)
-  const month = Number(value('month') ?? 1)
-  const day = Number(value('day') ?? 1)
-  const hour = Number(value('hour') ?? 0)
-  const minute = Number(value('minute') ?? 0)
-  return {
-    year,
-    month,
-    day,
-    hour,
-    minute,
-  }
-}
-
-function addDaysToYmd(
-  year: number,
-  month: number,
-  day: number,
-  days: number,
-): Pick<ZonedDateParts, 'year' | 'month' | 'day'> {
-  const next = new Date(Date.UTC(year, month - 1, day))
-  next.setUTCDate(next.getUTCDate() + days)
-  return {
-    year: next.getUTCFullYear(),
-    month: next.getUTCMonth() + 1,
-    day: next.getUTCDate(),
-  }
-}
-
-function getUtcForZonedTime(
-  parts: Pick<ZonedDateParts, 'year' | 'month' | 'day'>,
-  timeZone: string,
-  hour: number,
-  minute: number,
-): Date {
-  let guess = new Date(
-    Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute),
-  )
-
-  for (let i = 0; i < 3; i++) {
-    const actual = getZonedParts(guess, timeZone)
-    const desiredUtc = Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day,
-      hour,
-      minute,
-    )
-    const actualUtc = Date.UTC(
-      actual.year,
-      actual.month - 1,
-      actual.day,
-      actual.hour,
-      actual.minute,
-    )
-    guess = new Date(guess.getTime() + (desiredUtc - actualUtc))
-  }
-
-  return guess
 }
 
 function getNextFreebuffDeploymentStart(now: Date): Date {

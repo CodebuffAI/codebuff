@@ -162,6 +162,10 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
 | `SESSION_GRACE_MS` | `web/src/server/free-session/config.ts` | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
+### Premium Session Quota
+
+DeepSeek, Kimi, and legacy GLM share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax remains unlimited.
+
 ## HTTP API
 
 All endpoints authenticate via the standard `Authorization: Bearer <api-key>` or `x-codebuff-api-key` header.
