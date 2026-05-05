@@ -80,7 +80,7 @@ export const FREEBUFF_MODELS = [
   {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
-    tagline: 'Fastest, unlimited',
+    tagline: 'Fastest',
     availability: 'always',
   },
 ] as const satisfies readonly FreebuffModelOption[]

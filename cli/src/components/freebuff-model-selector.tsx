@@ -98,17 +98,24 @@ export const FreebuffModelSelector: React.FC = () => {
       ? session.rateLimitsByModel
       : undefined
 
-  const getQuotaHint = useCallback(
-    (modelId: string): string => {
-      const rateLimit = rateLimitsByModel?.[modelId]
-      if (rateLimit) {
-        return `${formatSessionUnits(rateLimit.recentCount)}/${rateLimit.limit} used`
-      }
-      return isFreebuffPremiumModelId(modelId)
-        ? `0/${FREEBUFF_PREMIUM_SESSION_LIMIT} used`
-        : 'Unlimited'
-    },
+  // All premium models share one quota pool: the server replicates the same
+  // snapshot under each premium model id, so any entry has the right count.
+  // Grab the first one (or 0 when the user has no usage and the map is
+  // absent) so the footer can render the single shared counter.
+  const sharedPremiumUsed = useMemo(
+    () =>
+      rateLimitsByModel
+        ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
+        : 0,
     [rateLimitsByModel],
+  )
+
+  // Per-row hint is a tier badge, not a quota counter: premium models share
+  // the 5-session pool (shown once in the footer); MiniMax is unlimited.
+  const getTierLabel = useCallback(
+    (modelId: string): string =>
+      isFreebuffPremiumModelId(modelId) ? 'Premium' : 'Unlimited',
+    [],
   )
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
@@ -130,7 +137,7 @@ export const FreebuffModelSelector: React.FC = () => {
     }
 
     const hintLen = (model: FreebuffModelOption): number =>
-      Math.max(getQuotaHint(model.id).length, 'Closed'.length)
+      Math.max(getTierLabel(model.id).length, 'Closed'.length)
 
     const oneLineLen = (model: FreebuffModelOption): number => {
       const inlineDetails = detailsTextLen(model)
@@ -140,7 +147,7 @@ export const FreebuffModelSelector: React.FC = () => {
         3 /* " · " */ +
         model.tagline.length +
         (inlineDetails > 0 ? 3 + inlineDetails : 0) +
-        1 /* space before hint */ +
+        3 /* " · " before hint */ +
         hintLen(model)
       )
     }
@@ -150,7 +157,7 @@ export const FreebuffModelSelector: React.FC = () => {
       model.displayName.length +
       3 +
       model.tagline.length +
-      1 +
+      3 +
       hintLen(model)
 
     const detailsLineLen = (model: FreebuffModelOption): number => {
@@ -176,7 +183,7 @@ export const FreebuffModelSelector: React.FC = () => {
         contentMaxWidth,
       ),
     }
-  }, [contentMaxWidth, deploymentAvailabilityLabel, getQuotaHint])
+  }, [contentMaxWidth, deploymentAvailabilityLabel, getTierLabel])
 
   const isJoinable = useCallback(
     (modelId: string) => {
@@ -255,8 +262,8 @@ export const FreebuffModelSelector: React.FC = () => {
         // anything except re-picking the queue we're already in.
         const interactable =
           !pending && canJoin && model.id !== committedModelId
-        const quotaHint = getQuotaHint(model.id)
-        const hint = isAvailable ? quotaHint : 'Closed'
+        const tierLabel = getTierLabel(model.id)
+        const hint = isAvailable ? tierLabel : 'Closed'
 
         // Focused row: green border + arrow indicator + bold name. The name
         // itself stays the normal foreground color so it doesn't shout — the
@@ -317,7 +324,7 @@ export const FreebuffModelSelector: React.FC = () => {
               {showInlineWarning && (
                 <span fg={warningColor}> · {model.warning}</span>
               )}
-              <span fg={hintColor}> {hint}</span>
+              <span fg={hintColor}> · {hint}</span>
             </text>
             {showWrappedDetails && (
               <text>
@@ -336,6 +343,14 @@ export const FreebuffModelSelector: React.FC = () => {
           </Button>
         )
       })}
+      {/* Single shared-quota footer. Replaces the per-row "X/5 used" hints
+          which made it look like each premium model had its own pool.
+          wrapMode: 'word' so the line reflows on narrow terminals instead of
+          clipping. */}
+      <text style={{ fg: theme.muted, marginTop: 1, wrapMode: 'word' }}>
+        {formatSessionUnits(sharedPremiumUsed)} /{' '}
+        {FREEBUFF_PREMIUM_SESSION_LIMIT} premium sessions used today
+      </text>
     </box>
   )
 }

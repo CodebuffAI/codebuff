@@ -66,9 +66,6 @@ const formatSessionRemaining = (ms: number): string => {
   return minutes === 0 ? `${hours}h left` : `${hours}h ${minutes}m left`
 }
 
-const formatSessionUnits = (units: number): string =>
-  Number.isInteger(units) ? String(units) : units.toFixed(1)
-
 interface StatusBarProps {
   timerStartTime: number | null
   isAtBottom: boolean
@@ -179,16 +176,10 @@ export const StatusBar = ({
             freebuffSession?.status === 'active'
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
-          const quotaText =
-            freebuffSession?.status === 'active' && freebuffSession.rateLimit
-              ? `Premium ${formatSessionUnits(freebuffSession.rateLimit.recentCount)}/${freebuffSession.rateLimit.limit} used · `
-              : freebuffSession?.status === 'active'
-                ? 'Unlimited · '
-                : ''
           return (
             <span fg={isUrgent ? theme.warning : theme.secondary}>
               {modelName ? `${modelName} · ` : ''}
-              {quotaText}{formatSessionRemaining(sessionProgress.remainingMs)}
+              {formatSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }

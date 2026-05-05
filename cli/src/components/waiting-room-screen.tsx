@@ -263,18 +263,6 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <span>Elapsed </span>
                   {formatElapsed(elapsedMs)}
                 </text>
-                {/* Premium session quota. Minimax is unlimited, so it has no
-                    rateLimit payload and skips this line. */}
-                {session.rateLimit && (
-                  <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                    <span>Premium sessions </span>
-                    <span fg={theme.foreground}>
-                      {formatSessionUnits(session.rateLimit.recentCount)} /{' '}
-                      {session.rateLimit.limit}
-                    </span>
-                    <span> used in the last 20 hours</span>
-                  </text>
-                )}
               </box>
             </>
           )}
