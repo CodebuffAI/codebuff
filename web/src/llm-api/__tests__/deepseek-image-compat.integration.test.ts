@@ -1,9 +1,9 @@
-import { describe, expect, it, mock } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
 import {
-  createDeepSeekRequest,
+  buildDeepSeekRequestBody,
   normalizeDeepSeekRequestBody,
-} from '../deepseek'
+} from '../deepseek-request-body'
 
 import type { ChatCompletionRequestBody } from '../types'
 
@@ -52,16 +52,8 @@ describe('normalizeDeepSeekRequestBody', () => {
   })
 })
 
-describe('createDeepSeekRequest', () => {
-  it('sends DeepSeek-compatible text content when the request contains an image attachment', async () => {
-    let sentBody: Record<string, unknown> | null = null
-    const mockFetch = mock(
-      async (_url: string | URL | Request, init?: RequestInit) => {
-        sentBody = JSON.parse(init?.body as string)
-        return new Response(JSON.stringify({ ok: true }), { status: 200 })
-      },
-    ) as unknown as typeof globalThis.fetch
-
+describe('buildDeepSeekRequestBody', () => {
+  it('builds DeepSeek-compatible JSON when the request contains an image attachment', () => {
     const body: ChatCompletionRequestBody = {
       model: 'deepseek/deepseek-v4-pro',
       messages: [
@@ -85,11 +77,7 @@ describe('createDeepSeekRequest', () => {
       usage: { include: true },
     }
 
-    await createDeepSeekRequest({
-      body,
-      originalModel: body.model,
-      fetch: mockFetch,
-    })
+    const sentBody = buildDeepSeekRequestBody(body, body.model)
 
     expect(sentBody).toMatchObject({
       model: 'deepseek-v4-pro',
@@ -103,8 +91,7 @@ describe('createDeepSeekRequest', () => {
     expect(sentBody).not.toHaveProperty('codebuff_metadata')
     expect(sentBody).not.toHaveProperty('usage')
 
-    const capturedBody = sentBody as unknown as Record<string, unknown>
-    const messages = capturedBody.messages as Array<{ content: string }>
+    const messages = sentBody.messages as Array<{ content: string }>
     expect(messages[1].content).toBe(
       'Please inspect this screenshot.\n\n[1 image was omitted because the DeepSeek API does not support image input.]',
     )
