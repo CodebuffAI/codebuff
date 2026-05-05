@@ -132,6 +132,24 @@ describe('extractDiff', () => {
     expect(diff).toContain('+ const x = 2')
   })
 
+  test('constructs diff from successful str_replace input with warning output', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: {
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
+      },
+      output: `message: |
+  Matched with indentation modification
+
+  String replace applied successfully.`,
+    }
+    const diff = extractDiff(block)
+    expect(diff).toContain('- const x = 1')
+    expect(diff).toContain('+ const x = 2')
+  })
+
   test('uses patch content from successful str_replace input when output omits diff', () => {
     const block: ToolContentBlock = {
       type: 'tool',
@@ -141,6 +159,38 @@ describe('extractDiff', () => {
       output: 'message: String replace applied successfully.',
     }
     expect(extractDiff(block)).toBe('- const x = 1\n+ const x = 2')
+  })
+
+  test('returns null for failed str_replace output without a diff', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: {
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
+      },
+      output: 'No change to the file',
+    }
+    expect(extractDiff(block)).toBeNull()
+  })
+
+  test('returns null for failed str_replace output even when it includes patch input', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: { type: 'patch', content: '- const x = 1\n+ const x = 2' },
+      outputRaw: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: 'Failed to apply patch.',
+            patch: '- const x = 1\n+ const x = 2',
+          },
+        },
+      ],
+    }
+    expect(extractDiff(block)).toBeNull()
   })
 
   test('constructs diff from write_file input', () => {
@@ -164,6 +214,17 @@ describe('extractDiff', () => {
     }
     const diff = extractDiff(block)
     expect(diff).toBe('+ line1\n+ line2')
+  })
+
+  test('returns null for failed write_file output without a diff', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: { content: 'line1\nline2' },
+      output: 'Failed to write to file',
+    }
+    expect(extractDiff(block)).toBeNull()
   })
 
   test('constructs diff from propose_str_replace input', () => {
@@ -367,6 +428,25 @@ describe('getFileStatsFromBlocks', () => {
     const stats = getFileStatsFromBlocks(blocks)
     expect(stats).toHaveLength(0)
   })
+
+  test('ignores failed edit tools', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'test-1',
+        toolName: 'str_replace',
+        input: {
+          path: 'file.ts',
+          replacements: [
+            { oldString: 'const x = 1', newString: 'const x = 2' },
+          ],
+        },
+        output: 'No change to the file',
+      },
+    ]
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(0)
+  })
 })
 
 describe('buildActivityTimeline', () => {
@@ -413,6 +493,25 @@ describe('buildActivityTimeline', () => {
     const timeline = buildActivityTimeline(blocks)
     expect(timeline).toHaveLength(1)
     expect(timeline[0].content).toBe('Normal text')
+  })
+
+  test('skips failed edit tools', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Trying an edit',
+      } as TextContentBlock,
+      {
+        type: 'tool',
+        toolCallId: 'test-1',
+        toolName: 'write_file',
+        input: { path: 'file.ts', content: 'new content' },
+        output: 'Failed to write to file',
+      },
+    ]
+    const timeline = buildActivityTimeline(blocks)
+    expect(timeline).toHaveLength(1)
+    expect(timeline[0].type).toBe('commentary')
   })
 })
 
