@@ -15,7 +15,7 @@ export interface CodebuffMetadata {
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
+  content?: string | ChatCompletionContentPart[] | null
   name?: string
   tool_calls?: Array<{
     id: string
@@ -27,6 +27,27 @@ export interface ChatMessage {
   }>
   tool_call_id?: string
 }
+
+export type ChatCompletionContentPart =
+  | {
+      type: 'text'
+      text?: string
+    }
+  | {
+      type: 'image_url'
+      image_url?: string | { url?: string }
+    }
+  | {
+      type: 'file'
+      file?: {
+        filename?: string
+        file_data?: string
+      }
+    }
+  | {
+      type: string
+      [key: string]: unknown
+    }
 
 export interface ChatCompletionTool {
   id?: string
