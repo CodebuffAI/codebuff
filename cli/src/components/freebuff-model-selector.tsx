@@ -19,7 +19,10 @@ import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { nextFreebuffModelId } from '../utils/freebuff-model-navigation'
+import {
+  freebuffModelNavigationDirectionForKey,
+  nextFreebuffModelId,
+} from '../utils/freebuff-model-navigation'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent } from '@opentui/core'
@@ -32,6 +35,9 @@ const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
   ...FREEBUFF_MODELS.filter((model) => model.id === DEFAULT_FREEBUFF_MODEL_ID),
   ...FREEBUFF_MODELS.filter((model) => model.id !== DEFAULT_FREEBUFF_MODEL_ID),
 ]
+const FREEBUFF_MODEL_SELECTOR_MODEL_IDS = FREEBUFF_MODEL_SELECTOR_MODELS.map(
+  (model) => model.id,
+)
 
 function formatSessionUnits(units: number): string {
   return Number.isInteger(units) ? String(units) : units.toFixed(1)
@@ -213,27 +219,26 @@ export const FreebuffModelSelector: React.FC = () => {
       (key: KeyEvent) => {
         if (pending) return
         const name = key.name ?? ''
-        const isForward =
-          name === 'right' || name === 'down' || (name === 'tab' && !key.shift)
-        const isBackward =
-          name === 'left' || name === 'up' || (name === 'tab' && key.shift)
+        const direction = freebuffModelNavigationDirectionForKey(key)
         const isCommit =
           name === 'return' || name === 'enter' || name === 'space'
-        if (!isForward && !isBackward && !isCommit) return
         if (isCommit) {
           if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
+            key.stopPropagation?.()
             pick(focusedId)
           }
           return
         }
+        if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: FREEBUFF_MODEL_SELECTOR_MODELS.map((model) => model.id),
+          modelIds: FREEBUFF_MODEL_SELECTOR_MODEL_IDS,
           focusedId,
-          direction: isForward ? 'forward' : 'backward',
+          direction,
         })
         if (targetId) {
           key.preventDefault?.()
+          key.stopPropagation?.()
           setFocusedId(targetId)
         }
       },
