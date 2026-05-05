@@ -117,12 +117,50 @@ describe('extractDiff', () => {
     expect(diff).toContain('+ const x = 2')
   })
 
+  test('constructs diff from successful str_replace input when output omits diff', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: {
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
+      },
+      output: 'message: String replace applied successfully.',
+    }
+    const diff = extractDiff(block)
+    expect(diff).toContain('- const x = 1')
+    expect(diff).toContain('+ const x = 2')
+  })
+
+  test('uses patch content from successful str_replace input when output omits diff', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: { type: 'patch', content: '- const x = 1\n+ const x = 2' },
+      output: 'message: String replace applied successfully.',
+    }
+    expect(extractDiff(block)).toBe('- const x = 1\n+ const x = 2')
+  })
+
   test('constructs diff from write_file input', () => {
     const block: ToolContentBlock = {
       type: 'tool',
       toolCallId: 'test-1',
       toolName: 'write_file',
       input: { content: 'line1\nline2' },
+    }
+    const diff = extractDiff(block)
+    expect(diff).toBe('+ line1\n+ line2')
+  })
+
+  test('constructs diff from successful write_file input when output omits diff', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: { content: 'line1\nline2' },
+      output: 'message: Overwrote file successfully.',
     }
     const diff = extractDiff(block)
     expect(diff).toBe('+ line1\n+ line2')
