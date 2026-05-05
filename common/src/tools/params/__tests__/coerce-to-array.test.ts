@@ -135,8 +135,8 @@ describe('normalizeReplacementAliases', () => {
     ).toEqual({
       old_str: 'before',
       new_str: 'after',
-      old: 'before',
-      new: 'after',
+      oldString: 'before',
+      newString: 'after',
       allowMultiple: true,
     })
   })
@@ -150,22 +150,22 @@ describe('normalizeReplacementAliases', () => {
     ).toEqual({
       old_string: 'before',
       new_string: 'after',
-      old: 'before',
-      new: 'after',
+      oldString: 'before',
+      newString: 'after',
     })
   })
 
   it('does not overwrite documented replacement keys', () => {
     expect(
       normalizeReplacementAliases({
-        old: 'before',
-        new: 'after',
+        oldString: 'before',
+        newString: 'after',
         old_str: 'ignored',
         new_str: 'ignored',
       }),
     ).toEqual({
-      old: 'before',
-      new: 'after',
+      oldString: 'before',
+      newString: 'after',
       old_str: 'ignored',
       new_str: 'ignored',
     })

@@ -1,10 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import {
-  assistantMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import {
   afterEach,
   beforeEach,
@@ -51,7 +48,9 @@ describe('propose_str_replace and propose_write_file tools', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
   let mockParams: ParamsOf<typeof runProgrammaticStep>
-  let executeToolCallSpy: ReturnType<typeof spyOn<typeof toolExecutor, 'executeToolCall'>>
+  let executeToolCallSpy: ReturnType<
+    typeof spyOn<typeof toolExecutor, 'executeToolCall'>
+  >
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   // Mock file system - maps file paths to their contents
@@ -59,7 +58,8 @@ describe('propose_str_replace and propose_write_file tools', () => {
 
   beforeEach(() => {
     // Reset mock file system
-    mockFiles['src/utils.ts'] = `export function add(a: number, b: number): number {
+    mockFiles['src/utils.ts'] =
+      `export function add(a: number, b: number): number {
   return a + b;
 }
 
@@ -87,18 +87,27 @@ console.log(add(1, 2));
       if (toolName === 'propose_str_replace') {
         const { path, replacements } = input as {
           path: string
-          replacements: Array<{ old: string; new: string; allowMultiple: boolean }>
+          replacements: Array<{
+            oldString: string
+            newString: string
+            allowMultiple: boolean
+          }>
         }
-        
+
         // Get current content (from proposed state or mock files)
         let content = mockFiles[path] ?? null
-        
+
         if (content === null) {
           const errorResult: ToolMessage = {
             role: 'tool',
             toolName: 'propose_str_replace',
             toolCallId: `${toolName}-call-id`,
-            content: [{ type: 'json', value: { file: path, errorMessage: `File not found: ${path}` } }],
+            content: [
+              {
+                type: 'json',
+                value: { file: path, errorMessage: `File not found: ${path}` },
+              },
+            ],
           }
           toolResults.push(errorResult)
           agentState.messageHistory.push(errorResult)
@@ -108,14 +117,22 @@ console.log(add(1, 2));
         // Apply replacements
         const errors: string[] = []
         for (const replacement of replacements) {
-          if (!content.includes(replacement.old)) {
-            errors.push(`String not found: "${replacement.old.slice(0, 50)}..."`)
+          if (!content.includes(replacement.oldString)) {
+            errors.push(
+              `String not found: "${replacement.oldString.slice(0, 50)}..."`,
+            )
             continue
           }
           if (replacement.allowMultiple) {
-            content = content.replaceAll(replacement.old, replacement.new)
+            content = content.replaceAll(
+              replacement.oldString,
+              replacement.newString,
+            )
           } else {
-            content = content.replace(replacement.old, replacement.new)
+            content = content.replace(
+              replacement.oldString,
+              replacement.newString,
+            )
           }
         }
 
@@ -124,7 +141,12 @@ console.log(add(1, 2));
             role: 'tool',
             toolName: 'propose_str_replace',
             toolCallId: `${toolName}-call-id`,
-            content: [{ type: 'json', value: { file: path, errorMessage: errors.join('; ') } }],
+            content: [
+              {
+                type: 'json',
+                value: { file: path, errorMessage: errors.join('; ') },
+              },
+            ],
           }
           toolResults.push(errorResult)
           agentState.messageHistory.push(errorResult)
@@ -134,7 +156,7 @@ console.log(add(1, 2));
         // Generate unified diff
         const originalContent = mockFiles[path]!
         const diff = generateSimpleDiff(path, originalContent, content)
-        
+
         // Store proposed content for future calls
         mockFiles[path] = content
 
@@ -142,14 +164,16 @@ console.log(add(1, 2));
           role: 'tool',
           toolName: 'propose_str_replace',
           toolCallId: `${toolName}-call-id`,
-          content: [{
-            type: 'json',
-            value: {
-              file: path,
-              message: 'Proposed string replacements',
-              unifiedDiff: diff,
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: path,
+                message: 'Proposed string replacements',
+                unifiedDiff: diff,
+              },
             },
-          }],
+          ],
         }
         toolResults.push(successResult)
         agentState.messageHistory.push(successResult)
@@ -159,13 +183,13 @@ console.log(add(1, 2));
           instructions: string
           content: string
         }
-        
+
         const originalContent = mockFiles[path] ?? ''
         const isNewFile = !(path in mockFiles)
-        
+
         // Generate unified diff
         const diff = generateSimpleDiff(path, originalContent, newContent)
-        
+
         // Store proposed content
         mockFiles[path] = newContent
 
@@ -173,14 +197,18 @@ console.log(add(1, 2));
           role: 'tool',
           toolName: 'propose_write_file',
           toolCallId: `${toolName}-call-id`,
-          content: [{
-            type: 'json',
-            value: {
-              file: path,
-              message: isNewFile ? `Proposed new file ${path}` : `Proposed changes to ${path}`,
-              unifiedDiff: diff,
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: path,
+                message: isNewFile
+                  ? `Proposed new file ${path}`
+                  : `Proposed changes to ${path}`,
+                unifiedDiff: diff,
+              },
             },
-          }],
+          ],
         }
         toolResults.push(successResult)
         agentState.messageHistory.push(successResult)
@@ -201,7 +229,8 @@ console.log(add(1, 2));
 
     // Mock crypto.randomUUID
     spyOn(crypto, 'randomUUID').mockImplementation(
-      () => 'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
+      () =>
+        'mock-uuid-0000-0000-0000-000000000000' as `${string}-${string}-${string}-${string}-${string}`,
     )
 
     // Create mock template for implementor agent
@@ -215,10 +244,16 @@ console.log(add(1, 2));
       includeMessageHistory: true,
       inheritParentSystemPrompt: false,
       mcpServers: {},
-      toolNames: ['propose_str_replace', 'propose_write_file', 'set_output', 'end_turn'],
+      toolNames: [
+        'propose_str_replace',
+        'propose_write_file',
+        'set_output',
+        'end_turn',
+      ],
       spawnableAgents: [],
       systemPrompt: 'You are a code implementor that proposes changes.',
-      instructionsPrompt: 'Implement the requested changes using propose_str_replace or propose_write_file.',
+      instructionsPrompt:
+        'Implement the requested changes using propose_str_replace or propose_write_file.',
       stepPrompt: '',
       handleSteps: undefined,
     } as AgentTemplate
@@ -228,7 +263,8 @@ console.log(add(1, 2));
     mockAgentState = {
       ...sessionState.mainAgentState,
       agentId: 'test-implementor-id',
-      runId: 'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
+      runId:
+        'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
       messageHistory: [
         userMessage('Add a multiply function to src/utils.ts'),
         assistantMessage('I will implement the changes.'),
@@ -281,23 +317,29 @@ console.log(add(1, 2));
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'export function subtract(a: number, b: number): number {\n  return a - b;\n}',
-              new: `export function subtract(a: number, b: number): number {
+            replacements: [
+              {
+                oldString:
+                  'export function subtract(a: number, b: number): number {\n  return a - b;\n}',
+                newString: `export function subtract(a: number, b: number): number {
   return a - b;
 }
 
 export function multiply(a: number, b: number): number {
   return a * b;
 }`,
-              allowMultiple: false,
-            }],
+                allowMultiple: false,
+              },
+            ],
           },
         }
         toolResultsCapture.push(step.toolResult)
-        
+
         const firstResult = step.toolResult?.[0]
-        const unifiedDiff = firstResult?.type === 'json' ? (firstResult.value as { unifiedDiff?: string })?.unifiedDiff : undefined
+        const unifiedDiff =
+          firstResult?.type === 'json'
+            ? (firstResult.value as { unifiedDiff?: string })?.unifiedDiff
+            : undefined
         yield {
           toolName: 'set_output',
           input: {
@@ -325,9 +367,14 @@ export function multiply(a: number, b: number): number {
       const toolResult = toolResultsCapture[0]
       expect(toolResult).toBeDefined()
       expect(toolResult[0].type).toBe('json')
-      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      const jsonResult = toolResult[0] as {
+        type: 'json'
+        value: { file: string; unifiedDiff: string }
+      }
       expect(jsonResult.value.file).toBe('src/utils.ts')
-      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
+      expect(jsonResult.value.unifiedDiff).toContain(
+        '+export function multiply',
+      )
       expect(jsonResult.value.unifiedDiff).toContain('return a * b')
     })
 
@@ -339,11 +386,13 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'nonexistent string that does not exist in the file',
-              new: 'replacement',
-              allowMultiple: false,
-            }],
+            replacements: [
+              {
+                oldString: 'nonexistent string that does not exist in the file',
+                newString: 'replacement',
+                allowMultiple: false,
+              },
+            ],
           },
         }
         toolResultsCapture.push(step.toolResult)
@@ -356,7 +405,10 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      const jsonResult = toolResult[0] as { type: 'json'; value: { errorMessage: string } }
+      const jsonResult = toolResult[0] as {
+        type: 'json'
+        value: { errorMessage: string }
+      }
       expect(jsonResult.value.errorMessage).toContain('String not found')
     })
 
@@ -369,11 +421,13 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'return a + b;',
-              new: 'return a + b; // addition',
-              allowMultiple: false,
-            }],
+            replacements: [
+              {
+                oldString: 'return a + b;',
+                newString: 'return a + b; // addition',
+                allowMultiple: false,
+              },
+            ],
           },
         }
         toolResultsCapture.push({ step: 1, result: step1.toolResult })
@@ -383,11 +437,13 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'return a - b;',
-              new: 'return a - b; // subtraction',
-              allowMultiple: false,
-            }],
+            replacements: [
+              {
+                oldString: 'return a - b;',
+                newString: 'return a - b; // subtraction',
+                allowMultiple: false,
+              },
+            ],
           },
         }
         toolResultsCapture.push({ step: 2, result: step2.toolResult })
@@ -400,13 +456,19 @@ export function multiply(a: number, b: number): number {
       await runProgrammaticStep(mockParams)
 
       expect(toolResultsCapture).toHaveLength(2)
-      
+
       // Both replacements should succeed
-      const result0 = toolResultsCapture[0].result[0] as { type: 'json'; value: { unifiedDiff: string } }
-      const result1 = toolResultsCapture[1].result[0] as { type: 'json'; value: { unifiedDiff: string } }
+      const result0 = toolResultsCapture[0].result[0] as {
+        type: 'json'
+        value: { unifiedDiff: string }
+      }
+      const result1 = toolResultsCapture[1].result[0] as {
+        type: 'json'
+        value: { unifiedDiff: string }
+      }
       expect(result0.value.unifiedDiff).toContain('// addition')
       expect(result1.value.unifiedDiff).toContain('// subtraction')
-      
+
       // Final file should have both changes
       expect(mockFiles['src/utils.ts']).toContain('// addition')
       expect(mockFiles['src/utils.ts']).toContain('// subtraction')
@@ -439,10 +501,15 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; message: string; unifiedDiff: string } }
+      const jsonResult = toolResult[0] as {
+        type: 'json'
+        value: { file: string; message: string; unifiedDiff: string }
+      }
       expect(jsonResult.value.file).toBe('src/multiply.ts')
       expect(jsonResult.value.message).toContain('new file')
-      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
+      expect(jsonResult.value.unifiedDiff).toContain(
+        '+export function multiply',
+      )
     })
 
     it('should propose file edit and return unified diff', async () => {
@@ -478,10 +545,15 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; message: string; unifiedDiff: string } }
+      const jsonResult = toolResult[0] as {
+        type: 'json'
+        value: { file: string; message: string; unifiedDiff: string }
+      }
       expect(jsonResult.value.file).toBe('src/utils.ts')
       expect(jsonResult.value.message).toContain('changes')
-      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
+      expect(jsonResult.value.unifiedDiff).toContain(
+        '+export function multiply',
+      )
     })
   })
 
@@ -501,15 +573,19 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'return a + b;',
-              new: 'return a + b; // first change',
-              allowMultiple: false,
-            }],
+            replacements: [
+              {
+                oldString: 'return a + b;',
+                newString: 'return a + b; // first change',
+                allowMultiple: false,
+              },
+            ],
           },
         }
         const step1First = step1.toolResult?.[0]
-        const step1HasDiff = step1First?.type === 'json' && !!(step1First.value as { unifiedDiff?: string })?.unifiedDiff
+        const step1HasDiff =
+          step1First?.type === 'json' &&
+          !!(step1First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 1,
           toolResult: step1.toolResult,
@@ -521,15 +597,19 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'return a - b;',
-              new: 'return a - b; // second change',
-              allowMultiple: false,
-            }],
+            replacements: [
+              {
+                oldString: 'return a - b;',
+                newString: 'return a - b; // second change',
+                allowMultiple: false,
+              },
+            ],
           },
         }
         const step2First = step2.toolResult?.[0]
-        const step2HasDiff = step2First?.type === 'json' && !!(step2First.value as { unifiedDiff?: string })?.unifiedDiff
+        const step2HasDiff =
+          step2First?.type === 'json' &&
+          !!(step2First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 2,
           toolResult: step2.toolResult,
@@ -546,7 +626,9 @@ export function multiply(a: number, b: number): number {
           },
         }
         const step3First = step3.toolResult?.[0]
-        const step3HasDiff = step3First?.type === 'json' && !!(step3First.value as { unifiedDiff?: string })?.unifiedDiff
+        const step3HasDiff =
+          step3First?.type === 'json' &&
+          !!(step3First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 3,
           toolResult: step3.toolResult,
@@ -561,31 +643,40 @@ export function multiply(a: number, b: number): number {
       const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(true)
-      
+
       // Verify we received tool results for all 3 steps
       expect(receivedToolResults).toHaveLength(3)
-      
+
       // Step 1: Should have received tool result with unified diff
       expect(receivedToolResults[0].step).toBe(1)
       expect(receivedToolResults[0].toolResult).toBeDefined()
       expect(receivedToolResults[0].hasUnifiedDiff).toBe(true)
-      const step1Result = receivedToolResults[0].toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      const step1Result = receivedToolResults[0].toolResult[0] as {
+        type: 'json'
+        value: { file: string; unifiedDiff: string }
+      }
       expect(step1Result.value.file).toBe('src/utils.ts')
       expect(step1Result.value.unifiedDiff).toContain('first change')
-      
+
       // Step 2: Should have received tool result with unified diff
       expect(receivedToolResults[1].step).toBe(2)
       expect(receivedToolResults[1].toolResult).toBeDefined()
       expect(receivedToolResults[1].hasUnifiedDiff).toBe(true)
-      const step2Result = receivedToolResults[1].toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      const step2Result = receivedToolResults[1].toolResult[0] as {
+        type: 'json'
+        value: { file: string; unifiedDiff: string }
+      }
       expect(step2Result.value.file).toBe('src/utils.ts')
       expect(step2Result.value.unifiedDiff).toContain('second change')
-      
+
       // Step 3: Should have received tool result with unified diff for new file
       expect(receivedToolResults[2].step).toBe(3)
       expect(receivedToolResults[2].toolResult).toBeDefined()
       expect(receivedToolResults[2].hasUnifiedDiff).toBe(true)
-      const step3Result = receivedToolResults[2].toolResult[0] as { type: 'json'; value: { file: string; message: string } }
+      const step3Result = receivedToolResults[2].toolResult[0] as {
+        type: 'json'
+        value: { file: string; message: string }
+      }
       expect(step3Result.value.file).toBe('src/new-file.ts')
       expect(step3Result.value.message).toContain('new file')
     })
@@ -607,20 +698,23 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: {
             path: 'src/utils.ts',
-            replacements: [{
-              old: 'export function subtract(a: number, b: number): number {\n  return a - b;\n}',
-              new: `export function subtract(a: number, b: number): number {
+            replacements: [
+              {
+                oldString:
+                  'export function subtract(a: number, b: number): number {\n  return a - b;\n}',
+                newString: `export function subtract(a: number, b: number): number {
   return a - b;
 }
 
 export function multiply(a: number, b: number): number {
   return a * b;
 }`,
-              allowMultiple: false,
-            }],
+                allowMultiple: false,
+              },
+            ],
           },
         }
-        
+
         // Capture the tool call and result
         capturedToolCalls.push({
           toolName: 'propose_str_replace',
@@ -654,7 +748,7 @@ export function multiply(a: number, b: number): number {
 
       expect(result.endTurn).toBe(true)
       expect(result.agentState.output).toBeDefined()
-      
+
       const output = result.agentState.output as {
         toolCalls: any[]
         toolResults: any[]
@@ -668,7 +762,9 @@ export function multiply(a: number, b: number): number {
       // Verify tool results were captured
       expect(output.toolResults).toHaveLength(1)
       expect(output.toolResults[0].file).toBe('src/utils.ts')
-      expect(output.toolResults[0].unifiedDiff).toContain('+export function multiply')
+      expect(output.toolResults[0].unifiedDiff).toContain(
+        '+export function multiply',
+      )
 
       // Verify unified diffs string was generated
       expect(output.unifiedDiffs).toContain('--- src/utils.ts ---')
@@ -681,25 +777,31 @@ export function multiply(a: number, b: number): number {
  * Simple diff generator for testing purposes.
  * In production, the actual handlers use the 'diff' library.
  */
-function generateSimpleDiff(path: string, oldContent: string, newContent: string): string {
+function generateSimpleDiff(
+  path: string,
+  oldContent: string,
+  newContent: string,
+): string {
   const oldLines = oldContent.split('\n')
   const newLines = newContent.split('\n')
-  
+
   const diffLines: string[] = []
   const maxLen = Math.max(oldLines.length, newLines.length)
-  
+
   let inChange = false
   let _changeStart = 0
-  
+
   for (let i = 0; i < maxLen; i++) {
     const oldLine = oldLines[i]
     const newLine = newLines[i]
-    
+
     if (oldLine !== newLine) {
       if (!inChange) {
         inChange = true
         _changeStart = i
-        diffLines.push(`@@ -${i + 1},${oldLines.length - i} +${i + 1},${newLines.length - i} @@`)
+        diffLines.push(
+          `@@ -${i + 1},${oldLines.length - i} +${i + 1},${newLines.length - i} @@`,
+        )
       }
       if (oldLine !== undefined) {
         diffLines.push(`-${oldLine}`)
@@ -711,6 +813,6 @@ function generateSimpleDiff(path: string, oldContent: string, newContent: string
       diffLines.push(` ${oldLine}`)
     }
   }
-  
+
   return diffLines.join('\n')
 }

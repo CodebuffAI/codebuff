@@ -51,12 +51,12 @@ You can make multiple tool calls across multiple steps to complete the implement
   "path": "path/to/file",
   "replacements": [
     {
-      "old": "exact old code",
-      "new": "exact new code"
+      "oldString": "exact old code",
+      "newString": "exact new code"
     },
     {
-      "old": "exact old code 2",
-      "new": "exact new code 2"
+      "oldString": "exact old code 2",
+      "newString": "exact new code 2"
     },
   ]
 }
@@ -72,9 +72,10 @@ OR for new files or major rewrites:
   "content": "Complete file content"
 }
 </codebuff_tool_call>
-${isGpt5 || isGemini
-        ? ``
-        : `
+${
+  isGpt5 || isGemini
+    ? ``
+    : `
 IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
 
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
@@ -102,7 +103,7 @@ You can also use <think> tags interspersed between tool calls to think about the
 </codebuff_tool_call>
 
 </example>`
-      }
+}
 
 After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a specific way to validate the changes. There's no need to use the set_output tool as your entire response will be included in the output.
 

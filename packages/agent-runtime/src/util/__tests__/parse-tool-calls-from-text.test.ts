@@ -39,7 +39,7 @@ Some text between
 {
   "cb_tool_name": "str_replace",
   "path": "file1.ts",
-  "replacements": [{"old": "foo", "new": "bar"}]
+  "replacements": [{"oldString": "foo", "newString": "bar"}]
 }
 </codebuff_tool_call>
 
@@ -56,7 +56,7 @@ Some commentary after`
       toolName: 'str_replace',
       input: {
         path: 'file1.ts',
-        replacements: [{ old: 'foo', new: 'bar' }],
+        replacements: [{ oldString: 'foo', newString: 'bar' }],
       },
     })
   })
@@ -178,7 +178,7 @@ Some commentary after`
       '{\n' +
       '  "cb_tool_name": "str_replace",\n' +
       '  "path": "test.ts",\n' +
-      '  "replacements": [{"old": "console.log(\\"hello\\")", "new": "console.log(\'world\')"}]\n' +
+      '  "replacements": [{"oldString": "console.log(\\"hello\\")", "newString": "console.log(\'world\')"}]\n' +
       '}\n' +
       '</codebuff_tool_call>'
 
@@ -186,10 +186,10 @@ Some commentary after`
 
     expect(result).toHaveLength(1)
     const replacements = result[0].input.replacements as Array<{
-      old: string
-      new: string
+      oldString: string
+      newString: string
     }>
-    expect(replacements[0].old).toBe('console.log("hello")')
+    expect(replacements[0].oldString).toBe('console.log("hello")')
   })
 
   it('should handle tool calls with newlines in content', () => {

@@ -19,7 +19,12 @@ import {
   getMultiPromptPreview,
 } from '../implementor-helpers'
 
-import type { ToolContentBlock, ContentBlock, AgentContentBlock, TextContentBlock } from '../../types/chat'
+import type {
+  ToolContentBlock,
+  ContentBlock,
+  AgentContentBlock,
+  TextContentBlock,
+} from '../../types/chat'
 
 describe('extractValueForKey', () => {
   test('extracts simple key-value pairs', () => {
@@ -104,9 +109,7 @@ describe('extractDiff', () => {
       toolCallId: 'test-1',
       toolName: 'str_replace',
       input: {
-        replacements: [
-          { old: 'const x = 1', new: 'const x = 2' }
-        ]
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
       },
     }
     const diff = extractDiff(block)
@@ -131,9 +134,7 @@ describe('extractDiff', () => {
       toolCallId: 'test-1',
       toolName: 'propose_str_replace',
       input: {
-        replacements: [
-          { old: 'const x = 1', new: 'const x = 2' }
-        ]
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
       },
     }
     const diff = extractDiff(block)
@@ -178,8 +179,16 @@ describe('parseDiffStats', () => {
   })
 
   test('handles empty diff', () => {
-    expect(parseDiffStats(undefined)).toEqual({ linesAdded: 0, linesRemoved: 0, hunks: 0 })
-    expect(parseDiffStats('')).toEqual({ linesAdded: 0, linesRemoved: 0, hunks: 0 })
+    expect(parseDiffStats(undefined)).toEqual({
+      linesAdded: 0,
+      linesRemoved: 0,
+      hunks: 0,
+    })
+    expect(parseDiffStats('')).toEqual({
+      linesAdded: 0,
+      linesRemoved: 0,
+      hunks: 0,
+    })
   })
 
   test('ignores +++ and --- headers', () => {
@@ -264,7 +273,9 @@ describe('getFileStatsFromBlocks', () => {
         toolCallId: 'test-2',
         toolName: 'str_replace',
         input: { path: 'file.ts' },
-        outputRaw: [{ type: 'json', value: { unifiedDiff: '+line3\n-removed' } }],
+        outputRaw: [
+          { type: 'json', value: { unifiedDiff: '+line3\n-removed' } },
+        ],
       },
     ]
     const stats = getFileStatsFromBlocks(blocks)
@@ -358,16 +369,30 @@ describe('buildActivityTimeline', () => {
 
 describe('isImplementorAgent', () => {
   test('identifies implementor agents', () => {
-    expect(isImplementorAgent({ agentType: 'editor-implementor', blocks: [] })).toBe(true)
-    expect(isImplementorAgent({ agentType: 'editor-implementor-opus', blocks: [] })).toBe(true)
-    expect(isImplementorAgent({ agentType: 'editor-implementor-gpt-5', blocks: [] })).toBe(true)
-    expect(isImplementorAgent({ agentType: 'editor-implementor2', blocks: [] })).toBe(true)
+    expect(
+      isImplementorAgent({ agentType: 'editor-implementor', blocks: [] }),
+    ).toBe(true)
+    expect(
+      isImplementorAgent({ agentType: 'editor-implementor-opus', blocks: [] }),
+    ).toBe(true)
+    expect(
+      isImplementorAgent({ agentType: 'editor-implementor-gpt-5', blocks: [] }),
+    ).toBe(true)
+    expect(
+      isImplementorAgent({ agentType: 'editor-implementor2', blocks: [] }),
+    ).toBe(true)
   })
 
   test('rejects non-implementor agents', () => {
-    expect(isImplementorAgent({ agentType: 'file-picker', blocks: [] })).toBe(false)
-    expect(isImplementorAgent({ agentType: 'commander', blocks: [] })).toBe(false)
-    expect(isImplementorAgent({ agentType: 'best-of-n-selector', blocks: [] })).toBe(false)
+    expect(isImplementorAgent({ agentType: 'file-picker', blocks: [] })).toBe(
+      false,
+    )
+    expect(isImplementorAgent({ agentType: 'commander', blocks: [] })).toBe(
+      false,
+    )
+    expect(
+      isImplementorAgent({ agentType: 'best-of-n-selector', blocks: [] }),
+    ).toBe(false)
   })
 })
 
@@ -376,20 +401,48 @@ describe('getImplementorDisplayName', () => {
     expect(getImplementorDisplayName('editor-implementor')).toBe('Sonnet')
     expect(getImplementorDisplayName('editor-implementor-opus')).toBe('Opus')
     expect(getImplementorDisplayName('editor-implementor-gpt-5')).toBe('GPT-5')
-    expect(getImplementorDisplayName('editor-implementor-gemini')).toBe('Gemini')
+    expect(getImplementorDisplayName('editor-implementor-gemini')).toBe(
+      'Gemini',
+    )
   })
 
   test('adds index when provided', () => {
     expect(getImplementorDisplayName('editor-implementor', 0)).toBe('Sonnet #1')
-    expect(getImplementorDisplayName('editor-implementor-opus', 2)).toBe('Opus #3')
+    expect(getImplementorDisplayName('editor-implementor-opus', 2)).toBe(
+      'Opus #3',
+    )
   })
 })
 
 describe('getImplementorIndex', () => {
   test('returns index among same-type siblings', () => {
-    const agent1 = { type: 'agent', agentId: 'a1', agentName: 'Impl 1', agentType: 'editor-implementor', content: '', status: 'complete', blocks: [] } as AgentContentBlock
-    const agent2 = { type: 'agent', agentId: 'a2', agentName: 'Impl 2', agentType: 'editor-implementor', content: '', status: 'complete', blocks: [] } as AgentContentBlock
-    const agent3 = { type: 'agent', agentId: 'a3', agentName: 'Impl 3', agentType: 'editor-implementor-opus', content: '', status: 'complete', blocks: [] } as AgentContentBlock
+    const agent1 = {
+      type: 'agent',
+      agentId: 'a1',
+      agentName: 'Impl 1',
+      agentType: 'editor-implementor',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    } as AgentContentBlock
+    const agent2 = {
+      type: 'agent',
+      agentId: 'a2',
+      agentName: 'Impl 2',
+      agentType: 'editor-implementor',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    } as AgentContentBlock
+    const agent3 = {
+      type: 'agent',
+      agentId: 'a3',
+      agentName: 'Impl 3',
+      agentType: 'editor-implementor-opus',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    } as AgentContentBlock
     const siblings: ContentBlock[] = [agent1, agent2, agent3]
 
     expect(getImplementorIndex(agent1, siblings)).toBe(0)
@@ -398,7 +451,15 @@ describe('getImplementorIndex', () => {
   })
 
   test('returns undefined for non-implementor', () => {
-    const filePicker = { type: 'agent', agentId: 'fp1', agentName: 'File Picker', agentType: 'file-picker', content: '', status: 'complete', blocks: [] } as AgentContentBlock
+    const filePicker = {
+      type: 'agent',
+      agentId: 'fp1',
+      agentName: 'File Picker',
+      agentType: 'file-picker',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    } as AgentContentBlock
     const siblings: ContentBlock[] = [filePicker]
 
     expect(getImplementorIndex(filePicker, siblings)).toBeUndefined()
@@ -406,10 +467,11 @@ describe('getImplementorIndex', () => {
 })
 
 describe('groupConsecutiveBlocks', () => {
-  const createTextBlock = (content: string): TextContentBlock => ({
-    type: 'text',
-    content,
-  } as TextContentBlock)
+  const createTextBlock = (content: string): TextContentBlock =>
+    ({
+      type: 'text',
+      content,
+    }) as TextContentBlock
 
   const createToolBlock = (toolName: string): ToolContentBlock => ({
     type: 'tool',
@@ -418,15 +480,19 @@ describe('groupConsecutiveBlocks', () => {
     input: {},
   })
 
-  const createAgentBlock = (agentType: string, agentId: string): AgentContentBlock => ({
-    type: 'agent',
-    agentId,
-    agentName: agentType,
-    agentType,
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createAgentBlock = (
+    agentType: string,
+    agentId: string,
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId,
+      agentName: agentType,
+      agentType,
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
   test('groups consecutive matching blocks from start', () => {
     const blocks: ContentBlock[] = [
@@ -530,7 +596,8 @@ describe('groupConsecutiveBlocks', () => {
       createTextBlock('done'),
     ]
     const isEditTool = (b: ContentBlock): b is ToolContentBlock =>
-      b.type === 'tool' && ['str_replace', 'write_file'].includes(b.toolName as string)
+      b.type === 'tool' &&
+      ['str_replace', 'write_file'].includes(b.toolName as string)
     const result = groupConsecutiveBlocks(blocks, 0, isEditTool)
 
     expect(result.group).toHaveLength(2)
@@ -541,30 +608,39 @@ describe('groupConsecutiveBlocks', () => {
 })
 
 describe('groupConsecutiveImplementors', () => {
-  const createImplementorAgent = (id: string, agentType = 'editor-implementor'): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: 'Implementor',
-    agentType,
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createImplementorAgent = (
+    id: string,
+    agentType = 'editor-implementor',
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: 'Implementor',
+      agentType,
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createNonImplementorAgent = (id: string, agentType: string): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: agentType,
-    agentType,
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createNonImplementorAgent = (
+    id: string,
+    agentType: string,
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: agentType,
+      agentType,
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createTextBlock = (content: string): TextContentBlock => ({
-    type: 'text',
-    content,
-  } as TextContentBlock)
+  const createTextBlock = (content: string): TextContentBlock =>
+    ({
+      type: 'text',
+      content,
+    }) as TextContentBlock
 
   test('groups consecutive implementor agents', () => {
     const blocks: ContentBlock[] = [
@@ -654,30 +730,36 @@ describe('groupConsecutiveImplementors', () => {
 })
 
 describe('groupConsecutiveNonImplementorAgents', () => {
-  const createImplementorAgent = (id: string): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: 'Implementor',
-    agentType: 'editor-implementor',
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createImplementorAgent = (id: string): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: 'Implementor',
+      agentType: 'editor-implementor',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createNonImplementorAgent = (id: string, agentType: string): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: agentType,
-    agentType,
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createNonImplementorAgent = (
+    id: string,
+    agentType: string,
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: agentType,
+      agentType,
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createTextBlock = (content: string): TextContentBlock => ({
-    type: 'text',
-    content,
-  } as TextContentBlock)
+  const createTextBlock = (content: string): TextContentBlock =>
+    ({
+      type: 'text',
+      content,
+    }) as TextContentBlock
 
   test('groups consecutive non-implementor agents', () => {
     const blocks: ContentBlock[] = [
@@ -776,25 +858,32 @@ describe('groupConsecutiveNonImplementorAgents', () => {
 })
 
 describe('getMultiPromptProgress', () => {
-  const createImplementorAgent = (id: string, status: 'running' | 'complete' | 'failed' | 'cancelled' = 'complete'): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: 'Implementor',
-    agentType: 'editor-implementor-opus',
-    content: '',
-    status,
-    blocks: [],
-  } as AgentContentBlock)
+  const createImplementorAgent = (
+    id: string,
+    status: 'running' | 'complete' | 'failed' | 'cancelled' = 'complete',
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: 'Implementor',
+      agentType: 'editor-implementor-opus',
+      content: '',
+      status,
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createSelectorAgent = (status: 'running' | 'complete' = 'running'): AgentContentBlock => ({
-    type: 'agent',
-    agentId: 'selector-1',
-    agentName: 'Selector',
-    agentType: 'best-of-n-selector2',
-    content: '',
-    status,
-    blocks: [],
-  } as AgentContentBlock)
+  const createSelectorAgent = (
+    status: 'running' | 'complete' = 'running',
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: 'selector-1',
+      agentName: 'Selector',
+      agentType: 'best-of-n-selector2',
+      content: '',
+      status,
+      blocks: [],
+    }) as AgentContentBlock
 
   test('returns null for empty blocks', () => {
     expect(getMultiPromptProgress([])).toBeNull()
@@ -877,31 +966,40 @@ describe('getMultiPromptProgress', () => {
 })
 
 describe('getMultiPromptPreview', () => {
-  const createImplementorAgent = (id: string, status: 'running' | 'complete' | 'failed' | 'cancelled' = 'complete'): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: 'Implementor',
-    agentType: 'editor-implementor-opus',
-    content: '',
-    status,
-    blocks: [],
-  } as AgentContentBlock)
+  const createImplementorAgent = (
+    id: string,
+    status: 'running' | 'complete' | 'failed' | 'cancelled' = 'complete',
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: 'Implementor',
+      agentType: 'editor-implementor-opus',
+      content: '',
+      status,
+      blocks: [],
+    }) as AgentContentBlock
 
-  const createSelectorAgent = (status: 'running' | 'complete' = 'running'): AgentContentBlock => ({
-    type: 'agent',
-    agentId: 'selector-1',
-    agentName: 'Selector',
-    agentType: 'best-of-n-selector2',
-    content: '',
-    status,
-    blocks: [],
-  } as AgentContentBlock)
+  const createSelectorAgent = (
+    status: 'running' | 'complete' = 'running',
+  ): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: 'selector-1',
+      agentName: 'Selector',
+      agentType: 'best-of-n-selector2',
+      content: '',
+      status,
+      blocks: [],
+    }) as AgentContentBlock
 
   const createSetOutputBlock = (reason?: string): ToolContentBlock => ({
     type: 'tool',
     toolCallId: 'set-output-1',
     toolName: 'set_output',
-    input: reason ? { data: { chosenStrategy: 'strategy A', reason } } : { data: { chosenStrategy: 'strategy A' } },
+    input: reason
+      ? { data: { chosenStrategy: 'strategy A', reason } }
+      : { data: { chosenStrategy: 'strategy A' } },
   })
 
   test('returns null for empty blocks', () => {
@@ -934,7 +1032,9 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-3', 'complete'),
       createSelectorAgent('running'),
     ]
-    expect(getMultiPromptPreview(blocks)).toBe('3 proposals complete • Selecting best...')
+    expect(getMultiPromptPreview(blocks)).toBe(
+      '3 proposals complete • Selecting best...',
+    )
   })
 
   test('shows applying message when selector is complete but agent not done', () => {
@@ -943,7 +1043,9 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'complete'),
       createSelectorAgent('complete'),
     ]
-    expect(getMultiPromptPreview(blocks, false)).toBe('Applying selected changes...')
+    expect(getMultiPromptPreview(blocks, false)).toBe(
+      'Applying selected changes...',
+    )
   })
 
   test('shows evaluation count when agent is complete without reason', () => {
@@ -962,7 +1064,9 @@ describe('getMultiPromptPreview', () => {
       createSetOutputBlock('best implementation with proper error handling'),
     ]
     const preview = getMultiPromptPreview(blocks, true)
-    expect(preview).toBe('2 proposals evaluated\nBest implementation with proper error handling')
+    expect(preview).toBe(
+      '2 proposals evaluated\nBest implementation with proper error handling',
+    )
   })
 
   test('capitalizes first letter of reason', () => {
@@ -989,7 +1093,9 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'complete'),
       createImplementorAgent('impl-3', 'failed'),
     ]
-    expect(getMultiPromptPreview(blocks)).toBe('2/3 proposals complete (1 failed)')
+    expect(getMultiPromptPreview(blocks)).toBe(
+      '2/3 proposals complete (1 failed)',
+    )
   })
 
   test('treats failed implementors as finished for progress', () => {
@@ -999,7 +1105,9 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-3', 'complete'),
     ]
     // All 3 are finished (1 complete + 2 failed/cancelled), so should show completion message
-    expect(getMultiPromptPreview(blocks)).toBe('1/3 proposals complete (2 failed)')
+    expect(getMultiPromptPreview(blocks)).toBe(
+      '1/3 proposals complete (2 failed)',
+    )
   })
 })
 
@@ -1011,20 +1119,22 @@ describe('groupConsecutiveToolBlocks', () => {
     input: {},
   })
 
-  const createTextBlock = (content: string): TextContentBlock => ({
-    type: 'text',
-    content,
-  } as TextContentBlock)
+  const createTextBlock = (content: string): TextContentBlock =>
+    ({
+      type: 'text',
+      content,
+    }) as TextContentBlock
 
-  const createAgentBlock = (id: string): AgentContentBlock => ({
-    type: 'agent',
-    agentId: id,
-    agentName: 'Test Agent',
-    agentType: 'file-picker',
-    content: '',
-    status: 'complete',
-    blocks: [],
-  } as AgentContentBlock)
+  const createAgentBlock = (id: string): AgentContentBlock =>
+    ({
+      type: 'agent',
+      agentId: id,
+      agentName: 'Test Agent',
+      agentType: 'file-picker',
+      content: '',
+      status: 'complete',
+      blocks: [],
+    }) as AgentContentBlock
 
   test('groups consecutive tool blocks', () => {
     const blocks: ContentBlock[] = [
