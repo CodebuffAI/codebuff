@@ -39,7 +39,7 @@ interface ToolResultEvent {
     type: 'json'
     value: Array<{
       agentName: string
-      value: string
+      value: any
     }>
   }>
 }
