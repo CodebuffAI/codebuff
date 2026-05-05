@@ -184,6 +184,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           status: 'running',
         }
       }
+      if (runId === 'run-browser-use-child') {
+        return {
+          agent_id: 'browser-use',
+          ancestor_run_ids: ['run-free'],
+          status: 'running',
+        }
+      }
       if (runId === 'run-completed') {
         return {
           agent_id: 'agent-123',
@@ -915,6 +922,40 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(response.status).toBe(403)
       expect(body.error).toBe('free_mode_invalid_agent_model')
+    })
+
+    it('allows browser-use as a free-mode subagent under a freebuff root', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+          body: JSON.stringify({
+            model: 'google/gemini-3.1-flash-lite-preview',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-browser-use-child',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+      })
+
+      expect(response.status).toBe(200)
     })
 
     it('rejects standalone free-mode reviewer runs even when the model is allowlisted', async () => {

@@ -54,6 +54,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'researcher-web': new Set(['google/gemini-3.1-flash-lite-preview']),
   'researcher-docs': new Set(['google/gemini-3.1-flash-lite-preview']),
 
+  // Browser automation
+  'browser-use': new Set(['google/gemini-3.1-flash-lite-preview']),
+
   // Command execution
   basher: new Set(['google/gemini-3.1-flash-lite-preview']),
 

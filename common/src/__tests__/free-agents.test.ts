@@ -8,6 +8,15 @@ import {
 } from '../constants/free-agents'
 
 describe('free mode agent model allowlist', () => {
+  test('allows the browser-use subagent with its bundled model', () => {
+    expect(
+      isFreeModeAllowedAgentModel(
+        'browser-use',
+        'google/gemini-3.1-flash-lite-preview',
+      ),
+    ).toBe(true)
+  })
+
   test('allows Gemini Pro for the thinker subagent but not the freebuff root', () => {
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_GEMINI_PRO_MODEL_ID),
