@@ -15,14 +15,21 @@ describe('onboard/_helpers', () => {
     })
 
     test('handles auth code with dots in fingerprint id', () => {
-      // Note: This is a potential edge case - the current implementation
-      // only splits into 3 parts, so extra dots would be included in fingerprintId
       const authCode = 'fp.with.dots.1704067200000.hashvalue'
       const result = parseAuthCode(authCode)
 
-      expect(result.fingerprintId).toBe('fp')
-      expect(result.expiresAt).toBe('with')
-      expect(result.receivedHash).toBe('dots')
+      expect(result.fingerprintId).toBe('fp.with.dots')
+      expect(result.expiresAt).toBe('1704067200000')
+      expect(result.receivedHash).toBe('hashvalue')
+    })
+
+    test('trims surrounding whitespace from copied auth code', () => {
+      const authCode = '\n fingerprint-123.1704067200000.abc123hash \t'
+      const result = parseAuthCode(authCode)
+
+      expect(result.fingerprintId).toBe('fingerprint-123')
+      expect(result.expiresAt).toBe('1704067200000')
+      expect(result.receivedHash).toBe('abc123hash')
     })
 
     test('handles empty string parts', () => {
@@ -38,18 +45,18 @@ describe('onboard/_helpers', () => {
       const authCode = 'onlyonepart'
       const result = parseAuthCode(authCode)
 
-      expect(result.fingerprintId).toBe('onlyonepart')
-      expect(result.expiresAt).toBeUndefined()
-      expect(result.receivedHash).toBeUndefined()
+      expect(result.fingerprintId).toBe('')
+      expect(result.expiresAt).toBe('')
+      expect(result.receivedHash).toBe('')
     })
 
     test('handles auth code with two parts', () => {
       const authCode = 'first.second'
       const result = parseAuthCode(authCode)
 
-      expect(result.fingerprintId).toBe('first')
-      expect(result.expiresAt).toBe('second')
-      expect(result.receivedHash).toBeUndefined()
+      expect(result.fingerprintId).toBe('')
+      expect(result.expiresAt).toBe('')
+      expect(result.receivedHash).toBe('')
     })
 
     test('handles empty auth code', () => {
@@ -57,8 +64,8 @@ describe('onboard/_helpers', () => {
       const result = parseAuthCode(authCode)
 
       expect(result.fingerprintId).toBe('')
-      expect(result.expiresAt).toBeUndefined()
-      expect(result.receivedHash).toBeUndefined()
+      expect(result.expiresAt).toBe('')
+      expect(result.receivedHash).toBe('')
     })
   })
 

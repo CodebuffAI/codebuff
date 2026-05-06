@@ -55,13 +55,18 @@ export async function POST(req: Request) {
       )
     }
 
-    // Generate login URL without modifying the fingerprint record
-    const loginUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    // Generate login URL on the same origin that issued the auth code. This
+    // avoids bouncing between apex/www hosts during the browser OAuth flow.
+    const loginUrl = new URL('/login', new URL(req.url).origin)
+    loginUrl.searchParams.set(
+      'auth_code',
+      `${fingerprintId}.${expiresAt}.${fingerprintHash}`,
+    )
 
     return NextResponse.json({
       fingerprintId,
       fingerprintHash,
-      loginUrl,
+      loginUrl: loginUrl.toString(),
       expiresAt,
     })
   } catch (error) {
