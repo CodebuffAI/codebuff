@@ -430,6 +430,33 @@ export function isCreateFile(toolBlock: ToolContentBlock): boolean {
   )
 }
 
+function hasToolResultOutput(toolBlock: ToolContentBlock): boolean {
+  const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
+  return outputStr.length > 0 || toolBlock.outputRaw !== undefined
+}
+
+/**
+ * Decide whether the direct edit tool renderer should show a diff preview.
+ *
+ * Real edit tool calls render immediately with input only, then receive output
+ * once the edit completes. Wait for that result before showing diffs so create
+ * operations never briefly flash an input-derived full-file diff.
+ */
+export function shouldShowEditDiff(toolBlock: ToolContentBlock): boolean {
+  if (!extractDiff(toolBlock) || isCreateFile(toolBlock)) {
+    return false
+  }
+
+  if (
+    !isProposedToolName(toolBlock.toolName) &&
+    !hasToolResultOutput(toolBlock)
+  ) {
+    return false
+  }
+
+  return true
+}
+
 export interface TimelineItem {
   type: 'commentary' | 'edit'
   content: string // For commentary: the text. For edits: file path
