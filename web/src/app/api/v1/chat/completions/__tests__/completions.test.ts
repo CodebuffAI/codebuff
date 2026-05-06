@@ -7,7 +7,7 @@ import {
   FREEBUFF_GLM_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
-import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
+import { postChatCompletions } from '../_post'
 import {
   checkFreeModeRateLimit,
   resetFreeModeRateLimits,
@@ -517,8 +517,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       expect(response.status).toBe(402)
       const body = await response.json()
-      const expectedResetCountdown = formatQuotaResetCountdown(nextQuotaReset)
-      expect(body.message).toContain(expectedResetCountdown)
+      expect(body.message).toContain('Out of credits. Please add credits at')
+      expect(body.message).toContain('/usage.')
       expect(body.message).not.toContain(nextQuotaReset)
     })
 

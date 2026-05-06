@@ -47,7 +47,7 @@ Only last grant can go negative. No maximum debt limit enforced in code.
 
 ## Grant Types and Priorities
 
-- free (20): Monthly free credits
+- free (20): Signup free credits and grandfathered monthly free credits
 - referral (30): Referral bonus credits (one-time bonuses, consumed before renewable ad credits)
 - ad (40): Ad impression credits (renewable source, consumed after referral)
 - admin (60): Admin-granted credits

@@ -14,7 +14,7 @@ Where:
 
 **Time sources**:
 
-- Monthly grants: Use next reset date (ensures one grant per cycle)
+- Grandfathered monthly free grants and legacy monthly referral grants: Use next reset date (ensures one grant per cycle)
 - Auto-topup: Use current time (allows multiple top-ups per day)
 
 **Idempotency**:

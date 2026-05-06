@@ -1,14 +1,14 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
+import { SIGNUP_FREE_CREDITS_GRANT } from '@codebuff/common/constants/limits'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { withRetry } from '@codebuff/common/util/promise'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
 import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
-import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, like, lte, or, sql } from 'drizzle-orm'
 
 import { generateOperationIdTimestamp } from './utils'
 
@@ -23,15 +23,10 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   : never
 
 /**
- * Finds the amount of the most recent expired 'free' grant for a user.
- * Finds the amount of the most recent expired 'free' grant for a user,
- * excluding migration grants (operation_id starting with 'migration-').
- * If there is a previous grant, caps the amount at 2000 credits.
- * If no expired 'free' grant is found, returns the default free limit.
- * @param userId The ID of the user.
- * @returns The amount of the last expired free grant (capped at 2000) or the default.
+ * Finds the grandfathered monthly free credit amount for a user.
+ * Only users with a previous expiring free grant continue to receive monthly free credits.
  */
-export async function getPreviousFreeGrantAmount(params: {
+export async function getGrandfatheredFreeGrantAmount(params: {
   userId: string
   logger: Logger
 }): Promise<number> {
@@ -47,27 +42,27 @@ export async function getPreviousFreeGrantAmount(params: {
       and(
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'free'),
-        lte(schema.creditLedger.expires_at, now), // Grant has expired
+        like(schema.creditLedger.operation_id, `free-${userId}-%`),
+        lte(schema.creditLedger.expires_at, now),
       ),
     )
-    .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
+    .orderBy(desc(schema.creditLedger.expires_at))
     .limit(1)
 
-  if (lastExpiredFreeGrant.length > 0) {
-    // TODO: remove this once it's past May 22nd, after all users have been migrated over
-    const cappedAmount = Math.min(lastExpiredFreeGrant[0].principal, 2000)
+  if (lastExpiredFreeGrant.length === 0) {
     logger.debug(
-      { userId, amount: lastExpiredFreeGrant[0].principal },
-      'Found previous expired free grant amount.',
+      { userId },
+      'No previous expired free grant found. Skipping monthly free grant.',
     )
-    return cappedAmount
-  } else {
-    logger.debug(
-      { userId, defaultAmount: DEFAULT_FREE_CREDITS_GRANT },
-      'No previous expired free grant found. Using default.',
-    )
-    return DEFAULT_FREE_CREDITS_GRANT // Default if no previous grant found
+    return 0
   }
+
+  const cappedAmount = Math.min(lastExpiredFreeGrant[0].principal, 2000)
+  logger.debug(
+    { userId, amount: lastExpiredFreeGrant[0].principal, cappedAmount },
+    'Found previous expired free grant amount.',
+  )
+  return cappedAmount
 }
 
 /**
@@ -100,7 +95,10 @@ export async function calculateTotalLegacyReferralBonus(params: {
       )
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
-    logger.debug({ userId, totalBonus }, 'Calculated total legacy referral bonus.')
+    logger.debug(
+      { userId, totalBonus },
+      'Calculated total legacy referral bonus.',
+    )
     return totalBonus
   } catch (error) {
     logger.error(
@@ -328,6 +326,23 @@ export async function processAndGrantCredit(params: {
   }
 }
 
+export async function grantSignupCredits(params: {
+  userId: string
+  logger: Logger
+}): Promise<void> {
+  const { userId, logger } = params
+
+  await processAndGrantCredit({
+    userId,
+    amount: SIGNUP_FREE_CREDITS_GRANT,
+    type: 'free',
+    description: 'Signup free credits',
+    expiresAt: null,
+    operationId: `signup-free-${userId}`,
+    logger,
+  })
+}
+
 /**
  * Revokes credits from a specific grant by operation ID.
  * This sets the balance to 0 and updates the description to indicate a refund.
@@ -356,9 +371,7 @@ export async function revokeGrantByOperationId(params: {
   }
 
   // Determine lock key based on whether this is a user or org grant
-  const lockKey = grant.org_id
-    ? `org:${grant.org_id}`
-    : `user:${grant.user_id}`
+  const lockKey = grant.org_id ? `org:${grant.org_id}` : `user:${grant.user_id}`
 
   const { result } = await withAdvisoryLockTransaction({
     callback: async (tx) => {
@@ -414,10 +427,9 @@ export async function revokeGrantByOperationId(params: {
 }
 
 /**
- * Checks if a user's quota needs to be reset, and if so:
- * 1. Calculates their new monthly grant amount
- * 2. Issues the grant with the appropriate expiry
- * 3. Updates their next_quota_reset date
+ * Checks if a user's quota cycle needs to advance, and if so:
+ * 1. Issues grandfathered monthly free credits and legacy recurring referral credits
+ * 2. Updates their next_quota_reset date
  * All of this is done in a single transaction with advisory lock to ensure consistency.
  *
  * @param userId The ID of the user
@@ -462,9 +474,8 @@ export async function triggerMonthlyResetAndGrant(params: {
       // Calculate new reset date
       const newResetDate = getNextQuotaReset(currentResetDate)
 
-      // Calculate grant amounts separately
       const [freeGrantAmount, referralBonus] = await Promise.all([
-        getPreviousFreeGrantAmount(params),
+        getGrandfatheredFreeGrantAmount(params),
         calculateTotalLegacyReferralBonus(params),
       ])
 
@@ -479,16 +490,17 @@ export async function triggerMonthlyResetAndGrant(params: {
         .set({ next_quota_reset: newResetDate })
         .where(eq(schema.user.id, userId))
 
-      // Always grant free credits - use executeGrantCreditOperation with tx since we already hold the lock
-      await executeGrantCreditOperation({
-        ...params,
-        amount: freeGrantAmount,
-        type: 'free',
-        description: 'Monthly free credits',
-        expiresAt: newResetDate, // Free credits expire at next reset
-        operationId: freeOperationId,
-        tx,
-      })
+      if (freeGrantAmount > 0) {
+        await executeGrantCreditOperation({
+          ...params,
+          amount: freeGrantAmount,
+          type: 'free',
+          description: 'Monthly free credits (grandfathered)',
+          expiresAt: newResetDate,
+          operationId: freeOperationId,
+          tx,
+        })
+      }
 
       // Only grant legacy referral credits if there are any (for grandfathered users)
       if (referralBonus > 0) {
@@ -513,7 +525,7 @@ export async function triggerMonthlyResetAndGrant(params: {
           newResetDate,
           previousResetDate: currentResetDate,
         },
-        'Processed monthly credit grants and reset',
+        'Processed credit quota reset',
       )
 
       return { quotaResetDate: newResetDate, autoTopupEnabled }
