@@ -156,10 +156,7 @@ const TakeoverPrompt: React.FC = () => {
         width: '100%',
       }}
     >
-      <text
-        style={{ fg: theme.foreground }}
-        attributes={TextAttributes.BOLD}
-      >
+      <text style={{ fg: theme.foreground }} attributes={TextAttributes.BOLD}>
         Freebuff is already running
       </text>
 
@@ -196,7 +193,9 @@ const TakeoverPrompt: React.FC = () => {
         >
           <text
             style={{ fg: isExitFocused ? theme.foreground : theme.muted }}
-            attributes={isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE}
+            attributes={
+              isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE
+            }
           >
             Exit
           </text>
@@ -338,19 +337,37 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           )}
 
           {isLanding && (
-            <>
-              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
+            <box
+              style={{
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0,
+              }}
+            >
+              <text
+                style={{ fg: theme.foreground, marginBottom: 1 }}
+                attributes={TextAttributes.BOLD}
+              >
                 Pick a model to start
               </text>
               <FreebuffModelSelector />
-            </>
+            </box>
           )}
 
           {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
 
           {isQueued && session && (
-            <>
-              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
+            <box
+              style={{
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0,
+              }}
+            >
+              <text
+                style={{ fg: theme.foreground, marginBottom: 1 }}
+                attributes={TextAttributes.BOLD}
+              >
                 {session.position === 1
                   ? "You're next in line"
                   : "You're in the waiting room"}
@@ -384,7 +401,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {formatElapsed(elapsedMs)}
                 </text>
               </box>
-            </>
+            </box>
           )}
 
           {/* Server says the waiting room is disabled — this screen should not
