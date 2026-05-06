@@ -21,8 +21,8 @@ interface SessionEndedBannerProps {
 
 /**
  * Replaces the chat input when the freebuff session has ended. Captures
- * Enter to re-queue the user; Esc keeps falling through to the global
- * stream-interrupt handler so in-flight work can be cancelled.
+ * Enter to start a new same-chat session. Esc returns to model selection
+ * once no in-flight work needs the global stream-interrupt handler.
  */
 export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   isStreaming,
@@ -65,9 +65,14 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
         if (key.name === 'return' || key.name === 'enter') {
           key.preventDefault?.()
           startSameChatSession()
+          return
+        }
+        if (key.name === 'escape') {
+          key.preventDefault?.()
+          pickNewModel()
         }
       },
-      [startSameChatSession, canRestart],
+      [startSameChatSession, pickNewModel, canRestart],
     ),
   )
 
@@ -96,7 +101,14 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
           Agent is wrapping up. Rejoin the wait room after it's finished.
         </text>
       ) : (
-        <box style={{ flexDirection: 'row', gap: 2, flexWrap: 'wrap' }}>
+        <box
+          style={{
+            width: '100%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
           <Button onClick={startSameChatSession}>
             <text
               style={{
@@ -109,20 +121,34 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             >
               {pendingAction === 'same-chat'
                 ? 'Starting…'
-                : 'Press Enter to start new session (same model + chat)'}
+                : 'Press Enter to continue with a new session'}
             </text>
           </Button>
-          <Button onClick={pickNewModel}>
+          <box style={{ flexGrow: 1 }} />
+          <Button
+            onClick={pickNewModel}
+            style={{
+              borderStyle: 'single',
+              borderColor:
+                pendingAction === 'waiting-room' ? theme.muted : theme.border,
+              customBorderChars: BORDER_CHARS,
+              paddingLeft: 1,
+              paddingRight: 1,
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
             <text
               style={{
                 fg:
-                  pendingAction === 'waiting-room' ? theme.muted : theme.info,
+                  pendingAction === 'waiting-room'
+                    ? theme.muted
+                    : theme.foreground,
               }}
               attributes={TextAttributes.BOLD}
             >
               {pendingAction === 'waiting-room'
-                ? 'Opening model picker…'
-                : 'Pick a new model'}
+                ? 'Opening model selection…'
+                : 'Back to model selection (ESC)'}
             </text>
           </Button>
         </box>
