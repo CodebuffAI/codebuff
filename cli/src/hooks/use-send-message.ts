@@ -138,7 +138,9 @@ export const useSendMessage = ({
     setRunState,
     setIsRetrying,
   } = useChatStore.getState()
-  const previousRunStateRef = useRef<RunState | null>(null)
+  const previousRunStateRef = useRef<RunState | null>(
+    useChatStore.getState().runState,
+  )
   // Memoize stream controller to maintain referential stability across renders
   const streamRefsRef = useRef<ReturnType<
     typeof createStreamController
@@ -198,6 +200,7 @@ export const useSendMessage = ({
 
   function clearMessages() {
     previousRunStateRef.current = null
+    setRunState(null)
   }
 
   const prepareUserMessage = useCallback(

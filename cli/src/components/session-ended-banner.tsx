@@ -3,7 +3,10 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
 
 import { Button } from './button'
-import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
+import {
+  refreshFreebuffSession,
+  returnToFreebuffLanding,
+} from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -18,43 +21,58 @@ interface SessionEndedBannerProps {
 
 /**
  * Replaces the chat input when the freebuff session has ended. Captures
- * Enter to re-queue the user; Esc keeps falling through to the global
- * stream-interrupt handler so in-flight work can be cancelled.
+ * Enter to start a new same-chat session. Esc returns to model selection
+ * once no in-flight work needs the global stream-interrupt handler.
  */
 export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   isStreaming,
 }) => {
   const theme = useTheme()
-  const [rejoining, setRejoining] = useState(false)
+  const [pendingAction, setPendingAction] = useState<
+    'waiting-room' | 'same-chat' | null
+  >(null)
 
-  // While a request is still streaming, rejoin is disabled: it would
+  // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
   // let the agent finish" — honoring that means Enter does nothing until
   // the stream ends or the user hits Esc.
-  const canRejoin = !isStreaming && !rejoining
-  const rejoin = useCallback(() => {
-    if (!canRejoin) return
-    setRejoining(true)
+  const canRestart = !isStreaming && pendingAction === null
+  const pickNewModel = useCallback(() => {
+    if (!canRestart) return
+    setPendingAction('waiting-room')
     // Drop back to the landing picker (status: 'none') so the user picks a
     // model and hits Enter again to commit, instead of being silently
     // re-queued. app.tsx swaps us into <WaitingRoomScreen> on the
-    // transition, unmounting this banner — no need to clear `rejoining` on
+    // transition, unmounting this banner — no need to clear the pending state on
     // success.
     returnToFreebuffLanding({ resetChat: true }).catch(() =>
-      setRejoining(false),
+      setPendingAction(null),
     )
-  }, [canRejoin])
+  }, [canRestart])
+
+  const startSameChatSession = useCallback(() => {
+    if (!canRestart) return
+    setPendingAction('same-chat')
+    // Re-POST with the currently selected model and keep the chat/run state
+    // intact so the next prompt continues the same conversation.
+    refreshFreebuffSession().catch(() => setPendingAction(null))
+  }, [canRestart])
 
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
-        if (!canRejoin) return
+        if (!canRestart) return
         if (key.name === 'return' || key.name === 'enter') {
           key.preventDefault?.()
-          rejoin()
+          startSameChatSession()
+          return
+        }
+        if (key.name === 'escape') {
+          key.preventDefault?.()
+          pickNewModel()
         }
       },
-      [rejoin, canRejoin],
+      [startSameChatSession, pickNewModel, canRestart],
     ),
   )
 
@@ -83,14 +101,57 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
           Agent is wrapping up. Rejoin the wait room after it's finished.
         </text>
       ) : (
-        <Button onClick={rejoin}>
-          <text
-            style={{ fg: rejoining ? theme.muted : theme.primary }}
-            attributes={TextAttributes.BOLD}
+        <box
+          style={{
+            width: '100%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Button onClick={startSameChatSession}>
+            <text
+              style={{
+                fg:
+                  pendingAction === 'same-chat'
+                    ? theme.muted
+                    : theme.primary,
+              }}
+              attributes={TextAttributes.BOLD}
+            >
+              {pendingAction === 'same-chat'
+                ? 'Starting…'
+                : 'Press Enter to continue in a new session'}
+            </text>
+          </Button>
+          <box style={{ flexGrow: 1 }} />
+          <Button
+            onClick={pickNewModel}
+            style={{
+              borderStyle: 'single',
+              borderColor:
+                pendingAction === 'waiting-room' ? theme.muted : theme.border,
+              customBorderChars: BORDER_CHARS,
+              paddingLeft: 1,
+              paddingRight: 1,
+            }}
+            border={['top', 'bottom', 'left', 'right']}
           >
-            {rejoining ? 'Rejoining…' : 'Press Enter to rejoin waiting room'}
-          </text>
-        </Button>
+            <text
+              style={{
+                fg:
+                  pendingAction === 'waiting-room'
+                    ? theme.muted
+                    : theme.foreground,
+              }}
+              attributes={TextAttributes.BOLD}
+            >
+              {pendingAction === 'waiting-room'
+                ? 'Opening model selection…'
+                : 'Change model (ESC)'}
+            </text>
+          </Button>
+        </box>
       )}
     </box>
   )

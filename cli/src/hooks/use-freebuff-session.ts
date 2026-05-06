@@ -467,7 +467,10 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           useFreebuffModelStore
             .getState()
             .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
-          nextMethod = 'GET'
+          // The unavailable response came from a POST attempt. Re-POST with
+          // the fallback model; a GET would only redisplay the old ended row
+          // and leave the restart banner stuck in its pending state.
+          nextMethod = 'POST'
           schedule(0)
           return
         }
