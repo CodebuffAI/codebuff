@@ -121,7 +121,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             >
               {pendingAction === 'same-chat'
                 ? 'Starting…'
-                : 'Press Enter to continue with a new session'}
+                : 'Press Enter to continue in a new session'}
             </text>
           </Button>
           <box style={{ flexGrow: 1 }} />
@@ -148,7 +148,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             >
               {pendingAction === 'waiting-room'
                 ? 'Opening model selection…'
-                : 'Back to model selection (ESC)'}
+                : 'Change model (ESC)'}
             </text>
           </Button>
         </box>
