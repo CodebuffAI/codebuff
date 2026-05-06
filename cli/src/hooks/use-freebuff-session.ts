@@ -12,6 +12,10 @@ import {
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { getAuthTokenDetails } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
+import {
+  isFreebuffInstanceOwnedByDeadLocalProcess,
+  recordFreebuffInstanceOwner,
+} from '../utils/freebuff-instance-owner'
 import { logger } from '../utils/logger'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
@@ -363,9 +367,9 @@ interface UseFreebuffSessionResult {
  * Manages the freebuff waiting-room session lifecycle:
  *   - GET on mount to probe state (no auto-join; the user picks a model in
  *     the landing screen, which calls joinFreebuffQueue)
- *   - if the probe sees an existing seat, asks before POSTing to take over
- *     (rotates the instance id so any other CLI on the same account is
- *     superseded)
+ *   - if the probe sees an existing seat, auto-takes-over when the prior
+ *     local owner process is gone; otherwise asks before POSTing to rotate
+ *     the instance id so any other CLI on the same account is superseded
  *   - polls GET while queued (fast) or active (slow) to keep state fresh
  *   - re-POSTs on explicit refresh (chat gate rejected us, user switched
  *     models, user rejoined after ending)
@@ -406,6 +410,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let nextMethod: 'GET' | 'POST' = 'GET'
 
     const apply = (next: FreebuffSessionResponse) => {
+      if (next.status === 'queued' || next.status === 'active') {
+        recordFreebuffInstanceOwner(next.instanceId)
+      }
       setSession(next)
       setError(null)
       previousStatus = next.status
@@ -479,6 +486,14 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           (next.status === 'queued' || next.status === 'active')
         ) {
           useFreebuffModelStore.getState().setSelectedModel(next.model)
+          // A fast restart after Ctrl+C can observe the old server row before
+          // best-effort DELETE lands. If the row belongs to a dead local
+          // process, silently do the same POST as the Take over button.
+          if (isFreebuffInstanceOwnedByDeadLocalProcess(next.instanceId)) {
+            nextMethod = 'POST'
+            schedule(0)
+            return
+          }
           apply({ status: 'takeover_prompt', model: next.model })
           return
         }

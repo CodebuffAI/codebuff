@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
 import { IS_FREEBUFF } from '../utils/constants'
+import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { withTimeout } from '../utils/terminal-color-detection'
 
 import type { InputValue } from '../types/store'
@@ -38,6 +39,19 @@ function setupExitMessageHandler() {
   })
 }
 
+function exitCli(): void {
+  if (IS_FREEBUFF) {
+    void exitFreebuffCleanly()
+    return
+  }
+
+  withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
+    () => {
+      process.exit(0)
+    },
+  )
+}
+
 export const useExitHandler = ({
   inputValue,
   setInputValue,
@@ -70,9 +84,7 @@ export const useExitHandler = ({
       exitWarningTimeoutRef.current = null
     }
 
-    withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).then(() => {
-      process.exit(0)
-    })
+    exitCli()
     return true
   }, [inputValue, setInputValue, nextCtrlCWillExit])
 
@@ -83,11 +95,7 @@ export const useExitHandler = ({
         exitWarningTimeoutRef.current = null
       }
 
-      withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
-        () => {
-          process.exit(0)
-        },
-      )
+      exitCli()
     }
 
     process.on('SIGINT', handleSigint)
