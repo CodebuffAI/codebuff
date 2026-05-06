@@ -1,6 +1,6 @@
 'use client'
 
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
+import { SIGNUP_FREE_CREDITS_GRANT } from '@codebuff/common/constants/limits'
 import {
   SUBSCRIPTION_TIERS,
   SUBSCRIPTION_DISPLAY_NAME,
@@ -420,9 +420,7 @@ function CreditVisual() {
       </div>
 
       <div className="mt-8 text-sm text-white/90 max-w-sm rounded-md p-3 bg-white/5">
-        <span>
-          {DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for
-        </span>{' '}
+        <span>{SIGNUP_FREE_CREDITS_GRANT} credits is typically enough for</span>{' '}
         <span>a few hours of coding on a new project</span>
       </div>
     </div>
@@ -533,12 +531,12 @@ export default function PricingClient() {
 
       <FeatureSection
         title={<span>Usage-Based Pricing</span>}
-        description="After free credits, pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
+        description="After your signup credits, pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
         backdropColor={SECTION_THEMES.competition.background}
         decorativeColors={[BlockColor.GenerativeGreen, BlockColor.AcidMatrix]}
         textColor="text-white"
         tagline="PAY AS YOU GO"
-        highlightText="500 free credits monthly"
+        highlightText={`${SIGNUP_FREE_CREDITS_GRANT} free credits on signup`}
         illustration={<PricingCard />}
         learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
         learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}

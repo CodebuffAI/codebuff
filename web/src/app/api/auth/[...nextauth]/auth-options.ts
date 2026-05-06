@@ -1,4 +1,5 @@
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
+import { grantSignupCredits } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { SESSION_MAX_AGE_SECONDS } from '@codebuff/common/old-constants'
@@ -157,7 +158,17 @@ export const authOptions: NextAuthOptions = {
         userId: userData.id,
       })
 
-      // New codebuff accounts do not receive a signup bonus.
+      try {
+        await grantSignupCredits({
+          userId: userData.id,
+          logger,
+        })
+      } catch (error) {
+        logger.error(
+          { userId: userData.id, error },
+          'Failed to grant signup credits.',
+        )
+      }
 
       await loops.sendSignupEventToLoops({
         ...userData,

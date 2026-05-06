@@ -145,7 +145,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
 
               {!activeSubscription && renewalDate && (
                 <>
-                  <text style={{ fg: theme.muted }}>· Renews:</text>
+                  <text style={{ fg: theme.muted }}>· Cycle:</text>
                   <text style={{ fg: theme.foreground }}>{renewalDate}</text>
                 </>
               )}

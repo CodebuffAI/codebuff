@@ -5,8 +5,12 @@ export const MAX_DATE = new Date(86399999999999)
 export const BILLING_PERIOD_DAYS = 30
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
 export const SESSION_TIME_WINDOW_MS = 30 * 60 * 1000 // 30 minutes - used for matching sessions created around fingerprint creation
-// Default number of free credits granted per cycle
-export const DEFAULT_FREE_CREDITS_GRANT = 500
+// New Codebuff accounts receive a one-time free credit grant on signup.
+export const SIGNUP_FREE_CREDITS_GRANT = 500
+
+// New accounts do not receive monthly free credits; grandfathered monthly grants
+// are based on previous expiring free grants instead of this default.
+export const DEFAULT_FREE_CREDITS_GRANT = 0
 
 // Credit pricing configuration
 export const CREDIT_PRICING = {

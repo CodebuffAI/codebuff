@@ -594,10 +594,9 @@ export async function postChatCompletions(params: {
         },
         logger,
       })
-      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
       return NextResponse.json(
         {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
+          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
         },
         { status: 402 },
       )
