@@ -16,6 +16,7 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
+import { FREEBUFF_PREMIUM_SESSION_LIMIT } from '@codebuff/common/constants/freebuff-models'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -263,6 +264,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
 
+  // Premium quota counter for the title line. All premium models share one
+  // pool; the server replicates the same snapshot under each premium model
+  // id, so any entry has the right count. Renders amber when exhausted so
+  // the limit reads as "you've hit it" rather than just another count.
+  const rateLimitsByModel =
+    session && 'rateLimitsByModel' in session
+      ? session.rateLimitsByModel
+      : undefined
+  const sharedPremiumUsed = rateLimitsByModel
+    ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
+    : 0
+  const premiumLeft = Math.max(
+    0,
+    FREEBUFF_PREMIUM_SESSION_LIMIT - sharedPremiumUsed,
+  )
+  const premiumLeftColor = premiumLeft === 0 ? theme.secondary : theme.muted
+
   return (
     <box
       style={{
@@ -344,11 +362,14 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 gap: 0,
               }}
             >
-              <text
-                style={{ fg: theme.foreground, marginBottom: 1 }}
-                attributes={TextAttributes.BOLD}
-              >
-                Pick a model to start
+              <text style={{ marginBottom: 1, wrapMode: 'word' }}>
+                <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+                  Pick a model to start
+                </span>
+                <span fg={premiumLeftColor}>
+                  {'  ·  '}
+                  {premiumLeft} premium left today
+                </span>
               </text>
               <FreebuffModelSelector />
             </box>

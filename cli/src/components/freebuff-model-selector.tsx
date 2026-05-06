@@ -7,7 +7,6 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_MODELS,
-  FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
@@ -39,11 +38,12 @@ const FREEBUFF_MODEL_SELECTOR_MODEL_IDS = FREEBUFF_MODEL_SELECTOR_MODELS.map(
   (model) => model.id,
 )
 
-// Section grouping: premium models share one quota pool (header carries the
-// 0/5 counter); the unlimited model has none. Putting the tier on a section
-// header lets each row drop its redundant "Premium"/"Unlimited" chip. Empty
-// sections are filtered out so a model set with no premium (or no unlimited)
-// entries doesn't render an orphan header.
+// Section grouping: premium models share one quota pool, unlimited has none.
+// Putting the tier on a section header lets each row drop its redundant
+// "Premium"/"Unlimited" chip. The shared 0/5 counter lives in the page title
+// (rendered by the parent), not the section header — this picker is purely a
+// list of choices grouped by tier. Empty sections are filtered so a model set
+// with no premium (or no unlimited) entries doesn't render an orphan header.
 type Section = {
   key: 'premium' | 'unlimited'
   label: string
@@ -68,10 +68,6 @@ const SECTIONS: readonly Section[] = (
     },
   ] satisfies readonly Section[]
 ).filter((section) => section.models.length > 0)
-
-function formatSessionUnits(units: number): string {
-  return Number.isInteger(units) ? String(units) : units.toFixed(1)
-}
 
 /**
  * Dual-purpose model picker:
@@ -135,18 +131,6 @@ export const FreebuffModelSelector: React.FC = () => {
     session && 'rateLimitsByModel' in session
       ? session.rateLimitsByModel
       : undefined
-
-  // All premium models share one quota pool: the server replicates the same
-  // snapshot under each premium model id, so any entry has the right count.
-  // Grab the first one (or 0 when the user has no usage and the map is
-  // absent) so the section header can render the single shared counter.
-  const sharedPremiumUsed = useMemo(
-    () =>
-      rateLimitsByModel
-        ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
-        : 0,
-    [rateLimitsByModel],
-  )
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
@@ -366,11 +350,6 @@ export const FreebuffModelSelector: React.FC = () => {
     )
   }
 
-  // Counter goes amber-ish (theme.secondary) when the pool is exhausted so
-  // the limit reads as "you've hit it" rather than just another count.
-  const premiumExhausted = sharedPremiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
-  const counterColor = premiumExhausted ? theme.secondary : theme.muted
-
   return (
     <box
       style={{
@@ -389,16 +368,7 @@ export const FreebuffModelSelector: React.FC = () => {
             marginTop: sectionIdx === 0 ? 0 : 1,
           }}
         >
-          <text style={{ wrapMode: 'word' }}>
-            <span fg={theme.muted}>{section.label}</span>
-            {section.key === 'premium' && (
-              <span fg={counterColor}>
-                {'  ·  '}
-                {formatSessionUnits(sharedPremiumUsed)} /{' '}
-                {FREEBUFF_PREMIUM_SESSION_LIMIT} used today
-              </span>
-            )}
-          </text>
+          <text style={{ fg: theme.muted }}>{section.label}</text>
           {section.models.map(renderModelButton)}
         </box>
       ))}
