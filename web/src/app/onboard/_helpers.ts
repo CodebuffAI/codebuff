@@ -5,7 +5,24 @@ export function parseAuthCode(authCode: string): {
   expiresAt: string
   receivedHash: string
 } {
-  const [fingerprintId, expiresAt, receivedHash] = authCode.split('.')
+  const normalizedAuthCode = authCode.trim()
+  const hashSeparatorIndex = normalizedAuthCode.lastIndexOf('.')
+  const expiresSeparatorIndex = normalizedAuthCode.lastIndexOf(
+    '.',
+    hashSeparatorIndex - 1,
+  )
+
+  if (hashSeparatorIndex === -1 || expiresSeparatorIndex === -1) {
+    return { fingerprintId: '', expiresAt: '', receivedHash: '' }
+  }
+
+  const fingerprintId = normalizedAuthCode.slice(0, expiresSeparatorIndex)
+  const expiresAt = normalizedAuthCode.slice(
+    expiresSeparatorIndex + 1,
+    hashSeparatorIndex,
+  )
+  const receivedHash = normalizedAuthCode.slice(hashSeparatorIndex + 1)
+
   return { fingerprintId, expiresAt, receivedHash }
 }
 

@@ -100,6 +100,20 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (!valid) {
+    logger.warn(
+      {
+        authCodeLength: authCode.length,
+        fingerprintIdPrefix: fingerprintId.slice(0, 24),
+        fingerprintIdLength: fingerprintId.length,
+        expiresAt,
+        receivedHashPrefix: receivedHash.slice(0, 12),
+        receivedHashLength: receivedHash.length,
+        expectedHashPrefix: fingerprintHash.slice(0, 12),
+        expectedHashLength: fingerprintHash.length,
+      },
+      'Invalid Freebuff CLI auth code',
+    )
+
     return (
       <StatusCard
         title="Invalid auth code"
