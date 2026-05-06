@@ -1,5 +1,6 @@
 import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { normalizeAgentIdForLookup } from '@codebuff/common/util/agent-id-parsing'
 import { cloneDeep } from 'lodash'
 
 import { getMCPToolData } from '../mcp'
@@ -371,7 +372,9 @@ export async function executeToolCall<T extends ToolName>(
             }
           }
 
-          let agentIdToLoad = agentTypeStr
+          let agentIdToLoad = isBaseAgent
+            ? normalizeAgentIdForLookup(agentTypeStr)
+            : agentTypeStr
           if (!isBaseAgent) {
             const matchingSpawn = getMatchingSpawn(
               agentTemplate.spawnableAgents,
@@ -420,7 +423,13 @@ export async function executeToolCall<T extends ToolName>(
             }
           }
 
-          return { valid: true as const, agent }
+          return {
+            valid: true as const,
+            agent: {
+              ...(agent as Record<string, unknown>),
+              agent_type: agentIdToLoad,
+            },
+          }
         }),
       )
 
@@ -449,8 +458,8 @@ export async function executeToolCall<T extends ToolName>(
         }
         const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
         onResponseChunk({ type: 'error', message: errorMsg })
-        effectiveInput = { ...effectiveInput, agents: validAgents }
       }
+      effectiveInput = { ...effectiveInput, agents: validAgents }
     }
   }
 
