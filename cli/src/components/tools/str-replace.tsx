@@ -7,6 +7,7 @@ import {
   extractDiff,
   extractFilePath,
   isCreateFile,
+  shouldShowEditDiff,
 } from '../../utils/implementor-helpers'
 
 import type { ToolRenderConfig } from './types'
@@ -60,13 +61,14 @@ export const StrReplaceComponent = defineToolComponent({
     const diff = extractDiff(toolBlock)
     const filePath = extractFilePath(toolBlock)
     const isCreate = isCreateFile(toolBlock)
+    const showDiff = shouldShowEditDiff(toolBlock)
 
     return {
       content: (
         <EditBody
           name={isCreate ? 'Create' : 'Edit'}
           filePath={filePath}
-          diffText={diff ?? ''}
+          diffText={showDiff ? (diff ?? '') : ''}
           isCreate={isCreate}
         />
       ),

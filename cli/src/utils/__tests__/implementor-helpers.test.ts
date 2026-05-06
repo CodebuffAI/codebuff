@@ -17,6 +17,7 @@ import {
   groupConsecutiveToolBlocks,
   getMultiPromptProgress,
   getMultiPromptPreview,
+  shouldShowEditDiff,
 } from '../implementor-helpers'
 
 import type {
@@ -365,6 +366,82 @@ describe('getFileChangeType', () => {
       input: {},
     }
     expect(getFileChangeType(block)).toBe('M')
+  })
+})
+
+describe('shouldShowEditDiff', () => {
+  test('does not show pending str_replace diffs before the result arrives', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: {
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
+      },
+    }
+
+    expect(shouldShowEditDiff(block)).toBe(false)
+  })
+
+  test('shows str_replace diffs after a successful result', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'str_replace',
+      input: {
+        replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
+      },
+      output: 'file: src/existing.ts\nmessage: String replace applied successfully.',
+    }
+
+    expect(shouldShowEditDiff(block)).toBe(true)
+  })
+
+  test('does not show pending write_file diffs before the result arrives', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: { path: 'src/new.ts', content: 'const x = 1\n' },
+    }
+
+    expect(extractDiff(block)).toBe('+ const x = 1\n+ ')
+    expect(shouldShowEditDiff(block)).toBe(false)
+  })
+
+  test('shows write_file diffs after an overwrite result', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: { path: 'src/existing.ts', content: 'const x = 2\n' },
+      output: 'file: src/existing.ts\nmessage: Overwrote file successfully.',
+    }
+
+    expect(shouldShowEditDiff(block)).toBe(true)
+  })
+
+  test('does not show write_file diffs after a create result', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'write_file',
+      input: { path: 'src/new.ts', content: 'const x = 1\n' },
+      output: 'file: src/new.ts\nmessage: Created file successfully.',
+    }
+
+    expect(shouldShowEditDiff(block)).toBe(false)
+  })
+
+  test('continues to show pending proposed write_file diffs', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'propose_write_file',
+      input: { path: 'src/new.ts', content: 'const x = 1\n' },
+    }
+
+    expect(shouldShowEditDiff(block)).toBe(true)
   })
 })
 
