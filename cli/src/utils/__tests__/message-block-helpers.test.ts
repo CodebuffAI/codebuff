@@ -39,6 +39,10 @@ describe('getAgentBaseName', () => {
     expect(getAgentBaseName('file-picker')).toBe('file-picker')
   })
 
+  test('normalizes direct tool aliases to canonical agent names', () => {
+    expect(getAgentBaseName('code_reviewer_lite')).toBe('code-reviewer-lite')
+  })
+
   test('handles scoped name without version', () => {
     expect(getAgentBaseName('codebuff/file-picker')).toBe('file-picker')
   })
