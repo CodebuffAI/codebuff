@@ -239,8 +239,46 @@ describe('tool validation error handling', () => {
 
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('The JSON parser reported:')
-      expect(result.error).toContain('If the arguments are incomplete')
+      expect(result.error).toContain(
+        'expected the tool arguments to be an object, but received a string',
+      )
+      expect(result.error).toContain('Parsing as JSON failed:')
+      expect(result.error).toContain(
+        'The arguments may be malformed or incomplete',
+      )
+    }
+  })
+
+  it('should explain when parsed tool input remains a string', () => {
+    const input = JSON.stringify(
+      JSON.stringify(
+        JSON.stringify(
+          JSON.stringify({
+            path: 'test.ts',
+            instructions: 'Writes a test file',
+            content: 'console.log("test")\n',
+          }),
+        ),
+      ),
+    )
+
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'write_file',
+        toolCallId: 'over-encoded-tool-call-id',
+        input,
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'expected the tool arguments to be an object, but received a string',
+      )
+      expect(result.error).toContain(
+        'Parsing succeeded, but the parsed value was still a string',
+      )
+      expect(result.error).not.toContain('malformed or incomplete')
     }
   })
 
@@ -578,8 +616,9 @@ describe('tool validation error handling', () => {
     )
     expect(errorEvents.length).toBe(1)
     expect(errorEvents[0].message).toContain(
-      'tool arguments were a string, not a JSON object',
+      'expected the tool arguments to be an object, but received a string',
     )
+    expect(errorEvents[0].message).toContain('Parsing as JSON failed:')
     expect(errorEvents[0].message).toContain('Original tool call input:')
 
     expect(result.hadToolCallError).toBe(true)

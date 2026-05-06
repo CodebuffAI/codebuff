@@ -130,13 +130,13 @@ function stringInputError(
   parseError?: string,
 ): ToolCallError {
   const parseDetails = parseError
-    ? ` The JSON parser reported: ${parseError}. If the arguments are incomplete, re-issue the full object.`
-    : ''
+    ? ` Parsing as JSON failed: ${parseError}. The arguments may be malformed or incomplete.`
+    : ' Parsing succeeded, but the parsed value was still a string.'
   return {
     toolName,
     toolCallId,
     input: {},
-    error: `Invalid parameters for ${toolName}: tool arguments were a string, not a JSON object. The runtime tried to parse stringified JSON before validation, but the value was still not a JSON object.${parseDetails} Re-issue the tool call as a JSON object with properly escaped string values.`,
+    error: `Invalid parameters for ${toolName}: expected the tool arguments to be an object, but received a string.${parseDetails} Re-issue the tool call with the full arguments object and properly escaped string values.`,
   }
 }
 
