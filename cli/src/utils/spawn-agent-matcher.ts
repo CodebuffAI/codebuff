@@ -28,7 +28,6 @@ export const resolveSpawnAgentToReal = (options: {
   blocks: ContentBlock[]
   match: SpawnAgentMatch
   realAgentId: string
-  realAgentType?: string
   parentAgentId?: string
   params?: Record<string, unknown>
   prompt?: string
@@ -37,7 +36,6 @@ export const resolveSpawnAgentToReal = (options: {
     blocks,
     match,
     realAgentId,
-    realAgentType,
     parentAgentId,
     params: agentParams,
     prompt,
@@ -50,6 +48,5 @@ export const resolveSpawnAgentToReal = (options: {
     parentAgentId,
     agentParams,
     prompt,
-    realAgentType,
   )
 }
