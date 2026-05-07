@@ -26,7 +26,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'You can choose from DeepSeek V4 Pro, Kimi K2.6, and MiniMax M2.7.\n\nSession limits: DeepSeek and Kimi share 5 one-hour premium sessions per day. MiniMax has unlimited sessions.\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- MiniMax M2.7: fastest.\n\nGemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'You can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- MiniMax M2.7: fastest.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -36,7 +36,7 @@ const faqs = [
   {
     question: 'Are you training on my data?',
     answer:
-      "No. We do not share your data with third parties that would train on it or use it for another purpose.\n\nIn the future, we may use request data to train custom models to improve Freebuff — this will be opt-out, so you'll always have control.",
+      "No. We do not share your data with third parties that would train on it or use it for another purpose, unless you choose a model clearly labeled as 'Collects data for training'.",
   },
   {
     question: 'What data do you store?',
