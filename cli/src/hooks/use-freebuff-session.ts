@@ -3,6 +3,7 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   resolveFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
 import {
@@ -18,8 +19,6 @@ import {
 } from '../utils/freebuff-instance-owner'
 import { logger } from '../utils/logger'
 import { saveFreebuffModelPreference } from '../utils/settings'
-
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type {

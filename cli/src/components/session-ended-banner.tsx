@@ -10,12 +10,10 @@ import {
 } from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { formatSessionUnits } from '../utils/format-session-units'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
-
-const formatSessionUnits = (units: number): string =>
-  Number.isInteger(units) ? String(units) : units.toFixed(1)
 
 interface SessionEndedBannerProps {
   /** True while an agent request is still streaming under the server-side
@@ -43,10 +41,6 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const premiumQuota = useFreebuffSessionStore(
     (s) => Object.values(getRateLimitsByModel(s.session) ?? {})[0] ?? null,
   )
-  const quotaColor =
-    premiumQuota && premiumQuota.recentCount >= premiumQuota.limit
-      ? theme.secondary
-      : theme.muted
 
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
@@ -112,7 +106,13 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
       <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
         Your freebuff session has ended.
         {premiumQuota && (
-          <span fg={quotaColor}>
+          <span
+            fg={
+              premiumQuota.recentCount >= premiumQuota.limit
+                ? theme.secondary
+                : theme.muted
+            }
+          >
             {'  ·  '}
             {formatSessionUnits(premiumQuota.recentCount)} of{' '}
             {premiumQuota.limit} premium sessions used today

@@ -33,7 +33,10 @@ export type FreebuffSessionRateLimitByModel = Record<
 
 /** Pull the per-model premium quota snapshot off whichever session statuses
  *  carry it (queued, active, ended, none). Returns undefined for terminal /
- *  pre-join states that have no quota field. */
+ *  pre-join states that have no quota field. The parameter is intentionally
+ *  loose so the CLI can pass its `FreebuffSessionResponse` (which adds the
+ *  client-only `takeover_prompt` variant) without a discriminated-union
+ *  ceremony at every call site. */
 export const getRateLimitsByModel = (
   session: { status: string } | null | undefined,
 ): FreebuffSessionRateLimitByModel | undefined =>
