@@ -40,6 +40,8 @@ export interface SelectableListProps {
   /** Optional max height - if not provided, list fills available space */
   maxHeight?: number
   onSelect: (item: SelectableListItem, index: number) => void
+  actionLabel?: string
+  onAction?: (item: SelectableListItem, index: number) => void
   onFocusChange?: (index: number) => void
   emptyMessage?: string
 }
@@ -53,7 +55,16 @@ export const SelectableList = forwardRef<
   SelectableListProps
 >(
   (
-    { items, focusedIndex, maxHeight, onSelect, onFocusChange, emptyMessage = 'No items' },
+    {
+      items,
+      focusedIndex,
+      maxHeight,
+      onSelect,
+      actionLabel,
+      onAction,
+      onFocusChange,
+      emptyMessage = 'No items',
+    },
     ref,
   ) => {
     const theme = useTheme()
@@ -141,13 +152,21 @@ export const SelectableList = forwardRef<
           const isHighlighted = isFocused || isHovered
 
           // Use subtle highlight that works in both light and dark themes
-          const backgroundColor = isHighlighted ? theme.surfaceHover : 'transparent'
+          const backgroundColor = isHighlighted
+            ? theme.surfaceHover
+            : 'transparent'
           const textColor = isHighlighted ? theme.foreground : theme.muted
 
           return (
-            <Button
+            <box
               key={item.id}
-              onClick={() => onSelect(item, idx)}
+              style={{
+                flexDirection: 'row',
+                width: '100%',
+                backgroundColor,
+                height: 1,
+                overflow: 'hidden',
+              }}
               onMouseOver={() => {
                 setHoveredIndex(idx)
                 onFocusChange?.(idx)
@@ -157,37 +176,68 @@ export const SelectableList = forwardRef<
                   setHoveredIndex(null)
                 }
               }}
-              style={{
-                flexDirection: 'row',
-                gap: 3,
-                backgroundColor,
-                paddingLeft: 1,
-                paddingRight: 1,
-                paddingTop: 0,
-                paddingBottom: 0,
-                height: 1,
-                overflow: 'hidden',
-              }}
             >
-              {item.icon && (
-                <text style={{ fg: isHighlighted ? theme.foreground : theme.muted }}>
-                  {item.icon}
-                </text>
-              )}
-              <text
+              <Button
+                onClick={() => onSelect(item, idx)}
                 style={{
-                  fg: item.accent && !isHighlighted ? theme.primary : textColor,
-                  attributes: item.accent || isHighlighted ? TextAttributes.BOLD : undefined,
+                  flexDirection: 'row',
+                  gap: 3,
+                  width: '100%',
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  height: 1,
+                  overflow: 'hidden',
                 }}
               >
-                {item.label}
-              </text>
-              {item.secondary && !item.hideSecondary && (
-                <text style={{ fg: theme.muted }}>
-                  {item.secondary}
+                {item.icon && (
+                  <text
+                    style={{
+                      fg: isHighlighted ? theme.foreground : theme.muted,
+                    }}
+                  >
+                    {item.icon}
+                  </text>
+                )}
+                <text
+                  style={{
+                    fg:
+                      item.accent && !isHighlighted ? theme.primary : textColor,
+                    attributes:
+                      item.accent || isHighlighted
+                        ? TextAttributes.BOLD
+                        : undefined,
+                  }}
+                >
+                  {item.label}
                 </text>
+                {item.secondary && !item.hideSecondary && (
+                  <text style={{ fg: theme.muted }}>{item.secondary}</text>
+                )}
+              </Button>
+              {actionLabel && onAction && (
+                <Button
+                  onClick={() => onAction(item, idx)}
+                  style={{
+                    paddingLeft: 1,
+                    paddingRight: 1,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    height: 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  <text
+                    style={{ fg: isHighlighted ? theme.error : theme.muted }}
+                  >
+                    {actionLabel}
+                  </text>
+                </Button>
               )}
-            </Button>
+            </box>
           )
         })}
       </scrollbox>
