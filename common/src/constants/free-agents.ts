@@ -81,9 +81,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Command execution
   basher: new Set(['google/gemini-3.1-flash-lite-preview']),
 
-  // Editor for free mode
-  'editor-lite': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
-
   // Code reviewer for free mode
   'code-reviewer-minimax': new Set([
     FREEBUFF_MINIMAX_MODEL_ID,
