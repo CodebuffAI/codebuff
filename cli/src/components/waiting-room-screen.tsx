@@ -275,11 +275,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const sharedPremiumUsed = rateLimitsByModel
     ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
     : 0
-  const premiumLeft = Math.max(
-    0,
-    FREEBUFF_PREMIUM_SESSION_LIMIT - sharedPremiumUsed,
-  )
-  const premiumLeftColor = premiumLeft === 0 ? theme.secondary : theme.muted
+  const isPremiumExhausted =
+    sharedPremiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
+  const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
+  // Pad the used count so the title's centered container doesn't shift width
+  // as the count ticks from "0" → "1.3" → "2" while loading.
+  const sessionUnitWidth = String(FREEBUFF_PREMIUM_SESSION_LIMIT).length + 2
+  const formattedSharedPremiumUsed = formatSessionUnits(
+    sharedPremiumUsed,
+  ).padStart(sessionUnitWidth)
 
   return (
     <box
@@ -366,9 +370,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
                 </span>
-                <span fg={premiumLeftColor}>
+                <span fg={premiumUsedColor}>
                   {'  ·  '}
-                  {premiumLeft} premium left today
+                  {formattedSharedPremiumUsed} of{' '}
+                  {FREEBUFF_PREMIUM_SESSION_LIMIT} premium sessions used today
                 </span>
               </text>
               <FreebuffModelSelector />
