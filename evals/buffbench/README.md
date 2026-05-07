@@ -139,6 +139,7 @@ BuffBench supports running external CLI coding agents for comparison:
 
 - **Claude Code**: Use `external:claude` - requires `claude` CLI installed
 - **Codex**: Use `external:codex` - requires `codex` CLI installed
+- **OpenCode**: Use `external:opencode` - requires `opencode` CLI installed
 
 Example comparing Codebuff vs Claude Code:
 
@@ -162,6 +163,13 @@ npm install -g @anthropic-ai/claude-code
 ```bash
 npm install -g @openai/codex
 # Set OPENAI_API_KEY environment variable
+```
+
+**OpenCode CLI:**
+```bash
+# Install from https://opencode.ai/docs/install
+# Set OPENCODE_API_KEY environment variable
+# BuffBench uses opencode/kimi-k2.6 by default; override with OPENCODE_MODEL if needed.
 ```
 
 ## Directory Structure
