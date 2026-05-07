@@ -38,7 +38,7 @@ describe('free mode agent model allowlist', () => {
     ).toBe(true)
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_KIMI_MODEL_ID),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isFreeModeAllowedAgentModel('base2-free-kimi', FREEBUFF_KIMI_MODEL_ID),
     ).toBe(true)
