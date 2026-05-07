@@ -12,6 +12,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
+import { isAuthCodeExpired, parseAuthCode } from '@/app/onboard/_helpers'
 
 export default async function LoginPage({
   searchParams,
@@ -22,10 +23,9 @@ export default async function LoginPage({
   const authCode = resolvedSearchParams?.auth_code as string | undefined
 
   if (authCode) {
-    const [_fingerprintId, expiresAt, _receivedFingerprintHash] =
-      authCode.split('.')
+    const { expiresAt } = parseAuthCode(authCode)
 
-    if (parseInt(expiresAt) < Date.now()) {
+    if (expiresAt && isAuthCodeExpired(expiresAt)) {
       return (
         <div className="relative min-h-screen overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-dark-forest-green via-black/95 to-black" />
@@ -36,7 +36,9 @@ export default async function LoginPage({
             <div className="w-full sm:w-1/2 md:w-1/3">
               <Card className="border-zinc-800/80 bg-zinc-950/80 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="text-white">Auth code expired</CardTitle>
+                  <CardTitle className="text-white">
+                    Auth code expired
+                  </CardTitle>
                   <CardDescription>
                     Please try starting Freebuff in your terminal again.
                   </CardDescription>

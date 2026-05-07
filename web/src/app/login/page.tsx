@@ -10,6 +10,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
+import { isAuthCodeExpired, parseAuthCode } from '@/app/onboard/_helpers'
 
 // Server component that handles the auth code expiration check
 export default async function LoginPage({
@@ -21,11 +22,10 @@ export default async function LoginPage({
   const authCode = resolvedSearchParams?.auth_code as string | undefined
 
   if (authCode) {
-    const [_fingerprintId, expiresAt, _receivedfingerprintHash] =
-      authCode.split('.')
+    const { expiresAt } = parseAuthCode(authCode)
 
     // Check for token expiration on the server side
-    if (parseInt(expiresAt) < Date.now()) {
+    if (expiresAt && isAuthCodeExpired(expiresAt)) {
       return (
         <Card>
           <CardHeader>

@@ -32,6 +32,16 @@ describe('onboard/_helpers', () => {
       expect(result.receivedHash).toBe('abc123hash')
     })
 
+    test('handles auth code missing separator before expiresAt', () => {
+      const authCode =
+        'fingerprint-1231704067200000.abc123hashabc123hashabc123hash'
+      const result = parseAuthCode(authCode)
+
+      expect(result.fingerprintId).toBe('')
+      expect(result.expiresAt).toBe('')
+      expect(result.receivedHash).toBe('')
+    })
+
     test('handles empty string parts', () => {
       const authCode = '..emptyparts'
       const result = parseAuthCode(authCode)
