@@ -16,6 +16,7 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
+import { FREEBUFF_PREMIUM_SESSION_LIMIT } from '@codebuff/common/constants/freebuff-models'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -156,10 +157,7 @@ const TakeoverPrompt: React.FC = () => {
         width: '100%',
       }}
     >
-      <text
-        style={{ fg: theme.foreground }}
-        attributes={TextAttributes.BOLD}
-      >
+      <text style={{ fg: theme.foreground }} attributes={TextAttributes.BOLD}>
         Freebuff is already running
       </text>
 
@@ -196,7 +194,9 @@ const TakeoverPrompt: React.FC = () => {
         >
           <text
             style={{ fg: isExitFocused ? theme.foreground : theme.muted }}
-            attributes={isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE}
+            attributes={
+              isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE
+            }
           >
             Exit
           </text>
@@ -263,6 +263,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
+
+  // Premium quota counter for the title line. All premium models share one
+  // pool; the server replicates the same snapshot under each premium model
+  // id, so any entry has the right count. Renders amber when exhausted so
+  // the limit reads as "you've hit it" rather than just another count.
+  const rateLimitsByModel =
+    session && 'rateLimitsByModel' in session
+      ? session.rateLimitsByModel
+      : undefined
+  const sharedPremiumUsed = rateLimitsByModel
+    ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
+    : 0
+  const premiumLeft = Math.max(
+    0,
+    FREEBUFF_PREMIUM_SESSION_LIMIT - sharedPremiumUsed,
+  )
+  const premiumLeftColor = premiumLeft === 0 ? theme.secondary : theme.muted
 
   return (
     <box
@@ -338,19 +355,40 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           )}
 
           {isLanding && (
-            <>
-              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
-                Pick a model to start
+            <box
+              style={{
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0,
+              }}
+            >
+              <text style={{ marginBottom: 1, wrapMode: 'word' }}>
+                <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+                  Pick a model to start
+                </span>
+                <span fg={premiumLeftColor}>
+                  {'  ·  '}
+                  {premiumLeft} premium left today
+                </span>
               </text>
               <FreebuffModelSelector />
-            </>
+            </box>
           )}
 
           {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
 
           {isQueued && session && (
-            <>
-              <text style={{ fg: theme.foreground, marginBottom: 1 }}>
+            <box
+              style={{
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0,
+              }}
+            >
+              <text
+                style={{ fg: theme.foreground, marginBottom: 1 }}
+                attributes={TextAttributes.BOLD}
+              >
                 {session.position === 1
                   ? "You're next in line"
                   : "You're in the waiting room"}
@@ -384,7 +422,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {formatElapsed(elapsedMs)}
                 </text>
               </box>
-            </>
+            </box>
           )}
 
           {/* Server says the waiting room is disabled — this screen should not

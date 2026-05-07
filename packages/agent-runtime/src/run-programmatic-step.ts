@@ -6,7 +6,7 @@ import { cloneDeep } from 'lodash'
 import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
-import { createToolCallIdGenerator } from './util/tool-call-id'
+
 
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { ExecuteToolCallParams } from './tools/tool-executor'
@@ -213,7 +213,6 @@ export async function runProgrammaticStep(
   let toolResult: ToolResultOutput[] | undefined = undefined
   let endTurn = false
   let generateN: number | undefined = undefined
-  const getToolCallId = createToolCallIdGenerator(agentState.messageHistory)
 
   let startTime = new Date()
   let creditsBefore = agentState.directCreditsUsed
@@ -274,7 +273,6 @@ export async function runProgrammaticStep(
             previousToolCallFinished: Promise.resolve(),
             toolCalls,
             toolResults,
-            getToolCallId,
             onResponseChunk,
           })
         }
@@ -303,7 +301,6 @@ export async function runProgrammaticStep(
         previousToolCallFinished: Promise.resolve(),
         toolCalls,
         toolResults,
-        getToolCallId,
         onResponseChunk,
       })
 
@@ -435,7 +432,6 @@ type ExecuteToolCallsArrayParams = Omit<
   | 'toolResultsToAddToMessageHistory'
 > & {
   agentState: AgentState
-  getToolCallId: (toolName: string) => string
   onResponseChunk: (chunk: string | PrintModeEvent) => void
 }
 
@@ -449,7 +445,7 @@ async function executeSingleToolCall(
   toolCallToExecute: ToolCallToExecute,
   params: ExecuteToolCallsArrayParams,
 ): Promise<ToolResultOutput[] | undefined> {
-  const { agentState, getToolCallId, onResponseChunk, toolResults } = params
+  const { agentState, onResponseChunk, toolResults } = params
 
   // Note: We don't check if the tool is available for the agent template anymore.
   // You can run any tool from handleSteps now!
@@ -459,7 +455,7 @@ async function executeSingleToolCall(
   //   )
   // }
 
-  const toolCallId = getToolCallId(toolCallToExecute.toolName)
+  const toolCallId = crypto.randomUUID()
   const excludeToolFromMessageHistory =
     toolCallToExecute.includeToolCall === false
 
