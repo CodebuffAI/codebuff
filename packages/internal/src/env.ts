@@ -3,16 +3,18 @@ import { serverEnvSchema, serverProcessEnv } from './env-schema'
 // Only provide safe defaults in CI to avoid schema failures during tests
 // In local dev, missing env vars should fail fast so devs know to configure them
 const isCI = process.env.CI === 'true' || process.env.CI === '1'
+const isNextProductionBuild =
+  process.env.NEXT_PHASE === 'phase-production-build'
 const envInput = { ...serverProcessEnv }
 
-if (isCI) {
-  const ensureEnvDefault = (key: string, value: string) => {
-    if (!process.env[key]) {
-      process.env[key] = value
-    }
-    envInput[key as keyof typeof envInput] = process.env[key]
+const ensureEnvDefault = (key: keyof typeof envInput, value: string) => {
+  if (!process.env[key]) {
+    process.env[key] = value
   }
+  envInput[key] = process.env[key]
+}
 
+if (isCI) {
   ensureEnvDefault('OPEN_ROUTER_API_KEY', 'test')
   ensureEnvDefault('OPENAI_API_KEY', 'test')
   ensureEnvDefault('ANTHROPIC_API_KEY', 'test')
@@ -39,6 +41,13 @@ if (isCI) {
   ensureEnvDefault('DISCORD_PUBLIC_KEY', 'test')
   ensureEnvDefault('DISCORD_BOT_TOKEN', 'test')
   ensureEnvDefault('DISCORD_APPLICATION_ID', 'test')
+}
+
+// Next imports server route modules while collecting production build data.
+// Freebuff auth routes do not use IPinfo, so keep build-time validation from
+// requiring the runtime-only country-gating token. Runtime still fails fast.
+if (isNextProductionBuild) {
+  ensureEnvDefault('IPINFO_TOKEN', 'build-time-placeholder')
 }
 
 // Only log environment in non-production
