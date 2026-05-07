@@ -3,17 +3,6 @@ import os from 'os'
 import path from 'path'
 
 import { validateAgents } from '@codebuff/sdk'
-import {
-  FREEBUFF_GEMINI_THINKER_AGENT_ID,
-  FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-  FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
-  FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-} from '@codebuff/common/constants/freebuff-gemini-thinker'
-import {
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 // Mock the logger to prevent analytics initialization errors in tests
@@ -31,7 +20,6 @@ import { setProjectRoot, getProjectRoot } from '../../project-files'
 import {
   loadAgentDefinitions,
   loadLocalAgents,
-  configureFreebuffBaseAgentForModel,
   initializeAgentRegistry,
   findAgentsDirectory,
   getLoadedAgentsData,
@@ -41,87 +29,6 @@ import {
 } from '../../utils/local-agent-registry'
 
 const MODEL_NAME = 'anthropic/claude-sonnet-4'
-
-describe('configureFreebuffBaseAgentForModel', () => {
-  const makeBase2Free = () => ({
-    id: 'base2-free',
-    spawnableAgents: ['file-picker', FREEBUFF_GEMINI_THINKER_AGENT_ID],
-    systemPrompt: [
-      'before',
-      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-      'after',
-    ].join('\n'),
-    instructionsPrompt: [
-      'before',
-      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-      'after',
-    ].join('\n'),
-    stepPrompt: ['before', FREEBUFF_GEMINI_THINKER_STEP_PROMPT, 'after'].join(
-      '\n',
-    ),
-  })
-
-  test('keeps the Gemini thinker and prompt guidance for Kimi', () => {
-    const definition = makeBase2Free()
-
-    configureFreebuffBaseAgentForModel(definition, FREEBUFF_KIMI_MODEL_ID)
-
-    expect(definition.spawnableAgents).toContain(
-      FREEBUFF_GEMINI_THINKER_AGENT_ID,
-    )
-    expect(definition.systemPrompt).toContain(
-      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-    )
-    expect(definition.instructionsPrompt).toContain(
-      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-    )
-    expect(definition.stepPrompt).toContain(FREEBUFF_GEMINI_THINKER_STEP_PROMPT)
-  })
-
-  test('keeps the Gemini thinker and prompt guidance for DeepSeek', () => {
-    const definition = makeBase2Free()
-
-    configureFreebuffBaseAgentForModel(
-      definition,
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    )
-
-    expect(definition.spawnableAgents).toContain(
-      FREEBUFF_GEMINI_THINKER_AGENT_ID,
-    )
-    expect(definition.systemPrompt).toContain(
-      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-    )
-    expect(definition.instructionsPrompt).toContain(
-      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-    )
-    expect(definition.stepPrompt).toContain(FREEBUFF_GEMINI_THINKER_STEP_PROMPT)
-  })
-
-  test('removes only exact Gemini thinker prompt guidance for MiniMax', () => {
-    const definition = makeBase2Free()
-    definition.systemPrompt +=
-      '\nUser text mentioning thinker-with-files-gemini should stay.'
-
-    configureFreebuffBaseAgentForModel(definition, FREEBUFF_MINIMAX_MODEL_ID)
-
-    expect(definition.spawnableAgents).not.toContain(
-      FREEBUFF_GEMINI_THINKER_AGENT_ID,
-    )
-    expect(definition.systemPrompt).not.toContain(
-      FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-    )
-    expect(definition.instructionsPrompt).not.toContain(
-      FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-    )
-    expect(definition.stepPrompt).not.toContain(
-      FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
-    )
-    expect(definition.systemPrompt).toContain(
-      'User text mentioning thinker-with-files-gemini should stay.',
-    )
-  })
-})
 
 const writeAgentFile = (
   agentsDir: string,

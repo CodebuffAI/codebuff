@@ -1,10 +1,7 @@
-import { createBase2 } from './base2'
+import base2FreeDeepseek from './base2-free-deepseek'
 
 const definition = {
-  ...createBase2('free', {
-    noAskUser: true,
-    model: 'deepseek/deepseek-v4-pro',
-  }),
+  ...base2FreeDeepseek,
   id: 'base2-free-deepseek-v4',
   displayName: 'Buffy the DeepSeek V4 Free Orchestrator',
 }

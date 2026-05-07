@@ -113,13 +113,12 @@ export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. DeepSeek is the
- *  smartest of the free options; the picker surfaces its data-collection
- *  caveat (`warning`) so users can opt out to Kimi if that's a concern.
+/** What new freebuff users see selected in the picker. MiniMax is the
+ *  fastest always-available option and backs the default base2-free agent.
  *  Callers that need a guaranteed-available id for resolution / auto-fallbacks
  *  should use FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_MINIMAX_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from

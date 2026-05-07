@@ -5,6 +5,10 @@ import {
   FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
   FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
 } from '@codebuff/common/constants/freebuff-gemini-thinker'
+import {
+  canFreebuffModelSpawnGeminiThinker,
+  FREEBUFF_MINIMAX_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from '../constants'
 import {
@@ -20,6 +24,7 @@ export function createBase2(
     noAskUser?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
+    freeCodeReviewerAgentId?: string
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
@@ -28,6 +33,7 @@ export function createBase2(
     noAskUser = false,
     model: modelOverride,
     providerOptions,
+    freeCodeReviewerAgentId = 'code-reviewer-lite',
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -38,20 +44,18 @@ export function createBase2(
   // Lite (paid Codebuff) defaults to Kimi: no data-retention surface in the
   // CLI today, so we don't want to silently route Codebuff prompts through a
   // model whose provider trains on user data. Free (freebuff) defaults to
-  // DeepSeek and surfaces the data-collection caveat in the picker; the CLI
-  // overrides the model anyway based on the user's freebuff selection.
+  // MiniMax M2.7; Kimi and DeepSeek are separate free agent variants.
   const model =
     modelOverride ??
     (mode === 'lite'
       ? 'moonshotai/kimi-k2.6'
       : mode === 'free'
-        ? 'deepseek/deepseek-v4-pro'
+        ? FREEBUFF_MINIMAX_MODEL_ID
         : 'anthropic/claude-opus-4.7')
-  // Bundled free-mode definitions ship with the gemini-thinker spawnable +
-  // prompts; the CLI strips them at runtime if the user picks a fast model
-  // that doesn't benefit (e.g. MiniMax). Smart freebuff models (Kimi,
-  // DeepSeek) keep it so they can offload deeper reasoning.
-  const hasFreeGeminiThinker = isFree
+  // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
+  // reasoning. Fast MiniMax omits the extra round trip by construction.
+  const hasFreeGeminiThinker =
+    isFree && canFreebuffModelSpawnGeminiThinker(model)
   const defaultProviderOptions = isFree
     ? {
         data_collection: 'deny' as const,
@@ -114,7 +118,7 @@ export function createBase2(
       isMax && 'editor-multi-prompt',
       'tmux-cli',
       'browser-use',
-      isFree && 'code-reviewer-lite',
+      isFree && freeCodeReviewerAgentId,
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
@@ -183,7 +187,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     isFree &&
-      '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
+      `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
@@ -252,7 +256,7 @@ ${
   isDefault
     ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
     : isFree
-      ? `[ You spawn a code-reviewer-lite to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
+      ? `[ You spawn a ${freeCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
       : isMax
         ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
         : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
@@ -262,7 +266,7 @@ ${
   isDefault
     ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
     : isFree
-      ? `[ You fix the issues found by the code-reviewer-lite and type/test errors ]`
+      ? `[ You fix the issues found by the ${freeCodeReviewerAgentId} and type/test errors ]`
       : isMax
         ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
         : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
@@ -305,6 +309,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           hasFreeGeminiThinker,
           hasNoValidation,
           noAskUser,
+          freeCodeReviewerAgentId,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -317,6 +322,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFree,
           hasFreeGeminiThinker,
           noAskUser,
+          freeCodeReviewerAgentId,
         }),
 
     // handleSteps is serialized via .toString() and re-eval'd, so closure
@@ -367,6 +373,7 @@ function buildImplementationInstructionsPrompt({
   hasFreeGeminiThinker,
   hasNoValidation,
   noAskUser,
+  freeCodeReviewerAgentId,
 }: {
   isSonnet: boolean
   isFast: boolean
@@ -376,6 +383,7 @@ function buildImplementationInstructionsPrompt({
   hasFreeGeminiThinker: boolean
   hasNoValidation: boolean
   noAskUser: boolean
+  freeCodeReviewerAgentId: string
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -407,7 +415,7 @@ ${buildArray(
   (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   isFree &&
-    `- Spawn a code-reviewer-lite to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
   !isFast &&
     !noAskUser &&
@@ -424,6 +432,7 @@ function buildImplementationStepPrompt({
   isFree,
   hasFreeGeminiThinker,
   noAskUser,
+  freeCodeReviewerAgentId,
 }: {
   isDefault: boolean
   isFast: boolean
@@ -433,6 +442,7 @@ function buildImplementationStepPrompt({
   isFree: boolean
   hasFreeGeminiThinker: boolean
   noAskUser: boolean
+  freeCodeReviewerAgentId: string
 }) {
   return buildArray(
     isMax &&
@@ -444,7 +454,7 @@ function buildImplementationStepPrompt({
     (isDefault || isMax) &&
       `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     isFree &&
-      `You must spawn a code-reviewer-lite to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+      `You must spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
       !noAskUser &&

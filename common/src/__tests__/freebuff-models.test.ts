@@ -16,8 +16,8 @@ import {
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
-  test('defaults to DeepSeek V4 Pro (the smartest free model)', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+  test('defaults to MiniMax M2.7 for base2-free', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MINIMAX_MODEL_ID)
   })
 
   test('DeepSeek carries the data-collection warning so users see it before picking', () => {
@@ -28,7 +28,9 @@ describe('freebuff model availability', () => {
   })
 
   test('only smart freebuff models can spawn the gemini-thinker subagent', () => {
-    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_KIMI_MODEL_ID)).toBe(
+      true,
+    )
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(true)
