@@ -6,6 +6,8 @@ interface DiffViewerProps {
   diffText: string
 }
 
+const RENDER_DIFFS = false
+
 const DIFF_LINE_COLORS = {
   dark: {
     added: '#7ACC35',
@@ -50,6 +52,11 @@ const lineColor = (
 
 export const DiffViewer = ({ diffText }: DiffViewerProps) => {
   const theme = useTheme()
+
+  if (!RENDER_DIFFS) {
+    return null
+  }
+
   const lines = diffText.trim().split('\n')
 
   return (

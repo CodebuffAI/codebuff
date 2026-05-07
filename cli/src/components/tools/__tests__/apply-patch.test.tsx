@@ -47,7 +47,7 @@ describe('ApplyPatchComponent', () => {
     expect(markup).toContain('src/new-file.ts')
   })
 
-  test('renders update_file operation with diff content', () => {
+  test('renders update_file operation without diff content while diff rendering is disabled', () => {
     const toolBlock = createToolBlock({
       type: 'update_file',
       path: 'src/existing.ts',
@@ -62,8 +62,8 @@ describe('ApplyPatchComponent', () => {
     const markup = renderToStaticMarkup(result?.content as React.ReactElement)
     expect(markup).toContain('Edit')
     expect(markup).toContain('src/existing.ts')
-    expect(markup).toContain('-oldLine')
-    expect(markup).toContain('+newLine')
+    expect(markup).not.toContain('-oldLine')
+    expect(markup).not.toContain('+newLine')
   })
 
   test('renders delete_file operation', () => {
