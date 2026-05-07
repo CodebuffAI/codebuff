@@ -8,6 +8,8 @@ import { z } from 'zod/v4'
 
 import { logger } from '@/util/logger'
 
+import { getLoginUrlOrigin } from './_origin'
+
 export async function POST(req: Request) {
   const reqSchema = z.object({
     fingerprintId: z.string(),
@@ -53,9 +55,15 @@ export async function POST(req: Request) {
       )
     }
 
-    // Generate login URL on the same origin that issued the auth code. This
-    // avoids bouncing between apex/www hosts during the browser OAuth flow.
-    const loginUrl = new URL('/login', new URL(req.url).origin)
+    const loginUrl = new URL(
+      '/login',
+      getLoginUrlOrigin(
+        req,
+        env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+        'https://freebuff.com',
+        env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod',
+      ),
+    )
     loginUrl.searchParams.set(
       'auth_code',
       `${fingerprintId}.${expiresAt}.${fingerprintHash}`,
