@@ -183,6 +183,7 @@ const handleSubagentStart = (
         blocks,
         match: spawnAgentMatch,
         realAgentId: event.agentId,
+        realAgentType: event.agentType,
         parentAgentId: event.parentAgentId,
         params: event.params,
         prompt: event.prompt,

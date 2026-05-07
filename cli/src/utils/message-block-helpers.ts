@@ -16,10 +16,11 @@ import type {
  * getAgentBaseName('codebuff/file-picker@0.0.2') // 'file-picker'
  * getAgentBaseName('file-picker@1.0.0') // 'file-picker'
  * getAgentBaseName('file-picker') // 'file-picker'
+ * getAgentBaseName('file_picker') // 'file-picker'
  */
 export const getAgentBaseName = (type: string): string => {
   const segment = type.split('/').pop() ?? type
-  return segment.split('@')[0]
+  return segment.split('@')[0].replace(/_/g, '-')
 }
 
 /**
@@ -466,6 +467,7 @@ export const moveSpawnAgentBlock = (
   parentId?: string,
   params?: Record<string, unknown>,
   prompt?: string,
+  realAgentType?: string,
 ): ContentBlock[] => {
   const updateAgentBlock = (block: ContentBlock): ContentBlock => {
     if (block.type !== 'agent') {
@@ -482,6 +484,11 @@ export const moveSpawnAgentBlock = (
 
     if (prompt && block.initialPrompt === '') {
       updatedBlock.initialPrompt = prompt
+    }
+
+    if (realAgentType) {
+      updatedBlock.agentType = realAgentType
+      updatedBlock.agentName = realAgentType
     }
 
     return updatedBlock
