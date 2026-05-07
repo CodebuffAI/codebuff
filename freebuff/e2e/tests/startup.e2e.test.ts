@@ -15,24 +15,29 @@ describe('Freebuff: Startup', () => {
   })
 
   test(
-    'binary starts without crashing',
+    'binary renders its boot screen',
     async () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
-      await session.waitForReady()
 
-      const output = await session.capture()
+      // The 3rd row of the FREEBUFF ASCII logo: the crossbars of F and R
+      // adjacent. Picked because the logo renders for *every* valid boot
+      // state — model picker, waiting room, country-blocked (which is what
+      // CI runners hit, since GitHub Actions egress is flagged as anonymized
+      // network) — but never appears if module init crashes before React
+      // mounts (the post-OpenTUI-upgrade tree-sitter wasm regression). This
+      // gives us a positive "boot succeeded" signal that's robust against
+      // novel error modes, not just the ones we listed below.
+      const output = await session.waitForText('█████╗  ██████╔╝')
 
-      // Should not contain fatal errors
+      // Belt-and-braces: known fatal markers should never coexist with a
+      // rendered logo, but if some race ever surfaces one we still want to
+      // see it called out clearly rather than buried in raw output.
+      expect(output).not.toContain('Fatal error during startup')
+      expect(output).not.toContain('Internal error: tree-sitter.wasm not found')
       expect(output).not.toContain('FATAL')
       expect(output).not.toContain('panic')
       expect(output).not.toContain('Segmentation fault')
-
-      // Should have some visible output (not a blank screen)
-      const nonEmptyLines = output
-        .split('\n')
-        .filter((line) => line.trim().length > 0)
-      expect(nonEmptyLines.length).toBeGreaterThan(0)
     },
     STARTUP_TIMEOUT,
   )

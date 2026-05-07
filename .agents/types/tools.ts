@@ -16,6 +16,7 @@ export type ToolName =
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
+  | 'render_ui'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
   | 'set_messages'
@@ -47,6 +48,7 @@ export interface ToolParamsMap {
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
+  render_ui: RenderUiParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
@@ -179,10 +181,10 @@ export interface ProposeStrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }
@@ -227,6 +229,23 @@ export interface ReadSubtreeParams {
   paths?: string[]
   /** Maximum token budget for the subtree blob; the tree will be truncated to fit within this budget by first dropping file variables and then removing the most-nested files and directories. */
   maxTokens?: number
+}
+
+/**
+ * Render a small interactive UI widget in the Codebuff CLI. Currently supports a button that opens a link.
+ */
+export interface RenderUiParams {
+  /** The UI widget to render. */
+  widget: {
+    /** Widget type. Currently, the only supported widget is button. */
+    type: 'button'
+    /** Short button label shown to the user. */
+    text: string
+    /** The http:// or https:// URL to open when the user clicks the button. */
+    link: string
+    /** Theme-aware color treatment. Use primary for the main action and secondary for lower-emphasis actions. */
+    variant?: 'primary' | 'secondary'
+  }
 }
 
 /**
@@ -286,10 +305,10 @@ export interface StrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }

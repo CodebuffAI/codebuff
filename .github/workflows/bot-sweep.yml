@@ -1,0 +1,38 @@
+name: Freebuff Bot Sweep
+
+# Hourly dry-run sweep over active freebuff sessions. Calls the
+# /api/admin/bot-sweep endpoint, which emails james@codebuff.com with a
+# ranked list of suspects. No bans are issued — review and run
+# scripts/ban-freebuff-bots.ts manually.
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger bot-sweep
+        env:
+          BOT_SWEEP_SECRET: ${{ secrets.BOT_SWEEP_SECRET }}
+          BOT_SWEEP_URL: ${{ vars.BOT_SWEEP_URL || 'https://www.codebuff.com/api/admin/bot-sweep' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BOT_SWEEP_SECRET" ]; then
+            echo "BOT_SWEEP_SECRET is not set — skipping."
+            exit 0
+          fi
+          status=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            -X POST "$BOT_SWEEP_URL" \
+            -H "Authorization: Bearer $BOT_SWEEP_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 120)
+          echo "HTTP $status"
+          cat /tmp/resp.json
+          echo
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi

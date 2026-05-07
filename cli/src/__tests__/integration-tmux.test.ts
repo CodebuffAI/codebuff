@@ -69,6 +69,11 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
             }),
           ),
         )
+        // Clear FREEBUFF_MODE from the tmux global env. A previous freebuff
+        // build or `bun run dev:freebuff` invocation in the same tmux server
+        // can leave it set globally, which would make this test see the
+        // freebuff CLI variant (which has no `--agent` flag).
+        await tmux(['set-environment', '-gu', 'FREEBUFF_MODE']).catch(() => {})
       }
     })
 

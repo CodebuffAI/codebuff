@@ -1,8 +1,6 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
@@ -34,10 +32,8 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
     }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
-  'connect:claude',
   'ads:enable',
   'ads:disable',
-  'refer-friends',
   'usage',
   'subscribe',
   'agent:gpt-5',
@@ -49,6 +45,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
   'connect',
   'plan',
+  'end-session',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -59,16 +56,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['h', '?'],
     implicitCommand: true,
   },
-  ...(CLAUDE_OAUTH_ENABLED
-    ? [
-        {
-          id: 'connect:claude',
-          label: 'connect:claude (deprecated)',
-          description: 'Claude subscription will be removed March 1st',
-          aliases: ['claude'],
-        },
-      ]
-    : []),
   ...(CHATGPT_OAUTH_ENABLED
     ? [
         {
@@ -83,18 +70,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:enable',
     label: 'ads:enable',
-    description: 'Enable contextual ads and earn credits',
+    description: 'Enable contextual ads',
   },
   {
     id: 'ads:disable',
     label: 'ads:disable',
-    description: 'Disable contextual ads and stop earning credits',
-  },
-  {
-    id: 'refer-friends',
-    label: 'refer-friends',
-    description: `Refer friends for ${CREDITS_REFERRAL_BONUS} bonus credits each`,
-    aliases: ['referral'],
+    description: 'Disable contextual ads',
   },
   {
     id: 'init',
@@ -191,6 +172,11 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'theme:toggle',
     label: 'theme:toggle',
     description: 'Toggle between light and dark mode',
+  },
+  {
+    id: 'end-session',
+    label: 'end-session',
+    description: 'End your free session and return to the waiting room (lets you switch model)',
   },
   {
     id: 'logout',

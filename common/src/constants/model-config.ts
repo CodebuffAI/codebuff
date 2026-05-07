@@ -7,10 +7,12 @@ export const ALLOWED_MODEL_PREFIXES = [
   'openai',
   'google',
   'x-ai',
+  'deepseek',
 ] as const
 
 export const costModes = [
   'free',
+  'lite',
   'normal',
   'max',
   'experimental',
@@ -63,6 +65,8 @@ export type AvianModel = (typeof avianModels)[keyof typeof avianModels]
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
+  deepseekV4ProDirect: 'deepseek-v4-pro',
+  deepseekV4Pro: 'deepseek/deepseek-v4-pro',
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
@@ -140,15 +144,6 @@ export const providerModelNames = {
 
 export type Model = (typeof models)[keyof typeof models] | (string & {})
 
-export const shouldCacheModels = [
-  'anthropic/claude-opus-4.1',
-  'anthropic/claude-sonnet-4',
-  'anthropic/claude-opus-4',
-  'anthropic/claude-3.7-sonnet',
-  'anthropic/claude-3.5-haiku',
-  'z-ai/glm-4.5',
-  'qwen/qwen3-coder',
-]
 const nonCacheableModels = [
   models.openrouter_grok_4,
 ] satisfies string[] as string[]
@@ -205,38 +200,4 @@ export function getLogoForModel(modelName: string): string | undefined {
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`
     : undefined
-}
-
-export const getModelForMode = (
-  costMode: CostMode,
-  operation: 'agent' | 'file-requests' | 'check-new-files',
-) => {
-  if (operation === 'agent') {
-    return {
-      free: models.openrouter_gemini2_5_flash,
-      normal: models.openrouter_claude_sonnet_4,
-      max: models.openrouter_claude_sonnet_4,
-      experimental: models.openrouter_gemini2_5_pro_preview,
-      ask: models.openrouter_gemini2_5_pro_preview,
-    }[costMode]
-  }
-  if (operation === 'file-requests') {
-    return {
-      free: models.openrouter_claude_3_5_haiku,
-      normal: models.openrouter_claude_3_5_haiku,
-      max: models.openrouter_claude_sonnet_4,
-      experimental: models.openrouter_claude_sonnet_4,
-      ask: models.openrouter_claude_3_5_haiku,
-    }[costMode]
-  }
-  if (operation === 'check-new-files') {
-    return {
-      free: models.openrouter_claude_3_5_haiku,
-      normal: models.openrouter_claude_sonnet_4,
-      max: models.openrouter_claude_sonnet_4,
-      experimental: models.openrouter_claude_sonnet_4,
-      ask: models.openrouter_claude_sonnet_4,
-    }[costMode]
-  }
-  throw new Error(`Unknown operation: ${operation}`)
 }

@@ -9,6 +9,7 @@ export type ToolName =
   | 'end_turn'
   | 'find_files'
   | 'glob'
+  | 'gravity_index'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_str_replace'
@@ -16,6 +17,7 @@ export type ToolName =
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
+  | 'render_ui'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
   | 'set_messages'
@@ -41,6 +43,7 @@ export interface ToolParamsMap {
   end_turn: EndTurnParams
   find_files: FindFilesParams
   glob: GlobParams
+  gravity_index: GravityIndexParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
@@ -48,6 +51,7 @@ export interface ToolParamsMap {
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
+  render_ui: RenderUiParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
@@ -157,6 +161,47 @@ export interface GlobParams {
 }
 
 /**
+ * Search, browse, inspect, or report integrations in the Gravity Index.
+ */
+export type GravityIndexParams =
+  | {
+      /** Search for the best service recommendation. */
+      action: 'search'
+      /** What the user needs, including stack, constraints, and required capabilities when known. */
+      query: string
+      /** Continue a previous Gravity Index search as a follow-up. */
+      search_id?: string
+      /** Optional structured context about the project, stack, or constraints. */
+      context?: Record<string, any>
+    }
+  | {
+      /** Browse catalog services by category and/or keyword. */
+      action: 'browse'
+      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, AI. */
+      category?: string
+      /** Optional keyword filter, e.g. sendgrid or postgres. */
+      q?: string
+    }
+  | {
+      /** List every category with service counts. */
+      action: 'list_categories'
+    }
+  | {
+      /** Fetch full detail for a single service by slug. */
+      action: 'get_service'
+      /** Service slug, e.g. supabase, stripe, sendgrid. */
+      slug: string
+    }
+  | {
+      /** Report that an integration from a prior search was completed. */
+      action: 'report_integration'
+      /** search_id from the earlier search result. */
+      search_id: string
+      /** Slug of the service that was actually integrated. */
+      integrated_slug: string
+    }
+
+/**
  * List files and directories in the specified path. Returns separate arrays of file names and directory names.
  */
 export interface ListDirectoryParams {
@@ -181,10 +226,10 @@ export interface ProposeStrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }
@@ -229,6 +274,23 @@ export interface ReadSubtreeParams {
   paths?: string[]
   /** Maximum token budget for the subtree blob; the tree will be truncated to fit within this budget by first dropping file variables and then removing the most-nested files and directories. */
   maxTokens?: number
+}
+
+/**
+ * Render a small interactive UI widget in the Codebuff CLI. Currently supports a button that opens a link.
+ */
+export interface RenderUiParams {
+  /** The UI widget to render. */
+  widget: {
+    /** Widget type. Currently, the only supported widget is button. */
+    type: 'button'
+    /** Short button label shown to the user. */
+    text: string
+    /** The http:// or https:// URL to open when the user clicks the button. */
+    link: string
+    /** Theme-aware color treatment. Use primary for the main action and secondary for lower-emphasis actions. */
+    variant?: 'primary' | 'secondary'
+  }
 }
 
 /**
@@ -296,10 +358,10 @@ export interface StrReplaceParams {
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
-    old: string
-    /** The string to replace the corresponding old string with. Can be empty to delete. */
-    new: string
-    /** Whether to allow multiple replacements of old string. */
+    oldString: string
+    /** The string to replace the corresponding oldString with. Can be empty to delete. */
+    newString: string
+    /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
   }[]
 }

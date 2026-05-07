@@ -8,6 +8,7 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { processStreamWithTools } from '../tool-stream-parser'
+import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
 import {
   executeCustomToolCall,
   executeToolCall,
@@ -113,11 +114,12 @@ export async function processStream(
         if (chunk.type === 'error') {
           hadToolCallError = true
           errorMessages.push(
-            userMessage(
-              withSystemTags(
+            userMessage({
+              content: withSystemTags(
                 `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
               ),
-            ),
+              tags: ['TOOL_CALL_ERROR'],
+            }),
           )
         }
       }
@@ -276,6 +278,20 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
+        if (INCLUDE_REASONING_IN_MESSAGE_HISTORY && chunk.text) {
+          const last = assistantMessages[assistantMessages.length - 1]
+          const lastPart =
+            last?.role === 'assistant' && Array.isArray(last.content)
+              ? last.content[last.content.length - 1]
+              : undefined
+          if (lastPart && lastPart.type === 'reasoning') {
+            lastPart.text += chunk.text
+          } else {
+            assistantMessages.push(
+              assistantMessage({ type: 'reasoning', text: chunk.text }),
+            )
+          }
+        }
         onResponseChunk({
           type: 'reasoning_delta',
           text: chunk.text,
@@ -289,11 +305,12 @@ export async function processStream(
         onResponseChunk(chunk)
         hadToolCallError = true
         errorMessages.push(
-          userMessage(
-            withSystemTags(
+          userMessage({
+            content: withSystemTags(
               `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
             ),
-          ),
+            tags: ['TOOL_CALL_ERROR'],
+          }),
         )
       } else if (chunk.type === 'tool-call') {
       } else {

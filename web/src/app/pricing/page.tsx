@@ -1,9 +1,9 @@
 import { env } from '@codebuff/common/env'
+import { SIGNUP_FREE_CREDITS_GRANT } from '@codebuff/common/constants/limits'
 
 import PricingClient from './pricing-client'
 
 import type { Metadata } from 'next'
-
 
 export async function generateMetadata(): Promise<Metadata> {
   const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`
@@ -52,8 +52,8 @@ function ProductJsonLd() {
     additionalProperty: [
       {
         '@type': 'PropertyValue',
-        name: 'Free Monthly Credits',
-        value: '500',
+        name: 'Free Signup Credits',
+        value: String(SIGNUP_FREE_CREDITS_GRANT),
       },
       {
         '@type': 'PropertyValue',
@@ -67,7 +67,7 @@ function ProductJsonLd() {
         name: 'Free Tier',
         price: '0',
         priceCurrency: 'USD',
-        description: '500 free credits monthly for individual developers',
+        description: `${SIGNUP_FREE_CREDITS_GRANT} free credits on signup for individual developers`,
         availability: 'https://schema.org/InStock',
         priceValidUntil: '2026-12-31',
         url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`,

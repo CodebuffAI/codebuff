@@ -8,9 +8,6 @@ describe('getModelForRequest free-mode guards', () => {
   const mockGetValidChatGptOAuthCredentials = mock(() =>
     Promise.resolve(null),
   )
-  const mockGetValidClaudeOAuthCredentials = mock(() =>
-    Promise.resolve(null),
-  )
 
   beforeEach(async () => {
     // Mock CHATGPT_OAUTH_ENABLED to true so the ChatGPT OAuth path is entered.
@@ -23,13 +20,10 @@ describe('getModelForRequest free-mode guards', () => {
     // relative paths from common/src/testing/, not from this test file.
     mock.module('../../credentials', () => ({
       getValidChatGptOAuthCredentials: mockGetValidChatGptOAuthCredentials,
-      getValidClaudeOAuthCredentials: mockGetValidClaudeOAuthCredentials,
     }))
 
     mockGetValidChatGptOAuthCredentials.mockReset()
-    mockGetValidClaudeOAuthCredentials.mockReset()
     mockGetValidChatGptOAuthCredentials.mockResolvedValue(null)
-    mockGetValidClaudeOAuthCredentials.mockResolvedValue(null)
   })
 
   afterEach(() => {
@@ -41,7 +35,6 @@ describe('getModelForRequest free-mode guards', () => {
     const mod = await import('../model-provider')
     // Ensure clean rate-limit state
     mod.resetChatGptOAuthRateLimit()
-    mod.resetClaudeOAuthRateLimit()
     return mod
   }
 
@@ -87,7 +80,6 @@ describe('getModelForRequest free-mode guards', () => {
     })
 
     expect(result.isChatGptOAuth).toBe(false)
-    expect(result.isClaudeOAuth).toBe(false)
   })
 
   test('falls through to backend when credentials unavailable in non-free mode', async () => {
@@ -102,6 +94,5 @@ describe('getModelForRequest free-mode guards', () => {
     })
 
     expect(result.isChatGptOAuth).toBe(false)
-    expect(result.isClaudeOAuth).toBe(false)
   })
 })

@@ -19,7 +19,7 @@ const HEALTH_CHECK_INTERVAL_MS = 10_000 // 10 seconds
  * postgres can return 't'/'f' strings when type parsing is disabled,
  * or actual boolean values depending on configuration.
  */
-function coerceBool(value: unknown): boolean {
+export function coerceBool(value: unknown): boolean {
   if (typeof value === 'boolean') return value
   if (value === 't' || value === 'true' || value === 1) return true
   return false

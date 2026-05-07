@@ -15,6 +15,7 @@ export const getAgentStreamFromTemplate = (params: {
   apiKey: string
   clientSessionId: string
   costMode?: string
+  extraCodebuffMetadata?: Record<string, string>
   fingerprintId: string
   includeCacheControl?: boolean
   localAgentTemplates: Record<string, AgentTemplate>
@@ -44,6 +45,7 @@ export const getAgentStreamFromTemplate = (params: {
     apiKey,
     clientSessionId,
     costMode,
+    extraCodebuffMetadata,
     fingerprintId,
     includeCacheControl,
     localAgentTemplates,
@@ -75,6 +77,7 @@ export const getAgentStreamFromTemplate = (params: {
     apiKey,
     clientSessionId,
     costMode,
+    extraCodebuffMetadata,
     fingerprintId,
     includeCacheControl,
     logger,

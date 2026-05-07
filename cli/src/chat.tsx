@@ -11,15 +11,16 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getAdsEnabled, handleAdsDisable } from './commands/ads'
+import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { AdBanner } from './components/ad-banner'
+import { ChoiceAdBanner } from './components/choice-ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
+import { SessionEndedBanner } from './components/session-ended-banner'
 import { StatusBar } from './components/status-bar'
 import { TopBanner } from './components/top-banner'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
@@ -55,7 +56,9 @@ import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { IS_FREEBUFF } from './utils/constants'
+import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
+import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
+import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
 
 import {
@@ -82,6 +85,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
+import type { FreebuffSessionResponse } from './types/freebuff-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -104,6 +108,7 @@ export const Chat = ({
   initialMode,
   gitRoot,
   onSwitchToGitRoot,
+  freebuffSession,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -119,6 +124,7 @@ export const Chat = ({
   initialMode?: AgentMode
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
+  freebuffSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
 
@@ -168,13 +174,11 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ad } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
-  const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
-
-  const handleDisableAds = useCallback(() => {
-    handleAdsDisable()
-    setAdsManuallyDisabled(true)
-  }, [])
+  const { ads, recordImpression } = useGravityAd({
+    enabled: IS_FREEBUFF || !hasSubscription,
+    provider: 'gravity',
+    fallbackProvider: 'carbon',
+  })
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -613,7 +617,7 @@ export const Chat = ({
     ],
   )
 
-  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildFree } = useChatInput({
+  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildLite } = useChatInput({
     setInputValue,
     agentMode,
     setAgentMode,
@@ -1241,7 +1245,7 @@ export const Chat = ({
       onToggleCollapsed: handleCollapseToggle,
       onBuildFast: handleBuildFast,
       onBuildMax: handleBuildMax,
-      onBuildFree: handleBuildFree,
+      onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
     })
@@ -1249,7 +1253,7 @@ export const Chat = ({
     handleCollapseToggle,
     handleBuildFast,
     handleBuildMax,
-    handleBuildFree,
+    handleBuildLite,
     handleMessageFeedback,
     handleCloseFeedback,
     setMessageBlockCallbacks,
@@ -1336,9 +1340,16 @@ export const Chat = ({
     return ` ${segments.join('   ')} `
   }, [queuePreviewTitle, pausedQueueText])
 
+  const hasActiveFreebuffSession =
+    IS_FREEBUFF && freebuffSession?.status === 'active'
+  const isFreebuffSessionOver =
+    IS_FREEBUFF && freebuffSession?.status === 'ended'
   const shouldShowStatusLine =
     !feedbackMode &&
-    (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
+    (hasStatusIndicatorContent ||
+      shouldShowQueuePreview ||
+      !isAtBottom ||
+      hasActiveFreebuffSession)
 
   // Track mouse movement for ad activity (throttled)
   const lastMouseActivityRef = useRef<number>(0)
@@ -1441,22 +1452,35 @@ export const Chat = ({
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
             onStop={chatKeyboardHandlers.onInterruptStream}
+            onEndSession={() => {
+              setMessages((prev) => [
+                ...prev,
+                getSystemMessage(END_SESSION_MESSAGE),
+              ])
+              returnToFreebuffLanding({ resetChat: true }).catch(() => {})
+            }}
+            freebuffSession={freebuffSession}
           />
         )}
 
-        {ad && (IS_FREEBUFF || (!adsManuallyDisabled && getAdsEnabled())) && (
-          <AdBanner
-            ad={ad}
-            onDisableAds={handleDisableAds}
-            isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
-          />
+        {ads && (IS_FREEBUFF || getAdsEnabled()) && (
+          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
         )}
 
         {reviewMode ? (
+          // Review and ask_user take precedence over the session-ended banner:
+          // during the grace window the agent may still be asking to run tools
+          // or asking the user a question, and those approvals/answers must be
+          // reachable for the run to finish — otherwise the agent hangs
+          // waiting for input that can never be given.
           <ReviewScreen
             onSelectOption={handleReviewOptionSelect}
             onCustom={handleReviewCustom}
             onCancel={handleCloseReviewScreen}
+          />
+        ) : isFreebuffSessionOver && !askUserState ? (
+          <SessionEndedBanner
+            isStreaming={isStreaming || isWaitingForResponse}
           />
         ) : (
           <ChatInputBar
@@ -1517,6 +1541,7 @@ export const Chat = ({
               },
               cwd: getProjectRoot() ?? process.cwd(),
             })}
+            onInterruptStream={chatKeyboardHandlers.onInterruptStream}
           />
         )}
       </box>

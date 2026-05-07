@@ -14,7 +14,7 @@ export function createCodeReviewerMultiPrompt(): Omit<
 > {
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.6',
+    model: 'anthropic/claude-opus-4.7',
     providerOptions: {
       only: ['amazon-bedrock'],
     },

@@ -9,6 +9,7 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
+import { addKimiToolCompatibilityFields, isKimiModel } from './kimi-tool-compat'
 import {
   OpenRouterErrorResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
@@ -23,11 +24,26 @@ import type {
   OpenRouterErrorMetadata,
 } from './types'
 
-type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null }
+type StreamState = {
+  responseText: string
+  reasoningText: string
+  ttftMs: number | null
+  // Captured from the first regular chunk we see. Needed to bill via the
+  // generation-lookup fallback when a stream ends without a usage-bearing chunk
+  // (e.g., upstream error chunk, truncated response, network drop).
+  generationId: string | null
+  model: string | null
+  billed: boolean
+}
+
+// How long to wait after stream close before querying OpenRouter's generation
+// endpoint. OR finalizes generation records asynchronously; 500ms is enough
+// in practice and keeps the delay off the client response path.
+const GENERATION_LOOKUP_DELAY_MS = 500
 
 // Extended timeout for deep-thinking models (e.g., gpt-5) that can take
 // a long time to start streaming.
-const OPENROUTER_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const OPENROUTER_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
 const openrouterAgent = new Agent({
   headersTimeout: OPENROUTER_HEADERS_TIMEOUT_MS,
@@ -46,6 +62,10 @@ function createOpenRouterRequest(params: {
   fetch: typeof globalThis.fetch
 }) {
   const { body, openrouterApiKey, fetch } = params
+  const providerBody = isKimiModel(body.model)
+    ? addKimiToolCompatibilityFields(body)
+    : body
+
   return fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -54,22 +74,41 @@ function createOpenRouterRequest(params: {
       'X-Title': 'Codebuff',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(providerBody),
     // Use custom agent with extended headers timeout for deep-thinking models
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
     dispatcher: openrouterAgent,
   })
 }
 
-function extractUsageAndCost(usage: any): UsageData {
-  const openRouterCost = usage?.cost ?? 0
-  const upstreamCost = usage?.cost_details?.upstream_inference_cost ?? 0
+/**
+ * Extract token counts and billed cost from an OpenRouter `usage` object.
+ *
+ * OpenRouter reports the billed charge in ONE of two fields — or in BOTH
+ * with the SAME value (observed on Anthropic routes). They are NOT additive:
+ *
+ *   Anthropic routes: { cost: X, cost_details: { upstream_inference_cost: X } }
+ *   Google routes:    { cost: 0, cost_details: { upstream_inference_cost: X } }
+ *   Some routes:      { cost: X, cost_details: null }
+ *
+ * We previously summed the two fields, which double-charged every Anthropic
+ * call. Taking the max handles all three shapes safely.
+ *
+ * See: investigation notes + scripts/refund-openrouter-overcharge.ts
+ */
+export function extractUsageAndCost(usage: any): UsageData {
+  const openRouterCost =
+    typeof usage?.cost === 'number' ? usage.cost : 0
+  const upstreamCost =
+    typeof usage?.cost_details?.upstream_inference_cost === 'number'
+      ? usage.cost_details.upstream_inference_cost
+      : 0
   return {
     inputTokens: usage?.prompt_tokens ?? 0,
     outputTokens: usage?.completion_tokens ?? 0,
     cacheReadInputTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
     reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-    cost: openRouterCost + upstreamCost,
+    cost: Math.max(openRouterCost, upstreamCost),
   }
 }
 
@@ -315,8 +354,44 @@ export async function handleOpenRouterStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '', ttftMs: null }
+  let state: StreamState = {
+    responseText: '',
+    reasoningText: '',
+    ttftMs: null,
+    generationId: null,
+    model: null,
+    billed: false,
+  }
   let clientDisconnected = false
+
+  // Runs once on any stream-exit path. If we didn't bill through the normal
+  // path (stream ended without a usage chunk, got a provider error chunk,
+  // network drop), ask OpenRouter for the generation's final cost so we still
+  // capture what we were charged. Without this, a well-timed mid-stream failure
+  // lets the caller walk away with free completion tokens.
+  const ensureBilled = async () => {
+    if (state.billed || !state.generationId) return
+    await new Promise((resolve) =>
+      setTimeout(resolve, GENERATION_LOOKUP_DELAY_MS),
+    )
+    await fallbackBillFromGeneration({
+      generationId: state.generationId,
+      openrouterApiKey,
+      userId,
+      stripeCustomerId,
+      agentId,
+      clientId,
+      clientRequestId,
+      costMode,
+      byok,
+      startTime,
+      state,
+      request: body,
+      fetch,
+      logger,
+      insertMessage: insertMessageBigquery,
+    })
+  }
 
   // Create a ReadableStream that Next.js can handle
   const stream = new ReadableStream({
@@ -401,6 +476,7 @@ export async function handleOpenRouterStream({
         if (!clientDisconnected) {
           controller.close()
         }
+        await ensureBilled()
       } catch (error) {
         if (!clientDisconnected) {
           controller.error(error)
@@ -410,6 +486,7 @@ export async function handleOpenRouterStream({
             'Error after client disconnect in OpenRouter stream',
           )
         }
+        await ensureBilled()
       } finally {
         clearInterval(heartbeatInterval)
       }
@@ -590,6 +667,7 @@ async function handleResponse({
     ttftMs: state.ttftMs,
   })
 
+  state.billed = true
   return { state, billedCredits }
 }
 
@@ -613,6 +691,17 @@ async function handleStreamChunk({
   // Define a safe buffer limit to prevent OOM errors on the server while
   // still storing enough data for logging and billing. 1MB is a generous limit.
   const MAX_BUFFER_SIZE = 1 * 1024 * 1024 // 1MB
+
+  // Capture generation id and model from any regular chunk so we can still
+  // bill via the generation-lookup fallback if the stream never emits usage.
+  if (!('error' in data)) {
+    if (data.id && !state.generationId) {
+      state.generationId = data.id
+    }
+    if (data.model && !state.model) {
+      state.model = data.model
+    }
+  }
 
   if ('error' in data) {
     // Log detailed error information for stream errors (e.g., Forbidden from Anthropic)
@@ -798,6 +887,160 @@ async function parseOpenRouterError(
  */
 function creditsToFakeCost(credits: number): number {
   return credits / ((1 + PROFIT_MARGIN) * 100)
+}
+
+/**
+ * Bill a stream that exited before a usage-bearing chunk arrived by looking up
+ * the generation cost from OpenRouter's /generation endpoint. Mutates
+ * `state.billed` on success so callers can tell the gap was filled.
+ *
+ * Never throws — failures are logged and swallowed. The worst case is that we
+ * miss this one request, which is still strictly better than the old behavior.
+ */
+async function fallbackBillFromGeneration(params: {
+  generationId: string
+  openrouterApiKey: string | null
+  userId: string
+  stripeCustomerId?: string | null
+  agentId: string
+  clientId: string | null
+  clientRequestId: string | null
+  costMode: string | undefined
+  byok: boolean
+  startTime: Date
+  state: StreamState
+  request: unknown
+  fetch: typeof globalThis.fetch
+  logger: Logger
+  insertMessage: InsertMessageBigqueryFn
+}): Promise<void> {
+  const {
+    generationId,
+    openrouterApiKey,
+    userId,
+    stripeCustomerId,
+    agentId,
+    clientId,
+    clientRequestId,
+    costMode,
+    byok,
+    startTime,
+    state,
+    request,
+    fetch,
+    logger,
+    insertMessage,
+  } = params
+
+  try {
+    const response = await fetch(
+      `https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(generationId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${openrouterApiKey ?? env.OPEN_ROUTER_API_KEY}`,
+        },
+      },
+    )
+
+    if (!response.ok) {
+      logger.error(
+        {
+          generationId,
+          status: response.status,
+          statusText: response.statusText,
+          userId,
+          agentId,
+          model: state.model,
+          responseTextLength: state.responseText.length,
+        },
+        'fallbackBillFromGeneration: generation lookup failed',
+      )
+      return
+    }
+
+    const body = (await response.json()) as { data?: Record<string, unknown> }
+    const data = body?.data
+    if (!data) {
+      logger.warn(
+        { generationId, userId, agentId },
+        'fallbackBillFromGeneration: generation lookup returned no data',
+      )
+      return
+    }
+
+    const num = (v: unknown) => (typeof v === 'number' ? v : 0)
+    const usageData: UsageData = {
+      inputTokens: num(data.tokens_prompt) || num(data.native_tokens_prompt),
+      outputTokens:
+        num(data.tokens_completion) || num(data.native_tokens_completion),
+      cacheReadInputTokens: num(data.native_tokens_cached),
+      reasoningTokens: num(data.native_tokens_reasoning),
+      cost: num(data.total_cost),
+    }
+    const resolvedModel =
+      state.model ?? (typeof data.model === 'string' ? data.model : '')
+
+    logger.warn(
+      {
+        generationId,
+        userId,
+        agentId,
+        model: resolvedModel,
+        cost: usageData.cost,
+        inputTokens: usageData.inputTokens,
+        outputTokens: usageData.outputTokens,
+        responseTextLength: state.responseText.length,
+      },
+      'fallbackBillFromGeneration: billing from generation lookup (stream exited without usage chunk)',
+    )
+
+    insertMessageToBigQuery({
+      messageId: generationId,
+      userId,
+      startTime,
+      request,
+      reasoningText: state.reasoningText,
+      responseText: state.responseText,
+      usageData,
+      logger,
+      insertMessageBigquery: insertMessage,
+    }).catch((error) => {
+      logger.error(
+        { error: getErrorObject(error), generationId },
+        'fallbackBillFromGeneration: BigQuery insert failed',
+      )
+    })
+
+    await consumeCreditsForMessage({
+      messageId: generationId,
+      userId,
+      stripeCustomerId,
+      agentId,
+      clientId,
+      clientRequestId,
+      startTime,
+      model: resolvedModel,
+      reasoningText: state.reasoningText,
+      responseText: state.responseText,
+      usageData,
+      byok,
+      logger,
+      costMode,
+      ttftMs: state.ttftMs,
+    })
+    state.billed = true
+  } catch (error) {
+    logger.error(
+      {
+        error: getErrorObject(error),
+        generationId,
+        userId,
+        agentId,
+      },
+      'fallbackBillFromGeneration threw',
+    )
+  }
 }
 
 /**

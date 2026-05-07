@@ -98,7 +98,10 @@ export function codeSearch({
 
     const rgPath = getBundledRgPath(import.meta.url)
     if (logger) {
-      logger.info({ rgPath, args, searchCwd }, 'code-search: Spawning ripgrep process')
+      logger.info(
+        { rgPath, args, searchCwd },
+        'code-search: Spawning ripgrep process',
+      )
     }
     const childProcess = spawn(rgPath, args, {
       cwd: searchCwd,
@@ -111,6 +114,7 @@ export function codeSearch({
     const fileGroups = new Map<string, string[]>()
     // Track match count per file separately from total lines
     const fileMatchCounts = new Map<string, number>()
+    const filesLimitedByMaxResults = new Set<string>()
     let matchesGlobal = 0
     let estimatedOutputLen = 0
     let killedForLimit = false
@@ -140,7 +144,7 @@ export function codeSearch({
     const hardKill = () => {
       try {
         childProcess.kill('SIGTERM')
-      } catch { }
+      } catch {}
       // Store timeout reference so it can be cleared if process closes normally
       killTimeoutId = setTimeout(() => {
         try {
@@ -148,11 +152,21 @@ export function codeSearch({
         } catch {
           try {
             childProcess.kill()
-          } catch { }
+          } catch {}
         }
         killTimeoutId = null
       }, 1000)
     }
+
+    const formatCollectedOutput = (rawOutput: string) =>
+      formatCodeSearchOutput(rawOutput, {
+        matchCount: matchesGlobal,
+      })
+
+    const truncateOutput = (output: string, maxLength: number) =>
+      output.length > maxLength
+        ? output.substring(0, maxLength) + '\n\n[Output truncated]'
+        : output
 
     const timeoutId = setTimeout(() => {
       if (isResolved) return
@@ -165,10 +179,10 @@ export function codeSearch({
       }
       const partialOutput = collectedLines.join('\n')
 
-      const truncatedStdout =
-        partialOutput.length > 1000
-          ? partialOutput.substring(0, 1000) + '\n\n[Output truncated]'
-          : partialOutput
+      const truncatedStdout = truncateOutput(
+        formatCollectedOutput(partialOutput),
+        1000,
+      )
       const truncatedStderr =
         stderrBuf.length > 1000
           ? stderrBuf.substring(0, 1000) + '\n\n[Error output truncated]'
@@ -228,6 +242,9 @@ export function codeSearch({
           // For matches: only if we haven't hit the per-file limit
           // For context: always include (they don't count toward limit)
           const shouldInclude = !isMatch || fileMatchCount < maxResults
+          if (isMatch && !shouldInclude) {
+            filesLimitedByMaxResults.add(filePath)
+          }
 
           if (shouldInclude) {
             // Add the line to output
@@ -253,13 +270,10 @@ export function codeSearch({
                   limitedLines.push(...lines)
                 }
                 const rawOutput = limitedLines.join('\n')
-                const formattedOutput = formatCodeSearchOutput(rawOutput)
-
-                const finalOutput =
-                  formattedOutput.length > maxOutputStringLength
-                    ? formattedOutput.substring(0, maxOutputStringLength) +
-                    '\n\n[Output truncated]'
-                    : formattedOutput
+                const finalOutput = truncateOutput(
+                  formatCollectedOutput(rawOutput),
+                  maxOutputStringLength,
+                )
 
                 const limitReason =
                   matchesGlobal >= globalMaxResults
@@ -324,6 +338,13 @@ export function codeSearch({
                   !isMatch ||
                   (fileMatchCount < maxResults &&
                     matchesGlobal < globalMaxResults)
+                if (
+                  isMatch &&
+                  fileMatchCount >= maxResults &&
+                  matchesGlobal < globalMaxResults
+                ) {
+                  filesLimitedByMaxResults.add(filePath)
+                }
 
                 if (shouldInclude) {
                   fileLines.push(formattedLine)
@@ -335,10 +356,10 @@ export function codeSearch({
                   }
                 }
               }
-            } catch { }
+            } catch {}
           }
         }
-      } catch { }
+      } catch {}
 
       // Build final output from collected matches
       const limitedLines: string[] = []
@@ -346,9 +367,7 @@ export function codeSearch({
 
       for (const [filename, fileLines] of fileGroups) {
         limitedLines.push(...fileLines)
-        // Note if file was truncated (based on match count, not total lines)
-        const fileMatchCount = fileMatchCounts.get(filename) ?? 0
-        if (fileMatchCount >= maxResults) {
+        if (filesLimitedByMaxResults.has(filename)) {
           truncatedFiles.push(
             `${filename}: limited to ${maxResults} results per file`,
           )
@@ -374,20 +393,17 @@ export function codeSearch({
         rawOutput += `\n\n[${truncationMessages.join('\n\n')}]`
       }
 
-      const formattedOutput = formatCodeSearchOutput(rawOutput)
-
       // Truncate output to prevent memory issues
-      const truncatedStdout =
-        formattedOutput.length > maxOutputStringLength
-          ? formattedOutput.substring(0, maxOutputStringLength) +
-          '\n\n[Output truncated]'
-          : formattedOutput
+      const truncatedStdout = truncateOutput(
+        formatCollectedOutput(rawOutput),
+        maxOutputStringLength,
+      )
 
       const truncatedStderr = stderrBuf
         ? stderrBuf +
-        (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
-          ? '\n\n[Error output truncated]'
-          : '')
+          (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
+            ? '\n\n[Error output truncated]'
+            : '')
         : ''
 
       settle({

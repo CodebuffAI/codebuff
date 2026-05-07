@@ -117,13 +117,13 @@ export const MessageWithAgents = memo(
         })),
       )
 
-    const { onToggleCollapsed, onBuildFast, onBuildMax, onBuildFree, onFeedback, onCloseFeedback } =
+    const { onToggleCollapsed, onBuildFast, onBuildMax, onBuildLite, onFeedback, onCloseFeedback } =
       useMessageBlockStore(
         useShallow((state) => ({
           onToggleCollapsed: state.callbacks.onToggleCollapsed,
           onBuildFast: state.callbacks.onBuildFast,
           onBuildMax: state.callbacks.onBuildMax,
-          onBuildFree: state.callbacks.onBuildFree,
+          onBuildLite: state.callbacks.onBuildLite,
           onFeedback: state.callbacks.onFeedback,
           onCloseFeedback: state.callbacks.onCloseFeedback,
         })),
@@ -271,7 +271,7 @@ export const MessageWithAgents = memo(
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
-                  onBuildFree={onBuildFree}
+                  onBuildLite={onBuildLite}
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
                   validationErrors={message.validationErrors}
@@ -307,7 +307,7 @@ export const MessageWithAgents = memo(
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
                 onBuildMax={onBuildMax}
-                onBuildFree={onBuildFree}
+                onBuildLite={onBuildLite}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
                 validationErrors={message.validationErrors}

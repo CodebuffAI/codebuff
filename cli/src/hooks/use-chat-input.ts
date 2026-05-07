@@ -73,15 +73,15 @@ export const useChatInput = ({
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])
 
-  const handleBuildFree = useCallback(() => {
-    setAgentMode('FREE')
+  const handleBuildLite = useCallback(() => {
+    setAgentMode('LITE')
     setInputValue({
       text: BUILD_IT_TEXT,
       cursorPosition: BUILD_IT_TEXT.length,
       lastEditDueToNav: true,
     })
     setTimeout(() => {
-      onSubmitPrompt(BUILD_IT_TEXT, 'FREE')
+      onSubmitPrompt(BUILD_IT_TEXT, 'LITE')
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])
@@ -101,6 +101,6 @@ export const useChatInput = ({
     inputWidth,
     handleBuildFast,
     handleBuildMax,
-    handleBuildFree,
+    handleBuildLite,
   }
 }

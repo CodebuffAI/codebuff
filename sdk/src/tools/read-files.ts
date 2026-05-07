@@ -28,7 +28,10 @@ export async function getFiles(params: {
   const hasCustomFilter = fileFilter !== undefined
 
   const result: Record<string, string | null> = {}
-  const MAX_FILE_SIZE = 1024 * 1024 // 1MB in bytes
+  const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
+  const MAX_CHARS = 100_000 // 100k characters threshold
+  const numFmt = new Intl.NumberFormat('en-US')
+  const fmtNum = (n: number) => numFmt.format(n)
 
   for (const filePath of filePaths) {
     if (!filePath) {
@@ -68,13 +71,27 @@ export async function getFiles(params: {
     }
 
     try {
+      // Safety check: skip reading files over 10MB to avoid OOM
       const stats = await fs.stat(fullPath)
-      if (stats.size > MAX_FILE_SIZE) {
+      if (stats.size > MAX_FILE_BYTES) {
         result[relativePath] =
           FILE_READ_STATUS.TOO_LARGE +
-          ` [${(stats.size / (1024 * 1024)).toFixed(2)}MB]`
+          ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content.]`
+        continue
+      }
+
+      const content = await fs.readFile(fullPath, 'utf8')
+
+      if (content.length > MAX_CHARS) {
+        const truncated = content.slice(0, MAX_CHARS)
+        result[relativePath] =
+          truncated +
+          '\n\n[FILE_TOO_LARGE: This file is ' +
+          fmtNum(content.length) +
+          ' chars, exceeding the ' +
+          fmtNum(MAX_CHARS) +
+          ' char limit. The content above has been truncated. Use other tools to read other sections of the file.]'
       } else {
-        const content = await fs.readFile(fullPath, 'utf8')
         // Prepend TEMPLATE marker for example files
         result[relativePath] = isExampleFile
           ? FILE_READ_STATUS.TEMPLATE + '\n' + content

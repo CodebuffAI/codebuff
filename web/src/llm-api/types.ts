@@ -6,11 +6,16 @@ export interface CodebuffMetadata {
   run_id?: string
   n?: number
   cost_mode?: string
+  /** Server-issued session instance id (see /api/v1/freebuff/session). Required
+   *  on free-mode requests when the waiting room is enabled; stale values are
+   *  rejected so a second CLI on the same account cannot keep serving traffic
+   *  after the first one re-admitted. */
+  freebuff_instance_id?: string
 }
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
+  content?: string | ChatCompletionContentPart[] | null
   name?: string
   tool_calls?: Array<{
     id: string
@@ -23,9 +28,42 @@ export interface ChatMessage {
   tool_call_id?: string
 }
 
+export type ChatCompletionContentPart =
+  | {
+      type: 'text'
+      text?: string
+    }
+  | {
+      type: 'image_url'
+      image_url?: string | { url?: string }
+    }
+  | {
+      type: 'file'
+      file?: {
+        filename?: string
+        file_data?: string
+      }
+    }
+  | {
+      type: string
+      [key: string]: unknown
+    }
+
+export interface ChatCompletionTool {
+  id?: string
+  type: string
+  function?: {
+    name: string
+    description?: string
+    parameters?: unknown
+    strict?: boolean
+  }
+}
+
 export interface ChatCompletionRequestBody {
   model: string
   messages: ChatMessage[]
+  tools?: ChatCompletionTool[]
   stream?: boolean
   temperature?: number
   max_tokens?: number
@@ -66,9 +104,7 @@ export function isChatCompletionRequestBody(
 /**
  * Type guard to check if a value is CodebuffMetadata
  */
-export function isCodebuffMetadata(
-  value: unknown,
-): value is CodebuffMetadata {
+export function isCodebuffMetadata(value: unknown): value is CodebuffMetadata {
   if (typeof value !== 'object' || value === null) {
     return false
   }
@@ -77,7 +113,9 @@ export function isCodebuffMetadata(
     (v.client_id === undefined || typeof v.client_id === 'string') &&
     (v.run_id === undefined || typeof v.run_id === 'string') &&
     (v.n === undefined || typeof v.n === 'number') &&
-    (v.cost_mode === undefined || typeof v.cost_mode === 'string')
+    (v.cost_mode === undefined || typeof v.cost_mode === 'string') &&
+    (v.freebuff_instance_id === undefined ||
+      typeof v.freebuff_instance_id === 'string')
   )
 }
 

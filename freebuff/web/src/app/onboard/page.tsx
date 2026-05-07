@@ -6,14 +6,13 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
-  checkReplayAttack,
   createCliSession,
   getSessionTokenFromCookies,
+  hasCliSessionForAuthHash,
 } from './_db'
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
-import { ReferrerTracker } from '@/components/referrer-tracker'
 import {
   Card,
   CardHeader,
@@ -23,10 +22,16 @@ import {
 } from '@/components/ui/card'
 import { logger } from '@/util/logger'
 
+function normalizeReferrer(raw: string | undefined): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim().slice(0, 50)
+  return trimmed || null
+}
+
 interface PageProps {
   searchParams?: Promise<{
     auth_code?: string
-    referral_code?: string
+    referrer?: string
   }>
 }
 
@@ -41,7 +46,6 @@ function StatusCard({
 }) {
   return (
     <main className="container mx-auto flex flex-col items-center py-20">
-      <ReferrerTracker />
       <div className="w-full sm:w-1/2 md:w-2/3">
         <Card>
           <CardHeader>
@@ -60,19 +64,28 @@ function StatusCard({
 const Onboard = async ({ searchParams }: PageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const authCode = resolvedSearchParams.auth_code
-  const referralCode = resolvedSearchParams.referral_code
+  const referrerName = normalizeReferrer(resolvedSearchParams.referrer)
   const session = await getServerSession(authOptions)
   const user = session?.user
 
   if (!user) {
-    return redirect('/login')
+    const params = new URLSearchParams()
+    if (authCode) params.set('auth_code', authCode)
+    if (referrerName) params.set('referrer', referrerName)
+    const query = params.toString()
+    const dest = authCode ? '/login' : '/get-started'
+    return redirect(query ? `${dest}?${query}` : dest)
   }
 
   if (!authCode) {
     return (
       <StatusCard
-        title="Welcome to Freebuff!"
-        description={referralCode ? "Once you've installed Freebuff, you can close this window." : ''}
+        title={
+          referrerName
+            ? `${referrerName} invited you to try Freebuff!`
+            : 'Welcome to Freebuff!'
+        }
+        description=""
         message="You're all set! Head back to your terminal to continue."
       />
     )
@@ -87,6 +100,20 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (!valid) {
+    logger.warn(
+      {
+        authCodeLength: authCode.length,
+        fingerprintIdPrefix: fingerprintId.slice(0, 24),
+        fingerprintIdLength: fingerprintId.length,
+        expiresAt,
+        receivedHashPrefix: receivedHash.slice(0, 12),
+        receivedHashLength: receivedHash.length,
+        expectedHashPrefix: fingerprintHash.slice(0, 12),
+        expectedHashLength: fingerprintHash.length,
+      },
+      'Invalid Freebuff CLI auth code',
+    )
+
     return (
       <StatusCard
         title="Invalid auth code"
@@ -106,7 +133,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const isReplay = await checkReplayAttack(fingerprintHash, user.id)
+  const isReplay = await hasCliSessionForAuthHash(fingerprintHash, user.id)
   if (isReplay) {
     return (
       <StatusCard
@@ -117,6 +144,9 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
+  // Log fingerprint collisions as a signal for async abuse review, but don't
+  // block login — shared dev machines, Docker images with baked-in machine-ids,
+  // and CI runners can legitimately produce the same fingerprint across users.
   const { hasConflict, existingUserId } = await checkFingerprintConflict(
     fingerprintId,
     user.id,
@@ -125,13 +155,6 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       { fingerprintId, existingUserId, attemptedUserId: user.id },
       'Fingerprint ownership conflict',
-    )
-    return (
-      <StatusCard
-        title="Unable to complete login"
-        description="Something went wrong during the login process."
-        message={`Please try generating a new login code. If the problem persists, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.`}
-      />
     )
   }
 

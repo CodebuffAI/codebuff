@@ -1,23 +1,21 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
-import { useThemeStore } from '../hooks/use-theme'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
-import { handleReferralCode } from './referral'
+import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { runBashCommand } from './router'
-import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
+import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
+import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -169,18 +167,17 @@ const clearInput = (params: RouterParams) => {
 const FREEBUFF_REMOVED_COMMANDS = new Set([
   'ads:enable',
   'ads:disable',
-  'refer-friends',
   'usage',
   'subscribe',
   'image',
   'publish',
   'gpt-5-agent',
-  'connect:claude',
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set([
   'connect',
   'plan',
+  'end-session',
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
@@ -246,42 +243,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter bash mode
       useChatStore.getState().setInputMode('bash')
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommandWithArgs({
-    name: 'refer-friends',
-    aliases: ['referral', 'redeem'],
-    handler: async (params, args) => {
-      const trimmedArgs = args.trim()
-
-      // If user provided a code directly, redeem it immediately
-      if (trimmedArgs) {
-        const code = normalizeReferralCode(trimmedArgs)
-        try {
-          const { postUserMessage } = await handleReferralCode(code)
-          params.setMessages((prev) => [
-            ...prev,
-            getUserMessage(params.inputValue.trim()),
-            ...postUserMessage([]),
-          ])
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error'
-          params.setMessages((prev) => [
-            ...prev,
-            getUserMessage(params.inputValue.trim()),
-            getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
-          ])
-        }
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        return
-      }
-
-      // Otherwise enter referral mode
-      useChatStore.getState().setInputMode('referral')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
@@ -491,27 +452,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       // Don't save to history - this is just a UI shortcut
     },
   }),
-  defineCommand({
-    name: 'connect:claude',
-    aliases: ['claude'],
-    handler: (params) => {
-      if (!CLAUDE_OAUTH_ENABLED) {
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          getSystemMessage(
-            'Claude OAuth connection has been disabled. Use /subscribe for usage across all models.',
-          ),
-        ])
-        clearInput(params)
-        return
-      }
-      // Enter connect:claude mode to show the OAuth banner
-      useChatStore.getState().setInputMode('connect:claude')
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
   ...(CHATGPT_OAUTH_ENABLED
     ? [
         defineCommand({
@@ -648,6 +588,26 @@ const ALL_COMMANDS: CommandDefinition[] = [
         getSystemMessage(`Switched to ${newTheme} theme.`),
       ])
       clearInput(params)
+    },
+  }),
+  // /end-session (freebuff-only) — end the active session early and drop back
+  // to the model picker. The hook flips status to 'none', which unmounts
+  // <Chat> and mounts <WaitingRoomScreen> on the landing view, where the
+  // user picks a model and hits Enter to rejoin the queue.
+  defineCommand({
+    name: 'end-session',
+    handler: (params) => {
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(END_SESSION_MESSAGE),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      returnToFreebuffLanding({ resetChat: true }).catch(() => {
+        // The hook surfaces poll errors via the session store; nothing to do
+        // here beyond letting the chat history reflect the attempt.
+      })
     },
   }),
 ]

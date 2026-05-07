@@ -1,10 +1,12 @@
 import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
 import { GlobComponent } from './glob'
+import { GravityIndexComponent } from './gravity-index'
 import { ListDirectoryComponent } from './list-directory'
 import { ReadDocsComponent } from './read-docs'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
+import { RenderUIComponent } from './render-ui'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { SkillComponent } from './skill'
 import { StrReplaceComponent } from './str-replace'
@@ -30,11 +32,13 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ApplyPatchComponent.toolName, ApplyPatchComponent],
   [CodeSearchComponent.toolName, CodeSearchComponent],
   [GlobComponent.toolName, GlobComponent],
+  [GravityIndexComponent.toolName, GravityIndexComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
   [ReadDocsComponent.toolName, ReadDocsComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
+  [RenderUIComponent.toolName, RenderUIComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
   [StrReplaceComponent.toolName, StrReplaceComponent],
   [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],

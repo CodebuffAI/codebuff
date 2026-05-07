@@ -9,10 +9,17 @@ export const serverEnvSchema = clientEnvSchema.extend({
   AVIAN_API_KEY: z.string().min(1).optional(),
   FIREWORKS_API_KEY: z.string().min(1),
   CANOPYWAVE_API_KEY: z.string().min(1).optional(),
+  DEEPSEEK_API_KEY: z.string().min(1).optional(),
   SILICONFLOW_API_KEY: z.string().min(1).optional(),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
+  IPINFO_TOKEN: z.string().min(1),
+  // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
+  // Optional: when unset the Carbon provider returns no ad and callers fall
+  // back to their cached ads / fallback content. `CVADC53U` is the public
+  // test key from BSA docs and is safe to use in dev.
+  CARBON_ZONE_KEY: z.string().min(1).optional(),
   PORT: z.coerce.number().min(1000),
 
   // Web/Database variables
@@ -33,6 +40,32 @@ export const serverEnvSchema = clientEnvSchema.extend({
   DISCORD_PUBLIC_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_APPLICATION_ID: z.string().min(1),
+
+  // Shared secret for the hourly bot-sweep GitHub Action. Callers must send
+  // `Authorization: Bearer $BOT_SWEEP_SECRET` to /api/admin/bot-sweep.
+  // Optional so dev environments can start without it; the endpoint returns
+  // 503 if the secret isn't configured.
+  BOT_SWEEP_SECRET: z.string().min(16).optional(),
+
+  // Optional GitHub PAT used by the bot-sweep to look up each suspect's
+  // GitHub account age. Without it we fall back to unauthenticated API
+  // calls (60 req/hr from the server IP) which is enough for a normal
+  // sweep but risks rate-limiting.
+  BOT_SWEEP_GITHUB_TOKEN: z.string().min(1).optional(),
+
+  // Freebuff waiting room. Defaults to OFF so the feature requires explicit
+  // opt-in per environment — the CLI/SDK do not yet send
+  // freebuff_instance_id, so enabling this before they ship would reject
+  // every free-mode request with 428 waiting_room_required.
+  FREEBUFF_WAITING_ROOM_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  FREEBUFF_SESSION_LENGTH_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -57,10 +90,13 @@ export const serverProcessEnv: ServerInput = {
   AVIAN_API_KEY: process.env.AVIAN_API_KEY,
   FIREWORKS_API_KEY: process.env.FIREWORKS_API_KEY,
   CANOPYWAVE_API_KEY: process.env.CANOPYWAVE_API_KEY,
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
   SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
+  IPINFO_TOKEN: process.env.IPINFO_TOKEN,
+  CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 
   // Web/Database variables
@@ -74,11 +110,20 @@ export const serverProcessEnv: ServerInput = {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
   STRIPE_TEAM_FEE_PRICE_ID: process.env.STRIPE_TEAM_FEE_PRICE_ID,
-  STRIPE_SUBSCRIPTION_100_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
-  STRIPE_SUBSCRIPTION_200_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
-  STRIPE_SUBSCRIPTION_500_PRICE_ID: process.env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
+  STRIPE_SUBSCRIPTION_100_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
+  STRIPE_SUBSCRIPTION_200_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
+  STRIPE_SUBSCRIPTION_500_PRICE_ID:
+    process.env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
   LOOPS_API_KEY: process.env.LOOPS_API_KEY,
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
+  BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
+  BOT_SWEEP_GITHUB_TOKEN: process.env.BOT_SWEEP_GITHUB_TOKEN,
+
+  // Freebuff waiting room
+  FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
+  FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
 }

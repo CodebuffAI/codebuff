@@ -11,6 +11,7 @@ import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
+import { gravityIndexParams } from './params/tool/gravity-index'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
@@ -18,6 +19,7 @@ import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { readSubtreeParams } from './params/tool/read-subtree'
+import { renderUIParams } from './params/tool/render-ui'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
@@ -49,6 +51,7 @@ export const toolParams = {
   end_turn: endTurnParams,
   find_files: findFilesParams,
   glob: globParams,
+  gravity_index: gravityIndexParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
   propose_str_replace: proposeStrReplaceParams,
@@ -56,6 +59,7 @@ export const toolParams = {
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_subtree: readSubtreeParams,
+  render_ui: renderUIParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,

@@ -170,7 +170,7 @@ async *handleSteps() {
 
 Choose models based on your agent's needs:
 
-- **`anthropic/claude-opus-4.6`**: Best general-purpose capabilities and code generation
+- **`anthropic/claude-opus-4.7`**: Best general-purpose capabilities and code generation
 - **`openai/gpt-5.2`**: Best at complex reasoning and planning
 - **`google/gemini-3.1-flash-lite-preview`**: Fast and cost-effective for simple or medium-complexity tasks
 

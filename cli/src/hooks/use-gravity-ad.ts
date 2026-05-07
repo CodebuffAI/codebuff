@@ -6,16 +6,17 @@ import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 
-import type { Message} from '@codebuff/sdk';
+import type { Message } from '@codebuff/sdk'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
 const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching new ads
 const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
 
-// Ad response type (matches Gravity API response, credits added after impression)
+// Ad response type (normalized shape across providers; credits added after impression)
 export type AdResponse = {
   adText: string
   title: string
@@ -27,34 +28,43 @@ export type AdResponse = {
   credits?: number // Set after impression is recorded (in cents)
 }
 
+/**
+ * Which upstream ad network to query. The server maps each provider onto the
+ * same normalized response shape, so the rest of the hook is provider-agnostic.
+ */
+export type AdProvider = 'gravity' | 'carbon'
+export type AdSurface = 'waiting_room'
+
 export type GravityAdState = {
-  ad: AdResponse | null
+  ads: AdResponse[] | null
   isLoading: boolean
+  recordImpression: (impUrl: string) => void
 }
 
 // Consolidated controller state for the ad rotation logic
 type GravityController = {
-  cache: AdResponse[]
-  cacheIndex: number
+  choiceCache: AdResponse[][] // Cache of choice ad sets (each entry is 4 ads)
+  choiceCacheIndex: number
   impressionsFired: Set<string>
   adsShownSinceActivity: number
   tickInFlight: boolean
-  intervalId: ReturnType<typeof setInterval> | null
 }
 
-// Pure helper: add an ad to the cache (if not already present)
-function addToCache(ctrl: GravityController, ad: AdResponse): void {
-  if (ctrl.cache.some((x) => x.impUrl === ad.impUrl)) return
-  if (ctrl.cache.length >= MAX_AD_CACHE_SIZE) ctrl.cache.shift()
-  ctrl.cache.push(ad)
+// Pure helper: add a choice ad set to the choice cache
+function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
+  // Deduplicate by checking if any set has the same first impUrl
+  const key = ads[0]?.impUrl
+  if (key && ctrl.choiceCache.some((set) => set[0]?.impUrl === key)) return
+  if (ctrl.choiceCache.length >= MAX_AD_CACHE_SIZE) ctrl.choiceCache.shift()
+  ctrl.choiceCache.push(ads)
 }
 
-// Pure helper: get the next cached ad (cycles through the cache)
-function nextFromCache(ctrl: GravityController): AdResponse | null {
-  if (ctrl.cache.length === 0) return null
-  const ad = ctrl.cache[ctrl.cacheIndex % ctrl.cache.length]!
-  ctrl.cacheIndex = (ctrl.cacheIndex + 1) % ctrl.cache.length
-  return ad
+// Pure helper: get the next cached choice ad set
+function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
+  if (ctrl.choiceCache.length === 0) return null
+  const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!
+  ctrl.choiceCacheIndex = (ctrl.choiceCacheIndex + 1) % ctrl.choiceCache.length
+  return set
 }
 
 /**
@@ -68,40 +78,56 @@ function nextFromCache(ctrl: GravityController): AdResponse | null {
  *
  * Activity is tracked via the global activity-tracker module.
  */
-export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState => {
+export const useGravityAd = (options?: {
+  enabled?: boolean
+  /** Skip the "wait for first user message" gate. Used by the freebuff
+   *  waiting room, which has no conversation but still needs ads. */
+  forceStart?: boolean
+  /** Primary ad network to query. Defaults to Gravity. */
+  provider?: AdProvider
+  /** Backup ad network to try when the primary returns no fill or errors. */
+  fallbackProvider?: AdProvider
+  /** Product surface requesting the ad. The server maps this to placements. */
+  surface?: AdSurface
+}): GravityAdState => {
   const enabled = options?.enabled ?? true
-  const [ad, setAd] = useState<AdResponse | null>(null)
+  const forceStart = options?.forceStart ?? false
+  const provider: AdProvider = options?.provider ?? 'gravity'
+  const fallbackProvider = options?.fallbackProvider
+  const surface = options?.surface
+  const [ads, setAds] = useState<AdResponse[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   // Check if terminal height is too small to show ads
   const { terminalHeight } = useTerminalLayout()
   const isVeryCompactHeight = terminalHeight <= 17
 
-  // Get agent mode - FREE mode always shows ads even on compact screens
-  const agentMode = useChatStore((s) => s.agentMode)
-  const isFreeMode = agentMode === 'FREE'
+  // Freebuff always shows ads even on compact screens (ads are mandatory there).
+  const isFreeMode = IS_FREEBUFF
 
-  // Skip ads on very compact screens unless in FREE mode (where ads are mandatory)
+  // Skip ads on very compact screens unless we're in Freebuff (where ads are mandatory)
   // Also skip if explicitly disabled (e.g. user has a subscription)
   const shouldHideAds = !enabled || (isVeryCompactHeight && !isFreeMode)
 
   // Use Zustand selector instead of manual subscription - only rerenders when value changes
-  const hasUserMessaged = useChatStore((s) =>
+  const hasUserMessagedStore = useChatStore((s) =>
     s.messages.some((m) => m.variant === 'user'),
   )
+  // forceStart lets callers (e.g. the waiting room) opt out of the
+  // "wait for the first user message" gate.
+  const shouldStart = forceStart || hasUserMessagedStore
 
   // Single consolidated controller ref
   const ctrlRef = useRef<GravityController>({
-    cache: [],
-    cacheIndex: 0,
+    choiceCache: [],
+    choiceCacheIndex: 0,
     impressionsFired: new Set(),
     adsShownSinceActivity: 0,
     tickInFlight: false,
-    intervalId: null,
   })
 
   // Ref for the tick function (avoids useCallback dependency issues)
-  const tickRef = useRef<() => void>(() => { })
+  const tickRef = useRef<() => void>(() => {})
 
   // Ref to track whether ads should be hidden for use in async code
   const shouldHideAdsRef = useRef(shouldHideAds)
@@ -118,11 +144,11 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
 
     const authToken = getAuthToken()
     if (!authToken) {
-      logger.warn('[gravity] No auth token, skipping impression recording')
+      logger.warn('[ads] No auth token, skipping impression recording')
       return
     }
 
-    // Include mode in request - FREE mode should not grant credits
+    // Include mode in request - Freebuff should not grant credits (no balance concept).
     const agentMode = useChatStore.getState().agentMode
 
     fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
@@ -138,35 +164,33 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
         if (data.creditsGranted > 0) {
           logger.info(
             { creditsGranted: data.creditsGranted },
-            '[gravity] Ad impression credits granted',
+            '[ads] Ad impression credits granted',
           )
-          setAd((cur) =>
-            cur?.impUrl === impUrl
-              ? { ...cur, credits: data.creditsGranted }
-              : cur,
-          )
+          // Also update credits in visible ads
+          setAds((cur) => {
+            if (!cur) return cur
+            return cur.map((a) =>
+              a.impUrl === impUrl ? { ...a, credits: data.creditsGranted } : a,
+            )
+          })
         }
       })
       .catch((err) => {
-        logger.debug({ err }, '[gravity] Failed to record ad impression')
+        logger.debug({ err }, '[ads] Failed to record ad impression')
       })
   }
 
-  // Show an ad and fire impression
-  const showAd = (next: AdResponse): void => {
-    setAd(next)
-    recordImpressionOnce(next.impUrl)
-  }
+  type FetchAdResult = { ads: AdResponse[] } | null
 
   // Fetch an ad via web API
-  const fetchAd = async (): Promise<AdResponse | null> => {
+  const fetchAd = async (): Promise<FetchAdResult> => {
     // Don't fetch ads when they should be hidden
     if (shouldHideAdsRef.current) return null
     if (!getAdsEnabled()) return null
 
     const authToken = getAuthToken()
     if (!authToken) {
-      logger.warn('[gravity] No auth token available')
+      logger.warn('[ads] No auth token available')
       return null
     }
 
@@ -200,34 +224,58 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
       }
     }
 
-    try {
-      const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          messages: adMessages,
-          sessionId: useChatStore.getState().chatSessionId,
-          device: getDeviceInfo(),
-        }),
-      })
+    const providersToTry =
+      fallbackProvider && fallbackProvider !== provider
+        ? [provider, fallbackProvider]
+        : [provider]
 
-      if (!response.ok) {
-        logger.warn(
-          { status: response.status, response: await response.json() },
-          '[gravity] Web API returned error',
+    for (const providerToTry of providersToTry) {
+      try {
+        const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            provider: providerToTry,
+            messages: adMessages,
+            sessionId: useChatStore.getState().chatSessionId,
+            device: getDeviceInfo(),
+            ...(surface ? { surface } : {}),
+            // Carbon requires a real browser-ish useragent for targeting/fraud
+            // detection. Gravity ignores it. We source one centrally so every
+            // provider that needs it sees the same value.
+            userAgent: getAdUserAgent(),
+          }),
+        })
+
+        if (!response.ok) {
+          logger.warn(
+            {
+              provider: providerToTry,
+              status: response.status,
+              response: await response.json(),
+            },
+            '[ads] Web API returned error',
+          )
+          continue
+        }
+
+        const data = await response.json()
+
+        if (Array.isArray(data.ads) && data.ads.length > 0) {
+          return { ads: data.ads as AdResponse[] }
+        }
+      } catch (err) {
+        logger.error(
+          { err, provider: providerToTry },
+          '[ads] Failed to fetch ad',
         )
-        return null
       }
-
-      const data = await response.json()
-      return data.ad as AdResponse | null
-    } catch (err) {
-      logger.error({ err }, '[gravity] Failed to fetch ad')
-      return null
     }
+
+    return null
   }
 
   // Update tick function (uses ref to avoid useCallback dependency issues)
@@ -245,21 +293,19 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
           ctrl.adsShownSinceActivity < MAX_ADS_AFTER_ACTIVITY &&
           isUserActive(ACTIVITY_THRESHOLD_MS)
 
-        let next: AdResponse | null = null
+        const result = canFetchNew ? await fetchAd() : null
 
-        if (canFetchNew) {
-          next = await fetchAd()
-          if (next) addToCache(ctrl, next)
-        }
-
-        // Fall back to cached ads if no new ad
-        if (!next) {
-          next = nextFromCache(ctrl)
-        }
-
-        if (next) {
+        if (result) {
+          addToChoiceCache(ctrl, result.ads)
           ctrl.adsShownSinceActivity += 1
-          showAd(next)
+          setAds(result.ads)
+        } else {
+          // Fall back to cached ads
+          const cachedSet = nextFromChoiceCache(ctrl)
+          if (cachedSet) {
+            ctrl.adsShownSinceActivity += 1
+            setAds(cachedSet)
+          }
         }
       } finally {
         ctrl.tickInFlight = false
@@ -275,35 +321,39 @@ export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState =>
     })
   }, [])
 
-  // Start rotation when user sends first message
+  // Start rotation when user sends first message (or immediately if forced).
   useEffect(() => {
-    if (!hasUserMessaged || !getAdsEnabled() || shouldHideAds) return
+    if (!shouldStart || !getAdsEnabled() || shouldHideAds) return
 
     setIsLoading(true)
 
     // Fetch first ad immediately
     void (async () => {
-      const firstAd = await fetchAd()
-      if (firstAd) {
-        addToCache(ctrlRef.current, firstAd)
-        showAd(firstAd)
-        ctrlRef.current.adsShownSinceActivity = 1
+      const result = await fetchAd()
+      if (result) {
+        const ctrl = ctrlRef.current
+        addToChoiceCache(ctrl, result.ads)
+        setAds(result.ads)
+        ctrl.adsShownSinceActivity = 1
       }
       setIsLoading(false)
     })()
 
     // Start interval for rotation (consistent 60s intervals)
     const id = setInterval(() => tickRef.current(), AD_ROTATION_INTERVAL_MS)
-    ctrlRef.current.intervalId = id
 
     return () => {
       clearInterval(id)
-      ctrlRef.current.intervalId = null
     }
-  }, [hasUserMessaged, shouldHideAds])
+  }, [shouldStart, shouldHideAds, provider, fallbackProvider, surface])
 
-  // Don't return ad when ads should be hidden
-  return { ad: hasUserMessaged && !shouldHideAds ? ad : null, isLoading }
+  // Don't return ads when ads should be hidden
+  const visible = shouldStart && !shouldHideAds
+  return {
+    ads: visible ? ads : null,
+    isLoading,
+    recordImpression: recordImpressionOnce,
+  }
 }
 
 type AdMessage = { role: 'user' | 'assistant'; content: string }
@@ -359,4 +409,23 @@ function getDeviceInfo(): DeviceInfo {
   const locale = Intl.DateTimeFormat().resolvedOptions().locale
 
   return { os, timezone, locale }
+}
+
+/**
+ * Useragent string passed to ad providers. Carbon (BuySellAds) requires a
+ * plausible browser useragent for targeting and fraud screening. We send a
+ * stable desktop Chrome-on-{os} UA per platform so targeting is consistent
+ * across users on the same platform without sharing anything identifying.
+ *
+ * Chrome version needs bumping periodically — stale UAs look bot-ish to ad
+ * networks. Last bumped: 2026-04-21. Revisit roughly every 6 months.
+ */
+const AD_CHROME_VERSION = '124.0.0.0'
+function getAdUserAgent(): string {
+  const osUA: Record<string, string> = {
+    darwin: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+    win32: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+    linux: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
+  }
+  return osUA[process.platform] ?? osUA.linux
 }

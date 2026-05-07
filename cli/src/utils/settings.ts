@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
+import { isFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
 import { logger } from './logger'
@@ -12,7 +14,7 @@ const DEFAULT_SETTINGS: Settings = {
   adsEnabled: true,
 }
 
-// Note: FREE mode is now a valid AgentMode (was previously LITE)
+// Note: The old FREE mode has been renamed back to LITE; migrate on load.
 
 /**
  * Settings schema - add new settings here as the product evolves
@@ -20,6 +22,10 @@ const DEFAULT_SETTINGS: Settings = {
 export interface Settings {
   mode?: AgentMode
   adsEnabled?: boolean
+  /** Last model the user picked in the freebuff model selector. Restored on
+   *  next freebuff launch so users land in the queue for their preferred
+   *  model without re-picking. Persisted as the canonical model id. */
+  freebuffModel?: string
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
@@ -83,17 +89,23 @@ const validateSettings = (parsed: unknown): Settings => {
   const settings: Settings = {}
   const obj = parsed as Record<string, unknown>
 
-  // Validate mode
-  if (
-    typeof obj.mode === 'string' &&
-    AGENT_MODES.includes(obj.mode as AgentMode)
-  ) {
-    settings.mode = obj.mode as AgentMode
+  // Validate mode; migrate the previously-saved 'FREE' value to 'LITE'.
+  if (typeof obj.mode === 'string') {
+    const normalized = obj.mode === 'FREE' ? 'LITE' : obj.mode
+    if (AGENT_MODES.includes(normalized as AgentMode)) {
+      settings.mode = normalized as AgentMode
+    }
   }
 
   // Validate adsEnabled
   if (typeof obj.adsEnabled === 'boolean') {
     settings.adsEnabled = obj.adsEnabled
+  }
+
+  // Validate freebuffModel — drop unknown ids so a removed model doesn't
+  // strand the user on a non-existent queue.
+  if (typeof obj.freebuffModel === 'string' && isFreebuffModelId(obj.freebuffModel)) {
+    settings.freebuffModel = obj.freebuffModel
   }
 
   // Validate alwaysUseALaCarte (legacy)
@@ -147,5 +159,21 @@ export const loadModePreference = (): AgentMode => {
  */
 export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
+}
+
+/**
+ * Load the saved freebuff model preference. Returns undefined if none is
+ * saved yet — callers should fall back to DEFAULT_FREEBUFF_MODEL_ID.
+ */
+export const loadFreebuffModelPreference = (): string | undefined => {
+  return loadSettings().freebuffModel
+}
+
+/**
+ * Save the freebuff model preference. Called whenever the user picks a model
+ * in the waiting room so the next launch defaults to it.
+ */
+export const saveFreebuffModelPreference = (model: string): void => {
+  saveSettings({ freebuffModel: model })
 }
 

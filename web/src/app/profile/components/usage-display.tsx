@@ -50,8 +50,8 @@ const grantTypeInfo: Record<
     text: 'text-blue-600 dark:text-blue-400',
     gradient: 'from-blue-500/70 to-blue-600/70',
     icon: <Gift className="h-4 w-4" />,
-    label: 'Monthly Free',
-    description: 'Your monthly allowance',
+    label: 'Free',
+    description: 'Signup or grandfathered credits',
   },
   subscription: {
     bg: 'bg-indigo-500',
@@ -188,7 +188,7 @@ const CreditBranch = ({
 }: CreditBranchProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const leftAmount = totalAmount - usedAmount
-  const isRenewable = title === 'Renewable Credits'
+  const isRenewing = title === 'Renewing Credits'
 
   return (
     <div className="border rounded-lg p-1.5">
@@ -207,7 +207,7 @@ const CreditBranch = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm text-left">{title}</span>
-            {isRenewable && nextQuotaReset && (
+            {isRenewing && nextQuotaReset && (
               <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                 Renews{' '}
                 {nextQuotaReset.toLocaleDateString(undefined, {
@@ -270,9 +270,17 @@ export const UsageDisplay = ({
   })
 
   // Group credits by expiration type (excluding organization)
-  // referral_legacy and subscription renew monthly, referral (one-time) never expires
-  const expiringTypes: FilteredGrantType[] = ['free', 'referral_legacy', 'subscription']
-  const nonExpiringTypes: FilteredGrantType[] = ['referral', 'admin', 'purchase', 'ad']
+  // referral_legacy and subscription renew periodically. Free credits can be
+  // one-time signup credits or grandfathered monthly credits, so keep them in
+  // the source-based group below.
+  const expiringTypes: FilteredGrantType[] = ['referral_legacy', 'subscription']
+  const nonExpiringTypes: FilteredGrantType[] = [
+    'free',
+    'referral',
+    'admin',
+    'purchase',
+    'ad',
+  ]
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),
@@ -300,7 +308,7 @@ export const UsageDisplay = ({
         <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
 
         <div className="text-sm text-muted-foreground mb-3">
-          We'll use your renewable credits before non-renewable ones
+          Credits are consumed by grant priority, then expiration date
         </div>
 
         {totalDebt > 500 && (
@@ -317,7 +325,7 @@ export const UsageDisplay = ({
       <CardContent className="space-y-3">
         {/* Credit Categories with expandable details */}
         <CreditBranch
-          title="Renewable Credits"
+          title="Renewing Credits"
           totalAmount={expiringTotal}
           usedAmount={expiringUsed}
           nextQuotaReset={nextQuotaReset}
@@ -340,7 +348,7 @@ export const UsageDisplay = ({
         </CreditBranch>
 
         <CreditBranch
-          title="Non-renewable Credits"
+          title="Other Credits"
           totalAmount={nonExpiringTotal}
           usedAmount={nonExpiringUsed}
         >

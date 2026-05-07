@@ -1,6 +1,6 @@
 {
   "name": "freebuff",
-  "version": "0.0.28",
+  "version": "0.0.82",
   "description": "The world's strongest free coding agent",
   "license": "MIT",
   "bin": {
@@ -12,6 +12,7 @@
   },
   "files": [
     "index.js",
+    "http.js",
     "postinstall.js",
     "README.md"
   ],

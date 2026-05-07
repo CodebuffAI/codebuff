@@ -43,6 +43,7 @@ describe('/api/v1/web-search POST endpoint', () => {
         totalDebt: 0,
         netBalance: 10,
         breakdown: {},
+        principals: {},
       },
       nextQuotaReset: 'soon',
     }))
@@ -96,6 +97,7 @@ describe('/api/v1/web-search POST endpoint', () => {
         totalDebt: 0,
         netBalance: 0,
         breakdown: {},
+        principals: {},
       },
       nextQuotaReset: 'soon',
     }))
@@ -148,6 +150,7 @@ describe('/api/v1/web-search POST endpoint', () => {
         totalDebt: 0,
         netBalance: includeSubscriptionCredits ? 350 : 0,
         breakdown: {},
+        principals: {},
       },
       nextQuotaReset: 'soon',
     }))
@@ -186,6 +189,7 @@ describe('/api/v1/web-search POST endpoint', () => {
         totalDebt: 0,
         netBalance: 0,
         breakdown: {},
+        principals: {},
       },
       nextQuotaReset: 'soon',
     }))

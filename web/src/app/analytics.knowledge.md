@@ -70,12 +70,7 @@ The application uses the following event categories for consistent tracking:
    - subscription.payment_completed
    - subscription.change_confirmed
 
-6. Referral Events (`referral.*`)
-   - referral.link_copied
-   - referral.code_redeemed
-   - referral.invite_sent
-
-7. Documentation Events (`docs.*`)
+6. Documentation Events (`docs.*`)
    - docs.viewed
 
 8. Banner Events (`banner.*`)
@@ -129,14 +124,6 @@ Properties that should be included with events:
    }
    ```
 
-2. Banner Events:
-   ```typescript
-   {
-     type: 'youtube_referral' | 'referral',
-     source?: string // The referrer if available
-   }
-   ```
-
 Other Events:
 
 1. Auth Events:
@@ -153,14 +140,6 @@ Other Events:
    {
      current_plan?: string,
      target_plan?: string
-   }
-   ```
-
-3. Referral Events:
-   ```typescript
-   {
-     referrer?: string,
-     code?: string
    }
    ```
 
@@ -202,12 +181,6 @@ Examples by category:
 - subscription.plan_viewed
 - subscription.upgrade_started
 - subscription.payment_completed
-
-### Referral Events
-
-- referral.link_copied
-- referral.code_redeemed
-- referral.invite_sent
 
 Example event properties:
 
@@ -333,70 +306,3 @@ Important: This pattern ensures accurate attribution even when users don't conve
      - Handle missing or malformed origin headers
      - Keep CORS headers consistent in both success and error responses
 
-## UTM Source Handling
-
-Special UTM sources:
-
-- youtube: Shows personalized banner with referrer name and bonus amount
-- Referrer name passed via `referrer` parameter
-- Used for tracking creator-driven referrals
-- Important: Referrer display names differ from routing keys
-- Maintain mapping of routing keys to display names for consistent tracking
-
-## Referral Link Handling
-
-Special UTM sources:
-
-- youtube: Shows personalized banner with referrer name and bonus amount
-- Referrer name passed via `referrer` parameter
-- Used for tracking creator-driven referrals
-- Important: Referrer display names differ from routing keys
-- Maintain mapping of routing keys to display names for consistent tracking
-
-## Route Parameters vs Display Names
-
-- Route parameters (e.g., [sponsee-name]) are for URL routing only
-- Keep routing keys simple and URL-friendly (e.g., 'berman')
-- Display names should be separate from routing keys (e.g., 'Matthew Berman')
-- Only use routing key validation in the page component
-- Use display names only in user-facing UI components like banners
-- Keep routing logic separate from display logic
-- Example: /[sponsee-name] validates 'berman' for routing but displays "Matthew Berman" in UI
-
-## Sponsee Referral Configuration
-
-Each sponsee has three distinct identifiers:
-
-- Routing key: URL-friendly identifier for page routing (e.g., 'berman')
-- Display name: Full name for UI display (e.g., 'Matthew Berman')
-- Referral code: Unique code for tracking referrals
-- Important: Keep all three IDs together in sponseeConfig
-- Use routing key as object key for consistent lookup
-
-The sponseeConfig object in constants.ts is the single source of truth for:
-
-- Route validation (/[sponsee] page)
-- Display names (banner, referral pages)
-- Referral code mapping (referral system)
-- YouTube referral tracking
-
-Example flow:
-
-1. User visits /{routing-key}
-2. Redirects to /?utm_source=youtube&referrer={routing-key}
-3. Banner shows {display-name}
-4. "Learn more" links to /referrals/{referral-code}
-
-## Route Parameters vs Display Names
-
-- Route parameters (e.g., [sponsee-name]) are used for URL routing.
-- The `/[sponsee]` page validates the handle against the database.
-- Display names shown in the UI (like on the referral redemption page) now primarily come from the API response (`referrerName`) or the `referrer` URL parameter.
-
-## Referral Link Handling
-
-Special UTM sources:
-
-- `youtube`: Indicates a referral likely came from a partner/creator.
-- The `referrer` parameter contains the handle associated with the referral link.
-- This information is used for tracking in PostHog.

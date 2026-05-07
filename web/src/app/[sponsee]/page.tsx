@@ -69,7 +69,6 @@ export default async function SponseePage({
     )
   }
 
-  // Build query string preserving all incoming params and adding/overriding referrer
   const queryParams = new URLSearchParams()
   for (const [key, value] of Object.entries(resolvedSearchParams)) {
     if (value !== undefined) {

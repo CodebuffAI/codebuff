@@ -1,13 +1,8 @@
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
-import { processAndGrantCredit } from '@codebuff/billing'
+import { grantSignupCredits } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import {
-  DEFAULT_FREE_CREDITS_GRANT,
-  SESSION_MAX_AGE_SECONDS,
-} from '@codebuff/common/old-constants'
-import { getNextQuotaReset } from '@codebuff/common/util/dates'
-import { generateCompactId } from '@codebuff/common/util/string'
+import { SESSION_MAX_AGE_SECONDS } from '@codebuff/common/old-constants'
 import { loops } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -17,7 +12,6 @@ import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
 import { eq } from 'drizzle-orm'
 import GitHubProvider from 'next-auth/providers/github'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
 
@@ -74,53 +68,6 @@ async function createAndLinkStripeCustomer(params: {
       logger,
     })
     return null
-  }
-}
-
-async function createInitialCreditGrant(params: {
-  userId: string
-  expiresAt: Date | null
-  logger: Logger
-}): Promise<void> {
-  const { userId, expiresAt, logger } = params
-
-  try {
-    const operationId = `free-${userId}-${generateCompactId()}`
-    const nextQuotaReset = getNextQuotaReset(expiresAt)
-
-    await processAndGrantCredit({
-      ...params,
-      amount: DEFAULT_FREE_CREDITS_GRANT,
-      type: 'free',
-      description: 'Initial free credits',
-      expiresAt: nextQuotaReset,
-      operationId,
-    })
-
-    logger.info(
-      {
-        userId,
-        operationId,
-        creditsGranted: DEFAULT_FREE_CREDITS_GRANT,
-        expiresAt: nextQuotaReset,
-      },
-      'Initial free credit grant created.',
-    )
-  } catch (grantError) {
-    const errorMessage =
-      grantError instanceof Error
-        ? grantError.message
-        : 'Unknown error creating initial credit grant'
-    logger.error(
-      { userId, error: grantError },
-      'Failed to create initial credit grant.',
-    )
-    await logSyncFailure({
-      id: userId,
-      errorMessage,
-      provider: 'stripe',
-      logger,
-    })
   }
 }
 
@@ -206,20 +153,23 @@ export const authOptions: NextAuthOptions = {
         return
       }
 
-      const customerId = await createAndLinkStripeCustomer({
+      await createAndLinkStripeCustomer({
         ...userData,
         userId: userData.id,
       })
 
-      if (customerId) {
-        await createInitialCreditGrant({
+      try {
+        await grantSignupCredits({
           userId: userData.id,
-          expiresAt: userData.next_quota_reset,
           logger,
         })
+      } catch (error) {
+        logger.error(
+          { userId: userData.id, error },
+          'Failed to grant signup credits.',
+        )
       }
 
-      // Call the imported function
       await loops.sendSignupEventToLoops({
         ...userData,
         userId: userData.id,

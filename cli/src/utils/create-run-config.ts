@@ -1,5 +1,7 @@
 import path from 'path'
 
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+
 import {
   createEventHandler,
   createStreamChunkHandler,
@@ -23,7 +25,8 @@ export type CreateRunConfigParams = {
   agentDefinitions: AgentDefinition[]
   eventHandlerState: EventHandlerState
   signal: AbortSignal
-  costMode?: 'free' | 'normal' | 'max' | 'experimental' | 'ask'
+  costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
+  extraCodebuffMetadata?: Record<string, string>
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -100,6 +103,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     agentDefinitions,
     eventHandlerState,
     costMode,
+    extraCodebuffMetadata,
   } = params
 
   return {
@@ -109,11 +113,12 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     content,
     previousRun: previousRunState ?? undefined,
     agentDefinitions,
-    maxAgentSteps: 100,
+    maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
     signal: params.signal,
     costMode,
+    extraCodebuffMetadata,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

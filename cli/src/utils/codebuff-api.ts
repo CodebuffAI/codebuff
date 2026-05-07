@@ -20,10 +20,10 @@ export type ApiResponse<T> =
 // ============================================================================
 
 /** User fields that can be fetched from /api/v1/me */
-export type UserField = 'id' | 'email' | 'discord_id' | 'referral_code'
+export type UserField = 'id' | 'email' | 'discord_id'
 
 export type UserDetails<T extends UserField = UserField> = {
-  [K in T]: K extends 'discord_id' | 'referral_code' ? string | null : string
+  [K in T]: K extends 'discord_id' ? string | null : string
 }
 
 export interface UsageRequest {
@@ -56,15 +56,6 @@ export interface LoginStatusRequest {
 
 export interface LoginStatusResponse {
   user?: Record<string, unknown>
-}
-
-export interface ReferralRequest {
-  referralCode: string
-}
-
-export interface ReferralResponse {
-  credits_redeemed?: number
-  error?: string
 }
 
 export interface LogoutRequest {
@@ -190,9 +181,6 @@ export interface CodebuffApiClient {
   loginStatus(
     req: LoginStatusRequest,
   ): Promise<ApiResponse<LoginStatusResponse>>
-
-  /** Redeem a referral code via /api/referrals */
-  referral(req: ReferralRequest): Promise<ApiResponse<ReferralResponse>>
 
   /** Publish agents via /api/agents/publish */
   publish(
@@ -494,17 +482,6 @@ export function createCodebuffApiClient(
         },
         includeAuth: false,
       })
-    },
-
-    referral(req: ReferralRequest): Promise<ApiResponse<ReferralResponse>> {
-      // Auth is sent via Authorization header (includeAuth defaults to true)
-      // Also include cookie for legacy web session support
-      return request<ReferralResponse>(
-        'POST',
-        '/api/referrals',
-        { referralCode: req.referralCode },
-        { includeCookie: true },
-      )
     },
 
     publish(

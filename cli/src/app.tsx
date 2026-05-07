@@ -4,11 +4,14 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
+import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
+import { WaitingRoomScreen } from './components/waiting-room-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
+import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useLogo } from './hooks/use-logo'
 import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
@@ -257,6 +260,20 @@ export const App = ({
     // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
+  // Render project picker FIRST when at home directory or outside a project.
+  // This deliberately precedes the login/auth and waiting-room gates so the
+  // user always gets to pick a working directory before anything else — auth
+  // failures or a banned/queued freebuff session would otherwise replace the
+  // picker mid-flash and look like being kicked out of the app.
+  if (showProjectPicker) {
+    return (
+      <ProjectPickerScreen
+        onSelectProject={onProjectChange}
+        initialPath={projectRoot}
+      />
+    )
+  }
+
   // Render login modal when not authenticated AND auth service is reachable
   // Don't show login modal during network outages OR while retrying
   if (
@@ -272,33 +289,12 @@ export const App = ({
     )
   }
 
-  // Render project picker when at home directory or outside a project
-  if (showProjectPicker) {
-    return (
-      <ProjectPickerScreen
-        onSelectProject={onProjectChange}
-        initialPath={projectRoot}
-      />
-    )
-  }
-
-  // Render chat history screen when requested
-  if (showChatHistory) {
-    return (
-      <ChatHistoryScreen
-        onSelectChat={handleResumeChat}
-        onCancel={closeChatHistory}
-        onNewChat={handleNewChat}
-      />
-    )
-  }
-
   // Use key to force remount when resuming a different chat from history
   const chatKey = resumeChatId ?? 'current'
 
   return (
-    <Chat
-      key={chatKey}
+    <AuthedSurface
+      chatKey={chatKey}
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
@@ -313,6 +309,128 @@ export const App = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={handleSwitchToGitRoot}
+      showChatHistory={showChatHistory}
+      onSelectChat={handleResumeChat}
+      onCancelChatHistory={closeChatHistory}
+      onNewChat={handleNewChat}
+    />
+  )
+}
+
+interface AuthedSurfaceProps {
+  chatKey: string
+  headerContent: React.ReactNode
+  initialPrompt: string | null
+  agentId?: string
+  fileTree: FileTreeNode[]
+  inputRef: React.MutableRefObject<MultilineInputHandle | null>
+  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean | null>>
+  setUser: React.Dispatch<React.SetStateAction<import('./utils/auth').User | null>>
+  logoutMutation: ReturnType<typeof useAuthState>['logoutMutation']
+  continueChat: boolean
+  continueChatId: string | undefined
+  authStatus: AuthStatus
+  initialMode: AgentMode | undefined
+  gitRoot: string | null | undefined
+  onSwitchToGitRoot: () => void
+  showChatHistory: boolean
+  onSelectChat: (chatId: string) => void
+  onCancelChatHistory: () => void
+  onNewChat: () => void
+}
+
+/**
+ * Rendered only after auth is confirmed. Owns the freebuff waiting-room gate
+ * so `useFreebuffSession` runs exactly once per authed session (not before
+ * we have a token).
+ */
+const AuthedSurface = ({
+  chatKey,
+  headerContent,
+  initialPrompt,
+  agentId,
+  fileTree,
+  inputRef,
+  setIsAuthenticated,
+  setUser,
+  logoutMutation,
+  continueChat,
+  continueChatId,
+  authStatus,
+  initialMode,
+  gitRoot,
+  onSwitchToGitRoot,
+  showChatHistory,
+  onSelectChat,
+  onCancelChatHistory,
+  onNewChat,
+}: AuthedSurfaceProps) => {
+  const { session, error: sessionError } = useFreebuffSession()
+
+  // Terminal state: a 409 from the gate means another CLI rotated our
+  // instance id. Show a dedicated screen and stop polling — don't fall back
+  // into the waiting room, which would look like normal queued progress.
+  if (IS_FREEBUFF && session?.status === 'superseded') {
+    return <FreebuffSupersededScreen />
+  }
+
+  // Route every non-admitted state through the pre-chat screen:
+  //   null     → initial GET in flight (brief)
+  //   'none'   → no seat yet; show model-picker landing
+  //   'queued' → waiting our turn
+  //   'country_blocked' → terminal region-gate message
+  //   'banned' → terminal account-banned message
+  //   'rate_limited' → hit per-model session quota; terminal for this run
+  //   'takeover_prompt' → another local CLI already holds this account
+  //
+  // 'ended' deliberately falls through to <Chat>: the agent may still be
+  // finishing work under the server-side grace period, and the chat surface
+  // itself swaps the input box for the session-ended banner.
+  if (
+    IS_FREEBUFF &&
+    (session === null ||
+      session.status === 'queued' ||
+      session.status === 'none' ||
+      session.status === 'country_blocked' ||
+      session.status === 'banned' ||
+      session.status === 'rate_limited' ||
+      session.status === 'takeover_prompt')
+  ) {
+    return <WaitingRoomScreen session={session} error={sessionError} />
+  }
+
+  // Chat history renders inside AuthedSurface so the freebuff session stays
+  // mounted while the user browses history. Unmounting this surface would
+  // DELETE the session row and drop the user back into the waiting room on
+  // return.
+  if (showChatHistory) {
+    return (
+      <ChatHistoryScreen
+        onSelectChat={onSelectChat}
+        onCancel={onCancelChatHistory}
+        onNewChat={onNewChat}
+      />
+    )
+  }
+
+  return (
+    <Chat
+      key={chatKey}
+      headerContent={headerContent}
+      initialPrompt={initialPrompt}
+      agentId={agentId}
+      fileTree={fileTree}
+      inputRef={inputRef}
+      setIsAuthenticated={setIsAuthenticated}
+      setUser={setUser}
+      logoutMutation={logoutMutation}
+      continueChat={continueChat}
+      continueChatId={continueChatId}
+      authStatus={authStatus}
+      initialMode={initialMode}
+      gitRoot={gitRoot}
+      onSwitchToGitRoot={onSwitchToGitRoot}
+      freebuffSession={session}
     />
   )
 }

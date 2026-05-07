@@ -1,6 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { runTerminalCommand } from '@codebuff/sdk'
 
 
@@ -9,15 +8,10 @@ import {
   type RouterParams,
   type CommandResult,
 } from './command-registry'
-import { handleReferralCode } from './referral'
 import {
   isSlashCommand,
-  isReferralCode,
-  extractReferralCode,
-  normalizeReferralCode,
   parseCommandInput,
 } from './router-utils'
-import { handleClaudeAuthCode } from '../components/claude-connect-banner'
 import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
@@ -392,27 +386,7 @@ export async function routeUserPrompt(
     return
   }
 
-  // Handle connect:claude mode input (authorization code)
-  if (inputMode === 'connect:claude') {
-    if (!CLAUDE_OAUTH_ENABLED) {
-      setInputMode('default')
-      return
-    }
-    const code = trimmed
-    if (code) {
-      const result = await handleClaudeAuthCode(code)
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        getSystemMessage(result.message),
-      ])
-    }
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setInputMode('default')
-    return
-  }
-
+  // Handle connect:chatgpt mode input (authorization code)
   if (inputMode === 'connect:chatgpt') {
     if (!CHATGPT_OAUTH_ENABLED) {
       setInputMode('default')
@@ -432,70 +406,6 @@ export async function routeUserPrompt(
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')
-    return
-  }
-
-  // Handle referral mode input
-  if (inputMode === 'referral') {
-    // Validate the referral code (3-50 alphanumeric chars with optional dashes)
-    const codePattern = /^[a-zA-Z0-9-]{3,50}$/
-    // Strip prefix if present for validation (case-insensitive)
-    const codeWithoutPrefix = trimmed.toLowerCase().startsWith('ref-')
-      ? trimmed.slice(4)
-      : trimmed
-
-    if (!codePattern.test(codeWithoutPrefix)) {
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        getSystemMessage(
-          'Invalid referral code format. Codes should be 3-50 alphanumeric characters.',
-        ),
-      ])
-      saveToHistory(trimmed)
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-      setInputMode('default')
-      return
-    }
-
-    const referralCode = normalizeReferralCode(trimmed)
-    try {
-      const { postUserMessage: referralPostMessage } =
-        await handleReferralCode(referralCode)
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        ...referralPostMessage([]),
-      ])
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
-      ])
-    }
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setInputMode('default')
-
-    return
-  }
-
-  // Handle referral codes (ref-XXXX format)
-  // Works with or without leading slash: "ref-123" or "/ref-123"
-  if (isReferralCode(trimmed)) {
-    const referralCode = extractReferralCode(trimmed)
-    const { postUserMessage: referralPostMessage } =
-      await handleReferralCode(referralCode)
-    setMessages((prev) => [
-      ...prev,
-      getUserMessage(trimmed),
-      ...referralPostMessage([]),
-    ])
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
 

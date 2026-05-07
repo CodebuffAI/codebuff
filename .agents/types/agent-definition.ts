@@ -380,7 +380,9 @@ export type ModelName =
 
   // Anthropic
   | 'anthropic/claude-sonnet-4.6'
+  | 'anthropic/claude-opus-4.7'
   | 'anthropic/claude-opus-4.6'
+  | 'anthropic/claude-opus-4.5'
   | 'anthropic/claude-haiku-4.5'
   | 'anthropic/claude-sonnet-4.5'
   | 'anthropic/claude-opus-4.1'
@@ -427,8 +429,7 @@ export type ModelName =
   // Other open source models
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'
-  | 'moonshotai/kimi-k2.5'
-  | 'moonshotai/kimi-k2.5:nitro'
+  | 'moonshotai/kimi-k2.6'
   | 'z-ai/glm-5'
   | 'z-ai/glm-4.6'
   | 'z-ai/glm-4.6:nitro'
@@ -437,6 +438,7 @@ export type ModelName =
   | 'z-ai/glm-4.7-flash'
   | 'z-ai/glm-4.7-flash:nitro'
   | 'minimax/minimax-m2.5'
+  | 'minimax/minimax-m2.7'
   | (string & {})
 
 import type { ToolName, GetToolParams } from './tools'

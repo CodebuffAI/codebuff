@@ -1,0 +1,1 @@
+ALTER TABLE "free_session_admit" ADD COLUMN "session_units" numeric(3, 1) DEFAULT '1.0' NOT NULL;

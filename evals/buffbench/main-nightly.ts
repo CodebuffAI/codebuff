@@ -8,6 +8,8 @@ import type { MetaAnalysisResult } from './meta-analyzer'
 import type { AgentEvalResults } from './types'
 
 async function main() {
+  const saveTraces = process.argv.includes('--save-traces')
+
   console.log('Starting nightly buffbench evaluation...')
   console.log('Eval set: codebuff')
   console.log()
@@ -15,7 +17,8 @@ async function main() {
   const results = await runBuffBench({
     evalDataPaths: [ path.join(__dirname, 'eval-codebuff.json')],
     agents: ['base2-free'],
-    taskConcurrency: 3,
+    taskConcurrency: 5,
+    saveTraces,
   })
 
   console.log('\nNightly buffbench evaluation completed successfully!')

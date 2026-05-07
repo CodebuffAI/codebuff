@@ -6,6 +6,7 @@ const definition: SecretAgentDefinition = {
   ...thinker,
   id: 'thinker-gpt',
   model: 'openai/gpt-5.4',
+  providerOptions: undefined,
   outputSchema: undefined,
   outputMode: 'last_message',
   inheritParentSystemPrompt: false,

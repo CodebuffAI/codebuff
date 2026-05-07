@@ -65,32 +65,7 @@ async function consumeFromOrderedGrants(params: {
   let consumed = 0
   let fromPurchased = 0
 
-  // First pass: try to repay any debt
-  for (const grant of grants) {
-    if (grant.balance < 0 && remainingToConsume > 0) {
-      const debtAmount = Math.abs(grant.balance)
-      const repayAmount = Math.min(debtAmount, remainingToConsume)
-      const newBalance = grant.balance + repayAmount
-      remainingToConsume -= repayAmount
-      consumed += repayAmount
-
-      await updateGrantBalance({
-        userId,
-        grant,
-        consumed: -repayAmount,
-        newBalance,
-        tx,
-        logger,
-      })
-
-      logger.debug(
-        { userId, grantId: grant.operation_id, repayAmount, newBalance },
-        'Repaid debt in grant',
-      )
-    }
-  }
-
-  // Second pass: consume from positive balances
+  // Consume from positive balances in priority order
   for (const grant of grants) {
     if (remainingToConsume <= 0) break
     if (grant.balance <= 0) continue
@@ -113,35 +88,41 @@ async function consumeFromOrderedGrants(params: {
       tx,
       logger,
     })
+
+    // Mutate in-memory balance so the overflow check below sees
+    // post-consumption state (not the stale original value).
+    grant.balance = newBalance
   }
 
-  // If we still have remaining to consume and no grants left, create debt in the last grant
+  // If we still have remaining to consume, create or extend debt on the
+  // last grant. After the loop above all positive-balance grants are drained.
+  // The "last grant" (lowest consumption priority, typically a subscription
+  // grant that renews monthly) absorbs the overflow as debt.
   if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
+    const newBalance = lastGrant.balance - remainingToConsume
 
-    if (lastGrant.balance <= 0) {
-      const newBalance = lastGrant.balance - remainingToConsume
-      await updateGrantBalance({
+    await updateGrantBalance({
+      userId,
+      grant: lastGrant,
+      consumed: remainingToConsume,
+      newBalance,
+      tx,
+      logger,
+    })
+    consumed += remainingToConsume
+    lastGrant.balance = newBalance
+
+    logger.warn(
+      {
         userId,
-        grant: lastGrant,
+        grantId: lastGrant.operation_id,
+        requested: remainingToConsume,
         consumed: remainingToConsume,
-        newBalance,
-        tx,
-        logger,
-      })
-      consumed += remainingToConsume
-
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: remainingToConsume,
-          newDebt: Math.abs(newBalance),
-        },
-        'Created new debt in grant',
-      )
-    }
+        newDebt: Math.abs(newBalance),
+      },
+      'Created/extended debt in grant',
+    )
   }
 
   return { consumed, fromPurchased }
@@ -789,7 +770,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
       expect(grant3Balance).toBe(100) // Untouched
     })
 
-    it('should repay debt when consuming from grants with negative balance', async () => {
+    it('should not forgive debt when consuming from a positive grant (debt stays untouched)', async () => {
       const db = getTestDb()
       const now = new Date()
 
@@ -820,14 +801,10 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         conn: db,
       })
 
-      // Consume 80 credits
-      // The consumption algorithm works as follows:
-      // 1. First pass (debt repayment): Uses creditsToConsume to repay debt
-      //    - debt-grant has -50, repay 50 from the 80 requested, debt becomes 0
-      //    - remainingToConsume = 30, consumed = 50
-      // 2. Second pass (consumption): Consumes from positive balances
-      //    - positive-grant has 100, consume 30, becomes 70
-      //    - remainingToConsume = 0, consumed = 80
+      // Consume 80 credits.
+      // Consumption only drains positive balances. Debt grants are untouched.
+      // positive-grant (priority 10, consumed first): 100 - 80 = 20
+      // debt-grant (priority 60): stays at -50 (debt is NOT "repaid" by consumption)
       const result = await consumeFromOrderedGrants({
         userId: TEST_USER_ID,
         creditsToConsume: 80,
@@ -842,10 +819,10 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
       const debtGrantBalance = await getGrantBalance('e2e-debt-grant')
       const positiveGrantBalance = await getGrantBalance('e2e-positive-grant')
 
-      // Debt should be repaid: -50 + 50 = 0
-      expect(debtGrantBalance).toBe(0)
-      // Positive grant: 100 - 30 (consume after debt repayment) = 70
-      expect(positiveGrantBalance).toBe(70)
+      // Debt must be untouched — consumption does not repay debt
+      expect(debtGrantBalance).toBe(-50)
+      // Positive grant: 100 - 80 = 20
+      expect(positiveGrantBalance).toBe(20)
     })
 
     it('should track purchased credits consumption correctly', async () => {

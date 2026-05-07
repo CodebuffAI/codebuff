@@ -59,15 +59,11 @@ describe('commander agent', () => {
       expect(schema?.params?.required).not.toContain('timeout_seconds')
     })
 
-    test('has optional rawOutput parameter', () => {
+    test('has optional what_to_summarize parameter', () => {
       const schema = commander.inputSchema
-      const rawOutputProp = schema?.params?.properties?.rawOutput
-      expect(rawOutputProp && typeof rawOutputProp === 'object' && 'type' in rawOutputProp && rawOutputProp.type).toBe('boolean')
-      expect(schema?.params?.required).not.toContain('rawOutput')
-    })
-
-    test('has prompt parameter', () => {
-      expect(commander.inputSchema?.prompt?.type).toBe('string')
+      const summarizeProp = schema?.params?.properties?.what_to_summarize
+      expect(summarizeProp && typeof summarizeProp === 'object' && 'type' in summarizeProp && summarizeProp.type).toBe('string')
+      expect(schema?.params?.required).not.toContain('what_to_summarize')
     })
   })
 
@@ -149,7 +145,7 @@ describe('commander agent', () => {
       })
     })
 
-    test('yields set_output with raw result when rawOutput is true', () => {
+    test('yields set_output with raw result when what_to_summarize is not provided', () => {
       const mockAgentState = createMockAgentState()
       const mockLogger = {
         debug: () => {},
@@ -161,7 +157,7 @@ describe('commander agent', () => {
       const generator = commander.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
-        params: { command: 'echo hello', rawOutput: true },
+        params: { command: 'echo hello' },
       })
 
       // First yield is the command
@@ -190,7 +186,7 @@ describe('commander agent', () => {
       expect(final.done).toBe(true)
     })
 
-    test('yields STEP for model analysis when rawOutput is false', () => {
+    test('yields STEP for model analysis when what_to_summarize is provided', () => {
       const mockAgentState = createMockAgentState()
       const mockLogger = {
         debug: () => {},
@@ -202,7 +198,7 @@ describe('commander agent', () => {
       const generator = commander.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
-        params: { command: 'ls -la', rawOutput: false },
+        params: { command: 'ls -la', what_to_summarize: 'list of files' },
       })
 
       // First yield is the command
@@ -233,7 +229,7 @@ describe('commander agent', () => {
       const generator = commander.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
-        params: { command: 'echo test', rawOutput: true },
+        params: { command: 'echo test' },
       })
 
       // First yield is the command
@@ -266,7 +262,7 @@ describe('commander agent', () => {
       const generator = commander.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
-        params: { command: 'echo test', rawOutput: true },
+        params: { command: 'echo test' },
       })
 
       // First yield is the command

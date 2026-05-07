@@ -10,7 +10,7 @@ const baseDefinition = createCliAgent({
   startCommand: 'bun --cwd=cli run dev',
   permissionNote:
     'No permission flags needed for Codebuff local dev server.',
-  model: 'anthropic/claude-opus-4.6',
+  model: 'anthropic/claude-opus-4.7',
   skipPrepPhase: true,
   cliSpecificDocs: `## Codebuff CLI Specific Guidance
 

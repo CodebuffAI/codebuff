@@ -8,6 +8,7 @@ import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
+import { handleGravityIndex } from './tool/gravity-index'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleProposeStrReplace } from './tool/propose-str-replace'
@@ -15,6 +16,7 @@ import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleReadSubtree } from './tool/read-subtree'
+import { handleRenderUI } from './tool/render-ui'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
@@ -54,6 +56,7 @@ export const codebuffToolHandlers = {
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   glob: handleGlob,
+  gravity_index: handleGravityIndex,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
   propose_str_replace: handleProposeStrReplace,
@@ -61,6 +64,7 @@ export const codebuffToolHandlers = {
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_subtree: handleReadSubtree,
+  render_ui: handleRenderUI,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,

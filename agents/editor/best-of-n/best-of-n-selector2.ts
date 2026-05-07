@@ -16,7 +16,7 @@ export const createBestOfNSelector2 = (options: {
     model: isSonnet
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
-        ? 'anthropic/claude-opus-4.6'
+        ? 'anthropic/claude-opus-4.7'
         : 'openai/gpt-5.4',
     ...(isGpt5 && {
       reasoningOptions: {

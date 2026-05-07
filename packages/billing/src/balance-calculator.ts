@@ -170,6 +170,14 @@ export async function updateGrantBalance(params: {
 
 /**
  * Consumes credits from a list of ordered grants.
+ *
+ * **Side effect:** mutates `grants[].balance` in-memory to reflect
+ * post-consumption state. Callers must not reuse the array afterward
+ * expecting original balances.
+ *
+ * **Debt model:** consumption never repays existing debt. Debt is only
+ * cleared in `grant-credits.ts` (`executeGrantCreditOperation`) when
+ * new credits are added. This function only deepens debt on overflow.
  */
 export async function consumeFromOrderedGrants(
   params: {
@@ -188,30 +196,9 @@ export async function consumeFromOrderedGrants(
   let consumed = 0
   let fromPurchased = 0
 
-  // First pass: try to repay any debt
-  for (const grant of grants) {
-    if (grant.balance < 0 && remainingToConsume > 0) {
-      const debtAmount = Math.abs(grant.balance)
-      const repayAmount = Math.min(debtAmount, remainingToConsume)
-      const newBalance = grant.balance + repayAmount
-      remainingToConsume -= repayAmount
-      consumed += repayAmount
-
-      await updateGrantBalance({
-        ...params,
-        grant,
-        consumed: -repayAmount,
-        newBalance,
-      })
-
-      logger.debug(
-        { userId, grantId: grant.operation_id, repayAmount, newBalance },
-        'Repaid debt in grant',
-      )
-    }
-  }
-
-  // Second pass: consume from positive balances
+  // Consume from positive balances in priority order.
+  // NOTE: debt grants (balance < 0) are skipped. Consumption never repays
+  // debt; that only happens via grant-credits.ts when new credits arrive.
   for (const grant of grants) {
     if (remainingToConsume <= 0) break
     if (grant.balance <= 0) continue
@@ -232,33 +219,39 @@ export async function consumeFromOrderedGrants(
       consumed: consumeFromThisGrant,
       newBalance,
     })
+
+    // Mutate in-memory balance so the overflow check below sees
+    // post-consumption state (not the stale original value).
+    grant.balance = newBalance
   }
 
-  // If we still have remaining to consume and no grants left, create debt in the last grant
+  // If we still have remaining to consume, create or extend debt on the
+  // last grant. After the loop above all positive-balance grants are drained.
+  // The "last grant" (lowest consumption priority, typically a subscription
+  // grant that renews monthly) absorbs the overflow as debt.
   if (remainingToConsume > 0 && grants.length > 0) {
     const lastGrant = grants[grants.length - 1]
+    const newBalance = lastGrant.balance - remainingToConsume
 
-    if (lastGrant.balance <= 0) {
-      const newBalance = lastGrant.balance - remainingToConsume
-      await updateGrantBalance({
-        ...params,
-        grant: lastGrant,
+    await updateGrantBalance({
+      ...params,
+      grant: lastGrant,
+      consumed: remainingToConsume,
+      newBalance,
+    })
+    consumed += remainingToConsume
+    lastGrant.balance = newBalance
+
+    logger.warn(
+      {
+        userId,
+        grantId: lastGrant.operation_id,
+        requested: remainingToConsume,
         consumed: remainingToConsume,
-        newBalance,
-      })
-      consumed += remainingToConsume
-
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: remainingToConsume,
-          newDebt: Math.abs(newBalance),
-        },
-        'Created new debt in grant',
-      )
-    }
+        newDebt: Math.abs(newBalance),
+      },
+      'Created/extended debt in grant',
+    )
   }
 
   return { consumed, fromPurchased }
@@ -570,7 +563,18 @@ export async function consumeCreditsAndAddAgentStep(params: {
   const finishedAt = new Date()
   const latencyMs = finishedAt.getTime() - startTime.getTime()
 
-  // Track grant state for error logging (declared outside transaction for access in catch block)
+  // Test sentinel: short-circuit both credit consumption and the message
+  // insert. Matches prior behavior so agent-runtime unit tests that use this
+  // sentinel as userId don't hit the DB.
+  if (userId === TEST_USER_ID) {
+    return success({
+      consumed: 0,
+      fromPurchased: 0,
+      agentStepId: 'test-step-id',
+    })
+  }
+
+  // Track grant state for error logging
   let activeGrantsSnapshot: Array<{
     operation_id: string
     balance: number
@@ -578,170 +582,86 @@ export async function consumeCreditsAndAddAgentStep(params: {
     priority: number
     expires_at: Date | null
   }> = []
-  let phase: 'fetch_grants' | 'consume_credits' | 'insert_message' | 'complete' =
-    'fetch_grants'
+  let phase: 'fetch_grants' | 'consume_credits' | 'complete' = 'fetch_grants'
+
+  // Billing transaction. Isolated from the message insert below so that a
+  // billing failure never prevents us from recording that OpenRouter was paid.
+  // OR bills us the moment the upstream request completes; the audit row must
+  // exist regardless of whether we successfully charged the user.
+  let consumeResult: CreditConsumptionResult | null = null
+  let billingError: unknown = null
+  let lockWaitMs: number | undefined
+  let alreadyRecorded = false
 
   try {
-    const { result, lockWaitMs } = await withAdvisoryLockTransaction({
-      callback: async (tx) => {
-        // Reset state at start of each transaction attempt (in case of retries)
+    const txOut = await withAdvisoryLockTransaction({
+      callback: async (tx): Promise<CreditConsumptionResult | null> => {
         activeGrantsSnapshot = []
         phase = 'fetch_grants'
 
+        if (byok) return null
+
+        // Idempotency: if we've already recorded this messageId (e.g. a retry
+        // of the exact same upstream call), skip credit consumption. The
+        // advisory lock is keyed by userId so this check is serialized per
+        // user. messageId is globally unique in practice (OR generation id).
+        const existing = await tx
+          .select({ id: schema.message.id })
+          .from(schema.message)
+          .where(eq(schema.message.id, messageId))
+          .limit(1)
+        if (existing.length > 0) {
+          alreadyRecorded = true
+          return null
+        }
+
         const now = new Date()
+        const activeGrants = await getOrderedActiveGrantsForConsumption({
+          ...params,
+          now,
+          conn: tx,
+        })
 
-        let consumeResult: CreditConsumptionResult | null = null
-        consumeCredits: {
-          if (byok) {
-            break consumeCredits
-          }
+        activeGrantsSnapshot = activeGrants.map((g) => ({
+          operation_id: g.operation_id,
+          balance: g.balance,
+          type: g.type,
+          priority: g.priority,
+          expires_at: g.expires_at,
+        }))
 
-          const activeGrants = await getOrderedActiveGrantsForConsumption({
-            ...params,
-            now,
-            conn: tx,
-          })
-
-          // Capture grant snapshot for error logging (includes expires_at for timing issues)
-          activeGrantsSnapshot = activeGrants.map((g) => ({
-            operation_id: g.operation_id,
-            balance: g.balance,
-            type: g.type,
-            priority: g.priority,
-            expires_at: g.expires_at,
-          }))
-
-          if (activeGrants.length === 0) {
-            logger.error(
-              { userId, credits },
-              'No active grants found to consume credits from',
-            )
-            throw new Error('No active grants found')
-          }
-
-          phase = 'consume_credits'
-          consumeResult = await consumeFromOrderedGrants({
-            ...params,
-            creditsToConsume: credits,
-            grants: activeGrants,
-            tx,
-          })
-
-          if (userId === TEST_USER_ID) {
-            return { ...consumeResult, agentStepId: 'test-step-id' }
-          }
-        }
-
-        phase = 'insert_message'
-        try {
-          await tx.insert(schema.message).values({
-            id: messageId,
-            agent_id: agentId,
-            finished_at: new Date(),
-            client_id: clientId,
-            client_request_id: clientRequestId,
-            model,
-            reasoning_text: reasoningText,
-            response,
-            input_tokens: inputTokens,
-            cache_creation_input_tokens: cacheCreationInputTokens,
-            cache_read_input_tokens: cacheReadInputTokens,
-            reasoning_tokens: reasoningTokens,
-            output_tokens: outputTokens,
-            cost: cost.toString(),
-            credits,
-            byok,
-            latency_ms: latencyMs,
-            ttft_ms: ttftMs,
-            user_id: userId,
-          })
-        } catch (error) {
+        if (activeGrants.length === 0) {
+          // Non-fatal: user has no grants (not even a free one). Log loudly,
+          // let the message insert proceed so we at least have an audit row.
           logger.error(
-            {
-              messageId,
-              userId,
-              agentId,
-              error: getErrorObject(error),
-              pgDetails: extractPostgresErrorDetails(error),
-            },
-            'Failed to insert message',
+            { userId, credits, messageId },
+            'No active grants found to consume credits from',
           )
-          throw error
+          return null
         }
 
+        phase = 'consume_credits'
+        const result = await consumeFromOrderedGrants({
+          ...params,
+          creditsToConsume: credits,
+          grants: activeGrants,
+          tx,
+        })
         phase = 'complete'
-        if (!consumeResult) {
-          consumeResult = {
-            consumed: 0,
-            fromPurchased: 0,
-          }
-        }
-        return { ...consumeResult, agentStepId: crypto.randomUUID() }
+        return result
       },
       lockKey: `user:${userId}`,
       context: { userId, credits },
       logger,
     })
-
-    // Log successful credit consumption with lock timing
-    logger.info(
-      {
-        userId,
-        messageId,
-        creditsConsumed: result.consumed,
-        creditsRequested: credits,
-        fromPurchased: result.fromPurchased,
-        lockWaitMs,
-        agentId,
-        model,
-      },
-      'Credits consumed and agent step recorded',
-    )
-
-    // Track credit consumption analytics
-    trackEvent({
-      event: AnalyticsEvent.CREDIT_CONSUMED,
-      userId,
-      properties: {
-        creditsConsumed: result.consumed,
-        creditsRequested: credits,
-        fromPurchased: result.fromPurchased,
-        messageId,
-        agentId,
-        model,
-        source: 'consumeCreditsAndAddAgentStep',
-        inputTokens,
-        outputTokens,
-        reasoningTokens: reasoningTokens ?? 0,
-        cacheReadInputTokens,
-        latencyMs,
-        byok,
-      },
-      logger,
-    })
-
-    await reportPurchasedCreditsToStripe({
-      userId,
-      stripeCustomerId: params.stripeCustomerId,
-      purchasedCredits: result.fromPurchased,
-      logger,
-      eventId: messageId,
-      timestamp: finishedAt,
-      extraPayload: {
-        source: 'consumeCreditsAndAddAgentStep',
-        message_id: messageId,
-      },
-    })
-
-    return success(result)
+    consumeResult = txOut.result
+    lockWaitMs = txOut.lockWaitMs
   } catch (error) {
-    // Extract detailed error information for debugging
-    const pgDetails = extractPostgresErrorDetails(error)
-
+    billingError = error
     logger.error(
       {
         error: getErrorObject(error),
-        pgDetails,
+        pgDetails: extractPostgresErrorDetails(error),
         transactionContext: {
           phase,
           userId,
@@ -762,10 +682,125 @@ export async function consumeCreditsAndAddAgentStep(params: {
           0,
         ),
       },
-      'Error consuming credits and adding agent step',
+      'Error consuming credits; proceeding with message insert',
     )
-    return failure(error)
   }
+
+  // Idempotent replay: message row already exists. Skip the insert and the
+  // post-billing side effects (Stripe metering already fired on the first
+  // call; analytics were already emitted).
+  if (alreadyRecorded) {
+    logger.info(
+      { messageId, userId, agentId },
+      'Message already recorded; skipping duplicate consumeCreditsAndAddAgentStep',
+    )
+    return success({
+      consumed: 0,
+      fromPurchased: 0,
+      agentStepId: crypto.randomUUID(),
+    })
+  }
+
+  // Always record the message row. If billing failed, mark credits=0 so the
+  // audit row still exists — the row being absent is how OR costs leaked before.
+  const recordedCredits = billingError === null ? credits : 0
+
+  try {
+    await db
+      .insert(schema.message)
+      .values({
+        id: messageId,
+        agent_id: agentId,
+        finished_at: new Date(),
+        client_id: clientId,
+        client_request_id: clientRequestId,
+        model,
+        reasoning_text: reasoningText,
+        response,
+        input_tokens: inputTokens,
+        cache_creation_input_tokens: cacheCreationInputTokens,
+        cache_read_input_tokens: cacheReadInputTokens,
+        reasoning_tokens: reasoningTokens,
+        output_tokens: outputTokens,
+        cost: cost.toString(),
+        credits: recordedCredits,
+        byok,
+        latency_ms: latencyMs,
+        ttft_ms: ttftMs,
+        user_id: userId,
+      })
+      .onConflictDoNothing({ target: schema.message.id })
+  } catch (error) {
+    logger.error(
+      {
+        messageId,
+        userId,
+        agentId,
+        error: getErrorObject(error),
+        pgDetails: extractPostgresErrorDetails(error),
+      },
+      'Failed to insert message row',
+    )
+  }
+
+  if (billingError) {
+    return failure(billingError)
+  }
+
+  const finalResult: CreditConsumptionResult =
+    consumeResult ?? { consumed: 0, fromPurchased: 0 }
+
+  logger.info(
+    {
+      userId,
+      messageId,
+      creditsConsumed: finalResult.consumed,
+      creditsRequested: credits,
+      fromPurchased: finalResult.fromPurchased,
+      lockWaitMs,
+      agentId,
+      model,
+    },
+    'Credits consumed and agent step recorded',
+  )
+
+  trackEvent({
+    event: AnalyticsEvent.CREDIT_CONSUMED,
+    userId,
+    properties: {
+      creditsConsumed: finalResult.consumed,
+      creditsRequested: credits,
+      fromPurchased: finalResult.fromPurchased,
+      messageId,
+      agentId,
+      model,
+      source: 'consumeCreditsAndAddAgentStep',
+      inputTokens,
+      outputTokens,
+      reasoningTokens: reasoningTokens ?? 0,
+      cacheReadInputTokens,
+      latencyMs,
+      byok,
+    },
+    logger,
+  })
+
+  await reportPurchasedCreditsToStripe({
+    userId,
+    stripeCustomerId: params.stripeCustomerId,
+    purchasedCredits: finalResult.fromPurchased,
+    logger,
+    eventId: messageId,
+    timestamp: finishedAt,
+    extraPayload: {
+      source: 'consumeCreditsAndAddAgentStep',
+      message_id: messageId,
+    },
+  })
+
+  const agentStepId =
+    userId === TEST_USER_ID ? 'test-step-id' : crypto.randomUUID()
+  return success({ ...finalResult, agentStepId })
 }
 
 /**

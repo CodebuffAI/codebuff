@@ -44,9 +44,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
     loginStatus: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
     ) as CodebuffApiClient['loginStatus'],
-    referral: mock(() =>
-      Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['referral'],
     publish: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
     ) as CodebuffApiClient['publish'],

@@ -34,7 +34,7 @@ export interface MessageBlockCallbacks {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onBuildFree: () => void
+  onBuildLite: () => void
   onFeedback: (
     messageId: string,
     options?: {
@@ -88,7 +88,7 @@ const initialCallbacks: MessageBlockCallbacks = {
   onToggleCollapsed: noop,
   onBuildFast: noop,
   onBuildMax: noop,
-  onBuildFree: noop,
+  onBuildLite: noop,
   onFeedback: noopFeedback,
   onCloseFeedback: noop,
 }

@@ -276,7 +276,7 @@ function dispatchAction(
  * Integrates priority-based action resolution with handlers.
  *
  * This hook handles:
- * - Mode switching (bash, referral, etc.)
+ * - Mode switching (bash, etc.)
  * - Stream interruption
  * - Suggestion menu navigation (slash and mention menus)
  * - History navigation

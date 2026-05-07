@@ -4,7 +4,6 @@ import { fileExists } from '@codebuff/common/util/file'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
-
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
@@ -43,7 +42,6 @@ export async function changeFile(params: {
   if (containsPathTraversal(fileChange.path)) {
     throw new Error('file path contains invalid path traversal')
   }
-  const lines = fileChange.content.split('\n')
 
   const { created, modified, invalid, patchFailed } = await applyChanges({
     projectRoot: cwd,
@@ -56,16 +54,20 @@ export async function changeFile(params: {
   for (const file of created) {
     results.push({
       file,
-      message: 'Created new file',
-      unifiedDiff: lines.join('\n'),
+      message:
+        fileChange.type === 'patch'
+          ? 'String replace applied successfully.'
+          : 'Created file successfully.',
     })
   }
 
   for (const file of modified) {
     results.push({
       file,
-      message: 'Updated file',
-      unifiedDiff: lines.join('\n'),
+      message:
+        fileChange.type === 'patch'
+          ? 'String replace applied successfully.'
+          : 'Overwrote file successfully.',
     })
   }
 
@@ -73,7 +75,7 @@ export async function changeFile(params: {
     results.push({
       file,
       errorMessage: `Failed to apply patch.`,
-      patch: lines.join('\n'),
+      patch: fileChange.content,
     })
   }
 

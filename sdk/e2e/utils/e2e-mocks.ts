@@ -25,6 +25,7 @@ const MOCK_USER = {
   referral_code: null,
   stripe_customer_id: null,
   banned: false,
+  created_at: new Date('2024-01-01T00:00:00Z'),
 } as const
 
 function buildMockAgentTemplate(params: {

@@ -12,6 +12,7 @@ export type GetUserUsageDataFn = (params: {
     totalDebt: number
     netBalance: number
     breakdown: Record<string, number>
+    principals: Record<string, number>
   }
   nextQuotaReset: string
   autoTopupTriggered?: boolean

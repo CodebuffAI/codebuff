@@ -5,9 +5,7 @@ import editor, { createCodeEditor } from '../editor/editor'
 import type { AgentState, ToolCall } from '../types/agent-definition'
 
 describe('editor agent', () => {
-  const createMockAgentState = (
-    messageHistory: any[] = [],
-  ): AgentState => ({
+  const createMockAgentState = (messageHistory: any[] = []): AgentState => ({
     agentId: 'editor-test',
     runId: 'test-run',
     parentId: undefined,
@@ -28,7 +26,7 @@ describe('editor agent', () => {
     })
 
     test('uses opus model by default', () => {
-      expect(editor.model).toBe('anthropic/claude-opus-4.6')
+      expect(editor.model).toBe('anthropic/claude-opus-4.7')
     })
 
     test('has output mode set to structured_output', () => {
@@ -54,7 +52,7 @@ describe('editor agent', () => {
   describe('createCodeEditor', () => {
     test('creates opus editor by default', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
-      expect(opusEditor.model).toBe('anthropic/claude-opus-4.6')
+      expect(opusEditor.model).toBe('anthropic/claude-opus-4.7')
     })
 
     test('creates gpt-5 editor', () => {
@@ -62,9 +60,24 @@ describe('editor agent', () => {
       expect(gpt5Editor.model).toBe('openai/gpt-5.1')
     })
 
+    test('creates glm editor', () => {
+      const glmEditor = createCodeEditor({ model: 'glm' })
+      expect(glmEditor.model).toBe('z-ai/glm-5.1')
+    })
+
+    test('creates kimi editor', () => {
+      const kimiEditor = createCodeEditor({ model: 'kimi' })
+      expect(kimiEditor.model).toBe('moonshotai/kimi-k2.6')
+    })
+
+    test('creates deepseek editor', () => {
+      const deepseekEditor = createCodeEditor({ model: 'deepseek' })
+      expect(deepseekEditor.model).toBe('deepseek/deepseek-v4-pro')
+    })
+
     test('creates minimax editor', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
-      expect(minimaxEditor.model).toBe('minimax/minimax-m2.5')
+      expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
     })
 
     test('gpt-5 editor does not include think tags in instructions', () => {
@@ -74,6 +87,24 @@ describe('editor agent', () => {
     })
 
     test('glm editor does not include think tags in instructions', () => {
+      const glmEditor = createCodeEditor({ model: 'glm' })
+      expect(glmEditor.instructionsPrompt).not.toContain('<think>')
+      expect(glmEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('kimi editor does not include think tags in instructions', () => {
+      const kimiEditor = createCodeEditor({ model: 'kimi' })
+      expect(kimiEditor.instructionsPrompt).not.toContain('<think>')
+      expect(kimiEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('deepseek editor does not include think tags in instructions', () => {
+      const deepseekEditor = createCodeEditor({ model: 'deepseek' })
+      expect(deepseekEditor.instructionsPrompt).not.toContain('<think>')
+      expect(deepseekEditor.instructionsPrompt).not.toContain('</think>')
+    })
+
+    test('minimax editor does not include think tags in instructions', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
       expect(minimaxEditor.instructionsPrompt).not.toContain('<think>')
       expect(minimaxEditor.instructionsPrompt).not.toContain('</think>')
@@ -88,17 +119,17 @@ describe('editor agent', () => {
     test('all variants have same base properties', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
-      const minimaxEditor = createCodeEditor({ model: 'minimax' })
+      const glmEditor = createCodeEditor({ model: 'glm' })
 
       // All should have same basic structure
       expect(opusEditor.displayName).toBe(gpt5Editor.displayName)
-      expect(gpt5Editor.displayName).toBe(minimaxEditor.displayName)
+      expect(gpt5Editor.displayName).toBe(glmEditor.displayName)
 
       expect(opusEditor.outputMode).toBe(gpt5Editor.outputMode)
-      expect(gpt5Editor.outputMode).toBe(minimaxEditor.outputMode)
+      expect(gpt5Editor.outputMode).toBe(glmEditor.outputMode)
 
       expect(opusEditor.toolNames).toEqual(gpt5Editor.toolNames)
-      expect(gpt5Editor.toolNames).toEqual(minimaxEditor.toolNames)
+      expect(gpt5Editor.toolNames).toEqual(glmEditor.toolNames)
     })
   })
 
@@ -160,10 +191,10 @@ describe('editor agent', () => {
       ]
       const mockAgentState = createMockAgentState(initialMessages)
       const mockLogger = {
-        debug: () => { },
-        info: () => { },
-        warn: () => { },
-        error: () => { },
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
       }
 
       const generator = editor.handleSteps!({
@@ -183,10 +214,10 @@ describe('editor agent', () => {
       ]
       const mockAgentState = createMockAgentState(initialMessages)
       const mockLogger = {
-        debug: () => { },
-        info: () => { },
-        warn: () => { },
-        error: () => { },
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
       }
 
       const generator = editor.handleSteps!({
@@ -227,10 +258,10 @@ describe('editor agent', () => {
       ]
       const mockAgentState = createMockAgentState(initialMessages)
       const mockLogger = {
-        debug: () => { },
-        info: () => { },
-        warn: () => { },
-        error: () => { },
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
       }
 
       const generator = editor.handleSteps!({
@@ -260,7 +291,9 @@ describe('editor agent', () => {
         input: { output: { messages: any[] } }
       }
       expect(toolCall.input.output.messages).toHaveLength(3)
-      expect(toolCall.input.output.messages[0].content[0].text).toBe('Message 2')
+      expect(toolCall.input.output.messages[0].content[0].text).toBe(
+        'Message 2',
+      )
     })
 
     test('handleSteps can be serialized for sandbox execution', () => {
@@ -278,10 +311,10 @@ describe('editor agent', () => {
       const initialMessages: any[] = []
       const mockAgentState = createMockAgentState(initialMessages)
       const mockLogger = {
-        debug: () => { },
-        info: () => { },
-        warn: () => { },
-        error: () => { },
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
       }
 
       const generator = editor.handleSteps!({
@@ -292,7 +325,9 @@ describe('editor agent', () => {
 
       generator.next()
 
-      const newMessages = [{ role: 'assistant', content: [{ type: 'text', text: 'Done' }] }]
+      const newMessages = [
+        { role: 'assistant', content: [{ type: 'text', text: 'Done' }] },
+      ]
       const updatedState = createMockAgentState(newMessages)
 
       const result = generator.next({
@@ -305,7 +340,9 @@ describe('editor agent', () => {
         toolName: 'set_output',
         input: {
           output: {
-            messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Done' }] }],
+            messages: [
+              { role: 'assistant', content: [{ type: 'text', text: 'Done' }] },
+            ],
           },
         },
         includeToolCall: false,
@@ -315,10 +352,10 @@ describe('editor agent', () => {
     test('works with empty initial message history', () => {
       const mockAgentState = createMockAgentState([])
       const mockLogger = {
-        debug: () => { },
-        info: () => { },
-        warn: () => { },
-        error: () => { },
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
       }
 
       const generator = editor.handleSteps!({
@@ -330,7 +367,10 @@ describe('editor agent', () => {
       generator.next()
 
       const newMessages = [
-        { role: 'assistant', content: [{ type: 'text', text: 'First response' }] },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'First response' }],
+        },
       ]
       const updatedState = createMockAgentState(newMessages)
 

@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      checkout_ref:
+        description: 'Git ref to build from (commit SHA, branch, or tag). Defaults to latest main.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: cli-prod-release
@@ -80,7 +85,7 @@ jobs:
       binary-name: codebuff
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-package
-      checkout-ref: ${{ github.sha }}
+      checkout-ref: ${{ inputs.checkout_ref || github.sha }}
       env-overrides: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 

@@ -5,15 +5,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod/v4'
 
-import { redeemReferralCode } from './helpers'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
-
-import type { NextRequest } from 'next/server'
-
-import {
-  extractApiKeyFromHeader,
-  getUserIdFromSessionToken,
-} from '@/util/auth'
 
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
@@ -27,10 +19,8 @@ const ReferralSchema = z.object({
 })
 
 export type ReferralData = {
-  referralCode: string
   referrals: Referral[]
   referredBy?: Referral
-  referralLimit: number
 }
 
 export async function GET() {
@@ -41,17 +31,6 @@ export async function GET() {
   }
 
   try {
-    const user = await db.query.user.findFirst({
-      where: eq(schema.user.id, session.user.id),
-    })
-
-    const referralCode = user?.referral_code
-    if (!referralCode) {
-      throw new Error(
-        `No referral code found for user with id ${session.user.id}`,
-      )
-    }
-
     // Who did this user refer?
     const referralsQuery = db
       .select({
@@ -103,7 +82,6 @@ export async function GET() {
       })
 
     const referralData: ReferralData = {
-      referralCode,
       referrals: referrals.reduce((acc, referral) => {
         const result = ReferralSchema.safeParse(referral)
         if (result.success) {
@@ -112,7 +90,6 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
-      referralLimit: user.referral_limit,
     }
 
     return NextResponse.json(referralData)
@@ -123,60 +100,4 @@ export async function GET() {
       { status: 500 },
     )
   }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // First try to get the session (web flow)
-    const session = await getServerSession(authOptions)
-    if (session?.user?.id) {
-      const { referralCode } = await request.json()
-      if (!referralCode) {
-        return NextResponse.json(
-          { error: 'Missing referral code' },
-          { status: 400 },
-        )
-      }
-      return redeemReferralCode(referralCode, session.user.id)
-    }
-  } catch (error) {
-    console.error('Error processing referral:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    )
-  }
-
-  // Fall back to auth token (CLI flow)
-  // Prefer Authorization header, fall back to body authToken for backwards compatibility
-  const reqJson = await request.json()
-  const parsedJson = z
-    .object({
-      referralCode: z.string(),
-      // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
-      // New clients should use the Authorization header instead.
-      authToken: z.string().optional(),
-    })
-    .safeParse(reqJson)
-
-  if (!parsedJson.success) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
-
-  const { referralCode, authToken: bodyAuthToken } = parsedJson.data
-
-  // Prefer Authorization header, fall back to body authToken for backwards compatibility
-  const authToken = extractApiKeyFromHeader(request) ?? bodyAuthToken
-
-  if (!authToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const userId = await getUserIdFromSessionToken(authToken)
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  return redeemReferralCode(referralCode, userId)
 }

@@ -8,11 +8,8 @@ function getExplicitlyDefinedModels(): Set<string> {
   if (explicitlyDefinedModels === null) {
     // NOTE: Inline require() avoids circular dependency - old-constants imports this
     // module, so a top-level import would create a circular reference
-    const { models, shouldCacheModels } = require('../old-constants')
-    explicitlyDefinedModels = new Set([
-      ...(Object.values(models) as string[]),
-      ...(Object.values(shouldCacheModels) as string[]),
-    ])
+    const { models } = require('../old-constants')
+    explicitlyDefinedModels = new Set(Object.values(models) as string[])
   }
   return explicitlyDefinedModels
 }

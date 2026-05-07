@@ -1,10 +1,7 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import {
   getChatGptOAuthCredentials,
-  getClaudeOAuthCredentials,
   getValidChatGptOAuthCredentials,
-  getValidClaudeOAuthCredentials,
 } from '@codebuff/sdk'
 import { enableMapSet } from 'immer'
 
@@ -13,6 +10,7 @@ import { setProjectRoot } from '../project-files'
 import { initTimestampFormatter } from '../utils/helpers'
 import { enableManualThemeRefresh } from '../utils/theme-system'
 import { initAnalytics } from '../utils/analytics'
+import { getFingerprintId } from '../utils/fingerprint'
 import { initializeDirenv } from './init-direnv'
 
 export async function initializeApp(params: { cwd?: string }): Promise<void> {
@@ -38,18 +36,11 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   enableManualThemeRefresh()
   initTimestampFormatter()
 
-  // Refresh Claude OAuth credentials in the background if they exist
-  // This ensures the subscription status is up-to-date on startup
-  if (CLAUDE_OAUTH_ENABLED) {
-    const claudeCredentials = getClaudeOAuthCredentials()
-    if (claudeCredentials) {
-      getValidClaudeOAuthCredentials().catch((error) => {
-        // Log refresh errors at debug level - will be retried on next API call
-        console.debug('Failed to refresh Claude OAuth credentials:', error)
-      })
-    }
-  }
+  // Compute the hardware-based fingerprint in the background so it's ready
+  // by the time the user finishes reading the login prompt.
+  void getFingerprintId()
 
+  // Refresh ChatGPT OAuth credentials in the background if they exist
   if (CHATGPT_OAUTH_ENABLED) {
     const chatGptCredentials = getChatGptOAuthCredentials()
     if (chatGptCredentials) {
