@@ -1,7 +1,9 @@
 import { createBase2 } from './base2'
 
 const definition = {
-  ...createBase2('free'),
+  ...createBase2('free', {
+    freeCodeReviewerAgentId: 'code-reviewer-minimax',
+  }),
   id: 'base2-free',
   displayName: 'Buffy the Free Orchestrator',
 }

@@ -10,82 +10,14 @@ import {
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
-import { FREE_MODE_AGENT_MODELS } from '@codebuff/common/constants/free-agents'
-import {
-  FREEBUFF_GEMINI_THINKER_AGENT_ID,
-  FREEBUFF_GEMINI_THINKER_PROMPT_LINES,
-} from '@codebuff/common/constants/freebuff-gemini-thinker'
-import {
-  canFreebuffModelSpawnGeminiThinker,
-  FREEBUFF_MODELS,
-} from '@codebuff/common/constants/freebuff-models'
-
 import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
-import { AGENT_MODE_TO_ID, IS_FREEBUFF, type AgentMode } from './constants'
+import { IS_FREEBUFF, type AgentMode } from './constants'
+import { getAgentIdForMode } from './freebuff-agent-selection'
 import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-
-/** Agents whose hardcoded model gets swapped out for the user's currently
- *  selected freebuff model. Derived from the server's
- *  `FREE_MODE_AGENT_MODELS` — any agent whose allowlist contains every
- *  freebuff model is safe to retarget client-side without tripping the
- *  server's `free_mode_invalid_agent_model` rejection. */
-const FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS: ReadonlySet<string> = new Set(
-  Object.entries(FREE_MODE_AGENT_MODELS)
-    .filter(([, allowed]) => FREEBUFF_MODELS.every((m) => allowed.has(m.id)))
-    .map(([agentId]) => agentId),
-)
-const FREEBUFF_GEMINI_THINKER_PROMPT_LINE_SET = new Set<string>(
-  FREEBUFF_GEMINI_THINKER_PROMPT_LINES,
-)
-
-type ConfigurableFreebuffBaseAgent = {
-  id: string
-  spawnableAgents?: string[]
-  systemPrompt?: string
-  instructionsPrompt?: string
-  stepPrompt?: string
-}
-
-function stripFreebuffGeminiThinkerPrompt(prompt: string): string {
-  return prompt
-    .split('\n')
-    .filter((line) => !FREEBUFF_GEMINI_THINKER_PROMPT_LINE_SET.has(line.trim()))
-    .join('\n')
-}
-
-/** The bundled `base2-free` ships with the gemini-thinker spawnable + prompts
- *  so the smart freebuff models (Kimi, DeepSeek) can offload deeper reasoning.
- *  When the user picks a model that doesn't support gemini-thinker (e.g.
- *  MiniMax — fastest tier, extra round-trip would defeat that), strip the
- *  spawnable and the inlined prompt guidance so the agent doesn't try to call
- *  a tool we just removed. */
-export function configureFreebuffBaseAgentForModel(
-  def: ConfigurableFreebuffBaseAgent,
-  selectedModel: string,
-): void {
-  if (def.id !== 'base2-free') return
-  if (canFreebuffModelSpawnGeminiThinker(selectedModel)) return
-
-  const spawnableAgents = def.spawnableAgents ?? []
-  def.spawnableAgents = spawnableAgents.filter(
-    (agentId) => agentId !== FREEBUFF_GEMINI_THINKER_AGENT_ID,
-  )
-
-  for (const key of [
-    'systemPrompt',
-    'instructionsPrompt',
-    'stepPrompt',
-  ] as const) {
-    const prompt = def[key]
-    if (typeof prompt === 'string') {
-      def[key] = stripFreebuffGeminiThinkerPrompt(prompt)
-    }
-  }
-}
 
 // ============================================================================
 // Constants and types
@@ -329,18 +261,10 @@ export const loadLocalAgents = (
   // Filter bundled agents to only include subagents of the current mode's agent
   let filteredBundledAgents: LocalAgentInfo[]
   if (currentAgentMode) {
-    const currentAgentId = AGENT_MODE_TO_ID[currentAgentMode]
+    const currentAgentId = getAgentIdForMode(currentAgentMode)
     const currentAgentDef = bundledAgents[currentAgentId]
-      ? {
-          ...bundledAgents[currentAgentId],
-          spawnableAgents: [
-            ...(bundledAgents[currentAgentId].spawnableAgents ?? []),
-          ],
-        }
+      ? bundledAgents[currentAgentId]
       : undefined
-    if (selectedFreebuffModel && currentAgentDef) {
-      configureFreebuffBaseAgentForModel(currentAgentDef, selectedFreebuffModel)
-    }
     const spawnableAgentIds = new Set(currentAgentDef?.spawnableAgents ?? [])
 
     // Only include bundled agents that are in the spawnableAgents list
@@ -452,21 +376,6 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
           ...mcpServersCache,
         }
       }
-    }
-  }
-
-  // Override the model of free-mode agents to match the user's pick from the
-  // freebuff waiting room. Bundled definitions hardcode a free model; we swap in
-  // whatever the user chose so the chat-completions request body carries the
-  // matching model and the server-side session gate doesn't reject it as a
-  // model mismatch.
-  if (IS_FREEBUFF) {
-    const selectedModel = getSelectedFreebuffModel()
-    for (const def of definitions) {
-      if (FREEBUFF_MODEL_OVERRIDABLE_AGENT_IDS.has(def.id)) {
-        def.model = selectedModel
-      }
-      configureFreebuffBaseAgentForModel(def, selectedModel)
     }
   }
 

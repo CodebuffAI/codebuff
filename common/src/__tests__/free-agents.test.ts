@@ -1,13 +1,73 @@
 import { describe, expect, test } from 'bun:test'
 
-import { FREEBUFF_GEMINI_PRO_MODEL_ID } from '../constants/freebuff-models'
+import {
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
+} from '../constants/freebuff-models'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
+  getFreebuffRootAgentIdForModel,
   isFreebuffGeminiThinkerAgent,
   isFreeModeAllowedAgentModel,
 } from '../constants/free-agents'
 
 describe('free mode agent model allowlist', () => {
+  test('maps selectable freebuff models to concrete root agents', () => {
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
+      'base2-free',
+    )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
+      'base2-free-kimi',
+    )
+    expect(
+      getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
+    ).toBe('base2-free-deepseek')
+  })
+
+  test('allows each freebuff root agent only with its configured model', () => {
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_KIMI_MODEL_ID),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel('base2-free-kimi', FREEBUFF_KIMI_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-deepseek',
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+  })
+
+  test('allows each freebuff reviewer agent only with its configured model', () => {
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax',
+        FREEBUFF_KIMI_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-kimi', FREEBUFF_KIMI_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-deepseek',
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+  })
+
   test('allows the browser-use subagent with its bundled model', () => {
     expect(
       isFreeModeAllowedAgentModel(

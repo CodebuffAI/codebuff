@@ -156,23 +156,23 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           status: 'running',
         }
       }
-      if (runId === 'run-free-deepseek-v4') {
+      if (runId === 'run-free-deepseek') {
         return {
-          agent_id: 'base2-free-deepseek-v4',
+          agent_id: 'base2-free-deepseek',
           ancestor_run_ids: [],
           status: 'running',
         }
       }
       if (runId === 'run-reviewer-direct') {
         return {
-          agent_id: 'code-reviewer-lite',
+          agent_id: 'code-reviewer-minimax',
           ancestor_run_ids: [],
           status: 'running',
         }
       }
       if (runId === 'run-reviewer-child') {
         return {
-          agent_id: 'code-reviewer-lite',
+          agent_id: 'code-reviewer-minimax',
           ancestor_run_ids: ['run-free'],
           status: 'running',
         }
@@ -821,7 +821,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
               model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
               stream: false,
               codebuff_metadata: {
-                run_id: 'run-free-deepseek-v4',
+                run_id: 'run-free-deepseek',
                 client_id: 'test-client-id-123',
                 cost_mode: 'free',
               },
@@ -862,7 +862,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             model: FREEBUFF_GEMINI_PRO_MODEL_ID,
             stream: false,
             codebuff_metadata: {
-              run_id: 'run-free-deepseek-v4',
+              run_id: 'run-free-deepseek',
               client_id: 'test-client-id-123',
               cost_mode: 'free',
             },

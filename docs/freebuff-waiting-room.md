@@ -156,7 +156,7 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | Constant | Location | Default | Purpose |
 |---|---|---|---|
 | `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. Up to one user is admitted per model per tick. |
-| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `minimax-m2.7`, `glm-5.1` | Selectable models; each gets its own queue and admission slot. |
+| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7` | Selectable models; each gets its own queue and admission slot. |
 | `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | `glm-5.1` | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
 | `HEALTH_CACHE_TTL_MS` | `fireworks-health.ts` | 25000 | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit. |
 | `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
