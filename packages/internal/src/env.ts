@@ -5,14 +5,14 @@ import { serverEnvSchema, serverProcessEnv } from './env-schema'
 const isCI = process.env.CI === 'true' || process.env.CI === '1'
 const envInput = { ...serverProcessEnv }
 
-if (isCI) {
-  const ensureEnvDefault = (key: string, value: string) => {
-    if (!process.env[key]) {
-      process.env[key] = value
-    }
-    envInput[key as keyof typeof envInput] = process.env[key]
+const ensureEnvDefault = (key: keyof typeof envInput, value: string) => {
+  if (!process.env[key]) {
+    process.env[key] = value
   }
+  envInput[key] = process.env[key]
+}
 
+if (isCI) {
   ensureEnvDefault('OPEN_ROUTER_API_KEY', 'test')
   ensureEnvDefault('OPENAI_API_KEY', 'test')
   ensureEnvDefault('ANTHROPIC_API_KEY', 'test')

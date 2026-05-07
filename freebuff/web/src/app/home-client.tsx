@@ -26,7 +26,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'Pick DeepSeek V4 Pro (default and smartest, but its API collects data for training) or Kimi K2.6 (no data retention) as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'You can choose from DeepSeek V4 Pro, Kimi K2.6, and MiniMax M2.7.\n\nSession limits: DeepSeek and Kimi share 5 one-hour premium sessions per day. MiniMax has unlimited sessions.\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- MiniMax M2.7: fastest.\n\nGemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
