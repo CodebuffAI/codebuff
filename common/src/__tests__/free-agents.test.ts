@@ -47,12 +47,15 @@ describe('free mode agent model allowlist', () => {
   test('allows each freebuff reviewer agent only with its configured model', () => {
     expect(
       isFreeModeAllowedAgentModel(
-        'code-reviewer-lite',
+        'code-reviewer-minimax',
         FREEBUFF_MINIMAX_MODEL_ID,
       ),
     ).toBe(true)
     expect(
-      isFreeModeAllowedAgentModel('code-reviewer-lite', FREEBUFF_KIMI_MODEL_ID),
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax',
+        FREEBUFF_KIMI_MODEL_ID,
+      ),
     ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-kimi', FREEBUFF_KIMI_MODEL_ID),

@@ -28,7 +28,6 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free',
   'base2-free-kimi',
   'base2-free-deepseek',
-  'base2-free-deepseek-v4',
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
@@ -44,7 +43,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
 }
 
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-lite',
+  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
   [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
 }
@@ -66,7 +65,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free': new Set([FREEBUFF_MINIMAX_MODEL_ID, FREEBUFF_GLM_MODEL_ID]),
   'base2-free-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
-  'base2-free-deepseek-v4': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -87,7 +85,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'editor-lite': new Set(FREEBUFF_ALLOWED_MODEL_IDS),
 
   // Code reviewer for free mode
-  'code-reviewer-lite': new Set([
+  'code-reviewer-minimax': new Set([
     FREEBUFF_MINIMAX_MODEL_ID,
     FREEBUFF_GLM_MODEL_ID,
   ]),
