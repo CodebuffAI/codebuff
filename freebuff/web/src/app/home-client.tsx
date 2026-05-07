@@ -26,7 +26,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'You can choose from DeepSeek V4 Pro, Kimi K2.6, and MiniMax M2.7.\n\nSession limits: DeepSeek and Kimi share 5 one-hour premium sessions per day. MiniMax has unlimited sessions.\n\n- DeepSeek V4 Pro: premium and smartest. Its API collects data for training.\n- Kimi K2.6: premium and balanced.\n- MiniMax M2.7: fastest.\n\nGemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'You can choose from DeepSeek V4 Pro, Kimi K2.6, and MiniMax M2.7.\n\nSession limits: DeepSeek and Kimi share 5 one-hour premium sessions per day. MiniMax has unlimited sessions.\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- MiniMax M2.7: fastest.\n\nGemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
