@@ -68,6 +68,24 @@ describe('free mode agent model allowlist', () => {
     ).toBe(true)
   })
 
+  test('allows legacy code-reviewer-lite with freebuff reviewer models', () => {
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-lite',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-lite', FREEBUFF_KIMI_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-lite',
+        FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+  })
+
   test('allows the browser-use subagent with its bundled model', () => {
     expect(
       isFreeModeAllowedAgentModel(

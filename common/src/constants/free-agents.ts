@@ -88,6 +88,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   ]),
   'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
+  // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
+  // free roots before those reviewer IDs existed.
+  'code-reviewer-lite': new Set([
+    FREEBUFF_MINIMAX_MODEL_ID,
+    FREEBUFF_KIMI_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  ]),
 
   // Legacy: kept for the standalone gemini thinker agent if invoked directly.
   [FREEBUFF_GEMINI_THINKER_AGENT_ID]: new Set([FREEBUFF_GEMINI_PRO_MODEL_ID]),
