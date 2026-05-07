@@ -39,6 +39,9 @@ type OpenCodeEvent = {
     name?: string
     message?: string
     statusCode?: number
+    data?: {
+      message?: string
+    }
   }
   part?: {
     id?: string
@@ -52,6 +55,16 @@ type OpenCodeEvent = {
     }
     cost?: number
   }
+}
+
+function formatOpenCodeError(error: OpenCodeEvent['error']): string {
+  const message =
+    error?.data?.message ||
+    error?.message ||
+    error?.name ||
+    'OpenCode emitted an error event.'
+
+  return error?.statusCode ? `${message} (status ${error.statusCode})` : message
 }
 
 export class OpenCodeRunner implements Runner {
@@ -100,13 +113,7 @@ export class OpenCodeRunner implements Runner {
 
       const processEvent = (event: OpenCodeEvent) => {
         if (event.type === 'error') {
-          const message =
-            event.error?.message ||
-            event.error?.name ||
-            'OpenCode emitted an error event.'
-          openCodeError = event.error?.statusCode
-            ? `${message} (status ${event.error.statusCode})`
-            : message
+          openCodeError = formatOpenCodeError(event.error)
           steps.push({
             type: 'text',
             text: `[OpenCode error] ${openCodeError}`,
