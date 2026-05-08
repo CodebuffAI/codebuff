@@ -624,11 +624,17 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
 
     it('rejects free-mode requests when location is unknown', async () => {
+      // Use a TEST-NET-1 IP (RFC 5737) that geoip-lite cannot resolve, with
+      // no cf-ipcountry header. This avoids the dev-only localhost bypass
+      // (which kicks in when there is no cf-ipcountry AND no/loopback IP).
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
           method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-connecting-ip': '192.0.2.1',
+          },
           body: JSON.stringify({
             model: 'minimax/minimax-m2.7',
             stream: false,
@@ -658,7 +664,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.error).toBe('free_mode_unavailable')
       expect(body.countryCode).toBe('UNKNOWN')
-      expect(body.countryBlockReason).toBe('missing_client_ip')
+      expect(body.countryBlockReason).toBe('unresolved_client_ip')
     })
 
     it('rejects free-mode requests from anonymized Cloudflare country codes', async () => {
