@@ -56,12 +56,17 @@ const OPENCODE_ZEN_MODELS: Record<
   },
 }
 
+const OPENCODE_ZEN_MODEL_PREFIX = 'opencode/'
+
 export function isOpenCodeZenModel(model: string): boolean {
-  return model in OPENCODE_ZEN_MODELS
+  return model.startsWith(OPENCODE_ZEN_MODEL_PREFIX)
 }
 
 function getOpenCodeZenModelId(model: string): string {
-  return OPENCODE_ZEN_MODELS[model]?.opencodeId ?? model
+  return (
+    OPENCODE_ZEN_MODELS[model]?.opencodeId ??
+    model.slice(OPENCODE_ZEN_MODEL_PREFIX.length)
+  )
 }
 
 function getOpenCodeZenPricing(model: string): OpenCodeZenPricing {

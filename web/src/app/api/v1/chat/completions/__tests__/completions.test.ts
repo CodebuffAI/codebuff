@@ -854,15 +854,44 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'rejects OpenCode Zen models while the Zen integration is disabled',
+      'routes opencode/-prefixed models to the OpenCode Zen provider',
       async () => {
-        const fetchViaOpenCodeZen = mock(
-          async (_url: string | URL | Request, _init?: RequestInit) => {
-            throw new Error('OpenCode Zen should not be called')
-          },
-        ) as unknown as typeof globalThis.fetch
+        const expectedUpstreamModel: Record<string, string> = {
+          'opencode/minimax-m2.7': 'minimax-m2.7',
+          'opencode/kimi-k2.6': 'kimi-k2.6',
+        }
 
         for (const codebuffModel of Object.values(openCodeZenModels)) {
+          const fetchedBodies: Record<string, unknown>[] = []
+          const fetchedUrls: string[] = []
+          const fetchViaOpenCodeZen = mock(
+            async (url: string | URL | Request, init?: RequestInit) => {
+              if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+                return Response.json({})
+              }
+
+              fetchedUrls.push(String(url))
+              fetchedBodies.push(JSON.parse(init?.body as string))
+              return new Response(
+                JSON.stringify({
+                  id: 'test-id',
+                  model: expectedUpstreamModel[codebuffModel],
+                  choices: [{ message: { content: 'test response' } }],
+                  usage: {
+                    prompt_tokens: 10,
+                    prompt_tokens_details: { cached_tokens: 4 },
+                    completion_tokens: 20,
+                    total_tokens: 30,
+                  },
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              )
+            },
+          ) as unknown as typeof globalThis.fetch
+
           const req = new NextRequest(
             'http://localhost:3000/api/v1/chat/completions',
             {
@@ -921,13 +950,16 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           })
 
           const body = await response.json()
-          expect(response.status).toBe(400)
-          expect(body).toEqual({
-            error: 'opencode_zen_disabled',
-            message: 'OpenCode Zen models are currently disabled.',
-          })
+          expect(response.status).toBe(200)
+          expect(fetchedUrls[0]).toBe(
+            'https://opencode.ai/zen/v1/chat/completions',
+          )
+          expect(fetchedBodies[0].model).toBe(
+            expectedUpstreamModel[codebuffModel],
+          )
+          expect(body.model).toBe(codebuffModel)
+          expect(body.provider).toBe('OpenCode Zen')
         }
-        expect(fetchViaOpenCodeZen).not.toHaveBeenCalled()
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

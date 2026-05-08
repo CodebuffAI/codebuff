@@ -55,7 +55,12 @@ import {
   handleDeepSeekStream,
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
-import { isOpenCodeZenModel } from '@/llm-api/opencode-zen'
+import {
+  OpenCodeZenError,
+  handleOpenCodeZenNonStream,
+  handleOpenCodeZenStream,
+  isOpenCodeZenModel,
+} from '@/llm-api/opencode-zen'
 import {
   SiliconFlowError,
   handleSiliconFlowNonStream,
@@ -378,25 +383,6 @@ export async function postChatCompletions(params: {
       )
     }
 
-    if (isOpenCodeZenModel(typedBody.model)) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
-        userId,
-        properties: {
-          error: 'opencode_zen_disabled',
-          model: typedBody.model,
-        },
-        logger,
-      })
-      return NextResponse.json(
-        {
-          error: 'opencode_zen_disabled',
-          message: 'OpenCode Zen models are currently disabled.',
-        },
-        { status: 400 },
-      )
-    }
-
     // Free-mode requests must use an allowlisted agent+model combination.
     // Without this gate, an attacker on a brand-new unpaid account can set
     // cost_mode='free' to bypass both the paid-account check and the balance
@@ -629,75 +615,49 @@ export async function postChatCompletions(params: {
       if (bodyStream) {
         // Streaming request — route supported models to direct providers.
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
-        const useCanopyWave = isCanopyWaveModel(typedBody.model)
-        const useDeepSeek = !useCanopyWave && isDeepSeekModel(typedBody.model)
+        const useOpenCodeZen = isOpenCodeZenModel(typedBody.model)
+        const useCanopyWave =
+          !useOpenCodeZen && isCanopyWaveModel(typedBody.model)
+        const useDeepSeek =
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          isDeepSeekModel(typedBody.model)
         const useFireworks =
-          !useCanopyWave && !useDeepSeek && isFireworksModel(typedBody.model)
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isFireworksModel(typedBody.model)
         const useOpenAIDirect =
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
           !useFireworks &&
           isOpenAIDirectModel(typedBody.model)
+        const baseArgs = {
+          body: typedBody,
+          userId,
+          stripeCustomerId,
+          agentId,
+          fetch,
+          logger,
+          insertMessageBigquery,
+        }
         const stream = useSiliconFlow
-          ? await handleSiliconFlowStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
-          : useCanopyWave
-            ? await handleCanopyWaveStream({
-                body: typedBody,
-                userId,
-                stripeCustomerId,
-                agentId,
-                fetch,
-                logger,
-                insertMessageBigquery,
-              })
-            : useDeepSeek
-              ? await handleDeepSeekStream({
-                  body: typedBody,
-                  userId,
-                  stripeCustomerId,
-                  agentId,
-                  fetch,
-                  logger,
-                  insertMessageBigquery,
-                })
-              : useFireworks
-                ? await handleFireworksStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
-                : useOpenAIDirect
-                  ? await handleOpenAIStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
-                  : await handleOpenRouterStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      openrouterApiKey,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
+          ? await handleSiliconFlowStream(baseArgs)
+          : useOpenCodeZen
+            ? await handleOpenCodeZenStream(baseArgs)
+            : useCanopyWave
+              ? await handleCanopyWaveStream(baseArgs)
+              : useDeepSeek
+                ? await handleDeepSeekStream(baseArgs)
+                : useFireworks
+                  ? await handleFireworksStream(baseArgs)
+                  : useOpenAIDirect
+                    ? await handleOpenAIStream(baseArgs)
+                    : await handleOpenRouterStream({
+                        ...baseArgs,
+                        openrouterApiKey,
+                      })
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -718,79 +678,50 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Non-streaming request — route to direct providers for supported models
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
-        const useCanopyWave = isCanopyWaveModel(model)
-        const useDeepSeek = !useCanopyWave && isDeepSeekModel(model)
+        const useOpenCodeZen = isOpenCodeZenModel(model)
+        const useCanopyWave = !useOpenCodeZen && isCanopyWaveModel(model)
+        const useDeepSeek =
+          !useOpenCodeZen && !useCanopyWave && isDeepSeekModel(model)
         const useFireworks =
-          !useCanopyWave && !useDeepSeek && isFireworksModel(model)
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
           !useFireworks &&
           isOpenAIDirectModel(model)
 
+        const baseArgs = {
+          body: typedBody,
+          userId,
+          stripeCustomerId,
+          agentId,
+          fetch,
+          logger,
+          insertMessageBigquery,
+        }
         const nonStreamRequest = useSiliconFlow
-          ? handleSiliconFlowNonStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
-          : useCanopyWave
-            ? handleCanopyWaveNonStream({
-                body: typedBody,
-                userId,
-                stripeCustomerId,
-                agentId,
-                fetch,
-                logger,
-                insertMessageBigquery,
-              })
-            : useDeepSeek
-              ? handleDeepSeekNonStream({
-                  body: typedBody,
-                  userId,
-                  stripeCustomerId,
-                  agentId,
-                  fetch,
-                  logger,
-                  insertMessageBigquery,
-                })
-              : useFireworks
-                ? handleFireworksNonStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
-                : shouldUseOpenAIEndpoint
-                  ? handleOpenAINonStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
-                  : handleOpenRouterNonStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      openrouterApiKey,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
+          ? handleSiliconFlowNonStream(baseArgs)
+          : useOpenCodeZen
+            ? handleOpenCodeZenNonStream(baseArgs)
+            : useCanopyWave
+              ? handleCanopyWaveNonStream(baseArgs)
+              : useDeepSeek
+                ? handleDeepSeekNonStream(baseArgs)
+                : useFireworks
+                  ? handleFireworksNonStream(baseArgs)
+                  : shouldUseOpenAIEndpoint
+                    ? handleOpenAINonStream(baseArgs)
+                    : handleOpenRouterNonStream({
+                        ...baseArgs,
+                        openrouterApiKey,
+                      })
         const result = await nonStreamRequest
 
         trackEvent({
@@ -831,20 +762,26 @@ export async function postChatCompletions(params: {
       if (error instanceof OpenAIError) {
         openaiError = error
       }
+      let opencodeZenError: OpenCodeZenError | undefined
+      if (error instanceof OpenCodeZenError) {
+        opencodeZenError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
       const providerLabel = siliconflowError
         ? 'SiliconFlow'
-        : canopywaveError
-          ? 'CanopyWave'
-          : deepseekError
-            ? 'DeepSeek'
-            : fireworksError
-              ? 'Fireworks'
-              : openaiError
-                ? 'OpenAI'
-                : 'OpenRouter'
+        : opencodeZenError
+          ? 'OpenCode Zen'
+          : canopywaveError
+            ? 'CanopyWave'
+            : deepseekError
+              ? 'DeepSeek'
+              : fireworksError
+                ? 'Fireworks'
+                : openaiError
+                  ? 'OpenAI'
+                  : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -864,7 +801,8 @@ export async function postChatCompletions(params: {
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
-            openaiError
+            openaiError ??
+            opencodeZenError
           )?.statusCode,
           providerStatusText: (
             openrouterError ??
@@ -872,7 +810,8 @@ export async function postChatCompletions(params: {
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
-            openaiError
+            openaiError ??
+            opencodeZenError
           )?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
@@ -911,6 +850,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof OpenAIError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof OpenCodeZenError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 
