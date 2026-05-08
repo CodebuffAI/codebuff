@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -55,6 +57,15 @@ export async function POST(req: Request) {
       )
     }
 
+    const authCode = `${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    const loginToken = randomBytes(32).toString('base64url')
+
+    await db.insert(schema.verificationToken).values({
+      identifier: `cli-login:${loginToken}`,
+      token: authCode,
+      expires: new Date(expiresAt),
+    })
+
     const loginUrl = new URL(
       '/login',
       getLoginUrlOrigin(
@@ -64,10 +75,7 @@ export async function POST(req: Request) {
         env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod',
       ),
     )
-    loginUrl.searchParams.set(
-      'auth_code',
-      `${fingerprintId}.${expiresAt}.${fingerprintHash}`,
-    )
+    loginUrl.searchParams.set('auth_code', loginToken)
 
     return NextResponse.json({
       fingerprintId,

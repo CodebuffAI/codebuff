@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import {
   checkFingerprintConflict,
   createCliSession,
+  getCliAuthCodeForToken,
   getSessionTokenFromCookies,
   hasCliSessionForAuthHash,
 } from './_db'
@@ -48,7 +49,9 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const { fingerprintId, expiresAt, receivedHash } = parseAuthCode(authCode)
+  const resolvedAuthCode = (await getCliAuthCodeForToken(authCode)) ?? authCode
+  const { fingerprintId, expiresAt, receivedHash } =
+    parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(
     receivedHash,
     fingerprintId,
