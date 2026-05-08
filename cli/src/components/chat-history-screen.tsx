@@ -25,7 +25,7 @@ const LAYOUT = {
   MAX_RENDERED_CHATS: 100, // Only render this many in the list
   TIME_COL_WIDTH: 12, // e.g., "2 hours ago"
   MSGS_COL_WIDTH: 8, // e.g., "99 msgs"
-  DELETE_COL_WIDTH: 8, // e.g., " Delete "
+  DELETE_COL_WIDTH: 6, // e.g., "[×]" + marginRight
   GAP_WIDTH: 3, // gap between columns
 } as const
 
@@ -71,13 +71,15 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
   }, [])
 
   // Calculate available width for the prompt text (last column, variable width)
-  // Format: "[time]   [msgs]   [prompt...] [Delete]"
+  // Format: "[time]   [msgs]   [prompt...] [×]"
+  // reservedWidth accounts for: time col, msgs col, delete button area,
+  // 2 gaps between columns, list border (2), scrollbar (1), and button padding (2)
   const reservedWidth =
     LAYOUT.TIME_COL_WIDTH +
     LAYOUT.MSGS_COL_WIDTH +
     LAYOUT.DELETE_COL_WIDTH +
     LAYOUT.GAP_WIDTH * 2 +
-    2 // +2 for padding
+    5 // border + scrollbar + button padding
   const maxPromptWidth = Math.max(20, contentWidth - reservedWidth)
 
   // Truncate text to fit single line
@@ -89,8 +91,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
 
   // Pad text to fixed width (right-pad with spaces)
   const padRight = (text: string, width: number): string => {
-    if (text.length >= width) return text.slice(0, width)
-    return text + ' '.repeat(width - text.length)
+    // Use Array.from to count code points so emoji/wide chars don't break padding
+    const len = Array.from(text).length
+    if (len >= width) return text
+    return text + ' '.repeat(width - len)
   }
 
   // Convert chats to SelectableListItem format with aligned columns
@@ -106,7 +110,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           `${chat.messageCount} msgs`,
           LAYOUT.MSGS_COL_WIDTH,
         )
-        const prompt = truncateText(chat.lastPrompt, maxPromptWidth)
+        const prompt = padRight(
+          truncateText(chat.lastPrompt, maxPromptWidth),
+          maxPromptWidth,
+        )
 
         return {
           id: chat.chatId,
@@ -290,7 +297,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             items={filteredItems.slice(0, LAYOUT.MAX_RENDERED_CHATS)}
             focusedIndex={focusedIndex}
             onSelect={handleChatSelect}
-            actionLabel="Delete"
+            actionLabel="[×]"
             onAction={handleChatDelete}
             onFocusChange={handleFocusChange}
             emptyMessage={
@@ -331,7 +338,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           {/* Help text */}
           <box style={{ flexGrow: 1, flexShrink: 1 }}>
             <text style={{ fg: theme.muted }}>
-              ↑↓ navigate · Enter select · Click Delete to remove · Esc cancel
+              ↑↓ navigate · Enter select · Click [×] to remove · Esc cancel
             </text>
             {statusMessage && (
               <text style={{ fg: theme.muted }}>

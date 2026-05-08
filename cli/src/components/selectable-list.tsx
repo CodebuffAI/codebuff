@@ -182,7 +182,6 @@ export const SelectableList = forwardRef<
                 style={{
                   flexDirection: 'row',
                   gap: 3,
-                  width: '100%',
                   flexGrow: 1,
                   flexShrink: 1,
                   paddingLeft: 1,
@@ -228,6 +227,7 @@ export const SelectableList = forwardRef<
                     paddingBottom: 0,
                     height: 1,
                     flexShrink: 0,
+                    marginRight: 1,
                   }}
                 >
                   <text
