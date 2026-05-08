@@ -7,6 +7,7 @@ import {
   FREEBUFF_GLM_MODEL_ID,
   isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
+import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
 import {
   checkFreeModeRateLimit,
@@ -848,6 +849,85 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(fetchedBodies[0].model).toBe('deepseek-v4-pro')
         expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
         expect(body.provider).toBe('DeepSeek')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'rejects OpenCode Zen models while the Zen integration is disabled',
+      async () => {
+        const fetchViaOpenCodeZen = mock(
+          async (_url: string | URL | Request, _init?: RequestInit) => {
+            throw new Error('OpenCode Zen should not be called')
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        for (const codebuffModel of Object.values(openCodeZenModels)) {
+          const req = new NextRequest(
+            'http://localhost:3000/api/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: {
+                Authorization: 'Bearer test-api-key-123',
+              },
+              body: JSON.stringify({
+                model: codebuffModel,
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'system prompt',
+                    cache_control: { type: 'ephemeral' },
+                  },
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'hello',
+                        cache_control: { type: 'ephemeral' },
+                      },
+                    ],
+                  },
+                ],
+                tools: [
+                  {
+                    id: 'tool_1',
+                    type: 'function',
+                    function: {
+                      name: 'read_files',
+                      parameters: { type: 'object' },
+                    },
+                  },
+                ],
+                stream: false,
+                codebuff_metadata: {
+                  run_id: 'run-123',
+                  client_id: 'test-client-id-123',
+                },
+              }),
+            },
+          )
+
+          const response = await postChatCompletions({
+            req,
+            getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+            logger: mockLogger,
+            trackEvent: mockTrackEvent,
+            getUserUsageData: mockGetUserUsageData,
+            getAgentRunFromId: mockGetAgentRunFromId,
+            fetch: fetchViaOpenCodeZen,
+            insertMessageBigquery: mockInsertMessageBigquery,
+            loggerWithContext: mockLoggerWithContext,
+          })
+
+          const body = await response.json()
+          expect(response.status).toBe(400)
+          expect(body).toEqual({
+            error: 'opencode_zen_disabled',
+            message: 'OpenCode Zen models are currently disabled.',
+          })
+        }
+        expect(fetchViaOpenCodeZen).not.toHaveBeenCalled()
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

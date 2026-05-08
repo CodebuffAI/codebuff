@@ -55,6 +55,7 @@ import {
   handleDeepSeekStream,
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
+import { isOpenCodeZenModel } from '@/llm-api/opencode-zen'
 import {
   SiliconFlowError,
   handleSiliconFlowNonStream,
@@ -373,6 +374,25 @@ export async function postChatCompletions(params: {
       })
       return NextResponse.json(
         { message: `runId Not Running: ${runIdFromBody}` },
+        { status: 400 },
+      )
+    }
+
+    if (isOpenCodeZenModel(typedBody.model)) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'opencode_zen_disabled',
+          model: typedBody.model,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'opencode_zen_disabled',
+          message: 'OpenCode Zen models are currently disabled.',
+        },
         { status: 400 },
       )
     }
