@@ -11,6 +11,7 @@ import {
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
 } from '@codebuff/common/constants/freebuff-models'
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 
 import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
@@ -127,10 +128,7 @@ export const FreebuffModelSelector: React.FC = () => {
   }, [now, selectedModel, session, setSelectedModel])
 
   const committedModelId = session?.status === 'queued' ? session.model : null
-  const rateLimitsByModel =
-    session && 'rateLimitsByModel' in session
-      ? session.rateLimitsByModel
-      : undefined
+  const rateLimitsByModel = getRateLimitsByModel(session)
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column

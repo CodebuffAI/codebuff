@@ -31,6 +31,20 @@ export type FreebuffSessionRateLimitByModel = Record<
   FreebuffSessionRateLimit
 >
 
+/** Pull the per-model premium quota snapshot off whichever session statuses
+ *  carry it (queued, active, ended, none). Returns undefined for terminal /
+ *  pre-join states that have no quota field. The parameter is intentionally
+ *  loose so the CLI can pass its `FreebuffSessionResponse` (which adds the
+ *  client-only `takeover_prompt` variant) without a discriminated-union
+ *  ceremony at every call site. */
+export const getRateLimitsByModel = (
+  session: { status: string } | null | undefined,
+): FreebuffSessionRateLimitByModel | undefined =>
+  session && 'rateLimitsByModel' in session
+    ? (session as { rateLimitsByModel?: FreebuffSessionRateLimitByModel })
+        .rateLimitsByModel
+    : undefined
+
 export type FreebuffCountryBlockReason =
   | 'country_not_allowed'
   | 'anonymized_or_unknown_country'
@@ -119,6 +133,10 @@ export type FreebuffSessionServerResponse =
       expiresAt?: string
       gracePeriodEndsAt?: string
       gracePeriodRemainingMs?: number
+      /** Snapshot of the user's premium-session quota at the moment the
+       *  session ended. Lets the post-session banner show "N of M premium
+       *  sessions used today" without an extra round-trip. */
+      rateLimitsByModel?: FreebuffSessionRateLimitByModel
     }
   | {
       /** Another CLI on the same account rotated our instance id. Polling

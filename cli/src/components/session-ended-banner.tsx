@@ -1,3 +1,4 @@
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
@@ -8,6 +9,8 @@ import {
   returnToFreebuffLanding,
 } from '../hooks/use-freebuff-session'
 import { useTheme } from '../hooks/use-theme'
+import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { formatSessionUnits } from '../utils/format-session-units'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
@@ -31,6 +34,19 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const [pendingAction, setPendingAction] = useState<
     'waiting-room' | 'same-chat' | null
   >(null)
+
+  // All premium models share one daily pool; the server replicates the same
+  // snapshot under each premium model id, so the first entry has the right
+  // count.
+  const premiumQuota = useFreebuffSessionStore(
+    (s) => Object.values(getRateLimitsByModel(s.session) ?? {})[0] ?? null,
+  )
+  const isQuotaExhausted = premiumQuota
+    ? premiumQuota.recentCount >= premiumQuota.limit
+    : false
+  const bannerTitle = premiumQuota
+    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} premium sessions used today`
+    : 'Session ended'
 
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
@@ -78,12 +94,15 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
 
   return (
     <box
-      title="Session ended"
+      title={bannerTitle}
       titleAlignment="center"
       style={{
         width: '100%',
         borderStyle: 'single',
-        borderColor: theme.muted,
+        // Amber border doubles as the "you've hit the cap" signal now that
+        // the quota count lives in the title (which can't carry per-char
+        // color); muted otherwise.
+        borderColor: isQuotaExhausted ? theme.secondary : theme.muted,
         customBorderChars: BORDER_CHARS,
         paddingLeft: 1,
         paddingRight: 1,
@@ -93,9 +112,6 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
         gap: 0,
       }}
     >
-      <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
-        Your freebuff session has ended.
-      </text>
       {isStreaming ? (
         <text style={{ fg: theme.muted, wrapMode: 'word' }}>
           Agent is wrapping up. Rejoin the wait room after it's finished.
@@ -115,7 +131,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
                 fg:
                   pendingAction === 'same-chat'
                     ? theme.muted
-                    : theme.primary,
+                    : theme.foreground,
               }}
               attributes={TextAttributes.BOLD}
             >
@@ -144,11 +160,14 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
                     ? theme.muted
                     : theme.foreground,
               }}
-              attributes={TextAttributes.BOLD}
             >
-              {pendingAction === 'waiting-room'
-                ? 'Opening model selection…'
-                : 'Change model (ESC)'}
+              {pendingAction === 'waiting-room' ? (
+                'Opening model selection…'
+              ) : (
+                <>
+                  Change model<span fg={theme.muted}>{'   Esc'}</span>
+                </>
+              )}
             </text>
           </Button>
         </box>

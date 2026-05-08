@@ -960,6 +960,38 @@ describe('getSessionState', () => {
     expect(state.gracePeriodRemainingMs).toBe(GRACE_MS - 60_000)
   })
 
+  test('ended view carries the full premium-quota snapshot', async () => {
+    // The post-session banner reads any entry from rateLimitsByModel since
+    // all premium models share one daily pool. Unlike queued/active, the
+    // ended view ships the full unfiltered map so a single banner read is
+    // always safe.
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = new Date(deps._now().getTime() - SESSION_LEN - 60_000)
+    row.expires_at = new Date(deps._now().getTime() - 60_000)
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      admitted_at: new Date(deps._now().getTime() - 30 * 60_000),
+    })
+
+    const state = await getSessionState({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+    if (state.status !== 'ended') throw new Error('unreachable')
+    expect(
+      state.rateLimitsByModel?.[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
+    ).toEqual(expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 1))
+    // Every premium model is present (sharing the same recentCount) so the
+    // banner can read any entry without caring which model the user was on.
+    expect(state.rateLimitsByModel?.[FREEBUFF_KIMI_MODEL_ID]).toEqual(
+      expectedRateLimit(FREEBUFF_KIMI_MODEL_ID, 1),
+    )
+  })
+
   test('row past grace window returns none', async () => {
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!

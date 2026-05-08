@@ -416,21 +416,31 @@ export async function requestSession(params: {
   return attachRateLimit(params.userId, view, deps)
 }
 
-/** Thread the current quota snapshot onto queued/active views so the CLI can
- *  render "N of M sessions used". Other statuses pass through unchanged.
- *  Called on both POST and GET so the line stays live across polls. */
+/** Thread the current quota snapshot onto queued/active/ended views so the
+ *  CLI can render "N of M sessions used" — both during the session and on
+ *  the post-session banner. Other statuses pass through unchanged. Called on
+ *  both POST and GET so the line stays live across polls. */
 async function attachRateLimit(
   userId: string,
   view: SessionStateResponse,
   deps: SessionDeps,
 ): Promise<SessionStateResponse> {
-  if (view.status !== 'queued' && view.status !== 'active') return view
-  if (view.status === 'active') {
-    const snapshot = await fetchRateLimitSnapshot(userId, view.model, deps)
-    return snapshot ? { ...view, rateLimit: snapshot.info } : view
+  if (
+    view.status !== 'queued' &&
+    view.status !== 'active' &&
+    view.status !== 'ended'
+  ) {
+    return view
   }
-
   const allRateLimitsByModel = await fetchRateLimitsByModel(userId, deps)
+  // The ended view doesn't carry a model id, so it gets the full snapshot
+  // unfiltered — the banner reads any entry's recentCount (they all share the
+  // same daily premium pool). Queued/active filter out unused models so the
+  // landing screen and waiting-room title don't list every premium model with
+  // a "0 used today" hint.
+  if (view.status === 'ended') {
+    return { ...view, rateLimitsByModel: allRateLimitsByModel }
+  }
   const rateLimit = allRateLimitsByModel[view.model]
   return {
     ...view,

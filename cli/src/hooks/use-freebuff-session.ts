@@ -3,6 +3,7 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   resolveFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
 import {
@@ -351,11 +352,16 @@ export function markFreebuffSessionCountryBlocked(params: {
 }
 
 /** Flip into the local `ended` state without an instanceId (server has lost
- *  our row). The chat surface stays mounted with the rejoin banner. */
+ *  our row). The chat surface stays mounted with the rejoin banner.
+ *  Preserves any `rateLimitsByModel` snapshot from the prior session so the
+ *  banner can show today's premium-session count without an extra fetch. */
 export function markFreebuffSessionEnded(): void {
   if (!IS_FREEBUFF) return
   controller?.abort()
-  controller?.apply({ status: 'ended' })
+  const rateLimitsByModel = getRateLimitsByModel(
+    useFreebuffSessionStore.getState().session,
+  )
+  controller?.apply({ status: 'ended', rateLimitsByModel })
 }
 
 interface UseFreebuffSessionResult {
@@ -508,12 +514,18 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // active|ended → none means we've passed the server's hard cutoff.
         // Synthesize a no-instanceId ended state so the chat surface stays
         // mounted with the Enter-to-rejoin banner instead of looping back
-        // through the waiting room.
+        // through the waiting room. Carry forward whichever rate-limit
+        // snapshot we have — preferring the fresh `none` snapshot, falling
+        // back to whatever was on the prior active/ended row — so the
+        // banner's "N of M used today" line stays populated.
         if (
           (previousStatus === 'active' || previousStatus === 'ended') &&
           next.status === 'none'
         ) {
-          apply({ status: 'ended' })
+          const rateLimitsByModel =
+            next.rateLimitsByModel ??
+            getRateLimitsByModel(useFreebuffSessionStore.getState().session)
+          apply({ status: 'ended', rateLimitsByModel })
           return
         }
 
