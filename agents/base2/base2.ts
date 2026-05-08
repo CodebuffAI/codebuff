@@ -5,6 +5,7 @@ import {
   FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
   FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
 } from '@codebuff/common/constants/freebuff-gemini-thinker'
+import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
 import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_MINIMAX_MODEL_ID,
@@ -24,7 +25,6 @@ export function createBase2(
     noAskUser?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
-    freeCodeReviewerAgentId?: string
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
@@ -33,7 +33,6 @@ export function createBase2(
     noAskUser = false,
     model: modelOverride,
     providerOptions,
-    freeCodeReviewerAgentId = 'code-reviewer-lite',
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -56,6 +55,8 @@ export function createBase2(
   // reasoning. Fast MiniMax omits the extra round trip by construction.
   const hasFreeGeminiThinker =
     isFree && canFreebuffModelSpawnGeminiThinker(model)
+  const freeCodeReviewerAgentId =
+    FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL[model] ?? 'code-reviewer-lite'
   const defaultProviderOptions = isFree
     ? {
         data_collection: 'deny' as const,

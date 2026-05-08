@@ -6,7 +6,6 @@ const definition = {
   ...createBase2('free', {
     noAskUser: true,
     model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    freeCodeReviewerAgentId: 'code-reviewer-deepseek',
   }),
   id: 'base2-free-deepseek',
   displayName: 'Buffy the DeepSeek Free Orchestrator',
