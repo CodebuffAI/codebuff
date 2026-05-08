@@ -103,6 +103,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       {
         authCodeLength: authCode.length,
+        dotCount: authCode.match(/\./g)?.length ?? 0,
+        hyphenCount: authCode.match(/-/g)?.length ?? 0,
         fingerprintIdPrefix: fingerprintId.slice(0, 24),
         fingerprintIdLength: fingerprintId.length,
         expiresAt,
