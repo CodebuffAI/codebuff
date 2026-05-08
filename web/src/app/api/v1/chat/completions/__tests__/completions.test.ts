@@ -1144,47 +1144,54 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('session_model_mismatch')
     })
 
-    it('requires an active session check for the Gemini thinker subagent', async () => {
-      const checkFreeModeRateLimitForTest = mock((userId: string) => {
-        expect(userId).toBe('user-new-free-gemini')
-        return { limited: false as const }
-      })
+    it(
+      'requires an active session check for the Gemini thinker subagent',
+      async () => {
+        const checkFreeModeRateLimitForTest = mock((userId: string) => {
+          expect(userId).toBe('user-new-free-gemini')
+          return { limited: false as const }
+        })
 
-      const response = await postChatCompletions({
-        req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
-          body: JSON.stringify({
-            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-gemini-thinker-child',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-              freebuff_instance_id: 'inst-123',
+        const response = await postChatCompletions({
+          req: new NextRequest(
+            'http://localhost:3000/api/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+              body: JSON.stringify({
+                model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+                stream: false,
+                codebuff_metadata: {
+                  run_id: 'run-gemini-thinker-child',
+                  client_id: 'test-client-id-123',
+                  cost_mode: 'free',
+                  freebuff_instance_id: 'inst-123',
+                },
+              }),
             },
-          }),
-        }),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: async (params) => {
-          expect(params.requireActiveSession).toBe(true)
-          expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
-          expect(params.claimedInstanceId).toBe('inst-123')
-          return { ok: true, reason: 'active', remainingMs: 60_000 }
-        },
-        checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
-      })
+          ),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: async (params) => {
+            expect(params.requireActiveSession).toBe(true)
+            expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
+            expect(params.claimedInstanceId).toBe('inst-123')
+            return { ok: true, reason: 'active', remainingMs: 60_000 }
+          },
+          checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
+        })
 
-      expect(response.status).toBe(200)
-      expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(1)
-    })
+        expect(response.status).toBe(200)
+        expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(1)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it(
       'counts child Gemini thinker requests toward the free-mode request limit',
