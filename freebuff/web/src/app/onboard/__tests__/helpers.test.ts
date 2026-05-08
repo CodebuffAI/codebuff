@@ -23,6 +23,16 @@ describe('freebuff onboard/_helpers', () => {
       expect(result.receivedHash).toBe('hashvalue')
     })
 
+    test('parses legacy hyphen-delimited auth code', () => {
+      const receivedHash = 'a'.repeat(64)
+      const authCode = `1234567890abcdef1234567890abcdef-1704067200000-${receivedHash}`
+      const result = parseAuthCode(authCode)
+
+      expect(result.fingerprintId).toBe('1234567890abcdef1234567890abcdef')
+      expect(result.expiresAt).toBe('1704067200000')
+      expect(result.receivedHash).toBe(receivedHash)
+    })
+
     test('handles auth code missing separator before expiresAt', () => {
       const authCode =
         'fingerprint-1231704067200000.abc123hashabc123hashabc123hash'

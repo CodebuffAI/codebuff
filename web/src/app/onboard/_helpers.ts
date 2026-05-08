@@ -13,6 +13,17 @@ export function parseAuthCode(authCode: string): {
   )
 
   if (hashSeparatorIndex === -1 || expiresSeparatorIndex === -1) {
+    const legacyMatch = normalizedAuthCode.match(
+      /^(?<fingerprintId>.+)-(?<expiresAt>\d+)-(?<receivedHash>[a-f0-9]{64})$/i,
+    )
+    if (legacyMatch?.groups) {
+      return {
+        fingerprintId: legacyMatch.groups.fingerprintId,
+        expiresAt: legacyMatch.groups.expiresAt,
+        receivedHash: legacyMatch.groups.receivedHash,
+      }
+    }
+
     return { fingerprintId: '', expiresAt: '', receivedHash: '' }
   }
 
