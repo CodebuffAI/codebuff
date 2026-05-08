@@ -58,8 +58,8 @@ const OPENCODE_ZEN_MODELS: Record<
 
 const OPENCODE_ZEN_MODEL_PREFIX = 'opencode/'
 
-export function isOpenCodeZenModel(model: string): boolean {
-  return model.startsWith(OPENCODE_ZEN_MODEL_PREFIX)
+export function isOpenCodeZenModel(model: unknown): model is string {
+  return typeof model === 'string' && model.startsWith(OPENCODE_ZEN_MODEL_PREFIX)
 }
 
 function getOpenCodeZenModelId(model: string): string {

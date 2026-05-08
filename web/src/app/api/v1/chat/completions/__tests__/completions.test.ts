@@ -9,10 +9,7 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
-import {
-  checkFreeModeRateLimit,
-  resetFreeModeRateLimits,
-} from '../free-mode-rate-limiter'
+import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -1148,6 +1145,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
 
     it('requires an active session check for the Gemini thinker subagent', async () => {
+      const checkFreeModeRateLimitForTest = mock((userId: string) => {
+        expect(userId).toBe('user-new-free-gemini')
+        return { limited: false as const }
+      })
+
       const response = await postChatCompletions({
         req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
           method: 'POST',
@@ -1177,11 +1179,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(params.claimedInstanceId).toBe('inst-123')
           return { ok: true, reason: 'active', remainingMs: 60_000 }
         },
+        checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
       })
 
       expect(response.status).toBe(200)
-      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(false)
-      expect(checkFreeModeRateLimit('user-new-free-gemini').limited).toBe(true)
+      expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(1)
     })
 
     it(
