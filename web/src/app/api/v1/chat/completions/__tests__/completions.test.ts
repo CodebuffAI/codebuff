@@ -520,108 +520,120 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.message).not.toContain(nextQuotaReset)
     })
 
-    it('lets a new account with no paid relationship through for non-free mode', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-new-free' },
-          body: JSON.stringify({
-            model: 'test/test-model',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-123',
-              client_id: 'test-client-id-123',
-            },
-          }),
-        },
-      )
-
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
-
-      expect(response.status).toBe(200)
-    })
-
-    it('lets a BYOK free-tier new account through the paid-plan gate', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer test-api-key-new-free',
-            'x-openrouter-api-key': 'sk-or-byok-test',
+    it(
+      'lets a new account with no paid relationship through for non-free mode',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: { Authorization: 'Bearer test-api-key-new-free' },
+            body: JSON.stringify({
+              model: 'test/test-model',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
           },
-          body: JSON.stringify({
-            model: 'test/test-model',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-123',
-              client_id: 'test-client-id-123',
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'lets a BYOK free-tier new account through the paid-plan gate',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-new-free',
+              'x-openrouter-api-key': 'sk-or-byok-test',
             },
-          }),
-        },
-      )
+            body: JSON.stringify({
+              model: 'test/test-model',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-    })
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
-    it('lets a freebuff/free-mode request through even for a brand-new unpaid account', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free'),
-          body: JSON.stringify({
-            model: 'minimax/minimax-m2.7',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-free',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        },
-      )
+    it(
+      'lets a freebuff/free-mode request through even for a brand-new unpaid account',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: 'minimax/minimax-m2.7',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-    })
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it('rejects free-mode requests when location is unknown', async () => {
       // Use a TEST-NET-1 IP (RFC 5737) that geoip-lite cannot resolve, with
@@ -1039,39 +1051,43 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('free_mode_invalid_agent_model')
     })
 
-    it('allows browser-use as a free-mode subagent under a freebuff root', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
-          body: JSON.stringify({
-            model: 'google/gemini-3.1-flash-lite-preview',
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-browser-use-child',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-            },
-          }),
-        },
-      )
+    it(
+      'allows browser-use as a free-mode subagent under a freebuff root',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+            body: JSON.stringify({
+              model: 'google/gemini-3.1-flash-lite-preview',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-browser-use-child',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      expect(response.status).toBe(200)
-    })
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it('rejects standalone free-mode reviewer runs even when the model is allowlisted', async () => {
       const req = new NextRequest(
@@ -1150,47 +1166,54 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('session_model_mismatch')
     })
 
-    it('requires an active session check for the Gemini thinker subagent', async () => {
-      const checkFreeModeRateLimitForTest = mock((userId: string) => {
-        expect(userId).toBe('user-new-free-gemini')
-        return { limited: false as const }
-      })
+    it(
+      'requires an active session check for the Gemini thinker subagent',
+      async () => {
+        const checkFreeModeRateLimitForTest = mock((userId: string) => {
+          expect(userId).toBe('user-new-free-gemini')
+          return { limited: false as const }
+        })
 
-      const response = await postChatCompletions({
-        req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
-          method: 'POST',
-          headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
-          body: JSON.stringify({
-            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
-            stream: false,
-            codebuff_metadata: {
-              run_id: 'run-gemini-thinker-child',
-              client_id: 'test-client-id-123',
-              cost_mode: 'free',
-              freebuff_instance_id: 'inst-123',
+        const response = await postChatCompletions({
+          req: new NextRequest(
+            'http://localhost:3000/api/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
+              body: JSON.stringify({
+                model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+                stream: false,
+                codebuff_metadata: {
+                  run_id: 'run-gemini-thinker-child',
+                  client_id: 'test-client-id-123',
+                  cost_mode: 'free',
+                  freebuff_instance_id: 'inst-123',
+                },
+              }),
             },
-          }),
-        }),
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: async (params) => {
-          expect(params.requireActiveSession).toBe(true)
-          expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
-          expect(params.claimedInstanceId).toBe('inst-123')
-          return { ok: true, reason: 'active', remainingMs: 60_000 }
-        },
-        checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
-      })
+          ),
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: async (params) => {
+            expect(params.requireActiveSession).toBe(true)
+            expect(params.requestedModel).toBe(FREEBUFF_GEMINI_PRO_MODEL_ID)
+            expect(params.claimedInstanceId).toBe('inst-123')
+            return { ok: true, reason: 'active', remainingMs: 60_000 }
+          },
+          checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
+        })
 
-      expect(response.status).toBe(200)
-      expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(1)
-    })
+        expect(response.status).toBe(200)
+        expect(checkFreeModeRateLimitForTest).toHaveBeenCalledTimes(1)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it(
       'counts child Gemini thinker requests toward the free-mode request limit',
@@ -1401,45 +1424,49 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   })
 
   describe('Successful responses', () => {
-    it('returns stream with correct headers', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-api-key-123' },
-          body: JSON.stringify({
-            stream: true,
-            codebuff_metadata: {
-              run_id: 'run-123',
-              client_id: 'test-client-id-123',
-              client_request_id: 'test-client-session-id-123',
-            },
-          }),
-        },
-      )
+    it(
+      'returns stream with correct headers',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: { Authorization: 'Bearer test-api-key-123' },
+            body: JSON.stringify({
+              stream: true,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+                client_request_id: 'test-client-session-id-123',
+              },
+            }),
+          },
+        )
 
-      const response = await postChatCompletions({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        trackEvent: mockTrackEvent,
-        getUserUsageData: mockGetUserUsageData,
-        getAgentRunFromId: mockGetAgentRunFromId,
-        fetch: mockFetch,
-        insertMessageBigquery: mockInsertMessageBigquery,
-        loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
-      })
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
 
-      if (response.status !== 200) {
-        const errorBody = await response.json()
-        console.log('Error response:', errorBody)
-      }
-      expect(response.status).toBe(200)
-      expect(response.headers.get('Content-Type')).toBe('text/event-stream')
-      expect(response.headers.get('Cache-Control')).toBe('no-cache')
-      expect(response.headers.get('Connection')).toBe('keep-alive')
-    })
+        if (response.status !== 200) {
+          const errorBody = await response.json()
+          console.log('Error response:', errorBody)
+        }
+        expect(response.status).toBe(200)
+        expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+        expect(response.headers.get('Cache-Control')).toBe('no-cache')
+        expect(response.headers.get('Connection')).toBe('keep-alive')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it(
       'returns JSON response for non-streaming requests',
