@@ -53,6 +53,13 @@ export const openrouterModels = {
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
 
+export const openCodeZenModels = {
+  opencode_minimax_m2_7: 'opencode/minimax-m2.7',
+  opencode_kimi_k2_6: 'opencode/kimi-k2.6',
+} as const
+export type OpenCodeZenModel =
+  (typeof openCodeZenModels)[keyof typeof openCodeZenModels]
+
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
