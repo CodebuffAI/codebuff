@@ -13,10 +13,13 @@ sequenceDiagram
     participant DB as Database
 
     CLI->>Web: POST /api/auth/cli/code {fingerprintId}
-    Web->>Web: Generate auth code (1h expiry)
-    Web->>CLI: Return login URL
+    Web->>Web: Generate signed auth payload (1h expiry)
+    Web->>DB: Store payload behind opaque browser token
+    Web->>CLI: Return login URL with opaque token
     CLI->>CLI: Open browser
     Note over Web: User completes OAuth
+    Web->>DB: Resolve opaque token to signed payload
+    Web->>DB: Delete opaque token
     Web->>DB: Check fingerprint ownership
     Web->>DB: Create/update session
     loop Every 5s
@@ -64,11 +67,14 @@ sequenceDiagram
 ### 4. Failure: Invalid/Expired Code
 
 - Auth code validation fails or expired (1h limit)
+- Opaque browser tokens resolve expired signed payloads before returning the expired-code error
 - Returns authentication error
 
 ## Security Features
 
-- Auth codes expire after 1 hour
+- Signed auth payloads expire after 1 hour
+- Browser login URLs use opaque 43-character tokens instead of exposing the signed auth payload
+- Opaque browser tokens are stored in `verificationToken` under `cli-login:<token>` and consumed with `DELETE ... RETURNING` when onboarding resolves them
 - Fingerprint uniqueness: hardware info + 8 random bytes
 - Ownership conflicts blocked and logged
 - Sessions linked to fingerprint_id in database

@@ -8,6 +8,7 @@ import { and, eq, gt } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
+import { buildCliAuthCode } from '@/app/onboard/_helpers'
 import { logger } from '@/util/logger'
 
 import { getLoginUrlOrigin } from './_origin'
@@ -57,7 +58,11 @@ export async function POST(req: Request) {
       )
     }
 
-    const authCode = `${fingerprintId}.${expiresAt}.${fingerprintHash}`
+    const authCode = buildCliAuthCode(
+      fingerprintId,
+      expiresAt.toString(),
+      fingerprintHash,
+    )
     const loginToken = randomBytes(32).toString('base64url')
 
     await db.insert(schema.verificationToken).values({

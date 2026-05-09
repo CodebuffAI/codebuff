@@ -1,5 +1,39 @@
 import { genAuthCode } from '@codebuff/common/util/credentials'
 
+const OPAQUE_CLI_AUTH_CODE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
+
+export function buildCliAuthCode(
+  fingerprintId: string,
+  expiresAt: string,
+  fingerprintHash: string,
+): string {
+  return `${fingerprintId}.${expiresAt}.${fingerprintHash}`
+}
+
+export function isOpaqueCliAuthCodeToken(authCode: string): boolean {
+  return OPAQUE_CLI_AUTH_CODE_TOKEN_RE.test(authCode.trim())
+}
+
+export async function resolveCliAuthCode(
+  authCode: string,
+  consumeCliAuthCodeToken: (authCodeToken: string) => Promise<string | null>,
+): Promise<{ authCode: string; resolvedOpaqueToken: boolean }> {
+  const normalizedAuthCode = authCode.trim()
+  if (!isOpaqueCliAuthCodeToken(normalizedAuthCode)) {
+    return { authCode: normalizedAuthCode, resolvedOpaqueToken: false }
+  }
+
+  const signedAuthCode = await consumeCliAuthCodeToken(normalizedAuthCode)
+  if (!signedAuthCode) {
+    return { authCode: normalizedAuthCode, resolvedOpaqueToken: false }
+  }
+
+  return {
+    authCode: signedAuthCode,
+    resolvedOpaqueToken: true,
+  }
+}
+
 export function parseAuthCode(authCode: string): {
   fingerprintId: string
   expiresAt: string

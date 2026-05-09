@@ -6,12 +6,17 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
+  consumeCliAuthCodeToken,
   createCliSession,
-  getCliAuthCodeForToken,
   getSessionTokenFromCookies,
   hasCliSessionForAuthHash,
 } from './_db'
-import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
+import {
+  isAuthCodeExpired,
+  parseAuthCode,
+  resolveCliAuthCode,
+  validateAuthCode,
+} from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import {
@@ -92,7 +97,8 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const resolvedAuthCode = (await getCliAuthCodeForToken(authCode)) ?? authCode
+  const { authCode: resolvedAuthCode, resolvedOpaqueToken } =
+    await resolveCliAuthCode(authCode, consumeCliAuthCodeToken)
   const { fingerprintId, expiresAt, receivedHash } =
     parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(
@@ -106,7 +112,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       {
         authCodeLength: authCode.length,
-        resolvedAuthCode: resolvedAuthCode !== authCode,
+        resolvedAuthCode: resolvedOpaqueToken,
         resolvedAuthCodeLength: resolvedAuthCode.length,
         dotCount: authCode.match(/\./g)?.length ?? 0,
         hyphenCount: authCode.match(/-/g)?.length ?? 0,
