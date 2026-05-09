@@ -29,3 +29,13 @@ export function resolveFilePathWithinProject(
 
   return { fullPath, relativePath }
 }
+
+export function getProjectPathLookupKeys(
+  projectRoot: string,
+  filePath: string,
+): string[] {
+  const resolvedPath = resolveFilePathWithinProject(projectRoot, filePath)
+  const keys = resolvedPath ? [resolvedPath.relativePath, filePath] : [filePath]
+
+  return [...new Set(keys)]
+}

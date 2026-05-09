@@ -36,7 +36,7 @@ describe('changeFile', () => {
     )
   })
 
-  test('accepts absolute paths inside the project for string replacements', async () => {
+  test('tolerates absolute paths inside the project for string replacements', async () => {
     const fs = createMockFs({
       files: {
         '/repo/src/file.ts': 'const value = 1\n',
@@ -94,7 +94,7 @@ describe('changeFile', () => {
     )
   })
 
-  test('accepts absolute paths inside the project for file writes', async () => {
+  test('tolerates absolute paths inside the project for file writes', async () => {
     const fs = createMockFs()
 
     const result = await changeFile({

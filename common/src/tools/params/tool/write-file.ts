@@ -12,9 +12,7 @@ const inputSchema = z
     path: z
       .string()
       .min(1, 'Path cannot be empty')
-      .describe(
-        `Path to the file, either relative to the project root or an absolute path inside the project.`,
-      ),
+      .describe(`Path to the file relative to the **project root**`),
     instructions: z
       .string()
       .describe('What the change is intended to do in only one sentence.'),

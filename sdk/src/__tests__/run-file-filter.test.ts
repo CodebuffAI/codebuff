@@ -312,7 +312,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     expect(optionalFileResult).toBeNull()
   })
 
-  it('should resolve absolute requestOptionalFile paths inside cwd', async () => {
+  it('should tolerate absolute requestOptionalFile paths inside cwd', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { resolveFilePathWithinProject } from '../tools/path-utils'
+import {
+  getProjectPathLookupKeys,
+  resolveFilePathWithinProject,
+} from '../tools/path-utils'
 
 describe('resolveFilePathWithinProject', () => {
   test('normalizes relative paths to full and project-relative paths', () => {
@@ -30,5 +33,26 @@ describe('resolveFilePathWithinProject', () => {
     expect(
       resolveFilePathWithinProject('/repo', '/repo-sibling/file.ts'),
     ).toBeNull()
+  })
+})
+
+describe('getProjectPathLookupKeys', () => {
+  test('returns the normalized relative key before the original absolute key', () => {
+    expect(getProjectPathLookupKeys('/repo', '/repo/src/file.ts')).toEqual([
+      'src/file.ts',
+      '/repo/src/file.ts',
+    ])
+  })
+
+  test('dedupes relative paths that are already normalized', () => {
+    expect(getProjectPathLookupKeys('/repo', 'src/file.ts')).toEqual([
+      'src/file.ts',
+    ])
+  })
+
+  test('returns only the original key for paths outside the project', () => {
+    expect(getProjectPathLookupKeys('/repo', '/outside.ts')).toEqual([
+      '/outside.ts',
+    ])
   })
 })
