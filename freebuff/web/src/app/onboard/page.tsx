@@ -99,8 +99,37 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const { authCode: resolvedAuthCode, resolvedOpaqueToken } =
-    await resolveCliAuthCode(authCode, consumeCliAuthCodeToken)
+  const authCodeResolution = await resolveCliAuthCode(
+    authCode,
+    consumeCliAuthCodeToken,
+  )
+
+  if (authCodeResolution.status === 'already_consumed') {
+    logger.info(
+      {
+        authCodeLength: authCode.length,
+        authCodeTrimmedLength: authCode.trim().length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        userId: user.id,
+      },
+      'Reused Freebuff CLI auth code token',
+    )
+
+    return (
+      <StatusCard
+        title="Login link already used"
+        description="This browser login link has already been used."
+        message="Return to your terminal to continue, or restart Freebuff if it is still waiting for login."
+      />
+    )
+  }
+
+  const {
+    authCode: resolvedAuthCode,
+    resolvedOpaqueToken,
+    status: authCodeResolutionStatus,
+  } = authCodeResolution
   const { fingerprintId, expiresAt, receivedHash } =
     parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(
@@ -117,6 +146,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
         authCodeTrimmedLength: authCode.trim().length,
         authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
         isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        authCodeResolutionStatus,
         resolvedAuthCode: resolvedOpaqueToken,
         resolvedAuthCodeLength: resolvedAuthCode.length,
         userId: user.id,

@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   buildCliAuthCode,
   getCliAuthCodeHashPrefix,
+  getCliAuthCodeTokenIdentifier,
+  getConsumedCliAuthCodeTokenIdentifier,
+  getConsumedCliAuthCodeTokenValue,
   isAuthCodeExpired,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
@@ -118,6 +121,16 @@ describe('freebuff onboard/_helpers', () => {
       )
     })
 
+    test('builds active and consumed token identifiers', () => {
+      expect(getCliAuthCodeTokenIdentifier('token-123')).toBe(
+        'cli-login:token-123',
+      )
+      expect(getConsumedCliAuthCodeTokenIdentifier('token-123')).toBe(
+        'cli-login-consumed:034192845dc489deca291f9f5ae0bb8e5472c991020bf64b3ebc6dec5a1d7e47',
+      )
+      expect(getConsumedCliAuthCodeTokenValue()).toBe('consumed')
+    })
+
     test('resolves an opaque browser token before validation', async () => {
       const expiresAt = '4102444800000'
       const fingerprintHash = genAuthCode(
@@ -134,10 +147,11 @@ describe('freebuff onboard/_helpers', () => {
 
       const result = await resolveCliAuthCode(opaqueToken, async (token) => {
         expect(token).toBe(opaqueToken)
-        return signedAuthCode
+        return { status: 'resolved', authCode: signedAuthCode }
       })
 
       expect(result).toEqual({
+        status: 'ready',
         authCode: signedAuthCode,
         resolvedOpaqueToken: true,
       })
@@ -163,12 +177,43 @@ describe('freebuff onboard/_helpers', () => {
 
       const result = await resolveCliAuthCode(signedAuthCode, async () => {
         lookedUp = true
-        return null
+        return { status: 'missing' }
       })
 
       expect(lookedUp).toBe(false)
       expect(result).toEqual({
+        status: 'ready',
         authCode: signedAuthCode,
+        resolvedOpaqueToken: false,
+      })
+    })
+
+    test('classifies reused opaque browser tokens as already consumed', async () => {
+      const opaqueToken = 'c'.repeat(43)
+
+      const result = await resolveCliAuthCode(opaqueToken, async (token) => {
+        expect(token).toBe(opaqueToken)
+        return { status: 'already_consumed' }
+      })
+
+      expect(result).toEqual({
+        status: 'already_consumed',
+        authCode: opaqueToken,
+        resolvedOpaqueToken: false,
+      })
+    })
+
+    test('keeps never-issued opaque browser tokens invalid', async () => {
+      const opaqueToken = 'd'.repeat(43)
+
+      const result = await resolveCliAuthCode(opaqueToken, async (token) => {
+        expect(token).toBe(opaqueToken)
+        return { status: 'missing' }
+      })
+
+      expect(result).toEqual({
+        status: 'missing',
+        authCode: opaqueToken,
         resolvedOpaqueToken: false,
       })
     })
@@ -186,10 +231,10 @@ describe('freebuff onboard/_helpers', () => {
         fingerprintHash,
       )
 
-      const result = await resolveCliAuthCode(
-        'b'.repeat(43),
-        async () => signedAuthCode,
-      )
+      const result = await resolveCliAuthCode('b'.repeat(43), async () => ({
+        status: 'resolved',
+        authCode: signedAuthCode,
+      }))
       const parsed = parseAuthCode(result.authCode)
 
       expect(isAuthCodeExpired(parsed.expiresAt)).toBe(true)
