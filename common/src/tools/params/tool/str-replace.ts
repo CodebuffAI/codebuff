@@ -28,7 +28,9 @@ const inputSchema = z
     path: z
       .string()
       .min(1, 'Path cannot be empty')
-      .describe(`The path to the file to edit.`),
+      .describe(
+        `The path to the file to edit, either relative to the project root or an absolute path inside the project.`,
+      ),
     replacements: z
       .preprocess(
         coerceToArray,

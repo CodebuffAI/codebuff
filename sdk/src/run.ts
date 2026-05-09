@@ -27,6 +27,7 @@ import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
+import { resolveFilePathWithinProject } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
@@ -434,7 +435,11 @@ async function runOnce({
         cwd,
         fs,
       })
-      return toOptionalFile(files[filePath] ?? null)
+      const lookupPath = cwd
+        ? (resolveFilePathWithinProject(cwd, filePath)?.relativePath ??
+          filePath)
+        : filePath
+      return toOptionalFile(files[lookupPath] ?? files[filePath] ?? null)
     },
     sendAction: ({ action }) => {
       if (action.type === 'action-error') {

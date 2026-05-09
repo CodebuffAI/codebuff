@@ -353,7 +353,7 @@ export interface SpawnAgentsParams {
  * Replace strings in a file with new strings.
  */
 export interface StrReplaceParams {
-  /** The path to the file to edit. */
+  /** The path to the file to edit, either relative to the project root or an absolute path inside the project. */
   path: string
   /** Array of replacements to make. */
   replacements: {
@@ -411,7 +411,7 @@ export interface WebSearchParams {
  * Create or edit a file with the given content.
  */
 export interface WriteFileParams {
-  /** Path to the file relative to the **project root** */
+  /** Path to the file, either relative to the project root or an absolute path inside the project. */
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string

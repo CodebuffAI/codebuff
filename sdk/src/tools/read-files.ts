@@ -1,7 +1,7 @@
-import path, { isAbsolute } from 'path'
-
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
+
+import { resolveFilePathWithinProject } from './path-utils'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
@@ -38,15 +38,12 @@ export async function getFiles(params: {
       continue
     }
 
-    // Convert absolute paths within project to relative paths
-    const relativePath = filePath.startsWith(cwd)
-      ? path.relative(cwd, filePath)
-      : filePath
-    const fullPath = path.join(cwd, relativePath)
-    if (isAbsolute(relativePath) || !fullPath.startsWith(cwd)) {
-      result[relativePath] = FILE_READ_STATUS.OUTSIDE_PROJECT
+    const resolvedPath = resolveFilePathWithinProject(cwd, filePath)
+    if (!resolvedPath) {
+      result[filePath] = FILE_READ_STATUS.OUTSIDE_PROJECT
       continue
     }
+    const { relativePath, fullPath } = resolvedPath
 
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
