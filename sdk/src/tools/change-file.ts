@@ -4,8 +4,11 @@ import { fileExists } from '@codebuff/common/util/file'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
+import { resolveFilePathWithinProject } from './path-utils'
+
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { ResolvedProjectPath } from './path-utils'
 
 const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -13,20 +16,12 @@ const FileChangeSchema = z.object({
   content: z.string(),
 })
 
-function containsUpwardTraversal(dirPath: string): boolean {
-  const normalized = path.normalize(dirPath)
-  return normalized.includes('..')
-}
+type FileChange = z.infer<typeof FileChangeSchema>
 
-/**
- * Checks if a path contains path traversal sequences that would escape the root.
- * Uses proper path normalization to prevent traversal attacks.
- */
-function containsPathTraversal(filePath: string): boolean {
-  const normalized = path.normalize(filePath)
-  // Check for absolute paths or paths starting with .. that escape root
-  return path.isAbsolute(normalized) || normalized.startsWith('..')
-}
+type ApplyChangeResult =
+  | { status: 'created' | 'modified'; file: string }
+  | { status: 'patchFailed'; file: string; patch: string }
+  | { status: 'invalid'; file: string }
 
 export async function changeFile(params: {
   parameters: unknown
@@ -35,117 +30,78 @@ export async function changeFile(params: {
 }): Promise<CodebuffToolOutput<'str_replace'>> {
   const { parameters, cwd, fs } = params
 
-  if (containsUpwardTraversal(cwd)) {
-    throw new Error('cwd contains invalid path traversal')
-  }
   const fileChange = FileChangeSchema.parse(parameters)
-  if (containsPathTraversal(fileChange.path)) {
-    throw new Error('file path contains invalid path traversal')
+  const resolvedPath = resolveFilePathWithinProject(cwd, fileChange.path)
+  if (!resolvedPath) {
+    throw new Error('file path is outside the project directory')
   }
 
-  const { created, modified, invalid, patchFailed } = await applyChanges({
-    projectRoot: cwd,
-    changes: [fileChange],
-    fs,
-  })
+  const result = await applyChange({ change: fileChange, resolvedPath, fs })
 
-  const results: CodebuffToolOutput<'str_replace'>[0]['value'][] = []
-
-  for (const file of created) {
-    results.push({
-      file,
-      message:
-        fileChange.type === 'patch'
-          ? 'String replace applied successfully.'
-          : 'Created file successfully.',
-    })
-  }
-
-  for (const file of modified) {
-    results.push({
-      file,
-      message:
-        fileChange.type === 'patch'
-          ? 'String replace applied successfully.'
-          : 'Overwrote file successfully.',
-    })
-  }
-
-  for (const file of patchFailed) {
-    results.push({
-      file,
-      errorMessage: `Failed to apply patch.`,
-      patch: fileChange.content,
-    })
-  }
-
-  for (const file of invalid) {
-    results.push({
-      file,
-      errorMessage:
-        'Failed to write to file: file path caused an error or file could not be written',
-    })
-  }
-
-  if (results.length !== 1) {
-    throw new Error(
-      `Internal error: Unexpected result length while modifying files: ${
-        results.length
-      }`,
-    )
-  }
-
-  return [{ type: 'json', value: results[0] }]
+  return [{ type: 'json', value: formatApplyChangeResult(result, fileChange) }]
 }
 
-async function applyChanges(params: {
-  projectRoot: string
-  changes: {
-    type: 'patch' | 'file'
-    path: string
-    content: string
-  }[]
-  fs: CodebuffFileSystem
-}) {
-  const { projectRoot, changes, fs } = params
-
-  const created: string[] = []
-  const modified: string[] = []
-  const patchFailed: string[] = []
-  const invalid: string[] = []
-
-  for (const change of changes) {
-    const { path: filePath, content, type } = change
-    try {
-      const fullPath = path.join(projectRoot, filePath)
-      const exists = await fileExists({ filePath: fullPath, fs })
-      if (!exists) {
-        const dirPath = path.dirname(fullPath)
-        await fs.mkdir(dirPath, { recursive: true })
-      }
-
-      if (type === 'file') {
-        await fs.writeFile(fullPath, content)
-      } else {
-        const oldContent = await fs.readFile(fullPath, 'utf-8')
-        const newContent = applyPatch(oldContent, content)
-        if (newContent === false) {
-          patchFailed.push(filePath)
-          continue
-        }
-        await fs.writeFile(fullPath, newContent)
-      }
-
-      if (exists) {
-        modified.push(filePath)
-      } else {
-        created.push(filePath)
-      }
-    } catch (error) {
-      console.error(`Failed to apply patch to ${filePath}:`, error, content)
-      invalid.push(filePath)
+function formatApplyChangeResult(
+  result: ApplyChangeResult,
+  fileChange: FileChange,
+): CodebuffToolOutput<'str_replace'>[0]['value'] {
+  if (result.status === 'created' || result.status === 'modified') {
+    return {
+      file: result.file,
+      message:
+        fileChange.type === 'patch'
+          ? 'String replace applied successfully.'
+          : result.status === 'created'
+            ? 'Created file successfully.'
+            : 'Overwrote file successfully.',
     }
   }
 
-  return { created, modified, invalid, patchFailed }
+  if (result.status === 'patchFailed') {
+    return {
+      file: result.file,
+      errorMessage: `Failed to apply patch.`,
+      patch: result.patch,
+    }
+  }
+
+  return {
+    file: result.file,
+    errorMessage:
+      'Failed to write to file: file path caused an error or file could not be written',
+  }
+}
+
+async function applyChange(params: {
+  change: FileChange
+  resolvedPath: ResolvedProjectPath
+  fs: CodebuffFileSystem
+}): Promise<ApplyChangeResult> {
+  const { change, resolvedPath, fs } = params
+  const { content, type } = change
+  const { fullPath, relativePath } = resolvedPath
+
+  try {
+    const exists = await fileExists({ filePath: fullPath, fs })
+    if (!exists) {
+      const dirPath = path.dirname(fullPath)
+      await fs.mkdir(dirPath, { recursive: true })
+    }
+
+    if (type === 'file') {
+      await fs.writeFile(fullPath, content)
+    } else {
+      const oldContent = await fs.readFile(fullPath, 'utf-8')
+      const newContent = applyPatch(oldContent, content)
+      if (newContent === false) {
+        return { status: 'patchFailed', file: relativePath, patch: content }
+      }
+      await fs.writeFile(fullPath, newContent)
+    }
+
+    return { status: exists ? 'modified' : 'created', file: relativePath }
+  } catch (error) {
+    console.error(`Failed to apply patch to ${relativePath}:`, error, content)
+    return { status: 'invalid', file: relativePath }
+  }
 }
