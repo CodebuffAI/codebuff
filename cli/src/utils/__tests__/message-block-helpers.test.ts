@@ -376,6 +376,23 @@ describe('extractSpawnAgentResultContent', () => {
       hasError: false,
     })
   })
+
+  test('uses an empty structuredOutput message as no display content', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: {
+        message: '',
+        results: [
+          {
+            stdout: 'Found 1 match\n./file.ts:\nLine 1: needle',
+            message: 'Exit code: 0',
+          },
+        ],
+      },
+    })
+
+    expect(result).toEqual({ content: '', hasError: false })
+  })
 })
 
 describe('appendInterruptionNotice', () => {

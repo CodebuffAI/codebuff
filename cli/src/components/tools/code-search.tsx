@@ -23,13 +23,22 @@ export const CodeSearchComponent = defineToolComponent({
 
     if (toolBlock.output && typeof toolBlock.output === 'string') {
       const lines = toolBlock.output.split('\n')
+      const matchCountLine = lines.find((line) =>
+        /^Found \d+ matches?$/.test(line.trim()),
+      )
+      const parsedTotalResults = matchCountLine
+        ?.trim()
+        .match(/^Found (\d+) matches?$/)?.[1]
 
-      for (const line of lines) {
-        const trimmed = line.trim()
+      if (parsedTotalResults !== undefined) {
+        totalResults = Number(parsedTotalResults)
+      } else {
+        for (const line of lines) {
+          const trimmed = line.trim()
 
-        // Result lines start with a number followed by a colon
-        if (/^\d+:/.test(trimmed)) {
-          totalResults++
+          if (/^(?:Line\s+)?\d+:/.test(trimmed)) {
+            totalResults++
+          }
         }
       }
     }
@@ -52,12 +61,7 @@ export const CodeSearchComponent = defineToolComponent({
 
     // Return as content using SimpleToolCallItem
     return {
-      content: (
-        <SimpleToolCallItem
-          name="Search"
-          description={summary}
-        />
-      ),
+      content: <SimpleToolCallItem name="Search" description={summary} />,
     }
   },
 })

@@ -85,6 +85,7 @@ const codeSearcher: SecretAgentDefinition = {
     yield {
       toolName: 'set_output',
       input: {
+        message: '',
         results: toolResults,
       },
       includeToolCall: false,
