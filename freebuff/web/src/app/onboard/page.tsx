@@ -12,7 +12,9 @@ import {
   hasCliSessionForAuthHash,
 } from './_db'
 import {
+  getCliAuthCodeHashPrefix,
   isAuthCodeExpired,
+  isOpaqueCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
   validateAuthCode,
@@ -112,8 +114,12 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       {
         authCodeLength: authCode.length,
+        authCodeTrimmedLength: authCode.trim().length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
         resolvedAuthCode: resolvedOpaqueToken,
         resolvedAuthCodeLength: resolvedAuthCode.length,
+        userId: user.id,
         dotCount: authCode.match(/\./g)?.length ?? 0,
         hyphenCount: authCode.match(/-/g)?.length ?? 0,
         fingerprintIdPrefix: fingerprintId.slice(0, 24),

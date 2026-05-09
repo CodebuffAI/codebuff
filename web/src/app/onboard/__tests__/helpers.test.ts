@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   buildCliAuthCode,
+  getCliAuthCodeHashPrefix,
   isAuthCodeExpired,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
@@ -236,6 +237,13 @@ describe('onboard/_helpers', () => {
       expect(isOpaqueCliAuthCodeToken(signedAuthCode)).toBe(false)
       expect(isOpaqueCliAuthCodeToken('A'.repeat(42))).toBe(false)
       expect(isOpaqueCliAuthCodeToken(`${'A'.repeat(42)}.`)).toBe(false)
+    })
+
+    test('hashes auth codes for log correlation without logging the token', () => {
+      expect(getCliAuthCodeHashPrefix('a'.repeat(43))).toBe('66d34fba71f8')
+      expect(getCliAuthCodeHashPrefix(` ${'a'.repeat(43)}\n`)).toBe(
+        '66d34fba71f8',
+      )
     })
 
     test('resolves an opaque browser token before validation', async () => {
