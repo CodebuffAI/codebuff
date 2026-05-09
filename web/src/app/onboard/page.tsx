@@ -6,12 +6,17 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
+  consumeCliAuthCodeToken,
   createCliSession,
-  getCliAuthCodeForToken,
   getSessionTokenFromCookies,
   hasCliSessionForAuthHash,
 } from './_db'
-import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
+import {
+  isAuthCodeExpired,
+  parseAuthCode,
+  resolveCliAuthCode,
+  validateAuthCode,
+} from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import CardWithBeams from '@/components/card-with-beams'
@@ -49,7 +54,10 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const resolvedAuthCode = (await getCliAuthCodeForToken(authCode)) ?? authCode
+  const { authCode: resolvedAuthCode } = await resolveCliAuthCode(
+    authCode,
+    consumeCliAuthCodeToken,
+  )
   const { fingerprintId, expiresAt, receivedHash } =
     parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(

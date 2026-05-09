@@ -32,21 +32,17 @@ export async function hasCliSessionForAuthHash(
   return existing.length > 0
 }
 
-export async function getCliAuthCodeForToken(
+export async function consumeCliAuthCodeToken(
   authCodeToken: string,
 ): Promise<string | null> {
-  const existing = await db
-    .select({ authCode: schema.verificationToken.token })
-    .from(schema.verificationToken)
+  const deleted = await db
+    .delete(schema.verificationToken)
     .where(
-      and(
-        eq(schema.verificationToken.identifier, `cli-login:${authCodeToken}`),
-        gt(schema.verificationToken.expires, new Date()),
-      ),
+      eq(schema.verificationToken.identifier, `cli-login:${authCodeToken}`),
     )
-    .limit(1)
+    .returning({ authCode: schema.verificationToken.token })
 
-  return existing[0]?.authCode ?? null
+  return deleted[0]?.authCode ?? null
 }
 
 export async function checkFingerprintConflict(
