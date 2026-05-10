@@ -1,4 +1,3 @@
-
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import * as projectFileTree from '@codebuff/common/project-file-tree'
@@ -91,9 +90,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     let requestedFiles: Record<string, string | null> = {}
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
@@ -177,9 +174,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     let requestedFiles: Record<string, string | null> = {}
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
@@ -259,9 +254,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     let optionalFileResult: string | null = null
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestOptionalFile } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
@@ -319,6 +312,75 @@ describe('CodebuffClientOptions fileFilter', () => {
     expect(optionalFileResult).toBeNull()
   })
 
+  it('should tolerate absolute requestOptionalFile paths inside cwd', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+    spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(false)
+
+    const mockFs = createMockFs({
+      files: {
+        '/project/src/index.ts': { content: 'normal file content' },
+      },
+    })
+
+    const optionalFileResult: { current: string | null } = { current: null }
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId, requestOptionalFile } = params
+        const sessionState = getInitialSessionState(getStubProjectFileContext())
+
+        optionalFileResult.current = await requestOptionalFile({
+          filePath: '/project/src/index.ts',
+        })
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+      cwd: '/project',
+      fsSource: mockFs,
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'read optional file',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(optionalFileResult.current).toBe('normal file content')
+  })
+
   it('should allow all files when no fileFilter is provided', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
@@ -343,9 +405,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     let requestedFiles: Record<string, string | null> = {}
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 
@@ -417,9 +477,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     })
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
-      async (
-        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
-      ) => {
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         const { sendAction, promptId, requestFiles } = params
         const sessionState = getInitialSessionState(getStubProjectFileContext())
 

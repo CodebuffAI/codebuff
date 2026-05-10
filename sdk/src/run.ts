@@ -27,6 +27,7 @@ import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
+import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
@@ -434,7 +435,11 @@ async function runOnce({
         cwd,
         fs,
       })
-      return toOptionalFile(files[filePath] ?? null)
+      const lookupKeys = cwd
+        ? getProjectPathLookupKeys(cwd, filePath)
+        : [filePath]
+      const fileKey = lookupKeys.find((key) => key in files)
+      return toOptionalFile(fileKey === undefined ? null : files[fileKey]!)
     },
     sendAction: ({ action }) => {
       if (action.type === 'action-error') {

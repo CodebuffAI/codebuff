@@ -11,12 +11,10 @@ import {
   spyOn,
 } from 'bun:test'
 
-
 import { getFiles } from '../tools/read-files'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { PathLike } from 'node:fs'
-
 
 // Helper to create a mock filesystem
 function createMockFs(config: {
@@ -75,9 +73,10 @@ describe('getFiles', () => {
 
   beforeEach(() => {
     // Default: no files are ignored
-    isFileIgnoredSpy = spyOn(projectFileTree, 'isFileIgnored').mockResolvedValue(
-      false,
-    )
+    isFileIgnoredSpy = spyOn(
+      projectFileTree,
+      'isFileIgnored',
+    ).mockResolvedValue(false)
   })
 
   afterEach(() => {
@@ -320,9 +319,7 @@ describe('getFiles', () => {
 
     test('should handle mix of ignored and non-ignored files', async () => {
       // First call returns false (not ignored), second returns true (ignored)
-      isFileIgnoredSpy
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true)
+      isFileIgnoredSpy.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
 
       const mockFs = createMockFs({
         files: {
@@ -393,7 +390,10 @@ describe('getFiles', () => {
       const mockFs = createMockFs({
         files: {},
         errors: {
-          '/project/broken.ts': { code: 'EACCES', message: 'Permission denied' },
+          '/project/broken.ts': {
+            code: 'EACCES',
+            message: 'Permission denied',
+          },
         },
       })
 
@@ -422,6 +422,24 @@ describe('getFiles', () => {
       })
 
       expect(result['src/index.ts']).toBe('content')
+    })
+
+    test('should reject absolute paths in sibling directories with matching prefixes', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project-other/src/index.ts': { content: 'outside' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['/project-other/src/index.ts'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['/project-other/src/index.ts']).toBe(
+        FILE_READ_STATUS.OUTSIDE_PROJECT,
+      )
     })
   })
 

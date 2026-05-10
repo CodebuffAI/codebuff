@@ -6,11 +6,19 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
+  consumeCliAuthCodeToken,
   createCliSession,
   getSessionTokenFromCookies,
   hasCliSessionForAuthHash,
 } from './_db'
-import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
+import {
+  getCliAuthCodeHashPrefix,
+  isAuthCodeExpired,
+  isOpaqueCliAuthCodeToken,
+  parseAuthCode,
+  resolveCliAuthCode,
+  validateAuthCode,
+} from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import {
@@ -91,7 +99,39 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const { fingerprintId, expiresAt, receivedHash } = parseAuthCode(authCode)
+  const authCodeResolution = await resolveCliAuthCode(
+    authCode,
+    consumeCliAuthCodeToken,
+  )
+
+  if (authCodeResolution.status === 'already_consumed') {
+    logger.info(
+      {
+        authCodeLength: authCode.length,
+        authCodeTrimmedLength: authCode.trim().length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        userId: user.id,
+      },
+      'Reused Freebuff CLI auth code token',
+    )
+
+    return (
+      <StatusCard
+        title="Login link already used"
+        description="This browser login link has already been used."
+        message="Return to your terminal to continue, or restart Freebuff if it is still waiting for login."
+      />
+    )
+  }
+
+  const {
+    authCode: resolvedAuthCode,
+    resolvedOpaqueToken,
+    status: authCodeResolutionStatus,
+  } = authCodeResolution
+  const { fingerprintId, expiresAt, receivedHash } =
+    parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(
     receivedHash,
     fingerprintId,
@@ -103,6 +143,15 @@ const Onboard = async ({ searchParams }: PageProps) => {
     logger.warn(
       {
         authCodeLength: authCode.length,
+        authCodeTrimmedLength: authCode.trim().length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        authCodeResolutionStatus,
+        resolvedAuthCode: resolvedOpaqueToken,
+        resolvedAuthCodeLength: resolvedAuthCode.length,
+        userId: user.id,
+        dotCount: authCode.match(/\./g)?.length ?? 0,
+        hyphenCount: authCode.match(/-/g)?.length ?? 0,
         fingerprintIdPrefix: fingerprintId.slice(0, 24),
         fingerprintIdLength: fingerprintId.length,
         expiresAt,
