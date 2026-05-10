@@ -22,6 +22,7 @@ export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'FR',
   'IT',
   'ES',
+  'PT',
   'FI',
   'BE',
   'LU',
