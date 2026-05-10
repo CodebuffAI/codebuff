@@ -29,6 +29,8 @@ describe('free mode country access', () => {
     ['SG', 'SG'],
     ['MT', 'MT'],
     ['IL', 'IL'],
+    ['FR', 'FR'],
+    ['BE', 'BE'],
   ])('allows allowlisted Cloudflare country %s', async (header, expected) => {
     const access = await getFreeModeCountryAccess(
       makeReq({
@@ -44,11 +46,11 @@ describe('free mode country access', () => {
 
   test('blocks countries outside the allowlist', async () => {
     const access = await getFreeModeCountryAccess(
-      makeReq({ 'cf-ipcountry': 'FR' }),
+      makeReq({ 'cf-ipcountry': 'ES' }),
       noAnonymousNetwork,
     )
     expect(access.allowed).toBe(false)
-    expect(access.countryCode).toBe('FR')
+    expect(access.countryCode).toBe('ES')
     expect(access.blockReason).toBe('country_not_allowed')
   })
 
@@ -295,7 +297,7 @@ describe('free mode country access', () => {
 
   test('allowLocalhost does not bypass when cf-ipcountry is set', async () => {
     const access = await getFreeModeCountryAccess(
-      makeReq({ 'cf-ipcountry': 'FR' }),
+      makeReq({ 'cf-ipcountry': 'ES' }),
       {
         ipinfoToken: 'test-token',
         allowLocalhost: true,
