@@ -881,10 +881,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             upstreamModel: 'minimax-m2.7',
           },
           {
-            codebuffModel: 'opencode/qwen3-coder',
-            upstreamModel: 'qwen3-coder',
-          },
-          {
             codebuffModel: 'moonshotai/kimi-k2.6',
             upstreamModel: 'kimi-k2.6',
           },
@@ -987,6 +983,59 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(body.model).toBe(codebuffModel)
           expect(body.provider).toBe('OpenCode Zen')
         }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'rejects unsupported OpenCode Zen-prefixed models without calling the provider',
+      async () => {
+        const fetchViaOpenCodeZen = mock(
+          async (url: string | URL | Request) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
+            throw new Error('OpenCode Zen provider should not be called')
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-123',
+            },
+            body: JSON.stringify({
+              model: 'opencode/qwen3-coder',
+              messages: [{ role: 'user', content: 'hello' }],
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaOpenCodeZen,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body.error.code).toBe('unsupported_model')
+        expect(body.error.message).toContain('opencode/qwen3-coder')
+        expect(fetchViaOpenCodeZen).toHaveBeenCalledTimes(0)
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

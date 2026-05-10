@@ -44,6 +44,7 @@ const OPENCODE_ZEN_MODEL_ALIASES: Record<string, string> = {
   [openCodeZenModels.opencode_minimax_m2_7]: MINIMAX_M2_7_ZEN_MODEL,
   [MOONSHOT_KIMI_MODEL]: KIMI_ZEN_MODEL,
 }
+const SUPPORTED_OPENCODE_ZEN_MODELS = Object.keys(OPENCODE_ZEN_MODEL_ALIASES)
 
 const KIMI_ZEN_PRICING: OpenCodeZenPricing = {
   inputCostPerToken: 0.95 / 1_000_000,
@@ -69,12 +70,16 @@ export function isOpenCodeZenModel(model: unknown): model is string {
 }
 
 function getOpenCodeZenModelId(model: string): string {
-  return (
-    OPENCODE_ZEN_MODEL_ALIASES[model] ??
-    (model.startsWith(OPENCODE_MODEL_PREFIX)
-      ? model.slice(OPENCODE_MODEL_PREFIX.length)
-      : model)
-  )
+  const opencodeId = OPENCODE_ZEN_MODEL_ALIASES[model]
+  if (opencodeId) return opencodeId
+
+  throw new OpenCodeZenError(400, 'Bad Request', {
+    error: {
+      message: `Unsupported OpenCode Zen model: ${model}. Supported models: ${SUPPORTED_OPENCODE_ZEN_MODELS.join(', ')}`,
+      code: 'unsupported_model',
+      type: 'invalid_request_error',
+    },
+  })
 }
 
 function getOpenCodeZenPricing(model: string): OpenCodeZenPricing {
