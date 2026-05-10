@@ -38,14 +38,6 @@ const OPENCODE_ZEN_MODELS: Record<
   string,
   { opencodeId: string; pricing: OpenCodeZenPricing }
 > = {
-  [openCodeZenModels.opencode_minimax_m2_7]: {
-    opencodeId: 'minimax-m2.7',
-    pricing: {
-      inputCostPerToken: 0.3 / 1_000_000,
-      cachedInputCostPerToken: 0.06 / 1_000_000,
-      outputCostPerToken: 1.2 / 1_000_000,
-    },
-  },
   [openCodeZenModels.opencode_kimi_k2_6]: {
     opencodeId: 'kimi-k2.6',
     pricing: {

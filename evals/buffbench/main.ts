@@ -11,7 +11,7 @@ async function main() {
   // Use 'external:opencode' for OpenCode CLI
   await runBuffBench({
     evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
-    agents: ['base2-free-kimi'],
+    agents: ['base2-free-evals'],
     taskConcurrency: 6,
     saveTraces,
   })

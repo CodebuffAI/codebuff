@@ -857,7 +857,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       'routes OpenCode Zen models to the direct OpenCode Zen provider',
       async () => {
         const expectedUpstreamModel: Record<string, string> = {
-          'opencode/minimax-m2.7': 'minimax-m2.7',
           'opencode/kimi-k2.6': 'kimi-k2.6',
         }
 
