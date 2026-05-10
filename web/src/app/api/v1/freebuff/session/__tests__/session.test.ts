@@ -230,7 +230,7 @@ describe('POST /api/v1/freebuff/session', () => {
   test('returns country_blocked without joining the queue for disallowed country', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
-      makeReq('ok', { cfCountry: 'FR' }),
+      makeReq('ok', { cfCountry: 'JP' }),
       makeDeps(sessionDeps, 'u1'),
     )
     // 403 (not 200) so older CLIs that don't know `country_blocked` fall into
@@ -238,7 +238,7 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(403)
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
-    expect(body.countryCode).toBe('FR')
+    expect(body.countryCode).toBe('JP')
     expect(body.countryBlockReason).toBe('country_not_allowed')
     expect(sessionDeps.rows.size).toBe(0)
   })
@@ -326,13 +326,13 @@ describe('GET /api/v1/freebuff/session', () => {
   test('returns country_blocked for disallowed country on GET', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await getFreebuffSession(
-      makeReq('ok', { cfCountry: 'FR' }),
+      makeReq('ok', { cfCountry: 'JP' }),
       makeDeps(sessionDeps, 'u1'),
     )
     expect(resp.status).toBe(403)
     const body = await resp.json()
     expect(body.status).toBe('country_blocked')
-    expect(body.countryCode).toBe('FR')
+    expect(body.countryCode).toBe('JP')
     expect(body.countryBlockReason).toBe('country_not_allowed')
   })
 
@@ -358,7 +358,7 @@ describe('GET /api/v1/freebuff/session', () => {
     })
     let countryChecks = 0
     const resp = await getFreebuffSession(
-      makeReq('ok', { cfCountry: 'FR' }),
+      makeReq('ok', { cfCountry: 'JP' }),
       makeDeps(sessionDeps, 'u1', {
         getCountryAccess: async (req) => {
           countryChecks++
