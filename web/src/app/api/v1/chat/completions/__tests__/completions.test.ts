@@ -877,6 +877,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             upstreamModel: 'kimi-k2.6',
           },
           {
+            codebuffModel: openCodeZenModels.opencode_minimax_m2_7,
+            upstreamModel: 'minimax-m2.7',
+          },
+          {
             codebuffModel: 'opencode/qwen3-coder',
             upstreamModel: 'qwen3-coder',
           },

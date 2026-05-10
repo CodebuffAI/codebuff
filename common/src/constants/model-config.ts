@@ -55,6 +55,7 @@ export type openrouterModel =
 
 export const openCodeZenModels = {
   opencode_kimi_k2_6: 'opencode/kimi-k2.6',
+  opencode_minimax_m2_7: 'opencode/minimax-m2.7',
 } as const
 export type OpenCodeZenModel =
   (typeof openCodeZenModels)[keyof typeof openCodeZenModels]
