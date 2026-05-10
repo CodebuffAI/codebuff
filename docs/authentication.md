@@ -19,7 +19,7 @@ sequenceDiagram
     CLI->>CLI: Open browser
     Note over Web: User completes OAuth
     Web->>DB: Resolve opaque token to signed payload
-    Web->>DB: Delete opaque token
+    Web->>DB: Mark opaque token consumed
     Web->>DB: Check fingerprint ownership
     Web->>DB: Create/update session
     loop Every 5s
@@ -74,7 +74,7 @@ sequenceDiagram
 
 - Signed auth payloads expire after 1 hour
 - Browser login URLs use opaque 43-character tokens instead of exposing the signed auth payload
-- Opaque browser tokens are stored in `verificationToken` under `cli-login:<token>` and consumed with `DELETE ... RETURNING` when onboarding resolves them
+- Opaque browser tokens are stored in `verificationToken` under `cli-login:<token>` and atomically moved to `cli-login-consumed:<token-hash>` when onboarding resolves them; consumed markers scrub the signed auth payload from the `token` column
 - Fingerprint uniqueness: hardware info + 8 random bytes
 - Ownership conflicts blocked and logged
 - Sessions linked to fingerprint_id in database

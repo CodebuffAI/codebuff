@@ -3,6 +3,13 @@ import { createHash } from 'node:crypto'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 
 const OPAQUE_CLI_AUTH_CODE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
+const CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login:'
+const CONSUMED_CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login-consumed:'
+const CONSUMED_CLI_AUTH_CODE_TOKEN_VALUE = 'consumed'
+
+function getCliAuthCodeHash(authCode: string): string {
+  return createHash('sha256').update(authCode.trim()).digest('hex')
+}
 
 export function buildCliAuthCode(
   fingerprintId: string,
@@ -17,26 +24,83 @@ export function isOpaqueCliAuthCodeToken(authCode: string): boolean {
 }
 
 export function getCliAuthCodeHashPrefix(authCode: string): string {
-  return createHash('sha256').update(authCode.trim()).digest('hex').slice(0, 12)
+  return getCliAuthCodeHash(authCode).slice(0, 12)
 }
+
+export function getCliAuthCodeTokenIdentifier(authCodeToken: string): string {
+  return `${CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX}${authCodeToken}`
+}
+
+export function getConsumedCliAuthCodeTokenIdentifier(
+  authCodeToken: string,
+): string {
+  return `${CONSUMED_CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX}${getCliAuthCodeHash(
+    authCodeToken,
+  )}`
+}
+
+export function getConsumedCliAuthCodeTokenValue(): string {
+  return CONSUMED_CLI_AUTH_CODE_TOKEN_VALUE
+}
+
+export type CliAuthCodeTokenConsumeResult =
+  | { status: 'resolved'; authCode: string }
+  | { status: 'already_consumed' }
+  | { status: 'missing' }
+
+export type CliAuthCodeResolution =
+  | {
+      status: 'ready'
+      authCode: string
+      resolvedOpaqueToken: boolean
+    }
+  | {
+      status: 'already_consumed'
+      authCode: string
+      resolvedOpaqueToken: false
+    }
+  | {
+      status: 'missing'
+      authCode: string
+      resolvedOpaqueToken: false
+    }
 
 export async function resolveCliAuthCode(
   authCode: string,
-  consumeCliAuthCodeToken: (authCodeToken: string) => Promise<string | null>,
-): Promise<{ authCode: string; resolvedOpaqueToken: boolean }> {
+  consumeCliAuthCodeToken: (
+    authCodeToken: string,
+  ) => Promise<CliAuthCodeTokenConsumeResult>,
+): Promise<CliAuthCodeResolution> {
   const normalizedAuthCode = authCode.trim()
   if (!isOpaqueCliAuthCodeToken(normalizedAuthCode)) {
-    return { authCode: normalizedAuthCode, resolvedOpaqueToken: false }
+    return {
+      status: 'ready',
+      authCode: normalizedAuthCode,
+      resolvedOpaqueToken: false,
+    }
   }
 
-  const signedAuthCode = await consumeCliAuthCodeToken(normalizedAuthCode)
-  if (!signedAuthCode) {
-    return { authCode: normalizedAuthCode, resolvedOpaqueToken: false }
+  const tokenResult = await consumeCliAuthCodeToken(normalizedAuthCode)
+  if (tokenResult.status === 'resolved') {
+    return {
+      status: 'ready',
+      authCode: tokenResult.authCode,
+      resolvedOpaqueToken: true,
+    }
+  }
+
+  if (tokenResult.status === 'already_consumed') {
+    return {
+      status: 'already_consumed',
+      authCode: normalizedAuthCode,
+      resolvedOpaqueToken: false,
+    }
   }
 
   return {
-    authCode: signedAuthCode,
-    resolvedOpaqueToken: true,
+    status: 'missing',
+    authCode: normalizedAuthCode,
+    resolvedOpaqueToken: false,
   }
 }
 

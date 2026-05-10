@@ -6,6 +6,13 @@ import { cookies } from 'next/headers'
 
 import { logger } from '@/util/logger'
 
+import {
+  getCliAuthCodeTokenIdentifier,
+  getConsumedCliAuthCodeTokenIdentifier,
+  getConsumedCliAuthCodeTokenValue,
+  type CliAuthCodeTokenConsumeResult,
+} from './_helpers'
+
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   tx: infer T,
 ) => any
@@ -34,15 +41,53 @@ export async function hasCliSessionForAuthHash(
 
 export async function consumeCliAuthCodeToken(
   authCodeToken: string,
-): Promise<string | null> {
-  const deleted = await db
-    .delete(schema.verificationToken)
-    .where(
-      eq(schema.verificationToken.identifier, `cli-login:${authCodeToken}`),
-    )
-    .returning({ authCode: schema.verificationToken.token })
+): Promise<CliAuthCodeTokenConsumeResult> {
+  const activeIdentifier = getCliAuthCodeTokenIdentifier(authCodeToken)
+  const consumedIdentifier =
+    getConsumedCliAuthCodeTokenIdentifier(authCodeToken)
+  const getConsumedTokenStatus =
+    async (): Promise<CliAuthCodeTokenConsumeResult> => {
+      const existingConsumed = await db
+        .select({ id: schema.verificationToken.identifier })
+        .from(schema.verificationToken)
+        .where(eq(schema.verificationToken.identifier, consumedIdentifier))
+        .limit(1)
 
-  return deleted[0]?.authCode ?? null
+      return existingConsumed[0]
+        ? { status: 'already_consumed' }
+        : { status: 'missing' }
+    }
+
+  const active = await db
+    .select({ authCode: schema.verificationToken.token })
+    .from(schema.verificationToken)
+    .where(eq(schema.verificationToken.identifier, activeIdentifier))
+    .limit(1)
+  const authCode = active[0]?.authCode
+
+  if (!authCode) {
+    return getConsumedTokenStatus()
+  }
+
+  const consumed = await db
+    .update(schema.verificationToken)
+    .set({
+      identifier: consumedIdentifier,
+      token: getConsumedCliAuthCodeTokenValue(),
+    })
+    .where(
+      and(
+        eq(schema.verificationToken.identifier, activeIdentifier),
+        eq(schema.verificationToken.token, authCode),
+      ),
+    )
+    .returning({ id: schema.verificationToken.identifier })
+
+  if (consumed[0]) {
+    return { status: 'resolved', authCode }
+  }
+
+  return getConsumedTokenStatus()
 }
 
 export async function checkFingerprintConflict(
