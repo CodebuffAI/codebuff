@@ -869,13 +869,24 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'routes OpenCode Zen models to the direct OpenCode Zen provider',
+      'routes OpenCode Zen-prefixed and Kimi models to the direct OpenCode Zen provider',
       async () => {
-        const expectedUpstreamModel: Record<string, string> = {
-          'opencode/kimi-k2.6': 'kimi-k2.6',
-        }
+        const testCases = [
+          {
+            codebuffModel: openCodeZenModels.opencode_kimi_k2_6,
+            upstreamModel: 'kimi-k2.6',
+          },
+          {
+            codebuffModel: 'opencode/qwen3-coder',
+            upstreamModel: 'qwen3-coder',
+          },
+          {
+            codebuffModel: 'moonshotai/kimi-k2.6',
+            upstreamModel: 'kimi-k2.6',
+          },
+        ]
 
-        for (const codebuffModel of Object.values(openCodeZenModels)) {
+        for (const { codebuffModel, upstreamModel } of testCases) {
           const fetchedBodies: Record<string, unknown>[] = []
           const fetchedUrls: string[] = []
           const fetchViaOpenCodeZen = mock(
@@ -889,7 +900,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
               return new Response(
                 JSON.stringify({
                   id: 'test-id',
-                  model: expectedUpstreamModel[codebuffModel],
+                  model: upstreamModel,
                   choices: [{ message: { content: 'test response' } }],
                   usage: {
                     prompt_tokens: 10,
@@ -968,9 +979,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(fetchedUrls[0]).toBe(
             'https://opencode.ai/zen/v1/chat/completions',
           )
-          expect(fetchedBodies[0].model).toBe(
-            expectedUpstreamModel[codebuffModel],
-          )
+          expect(fetchedBodies[0].model).toBe(upstreamModel)
           expect(body.model).toBe(codebuffModel)
           expect(body.provider).toBe('OpenCode Zen')
         }

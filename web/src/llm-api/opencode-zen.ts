@@ -34,34 +34,44 @@ interface OpenCodeZenPricing {
   outputCostPerToken: number
 }
 
-const OPENCODE_ZEN_MODELS: Record<
-  string,
-  { opencodeId: string; pricing: OpenCodeZenPricing }
-> = {
-  [openCodeZenModels.opencode_kimi_k2_6]: {
-    opencodeId: 'kimi-k2.6',
-    pricing: {
-      inputCostPerToken: 0.95 / 1_000_000,
-      cachedInputCostPerToken: 0.16 / 1_000_000,
-      outputCostPerToken: 4.0 / 1_000_000,
-    },
-  },
+const OPENCODE_MODEL_PREFIX = 'opencode/'
+const MOONSHOT_KIMI_MODEL = 'moonshotai/kimi-k2.6'
+const KIMI_ZEN_MODEL = 'kimi-k2.6'
+
+const OPENCODE_ZEN_MODEL_ALIASES: Record<string, string> = {
+  [openCodeZenModels.opencode_kimi_k2_6]: KIMI_ZEN_MODEL,
+  [MOONSHOT_KIMI_MODEL]: KIMI_ZEN_MODEL,
 }
 
-export function isOpenCodeZenModel(model: string): boolean {
-  return model in OPENCODE_ZEN_MODELS
+const KIMI_ZEN_PRICING: OpenCodeZenPricing = {
+  inputCostPerToken: 0.95 / 1_000_000,
+  cachedInputCostPerToken: 0.16 / 1_000_000,
+  outputCostPerToken: 4.0 / 1_000_000,
+}
+
+const OPENCODE_ZEN_PRICING: Record<string, OpenCodeZenPricing> = {
+  [KIMI_ZEN_MODEL]: KIMI_ZEN_PRICING,
+}
+
+export function isOpenCodeZenModel(model: unknown): model is string {
+  if (typeof model !== 'string') return false
+  return (
+    model.startsWith(OPENCODE_MODEL_PREFIX) ||
+    model in OPENCODE_ZEN_MODEL_ALIASES
+  )
 }
 
 function getOpenCodeZenModelId(model: string): string {
-  return OPENCODE_ZEN_MODELS[model]?.opencodeId ?? model
+  return (
+    OPENCODE_ZEN_MODEL_ALIASES[model] ??
+    (model.startsWith(OPENCODE_MODEL_PREFIX)
+      ? model.slice(OPENCODE_MODEL_PREFIX.length)
+      : model)
+  )
 }
 
 function getOpenCodeZenPricing(model: string): OpenCodeZenPricing {
-  const entry = OPENCODE_ZEN_MODELS[model]
-  if (!entry) {
-    throw new Error(`No OpenCode Zen pricing found for model: ${model}`)
-  }
-  return entry.pricing
+  return OPENCODE_ZEN_PRICING[getOpenCodeZenModelId(model)] ?? KIMI_ZEN_PRICING
 }
 
 type StreamState = {
