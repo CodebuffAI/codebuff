@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import {
-  DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
@@ -27,17 +26,7 @@ import {
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent } from '@opentui/core'
 
-// Widen the readonly tuple from FREEBUFF_MODELS to FreebuffModelOption[] so
-// the selector can branch on optional fields (e.g. `warning`) and on
-// availability values that aren't present in today's set but might be added
-// later, without TS narrowing the literal types away.
-const FREEBUFF_MODEL_SELECTOR_MODELS: readonly FreebuffModelOption[] = [
-  ...FREEBUFF_MODELS.filter((model) => model.id === DEFAULT_FREEBUFF_MODEL_ID),
-  ...FREEBUFF_MODELS.filter((model) => model.id !== DEFAULT_FREEBUFF_MODEL_ID),
-]
-const FREEBUFF_MODEL_SELECTOR_MODEL_IDS = FREEBUFF_MODEL_SELECTOR_MODELS.map(
-  (model) => model.id,
-)
+const FREEBUFF_MODEL_IDS = FREEBUFF_MODELS.map((m) => m.id)
 
 // Section grouping: premium models share one quota pool, unlimited has none.
 // Putting the tier on a section header lets each row drop its redundant
@@ -56,14 +45,14 @@ const SECTIONS: readonly Section[] = (
     {
       key: 'premium',
       label: 'PREMIUM',
-      models: FREEBUFF_MODEL_SELECTOR_MODELS.filter((m) =>
+      models: FREEBUFF_MODELS.filter((m) =>
         isFreebuffPremiumModelId(m.id),
       ),
     },
     {
       key: 'unlimited',
       label: 'UNLIMITED',
-      models: FREEBUFF_MODEL_SELECTOR_MODELS.filter(
+      models: FREEBUFF_MODELS.filter(
         (m) => !isFreebuffPremiumModelId(m.id),
       ),
     },
@@ -139,7 +128,7 @@ export const FreebuffModelSelector: React.FC = () => {
   // terminals where the secondary details spill to an indented second line.
   const { wrapDetails, buttonOuterWidth, nameColumnWidth } = useMemo(() => {
     const nameLen = (m: FreebuffModelOption) => m.displayName.length
-    const maxNameLen = Math.max(...FREEBUFF_MODEL_SELECTOR_MODELS.map(nameLen))
+    const maxNameLen = Math.max(...FREEBUFF_MODELS.map(nameLen))
 
     const detailsParts = (model: FreebuffModelOption): number[] => {
       const parts = [model.tagline.length]
@@ -160,7 +149,7 @@ export const FreebuffModelSelector: React.FC = () => {
       joinedLen(detailsParts(model))
 
     const maxOneLineOuter =
-      Math.max(...FREEBUFF_MODEL_SELECTOR_MODELS.map(oneLineLen)) +
+      Math.max(...FREEBUFF_MODELS.map(oneLineLen)) +
       BUTTON_CHROME
     if (maxOneLineOuter <= contentMaxWidth) {
       return {
@@ -184,7 +173,7 @@ export const FreebuffModelSelector: React.FC = () => {
       return parts.length === 0 ? 0 : 2 /* indent */ + joinedLen(parts)
     }
     const maxTwoLineInner = Math.max(
-      ...FREEBUFF_MODEL_SELECTOR_MODELS.map((m) =>
+      ...FREEBUFF_MODELS.map((m) =>
         Math.max(labelLineLen(m), detailsLineLen(m)),
       ),
     )
@@ -239,7 +228,7 @@ export const FreebuffModelSelector: React.FC = () => {
         }
         if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: FREEBUFF_MODEL_SELECTOR_MODEL_IDS,
+          modelIds: FREEBUFF_MODEL_IDS,
           focusedId,
           direction,
         })
