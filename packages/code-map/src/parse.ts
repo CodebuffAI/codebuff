@@ -164,11 +164,19 @@ async function parseTokensForScoring(params: {
     })
   }
 
-  const source = await readFile(filePath)
-  return parseTokensWithLimits(filePath, languageConfig, () => source, {
-    maxBytes: MAX_PARSE_FILE_BYTES,
-    remainingBytes,
-  })
+  try {
+    const source = await readFile(filePath)
+    return parseTokensWithLimits(filePath, languageConfig, () => source, {
+      maxBytes: MAX_PARSE_FILE_BYTES,
+      remainingBytes,
+    })
+  } catch (e) {
+    if (DEBUG_PARSING) {
+      console.error(`Error reading source: ${e}`)
+      console.log(filePath)
+    }
+    return emptyParsedTokens(false)
+  }
 }
 
 function parseTokensWithLimits(

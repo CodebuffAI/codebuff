@@ -141,7 +141,7 @@ type ProjectIndexInput = {
   readFile?: (filePath: string) => string | null | Promise<string | null>
 }
 
-const DEFAULT_SYMBOL_PARSE_FILE_BYTES = 1_000_000
+const MAX_DISCOVERED_PROJECT_READ_BYTES = 1_000_000
 
 async function computeProjectIndex(params: ProjectIndexInput): Promise<{
   fileTree: FileTreeNode[]
@@ -205,13 +205,12 @@ function createDiscoveredProjectReader(params: {
   logger: Logger
 }): (filePath: string) => Promise<string | null> {
   const { cwd, fs, logger } = params
-  const maxBytes = getSymbolParseFileByteLimit()
 
   return async (filePath: string) => {
     const fullPath = path.join(cwd, filePath)
     try {
       const stats = await fs.stat(fullPath)
-      if (getFileSize(stats) > maxBytes) {
+      if (getFileSize(stats) > MAX_DISCOVERED_PROJECT_READ_BYTES) {
         return null
       }
       return await fs.readFile(fullPath, 'utf8')
@@ -227,16 +226,6 @@ function createDiscoveredProjectReader(params: {
 
 function getFileSize(stats: Awaited<ReturnType<CodebuffFileSystem['stat']>>) {
   return typeof stats.size === 'number' ? stats.size : 0
-}
-
-function getSymbolParseFileByteLimit() {
-  const raw = process.env.CODEBUFF_MAX_PARSE_FILE_BYTES
-  if (!raw) return DEFAULT_SYMBOL_PARSE_FILE_BYTES
-
-  const parsed = Number.parseInt(raw, 10)
-  return Number.isFinite(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_SYMBOL_PARSE_FILE_BYTES
 }
 
 /**

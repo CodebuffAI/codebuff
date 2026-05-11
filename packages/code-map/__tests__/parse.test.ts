@@ -619,5 +619,22 @@ console.log('Total:', formatCurrency(total));
       expect(typeof result.tokenScores).toBe('object')
       expect(typeof result.tokenCallers).toBe('object')
     })
+
+    it('should continue scoring when a provided reader rejects for one file', async () => {
+      const result = await getFileTokenScores(
+        '/tmp/test-project',
+        ['src/unreadable.ts', 'src/readable.ts'],
+        async (filePath: string) => {
+          if (filePath === 'src/unreadable.ts') {
+            throw new Error('permission denied')
+          }
+
+          return 'export function readable() { return helper() }\nfunction helper() { return 1 }\n'
+        },
+      )
+
+      expect(result.tokenScores).toBeDefined()
+      expect(result.tokenCallers).toBeDefined()
+    })
   })
 })
