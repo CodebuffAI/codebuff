@@ -51,6 +51,31 @@ describe('parse module', () => {
       expect(mockQuery.captures).toHaveBeenCalledWith(mockTree.rootNode)
     })
 
+    it('should skip parsing source larger than the byte limit', () => {
+      const mockParser = createMockTreeSitterParser()
+      const mockLanguageConfig: LanguageConfig = {
+        extensions: ['.ts'],
+        wasmFile: 'tree-sitter-typescript.wasm',
+        queryText: 'mock query',
+        parser: mockParser,
+        query: createMockTreeSitterQuery(),
+      }
+
+      const result = parseTokens(
+        'test.ts',
+        mockLanguageConfig,
+        () => 'x'.repeat(20),
+        { maxBytes: 10 },
+      )
+
+      expect(result).toEqual({
+        numLines: 0,
+        identifiers: [],
+        calls: [],
+      })
+      expect(mockParser.parse).not.toHaveBeenCalled()
+    })
+
     it('should handle null file content gracefully', () => {
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
