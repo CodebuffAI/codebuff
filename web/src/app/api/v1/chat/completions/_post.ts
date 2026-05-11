@@ -56,6 +56,12 @@ import {
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
 import {
+  handleMoonshotNonStream,
+  handleMoonshotStream,
+  isMoonshotModel,
+  MoonshotError,
+} from '@/llm-api/moonshot'
+import {
   OpenCodeZenError,
   handleOpenCodeZenNonStream,
   handleOpenCodeZenStream,
@@ -616,18 +622,22 @@ export async function postChatCompletions(params: {
         // Streaming request — route supported models to direct providers.
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useOpenCodeZen = isOpenCodeZenModel(typedBody.model)
+        const useMoonshot = !useOpenCodeZen && isMoonshotModel(typedBody.model)
         const useCanopyWave =
-          !useOpenCodeZen && isCanopyWaveModel(typedBody.model)
+          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(typedBody.model)
         const useDeepSeek =
+          !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           isDeepSeekModel(typedBody.model)
         const useFireworks =
+          !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
           isFireworksModel(typedBody.model)
         const useOpenAIDirect =
+          !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
@@ -644,20 +654,22 @@ export async function postChatCompletions(params: {
         }
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream(baseArgs)
-          : useOpenCodeZen
-            ? await handleOpenCodeZenStream(baseArgs)
-            : useCanopyWave
-              ? await handleCanopyWaveStream(baseArgs)
-              : useDeepSeek
-                ? await handleDeepSeekStream(baseArgs)
-                : useFireworks
-                  ? await handleFireworksStream(baseArgs)
-                  : useOpenAIDirect
-                    ? await handleOpenAIStream(baseArgs)
-                    : await handleOpenRouterStream({
-                        ...baseArgs,
-                        openrouterApiKey,
-                      })
+          : useMoonshot
+            ? await handleMoonshotStream(baseArgs)
+            : useOpenCodeZen
+              ? await handleOpenCodeZenStream(baseArgs)
+              : useCanopyWave
+                ? await handleCanopyWaveStream(baseArgs)
+                : useDeepSeek
+                  ? await handleDeepSeekStream(baseArgs)
+                  : useFireworks
+                    ? await handleFireworksStream(baseArgs)
+                    : useOpenAIDirect
+                      ? await handleOpenAIStream(baseArgs)
+                      : await handleOpenRouterStream({
+                          ...baseArgs,
+                          openrouterApiKey,
+                        })
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -682,15 +694,22 @@ export async function postChatCompletions(params: {
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useOpenCodeZen = isOpenCodeZenModel(model)
-        const useCanopyWave = !useOpenCodeZen && isCanopyWaveModel(model)
+        const useMoonshot = !useOpenCodeZen && isMoonshotModel(model)
+        const useCanopyWave =
+          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(model)
         const useDeepSeek =
-          !useOpenCodeZen && !useCanopyWave && isDeepSeekModel(model)
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          isDeepSeekModel(model)
         const useFireworks =
+          !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
           isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
+          !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
@@ -708,20 +727,22 @@ export async function postChatCompletions(params: {
         }
         const nonStreamRequest = useSiliconFlow
           ? handleSiliconFlowNonStream(baseArgs)
-          : useOpenCodeZen
-            ? handleOpenCodeZenNonStream(baseArgs)
-            : useCanopyWave
-              ? handleCanopyWaveNonStream(baseArgs)
-              : useDeepSeek
-                ? handleDeepSeekNonStream(baseArgs)
-                : useFireworks
-                  ? handleFireworksNonStream(baseArgs)
-                  : shouldUseOpenAIEndpoint
-                    ? handleOpenAINonStream(baseArgs)
-                    : handleOpenRouterNonStream({
-                        ...baseArgs,
-                        openrouterApiKey,
-                      })
+          : useMoonshot
+            ? handleMoonshotNonStream(baseArgs)
+            : useOpenCodeZen
+              ? handleOpenCodeZenNonStream(baseArgs)
+              : useCanopyWave
+                ? handleCanopyWaveNonStream(baseArgs)
+                : useDeepSeek
+                  ? handleDeepSeekNonStream(baseArgs)
+                  : useFireworks
+                    ? handleFireworksNonStream(baseArgs)
+                    : shouldUseOpenAIEndpoint
+                      ? handleOpenAINonStream(baseArgs)
+                      : handleOpenRouterNonStream({
+                          ...baseArgs,
+                          openrouterApiKey,
+                        })
         const result = await nonStreamRequest
 
         trackEvent({
@@ -754,6 +775,10 @@ export async function postChatCompletions(params: {
       if (error instanceof DeepSeekError) {
         deepseekError = error
       }
+      let moonshotError: MoonshotError | undefined
+      if (error instanceof MoonshotError) {
+        moonshotError = error
+      }
       let siliconflowError: SiliconFlowError | undefined
       if (error instanceof SiliconFlowError) {
         siliconflowError = error
@@ -773,15 +798,17 @@ export async function postChatCompletions(params: {
         ? 'SiliconFlow'
         : opencodeZenError
           ? 'OpenCode Zen'
-          : canopywaveError
-            ? 'CanopyWave'
-            : deepseekError
-              ? 'DeepSeek'
-              : fireworksError
-                ? 'Fireworks'
-                : openaiError
-                  ? 'OpenAI'
-                  : 'OpenRouter'
+          : moonshotError
+            ? 'Moonshot'
+            : canopywaveError
+              ? 'CanopyWave'
+              : deepseekError
+                ? 'DeepSeek'
+                : fireworksError
+                  ? 'Fireworks'
+                  : openaiError
+                    ? 'OpenAI'
+                    : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -798,6 +825,7 @@ export async function postChatCompletions(params: {
           providerStatusCode: (
             openrouterError ??
             fireworksError ??
+            moonshotError ??
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
@@ -807,6 +835,7 @@ export async function postChatCompletions(params: {
           providerStatusText: (
             openrouterError ??
             fireworksError ??
+            moonshotError ??
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
@@ -838,6 +867,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof FireworksError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof MoonshotError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof CanopyWaveError) {
