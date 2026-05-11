@@ -90,7 +90,7 @@ export const FREEBUFF_MODELS = [
   {
     id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     displayName: 'DeepSeek V4 Flash',
-    tagline: 'Fast',
+    tagline: 'Most efficient',
     availability: 'always',
   },
 ] as const satisfies readonly FreebuffModelOption[]
