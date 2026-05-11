@@ -6,7 +6,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  * shape to expect when firing impressions. Add a new id here when wiring in
  * another provider (e.g. 'zeroclick').
  */
-export type AdProviderId = 'gravity' | 'carbon'
+export type AdProviderId = 'gravity' | 'carbon' | 'zeroclick'
 
 /**
  * Normalized ad shape returned by every provider. The CLI renders against
@@ -22,6 +22,12 @@ export type NormalizedAd = {
   clickUrl: string
   /** Primary impression pixel URL. Fired once when the ad becomes visible. */
   impUrl: string
+  /**
+   * Provider-specific impression ids that must be reported from the client
+   * device. ZeroClick impressions use POST /api/v2/impressions with offer ids,
+   * not a GET pixel URL.
+   */
+  impressionIds?: string[]
   /**
    * Additional impression pixels (e.g. Carbon's `pixel` field). Each string
    * may contain `[timestamp]` which must be substituted at fire time.

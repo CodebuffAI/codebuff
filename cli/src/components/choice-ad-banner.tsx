@@ -11,7 +11,7 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface ChoiceAdBannerProps {
   ads: AdResponse[]
-  onImpression?: (impUrl: string) => void
+  onImpression?: (ad: AdResponse) => void
 }
 
 export const CHOICE_AD_BANNER_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
@@ -82,7 +82,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
   useEffect(() => {
     if (onImpression) {
       for (const ad of visibleAds) {
-        onImpression(ad.impUrl)
+        onImpression(ad)
       }
     }
   }, [visibleAds, onImpression])

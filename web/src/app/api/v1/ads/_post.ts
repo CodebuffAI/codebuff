@@ -9,6 +9,7 @@ import { requireUserFromApiKey } from '../_helpers'
 
 import { createCarbonProvider } from '@/lib/ad-providers/carbon'
 import { createGravityProvider } from '@/lib/ad-providers/gravity'
+import { createZeroClickProvider } from '@/lib/ad-providers/zeroclick'
 
 import type {
   AdProvider,
@@ -34,7 +35,9 @@ const deviceSchema = z.object({
   locale: z.string().optional(),
 })
 
-const providerSchema = z.enum(['gravity', 'carbon']).default('gravity')
+const providerSchema = z
+  .enum(['gravity', 'carbon', 'zeroclick'])
+  .default('gravity')
 const surfaceSchema = z.enum(['waiting_room'])
 
 const bodySchema = z.object({
@@ -50,6 +53,7 @@ const bodySchema = z.object({
 export type AdsEnv = {
   GRAVITY_API_KEY: string
   CARBON_ZONE_KEY?: string
+  ZEROCLICK_API_KEY?: string
   CB_ENVIRONMENT: string
 }
 
@@ -126,6 +130,12 @@ export async function postAds(params: {
       return noAdsResponse(providerId)
     }
     provider = createCarbonProvider({ zoneKey: serverEnv.CARBON_ZONE_KEY })
+  } else if (providerId === 'zeroclick') {
+    if (!serverEnv.ZEROCLICK_API_KEY) {
+      logger.warn('[ads] ZEROCLICK_API_KEY not configured')
+      return noAdsResponse(providerId)
+    }
+    provider = createZeroClickProvider({ apiKey: serverEnv.ZEROCLICK_API_KEY })
   } else {
     if (!serverEnv.GRAVITY_API_KEY) {
       logger.warn('[ads] GRAVITY_API_KEY not configured')

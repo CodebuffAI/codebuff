@@ -15,6 +15,7 @@ const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
 const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching new ads
 const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
+const ZEROCLICK_IMPRESSIONS_URL = 'https://zeroclick.dev/api/v2/impressions'
 
 // Ad response type (normalized shape across providers; credits added after impression)
 export type AdResponse = {
@@ -25,6 +26,8 @@ export type AdResponse = {
   favicon: string
   clickUrl: string
   impUrl: string
+  provider?: AdProvider
+  impressionIds?: string[]
   credits?: number // Set after impression is recorded (in cents)
 }
 
@@ -32,13 +35,13 @@ export type AdResponse = {
  * Which upstream ad network to query. The server maps each provider onto the
  * same normalized response shape, so the rest of the hook is provider-agnostic.
  */
-export type AdProvider = 'gravity' | 'carbon'
+export type AdProvider = 'gravity' | 'carbon' | 'zeroclick'
 export type AdSurface = 'waiting_room'
 
 export type GravityAdState = {
   ads: AdResponse[] | null
   isLoading: boolean
-  recordImpression: (impUrl: string) => void
+  recordImpression: (ad: AdResponse) => void
 }
 
 // Consolidated controller state for the ad rotation logic
@@ -52,6 +55,10 @@ type GravityController = {
 
 // Pure helper: add a choice ad set to the choice cache
 function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
+  // ZeroClick offer responses must not be stored for later display. Keep them
+  // out of the rotation cache and only render them for the live request.
+  if (ads.some((ad) => ad.provider === 'zeroclick')) return
+
   // Deduplicate by checking if any set has the same first impUrl
   const key = ads[0]?.impUrl
   if (key && ctrl.choiceCache.some((set) => set[0]?.impUrl === key)) return
@@ -134,50 +141,89 @@ export const useGravityAd = (options?: {
   shouldHideAdsRef.current = shouldHideAds
 
   // Fire impression and update credits (called when showing an ad)
-  const recordImpressionOnce = (impUrl: string): void => {
+  const recordImpressionOnce = (ad: AdResponse): void => {
     // Don't record impressions when ads should be hidden
     if (shouldHideAdsRef.current) return
 
     const ctrl = ctrlRef.current
+    const { impUrl } = ad
     if (ctrl.impressionsFired.has(impUrl)) return
     ctrl.impressionsFired.add(impUrl)
 
-    const authToken = getAuthToken()
-    if (!authToken) {
-      logger.warn('[ads] No auth token, skipping impression recording')
+    const recordLocalImpression = async (): Promise<void> => {
+      const authToken = getAuthToken()
+      if (!authToken) {
+        logger.warn('[ads] No auth token, skipping local impression recording')
+        return
+      }
+
+      // Include mode in request - Freebuff should not grant credits (no balance concept).
+      const agentMode = useChatStore.getState().agentMode
+
+      const res = await fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ impUrl, mode: agentMode }),
+      })
+
+      if (!res.ok) {
+        logger.debug(
+          { status: res.status },
+          '[ads] Failed to record local ad impression',
+        )
+        return
+      }
+
+      const data = await res.json()
+      if (data.creditsGranted > 0) {
+        logger.info(
+          { creditsGranted: data.creditsGranted },
+          '[ads] Ad impression credits granted',
+        )
+        // Also update credits in visible ads
+        setAds((cur) => {
+          if (!cur) return cur
+          return cur.map((a) =>
+            a.impUrl === impUrl ? { ...a, credits: data.creditsGranted } : a,
+          )
+        })
+      }
+    }
+
+    if (ad.provider === 'zeroclick' && ad.impressionIds?.length) {
+      void (async () => {
+        try {
+          const res = await fetch(ZEROCLICK_IMPRESSIONS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ad.impressionIds }),
+          })
+
+          if (!res.ok) {
+            logger.debug(
+              { status: res.status },
+              '[ads] Failed to record ZeroClick impression',
+            )
+            return
+          }
+        } catch (err) {
+          logger.debug({ err }, '[ads] Failed to record ZeroClick impression')
+          return
+        }
+
+        recordLocalImpression().catch((err) => {
+          logger.debug({ err }, '[ads] Failed to record local ad impression')
+        })
+      })()
       return
     }
 
-    // Include mode in request - Freebuff should not grant credits (no balance concept).
-    const agentMode = useChatStore.getState().agentMode
-
-    fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ impUrl, mode: agentMode }),
+    recordLocalImpression().catch((err) => {
+      logger.debug({ err }, '[ads] Failed to record ad impression')
     })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.creditsGranted > 0) {
-          logger.info(
-            { creditsGranted: data.creditsGranted },
-            '[ads] Ad impression credits granted',
-          )
-          // Also update credits in visible ads
-          setAds((cur) => {
-            if (!cur) return cur
-            return cur.map((a) =>
-              a.impUrl === impUrl ? { ...a, credits: data.creditsGranted } : a,
-            )
-          })
-        }
-      })
-      .catch((err) => {
-        logger.debug({ err }, '[ads] Failed to record ad impression')
-      })
   }
 
   type FetchAdResult = { ads: AdResponse[] } | null
@@ -265,7 +311,12 @@ export const useGravityAd = (options?: {
         const data = await response.json()
 
         if (Array.isArray(data.ads) && data.ads.length > 0) {
-          return { ads: data.ads as AdResponse[] }
+          return {
+            ads: (data.ads as AdResponse[]).map((ad) => ({
+              ...ad,
+              provider: data.provider ?? providerToTry,
+            })),
+          }
         }
       } catch (err) {
         logger.error(
@@ -305,6 +356,8 @@ export const useGravityAd = (options?: {
           if (cachedSet) {
             ctrl.adsShownSinceActivity += 1
             setAds(cachedSet)
+          } else {
+            setAds((cur) => (cur?.[0]?.provider === 'zeroclick' ? null : cur))
           }
         }
       } finally {
