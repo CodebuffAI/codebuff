@@ -66,14 +66,11 @@ function normalize(raw: ZeroClickOffer, servedId: string): NormalizedAd | null {
   if (!raw.id || !raw.clickUrl) return null
 
   const title =
+    raw.brand?.name?.trim() ||
     raw.title?.trim() ||
     raw.product?.title?.trim() ||
-    raw.brand?.name?.trim() ||
     'Sponsored'
-  const content = [raw.subtitle, raw.content]
-    .map((part) => part?.trim())
-    .filter(Boolean)
-    .join(' ')
+  const content = raw.content?.trim() || raw.subtitle?.trim() || ''
 
   return {
     adText: content || title,
