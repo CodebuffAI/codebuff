@@ -139,7 +139,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
               </box>
               <box style={{ flexGrow: 1 }} />
               {/* Bottom: CTA + domain */}
-              <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center' }}>
+              <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center', height: 1, overflow: 'hidden' }}>
                 <text
                   style={{
                     fg: theme.name === 'light' ? '#ffffff' : theme.background,
@@ -152,6 +152,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 <text
                   style={{
                     fg: theme.muted,
+                    wrapMode: 'none',
                     attributes:
                       label.variant === 'domain'
                         ? TextAttributes.UNDERLINE
