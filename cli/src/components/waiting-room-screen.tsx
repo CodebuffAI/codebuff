@@ -234,12 +234,12 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Always enable ads in the waiting room — this is where monetization lives.
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
-  // Try Gravity first, then fall back to Carbon when Gravity doesn't fill.
+  // Try Gravity first, then fall back to ZeroClick when Gravity doesn't fill.
   const { ads, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
     provider: 'gravity',
-    fallbackProvider: 'carbon',
+    fallbackProvider: 'zeroclick',
     surface: 'waiting_room',
   })
 
