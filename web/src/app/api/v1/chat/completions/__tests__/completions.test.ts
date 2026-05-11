@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
+import { TEST_USER_ID } from '@codebuff/common/constants/paths'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -29,7 +30,7 @@ import type { GetUserPreferencesFn } from '../_post'
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<string, { id: string; banned: boolean }> = {
     'test-api-key-123': {
-      id: 'user-123',
+      id: TEST_USER_ID,
       banned: false,
     },
     'test-api-key-no-credits': {
