@@ -295,6 +295,40 @@ describe('sdk-event-handlers', () => {
     expect(getStreamingAgents().size).toBe(0)
   })
 
+  test('preserves spawn_agents params on placeholder agent blocks', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'basher',
+            params: {
+              command: 'git status --short',
+              what_to_summarize: 'Report whether the worktree is clean',
+            },
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.agentId).toBe('tool-1-0')
+    expect(agentBlock.agentType).toBe('basher')
+    expect(agentBlock.initialPrompt).toBe('')
+    expect(agentBlock.params).toEqual({
+      command: 'git status --short',
+      what_to_summarize: 'Report whether the worktree is clean',
+    })
+    expect(getStreamingAgents().has('tool-1-0')).toBe(true)
+  })
+
   test('handles spawn_agents tool results and clears streaming agents', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
     ctx.message.updater.addBlock(

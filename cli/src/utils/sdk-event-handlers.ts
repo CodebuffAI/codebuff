@@ -285,6 +285,7 @@ const handleSpawnAgentsToolCall = (
           agentId: `${event.toolCallId}-${originalIndex}`,
           agentType: agent.agent_type || '',
           prompt: agent.prompt,
+          params: agent.params,
           spawnToolCallId: event.toolCallId,
           spawnIndex: originalIndex,
           parentAgentType,

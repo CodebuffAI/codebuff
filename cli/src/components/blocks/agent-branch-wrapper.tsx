@@ -17,6 +17,7 @@ import { ToolBlockGroup } from './tool-block-group'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
 import { isTextBlock } from '../../types/chat'
+import { getAgentDisplayPrompt } from '../../utils/agent-display'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   processBlocks,
@@ -64,9 +65,10 @@ function getCollapsedPreview(
     }
   }
 
-  // Default preview: use initialPrompt or first line of text content
-  if (agentBlock.initialPrompt) {
-    return sanitizePreview(agentBlock.initialPrompt)
+  // Default preview: use the displayed prompt or first line of text content.
+  const displayPrompt = getAgentDisplayPrompt(agentBlock)
+  if (displayPrompt) {
+    return sanitizePreview(displayPrompt)
   }
 
   const textContent =
@@ -413,6 +415,7 @@ export const AgentBranchWrapper = memo(
 
     // Compute collapsed preview text
     const preview = getCollapsedPreview(agentBlock, isStreaming, isCollapsed)
+    const displayPrompt = getAgentDisplayPrompt(agentBlock)
 
     const effectiveStatus = isStreaming ? 'running' : agentBlock.status
     const {
@@ -429,7 +432,7 @@ export const AgentBranchWrapper = memo(
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
           name={agentBlock.agentName}
-          prompt={agentBlock.initialPrompt}
+          prompt={displayPrompt}
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
