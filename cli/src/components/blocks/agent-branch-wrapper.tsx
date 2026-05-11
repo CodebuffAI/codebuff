@@ -17,7 +17,10 @@ import { ToolBlockGroup } from './tool-block-group'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
 import { isTextBlock } from '../../types/chat'
-import { getAgentDisplayPrompt } from '../../utils/agent-display'
+import {
+  getAgentDisplayPrompt,
+  getBasherFinishedOutputPreview,
+} from '../../utils/agent-display'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   processBlocks,
@@ -52,10 +55,21 @@ function getCollapsedPreview(
   agentBlock: AgentContentBlock,
   isStreaming: boolean,
   isCollapsed: boolean,
+  availableWidth: number,
 ): string {
   // No preview needed if expanded and not streaming
   if (!isStreaming && !isCollapsed) {
     return ''
+  }
+
+  if (!isStreaming) {
+    const outputPreview = getBasherFinishedOutputPreview(
+      agentBlock,
+      Math.max(24, Math.min(120, availableWidth - 4)),
+    )
+    if (outputPreview) {
+      return outputPreview
+    }
   }
 
   // For multi-prompt editors, try progress-focused preview first
@@ -427,7 +441,12 @@ export const AgentBranchWrapper = memo(
     const isStreaming = agentBlock.status === 'running' || agentIsStreaming
 
     // Compute collapsed preview text
-    const preview = getCollapsedPreview(agentBlock, isStreaming, isCollapsed)
+    const preview = getCollapsedPreview(
+      agentBlock,
+      isStreaming,
+      isCollapsed,
+      availableWidth,
+    )
     const displayPrompt = getAgentDisplayPrompt(agentBlock)
 
     const effectiveStatus = isStreaming ? 'running' : agentBlock.status
