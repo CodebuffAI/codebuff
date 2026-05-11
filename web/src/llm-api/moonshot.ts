@@ -1,6 +1,5 @@
 import { Agent } from 'undici'
 
-import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
@@ -10,6 +9,7 @@ import {
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
+import { addKimiToolCompatibilityFields } from './kimi-tool-compat'
 
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -20,69 +20,30 @@ import type {
   ChatCompletionTool,
 } from './types'
 
-const OPENCODE_ZEN_BASE_URL = 'https://opencode.ai/zen/v1'
-const OPENCODE_ZEN_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
+const MOONSHOT_BASE_URL = 'https://api.moonshot.ai/v1'
+const MOONSHOT_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 
-const opencodeZenAgent = new Agent({
-  headersTimeout: OPENCODE_ZEN_HEADERS_TIMEOUT_MS,
+const moonshotAgent = new Agent({
+  headersTimeout: MOONSHOT_HEADERS_TIMEOUT_MS,
   bodyTimeout: 0,
 })
 
-interface OpenCodeZenPricing {
+interface MoonshotPricing {
   inputCostPerToken: number
   cachedInputCostPerToken: number
   outputCostPerToken: number
 }
 
-const OPENCODE_MODEL_PREFIX = 'opencode/'
-const KIMI_ZEN_MODEL = 'kimi-k2.6'
-const MINIMAX_M2_7_ZEN_MODEL = 'minimax-m2.7'
-
-const OPENCODE_ZEN_MODEL_ALIASES: Record<string, string> = {
-  'moonshotai/kimi-k2.6': KIMI_ZEN_MODEL,
-  [openCodeZenModels.opencode_kimi_k2_6]: KIMI_ZEN_MODEL,
-  [openCodeZenModels.opencode_minimax_m2_7]: MINIMAX_M2_7_ZEN_MODEL,
-}
-const SUPPORTED_OPENCODE_ZEN_MODELS = Object.keys(OPENCODE_ZEN_MODEL_ALIASES)
-
-const KIMI_ZEN_PRICING: OpenCodeZenPricing = {
-  inputCostPerToken: 0.95 / 1_000_000,
-  cachedInputCostPerToken: 0.16 / 1_000_000,
-  outputCostPerToken: 4.0 / 1_000_000,
+const MOONSHOT_MODEL_MAP: Record<string, string> = {
+  'moonshotai/kimi-k2.6': 'kimi-k2.6',
 }
 
-const OPENCODE_ZEN_PRICING: Record<string, OpenCodeZenPricing> = {
-  [KIMI_ZEN_MODEL]: KIMI_ZEN_PRICING,
-  [MINIMAX_M2_7_ZEN_MODEL]: {
-    inputCostPerToken: 0.3 / 1_000_000,
-    cachedInputCostPerToken: 0.06 / 1_000_000,
-    outputCostPerToken: 1.2 / 1_000_000,
+const MOONSHOT_PRICING: Record<string, MoonshotPricing> = {
+  'moonshotai/kimi-k2.6': {
+    inputCostPerToken: 0.95 / 1_000_000,
+    cachedInputCostPerToken: 0.16 / 1_000_000,
+    outputCostPerToken: 4.0 / 1_000_000,
   },
-}
-
-export function isOpenCodeZenModel(model: unknown): model is string {
-  if (typeof model !== 'string') return false
-  return (
-    model.startsWith(OPENCODE_MODEL_PREFIX) ||
-    model in OPENCODE_ZEN_MODEL_ALIASES
-  )
-}
-
-function getOpenCodeZenModelId(model: string): string {
-  const opencodeId = OPENCODE_ZEN_MODEL_ALIASES[model]
-  if (opencodeId) return opencodeId
-
-  throw new OpenCodeZenError(400, 'Bad Request', {
-    error: {
-      message: `Unsupported OpenCode Zen model: ${model}. Supported models: ${SUPPORTED_OPENCODE_ZEN_MODELS.join(', ')}`,
-      code: 'unsupported_model',
-      type: 'invalid_request_error',
-    },
-  })
-}
-
-function getOpenCodeZenPricing(model: string): OpenCodeZenPricing {
-  return OPENCODE_ZEN_PRICING[getOpenCodeZenModelId(model)] ?? KIMI_ZEN_PRICING
 }
 
 type StreamState = {
@@ -98,69 +59,128 @@ type LineResult = {
   patchedLine: string
 }
 
-function getOpenCodeZenApiKey(): string {
-  const apiKey = env.OPENCODE_API_KEY
+type MoonshotChatMessage = ChatCompletionRequestBody['messages'][number] & {
+  cache_control?: unknown
+  reasoning_content?: string | null
+}
+
+export function isMoonshotModel(model: unknown): model is string {
+  return typeof model === 'string' && model in MOONSHOT_MODEL_MAP
+}
+
+function getMoonshotModelId(model: string): string {
+  return MOONSHOT_MODEL_MAP[model] ?? model
+}
+
+function getMoonshotPricing(model: string): MoonshotPricing {
+  const pricing = MOONSHOT_PRICING[model]
+  if (!pricing) {
+    throw new Error(`No Moonshot pricing found for model: ${model}`)
+  }
+  return pricing
+}
+
+function getMoonshotApiKey(): string {
+  const apiKey = env.MOONSHOT_API_KEY
   if (!apiKey) {
-    throw new Error('OPENCODE_API_KEY is not configured')
+    throw new Error('MOONSHOT_API_KEY is not configured')
   }
   return apiKey
 }
 
-function createOpenCodeZenRequest(params: {
+function createMoonshotRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const opencodeBody: Record<string, unknown> = {
-    ...body,
-    messages: normalizeOpenCodeZenMessages(body.messages ?? []),
-    tools: body.tools?.map(normalizeOpenCodeZenTool),
-    model: getOpenCodeZenModelId(originalModel),
-  }
+  const moonshotBody = buildMoonshotRequestBody(body, originalModel)
 
-  delete opencodeBody.provider
-  delete opencodeBody.transforms
-  delete opencodeBody.codebuff_metadata
-  delete opencodeBody.usage
-
-  if (opencodeBody.stream) {
-    opencodeBody.stream_options = { include_usage: true }
-  }
-
-  return fetch(`${OPENCODE_ZEN_BASE_URL}/chat/completions`, {
+  return fetch(`${MOONSHOT_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${getOpenCodeZenApiKey()}`,
+      Authorization: `Bearer ${getMoonshotApiKey()}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(opencodeBody),
+    body: JSON.stringify(moonshotBody),
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
-    dispatcher: opencodeZenAgent,
+    dispatcher: moonshotAgent,
   })
 }
 
-function normalizeOpenCodeZenMessages(
+export function buildMoonshotRequestBody(
+  body: ChatCompletionRequestBody,
+  originalModel: string,
+): Record<string, unknown> {
+  const moonshotCompatibleBody = addKimiToolCompatibilityFields(body)
+  const moonshotBody: Record<string, unknown> = {
+    ...moonshotCompatibleBody,
+    messages: normalizeMoonshotMessages(moonshotCompatibleBody.messages ?? []),
+    tools: moonshotCompatibleBody.tools?.map(normalizeMoonshotTool),
+    model: getMoonshotModelId(originalModel),
+  }
+
+  moonshotBody.thinking = createMoonshotThinking(moonshotBody)
+
+  delete moonshotBody.reasoning
+  delete moonshotBody.reasoning_effort
+  delete moonshotBody.provider
+  delete moonshotBody.transforms
+  delete moonshotBody.codebuff_metadata
+  delete moonshotBody.usage
+
+  if (moonshotBody.stream) {
+    moonshotBody.stream_options = { include_usage: true }
+  }
+
+  return moonshotBody
+}
+
+function createMoonshotThinking(
+  moonshotBody: Record<string, unknown>,
+): Record<string, unknown> {
+  const reasoning =
+    moonshotBody.reasoning && typeof moonshotBody.reasoning === 'object'
+      ? (moonshotBody.reasoning as { enabled?: boolean })
+      : undefined
+  if (reasoning?.enabled === false) {
+    return { type: 'disabled' }
+  }
+
+  const existingThinking =
+    moonshotBody.thinking && typeof moonshotBody.thinking === 'object'
+      ? (moonshotBody.thinking as Record<string, unknown>)
+      : {}
+  if (existingThinking.type === 'disabled') {
+    return { type: 'disabled' }
+  }
+
+  return {
+    ...existingThinking,
+    type: 'enabled',
+    keep: 'all',
+  }
+}
+
+function normalizeMoonshotMessages(
   messages: ChatCompletionRequestBody['messages'],
-): ChatCompletionRequestBody['messages'] {
+): MoonshotChatMessage[] {
   return messages.map((message) => {
     const {
       cache_control: _cacheControl,
       content,
       ...rest
-    } = message as typeof message & {
-      cache_control?: unknown
-    }
+    } = message as MoonshotChatMessage
     return {
       ...rest,
       ...(content !== undefined && {
-        content: normalizeOpenCodeZenContent(content),
+        content: normalizeMoonshotContent(content),
       }),
     }
   })
 }
 
-function normalizeOpenCodeZenContent(
+function normalizeMoonshotContent(
   content: ChatCompletionRequestBody['messages'][number]['content'],
 ): ChatCompletionRequestBody['messages'][number]['content'] {
   if (!Array.isArray(content)) {
@@ -179,11 +199,17 @@ function normalizeOpenCodeZenContent(
   })
 }
 
-function normalizeOpenCodeZenTool(
-  tool: ChatCompletionTool,
-): ChatCompletionTool {
-  const { id: _id, ...rest } = tool
-  return rest
+function normalizeMoonshotTool(tool: ChatCompletionTool): ChatCompletionTool {
+  const { function: fn, ...rest } = tool
+  if (!fn) return rest
+
+  return {
+    ...rest,
+    function: {
+      ...fn,
+      strict: true,
+    },
+  }
 }
 
 function extractUsageAndCost(
@@ -213,15 +239,17 @@ function extractUsageAndCost(
   const outputTokens =
     typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
   const cacheReadInputTokens =
-    typeof promptDetails?.cached_tokens === 'number'
-      ? promptDetails.cached_tokens
-      : 0
+    typeof usage.cached_tokens === 'number'
+      ? usage.cached_tokens
+      : typeof promptDetails?.cached_tokens === 'number'
+        ? promptDetails.cached_tokens
+        : 0
   const reasoningTokens =
     typeof completionDetails?.reasoning_tokens === 'number'
       ? completionDetails.reasoning_tokens
       : 0
 
-  const pricing = getOpenCodeZenPricing(model)
+  const pricing = getMoonshotPricing(model)
   const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadInputTokens)
   const cost =
     nonCachedInputTokens * pricing.inputCostPerToken +
@@ -237,7 +265,7 @@ function extractUsageAndCost(
   }
 }
 
-export async function handleOpenCodeZenNonStream({
+export async function handleMoonshotNonStream({
   body,
   userId,
   stripeCustomerId,
@@ -261,13 +289,9 @@ export async function handleOpenCodeZenNonStream({
     logger,
   })
 
-  const response = await createOpenCodeZenRequest({
-    body,
-    originalModel,
-    fetch,
-  })
+  const response = await createMoonshotRequest({ body, originalModel, fetch })
   if (!response.ok) {
-    throw await parseOpenCodeZenError(response)
+    throw await parseMoonshotError(response)
   }
 
   const data = await response.json()
@@ -316,12 +340,12 @@ export async function handleOpenCodeZenNonStream({
   }
 
   data.model = originalModel
-  if (!data.provider) data.provider = 'OpenCode Zen'
+  if (!data.provider) data.provider = 'Moonshot'
 
   return data
 }
 
-export async function handleOpenCodeZenStream({
+export async function handleMoonshotStream({
   body,
   userId,
   stripeCustomerId,
@@ -345,13 +369,9 @@ export async function handleOpenCodeZenStream({
     logger,
   })
 
-  const response = await createOpenCodeZenRequest({
-    body,
-    originalModel,
-    fetch,
-  })
+  const response = await createMoonshotRequest({ body, originalModel, fetch })
   if (!response.ok) {
-    throw await parseOpenCodeZenError(response)
+    throw await parseMoonshotError(response)
   }
 
   const reader = response.body?.getReader()
@@ -450,7 +470,7 @@ export async function handleOpenCodeZenStream({
         } else {
           logger.warn(
             getErrorObject(error),
-            'Error after client disconnect in OpenCode Zen stream',
+            'Error after client disconnect in Moonshot stream',
           )
         }
       } finally {
@@ -466,7 +486,7 @@ export async function handleOpenCodeZenStream({
           responseTextLength: state.responseText.length,
           reasoningTextLength: state.reasoningText.length,
         },
-        'Client cancelled stream, continuing OpenCode Zen consumption for billing',
+        'Client cancelled stream, continuing Moonshot consumption for billing',
       )
     },
   })
@@ -518,13 +538,13 @@ async function handleLine({
   } catch (error) {
     logger.warn(
       { error: getErrorObject(error, { includeRawError: true }) },
-      'Received non-JSON OpenCode Zen response',
+      'Received non-JSON Moonshot response',
     )
     return { state, patchedLine: line }
   }
 
   if (obj.model) obj.model = originalModel
-  if (!obj.provider) obj.provider = 'OpenCode Zen'
+  if (!obj.provider) obj.provider = 'Moonshot'
 
   const result = await handleResponse({
     userId,
@@ -686,7 +706,7 @@ function handleStreamChunk({
         errorType: errorData?.type,
         errorMessage: errorData?.message,
       },
-      'Received error chunk in OpenCode Zen stream',
+      'Received error chunk in Moonshot stream',
     )
     return state
   }
@@ -743,7 +763,7 @@ function handleStreamChunk({
   return state
 }
 
-export class OpenCodeZenError extends Error {
+export class MoonshotError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly statusText: string,
@@ -756,7 +776,7 @@ export class OpenCodeZenError extends Error {
     },
   ) {
     super(errorBody.error.message)
-    this.name = 'OpenCodeZenError'
+    this.name = 'MoonshotError'
   }
 
   toJSON() {
@@ -770,11 +790,9 @@ export class OpenCodeZenError extends Error {
   }
 }
 
-async function parseOpenCodeZenError(
-  response: Response,
-): Promise<OpenCodeZenError> {
+async function parseMoonshotError(response: Response): Promise<MoonshotError> {
   const errorText = await response.text()
-  let errorBody: OpenCodeZenError['errorBody']
+  let errorBody: MoonshotError['errorBody']
   try {
     const parsed = JSON.parse(errorText)
     if (parsed?.error?.message) {
@@ -801,7 +819,7 @@ async function parseOpenCodeZenError(
       },
     }
   }
-  return new OpenCodeZenError(response.status, response.statusText, errorBody)
+  return new MoonshotError(response.status, response.statusText, errorBody)
 }
 
 function creditsToFakeCost(credits: number): number {

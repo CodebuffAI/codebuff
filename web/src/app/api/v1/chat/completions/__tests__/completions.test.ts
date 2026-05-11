@@ -869,9 +869,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'routes OpenCode Zen-prefixed and Kimi models to the direct OpenCode Zen provider',
+      'routes OpenCode Zen models and existing Kimi alias to the direct OpenCode Zen provider',
       async () => {
         const testCases = [
+          {
+            codebuffModel: 'moonshotai/kimi-k2.6',
+            upstreamModel: 'kimi-k2.6',
+          },
           {
             codebuffModel: openCodeZenModels.opencode_kimi_k2_6,
             upstreamModel: 'kimi-k2.6',
@@ -879,10 +883,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           {
             codebuffModel: openCodeZenModels.opencode_minimax_m2_7,
             upstreamModel: 'minimax-m2.7',
-          },
-          {
-            codebuffModel: 'moonshotai/kimi-k2.6',
-            upstreamModel: 'kimi-k2.6',
           },
         ]
 
