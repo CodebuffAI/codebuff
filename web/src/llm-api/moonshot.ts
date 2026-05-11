@@ -59,6 +59,11 @@ type LineResult = {
   patchedLine: string
 }
 
+type MoonshotChatMessage = ChatCompletionRequestBody['messages'][number] & {
+  cache_control?: unknown
+  reasoning_content?: string | null
+}
+
 export function isMoonshotModel(model: unknown): model is string {
   return typeof model === 'string' && model in MOONSHOT_MODEL_MAP
 }
@@ -89,31 +94,7 @@ function createMoonshotRequest(params: {
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const moonshotCompatibleBody = addKimiToolCompatibilityFields(body)
-  const moonshotBody: Record<string, unknown> = {
-    ...moonshotCompatibleBody,
-    messages: normalizeMoonshotMessages(moonshotCompatibleBody.messages ?? []),
-    tools: moonshotCompatibleBody.tools?.map(normalizeMoonshotTool),
-    model: getMoonshotModelId(originalModel),
-  }
-
-  if (moonshotBody.reasoning && typeof moonshotBody.reasoning === 'object') {
-    const reasoning = moonshotBody.reasoning as { enabled?: boolean }
-    moonshotBody.thinking = {
-      type: reasoning.enabled === false ? 'disabled' : 'enabled',
-    }
-  }
-
-  delete moonshotBody.reasoning
-  delete moonshotBody.reasoning_effort
-  delete moonshotBody.provider
-  delete moonshotBody.transforms
-  delete moonshotBody.codebuff_metadata
-  delete moonshotBody.usage
-
-  if (moonshotBody.stream) {
-    moonshotBody.stream_options = { include_usage: true }
-  }
+  const moonshotBody = buildMoonshotRequestBody(body, originalModel)
 
   return fetch(`${MOONSHOT_BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -127,17 +108,69 @@ function createMoonshotRequest(params: {
   })
 }
 
+export function buildMoonshotRequestBody(
+  body: ChatCompletionRequestBody,
+  originalModel: string,
+): Record<string, unknown> {
+  const moonshotCompatibleBody = addKimiToolCompatibilityFields(body)
+  const moonshotBody: Record<string, unknown> = {
+    ...moonshotCompatibleBody,
+    messages: normalizeMoonshotMessages(moonshotCompatibleBody.messages ?? []),
+    tools: moonshotCompatibleBody.tools?.map(normalizeMoonshotTool),
+    model: getMoonshotModelId(originalModel),
+  }
+
+  moonshotBody.thinking = createMoonshotThinking(moonshotBody)
+
+  delete moonshotBody.reasoning
+  delete moonshotBody.reasoning_effort
+  delete moonshotBody.provider
+  delete moonshotBody.transforms
+  delete moonshotBody.codebuff_metadata
+  delete moonshotBody.usage
+
+  if (moonshotBody.stream) {
+    moonshotBody.stream_options = { include_usage: true }
+  }
+
+  return moonshotBody
+}
+
+function createMoonshotThinking(
+  moonshotBody: Record<string, unknown>,
+): Record<string, unknown> {
+  const reasoning =
+    moonshotBody.reasoning && typeof moonshotBody.reasoning === 'object'
+      ? (moonshotBody.reasoning as { enabled?: boolean })
+      : undefined
+  if (reasoning?.enabled === false) {
+    return { type: 'disabled' }
+  }
+
+  const existingThinking =
+    moonshotBody.thinking && typeof moonshotBody.thinking === 'object'
+      ? (moonshotBody.thinking as Record<string, unknown>)
+      : {}
+  if (existingThinking.type === 'disabled') {
+    return { type: 'disabled' }
+  }
+
+  return {
+    ...existingThinking,
+    type: 'enabled',
+    keep: 'all',
+  }
+}
+
 function normalizeMoonshotMessages(
   messages: ChatCompletionRequestBody['messages'],
-): ChatCompletionRequestBody['messages'] {
+): MoonshotChatMessage[] {
   return messages.map((message) => {
     const {
       cache_control: _cacheControl,
       content,
       ...rest
-    } = message as typeof message & {
-      cache_control?: unknown
-    }
+    } = message as MoonshotChatMessage
     return {
       ...rest,
       ...(content !== undefined && {
