@@ -82,17 +82,17 @@ export const FREEBUFF_MODELS = [
     availability: 'always',
   },
   {
-    id: FREEBUFF_MINIMAX_MODEL_ID,
-    displayName: 'MiniMax M2.7',
-    tagline: 'Fastest',
-    availability: 'always',
-  },
-  {
     id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     displayName: 'DeepSeek V4 Flash',
     tagline: 'Most efficient',
     availability: 'always',
     warning: 'Collects data for training',
+  },
+  {
+    id: FREEBUFF_MINIMAX_MODEL_ID,
+    displayName: 'MiniMax M2.7',
+    tagline: 'Fastest',
+    availability: 'always',
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
