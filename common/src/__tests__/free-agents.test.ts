@@ -123,6 +123,24 @@ describe('free mode agent model allowlist', () => {
     ).toBe(true)
   })
 
+  test('allows the tmux-cli subagent with its bundled model', () => {
+    expect(
+      isFreeModeAllowedAgentModel('tmux-cli', FREEBUFF_MINIMAX_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'codebuff/tmux-cli@0.0.1',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'other/tmux-cli@0.0.1',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
+
   test('allows Gemini Pro for the thinker subagent but not the freebuff root', () => {
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_GEMINI_PRO_MODEL_ID),
