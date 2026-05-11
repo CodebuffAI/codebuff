@@ -121,16 +121,18 @@ describe('Initial Session State', () => {
         return ['src', '.git', 'knowledge.md', 'README.md', '.gitignore']
       }
       if (dirPath === '/test-project/src') {
-        return ['index.ts', 'utils.ts']
+        return ['index.ts', 'utils.ts', 'generated.ts']
       }
       return []
     }) as CodebuffFileSystem['readdir']
-    mockFs.stat = (async (filePath: string): Promise<MockStatResult> => ({
-      isDirectory: () =>
-        filePath === '/test-project/src' || filePath === '/test-project/.git',
-      isFile: () =>
-        filePath !== '/test-project/src' && filePath !== '/test-project/.git',
-    })) as CodebuffFileSystem['stat']
+    mockFs.stat = (async (filePath: string) =>
+      ({
+        isDirectory: () =>
+          filePath === '/test-project/src' || filePath === '/test-project/.git',
+        isFile: () =>
+          filePath !== '/test-project/src' && filePath !== '/test-project/.git',
+        size: filePath.endsWith('generated.ts') ? 1_000_001 : 100,
+      }) as MockStatResult & { size: number }) as CodebuffFileSystem['stat']
 
     const readFilePaths: string[] = []
     const originalReadFile = mockFs.readFile
@@ -151,6 +153,9 @@ describe('Initial Session State', () => {
     expect(sessionState.mainAgentState.messageHistory).toEqual([])
     expect(readFilePaths.some((p) => p.endsWith('src/index.ts'))).toBe(true)
     expect(readFilePaths.some((p) => p.endsWith('src/utils.ts'))).toBe(true)
+    expect(readFilePaths.some((p) => p.endsWith('src/generated.ts'))).toBe(
+      false,
+    )
     expect(readFilePaths.some((p) => p.endsWith('README.md'))).toBe(false)
     expect(readFilePaths.some((p) => p.endsWith('knowledge.md'))).toBe(true)
   })

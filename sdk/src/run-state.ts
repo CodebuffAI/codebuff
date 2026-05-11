@@ -141,6 +141,8 @@ type ProjectIndexInput = {
   readFile?: (filePath: string) => string | null | Promise<string | null>
 }
 
+const DEFAULT_SYMBOL_PARSE_FILE_BYTES = 1_000_000
+
 async function computeProjectIndex(params: ProjectIndexInput): Promise<{
   fileTree: FileTreeNode[]
   fileTokenScores: Record<string, any>
@@ -190,18 +192,51 @@ function getProjectIndexInput(params: {
       cwd,
       fileTree: discoveredProject.fileTree,
       filePaths: discoveredProject.filePaths.sort(),
-      readFile: (filePath: string) =>
-        fs.readFile(path.join(cwd, filePath), 'utf8').catch((error) => {
-          logger.debug?.(
-            { filePath, error: getErrorObject(error) },
-            'Failed to read discovered project file for symbol scoring',
-          )
-          return null
-        }),
+      readFile: createDiscoveredProjectReader({ cwd, fs, logger }),
     }
   }
 
   return undefined
+}
+
+function createDiscoveredProjectReader(params: {
+  cwd: string
+  fs: CodebuffFileSystem
+  logger: Logger
+}): (filePath: string) => Promise<string | null> {
+  const { cwd, fs, logger } = params
+  const maxBytes = getSymbolParseFileByteLimit()
+
+  return async (filePath: string) => {
+    const fullPath = path.join(cwd, filePath)
+    try {
+      const stats = await fs.stat(fullPath)
+      if (getFileSize(stats) > maxBytes) {
+        return null
+      }
+      return await fs.readFile(fullPath, 'utf8')
+    } catch (error) {
+      logger.debug?.(
+        { filePath, error: getErrorObject(error) },
+        'Failed to read discovered project file for symbol scoring',
+      )
+      return null
+    }
+  }
+}
+
+function getFileSize(stats: Awaited<ReturnType<CodebuffFileSystem['stat']>>) {
+  return typeof stats.size === 'number' ? stats.size : 0
+}
+
+function getSymbolParseFileByteLimit() {
+  const raw = process.env.CODEBUFF_MAX_PARSE_FILE_BYTES
+  if (!raw) return DEFAULT_SYMBOL_PARSE_FILE_BYTES
+
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_SYMBOL_PARSE_FILE_BYTES
 }
 
 /**
