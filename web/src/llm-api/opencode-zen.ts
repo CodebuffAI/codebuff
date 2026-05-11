@@ -34,34 +34,56 @@ interface OpenCodeZenPricing {
   outputCostPerToken: number
 }
 
-const OPENCODE_ZEN_MODELS: Record<
-  string,
-  { opencodeId: string; pricing: OpenCodeZenPricing }
-> = {
-  [openCodeZenModels.opencode_kimi_k2_6]: {
-    opencodeId: 'kimi-k2.6',
-    pricing: {
-      inputCostPerToken: 0.95 / 1_000_000,
-      cachedInputCostPerToken: 0.16 / 1_000_000,
-      outputCostPerToken: 4.0 / 1_000_000,
-    },
+const OPENCODE_MODEL_PREFIX = 'opencode/'
+const MOONSHOT_KIMI_MODEL = 'moonshotai/kimi-k2.6'
+const KIMI_ZEN_MODEL = 'kimi-k2.6'
+const MINIMAX_M2_7_ZEN_MODEL = 'minimax-m2.7'
+
+const OPENCODE_ZEN_MODEL_ALIASES: Record<string, string> = {
+  [openCodeZenModels.opencode_kimi_k2_6]: KIMI_ZEN_MODEL,
+  [openCodeZenModels.opencode_minimax_m2_7]: MINIMAX_M2_7_ZEN_MODEL,
+  [MOONSHOT_KIMI_MODEL]: KIMI_ZEN_MODEL,
+}
+const SUPPORTED_OPENCODE_ZEN_MODELS = Object.keys(OPENCODE_ZEN_MODEL_ALIASES)
+
+const KIMI_ZEN_PRICING: OpenCodeZenPricing = {
+  inputCostPerToken: 0.95 / 1_000_000,
+  cachedInputCostPerToken: 0.16 / 1_000_000,
+  outputCostPerToken: 4.0 / 1_000_000,
+}
+
+const OPENCODE_ZEN_PRICING: Record<string, OpenCodeZenPricing> = {
+  [KIMI_ZEN_MODEL]: KIMI_ZEN_PRICING,
+  [MINIMAX_M2_7_ZEN_MODEL]: {
+    inputCostPerToken: 0.3 / 1_000_000,
+    cachedInputCostPerToken: 0.06 / 1_000_000,
+    outputCostPerToken: 1.2 / 1_000_000,
   },
 }
 
-export function isOpenCodeZenModel(model: string): boolean {
-  return model in OPENCODE_ZEN_MODELS
+export function isOpenCodeZenModel(model: unknown): model is string {
+  if (typeof model !== 'string') return false
+  return (
+    model.startsWith(OPENCODE_MODEL_PREFIX) ||
+    model in OPENCODE_ZEN_MODEL_ALIASES
+  )
 }
 
 function getOpenCodeZenModelId(model: string): string {
-  return OPENCODE_ZEN_MODELS[model]?.opencodeId ?? model
+  const opencodeId = OPENCODE_ZEN_MODEL_ALIASES[model]
+  if (opencodeId) return opencodeId
+
+  throw new OpenCodeZenError(400, 'Bad Request', {
+    error: {
+      message: `Unsupported OpenCode Zen model: ${model}. Supported models: ${SUPPORTED_OPENCODE_ZEN_MODELS.join(', ')}`,
+      code: 'unsupported_model',
+      type: 'invalid_request_error',
+    },
+  })
 }
 
 function getOpenCodeZenPricing(model: string): OpenCodeZenPricing {
-  const entry = OPENCODE_ZEN_MODELS[model]
-  if (!entry) {
-    throw new Error(`No OpenCode Zen pricing found for model: ${model}`)
-  }
-  return entry.pricing
+  return OPENCODE_ZEN_PRICING[getOpenCodeZenModelId(model)] ?? KIMI_ZEN_PRICING
 }
 
 type StreamState = {

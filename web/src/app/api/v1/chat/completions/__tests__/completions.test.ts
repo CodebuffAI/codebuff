@@ -869,13 +869,24 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'routes OpenCode Zen models to the direct OpenCode Zen provider',
+      'routes OpenCode Zen-prefixed and Kimi models to the direct OpenCode Zen provider',
       async () => {
-        const expectedUpstreamModel: Record<string, string> = {
-          'opencode/kimi-k2.6': 'kimi-k2.6',
-        }
+        const testCases = [
+          {
+            codebuffModel: openCodeZenModels.opencode_kimi_k2_6,
+            upstreamModel: 'kimi-k2.6',
+          },
+          {
+            codebuffModel: openCodeZenModels.opencode_minimax_m2_7,
+            upstreamModel: 'minimax-m2.7',
+          },
+          {
+            codebuffModel: 'moonshotai/kimi-k2.6',
+            upstreamModel: 'kimi-k2.6',
+          },
+        ]
 
-        for (const codebuffModel of Object.values(openCodeZenModels)) {
+        for (const { codebuffModel, upstreamModel } of testCases) {
           const fetchedBodies: Record<string, unknown>[] = []
           const fetchedUrls: string[] = []
           const fetchViaOpenCodeZen = mock(
@@ -889,7 +900,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
               return new Response(
                 JSON.stringify({
                   id: 'test-id',
-                  model: expectedUpstreamModel[codebuffModel],
+                  model: upstreamModel,
                   choices: [{ message: { content: 'test response' } }],
                   usage: {
                     prompt_tokens: 10,
@@ -968,12 +979,63 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(fetchedUrls[0]).toBe(
             'https://opencode.ai/zen/v1/chat/completions',
           )
-          expect(fetchedBodies[0].model).toBe(
-            expectedUpstreamModel[codebuffModel],
-          )
+          expect(fetchedBodies[0].model).toBe(upstreamModel)
           expect(body.model).toBe(codebuffModel)
           expect(body.provider).toBe('OpenCode Zen')
         }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'rejects unsupported OpenCode Zen-prefixed models without calling the provider',
+      async () => {
+        const fetchViaOpenCodeZen = mock(
+          async (url: string | URL | Request) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
+            throw new Error('OpenCode Zen provider should not be called')
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-123',
+            },
+            body: JSON.stringify({
+              model: 'opencode/qwen3-coder',
+              messages: [{ role: 'user', content: 'hello' }],
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaOpenCodeZen,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body.error.code).toBe('unsupported_model')
+        expect(body.error.message).toContain('opencode/qwen3-coder')
+        expect(fetchViaOpenCodeZen).toHaveBeenCalledTimes(0)
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
