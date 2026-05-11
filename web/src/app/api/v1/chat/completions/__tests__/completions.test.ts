@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
+import { TEST_USER_ID } from '@codebuff/common/constants/paths'
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
@@ -28,7 +30,7 @@ import type { GetUserPreferencesFn } from '../_post'
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<string, { id: string; banned: boolean }> = {
     'test-api-key-123': {
-      id: 'user-123',
+      id: TEST_USER_ID,
       banned: false,
     },
     'test-api-key-no-credits': {
@@ -157,6 +159,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-free-deepseek') {
         return {
           agent_id: 'base2-free-deepseek',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-deepseek-flash') {
+        return {
+          agent_id: 'base2-free-deepseek-flash',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -795,9 +804,20 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
-    it(
-      'lets the DeepSeek V4 free agent use the direct DeepSeek provider',
-      async () => {
+    it.each([
+      {
+        codebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        upstreamModel: 'deepseek-v4-pro',
+        runId: 'run-free-deepseek',
+      },
+      {
+        codebuffModel: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        upstreamModel: 'deepseek-v4-flash',
+        runId: 'run-free-deepseek-flash',
+      },
+    ])(
+      'lets $codebuffModel use the direct DeepSeek provider',
+      async ({ codebuffModel, upstreamModel, runId }) => {
         const fetchedBodies: Record<string, unknown>[] = []
         const fetchedUrls: string[] = []
         const fetchViaDeepSeek = mock(
@@ -811,7 +831,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             return new Response(
               JSON.stringify({
                 id: 'test-id',
-                model: 'deepseek-v4-pro',
+                model: upstreamModel,
                 choices: [{ message: { content: 'test response' } }],
                 usage: {
                   prompt_tokens: 10,
@@ -834,10 +854,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             method: 'POST',
             headers: allowedFreeModeHeaders('test-api-key-new-free'),
             body: JSON.stringify({
-              model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+              model: codebuffModel,
               stream: false,
               codebuff_metadata: {
-                run_id: 'run-free-deepseek',
+                run_id: runId,
                 client_id: 'test-client-id-123',
                 cost_mode: 'free',
               },
@@ -861,8 +881,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         const body = await response.json()
         expect(response.status).toBe(200)
         expect(fetchedUrls[0]).toBe('https://api.deepseek.com/chat/completions')
-        expect(fetchedBodies[0].model).toBe('deepseek-v4-pro')
-        expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+        expect(fetchedBodies[0].model).toBe(upstreamModel)
+        expect(body.model).toBe(codebuffModel)
         expect(body.provider).toBe('DeepSeek')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,

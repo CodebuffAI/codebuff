@@ -4,7 +4,6 @@ import { createBase2 } from './base2'
 
 const definition = {
   ...createBase2('free', {
-    noAskUser: true,
     model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   }),
   id: 'base2-free-deepseek',

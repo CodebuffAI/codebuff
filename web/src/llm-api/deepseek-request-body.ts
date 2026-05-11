@@ -5,6 +5,8 @@ import type { ChatCompletionRequestBody } from './types'
 export const DEEPSEEK_MODEL_IDS: Record<string, string> = {
   [deepseekModels.deepseekV4ProDirect]: deepseekModels.deepseekV4ProDirect,
   [deepseekModels.deepseekV4Pro]: deepseekModels.deepseekV4ProDirect,
+  [deepseekModels.deepseekV4FlashDirect]: deepseekModels.deepseekV4FlashDirect,
+  [deepseekModels.deepseekV4Flash]: deepseekModels.deepseekV4FlashDirect,
 }
 
 export function getDeepSeekModelId(openrouterModel: string): string {

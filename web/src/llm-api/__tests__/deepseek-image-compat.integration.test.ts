@@ -51,6 +51,18 @@ describe('normalizeDeepSeekRequestBody', () => {
     })
   })
 
+  it('maps DeepSeek V4 Flash to the direct DeepSeek model id', () => {
+    const body: ChatCompletionRequestBody = {
+      model: 'deepseek/deepseek-v4-flash',
+      messages: [{ role: 'user', content: 'Hello' }],
+    }
+
+    expect(normalizeDeepSeekRequestBody(body)).toEqual({
+      ...body,
+      model: 'deepseek-v4-flash',
+    })
+  })
+
   it('does not throw on minimal provider-path bodies without messages', () => {
     const body = {
       model: 'deepseek/deepseek-v4-pro',

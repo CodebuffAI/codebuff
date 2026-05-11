@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
@@ -13,6 +14,7 @@ describe('base2 reviewer selection', () => {
     [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
     [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
     [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
+    [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],
   ])('uses matching reviewer for model %p', (model, expectedReviewer) => {
     const base2 = createBase2('free', { model })
 
