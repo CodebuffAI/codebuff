@@ -153,18 +153,18 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 
 ### Tunables
 
-| Constant | Location | Default | Purpose |
-|---|---|---|---|
-| `ADMISSION_TICK_MS` | `config.ts` | 15000 | How often the ticker fires. Up to one user is admitted per model per tick. |
-| `FREEBUFF_MODELS` | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7` | Selectable models; each gets its own queue and admission slot. |
-| `FIREWORKS_DEPLOYMENT_MAP` | `web/src/llm-api/fireworks-config.ts` | `glm-5.1` | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
-| `HEALTH_CACHE_TTL_MS` | `fireworks-health.ts` | 25000 | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit. |
-| `FREEBUFF_SESSION_LENGTH_MS` | env | 3_600_000 | Session lifetime |
-| `SESSION_GRACE_MS` | `web/src/server/free-session/config.ts` | 1_800_000 | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
+| Constant                     | Location                                  | Default                                                             | Purpose                                                                                                                                                                       |
+| ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMISSION_TICK_MS`          | `config.ts`                               | 15000                                                               | How often the ticker fires. Up to one user is admitted per model per tick.                                                                                                    |
+| `FREEBUFF_MODELS`            | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7`, `deepseek-v4-flash` | Selectable models; each gets its own queue and admission slot.                                                                                                                |
+| `FIREWORKS_DEPLOYMENT_MAP`   | `web/src/llm-api/fireworks-config.ts`     | `glm-5.1`                                                           | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
+| `HEALTH_CACHE_TTL_MS`        | `fireworks-health.ts`                     | 25000                                                               | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit.                                                                           |
+| `FREEBUFF_SESSION_LENGTH_MS` | env                                       | 3_600_000                                                           | Session lifetime                                                                                                                                                              |
+| `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`.   |
 
 ### Premium Session Quota
 
-DeepSeek, Kimi, and legacy GLM share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax remains unlimited.
+DeepSeek V4 Pro, Kimi, and legacy GLM share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax and DeepSeek V4 Flash remain unlimited.
 
 ## HTTP API
 
@@ -264,13 +264,13 @@ For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` ca
 
 ### Response codes
 
-| HTTP | `error` | When |
-|---|---|---|
-| 426 | `freebuff_update_required` | Request did not include a `freebuff_instance_id` — the client is a pre-waiting-room build. The CLI shows the server-supplied message verbatim. |
-| 428 | `waiting_room_required` | No session row exists. Client should call POST /session. |
-| 429 | `waiting_room_queued` | Row exists with `status='queued'`. Client should keep polling GET. |
-| 409 | `session_superseded` | Claimed `instance_id` does not match stored one — another CLI took over. |
-| 410 | `session_expired` | `expires_at + grace < now()` (past the hard cutoff). Client should POST /session to re-queue. |
+| HTTP | `error`                    | When                                                                                                                                           |
+| ---- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 426  | `freebuff_update_required` | Request did not include a `freebuff_instance_id` — the client is a pre-waiting-room build. The CLI shows the server-supplied message verbatim. |
+| 428  | `waiting_room_required`    | No session row exists. Client should call POST /session.                                                                                       |
+| 429  | `waiting_room_queued`      | Row exists with `status='queued'`. Client should keep polling GET.                                                                             |
+| 409  | `session_superseded`       | Claimed `instance_id` does not match stored one — another CLI took over.                                                                       |
+| 410  | `session_expired`          | `expires_at + grace < now()` (past the hard cutoff). Client should POST /session to re-queue.                                                  |
 
 Successful results carry one of three reasons: `disabled` (gate is off), `active` (`expires_at > now()`, `remainingMs` provided), or `draining` (`expires_at <= now() < expires_at + grace`, `gracePeriodRemainingMs` provided). The CLI should treat `draining` as "let any in-flight agent run finish, but block new user prompts" — see [Drain / Grace Window](#drain--grace-window) below. The corresponding wire status from `getSessionState` is `ended`.
 
@@ -320,25 +320,25 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 
 - **`/api/v1/freebuff/session` routes** are stateless per pod; all state lives in Postgres. Any pod can serve any request.
 - **Chat completions gate** is a single `SELECT` per free-mode request. At high QPS this is the hottest path — the `user_id` PK lookup is O(1). If it ever becomes a problem, the obvious fix is to cache the session row for ~1s per pod.
-- **Admission loop** runs on every pod. Per-model advisory locks serialize admission *within* each model while allowing different models to admit on different pods concurrently. At any given tick, exactly one pod actually admits for each model; the rest early-return on that model's lock.
+- **Admission loop** runs on every pod. Per-model advisory locks serialize admission _within_ each model while allowing different models to admit on different pods concurrently. At any given tick, exactly one pod actually admits for each model; the rest early-return on that model's lock.
 - **Fleet health probe** is cached per-pod (`HEALTH_CACHE_TTL_MS`, 25s). Each pod hits the Fireworks metrics endpoint at most ~2.4/min, staying under the 6 req/min account rate limit with a comfortable margin.
 
 ## Abuse Resistance Summary
 
-| Attack | Mitigation |
-|---|---|
-| CLI keeps submitting new prompts past `expires_at` | Trusted client; bounded by 30-min hard cutoff at `expires_at + grace`. After that the gate returns `session_expired` and the user must re-queue. |
-| Multiple sessions per account | PK on `user_id` — structurally impossible |
-| Multiple CLIs sharing one session | `active_instance_id` rotates on POST; stale id → 409 |
-| Client-forged timestamps | All timestamps server-supplied (`DEFAULT now()` or explicit) |
-| Queue jumping via timestamp manipulation | `queued_at` is server-supplied; FIFO order is server-determined |
-| Repeatedly calling POST to reset queue position | POST preserves `queued_at` for already-queued users |
-| Two pods admitting the same user | Per-model `SELECT ... FOR UPDATE SKIP LOCKED` + per-model advisory xact lock |
-| Spamming POST/GET to starve admission tick | Admission uses per-model Postgres advisory locks; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
-| Repeatedly POSTing different models to get across every queue | Single row per user (PK on `user_id`); switching models moves the row, never clones it. A user holds exactly one queue slot at any time. |
-| Fireworks metrics endpoint down / slow | `getFleetHealth()` fails closed (timeout, non-OK, or missing API key) → every dedicated-deployment model is flagged `unhealthy` and its queue pauses. |
-| One deployment degraded while others are fine | Health is classified per-deployment; only the affected model's queue pauses, so a degraded GLM deployment doesn't block MiniMax admissions. |
-| Zombie expired sessions holding capacity | Swept on every admission tick, even when upstream is unhealthy |
+| Attack                                                        | Mitigation                                                                                                                                                                       |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI keeps submitting new prompts past `expires_at`            | Trusted client; bounded by 30-min hard cutoff at `expires_at + grace`. After that the gate returns `session_expired` and the user must re-queue.                                 |
+| Multiple sessions per account                                 | PK on `user_id` — structurally impossible                                                                                                                                        |
+| Multiple CLIs sharing one session                             | `active_instance_id` rotates on POST; stale id → 409                                                                                                                             |
+| Client-forged timestamps                                      | All timestamps server-supplied (`DEFAULT now()` or explicit)                                                                                                                     |
+| Queue jumping via timestamp manipulation                      | `queued_at` is server-supplied; FIFO order is server-determined                                                                                                                  |
+| Repeatedly calling POST to reset queue position               | POST preserves `queued_at` for already-queued users                                                                                                                              |
+| Two pods admitting the same user                              | Per-model `SELECT ... FOR UPDATE SKIP LOCKED` + per-model advisory xact lock                                                                                                     |
+| Spamming POST/GET to starve admission tick                    | Admission uses per-model Postgres advisory locks; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
+| Repeatedly POSTing different models to get across every queue | Single row per user (PK on `user_id`); switching models moves the row, never clones it. A user holds exactly one queue slot at any time.                                         |
+| Fireworks metrics endpoint down / slow                        | `getFleetHealth()` fails closed (timeout, non-OK, or missing API key) → every dedicated-deployment model is flagged `unhealthy` and its queue pauses.                            |
+| One deployment degraded while others are fine                 | Health is classified per-deployment; only the affected model's queue pauses, so a degraded GLM deployment doesn't block MiniMax admissions.                                      |
+| Zombie expired sessions holding capacity                      | Swept on every admission tick, even when upstream is unhealthy                                                                                                                   |
 
 ## Testing
 

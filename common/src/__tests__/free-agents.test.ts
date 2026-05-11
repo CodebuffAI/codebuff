@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
@@ -24,6 +25,9 @@ describe('free mode agent model allowlist', () => {
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe('base2-free-deepseek')
+    expect(
+      getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toBe('base2-free-deepseek-flash')
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -46,6 +50,12 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek',
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-deepseek-flash',
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
   })
@@ -72,6 +82,12 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-deepseek-flash',
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
   })
 
   test('allows legacy code-reviewer-lite with freebuff reviewer models', () => {
@@ -88,6 +104,12 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'code-reviewer-lite',
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-lite',
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
   })

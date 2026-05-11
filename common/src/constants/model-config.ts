@@ -65,6 +65,8 @@ export const deepseekModels = {
   deepseekReasoner: 'deepseek-reasoner',
   deepseekV4ProDirect: 'deepseek-v4-pro',
   deepseekV4Pro: 'deepseek/deepseek-v4-pro',
+  deepseekV4FlashDirect: 'deepseek-v4-flash',
+  deepseekV4Flash: 'deepseek/deepseek-v4-flash',
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
