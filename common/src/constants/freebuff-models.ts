@@ -92,6 +92,7 @@ export const FREEBUFF_MODELS = [
     displayName: 'DeepSeek V4 Flash',
     tagline: 'Most efficient',
     availability: 'always',
+    warning: 'Collects data for training',
   },
 ] as const satisfies readonly FreebuffModelOption[]
 

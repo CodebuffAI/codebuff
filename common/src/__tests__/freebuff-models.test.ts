@@ -22,9 +22,16 @@ describe('freebuff model availability', () => {
     expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MINIMAX_MODEL_ID)
   })
 
-  test('DeepSeek carries the data-collection warning so users see it before picking', () => {
+  test('DeepSeek Pro carries the data-collection warning so users see it before picking', () => {
     const deepseek = FREEBUFF_MODELS.find(
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    )
+    expect(deepseek?.warning).toBe('Collects data for training')
+  })
+
+  test('DeepSeek Flash carries the data-collection warning so users see it before picking', () => {
+    const deepseek = FREEBUFF_MODELS.find(
+      (m) => m.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect(deepseek?.warning).toBe('Collects data for training')
   })
