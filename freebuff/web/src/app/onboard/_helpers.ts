@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 
 const OPAQUE_CLI_AUTH_CODE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
+const CLI_AUTH_CODE_HASH_RE = /^[a-f0-9]{64}$/i
 const CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login:'
 const CONSUMED_CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login-consumed:'
 const CONSUMED_CLI_AUTH_CODE_TOKEN_VALUE = 'consumed'
@@ -21,6 +22,19 @@ export function buildCliAuthCode(
 
 export function isOpaqueCliAuthCodeToken(authCode: string): boolean {
   return OPAQUE_CLI_AUTH_CODE_TOKEN_RE.test(authCode.trim())
+}
+
+export function isCliAuthCodeCandidate(authCode: string): boolean {
+  if (isOpaqueCliAuthCodeToken(authCode)) {
+    return true
+  }
+
+  const { fingerprintId, expiresAt, receivedHash } = parseAuthCode(authCode)
+  return (
+    fingerprintId.length > 0 &&
+    /^\d+$/.test(expiresAt) &&
+    CLI_AUTH_CODE_HASH_RE.test(receivedHash)
+  )
 }
 
 export function getCliAuthCodeHashPrefix(authCode: string): string {
