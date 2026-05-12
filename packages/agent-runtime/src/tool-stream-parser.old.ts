@@ -22,6 +22,35 @@ const toolExtractionPattern = new RegExp(
 
 const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
+function summarizeToolInput(input: unknown): Record<string, unknown> {
+  if (typeof input === 'string') {
+    return {
+      inputType: 'string',
+      inputLength: input.length,
+    }
+  }
+
+  if (Array.isArray(input)) {
+    return {
+      inputType: 'array',
+      inputLength: input.length,
+    }
+  }
+
+  if (input && typeof input === 'object') {
+    const keys = Object.keys(input as Record<string, unknown>)
+    return {
+      inputType: 'object',
+      inputKeyCount: keys.length,
+      inputKeys: keys.slice(0, 25),
+    }
+  }
+
+  return {
+    inputType: input === null ? 'null' : typeof input,
+  }
+}
+
 export async function* processStreamWithTags(params: {
   stream: AsyncGenerator<StreamChunk, string | null>
   processors: Record<
@@ -87,7 +116,7 @@ export async function* processStreamWithTags(params: {
         event: AnalyticsEvent.MALFORMED_TOOL_CALL_JSON,
         userId: loggerOptions?.userId ?? '',
         properties: {
-          contents: JSON.stringify(contents),
+          contentsLength: contents.length,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
           error: {
@@ -122,7 +151,7 @@ export async function* processStreamWithTags(params: {
         event: AnalyticsEvent.UNKNOWN_TOOL_CALL,
         userId: loggerOptions?.userId ?? '',
         properties: {
-          contents,
+          contentsLength: contents.length,
           toolName,
           model: loggerOptions?.model,
           agent: loggerOptions?.agentName,
@@ -142,8 +171,9 @@ export async function* processStreamWithTags(params: {
       userId: loggerOptions?.userId ?? '',
       properties: {
         toolName,
-        contents,
-        parsedParams,
+        ...summarizeToolInput(parsedParams),
+        hasContents: contents.length > 0,
+        contentsLength: contents.length,
         autocompleted,
         model: loggerOptions?.model,
         agent: loggerOptions?.agentName,
