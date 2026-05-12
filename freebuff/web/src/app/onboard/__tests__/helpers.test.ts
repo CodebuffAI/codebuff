@@ -8,6 +8,7 @@ import {
   getConsumedCliAuthCodeTokenIdentifier,
   getConsumedCliAuthCodeTokenValue,
   isAuthCodeExpired,
+  isCliAuthCodeCandidate,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
@@ -112,6 +113,34 @@ describe('freebuff onboard/_helpers', () => {
       expect(isOpaqueCliAuthCodeToken(signedAuthCode)).toBe(false)
       expect(isOpaqueCliAuthCodeToken('A'.repeat(42))).toBe(false)
       expect(isOpaqueCliAuthCodeToken(`${'A'.repeat(42)}.`)).toBe(false)
+    })
+
+    test('identifies auth code candidates by supported shapes', () => {
+      const opaqueToken = 'A'.repeat(41) + '-_'
+      const signedAuthCode = buildCliAuthCode(
+        testFingerprintId,
+        '1704067200000',
+        'a'.repeat(64),
+      )
+      const legacyAuthCode = `1234567890abcdef-1704067200000-${'b'.repeat(
+        64,
+      )}`
+
+      expect(isCliAuthCodeCandidate(opaqueToken)).toBe(true)
+      expect(isCliAuthCodeCandidate(signedAuthCode)).toBe(true)
+      expect(isCliAuthCodeCandidate(legacyAuthCode)).toBe(true)
+      expect(isCliAuthCodeCandidate(crypto.randomUUID())).toBe(false)
+      expect(isCliAuthCodeCandidate('F0xe_Mt2yA2az_LUXGxlBsGDIgJ')).toBe(false)
+      expect(
+        isCliAuthCodeCandidate(
+          buildCliAuthCode(testFingerprintId, 'not-a-number', 'a'.repeat(64)),
+        ),
+      ).toBe(false)
+      expect(
+        isCliAuthCodeCandidate(
+          buildCliAuthCode(testFingerprintId, '1704067200000', 'short-hash'),
+        ),
+      ).toBe(false)
     })
 
     test('hashes auth codes for log correlation without logging the token', () => {
