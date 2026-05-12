@@ -9,6 +9,7 @@ import {
   IS_PROD as defaultIsProd,
   DEBUG_ANALYTICS,
 } from '@codebuff/common/env'
+import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
@@ -208,6 +209,10 @@ export function trackEvent(
         distinctId,
       })
     }
+    return
+  }
+
+  if (!shouldTrackAnalyticsEvent({ event, distinctId, properties })) {
     return
   }
 

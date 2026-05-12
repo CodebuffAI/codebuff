@@ -16,6 +16,35 @@ import type {
 } from '@codebuff/common/types/print-mode'
 import type { PromptResult } from '@codebuff/common/util/error'
 
+function summarizeToolInput(input: unknown): Record<string, unknown> {
+  if (typeof input === 'string') {
+    return {
+      inputType: 'string',
+      inputLength: input.length,
+    }
+  }
+
+  if (Array.isArray(input)) {
+    return {
+      inputType: 'array',
+      inputLength: input.length,
+    }
+  }
+
+  if (input && typeof input === 'object') {
+    const keys = Object.keys(input as Record<string, unknown>)
+    return {
+      inputType: 'object',
+      inputKeyCount: keys.length,
+      inputKeys: keys.slice(0, 25),
+    }
+  }
+
+  return {
+    inputType: input === null ? 'null' : typeof input,
+  }
+}
+
 export async function* processStreamWithTools(params: {
   stream: AsyncGenerator<StreamChunk, PromptResult<string | null>>
   processors: Record<
@@ -96,8 +125,9 @@ export async function* processStreamWithTools(params: {
       userId: loggerOptions?.userId ?? '',
       properties: {
         toolName,
-        contents,
-        parsedParams: input,
+        ...summarizeToolInput(input),
+        hasContents: typeof contents === 'string' && contents.length > 0,
+        contentsLength: contents?.length ?? 0,
         autocompleted,
         model: loggerOptions?.model,
         agent: loggerOptions?.agentName,
