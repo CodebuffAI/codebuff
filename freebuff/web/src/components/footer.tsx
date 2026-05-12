@@ -1,7 +1,14 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export function Footer() {
+  const pathname = usePathname()
+
+  if (pathname === '/live') return null
+
   return (
     <footer className="w-full">
       <div className="container mx-auto flex flex-col gap-4 py-8 px-4">
