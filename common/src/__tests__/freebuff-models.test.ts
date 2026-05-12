@@ -7,14 +7,18 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MODELS,
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModelsForAccessTier,
   isFreebuffDeploymentHours,
   isFreebuffModelId,
+  isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
+  resolveFreebuffModelForAccessTier,
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
@@ -44,6 +48,25 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
       false,
     )
+  })
+
+  test('limited access exposes only DeepSeek V4 Flash', () => {
+    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    ])
+    expect(
+      isFreebuffModelAllowedForAccessTier(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(true)
+    expect(
+      isFreebuffModelAllowedForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
+    ).toBe(false)
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
+    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
   test('only smart freebuff models can spawn the gemini-thinker subagent', () => {

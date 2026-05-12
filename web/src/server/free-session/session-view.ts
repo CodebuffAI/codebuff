@@ -27,6 +27,7 @@ export function toSessionStateResponse(params: {
     if (expiresAtMs > nowMs) {
       return {
         status: 'active',
+        accessTier: row.access_tier ?? 'full',
         instanceId: row.active_instance_id,
         model: row.model,
         admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
@@ -38,6 +39,7 @@ export function toSessionStateResponse(params: {
     if (graceEndsMs > nowMs) {
       return {
         status: 'ended',
+        accessTier: row.access_tier ?? 'full',
         instanceId: row.active_instance_id,
         admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
         expiresAt: row.expires_at.toISOString(),
@@ -50,6 +52,7 @@ export function toSessionStateResponse(params: {
   if (row.status === 'queued') {
     return {
       status: 'queued',
+      accessTier: row.access_tier ?? 'full',
       instanceId: row.active_instance_id,
       model: row.model,
       position,

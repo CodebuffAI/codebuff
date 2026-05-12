@@ -6,6 +6,7 @@ import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
 import type { FireworksHealth } from './fireworks-health'
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreeSessionCountryAccessMetadata,
   InternalSessionRow,
@@ -72,10 +73,11 @@ function countryAccessColumns(
 export async function joinOrTakeOver(params: {
   userId: string
   model: string
+  accessTier: FreebuffAccessTier
   now: Date
   countryAccess?: FreeSessionCountryAccessMetadata
 }): Promise<InternalSessionRow> {
-  const { userId, model, now, countryAccess } = params
+  const { userId, model, accessTier, now, countryAccess } = params
   const nextInstanceId = newInstanceId()
   const countryAccessUpdate = countryAccessColumns(countryAccess)
 
@@ -113,6 +115,7 @@ export async function joinOrTakeOver(params: {
       status: 'queued',
       active_instance_id: nextInstanceId,
       model,
+      access_tier: accessTier,
       ...countryAccessUpdate,
       queued_at: now,
       created_at: now,
@@ -136,6 +139,10 @@ export async function joinOrTakeOver(params: {
         model: sql`CASE
           WHEN ${activeUnexpired} THEN ${schema.freeSession.model}
           ELSE ${model}
+        END`,
+        access_tier: sql`CASE
+          WHEN ${activeUnexpired} THEN ${schema.freeSession.access_tier}
+          ELSE ${accessTier}::freebuff_access_tier
         END`,
         queued_at: sql`CASE
           WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
@@ -208,6 +215,7 @@ export async function endSession(params: {
           and(
             eq(schema.freeSessionAdmit.user_id, userId),
             eq(schema.freeSessionAdmit.model, row.model),
+            eq(schema.freeSessionAdmit.access_tier, row.access_tier ?? 'full'),
           ),
         )
         .orderBy(desc(schema.freeSessionAdmit.admitted_at))
@@ -465,6 +473,7 @@ export async function admitFromQueue(params: {
         admitted.map((r) => ({
           user_id: r.user_id,
           model: r.model,
+          access_tier: r.access_tier ?? 'full',
           admitted_at: now,
         })),
       )
@@ -513,6 +522,7 @@ export async function promoteQueuedUser(params: {
     await tx.insert(schema.freeSessionAdmit).values({
       user_id: userId,
       model,
+      access_tier: row.access_tier ?? 'full',
       admitted_at: now,
     })
     return row as InternalSessionRow
@@ -534,9 +544,18 @@ export async function listRecentPremiumAdmits(params: {
   userId: string
   models: readonly string[]
   since: Date
+  accessTier?: FreebuffAccessTier
 }): Promise<RecentSessionAdmit[]> {
-  const { userId, models, since } = params
+  const { userId, models, since, accessTier } = params
   if (models.length === 0) return []
+  const filters = [
+    eq(schema.freeSessionAdmit.user_id, userId),
+    inArray(schema.freeSessionAdmit.model, [...models]),
+    gte(schema.freeSessionAdmit.admitted_at, since),
+  ]
+  if (accessTier) {
+    filters.push(eq(schema.freeSessionAdmit.access_tier, accessTier))
+  }
   const rows = await db
     .select({
       admitted_at: schema.freeSessionAdmit.admitted_at,
@@ -544,13 +563,7 @@ export async function listRecentPremiumAdmits(params: {
       session_units: schema.freeSessionAdmit.session_units,
     })
     .from(schema.freeSessionAdmit)
-    .where(
-      and(
-        eq(schema.freeSessionAdmit.user_id, userId),
-        inArray(schema.freeSessionAdmit.model, [...models]),
-        gte(schema.freeSessionAdmit.admitted_at, since),
-      ),
-    )
+    .where(and(...filters))
     .orderBy(asc(schema.freeSessionAdmit.admitted_at))
   return rows.map((r) => ({
     admittedAt: r.admitted_at,

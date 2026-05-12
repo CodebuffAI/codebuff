@@ -44,8 +44,13 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const isQuotaExhausted = premiumQuota
     ? premiumQuota.recentCount >= premiumQuota.limit
     : false
+  const accessTier = useFreebuffSessionStore((s) =>
+    s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
+  )
+  const quotaLabel =
+    accessTier === 'limited' ? 'limited sessions' : 'premium sessions'
   const bannerTitle = premiumQuota
-    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} premium sessions used today`
+    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
     : 'Session ended'
 
   // While a request is still streaming, restart is disabled: it would

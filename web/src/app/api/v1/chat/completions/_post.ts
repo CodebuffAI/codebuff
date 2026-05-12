@@ -85,7 +85,10 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
-import { getFreeModeCountryAccess } from '@/server/free-mode-country'
+import {
+  getFreeModeAccessTier,
+  getFreeModeCountryAccess,
+} from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
@@ -250,6 +253,7 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
     const stripeCustomerId = userInfo.stripe_customer_id ?? null
+    let freebuffAccessTier: 'full' | 'limited' = 'full'
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -279,7 +283,9 @@ export async function postChatCompletions(params: {
       logger,
     })
 
-    // For free mode requests, require a resolved allowlisted country.
+    // For free mode requests, classify the request into full or limited
+    // access. Disallowed countries and anonymized networks are no longer
+    // blocked outright; they are limited to the cheap DeepSeek Flash path.
     if (isFreeModeRequest) {
       const countryAccess = await getFreeModeCountryAccess(req, {
         fetch,
@@ -301,6 +307,7 @@ export async function postChatCompletions(params: {
       )
 
       if (!countryAccess.allowed) {
+        freebuffAccessTier = getFreeModeAccessTier(countryAccess)
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,
@@ -313,17 +320,8 @@ export async function postChatCompletions(params: {
           },
           logger,
         })
-
-        return NextResponse.json(
-          {
-            error: 'free_mode_unavailable',
-            message: 'Free mode is not available in your country.',
-            countryCode: countryAccess.countryCode ?? 'UNKNOWN',
-            countryBlockReason: countryAccess.blockReason,
-            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-          },
-          { status: 403 },
-        )
+      } else {
+        freebuffAccessTier = getFreeModeAccessTier(countryAccess)
       }
     }
 
@@ -465,6 +463,7 @@ export async function postChatCompletions(params: {
         typedBody.codebuff_metadata?.freebuff_instance_id
       const gate = await checkSession({
         userId,
+        accessTier: freebuffAccessTier,
         userEmail: userInfo.email,
         claimedInstanceId,
         requestedModel: typedBody.model,

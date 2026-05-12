@@ -1,3 +1,5 @@
+import type { FreebuffAccessTier } from '../constants/freebuff-models'
+
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
  * for the CLI (which deserializes these) and the server (which serializes
@@ -74,6 +76,7 @@ export type FreebuffSessionServerResponse =
        *  when `getSessionState` notices the user has been swept past the
        *  grace window. */
       status: 'none'
+      accessTier?: FreebuffAccessTier
       message?: string
       /** Snapshot of every model's queue depth at GET time. The picker no
        *  longer renders this (queues effectively never form at current
@@ -88,6 +91,7 @@ export type FreebuffSessionServerResponse =
     }
   | {
       status: 'queued'
+      accessTier: FreebuffAccessTier
       instanceId: string
       /** Model the user is queued for. Each model has its own queue. */
       model: string
@@ -107,6 +111,7 @@ export type FreebuffSessionServerResponse =
     }
   | {
       status: 'active'
+      accessTier: FreebuffAccessTier
       instanceId: string
       /** Model the active session is bound to — cannot change mid-session. */
       model: string
@@ -128,6 +133,7 @@ export type FreebuffSessionServerResponse =
        *  client may also synthesize a no-grace `{ status: 'ended' }` when a
        *  poll reveals the row was swept. Both render the same UI. */
       status: 'ended'
+      accessTier?: FreebuffAccessTier
       instanceId?: string
       admittedAt?: string
       expiresAt?: string
@@ -165,12 +171,14 @@ export type FreebuffSessionServerResponse =
        *  your active DeepSeek session to switch?" → on confirm, DELETE then
        *  re-POST with the new model. */
       status: 'model_locked'
+      accessTier?: FreebuffAccessTier
       currentModel: string
       requestedModel: string
     }
   | {
       /** Requested model is valid but not selectable right now. */
       status: 'model_unavailable'
+      accessTier?: FreebuffAccessTier
       requestedModel: string
       availableHours: string
     }
@@ -188,6 +196,7 @@ export type FreebuffSessionServerResponse =
        *  reset. Terminal for the CLI's current poll session; the user can exit
        *  and come back later. */
       status: 'rate_limited'
+      accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
       /** Max premium session units permitted per Pacific day (e.g. 5). */
