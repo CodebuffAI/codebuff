@@ -592,10 +592,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
               'x-forwarded-for': '8.8.8.8',
             },
             body: JSON.stringify({
-              model: 'minimax/minimax-m2.7',
+              model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
               stream: false,
               codebuff_metadata: {
-                run_id: 'run-free',
+                run_id: 'run-free-deepseek-flash',
                 client_id: 'test-client-id-123',
                 cost_mode: 'free',
                 freebuff_instance_id: 'active-instance-123',
@@ -705,6 +705,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it('limits unknown-location free-mode requests to DeepSeek Flash', async () => {
+      const checkSessionAdmissible = mock(async () => {
+        throw new Error(
+          'limited model enforcement should run before session gate',
+        )
+      })
       // Use a TEST-NET-1 IP (RFC 5737) that geoip-lite cannot resolve, with
       // no cf-ipcountry header. This avoids the dev-only localhost bypass
       // (which kicks in when there is no cf-ipcountry AND no/loopback IP).
@@ -738,24 +743,21 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
         loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: async (params) => {
-          expect(params.accessTier).toBe('limited')
-          expect(params.requestedModel).toBe('minimax/minimax-m2.7')
-          return {
-            ok: false,
-            code: 'session_model_mismatch',
-            message:
-              'Limited free access is only available with DeepSeek V4 Flash.',
-          }
-        },
+        checkSessionAdmissible,
       })
 
       expect(response.status).toBe(409)
       const body = await response.json()
       expect(body.error).toBe('session_model_mismatch')
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(0)
     })
 
     it('classifies anonymized Cloudflare country codes as limited access', async () => {
+      const checkSessionAdmissible = mock(async () => {
+        throw new Error(
+          'limited model enforcement should run before session gate',
+        )
+      })
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -787,20 +789,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         fetch: mockFetch,
         insertMessageBigquery: mockInsertMessageBigquery,
         loggerWithContext: mockLoggerWithContext,
-        checkSessionAdmissible: async (params) => {
-          expect(params.accessTier).toBe('limited')
-          return {
-            ok: false,
-            code: 'session_model_mismatch',
-            message:
-              'Limited free access is only available with DeepSeek V4 Flash.',
-          }
-        },
+        checkSessionAdmissible,
       })
 
       expect(response.status).toBe(409)
       const body = await response.json()
       expect(body.error).toBe('session_model_mismatch')
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(0)
     })
 
     it(

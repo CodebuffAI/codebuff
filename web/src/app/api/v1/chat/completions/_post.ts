@@ -1,6 +1,11 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  isFreebuffModelAllowedForAccessTier,
+  isSupportedFreebuffModelId,
+} from '@codebuff/common/constants/freebuff-models'
+import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeMode,
@@ -488,6 +493,33 @@ export async function postChatCompletions(params: {
           { status: 403 },
         )
       }
+    }
+
+    if (
+      isFreeModeRequest &&
+      freebuffAccessTier === 'limited' &&
+      (isSupportedFreebuffModelId(typedBody.model) ||
+        typedBody.model === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+      !isFreebuffModelAllowedForAccessTier(typedBody.model, freebuffAccessTier)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'session_model_mismatch',
+          model: typedBody.model,
+          accessTier: freebuffAccessTier,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'session_model_mismatch',
+          message:
+            'Limited free access is only available with DeepSeek V4 Flash.',
+        },
+        { status: STATUS_BY_GATE_CODE.session_model_mismatch },
+      )
     }
 
     let freeModeSessionGate: SessionGateResult | null = null
