@@ -65,10 +65,12 @@ function countryName(code: string): string {
 }
 
 function formattedTime(iso: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
   }).format(new Date(iso))
 }
 
