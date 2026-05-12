@@ -1,12 +1,17 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Cpu, Globe2 } from 'lucide-react'
+import { ChevronDown, Cpu, Globe2 } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+
+import { CopyButton } from '@/components/copy-button'
 
 import type { FreebuffLiveStats } from '@/server/live-stats'
 import type { LucideIcon } from 'lucide-react'
 
+const INSTALL_COMMAND = 'npm install -g freebuff'
 const POLL_MS = 15_000
 const MAP_SIZE = { width: 1000, height: 520 }
 const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' })
@@ -46,6 +51,13 @@ const LAND_PATHS = [
   'M690 310 C731 277 796 297 825 333 C852 366 831 426 779 436 C728 447 671 390 690 310Z',
   'M766 439 C805 423 863 442 889 478 C837 492 792 489 746 470 C748 455 755 446 766 439Z',
   'M421 96 C448 80 495 83 516 105 C486 118 454 121 421 96Z',
+]
+
+const SETUP_STEPS = [
+  'Open your terminal',
+  'Navigate to your project',
+  INSTALL_COMMAND,
+  'freebuff',
 ]
 
 function countryName(code: string): string {
@@ -307,6 +319,73 @@ function CountryList({ stats }: { stats: FreebuffLiveStats }) {
   )
 }
 
+function InstallCallout() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <section className="container mx-auto px-4 pb-10">
+      <div className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] md:grid-cols-[minmax(220px,0.7fr)_minmax(0,1fr)] md:items-center">
+        <Link
+          href="/"
+          className="group flex items-center gap-3 rounded-md transition-colors hover:text-acid-matrix"
+        >
+          <Image
+            src="/logo-icon.png"
+            alt="Freebuff"
+            width={32}
+            height={32}
+            className="rounded-sm"
+          />
+          <div>
+            <div className="font-serif text-xl tracking-widest text-white transition-colors group-hover:text-acid-matrix">
+              freebuff
+            </div>
+            <div className="text-sm text-white/50">The free coding agent</div>
+          </div>
+        </Link>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 rounded-lg border border-acid-matrix/45 bg-black/35 px-4 py-3 font-mono text-sm shadow-[0_0_24px_rgba(124,255,63,0.12)]">
+            <span className="text-acid-matrix">$</span>
+            <code className="min-w-0 flex-1 select-all overflow-x-auto whitespace-nowrap text-white/90">
+              {INSTALL_COMMAND}
+            </code>
+            <CopyButton value={INSTALL_COMMAND} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen((open) => !open)}
+            className="flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-acid-matrix"
+            aria-expanded={isOpen}
+          >
+            <span>Install guide</span>
+            <motion.span animate={{ rotate: isOpen ? 180 : 0 }}>
+              <ChevronDown className="h-4 w-4" aria-hidden />
+            </motion.span>
+          </button>
+
+          {isOpen && (
+            <ol className="grid gap-2 text-sm text-white/65 sm:grid-cols-2">
+              {SETUP_STEPS.map((step, index) => (
+                <li
+                  key={step}
+                  className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-acid-matrix/35 text-xs text-acid-matrix">
+                    {index + 1}
+                  </span>
+                  <span className="truncate font-mono">{step}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function LiveClient({
   initialStats,
 }: {
@@ -329,10 +408,10 @@ export default function LiveClient({
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                <h1 className="flex max-w-3xl items-center gap-4 font-serif text-4xl leading-tight text-white md:text-6xl">
+                <h1 className="relative max-w-3xl pl-7 font-serif text-4xl leading-tight text-white md:pl-8 md:text-6xl">
                   <motion.span
                     aria-hidden
-                    className="h-3 w-3 shrink-0 rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)] md:h-4 md:w-4"
+                    className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)] md:h-4 md:w-4"
                     animate={{
                       opacity: [0.45, 1, 0.45],
                       scale: [0.86, 1.18, 0.86],
@@ -377,6 +456,8 @@ export default function LiveClient({
           </div>
         </div>
       </section>
+
+      <InstallCallout />
     </main>
   )
 }
