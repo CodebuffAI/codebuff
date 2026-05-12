@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
@@ -934,6 +935,68 @@ describe('getSessionState', () => {
     expect(
       state.rateLimitsByModel?.[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
     ).toEqual(expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 1))
+  })
+
+  test('limited access deletes an incompatible queued row before returning none', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    expect(deps.rows.has('u1')).toBe(true)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('limited access deletes a queued full-tier Flash row before returning none', async () => {
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      deps,
+    })
+    expect(deps.rows.get('u1')?.access_tier).toBe('full')
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('limited access deletes an incompatible active row before returning none', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
   })
 
   test('active session with matching instance id returns active', async () => {

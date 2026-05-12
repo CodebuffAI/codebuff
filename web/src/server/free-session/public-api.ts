@@ -278,6 +278,16 @@ const defaultDeps: SessionDeps = {
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
 
+function isSessionRowCompatibleWithAccessTier(
+  row: InternalSessionRow,
+  accessTier: FreebuffAccessTier,
+): boolean {
+  if (accessTier === 'limited' && (row.access_tier ?? 'full') !== 'limited') {
+    return false
+  }
+  return isFreebuffModelAllowedForAccessTier(row.model, accessTier)
+}
+
 async function viewForRow(
   userId: string,
   deps: SessionDeps,
@@ -389,14 +399,7 @@ export async function requestSession(params: {
   // fresh admissions — blocking a reclaim here would strand a user with an
   // active 5th session unable to reconnect after a CLI restart.
   let existing = await deps.getSessionRow(params.userId)
-  const existingAccessTier = existing?.access_tier ?? 'full'
-  if (
-    existing &&
-    (accessTier === 'limited'
-      ? existingAccessTier !== 'limited' ||
-        !isFreebuffModelAllowedForAccessTier(existing.model, accessTier)
-      : !isFreebuffModelAllowedForAccessTier(existing.model, accessTier))
-  ) {
+  if (existing && !isSessionRowCompatibleWithAccessTier(existing, accessTier)) {
     await deps.endSession({
       userId: params.userId,
       now,
@@ -539,9 +542,11 @@ async function attachRateLimit(
 }
 
 /**
- * Read-only check of the caller's current state. Does not mutate or rotate
- * `instance_id`. The CLI sends its currently-held `claimedInstanceId` so we
- * can return `superseded` if a newer CLI on the same account took over.
+ * Check of the caller's current state. Does not rotate `instance_id`. The CLI
+ * sends its currently-held `claimedInstanceId` so we can return `superseded`
+ * if a newer CLI on the same account took over. Mutates only to clear rows
+ * that the current access tier can no longer use, so they don't leak queue or
+ * active capacity after the CLI receives `none`.
  *
  * Returns:
  *   - `disabled` when the waiting room is off
@@ -593,11 +598,12 @@ export async function getSessionState(params: {
 
   if (!row) return noneResponse()
 
-  if (
-    accessTier === 'limited' &&
-    ((row.access_tier ?? 'full') !== 'limited' ||
-      !isFreebuffModelAllowedForAccessTier(row.model, accessTier))
-  ) {
+  if (!isSessionRowCompatibleWithAccessTier(row, accessTier)) {
+    await deps.endSession({
+      userId: params.userId,
+      now: nowOf(deps),
+      sessionLengthMs: deps.sessionLengthMs,
+    })
     return noneResponse()
   }
 
@@ -747,11 +753,7 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
-  if (
-    accessTier === 'limited' &&
-    ((row.access_tier ?? 'full') !== 'limited' ||
-      !isFreebuffModelAllowedForAccessTier(row.model, accessTier))
-  ) {
+  if (!isSessionRowCompatibleWithAccessTier(row, accessTier)) {
     return {
       ok: false,
       code: 'session_model_mismatch',
