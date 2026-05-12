@@ -124,6 +124,48 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(true)
   })
 
+  it('should parse stringified params for spawn_agents entries', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-stringified-params-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'basher',
+              prompt: 'Run tests',
+              params: '{"command":"bun test"}',
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents[0].params).toEqual({ command: 'bun test' })
+    }
+  })
+
+  it('should parse stringified params for spawn_agent_inline', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agent_inline',
+        toolCallId: 'spawn-agent-inline-stringified-params-tool-call-id',
+        input: {
+          agent_type: 'basher',
+          prompt: 'Run tests',
+          params: '{"command":"bun test"}',
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.params).toEqual({ command: 'bun test' })
+    }
+  })
+
   it('should accept old_str/new_str aliases for str_replace replacements', () => {
     const result = parseRawToolCall({
       rawToolCall: {
