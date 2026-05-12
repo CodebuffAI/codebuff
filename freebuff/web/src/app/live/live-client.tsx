@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Activity, Cpu, Globe2, Radio } from 'lucide-react'
+import { Cpu, Globe2, Radio } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import type { FreebuffLiveStats } from '@/server/live-stats'
@@ -333,11 +333,20 @@ export default function LiveClient({
         <div className="relative container mx-auto px-4 pb-6 pt-10 md:pb-8 md:pt-14">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-md border border-acid-matrix/25 bg-acid-matrix/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-acid-matrix">
-                <Activity className="h-3.5 w-3.5" aria-hidden />
-                Live
-              </div>
-              <h1 className="max-w-3xl font-serif text-4xl leading-tight text-white md:text-6xl">
+              <h1 className="flex max-w-3xl items-center gap-4 font-serif text-4xl leading-tight text-white md:text-6xl">
+                <motion.span
+                  aria-hidden
+                  className="h-3 w-3 shrink-0 rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)] md:h-4 md:w-4"
+                  animate={{
+                    opacity: [0.45, 1, 0.45],
+                    scale: [0.86, 1.18, 0.86],
+                  }}
+                  transition={{
+                    duration: 1.8,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                />
                 Freebuff live
               </h1>
             </div>
