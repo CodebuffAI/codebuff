@@ -29,10 +29,12 @@ export default async function LoginPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const rawAuthCode = resolvedSearchParams?.auth_code
   const authCode = Array.isArray(rawAuthCode) ? rawAuthCode[0] : rawAuthCode
+  const validAuthCode =
+    authCode && isCliAuthCodeCandidate(authCode) ? authCode : undefined
   const searchParamKeys = Object.keys(resolvedSearchParams).sort()
 
   if (authCode) {
-    if (!isCliAuthCodeCandidate(authCode)) {
+    if (!validAuthCode) {
       const headerStore = await headers()
       logger.warn(
         {
@@ -80,7 +82,9 @@ export default async function LoginPage({
       )
     }
 
-    const { expiresAt } = parseAuthCode(authCode)
+    const { expiresAt } = validAuthCode
+      ? parseAuthCode(validAuthCode)
+      : { expiresAt: '' }
 
     if (expiresAt && isAuthCodeExpired(expiresAt)) {
       return (
@@ -122,7 +126,7 @@ export default async function LoginPage({
       <HeroGrid />
       <BackgroundBeams />
       <main className="relative z-10 flex flex-col items-center justify-center min-h-screen py-20">
-        <LoginCard authCode={authCode} />
+        <LoginCard authCode={validAuthCode} />
       </main>
     </div>
   )
