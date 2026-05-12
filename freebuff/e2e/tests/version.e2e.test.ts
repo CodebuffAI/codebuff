@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execFileSync } from 'node:child_process'
 
 import { describe, expect, test } from 'bun:test'
 
@@ -7,7 +7,7 @@ import { requireFreebuffBinary } from '../utils'
 describe('Freebuff: --version', () => {
   test('outputs a version string', () => {
     const binary = requireFreebuffBinary()
-    const output = execSync(`'${binary}' --version`, {
+    const output = execFileSync(binary, ['--version'], {
       encoding: 'utf-8',
       timeout: 10_000,
     }).trim()
@@ -18,7 +18,7 @@ describe('Freebuff: --version', () => {
 
   test('exits with code 0', () => {
     const binary = requireFreebuffBinary()
-    // execSync throws on non-zero exit codes, so if this doesn't throw, it exited 0
-    execSync(`'${binary}' --version`, { encoding: 'utf-8', timeout: 10_000 })
+    // execFileSync throws on non-zero exit codes, so if this doesn't throw, it exited 0
+    execFileSync(binary, ['--version'], { encoding: 'utf-8', timeout: 10_000 })
   })
 })

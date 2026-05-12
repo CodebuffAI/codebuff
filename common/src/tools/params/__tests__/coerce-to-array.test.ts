@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import z from 'zod/v4'
 
-import { coerceToArray, normalizeReplacementAliases } from '../utils'
+import {
+  coerceToArray,
+  coerceToObject,
+  normalizeReplacementAliases,
+} from '../utils'
 
 describe('coerceToArray', () => {
   it('passes through arrays unchanged', () => {
@@ -47,6 +51,25 @@ describe('coerceToArray', () => {
 
   it('passes through undefined', () => {
     expect(coerceToArray(undefined)).toBeUndefined()
+  })
+})
+
+describe('coerceToObject', () => {
+  it('passes through objects unchanged', () => {
+    expect(coerceToObject({ key: 'value' })).toEqual({ key: 'value' })
+  })
+
+  it('parses a stringified JSON object', () => {
+    expect(coerceToObject('{"key": "value"}')).toEqual({ key: 'value' })
+  })
+
+  it('leaves non-JSON strings untouched', () => {
+    expect(coerceToObject('not-json')).toBe('not-json')
+  })
+
+  it('passes through arrays and primitives so validation can reject them', () => {
+    expect(coerceToObject(['a'])).toEqual(['a'])
+    expect(coerceToObject(1)).toBe(1)
   })
 })
 
@@ -116,6 +139,23 @@ describe('coerceToArray with Zod schemas', () => {
     const plain = z.object({ paths: z.array(z.string()) })
     const coerced = z.object({
       paths: z.preprocess(coerceToArray, z.array(z.string())),
+    })
+
+    const plainSchema = z.toJSONSchema(plain, { io: 'input' })
+    const coercedSchema = z.toJSONSchema(coerced, { io: 'input' })
+    expect(coercedSchema).toEqual(plainSchema)
+  })
+})
+
+describe('coerceToObject with Zod schemas', () => {
+  it('produces identical JSON schema with or without preprocess', () => {
+    const plain = z.object({
+      params: z.record(z.string(), z.any()).optional(),
+    })
+    const coerced = z.object({
+      params: z
+        .preprocess(coerceToObject, z.record(z.string(), z.any()))
+        .optional(),
     })
 
     const plainSchema = z.toJSONSchema(plain, { io: 'input' })
