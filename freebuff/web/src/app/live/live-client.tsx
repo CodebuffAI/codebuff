@@ -1,10 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Activity, Clock3, Cpu, Globe2, Radio } from 'lucide-react'
+import { Activity, Cpu, Globe2, Radio } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-
-import { cn } from '@/lib/utils'
 
 import type { FreebuffLiveStats } from '@/server/live-stats'
 import type { LucideIcon } from 'lucide-react'
@@ -71,20 +69,14 @@ function projectPoint(lat: number, lon: number) {
 
 function useLiveStats(initialStats: FreebuffLiveStats) {
   const [stats, setStats] = useState(initialStats)
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     let isMounted = true
 
     async function refresh() {
-      setIsRefreshing(true)
-      try {
-        const response = await fetch('/api/live', { cache: 'no-store' })
-        if (response.ok && isMounted) {
-          setStats((await response.json()) as FreebuffLiveStats)
-        }
-      } finally {
-        if (isMounted) setIsRefreshing(false)
+      const response = await fetch('/api/live', { cache: 'no-store' })
+      if (response.ok && isMounted) {
+        setStats((await response.json()) as FreebuffLiveStats)
       }
     }
 
@@ -95,25 +87,16 @@ function useLiveStats(initialStats: FreebuffLiveStats) {
     }
   }, [])
 
-  return { stats, isRefreshing }
+  return stats
 }
 
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-}) {
+function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs uppercase tracking-[0.18em] text-white/45">
           {label}
         </span>
-        <Icon className="h-4 w-4 text-cyan-300" aria-hidden />
       </div>
       <div className="mt-3 min-h-10 text-3xl font-serif leading-none text-white">
         {value}
@@ -334,7 +317,7 @@ export default function LiveClient({
 }: {
   initialStats: FreebuffLiveStats
 }) {
-  const { stats, isRefreshing } = useLiveStats(initialStats)
+  const stats = useLiveStats(initialStats)
   const topCountry = useMemo(
     () =>
       stats.countries[0]
@@ -358,29 +341,14 @@ export default function LiveClient({
                 Freebuff live
               </h1>
             </div>
-            <div
-              className={cn(
-                'flex items-center gap-2 text-sm text-white/55',
-                isRefreshing && 'text-cyan-200',
-              )}
-              aria-live="polite"
-            >
-              <span className="h-2 w-2 rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)]" />
-              <span>
-                {isRefreshing
-                  ? 'Refreshing'
-                  : `Updated ${formattedTime(stats.generatedAt)}`}
-              </span>
-            </div>
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
             <StatTile
-              icon={Globe2}
               label="Live users"
               value={stats.totalLiveUsers.toLocaleString()}
             />
-            <StatTile icon={Clock3} label="Top country" value={topCountry} />
+            <StatTile label="Top country" value={topCountry} />
           </div>
         </div>
       </section>
