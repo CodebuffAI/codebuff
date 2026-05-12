@@ -330,7 +330,7 @@ export default function LiveClient({
     <main className="min-h-screen bg-black text-white">
       <section className="relative overflow-hidden border-b border-white/10">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(124,255,63,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:56px_56px]" />
-        <div className="relative container mx-auto px-4 py-10 md:py-14">
+        <div className="relative container mx-auto px-4 pb-6 pt-10 md:pb-8 md:pt-14">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="mb-4 inline-flex items-center gap-2 rounded-md border border-acid-matrix/25 bg-acid-matrix/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-acid-matrix">
@@ -353,7 +353,7 @@ export default function LiveClient({
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-8 md:py-10">
+      <section className="container mx-auto px-4 pb-8 pt-5 md:pb-10 md:pt-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
           <WorldMap stats={stats} />
 
