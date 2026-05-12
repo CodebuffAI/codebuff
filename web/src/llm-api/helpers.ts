@@ -1,5 +1,8 @@
 import { setupBigQuery } from '@codebuff/bigquery'
-import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
+import {
+  consumeCreditsAndAddAgentStep,
+  recordMessageWithoutBilling,
+} from '@codebuff/billing'
 import {
   isFreeAgent,
   isFreeMode,
@@ -151,7 +154,34 @@ export async function consumeCreditsForMessage(params: {
   // Also validates publisher to prevent spoofing attacks
   const isFreeAgentSmallRequest = isFreeAgent(agentId) && initialCredits < 5
 
-  const credits = isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
+  const credits =
+    isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
+
+  if (isFreeModeAndAllowed) {
+    await recordMessageWithoutBilling({
+      messageId,
+      userId,
+      agentId,
+      clientId,
+      clientRequestId,
+      startTime,
+      model,
+      reasoningText,
+      response: responseText,
+      cost: usageData.cost,
+      credits: 0,
+      inputTokens: usageData.inputTokens,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: usageData.cacheReadInputTokens,
+      reasoningTokens:
+        usageData.reasoningTokens > 0 ? usageData.reasoningTokens : null,
+      outputTokens: usageData.outputTokens,
+      byok,
+      logger,
+      ttftMs: ttftMs ?? null,
+    })
+    return 0
+  }
 
   await consumeCreditsAndAddAgentStep({
     messageId,
