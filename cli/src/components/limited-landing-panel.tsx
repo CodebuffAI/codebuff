@@ -95,7 +95,7 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
         border={['top', 'bottom', 'left', 'right']}
       >
         <text
-          style={{ fg: interactable ? theme.primary : theme.muted }}
+          style={{ fg: interactable ? theme.foreground : theme.muted }}
           attributes={TextAttributes.BOLD}
         >
           {pending ? (
