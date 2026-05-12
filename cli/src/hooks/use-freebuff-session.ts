@@ -284,6 +284,13 @@ export function returnToFreebuffLanding(
   })
 }
 
+/** Refresh picker-only metadata (quota and queue depths) while staying on the
+ * model selection screen. Used when a midnight-Pacific premium quota reset
+ * passes while the landing screen is open. */
+export function refreshFreebuffLandingMetadata(): Promise<void> {
+  return restartFreebuffSession('landing')
+}
+
 /**
  * Join (or re-queue for) `model`. Dual-purpose:
  *   - First join: called from the pre-chat landing picker. The session starts

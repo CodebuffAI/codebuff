@@ -1,12 +1,15 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
-import { takeOverFreebuffSession } from '../hooks/use-freebuff-session'
+import {
+  refreshFreebuffLandingMetadata,
+  takeOverFreebuffSession,
+} from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
@@ -15,6 +18,10 @@ import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { exitFreebuffCleanly } from '../utils/freebuff-exit'
+import {
+  formatFreebuffPremiumResetCountdown,
+  getFreebuffPremiumResetAt,
+} from '../utils/freebuff-premium-reset'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import { FREEBUFF_PREMIUM_SESSION_LIMIT } from '@codebuff/common/constants/freebuff-models'
@@ -247,30 +254,31 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
   const [exitHover, setExitHover] = useState(false)
 
-  // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
-  // the user wanders away and comes back.
-  const queuedAtMs = useMemo(() => {
-    if (session?.status === 'queued') return Date.parse(session.queuedAt)
-    return null
-  }, [session])
-  const now = useNow(1000, queuedAtMs !== null)
-  const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
-
   const isQueued = session?.status === 'queued'
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
+  // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
+  // the user wanders away and comes back. On the landing picker we tick once a
+  // minute so the premium reset countdown stays fresh.
+  const queuedAtMs = useMemo(() => {
+    if (session?.status === 'queued') return Date.parse(session.queuedAt)
+    return null
+  }, [session])
+  const now = useNow(isQueued ? 1000 : 60_000, isQueued || isLanding)
+  const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
   // Premium quota counter for the title line. All premium models share one
   // pool; the server replicates the same snapshot under each premium model
   // id, so any entry has the right count. Renders amber when exhausted so
   // the limit reads as "you've hit it" rather than just another count.
   const rateLimitsByModel = getRateLimitsByModel(session)
-  const sharedPremiumUsed = rateLimitsByModel
-    ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
-    : 0
+  const premiumRateLimit = rateLimitsByModel
+    ? Object.values(rateLimitsByModel)[0]
+    : undefined
+  const sharedPremiumUsed = premiumRateLimit?.recentCount ?? 0
   const isPremiumExhausted =
     sharedPremiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
   const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
@@ -280,6 +288,26 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const formattedSharedPremiumUsed = formatSessionUnits(
     sharedPremiumUsed,
   ).padStart(sessionUnitWidth)
+  const premiumResetAt = getFreebuffPremiumResetAt({
+    rateLimitsByModel,
+    nowMs: now,
+  })
+  const premiumResetAtMs = premiumResetAt.getTime()
+  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
+    premiumResetAt,
+    now,
+  )
+
+  useEffect(() => {
+    if (!isLanding || !premiumRateLimit) return
+
+    const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
+    const timer = setTimeout(() => {
+      refreshFreebuffLandingMetadata().catch(() => {})
+    }, delayMs)
+
+    return () => clearTimeout(timer)
+  }, [isLanding, premiumRateLimit, premiumResetAtMs])
 
   return (
     <box
@@ -366,10 +394,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
                 </span>
+              </text>
+              <text
+                style={{ fg: theme.muted, marginBottom: 1, wrapMode: 'word' }}
+              >
                 <span fg={premiumUsedColor}>
-                  {'  ·  '}
                   {formattedSharedPremiumUsed} of{' '}
-                  {FREEBUFF_PREMIUM_SESSION_LIMIT} premium sessions used today
+                  {FREEBUFF_PREMIUM_SESSION_LIMIT} premium sessions used
+                </span>
+                <span fg={theme.muted}>
+                  {'  ·  '}
+                  resets in {premiumResetCountdown}
                 </span>
               </text>
               <FreebuffModelSelector />
