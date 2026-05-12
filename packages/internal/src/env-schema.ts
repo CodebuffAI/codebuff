@@ -69,6 +69,14 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .int()
     .positive()
     .default(60 * 60 * 1000),
+
+  // Dev-only override: when 'true', force free-mode requests to the 'limited'
+  // access tier so the limited UX (single DeepSeek Flash model) can be
+  // exercised on localhost. Ignored unless NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'.
+  FREEBUFF_DEV_FORCE_LIMITED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -131,4 +139,5 @@ export const serverProcessEnv: ServerInput = {
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
   FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
+  FREEBUFF_DEV_FORCE_LIMITED: process.env.FREEBUFF_DEV_FORCE_LIMITED,
 }

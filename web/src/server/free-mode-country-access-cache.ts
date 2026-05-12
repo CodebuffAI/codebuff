@@ -146,7 +146,7 @@ export async function getCachedFreeModeCountryAccess(params: {
   const clientIp = extractClientIp(req)
   const clientIpHash = hashClientIp(clientIp, options.ipHashSecret)
 
-  if (clientIpHash) {
+  if (clientIpHash && !options.forceLimited) {
     try {
       const cached = await cacheStore.get({
         userId,

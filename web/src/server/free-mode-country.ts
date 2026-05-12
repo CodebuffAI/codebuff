@@ -73,6 +73,12 @@ export type FreeModeCountryAccessOptions = {
   ipinfoToken: string
   ipHashSecret?: string
   allowLocalhost?: boolean
+  /** Dev-only escape hatch: when true (and `allowLocalhost` is also true),
+   *  the localhost bypass returns `allowed: false` so callers exercise the
+   *  limited Freebuff tier instead of full. Cache writes/reads are skipped
+   *  for these requests (clientIpHash is nulled) so flipping the flag takes
+   *  effect on the next request without manual cache eviction. */
+  forceLimited?: boolean
 }
 
 const LOCALHOST_IPS = new Set(['::1', '::ffff:127.0.0.1'])
@@ -216,6 +222,20 @@ export async function getFreeModeCountryAccess(
     !cfCountry &&
     (!clientIp || isLocalhostIp(clientIp))
   ) {
+    if (options.forceLimited) {
+      return {
+        allowed: false,
+        countryCode: 'US',
+        blockReason: 'country_not_allowed',
+        cfCountry: null,
+        geoipCountry: null,
+        ipPrivacy: { signals: [] },
+        hasClientIp: Boolean(clientIp),
+        // Null hash skips the country-access cache so toggling the env var
+        // takes effect immediately without evicting prior allowed=true rows.
+        clientIpHash: null,
+      }
+    }
     return {
       allowed: true,
       countryCode: 'US',

@@ -332,6 +332,9 @@ export async function postChatCompletions(params: {
         ipinfoToken: env.IPINFO_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+        forceLimited:
+          env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
+          env.FREEBUFF_DEV_FORCE_LIMITED,
       })
       freebuffAccessTier = getFreeModeAccessTier(countryAccess)
 
