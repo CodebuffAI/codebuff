@@ -102,12 +102,10 @@ function StatTile({
   icon: Icon,
   label,
   value,
-  detail,
 }: {
   icon: LucideIcon
   label: string
   value: string
-  detail: string
 }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -120,7 +118,6 @@ function StatTile({
       <div className="mt-3 min-h-10 text-3xl font-serif leading-none text-white">
         {value}
       </div>
-      <div className="mt-2 text-sm text-white/50">{detail}</div>
     </div>
   )
 }
@@ -382,14 +379,8 @@ export default function LiveClient({
               icon={Globe2}
               label="Live users"
               value={stats.totalLiveUsers.toLocaleString()}
-              detail="Active sessions now"
             />
-            <StatTile
-              icon={Clock3}
-              label="Top country"
-              value={topCountry}
-              detail="By active users"
-            />
+            <StatTile icon={Clock3} label="Top country" value={topCountry} />
           </div>
         </div>
       </section>
