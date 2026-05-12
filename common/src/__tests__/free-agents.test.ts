@@ -12,6 +12,7 @@ import {
   getFreebuffRootAgentIdForModel,
   isFreebuffGeminiThinkerAgent,
   isFreeModeAllowedAgentModel,
+  shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
 
 describe('free mode agent model allowlist', () => {
@@ -166,6 +167,39 @@ describe('free mode agent model allowlist', () => {
       isFreebuffGeminiThinkerAgent(
         `other/${FREEBUFF_GEMINI_THINKER_AGENT_ID}@0.0.1`,
       ),
+    ).toBe(false)
+  })
+
+  test('uses local token count only for the DeepSeek Flash freebuff root', () => {
+    expect(
+      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+        agentId: 'base2-free-deepseek-flash',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      }),
+    ).toBe(true)
+    expect(
+      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+        agentId: 'codebuff/base2-free-deepseek-flash@0.0.1',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      }),
+    ).toBe(true)
+    expect(
+      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+        agentId: 'base2-free-deepseek',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      }),
+    ).toBe(false)
+    expect(
+      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+        agentId: 'base2-free-deepseek-flash',
+        model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      }),
+    ).toBe(false)
+    expect(
+      shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+        agentId: 'other/base2-free-deepseek-flash@0.0.1',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      }),
     ).toBe(false)
   })
 })
