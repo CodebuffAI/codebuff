@@ -65,12 +65,10 @@ function countryName(code: string): string {
 }
 
 function formattedTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
-    timeZone: 'UTC',
-    timeZoneName: 'short',
   }).format(new Date(iso))
 }
 
@@ -393,6 +391,7 @@ export default function LiveClient({
 }: {
   initialStats: FreebuffLiveStats
 }) {
+  const [hasMounted, setHasMounted] = useState(false)
   const stats = useLiveStats(initialStats)
   const topCountry = useMemo(
     () =>
@@ -401,6 +400,10 @@ export default function LiveClient({
         : 'None yet',
     [stats.countries],
   )
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -430,9 +433,11 @@ export default function LiveClient({
                   </span>
                   Freebuff live
                 </h1>
-                <span className="whitespace-nowrap text-sm text-white/45 md:text-base">
-                  Updated {formattedTime(stats.generatedAt)}
-                </span>
+                {hasMounted && (
+                  <span className="whitespace-nowrap text-sm text-white/45 md:text-base">
+                    Updated {formattedTime(stats.generatedAt)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
