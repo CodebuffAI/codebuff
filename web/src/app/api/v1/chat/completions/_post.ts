@@ -85,12 +85,14 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
-import {
-  getFreeModeAccessTier,
-  getFreeModeCountryAccess,
-} from '@/server/free-mode-country'
+import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
+import { getFreeModeAccessTier } from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
+import type {
+  FreeModeCountryAccess,
+  FreeModeCountryAccessOptions,
+} from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
@@ -133,6 +135,11 @@ export const formatQuotaResetCountdown = (
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
 export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
+export type ResolveFreeModeCountryAccessFn = (
+  userId: string,
+  req: NextRequest,
+  options: FreeModeCountryAccessOptions,
+) => Promise<FreeModeCountryAccess>
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
 
@@ -177,6 +184,9 @@ export async function postChatCompletions(params: {
   /** Optional override for the free-mode rate limiter. Tests inject this to
    *  avoid coupling to process-global limiter state. */
   checkFreeModeRateLimit?: CheckFreeModeRateLimitFn
+  /** Optional override for country/cache checks. Tests inject this to avoid
+   *  coupling to Postgres-backed cache state. */
+  resolveFreeModeCountryAccess?: ResolveFreeModeCountryAccessFn
 }) {
   const {
     req,
@@ -190,9 +200,14 @@ export async function postChatCompletions(params: {
     getUserPreferences,
     checkSessionAdmissible: checkSession = checkSessionAdmissible,
     checkFreeModeRateLimit = defaultCheckFreeModeRateLimit,
+    resolveFreeModeCountryAccess,
   } = params
   let { logger } = params
   let { trackEvent } = params
+  const resolveCountryAccess: ResolveFreeModeCountryAccessFn =
+    resolveFreeModeCountryAccess ??
+    ((userId, req, options) =>
+      getCachedFreeModeCountryAccess({ userId, req, options, logger }))
 
   try {
     // Parse request body
@@ -307,27 +322,29 @@ export async function postChatCompletions(params: {
     // access. Disallowed countries and anonymized networks are no longer
     // blocked outright; they are limited to the cheap DeepSeek Flash path.
     if (isFreeModeRequest) {
-      const countryAccess = await getFreeModeCountryAccess(req, {
+      const countryAccess = await resolveCountryAccess(userId, req, {
         fetch,
         ipinfoToken: env.IPINFO_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
       })
+      freebuffAccessTier = getFreeModeAccessTier(countryAccess)
 
-      logger.info(
-        {
-          cfHeader: countryAccess.cfCountry,
-          geoipResult: countryAccess.geoipCountry,
-          resolvedCountry: countryAccess.countryCode,
-          countryBlockReason: countryAccess.blockReason,
-          ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-          clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
-        },
-        'Free mode country detection',
-      )
+      if (!countryAccess.allowed || sampleFreebuffSuccess) {
+        logger.info(
+          {
+            cfHeader: countryAccess.cfCountry,
+            geoipResult: countryAccess.geoipCountry,
+            resolvedCountry: countryAccess.countryCode,
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+          },
+          'Free mode country detection',
+        )
+      }
 
       if (!countryAccess.allowed) {
-        freebuffAccessTier = getFreeModeAccessTier(countryAccess)
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,
@@ -340,8 +357,6 @@ export async function postChatCompletions(params: {
           },
           logger,
         })
-      } else {
-        freebuffAccessTier = getFreeModeAccessTier(countryAccess)
       }
     }
 

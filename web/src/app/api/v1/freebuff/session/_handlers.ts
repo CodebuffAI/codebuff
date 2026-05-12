@@ -6,10 +6,8 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
-import {
-  getFreeModeAccessTier,
-  getFreeModeCountryAccess,
-} from '@/server/free-mode-country'
+import { getFreeModeAccessTier } from '@/server/free-mode-country'
+import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
@@ -25,15 +23,21 @@ import type { NextRequest } from 'next/server'
 type GetCountryAccessFn = (req: NextRequest) => Promise<FreeModeCountryAccess>
 
 async function getCountryAccess(
+  userId: string,
   req: NextRequest,
   deps: FreebuffSessionDeps,
 ): Promise<FreeModeCountryAccess> {
   return (
     deps.getCountryAccess?.(req) ??
-    getFreeModeCountryAccess(req, {
-      ipinfoToken: env.IPINFO_TOKEN,
-      ipHashSecret: env.NEXTAUTH_SECRET,
-      allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+    getCachedFreeModeCountryAccess({
+      userId,
+      req,
+      logger: deps.logger,
+      options: {
+        ipinfoToken: env.IPINFO_TOKEN,
+        ipHashSecret: env.NEXTAUTH_SECRET,
+        allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+      },
     })
   )
 }
@@ -145,7 +149,7 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const countryAccess = await getCountryAccess(req, deps)
+  const countryAccess = await getCountryAccess(auth.userId, req, deps)
   const accessTier = getFreeModeAccessTier(countryAccess)
 
   const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
@@ -192,7 +196,7 @@ export async function getFreebuffSession(
   if ('error' in auth) return auth.error
 
   try {
-    const countryAccess = await getCountryAccess(req, deps)
+    const countryAccess = await getCountryAccess(auth.userId, req, deps)
     const accessTier = getFreeModeAccessTier(countryAccess)
 
     const claimedInstanceId =

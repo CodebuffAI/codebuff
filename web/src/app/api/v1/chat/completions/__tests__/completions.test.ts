@@ -12,6 +12,7 @@ import {
 import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
 import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
+import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -86,6 +87,18 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   // path so downstream logic proceeds normally.
   const mockCheckSessionAdmissibleAllow = async () =>
     ({ ok: true, reason: 'disabled' }) as const
+  const mockResolveFreeModeCountryAccess = async (
+    _userId: string,
+    req: Parameters<typeof getFreeModeCountryAccess>[0],
+    options: Parameters<typeof getFreeModeCountryAccess>[1],
+  ) => getFreeModeCountryAccess(req, options)
+  const postChatCompletionsForTest = (
+    params: Parameters<typeof postChatCompletions>[0],
+  ) =>
+    postChatCompletions({
+      resolveFreeModeCountryAccess: mockResolveFreeModeCountryAccess,
+      ...params,
+    })
 
   const allowedFreeModeHeaders = (apiKey: string) => ({
     Authorization: `Bearer ${apiKey}`,
@@ -289,7 +302,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -317,7 +330,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -347,7 +360,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -375,7 +388,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -406,7 +419,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -439,7 +452,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -474,7 +487,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -509,7 +522,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -548,7 +561,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -567,7 +580,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'skips duplicate country checks when an active freebuff session gate admits the request',
+      'classifies country access before the active freebuff session gate',
       async () => {
         const req = new NextRequest(
           'http://localhost:3000/api/v1/chat/completions',
@@ -591,7 +604,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -601,8 +614,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fetch: mockFetch,
           insertMessageBigquery: mockInsertMessageBigquery,
           loggerWithContext: mockLoggerWithContext,
-          checkSessionAdmissible: async () =>
-            ({ ok: true, reason: 'active', remainingMs: 60_000 }) as const,
+          checkSessionAdmissible: async (params) => {
+            expect(params.accessTier).toBe('limited')
+            return { ok: true, reason: 'active', remainingMs: 60_000 } as const
+          },
         })
 
         expect(response.status).toBe(200)
@@ -633,7 +648,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -671,7 +686,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -713,7 +728,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -762,7 +777,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -831,7 +846,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -923,7 +938,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1040,7 +1055,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             },
           )
 
-          const response = await postChatCompletions({
+          const response = await postChatCompletionsForTest({
             req,
             getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
             logger: mockLogger,
@@ -1097,7 +1112,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1136,7 +1151,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1172,7 +1187,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1210,7 +1225,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1246,7 +1261,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1265,7 +1280,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
 
     it('rejects the Gemini thinker subagent when the session gate rejects it', async () => {
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req: new NextRequest('http://localhost:3000/api/v1/chat/completions', {
           method: 'POST',
           headers: allowedFreeModeHeaders('test-api-key-new-free-gemini'),
@@ -1313,7 +1328,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           return { limited: false as const }
         })
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: new NextRequest(
             'http://localhost:3000/api/v1/chat/completions',
             {
@@ -1400,8 +1415,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           checkFreeModeRateLimit: checkFreeModeRateLimitForTest,
         })
 
-        const firstResponse = await postChatCompletions(createPostParams())
-        const limitedResponse = await postChatCompletions(createPostParams())
+        const firstResponse =
+          await postChatCompletionsForTest(createPostParams())
+        const limitedResponse =
+          await postChatCompletionsForTest(createPostParams())
 
         expect(firstResponse.status).toBe(200)
         expect(limitedResponse.status).toBe(429)
@@ -1432,7 +1449,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1469,7 +1486,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1507,7 +1524,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1543,7 +1560,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1582,7 +1599,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1627,7 +1644,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1688,7 +1705,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fallbackToALaCarte: false,
         }))
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1745,7 +1762,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: freeModeRequest,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1781,7 +1798,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fallbackToALaCarte: false,
         }))
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1821,7 +1838,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fallbackToALaCarte: true,
         }))
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1856,7 +1873,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fallbackToALaCarte: false,
         }))
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1886,7 +1903,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         fallbackToALaCarte: false,
       }))
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req: createValidRequest(),
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -1914,7 +1931,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fallbackToALaCarte: false,
         }))
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -1949,7 +1966,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           async () => weeklyLimitError,
         )
 
-        const response = await postChatCompletions({
+        const response = await postChatCompletionsForTest({
           req: createValidRequest(),
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
           logger: mockLogger,
@@ -2014,7 +2031,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -2050,7 +2067,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
@@ -2086,7 +2103,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         },
       )
 
-      const response = await postChatCompletions({
+      const response = await postChatCompletionsForTest({
         req,
         getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
         logger: mockLogger,
