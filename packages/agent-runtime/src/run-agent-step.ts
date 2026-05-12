@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebuff/common/constants/free-agents'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
@@ -864,29 +865,42 @@ export async function loopAgentSteps(
         }),
       )
 
-      // Check context token count via Anthropic API
-      const tokenCountResult = await callTokenCountAPI({
-        messages: messagesWithStepPrompt,
-        system,
-        model: agentTemplate.model,
-        tools: toolsForTokenCount,
-        fetch,
-        logger,
-        env: { clientEnv, ciEnv },
-      })
-      if (tokenCountResult.inputTokens !== undefined) {
-        currentAgentState.contextTokenCount = tokenCountResult.inputTokens
-      } else if (tokenCountResult.error) {
-        logger.warn(
-          { error: tokenCountResult.error },
-          'Failed to get token count from Anthropic API',
-        )
-        // Fall back to local estimate
-        const estimatedTokens =
-          countTokensJson(currentAgentState.messageHistory) +
-          countTokensJson(system) +
-          countTokensJson(toolDefinitions)
-        currentAgentState.contextTokenCount = estimatedTokens
+      const estimateContextTokensLocally = () =>
+        countTokensJson(messagesWithStepPrompt) +
+        countTokensJson(system) +
+        countTokensJson(toolsForTokenCount)
+
+      if (
+        shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+          agentId: agentTemplate.id,
+          model: agentTemplate.model,
+        })
+      ) {
+        currentAgentState.contextTokenCount = estimateContextTokensLocally()
+      } else {
+        // Check context token count via the web API.
+        const tokenCountResult = await callTokenCountAPI({
+          messages: messagesWithStepPrompt,
+          system,
+          model: agentTemplate.model,
+          tools: toolsForTokenCount,
+          fetch,
+          logger,
+          env: { clientEnv, ciEnv },
+        })
+        if (tokenCountResult.inputTokens !== undefined) {
+          currentAgentState.contextTokenCount = tokenCountResult.inputTokens
+        } else if (tokenCountResult.error) {
+          logger.warn(
+            { error: tokenCountResult.error },
+            'Failed to get token count from web API',
+          )
+          const estimatedTokens =
+            countTokensJson(currentAgentState.messageHistory) +
+            countTokensJson(system) +
+            countTokensJson(toolDefinitions)
+          currentAgentState.contextTokenCount = estimatedTokens
+        }
       }
 
       // 1. Run programmatic step first if it exists

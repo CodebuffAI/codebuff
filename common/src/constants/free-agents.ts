@@ -161,6 +161,20 @@ export function isFreebuffGeminiThinkerAgent(fullAgentId: string): boolean {
   return agentId === FREEBUFF_GEMINI_THINKER_AGENT_ID
 }
 
+export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
+  agentId: string | undefined
+  model: string | undefined
+}): boolean {
+  const { agentId: fullAgentId, model } = params
+  if (!fullAgentId || model !== FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID) {
+    return false
+  }
+
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (publisherId && publisherId !== 'codebuff') return false
+  return agentId === 'base2-free-deepseek-flash'
+}
+
 /**
  * Check if a specific agent is allowed to use a specific model in FREE mode.
  * This is the strictest check - validates both the agent AND model combination.
