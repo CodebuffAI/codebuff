@@ -409,19 +409,23 @@ export default function LiveClient({
             <div>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
                 <h1 className="relative max-w-3xl pl-7 font-serif text-4xl leading-tight text-white md:pl-8 md:text-6xl">
-                  <motion.span
+                  <span
                     aria-hidden
-                    className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)] md:h-4 md:w-4"
-                    animate={{
-                      opacity: [0.45, 1, 0.45],
-                      scale: [0.86, 1.18, 0.86],
-                    }}
-                    transition={{
-                      duration: 1.8,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                  />
+                    className="absolute left-0 top-[0.43em] h-3 w-3 -translate-y-1/2 md:h-4 md:w-4"
+                  >
+                    <motion.span
+                      className="block h-full w-full rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)]"
+                      animate={{
+                        opacity: [0.45, 1, 0.45],
+                        scale: [0.86, 1.18, 0.86],
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  </span>
                   Freebuff live
                 </h1>
                 <span className="whitespace-nowrap text-sm text-white/45 md:text-base">
