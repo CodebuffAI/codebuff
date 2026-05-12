@@ -7,6 +7,7 @@ import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
+import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 
 import type { Message } from '@codebuff/sdk'
@@ -165,8 +166,12 @@ export const useGravityAd = (options?: {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
+          'User-Agent': getCliAdRequestUserAgent(),
         },
-        body: JSON.stringify({ impUrl, mode: agentMode }),
+        body: JSON.stringify({
+          impUrl,
+          mode: agentMode,
+        }),
       })
 
       if (!res.ok) {
@@ -282,6 +287,7 @@ export const useGravityAd = (options?: {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`,
+            'User-Agent': getCliAdRequestUserAgent(),
           },
           body: JSON.stringify({
             provider: providerToTry,
@@ -481,4 +487,10 @@ function getAdUserAgent(): string {
     linux: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${AD_CHROME_VERSION} Safari/537.36`,
   }
   return osUA[process.platform] ?? osUA.linux
+}
+
+function getCliAdRequestUserAgent(): string {
+  const product = IS_FREEBUFF ? 'Freebuff-CLI' : 'Codebuff-CLI'
+  const version = getCliEnv().CODEBUFF_CLI_VERSION ?? 'dev'
+  return `${product}/${version}`
 }

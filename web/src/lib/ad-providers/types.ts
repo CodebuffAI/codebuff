@@ -53,8 +53,10 @@ export type FetchAdInput = {
   sessionId?: string
   /** Client IP, parsed from X-Forwarded-For upstream. */
   clientIp?: string
-  /** Browser/CLI useragent string, passed through to upstream. */
+  /** Browser-like useragent string, passed through to upstream. */
   userAgent?: string
+  /** Product User-Agent header sent on provider HTTP requests. */
+  requestUserAgent?: string
   device?: AdDeviceInfo
   /** Product surface requesting the ad. Providers may map this to placements. */
   surface?: AdSurface
