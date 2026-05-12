@@ -3,6 +3,7 @@
 import { env } from '@codebuff/internal/env'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
+import { headers } from 'next/headers'
 
 import {
   checkFingerprintConflict,
@@ -140,14 +141,18 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (!valid) {
+    const headerStore = await headers()
+
     logger.warn(
       {
         authCodeLength: authCode.length,
         authCodeTrimmedLength: authCode.trim().length,
         authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        resolvedAuthCodeHashPrefix: getCliAuthCodeHashPrefix(resolvedAuthCode),
         isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
         authCodeResolutionStatus,
         resolvedAuthCode: resolvedOpaqueToken,
+        resolvedOpaqueToken,
         resolvedAuthCodeLength: resolvedAuthCode.length,
         userId: user.id,
         dotCount: authCode.match(/\./g)?.length ?? 0,
@@ -159,6 +164,12 @@ const Onboard = async ({ searchParams }: PageProps) => {
         receivedHashLength: receivedHash.length,
         expectedHashPrefix: fingerprintHash.slice(0, 12),
         expectedHashLength: fingerprintHash.length,
+        requestHost: headerStore.get('host') ?? '',
+        forwardedHost: headerStore.get('x-forwarded-host') ?? '',
+        forwardedProto: headerStore.get('x-forwarded-proto') ?? '',
+        originHeader: headerStore.get('origin') ?? '',
+        referer: headerStore.get('referer') ?? '',
+        userAgent: headerStore.get('user-agent') ?? '',
       },
       'Invalid Freebuff CLI auth code',
     )
