@@ -567,6 +567,51 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
+      'skips duplicate country checks when an active freebuff session gate admits the request',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-new-free',
+              'cf-ipcountry': 'T1',
+              'x-forwarded-for': '8.8.8.8',
+            },
+            body: JSON.stringify({
+              model: 'minimax/minimax-m2.7',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+                freebuff_instance_id: 'active-instance-123',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletions({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: async () =>
+            ({ ok: true, reason: 'active', remainingMs: 60_000 }) as const,
+        })
+
+        expect(response.status).toBe(200)
+        expect(mockGetUserUsageData).not.toHaveBeenCalled()
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
       'lets a BYOK free-tier new account through the paid-plan gate',
       async () => {
         const req = new NextRequest(

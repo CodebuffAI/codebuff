@@ -134,6 +134,17 @@ export const formatQuotaResetCountdown = (
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
 export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
 
+const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
+
+function sampleSuccessLogger(logger: Logger, sampled: boolean): Logger {
+  if (sampled) return logger
+  return {
+    ...logger,
+    info: (() => {}) as Logger['info'],
+    debug: (() => {}) as Logger['debug'],
+  }
+}
+
 type GateRejectCode = Extract<SessionGateResult, { ok: false }>['code']
 
 const STATUS_BY_GATE_CODE = {
@@ -210,6 +221,14 @@ export async function postChatCompletions(params: {
     // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
+    const sampleFreebuffSuccess =
+      !isFreeModeRequest || Math.random() < FREEBUFF_SUCCESS_SAMPLE_RATE
+
+    const trackSuccessEvent: TrackEventFn = (eventParams) => {
+      if (sampleFreebuffSuccess) {
+        trackEvent(eventParams)
+      }
+    }
 
     trackEvent = withDefaultProperties(trackEvent, {
       freebuff: isFreeModeRequest,
@@ -271,8 +290,9 @@ export async function postChatCompletions(params: {
       )
     }
 
-    // Track API request
-    trackEvent({
+    // Track API request. Freebuff success-path analytics are sampled to keep
+    // high-volume free traffic from dominating PostHog and log forwarding.
+    trackSuccessEvent({
       event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
       userId,
       properties: {
@@ -455,13 +475,15 @@ export async function postChatCompletions(params: {
       }
     }
 
+    let freeModeSessionGate: SessionGateResult | null = null
+
     // Freebuff waiting-room gate. Usually enforced only when
     // FREEBUFF_WAITING_ROOM_ENABLED=true. Runs before the rate limiter so
     // rejected requests don't burn a queued user's free-mode counters.
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
-      const gate = await checkSession({
+      freeModeSessionGate = await checkSession({
         userId,
         accessTier: freebuffAccessTier,
         userEmail: userInfo.email,
@@ -469,16 +491,19 @@ export async function postChatCompletions(params: {
         requestedModel: typedBody.model,
         requireActiveSession: isFreebuffGeminiThinkerAgent(agentId),
       })
-      if (!gate.ok) {
+      if (!freeModeSessionGate.ok) {
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,
-          properties: { error: gate.code },
+          properties: { error: freeModeSessionGate.code },
           logger,
         })
         return NextResponse.json(
-          { error: gate.code, message: gate.message },
-          { status: STATUS_BY_GATE_CODE[gate.code] },
+          {
+            error: freeModeSessionGate.code,
+            message: freeModeSessionGate.message,
+          },
+          { status: STATUS_BY_GATE_CODE[freeModeSessionGate.code] },
         )
       }
     }
@@ -521,8 +546,9 @@ export async function postChatCompletions(params: {
     // This is done AFTER validation so malformed requests don't start a new 5-hour block.
     // When the function is provided, always include subscription credits in the balance:
     // error/null results mean subscription grants have 0 balance, so including them is harmless.
-    const includeSubscriptionCredits = !!ensureSubscriberBlockGrant
-    if (ensureSubscriberBlockGrant) {
+    const includeSubscriptionCredits =
+      !isFreeModeRequest && !!ensureSubscriberBlockGrant
+    if (!isFreeModeRequest && ensureSubscriberBlockGrant) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({
           userId,
@@ -540,7 +566,7 @@ export async function postChatCompletions(params: {
             ? await getUserPreferences({ userId, logger })
             : { fallbackToALaCarte: true } // Default to allowing a-la-carte if no preference function
 
-          if (!preferences.fallbackToALaCarte && !isFreeModeRequest) {
+          if (!preferences.fallbackToALaCarte) {
             const resetTime = blockGrantResult.resetsAt
             const resetCountdown = formatQuotaResetCountdown(
               resetTime.toISOString(),
@@ -588,32 +614,37 @@ export async function postChatCompletions(params: {
       }
     }
 
-    // Fetch user credit data (includes subscription credits when block grant was ensured)
-    const {
-      balance: { totalRemaining },
-      nextQuotaReset,
-    } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
+    // Free-mode requests have already passed their model/session/rate gates
+    // and should not touch paid billing/usage paths.
+    if (!isFreeModeRequest) {
+      // Fetch user credit data (includes subscription credits when block grant was ensured)
+      const {
+        balance: { totalRemaining },
+        nextQuotaReset,
+      } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
 
-    // Credit check
-    if (totalRemaining <= 0 && !isFreeModeRequest) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
-        userId,
-        properties: {
-          totalRemaining,
-          nextQuotaReset,
-        },
-        logger,
-      })
-      return NextResponse.json(
-        {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
-        },
-        { status: 402 },
-      )
+      // Credit check
+      if (totalRemaining <= 0) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
+          userId,
+          properties: {
+            totalRemaining,
+            nextQuotaReset,
+          },
+          logger,
+        })
+        return NextResponse.json(
+          {
+            message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
+          },
+          { status: 402 },
+        )
+      }
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
+    const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
 
     // Handle streaming vs non-streaming
     try {
@@ -648,7 +679,7 @@ export async function postChatCompletions(params: {
           stripeCustomerId,
           agentId,
           fetch,
-          logger,
+          logger: providerLogger,
           insertMessageBigquery,
         }
         const stream = useSiliconFlow
@@ -670,7 +701,7 @@ export async function postChatCompletions(params: {
                           openrouterApiKey,
                         })
 
-        trackEvent({
+        trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
           userId,
           properties: {
@@ -721,7 +752,7 @@ export async function postChatCompletions(params: {
           stripeCustomerId,
           agentId,
           fetch,
-          logger,
+          logger: providerLogger,
           insertMessageBigquery,
         }
         const nonStreamRequest = useSiliconFlow
@@ -744,7 +775,7 @@ export async function postChatCompletions(params: {
                         })
         const result = await nonStreamRequest
 
-        trackEvent({
+        trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,
           userId,
           properties: {

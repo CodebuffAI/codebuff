@@ -38,6 +38,30 @@ export interface CreditConsumptionResult {
   fromPurchased: number
 }
 
+export type MessageRecordParams = {
+  messageId: string
+  userId: string
+  agentId: string
+  clientId: string | null
+  clientRequestId: string | null
+  startTime: Date
+  model: string
+  reasoningText: string
+  response: string
+  cost: number
+  credits: number
+  byok: boolean
+  inputTokens: number
+  cacheCreationInputTokens: number | null
+  cacheReadInputTokens: number
+  reasoningTokens: number | null
+  outputTokens: number
+  ttftMs: number | null
+  logger: Logger
+  finishedAt?: Date
+  latencyMs?: number
+}
+
 // Add a minimal structural type that both `db` and `tx` satisfy
 type DbConn = Pick<
   typeof db,
@@ -148,7 +172,14 @@ export async function updateGrantBalance(params: {
   tx: DbConn
   logger: Logger
 }) {
-  const { userId: _userId, grant, consumed: _consumed, newBalance, tx, logger: _logger } = params
+  const {
+    userId: _userId,
+    grant,
+    consumed: _consumed,
+    newBalance,
+    tx,
+    logger: _logger,
+  } = params
   await tx
     .update(schema.creditLedger)
     .set({ balance: newBalance })
@@ -282,8 +313,14 @@ export async function calculateUsageAndBalance(
     includeSubscriptionCredits: false,
     ...params,
   }
-  const { userId, quotaResetDate, now, isPersonalContext, includeSubscriptionCredits, logger } =
-    withDefaults
+  const {
+    userId,
+    quotaResetDate,
+    now,
+    isPersonalContext,
+    includeSubscriptionCredits,
+    logger,
+  } = withDefaults
 
   // Get all relevant grants in one query, using the provided connection
   const grants = await getOrderedActiveGrants(withDefaults)
@@ -328,7 +365,11 @@ export async function calculateUsageAndBalance(
     // Skip subscription credits for personal context unless explicitly included
     // (subscription credits are shown separately in the CLI with progress bars,
     // but need to be included for credit gating after ensureSubscriberBlockGrant)
-    if (isPersonalContext && grantType === 'subscription' && !includeSubscriptionCredits) {
+    if (
+      isPersonalContext &&
+      grantType === 'subscription' &&
+      !includeSubscriptionCredits
+    ) {
       continue
     }
 
@@ -504,6 +545,78 @@ function extractPostgresErrorDetails(error: unknown): Record<string, unknown> {
   }
 
   return details
+}
+
+export async function recordMessageWithoutBilling(
+  params: MessageRecordParams,
+): Promise<void> {
+  const {
+    messageId,
+    userId,
+    agentId,
+    clientId,
+    clientRequestId,
+    startTime,
+    model,
+    reasoningText,
+    response,
+    cost,
+    credits,
+    byok,
+    inputTokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+    reasoningTokens,
+    outputTokens,
+    ttftMs,
+    logger,
+  } = params
+
+  if (userId === TEST_USER_ID) {
+    return
+  }
+
+  const finishedAt = params.finishedAt ?? new Date()
+  const latencyMs =
+    params.latencyMs ?? finishedAt.getTime() - startTime.getTime()
+
+  try {
+    await db
+      .insert(schema.message)
+      .values({
+        id: messageId,
+        agent_id: agentId,
+        finished_at: finishedAt,
+        client_id: clientId,
+        client_request_id: clientRequestId,
+        model,
+        reasoning_text: reasoningText,
+        response,
+        input_tokens: inputTokens,
+        cache_creation_input_tokens: cacheCreationInputTokens,
+        cache_read_input_tokens: cacheReadInputTokens,
+        reasoning_tokens: reasoningTokens,
+        output_tokens: outputTokens,
+        cost: cost.toString(),
+        credits,
+        byok,
+        latency_ms: latencyMs,
+        ttft_ms: ttftMs,
+        user_id: userId,
+      })
+      .onConflictDoNothing({ target: schema.message.id })
+  } catch (error) {
+    logger.error(
+      {
+        messageId,
+        userId,
+        agentId,
+        error: getErrorObject(error),
+        pgDetails: extractPostgresErrorDetails(error),
+      },
+      'Failed to insert message row',
+    )
+  }
 }
 
 export async function consumeCreditsAndAddAgentStep(params: {
@@ -704,51 +817,21 @@ export async function consumeCreditsAndAddAgentStep(params: {
   // Always record the message row. If billing failed, mark credits=0 so the
   // audit row still exists — the row being absent is how OR costs leaked before.
   const recordedCredits = billingError === null ? credits : 0
-
-  try {
-    await db
-      .insert(schema.message)
-      .values({
-        id: messageId,
-        agent_id: agentId,
-        finished_at: new Date(),
-        client_id: clientId,
-        client_request_id: clientRequestId,
-        model,
-        reasoning_text: reasoningText,
-        response,
-        input_tokens: inputTokens,
-        cache_creation_input_tokens: cacheCreationInputTokens,
-        cache_read_input_tokens: cacheReadInputTokens,
-        reasoning_tokens: reasoningTokens,
-        output_tokens: outputTokens,
-        cost: cost.toString(),
-        credits: recordedCredits,
-        byok,
-        latency_ms: latencyMs,
-        ttft_ms: ttftMs,
-        user_id: userId,
-      })
-      .onConflictDoNothing({ target: schema.message.id })
-  } catch (error) {
-    logger.error(
-      {
-        messageId,
-        userId,
-        agentId,
-        error: getErrorObject(error),
-        pgDetails: extractPostgresErrorDetails(error),
-      },
-      'Failed to insert message row',
-    )
-  }
+  await recordMessageWithoutBilling({
+    ...params,
+    credits: recordedCredits,
+    finishedAt,
+    latencyMs,
+  })
 
   if (billingError) {
     return failure(billingError)
   }
 
-  const finalResult: CreditConsumptionResult =
-    consumeResult ?? { consumed: 0, fromPurchased: 0 }
+  const finalResult: CreditConsumptionResult = consumeResult ?? {
+    consumed: 0,
+    fromPurchased: 0,
+  }
 
   logger.info(
     {

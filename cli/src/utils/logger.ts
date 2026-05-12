@@ -7,6 +7,10 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import {
+  isFullTelemetryEnabled,
+  summarizeAnalyticsValue,
+} from '@codebuff/common/util/analytics-sampling'
 import { pino } from 'pino'
 
 import {
@@ -169,10 +173,23 @@ function sendAnalyticsAndLog(
   // Skip if the log already has an eventId (to avoid duplicate tracking)
   const hasEventId = includeData && getAnalyticsEventId(normalizedData) !== null
   if (!IS_DEV && !IS_TEST && !IS_CI && !hasEventId) {
+    const fullTelemetry = isFullTelemetryEnabled({
+      distinctId: loggerContext.userId,
+      properties: loggerContext,
+    })
+    const includeRawData =
+      fullTelemetry || level === 'error' || level === 'fatal'
+    const dataProperties =
+      includeData && includeRawData
+        ? { data: normalizedData }
+        : includeData
+          ? { dataSummary: summarizeAnalyticsValue(normalizedData) }
+          : {}
+
     trackEvent(AnalyticsEvent.CLI_LOG, {
       level,
       msg: stringFormat(normalizedMsg ?? '', ...args),
-      ...(includeData ? { data: normalizedData } : {}),
+      ...dataProperties,
       ...loggerContext,
     })
   }
