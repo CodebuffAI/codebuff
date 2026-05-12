@@ -95,13 +95,12 @@ function normalizeCarbonAd(raw: CarbonAd): NormalizedAd | null {
   }
 }
 
-export function createCarbonProvider(config: {
-  zoneKey: string
-}): AdProvider {
+export function createCarbonProvider(config: { zoneKey: string }): AdProvider {
   return {
     id: 'carbon',
     fetchAd: async (input: FetchAdInput): Promise<FetchAdResult> => {
-      const { clientIp, userAgent, testMode, logger, fetch } = input
+      const { clientIp, userAgent, requestUserAgent, testMode, logger, fetch } =
+        input
 
       if (!clientIp || !userAgent) {
         logger.debug(
@@ -122,7 +121,12 @@ export function createCarbonProvider(config: {
       const url = `${CARBON_URL_BASE}/${config.zoneKey}.json?${params.toString()}`
 
       const fetchOne = async (): Promise<NormalizedAd | null> => {
-        const response = await fetch(url, { method: 'GET' })
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': requestUserAgent ?? userAgent,
+          },
+        })
         if (!response.ok) {
           let body: unknown
           try {

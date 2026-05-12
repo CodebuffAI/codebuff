@@ -183,11 +183,16 @@ export async function postAdImpression(params: {
       p.replaceAll('[timestamp]', now),
     )
     const pixelUrls = [impUrl, ...extraPixels]
+    const requestUserAgent = req.headers.get('user-agent') ?? undefined
 
     await Promise.all(
       pixelUrls.map(async (pixelUrl) => {
         try {
-          await fetch(pixelUrl)
+          await fetch(pixelUrl, {
+            ...(requestUserAgent
+              ? { headers: { 'User-Agent': requestUserAgent } }
+              : {}),
+          })
         } catch (error) {
           logger.warn(
             {

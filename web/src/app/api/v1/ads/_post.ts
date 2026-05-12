@@ -46,7 +46,7 @@ const bodySchema = z.object({
   sessionId: z.string().optional(),
   device: deviceSchema.optional(),
   surface: surfaceSchema.optional(),
-  /** Browser/CLI useragent passed through to providers that require it. */
+  /** Browser-like useragent passed through to providers that require it. */
   userAgent: z.string().optional(),
 })
 
@@ -120,6 +120,7 @@ export async function postAds(params: {
   const providerId: AdProviderId = parsedBody.provider ?? 'gravity'
   const userAgent =
     parsedBody.userAgent ?? req.headers.get('user-agent') ?? undefined
+  const requestUserAgent = req.headers.get('user-agent') ?? undefined
 
   // Pick a provider. If the requested one isn't configured, return no ad
   // rather than failing — the client falls back to its cache / fallback UI.
@@ -151,6 +152,7 @@ export async function postAds(params: {
       sessionId: parsedBody.sessionId,
       clientIp,
       userAgent,
+      requestUserAgent,
       device: parsedBody.device,
       surface: parsedBody.surface,
       messages: parsedBody.messages,
