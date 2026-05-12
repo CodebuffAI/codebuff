@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Activity, Clock3, Cpu, Globe2, Radio, ShieldCheck } from 'lucide-react'
+import { Activity, Clock3, Cpu, Globe2, Radio } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -358,7 +358,7 @@ export default function LiveClient({
                 Live
               </div>
               <h1 className="max-w-3xl font-serif text-4xl leading-tight text-white md:text-6xl">
-                Freebuff live usage
+                Freebuff live
               </h1>
             </div>
             <div
@@ -377,18 +377,12 @@ export default function LiveClient({
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
             <StatTile
               icon={Globe2}
               label="Live users"
               value={stats.totalLiveUsers.toLocaleString()}
               detail="Active sessions now"
-            />
-            <StatTile
-              icon={Cpu}
-              label="Models"
-              value={stats.models.length.toLocaleString()}
-              detail="In use right now"
             />
             <StatTile
               icon={Clock3}
@@ -413,11 +407,6 @@ export default function LiveClient({
               <CountryList stats={stats} />
             </Panel>
           </div>
-        </div>
-
-        <div className="mt-6 flex items-center gap-2 text-sm text-white/45">
-          <ShieldCheck className="h-4 w-4 text-acid-matrix" aria-hidden />
-          <span>Aggregate country and model counts only.</span>
         </div>
       </section>
     </main>
