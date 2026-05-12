@@ -149,6 +149,29 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should parse stringified params for spawn_agents entries', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-agents-stringified-params-tool-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'basher',
+              prompt: 'Run tests',
+              params: '{"command":"bun test"}',
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.input.agents[0].params).toEqual({ command: 'bun test' })
+    }
+  })
+
   it('should accept old/new aliases for str_replace replacements', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -384,11 +407,12 @@ describe('tool validation error handling', () => {
       (m) => m.role === 'user',
     )
     const errorUserMessage = userMessages.find((m) => {
-      const contentStr = Array.isArray(m.content)
-        ? m.content.map((p) => ('text' in p ? p.text : '')).join('')
-        : typeof m.content === 'string'
-          ? m.content
-          : ''
+      let contentStr = ''
+      if (Array.isArray(m.content)) {
+        contentStr = m.content.map((p) => ('text' in p ? p.text : '')).join('')
+      } else if (typeof m.content === 'string') {
+        contentStr = m.content
+      }
       return (
         contentStr.includes('Error during tool call') &&
         contentStr.includes('Invalid parameters for spawn_agents')

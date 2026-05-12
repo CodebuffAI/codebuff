@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import z from 'zod/v4'
 
-import { coerceToArray, normalizeReplacementAliases } from '../utils'
+import { coerceToArray, coerceToObject, normalizeReplacementAliases } from '../utils'
 
 describe('coerceToArray', () => {
   it('passes through arrays unchanged', () => {
@@ -47,6 +47,25 @@ describe('coerceToArray', () => {
 
   it('passes through undefined', () => {
     expect(coerceToArray(undefined)).toBeUndefined()
+  })
+})
+
+describe('coerceToObject', () => {
+  it('passes through objects unchanged', () => {
+    expect(coerceToObject({ key: 'value' })).toEqual({ key: 'value' })
+  })
+
+  it('parses a stringified JSON object', () => {
+    expect(coerceToObject('{"key": "value"}')).toEqual({ key: 'value' })
+  })
+
+  it('leaves non-JSON strings untouched', () => {
+    expect(coerceToObject('not-json')).toBe('not-json')
+  })
+
+  it('passes through arrays and primitives so validation can reject them', () => {
+    expect(coerceToObject(['a'])).toEqual(['a'])
+    expect(coerceToObject(1)).toBe(1)
   })
 })
 
