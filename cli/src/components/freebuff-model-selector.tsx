@@ -32,6 +32,10 @@ import type { KeyEvent } from '@opentui/core'
 // (rendered by the parent), not the section header — this picker is purely a
 // list of choices grouped by tier. Empty sections are filtered so a model set
 // with no premium (or no unlimited) entries doesn't render an orphan header.
+//
+// `label` may be empty: limited-tier users only ever see one section, so the
+// "LIMITED" header would just leak the internal tier name without organizing
+// anything. Renderer treats an empty label as "no header row".
 type Section = {
   key: 'premium' | 'unlimited' | 'limited'
   label: string
@@ -83,6 +87,10 @@ export const FreebuffModelSelector: React.FC = () => {
     () => getFreebuffModelsForAccessTier(accessTier),
     [accessTier],
   )
+  // Limited tier only ever surfaces one model, so a comparative tagline
+  // ("Most efficient") reads as filler. Hide it; the warning (data-collection)
+  // is the row's real content.
+  const showTagline = accessTier !== 'limited'
   const availableModelIds = useMemo(
     () => availableModels.map((m) => m.id),
     [availableModels],
@@ -92,7 +100,7 @@ export const FreebuffModelSelector: React.FC = () => {
       return [
         {
           key: 'limited',
-          label: 'LIMITED',
+          label: '',
           models: availableModels,
         },
       ] satisfies readonly Section[]
@@ -152,7 +160,8 @@ export const FreebuffModelSelector: React.FC = () => {
     const maxNameLen = Math.max(...availableModels.map(nameLen))
 
     const detailsParts = (model: FreebuffModelOption): number[] => {
-      const parts = [model.tagline.length]
+      const parts: number[] = []
+      if (showTagline) parts.push(model.tagline.length)
       if (model.warning) parts.push(model.warning.length)
       if (model.availability === 'deployment_hours') {
         parts.push(deploymentAvailabilityLabel.length)
@@ -181,9 +190,10 @@ export const FreebuffModelSelector: React.FC = () => {
 
     // Narrow: line 1 = "indicator name · tagline", line 2 (if any) =
     // "  warning · hours". Compute the max of both so all buttons stay the
-    // same width.
+    // same width. When taglines are hidden (limited tier), line 1 is just
+    // "indicator name" with no separator.
     const labelLineLen = (m: FreebuffModelOption) =>
-      2 + m.displayName.length + 3 + m.tagline.length
+      2 + m.displayName.length + (showTagline ? 3 + m.tagline.length : 0)
     const detailsLineLen = (m: FreebuffModelOption) => {
       const parts: number[] = []
       if (m.warning) parts.push(m.warning.length)
@@ -205,7 +215,7 @@ export const FreebuffModelSelector: React.FC = () => {
       ),
       nameColumnWidth: maxNameLen,
     }
-  }, [availableModels, contentMaxWidth, deploymentAvailabilityLabel])
+  }, [availableModels, contentMaxWidth, deploymentAvailabilityLabel, showTagline])
 
   const isJoinable = useCallback(
     (modelId: string) => {
@@ -339,10 +349,12 @@ export const FreebuffModelSelector: React.FC = () => {
             {model.displayName}
           </span>
           {wrapDetails ? (
-            <span fg={mutedColor}> · {model.tagline}</span>
+            showTagline && <span fg={mutedColor}> · {model.tagline}</span>
           ) : (
             <>
-              <span fg={mutedColor}>{namePadding + model.tagline}</span>
+              {showTagline && (
+                <span fg={mutedColor}>{namePadding + model.tagline}</span>
+              )}
               {hasWarning && <span fg={warningColor}> · {model.warning}</span>}
               {hasHours && (
                 <span fg={mutedColor}> · {deploymentAvailabilityLabel}</span>
@@ -382,7 +394,9 @@ export const FreebuffModelSelector: React.FC = () => {
             marginTop: sectionIdx === 0 ? 0 : 1,
           }}
         >
-          <text style={{ fg: theme.muted }}>{section.label}</text>
+          {section.label && (
+            <text style={{ fg: theme.muted }}>{section.label}</text>
+          )}
           {section.models.map(renderModelButton)}
         </box>
       ))}

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
+import { LimitedLandingPanel } from './limited-landing-panel'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
@@ -296,8 +297,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
+  // Limited-tier users don't see any premium models, so calling these "limited
+  // sessions" leaks the tier name without informing the user — just "sessions"
+  // reads naturally next to the count and reset countdown.
   const sessionLabel =
-    accessTier === 'limited' ? 'limited sessions' : 'premium sessions'
+    accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const sessionUnitWidth = String(sessionLimit).length + 2
   const formattedSharedPremiumUsed =
     formatSessionUnits(sharedPremiumUsed).padStart(sessionUnitWidth)
@@ -395,7 +399,25 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </text>
           )}
 
-          {isLanding && (
+          {isLanding && accessTier === 'limited' && (
+            <LimitedLandingPanel
+              isQuotaExhausted={isPremiumExhausted}
+              sessionCounter={
+                <>
+                  <span fg={premiumUsedColor}>
+                    {formattedSharedPremiumUsed} of {sessionLimit}{' '}
+                    {sessionLabel} used
+                  </span>
+                  <span fg={theme.muted}>
+                    {'  ·  '}
+                    resets in {premiumResetCountdown}
+                  </span>
+                </>
+              }
+            />
+          )}
+
+          {isLanding && accessTier !== 'limited' && (
             <box
               style={{
                 flexDirection: 'column',
@@ -554,7 +576,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
                 {session.accessTier === 'limited'
-                  ? 'limited sessions'
+                  ? 'sessions'
                   : 'premium sessions'}{' '}
                 today. Try again in{' '}
                 <span fg={theme.foreground}>
