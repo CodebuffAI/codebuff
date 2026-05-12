@@ -60,7 +60,7 @@ export type LookupIpPrivacyFn = (
   ip: string,
 ) => Promise<FreeModeIpPrivacy | null>
 
-type FreeModeCountryAccessOptions = {
+export type FreeModeCountryAccessOptions = {
   lookupIpPrivacy?: LookupIpPrivacyFn
   fetch?: typeof globalThis.fetch
   ipinfoToken: string
@@ -113,7 +113,7 @@ export function extractClientIp(req: NextRequest): string | undefined {
   return undefined
 }
 
-function hashClientIp(
+export function hashClientIp(
   clientIp: string | undefined,
   secret: string | undefined,
 ): string | null {
