@@ -3,6 +3,7 @@ import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
 } from '@codebuff/common/types/freebuff-session'
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 
 export type FreeSessionStatus = 'queued' | 'active'
 
@@ -21,6 +22,7 @@ export interface InternalSessionRow {
   active_instance_id: string
   /** Freebuff model id this row is queued for (or locked to, once active). */
   model: string
+  access_tier?: FreebuffAccessTier
   country_code?: string | null
   cf_country?: string | null
   geoip_country?: string | null

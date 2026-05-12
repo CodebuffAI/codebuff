@@ -1,17 +1,22 @@
 import {
   canFreebuffModelSpawnGeminiThinker,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_LIMITED_SESSION_PERIOD,
+  FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
+  FREEBUFF_LIMITED_SESSION_WINDOW_HOURS,
   FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_PREMIUM_SESSION_PERIOD,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+  isFreebuffModelAllowedForAccessTier,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
-  resolveSupportedFreebuffModel,
+  resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 import { getZonedDayBounds } from '@codebuff/common/util/zoned-time'
 
@@ -35,6 +40,7 @@ import {
 } from './store'
 import { toSessionStateResponse } from './session-view'
 
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffSessionRateLimit,
   FreebuffSessionServerResponse,
@@ -49,50 +55,91 @@ function roundSessionUnits(units: number): number {
   return Math.round(units * 10) / 10
 }
 
-function canStartPremiumSession(snapshot: FreebuffSessionRateLimit): boolean {
+function canStartSession(snapshot: FreebuffSessionRateLimit): boolean {
   return snapshot.recentCount < snapshot.limit
 }
 
-type PremiumQuotaInfo = Omit<FreebuffSessionRateLimit, 'model'>
+type SessionQuotaInfo = Omit<FreebuffSessionRateLimit, 'model'>
 
-interface PremiumQuotaSnapshot {
-  info: PremiumQuotaInfo
+interface SessionQuotaSnapshot {
+  info: SessionQuotaInfo
   resetsAt: Date
 }
 
-async function fetchPremiumQuotaSnapshot(
+interface SessionQuotaConfig {
+  models: readonly string[]
+  limit: number
+  period: 'pacific_day'
+  resetTimeZone: string
+  windowHours: number
+  accessTier?: FreebuffAccessTier
+}
+
+function quotaConfigForModel(
+  model: string,
+  accessTier: FreebuffAccessTier,
+): SessionQuotaConfig | undefined {
+  if (accessTier === 'full' && !isFreebuffPremiumModelId(model)) {
+    return undefined
+  }
+  return quotaConfigForAccessTier(accessTier)
+}
+
+function quotaConfigForAccessTier(
+  accessTier: FreebuffAccessTier,
+): SessionQuotaConfig {
+  if (accessTier === 'limited') {
+    return {
+      models: [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
+      limit: FREEBUFF_LIMITED_SESSION_LIMIT,
+      period: FREEBUFF_LIMITED_SESSION_PERIOD,
+      resetTimeZone: FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
+      windowHours: FREEBUFF_LIMITED_SESSION_WINDOW_HOURS,
+      accessTier,
+    }
+  }
+  return {
+    models: FREEBUFF_PREMIUM_MODEL_IDS,
+    limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
+    period: FREEBUFF_PREMIUM_SESSION_PERIOD,
+    resetTimeZone: FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+    windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+    accessTier,
+  }
+}
+
+async function fetchSessionQuotaSnapshot(
   userId: string,
+  config: SessionQuotaConfig,
   deps: SessionDeps,
-): Promise<PremiumQuotaSnapshot> {
+): Promise<SessionQuotaSnapshot> {
   const now = nowOf(deps)
-  const premiumDay = getZonedDayBounds(
-    now,
-    FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
-  )
+  const day = getZonedDayBounds(now, config.resetTimeZone)
   const admits = await deps.listRecentPremiumAdmits({
     userId,
-    since: premiumDay.startsAt,
-    models: FREEBUFF_PREMIUM_MODEL_IDS,
+    since: day.startsAt,
+    models: config.models,
+    accessTier: config.accessTier,
   })
   const recentCount = roundSessionUnits(
     admits.reduce((sum, admit) => sum + admit.sessionUnits, 0),
   )
   return {
     info: {
-      limit: FREEBUFF_PREMIUM_SESSION_LIMIT,
-      period: FREEBUFF_PREMIUM_SESSION_PERIOD,
-      resetTimeZone: FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
-      resetAt: premiumDay.resetsAt.toISOString(),
-      windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+      limit: config.limit,
+      period: config.period,
+      resetTimeZone: config.resetTimeZone,
+      resetAt: day.resetsAt.toISOString(),
+      windowHours: config.windowHours,
       recentCount,
     },
-    resetsAt: premiumDay.resetsAt,
+    resetsAt: day.resetsAt,
   }
 }
 
 function toRateLimitInfo(
   model: string,
-  snapshot: PremiumQuotaSnapshot,
+  snapshot: SessionQuotaSnapshot,
 ): FreebuffSessionRateLimit {
   return {
     model,
@@ -107,6 +154,7 @@ function toRateLimitInfo(
 async function fetchRateLimitSnapshot(
   userId: string,
   model: string,
+  accessTier: FreebuffAccessTier,
   deps: SessionDeps,
 ): Promise<
   | {
@@ -115,8 +163,9 @@ async function fetchRateLimitSnapshot(
     }
   | undefined
 > {
-  if (!isFreebuffPremiumModelId(model)) return undefined
-  const snapshot = await fetchPremiumQuotaSnapshot(userId, deps)
+  const config = quotaConfigForModel(model, accessTier)
+  if (!config) return undefined
+  const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
   return {
     info: toRateLimitInfo(model, snapshot),
     resetsAt: snapshot.resetsAt,
@@ -125,11 +174,13 @@ async function fetchRateLimitSnapshot(
 
 async function fetchRateLimitsByModel(
   userId: string,
+  accessTier: FreebuffAccessTier,
   deps: SessionDeps,
 ): Promise<Record<string, FreebuffSessionRateLimit>> {
-  const snapshot = await fetchPremiumQuotaSnapshot(userId, deps)
+  const config = quotaConfigForAccessTier(accessTier)
+  const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
   return Object.fromEntries(
-    FREEBUFF_PREMIUM_MODEL_IDS.map(
+    config.models.map(
       (model) => [model, toRateLimitInfo(model, snapshot)] as const,
     ),
   )
@@ -156,6 +207,7 @@ export interface SessionDeps {
   joinOrTakeOver: (params: {
     userId: string
     model: string
+    accessTier: FreebuffAccessTier
     now: Date
     countryAccess?: FreeSessionCountryAccessMetadata
   }) => Promise<InternalSessionRow>
@@ -180,6 +232,7 @@ export interface SessionDeps {
     userId: string
     models: readonly string[]
     since: Date
+    accessTier?: FreebuffAccessTier
   }) => Promise<{ admittedAt: Date; model: string; sessionUnits: number }[]>
   /** Instant-admit promotion: flips a specific queued row to active. Returns
    *  the updated row or null if the row wasn't in a queued state. */
@@ -225,6 +278,16 @@ const defaultDeps: SessionDeps = {
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
 
+function isSessionRowCompatibleWithAccessTier(
+  row: InternalSessionRow,
+  accessTier: FreebuffAccessTier,
+): boolean {
+  if (accessTier === 'limited' && (row.access_tier ?? 'full') !== 'limited') {
+    return false
+  }
+  return isFreebuffModelAllowedForAccessTier(row.model, accessTier)
+}
+
 async function viewForRow(
   userId: string,
   deps: SessionDeps,
@@ -257,6 +320,7 @@ export type RequestSessionResult =
        *  session is still bound to another. The CLI must end the existing
        *  session first (DELETE /session) before re-queueing. */
       status: 'model_locked'
+      accessTier?: FreebuffAccessTier
       currentModel: string
       requestedModel: string
     }
@@ -264,6 +328,7 @@ export type RequestSessionResult =
       /** User has hit the per-model admission quota for the current Pacific day.
        *  See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
       status: 'rate_limited'
+      accessTier?: FreebuffAccessTier
       model: string
       limit: number
       period: 'pacific_day'
@@ -275,6 +340,7 @@ export type RequestSessionResult =
     }
   | {
       status: 'model_unavailable'
+      accessTier?: FreebuffAccessTier
       requestedModel: string
       availableHours: string
     }
@@ -299,6 +365,7 @@ export type RequestSessionResult =
 export async function requestSession(params: {
   userId: string
   model: string
+  accessTier?: FreebuffAccessTier
   userEmail?: string | null | undefined
   countryAccess?: FreeSessionCountryAccessMetadata
   /** True if the account is banned. Short-circuited here so banned bots never
@@ -308,7 +375,8 @@ export async function requestSession(params: {
   deps?: SessionDeps
 }): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
-  const model = resolveSupportedFreebuffModel(params.model)
+  const accessTier = params.accessTier ?? 'full'
+  const model = resolveFreebuffModelForAccessTier(params.model, accessTier)
   const now = nowOf(deps)
   if (params.userBanned) {
     return { status: 'banned' }
@@ -330,10 +398,19 @@ export async function requestSession(params: {
   // counts are written at promotion time, so the quota only needs to gate
   // fresh admissions — blocking a reclaim here would strand a user with an
   // active 5th session unable to reconnect after a CLI restart.
-  const existing = await deps.getSessionRow(params.userId)
+  let existing = await deps.getSessionRow(params.userId)
+  if (existing && !isSessionRowCompatibleWithAccessTier(existing, accessTier)) {
+    await deps.endSession({
+      userId: params.userId,
+      now,
+      sessionLengthMs: deps.sessionLengthMs,
+    })
+    existing = null
+  }
   const isReclaim =
     !!existing &&
     existing.model === model &&
+    (existing.access_tier ?? 'full') === accessTier &&
     (existing.status === 'queued' ||
       (existing.status === 'active' &&
         !!existing.expires_at &&
@@ -348,8 +425,13 @@ export async function requestSession(params: {
   }
 
   if (!isReclaim) {
-    const snapshot = await fetchRateLimitSnapshot(params.userId, model, deps)
-    if (snapshot && !canStartPremiumSession(snapshot.info)) {
+    const snapshot = await fetchRateLimitSnapshot(
+      params.userId,
+      model,
+      accessTier,
+      deps,
+    )
+    if (snapshot && !canStartSession(snapshot.info)) {
       const retryAfterMs = Math.max(
         0,
         snapshot.resetsAt.getTime() - now.getTime(),
@@ -357,6 +439,7 @@ export async function requestSession(params: {
       return {
         ...snapshot.info,
         status: 'rate_limited',
+        accessTier,
         retryAfterMs,
       }
     }
@@ -367,6 +450,7 @@ export async function requestSession(params: {
     row = await deps.joinOrTakeOver({
       userId: params.userId,
       model,
+      accessTier,
       now,
       countryAccess: params.countryAccess,
     })
@@ -376,6 +460,7 @@ export async function requestSession(params: {
         status: 'model_locked',
         currentModel: err.currentModel,
         requestedModel: model,
+        accessTier,
       }
     }
     throw err
@@ -432,7 +517,12 @@ async function attachRateLimit(
   ) {
     return view
   }
-  const allRateLimitsByModel = await fetchRateLimitsByModel(userId, deps)
+  const accessTier = view.accessTier ?? 'full'
+  const allRateLimitsByModel = await fetchRateLimitsByModel(
+    userId,
+    accessTier,
+    deps,
+  )
   // The ended view doesn't carry a model id, so it gets the full snapshot
   // unfiltered — the banner reads any entry's recentCount (they all share the
   // same daily premium pool). Queued/active filter out unused models so the
@@ -452,9 +542,11 @@ async function attachRateLimit(
 }
 
 /**
- * Read-only check of the caller's current state. Does not mutate or rotate
- * `instance_id`. The CLI sends its currently-held `claimedInstanceId` so we
- * can return `superseded` if a newer CLI on the same account took over.
+ * Check of the caller's current state. Does not rotate `instance_id`. The CLI
+ * sends its currently-held `claimedInstanceId` so we can return `superseded`
+ * if a newer CLI on the same account took over. Mutates only to clear rows
+ * that the current access tier can no longer use, so they don't leak queue or
+ * active capacity after the CLI receives `none`.
  *
  * Returns:
  *   - `disabled` when the waiting room is off
@@ -466,12 +558,14 @@ async function attachRateLimit(
  */
 export async function getSessionState(params: {
   userId: string
+  accessTier?: FreebuffAccessTier
   userEmail?: string | null | undefined
   userBanned?: boolean
   claimedInstanceId?: string | null | undefined
   deps?: SessionDeps
 }): Promise<FreebuffSessionServerResponse> {
   const deps = params.deps ?? defaultDeps
+  const accessTier = params.accessTier ?? 'full'
   if (params.userBanned) {
     return { status: 'banned' }
   }
@@ -490,10 +584,11 @@ export async function getSessionState(params: {
   const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
     const [queueDepthByModel, rateLimitsByModel] = await Promise.all([
       deps.queueDepthsByModel(),
-      fetchRateLimitsByModel(params.userId, deps),
+      fetchRateLimitsByModel(params.userId, accessTier, deps),
     ])
     return {
       status: 'none',
+      accessTier,
       queueDepthByModel,
       ...nonEmptyRateLimitsByModel(
         onlyUsedRateLimitsByModel(rateLimitsByModel),
@@ -502,6 +597,15 @@ export async function getSessionState(params: {
   }
 
   if (!row) return noneResponse()
+
+  if (!isSessionRowCompatibleWithAccessTier(row, accessTier)) {
+    await deps.endSession({
+      userId: params.userId,
+      now: nowOf(deps),
+      sessionLengthMs: deps.sessionLengthMs,
+    })
+    return noneResponse()
+  }
 
   if (
     row.status === 'active' &&
@@ -568,6 +672,7 @@ export type SessionGateResult =
  */
 export async function checkSessionAdmissible(params: {
   userId: string
+  accessTier?: FreebuffAccessTier
   userEmail?: string | null | undefined
   claimedInstanceId: string | null | undefined
   /** Forces a real active session row check even when the waiting room is
@@ -581,6 +686,7 @@ export async function checkSessionAdmissible(params: {
   deps?: SessionDeps
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
+  const accessTier = params.accessTier ?? 'full'
   if (
     !params.requireActiveSession &&
     (!deps.isWaitingRoomEnabled() ||
@@ -644,6 +750,28 @@ export async function checkSessionAdmissible(params: {
       code: 'session_superseded',
       message:
         'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+    }
+  }
+
+  if (!isSessionRowCompatibleWithAccessTier(row, accessTier)) {
+    return {
+      ok: false,
+      code: 'session_model_mismatch',
+      message:
+        'This free session is not valid for limited access. Restart freebuff to switch to DeepSeek V4 Flash.',
+    }
+  }
+
+  if (
+    accessTier === 'limited' &&
+    params.requestedModel &&
+    isSupportedFreebuffModelId(params.requestedModel) &&
+    !isFreebuffModelAllowedForAccessTier(params.requestedModel, accessTier)
+  ) {
+    return {
+      ok: false,
+      code: 'session_model_mismatch',
+      message: 'Limited free access is only available with DeepSeek V4 Flash.',
     }
   }
 

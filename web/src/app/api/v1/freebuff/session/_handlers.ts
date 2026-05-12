@@ -6,45 +6,38 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
-import { getSessionRow as getStoredSessionRow } from '@/server/free-session/store'
-import {
-  FREE_MODE_ALLOWED_COUNTRIES,
-  getFreeModeCountryAccess,
-  IPINFO_PRIVACY_CACHE_TTL_MS,
-} from '@/server/free-mode-country'
+import { getFreeModeAccessTier } from '@/server/free-mode-country'
+import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
-import type {
-  FreeSessionCountryAccessMetadata,
-  InternalSessionRow,
-} from '@/server/free-session/types'
+import type { FreeSessionCountryAccessMetadata } from '@/server/free-session/types'
 import type { SessionDeps } from '@/server/free-session/public-api'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-/** Early country gate. Mirrors the chat/completions check: require a resolved
- *  allowlisted country before joining the queue. Unknown/anonymized locations
- *  are treated as blocked because they commonly indicate VPN, Tor, localhost,
- *  or proxy traffic.
- *
- *  Returns HTTP 403 (not 200) so older CLIs — which don't know the
- *  `country_blocked` status and would tight-poll on an unrecognized 200
- *  body — fall into their existing `!resp.ok` error path and back off on
- *  the 10s error retry cadence. The new CLI parses the 403 body directly. */
+/** Resolves the caller's current free-mode country/privacy classification.
+ *  This no longer blocks unsupported countries outright; the HTTP layer uses
+ *  it to choose full vs limited Freebuff access. */
 type GetCountryAccessFn = (req: NextRequest) => Promise<FreeModeCountryAccess>
 
 async function getCountryAccess(
+  userId: string,
   req: NextRequest,
   deps: FreebuffSessionDeps,
 ): Promise<FreeModeCountryAccess> {
   return (
     deps.getCountryAccess?.(req) ??
-    getFreeModeCountryAccess(req, {
-      ipinfoToken: env.IPINFO_TOKEN,
-      ipHashSecret: env.NEXTAUTH_SECRET,
-      allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+    getCachedFreeModeCountryAccess({
+      userId,
+      req,
+      logger: deps.logger,
+      options: {
+        ipinfoToken: env.IPINFO_TOKEN,
+        ipHashSecret: env.NEXTAUTH_SECRET,
+        allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+      },
     })
   )
 }
@@ -61,57 +54,6 @@ function toSessionCountryAccess(
     clientIpHash: countryAccess.clientIpHash,
     checkedAt: new Date(),
   }
-}
-
-async function countryBlockedResponse(
-  req: NextRequest,
-  deps: FreebuffSessionDeps,
-): Promise<{
-  response: NextResponse | null
-  countryAccess: FreeModeCountryAccess
-}> {
-  const countryAccess = await getCountryAccess(req, deps)
-  if (countryAccess.allowed) {
-    return { response: null, countryAccess }
-  }
-  return {
-    response: NextResponse.json(
-      {
-        status: 'country_blocked',
-        countryCode: countryAccess.countryCode ?? 'UNKNOWN',
-        countryBlockReason: countryAccess.blockReason,
-        ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-      },
-      { status: 403 },
-    ),
-    countryAccess,
-  }
-}
-
-function hasRecentAllowedCountryCheck(
-  row: InternalSessionRow | null,
-  now: Date,
-): boolean {
-  if (!row?.country_checked_at || row.country_block_reason !== null) {
-    return false
-  }
-  if (!row.country_code || !FREE_MODE_ALLOWED_COUNTRIES.has(row.country_code)) {
-    return false
-  }
-  return (
-    now.getTime() - row.country_checked_at.getTime() <
-    IPINFO_PRIVACY_CACHE_TTL_MS
-  )
-}
-
-async function shouldSkipGetCountryCheck(
-  userId: string,
-  deps: FreebuffSessionDeps,
-): Promise<boolean> {
-  const getSessionRow = deps.sessionDeps?.getSessionRow ?? getStoredSessionRow
-  const row = await getSessionRow(userId)
-  const now = deps.sessionDeps?.now?.() ?? new Date()
-  return hasRecentAllowedCountryCheck(row, now)
 }
 
 /** Header the CLI uses to identify which instance is polling. Used by GET to
@@ -207,11 +149,8 @@ export async function postFreebuffSession(
   const auth = await resolveUser(req, deps)
   if ('error' in auth) return auth.error
 
-  const { response: blocked, countryAccess } = await countryBlockedResponse(
-    req,
-    deps,
-  )
-  if (blocked) return blocked
+  const countryAccess = await getCountryAccess(auth.userId, req, deps)
+  const accessTier = getFreeModeAccessTier(countryAccess)
 
   const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
 
@@ -221,6 +160,7 @@ export async function postFreebuffSession(
       userEmail: auth.userEmail,
       userBanned: auth.userBanned,
       model: requestedModel,
+      accessTier,
       countryAccess: toSessionCountryAccess(countryAccess),
       deps: deps.sessionDeps,
     })
@@ -256,15 +196,14 @@ export async function getFreebuffSession(
   if ('error' in auth) return auth.error
 
   try {
-    if (!(await shouldSkipGetCountryCheck(auth.userId, deps))) {
-      const { response: blocked } = await countryBlockedResponse(req, deps)
-      if (blocked) return blocked
-    }
+    const countryAccess = await getCountryAccess(auth.userId, req, deps)
+    const accessTier = getFreeModeAccessTier(countryAccess)
 
     const claimedInstanceId =
       req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
     const state = await getSessionState({
       userId: auth.userId,
+      accessTier,
       userEmail: auth.userEmail,
       userBanned: auth.userBanned,
       claimedInstanceId,
@@ -274,6 +213,7 @@ export async function getFreebuffSession(
       return NextResponse.json(
         {
           status: 'none',
+          accessTier: state.accessTier,
           message: 'Call POST to join the waiting room.',
           queueDepthByModel: state.queueDepthByModel,
           rateLimitsByModel: state.rateLimitsByModel,

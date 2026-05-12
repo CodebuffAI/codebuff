@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -40,6 +42,7 @@ function expectedRateLimit(model: string, recentCount: number) {
 interface AdmitRecord {
   user_id: string
   model: string
+  access_tier?: 'full' | 'limited'
   admitted_at: Date
   session_units?: number
 }
@@ -83,13 +86,14 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return n
     },
-    listRecentPremiumAdmits: async ({ userId, models, since }) => {
+    listRecentPremiumAdmits: async ({ userId, models, since, accessTier }) => {
       return admits
         .filter(
           (a) =>
             a.user_id === userId &&
             models.includes(a.model) &&
-            a.admitted_at.getTime() >= since.getTime(),
+            a.admitted_at.getTime() >= since.getTime() &&
+            (!accessTier || (a.access_tier ?? 'full') === accessTier),
         )
         .sort((a, b) => a.admitted_at.getTime() - b.admitted_at.getTime())
         .map((a) => ({
@@ -108,6 +112,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       admits.push({
         user_id: userId,
         model,
+        access_tier: row.access_tier ?? 'full',
         admitted_at: now,
         session_units: 1,
       })
@@ -160,7 +165,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return pos
     },
-    joinOrTakeOver: async ({ userId, model, now }) => {
+    joinOrTakeOver: async ({ userId, model, accessTier, now }) => {
       const existing = rows.get(userId)
       const nextInstance = newInstanceId()
       if (!existing) {
@@ -169,6 +174,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           status: 'queued',
           active_instance_id: nextInstance,
           model,
+          access_tier: accessTier,
           queued_at: now,
           admitted_at: null,
           expires_at: null,
@@ -196,12 +202,14 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           existing.model = model
           existing.queued_at = now
         }
+        existing.access_tier = accessTier
         existing.updated_at = now
         return existing
       }
       existing.status = 'queued'
       existing.active_instance_id = nextInstance
       existing.model = model
+      existing.access_tier = accessTier
       existing.queued_at = now
       existing.admitted_at = null
       existing.expires_at = null
@@ -602,6 +610,96 @@ describe('requestSession', () => {
     expect(state.rateLimit).toBeUndefined()
   })
 
+  test('limited access coerces any requested model to DeepSeek Flash', async () => {
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.accessTier).toBe('limited')
+    expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(deps.rows.get('u1')?.access_tier).toBe('limited')
+  })
+
+  test('limited access re-anchors an existing full-tier Flash row', async () => {
+    const admittedAt = new Date(deps._now().getTime() - 10 * 60_000)
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'full-inst',
+      model: 'deepseek/deepseek-v4-flash',
+      access_tier: 'full',
+      queued_at: admittedAt,
+      admitted_at: admittedAt,
+      expires_at: new Date(deps._now().getTime() + SESSION_LEN),
+      created_at: admittedAt,
+      updated_at: admittedAt,
+    })
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: 'deepseek/deepseek-v4-flash',
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.accessTier).toBe('limited')
+    expect(state.instanceId).not.toBe('full-inst')
+    expect(deps.rows.get('u1')?.access_tier).toBe('limited')
+  })
+
+  test('rate_limited: limited access blocks the next Flash session at 5 units', async () => {
+    const now = deps._now()
+    for (let i = 0; i < FREEBUFF_LIMITED_SESSION_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: 'deepseek/deepseek-v4-flash',
+        access_tier: 'limited',
+        admitted_at: new Date(now.getTime() - i * 60_000),
+      })
+    }
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.accessTier).toBe('limited')
+    expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(state.limit).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
+    expect(state.recentCount).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('rate_limited: full Flash sessions do not consume the limited quota', async () => {
+    const now = deps._now()
+    for (let i = 0; i < FREEBUFF_LIMITED_SESSION_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: 'deepseek/deepseek-v4-flash',
+        access_tier: 'full',
+        admitted_at: new Date(now.getTime() - i * 60_000),
+      })
+    }
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.rateLimit?.recentCount).toBe(0)
+  })
+
   test('queued DeepSeek response carries the current admit count', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
@@ -816,7 +914,11 @@ describe('getSessionState', () => {
 
   test('no row returns none with empty queue-depth snapshot', async () => {
     const state = await getSessionState({ userId: 'u1', deps })
-    expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'full',
+      queueDepthByModel: {},
+    })
   })
 
   test('no row surfaces used premium quota before joining', async () => {
@@ -833,6 +935,68 @@ describe('getSessionState', () => {
     expect(
       state.rateLimitsByModel?.[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
     ).toEqual(expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 1))
+  })
+
+  test('limited access deletes an incompatible queued row before returning none', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    expect(deps.rows.has('u1')).toBe(true)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('limited access deletes a queued full-tier Flash row before returning none', async () => {
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      deps,
+    })
+    expect(deps.rows.get('u1')?.access_tier).toBe('full')
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('limited access deletes an incompatible active row before returning none', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const state = await getSessionState({
+      userId: 'u1',
+      accessTier: 'limited',
+      claimedInstanceId: row.active_instance_id,
+      deps,
+    })
+
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'limited',
+      queueDepthByModel: {},
+    })
+    expect(deps.rows.has('u1')).toBe(false)
   })
 
   test('active session with matching instance id returns active', async () => {
@@ -1004,7 +1168,11 @@ describe('getSessionState', () => {
       claimedInstanceId: row.active_instance_id,
       deps,
     })
-    expect(state).toEqual({ status: 'none', queueDepthByModel: {} })
+    expect(state).toEqual({
+      status: 'none',
+      accessTier: 'full',
+      queueDepthByModel: {},
+    })
   })
 })
 
@@ -1191,6 +1359,46 @@ describe('checkSessionAdmissible', () => {
       claimedInstanceId: row.active_instance_id,
       requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
       requireActiveSession: true,
+      deps,
+    })
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('session_model_mismatch')
+  })
+
+  test('limited active Flash session admits Flash root requests', async () => {
+    await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      accessTier: 'limited',
+      deps,
+    })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      accessTier: 'limited',
+      claimedInstanceId: row.active_instance_id,
+      requestedModel: 'deepseek/deepseek-v4-flash',
+      deps,
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test('limited access rejects active full-tier non-Flash sessions', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      accessTier: 'limited',
+      claimedInstanceId: row.active_instance_id,
+      requestedModel: DEFAULT_MODEL,
       deps,
     })
     if (result.ok) throw new Error('unreachable')

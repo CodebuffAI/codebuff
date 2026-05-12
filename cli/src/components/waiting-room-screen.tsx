@@ -24,7 +24,10 @@ import {
 } from '../utils/freebuff-premium-reset'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
-import { FREEBUFF_PREMIUM_SESSION_LIMIT } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
+} from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
@@ -255,6 +258,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const [exitHover, setExitHover] = useState(false)
 
   const isQueued = session?.status === 'queued'
+  const accessTier =
+    session && 'accessTier' in session ? session.accessTier : 'full'
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
@@ -280,14 +285,22 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     : undefined
   const sharedPremiumUsed = premiumRateLimit?.recentCount ?? 0
   const isPremiumExhausted =
-    sharedPremiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
+    sharedPremiumUsed >=
+    (accessTier === 'limited'
+      ? FREEBUFF_LIMITED_SESSION_LIMIT
+      : FREEBUFF_PREMIUM_SESSION_LIMIT)
   const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
   // Pad the used count so the title's centered container doesn't shift width
   // as the count ticks from "0" → "1.3" → "2" while loading.
-  const sessionUnitWidth = String(FREEBUFF_PREMIUM_SESSION_LIMIT).length + 2
-  const formattedSharedPremiumUsed = formatSessionUnits(
-    sharedPremiumUsed,
-  ).padStart(sessionUnitWidth)
+  const sessionLimit =
+    accessTier === 'limited'
+      ? FREEBUFF_LIMITED_SESSION_LIMIT
+      : FREEBUFF_PREMIUM_SESSION_LIMIT
+  const sessionLabel =
+    accessTier === 'limited' ? 'limited sessions' : 'premium sessions'
+  const sessionUnitWidth = String(sessionLimit).length + 2
+  const formattedSharedPremiumUsed =
+    formatSessionUnits(sharedPremiumUsed).padStart(sessionUnitWidth)
   const premiumResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
     nowMs: now,
@@ -399,8 +412,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 style={{ fg: theme.muted, marginBottom: 1, wrapMode: 'word' }}
               >
                 <span fg={premiumUsedColor}>
-                  {formattedSharedPremiumUsed} of{' '}
-                  {FREEBUFF_PREMIUM_SESSION_LIMIT} premium sessions used
+                  {formattedSharedPremiumUsed} of {sessionLimit} {sessionLabel}{' '}
+                  used
                 </span>
                 <span fg={theme.muted}>
                   {'  ·  '}
@@ -540,7 +553,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                premium sessions today. Try again in{' '}
+                {session.accessTier === 'limited'
+                  ? 'limited sessions'
+                  : 'premium sessions'}{' '}
+                today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>

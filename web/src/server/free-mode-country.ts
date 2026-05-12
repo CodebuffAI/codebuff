@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto'
 import geoip from 'geoip-lite'
 
 import type { NextRequest } from 'next/server'
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
@@ -59,6 +60,12 @@ export type FreeModeCountryAccess = {
 export type LookupIpPrivacyFn = (
   ip: string,
 ) => Promise<FreeModeIpPrivacy | null>
+
+export function getFreeModeAccessTier(
+  countryAccess: Pick<FreeModeCountryAccess, 'allowed'>,
+): FreebuffAccessTier {
+  return countryAccess.allowed ? 'full' : 'limited'
+}
 
 export type FreeModeCountryAccessOptions = {
   lookupIpPrivacy?: LookupIpPrivacyFn

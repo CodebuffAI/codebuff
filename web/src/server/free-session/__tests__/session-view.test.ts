@@ -67,6 +67,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'queued',
+      accessTier: 'full',
       instanceId: 'inst-1',
       model: TEST_MODEL,
       position: 3,
@@ -92,6 +93,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'active',
+      accessTier: 'full',
       instanceId: 'inst-1',
       model: TEST_MODEL,
       admittedAt: admittedAt.toISOString(),
@@ -115,6 +117,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'ended',
+      accessTier: 'full',
       instanceId: 'inst-1',
       admittedAt: admittedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),

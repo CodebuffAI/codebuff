@@ -826,6 +826,10 @@ export const freeSessionStatusEnum = pgEnum('free_session_status', [
   'queued',
   'active',
 ])
+export const freebuffAccessTierEnum = pgEnum('freebuff_access_tier', [
+  'full',
+  'limited',
+])
 
 /**
  * Free-user session / waiting-room state. One row per user is enforced by the
@@ -853,6 +857,9 @@ export const freeSession = pgTable(
      *  its own queue (admission picks one queued user per model per tick) and
      *  the model is fixed for the life of an active session. */
     model: text('model').notNull(),
+    access_tier: freebuffAccessTierEnum('access_tier')
+      .notNull()
+      .default('full'),
     /** Resolved country/privacy metadata from the latest successful
      *  free-session POST country gate. Raw IP is not stored; `client_ip_hash`
      *  is HMAC-SHA256 with the server auth secret for correlation only. */
@@ -976,6 +983,9 @@ export const freeSessionAdmit = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     model: text('model').notNull(),
+    access_tier: freebuffAccessTierEnum('access_tier')
+      .notNull()
+      .default('full'),
     admitted_at: timestamp('admitted_at', {
       mode: 'date',
       withTimezone: true,

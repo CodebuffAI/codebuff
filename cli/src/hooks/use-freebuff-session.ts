@@ -1,6 +1,7 @@
 import { env } from '@codebuff/common/env'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_ID,
   resolveFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
@@ -365,10 +366,14 @@ export function markFreebuffSessionCountryBlocked(params: {
 export function markFreebuffSessionEnded(): void {
   if (!IS_FREEBUFF) return
   controller?.abort()
-  const rateLimitsByModel = getRateLimitsByModel(
-    useFreebuffSessionStore.getState().session,
-  )
-  controller?.apply({ status: 'ended', rateLimitsByModel })
+  const current = useFreebuffSessionStore.getState().session
+  const rateLimitsByModel = getRateLimitsByModel(current)
+  controller?.apply({
+    status: 'ended',
+    accessTier:
+      current && 'accessTier' in current ? current.accessTier : undefined,
+    rateLimitsByModel,
+  })
 }
 
 interface UseFreebuffSessionResult {
@@ -424,7 +429,12 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
     const apply = (next: FreebuffSessionResponse) => {
       if (next.status === 'queued' || next.status === 'active') {
+        useFreebuffModelStore.getState().setSelectedModel(next.model)
         recordFreebuffInstanceOwner(next.instanceId)
+      } else if (next.status === 'none' && next.accessTier === 'limited') {
+        useFreebuffModelStore
+          .getState()
+          .setSelectedModel(LIMITED_FREEBUFF_MODEL_ID)
       }
       setSession(next)
       setError(null)
@@ -529,10 +539,18 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           (previousStatus === 'active' || previousStatus === 'ended') &&
           next.status === 'none'
         ) {
+          const current = useFreebuffSessionStore.getState().session
           const rateLimitsByModel =
-            next.rateLimitsByModel ??
-            getRateLimitsByModel(useFreebuffSessionStore.getState().session)
-          apply({ status: 'ended', rateLimitsByModel })
+            next.rateLimitsByModel ?? getRateLimitsByModel(current)
+          apply({
+            status: 'ended',
+            accessTier:
+              next.accessTier ??
+              (current && 'accessTier' in current
+                ? current.accessTier
+                : undefined),
+            rateLimitsByModel,
+          })
           return
         }
 
@@ -584,6 +602,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
               if (response.status === 'none' || response.status === 'queued') {
                 apply({
                   status: 'none',
+                  accessTier: response.accessTier,
                   queueDepthByModel: response.queueDepthByModel,
                   rateLimitsByModel: response.rateLimitsByModel,
                 })

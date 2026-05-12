@@ -39,11 +39,17 @@ export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
+export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
+export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 /** Deprecated wire compatibility field. Premium usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
+export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
+  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
 const FREEBUFF_PACIFIC_TIMEZONE = 'America/Los_Angeles'
 
@@ -135,6 +141,30 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MINIMAX_MODEL_ID
 
+export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+export const LIMITED_FREEBUFF_MODELS = FREEBUFF_MODELS.filter(
+  (model) => model.id === LIMITED_FREEBUFF_MODEL_ID,
+)
+
+export type FreebuffAccessTier = 'full' | 'limited'
+
+export function getFreebuffModelsForAccessTier(
+  accessTier: FreebuffAccessTier | null | undefined,
+): readonly FreebuffModelOption[] {
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODELS
+  return FREEBUFF_MODELS
+}
+
+export function isFreebuffModelAllowedForAccessTier(
+  model: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): boolean {
+  if (!model) return false
+  if (accessTier !== 'limited') return isSupportedFreebuffModelId(model)
+  return model === LIMITED_FREEBUFF_MODEL_ID
+}
+
 export function isFreebuffModelId(
   id: string | null | undefined,
 ): id is FreebuffModelId {
@@ -146,6 +176,17 @@ export function resolveFreebuffModel(
   id: string | null | undefined,
 ): FreebuffModelId {
   return isFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
+}
+
+export function resolveFreebuffModelForAccessTier(
+  id: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): SupportedFreebuffModelId {
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  const resolved = resolveSupportedFreebuffModel(id)
+  return isFreebuffModelAllowedForAccessTier(resolved, accessTier)
+    ? resolved
+    : FALLBACK_FREEBUFF_MODEL_ID
 }
 
 export function isSupportedFreebuffModelId(

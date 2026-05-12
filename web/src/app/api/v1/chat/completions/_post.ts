@@ -1,6 +1,11 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  isFreebuffModelAllowedForAccessTier,
+  isSupportedFreebuffModelId,
+} from '@codebuff/common/constants/freebuff-models'
+import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeMode,
@@ -86,6 +91,7 @@ import {
 } from '@/llm-api/openrouter'
 import { checkSessionAdmissible } from '@/server/free-session/public-api'
 import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
+import { getFreeModeAccessTier } from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import type {
@@ -286,6 +292,7 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
     const stripeCustomerId = userInfo.stripe_customer_id ?? null
+    let freebuffAccessTier: 'full' | 'limited' = 'full'
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -315,6 +322,48 @@ export async function postChatCompletions(params: {
       },
       logger,
     })
+
+    // For free mode requests, classify the request into full or limited
+    // access. Disallowed countries and anonymized networks are no longer
+    // blocked outright; they are limited to the cheap DeepSeek Flash path.
+    if (isFreeModeRequest) {
+      const countryAccess = await resolveCountryAccess(userId, req, {
+        fetch,
+        ipinfoToken: env.IPINFO_TOKEN,
+        ipHashSecret: env.NEXTAUTH_SECRET,
+        allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+      })
+      freebuffAccessTier = getFreeModeAccessTier(countryAccess)
+
+      if (!countryAccess.allowed || sampleFreebuffSuccess) {
+        logger.info(
+          {
+            cfHeader: countryAccess.cfCountry,
+            geoipResult: countryAccess.geoipCountry,
+            resolvedCountry: countryAccess.countryCode,
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+          },
+          'Free mode country detection',
+        )
+      }
+
+      if (!countryAccess.allowed) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error: 'free_mode_not_available_in_country',
+            countryCode: countryAccess.countryCode,
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+          },
+          logger,
+        })
+      }
+    }
 
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
@@ -446,6 +495,33 @@ export async function postChatCompletions(params: {
       }
     }
 
+    if (
+      isFreeModeRequest &&
+      freebuffAccessTier === 'limited' &&
+      (isSupportedFreebuffModelId(typedBody.model) ||
+        typedBody.model === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+      !isFreebuffModelAllowedForAccessTier(typedBody.model, freebuffAccessTier)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'session_model_mismatch',
+          model: typedBody.model,
+          accessTier: freebuffAccessTier,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'session_model_mismatch',
+          message:
+            'Limited free access is only available with DeepSeek V4 Flash.',
+        },
+        { status: STATUS_BY_GATE_CODE.session_model_mismatch },
+      )
+    }
+
     let freeModeSessionGate: SessionGateResult | null = null
 
     // Freebuff waiting-room gate. Usually enforced only when
@@ -456,6 +532,7 @@ export async function postChatCompletions(params: {
         typedBody.codebuff_metadata?.freebuff_instance_id
       freeModeSessionGate = await checkSession({
         userId,
+        accessTier: freebuffAccessTier,
         userEmail: userInfo.email,
         claimedInstanceId,
         requestedModel: typedBody.model,
@@ -474,63 +551,6 @@ export async function postChatCompletions(params: {
             message: freeModeSessionGate.message,
           },
           { status: STATUS_BY_GATE_CODE[freeModeSessionGate.code] },
-        )
-      }
-    }
-
-    // For free mode requests, require a resolved allowlisted country only
-    // when the waiting-room gate is disabled/bypassed. Active waiting-room
-    // sessions already passed the POST /freebuff/session country/privacy gate,
-    // so repeating IPinfo/GeoIP work on every chat completion just burns hot
-    // path capacity.
-    if (
-      isFreeModeRequest &&
-      (!freeModeSessionGate || freeModeSessionGate.reason === 'disabled')
-    ) {
-      const countryAccess = await resolveCountryAccess(userId, req, {
-        fetch,
-        ipinfoToken: env.IPINFO_TOKEN,
-        ipHashSecret: env.NEXTAUTH_SECRET,
-        allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
-      })
-
-      if (!countryAccess.allowed || sampleFreebuffSuccess) {
-        logger.info(
-          {
-            cfHeader: countryAccess.cfCountry,
-            geoipResult: countryAccess.geoipCountry,
-            resolvedCountry: countryAccess.countryCode,
-            countryBlockReason: countryAccess.blockReason,
-            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
-          },
-          'Free mode country detection',
-        )
-      }
-
-      if (!countryAccess.allowed) {
-        trackEvent({
-          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
-          userId,
-          properties: {
-            error: 'free_mode_not_available_in_country',
-            countryCode: countryAccess.countryCode,
-            countryBlockReason: countryAccess.blockReason,
-            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
-          },
-          logger,
-        })
-
-        return NextResponse.json(
-          {
-            error: 'free_mode_unavailable',
-            message: 'Free mode is not available in your country.',
-            countryCode: countryAccess.countryCode ?? 'UNKNOWN',
-            countryBlockReason: countryAccess.blockReason,
-            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-          },
-          { status: 403 },
         )
       }
     }

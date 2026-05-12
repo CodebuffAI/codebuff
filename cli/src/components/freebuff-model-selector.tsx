@@ -5,8 +5,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
+  getFreebuffModelsForAccessTier,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
 } from '@codebuff/common/constants/freebuff-models'
@@ -26,8 +26,6 @@ import {
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent } from '@opentui/core'
 
-const FREEBUFF_MODEL_IDS = FREEBUFF_MODELS.map((m) => m.id)
-
 // Section grouping: premium models share one quota pool, unlimited has none.
 // Putting the tier on a section header lets each row drop its redundant
 // "Premium"/"Unlimited" chip. The shared 0/5 counter lives in the page title
@@ -35,29 +33,10 @@ const FREEBUFF_MODEL_IDS = FREEBUFF_MODELS.map((m) => m.id)
 // list of choices grouped by tier. Empty sections are filtered so a model set
 // with no premium (or no unlimited) entries doesn't render an orphan header.
 type Section = {
-  key: 'premium' | 'unlimited'
+  key: 'premium' | 'unlimited' | 'limited'
   label: string
   models: readonly FreebuffModelOption[]
 }
-
-const SECTIONS: readonly Section[] = (
-  [
-    {
-      key: 'premium',
-      label: 'PREMIUM',
-      models: FREEBUFF_MODELS.filter((m) =>
-        isFreebuffPremiumModelId(m.id),
-      ),
-    },
-    {
-      key: 'unlimited',
-      label: 'UNLIMITED',
-      models: FREEBUFF_MODELS.filter(
-        (m) => !isFreebuffPremiumModelId(m.id),
-      ),
-    },
-  ] satisfies readonly Section[]
-).filter((section) => section.models.length > 0)
 
 /**
  * Dual-purpose model picker:
@@ -86,6 +65,8 @@ export const FreebuffModelSelector: React.FC = () => {
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
   const session = useFreebuffSessionStore((s) => s.session)
+  const accessTier =
+    session && 'accessTier' in session ? session.accessTier : 'full'
   const now = useNow(60_000)
   const deploymentAvailabilityLabel = useMemo(
     () => getFreebuffDeploymentAvailabilityLabel(new Date(now)),
@@ -98,9 +79,48 @@ export const FreebuffModelSelector: React.FC = () => {
   // selected model whenever the selection changes (after a successful switch
   // or an external selectedModel update).
   const [focusedId, setFocusedId] = useState<string>(selectedModel)
+  const availableModels = useMemo(
+    () => getFreebuffModelsForAccessTier(accessTier),
+    [accessTier],
+  )
+  const availableModelIds = useMemo(
+    () => availableModels.map((m) => m.id),
+    [availableModels],
+  )
+  const sections = useMemo(() => {
+    if (accessTier === 'limited') {
+      return [
+        {
+          key: 'limited',
+          label: 'LIMITED',
+          models: availableModels,
+        },
+      ] satisfies readonly Section[]
+    }
+    return (
+      [
+        {
+          key: 'premium',
+          label: 'PREMIUM',
+          models: availableModels.filter((m) => isFreebuffPremiumModelId(m.id)),
+        },
+        {
+          key: 'unlimited',
+          label: 'UNLIMITED',
+          models: availableModels.filter(
+            (m) => !isFreebuffPremiumModelId(m.id),
+          ),
+        },
+      ] satisfies readonly Section[]
+    ).filter((section) => section.models.length > 0)
+  }, [accessTier, availableModels])
   useEffect(() => {
-    setFocusedId(selectedModel)
-  }, [selectedModel])
+    setFocusedId(
+      availableModelIds.includes(selectedModel)
+        ? selectedModel
+        : availableModelIds[0]!,
+    )
+  }, [availableModelIds, selectedModel])
 
   useEffect(() => {
     // Landing-screen safety net: if the in-memory selection becomes
@@ -110,11 +130,12 @@ export const FreebuffModelSelector: React.FC = () => {
     // preference (e.g. Kimi or DeepSeek) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
-      !isFreebuffModelAvailable(selectedModel, new Date(now))
+      (!availableModelIds.includes(selectedModel) ||
+        !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
-      setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
+      setSelectedModel(availableModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
     }
-  }, [now, selectedModel, session, setSelectedModel])
+  }, [availableModelIds, now, selectedModel, session, setSelectedModel])
 
   const committedModelId = session?.status === 'queued' ? session.model : null
   const rateLimitsByModel = getRateLimitsByModel(session)
@@ -128,7 +149,7 @@ export const FreebuffModelSelector: React.FC = () => {
   // terminals where the secondary details spill to an indented second line.
   const { wrapDetails, buttonOuterWidth, nameColumnWidth } = useMemo(() => {
     const nameLen = (m: FreebuffModelOption) => m.displayName.length
-    const maxNameLen = Math.max(...FREEBUFF_MODELS.map(nameLen))
+    const maxNameLen = Math.max(...availableModels.map(nameLen))
 
     const detailsParts = (model: FreebuffModelOption): number[] => {
       const parts = [model.tagline.length]
@@ -149,8 +170,7 @@ export const FreebuffModelSelector: React.FC = () => {
       joinedLen(detailsParts(model))
 
     const maxOneLineOuter =
-      Math.max(...FREEBUFF_MODELS.map(oneLineLen)) +
-      BUTTON_CHROME
+      Math.max(...availableModels.map(oneLineLen)) + BUTTON_CHROME
     if (maxOneLineOuter <= contentMaxWidth) {
       return {
         wrapDetails: false,
@@ -173,7 +193,7 @@ export const FreebuffModelSelector: React.FC = () => {
       return parts.length === 0 ? 0 : 2 /* indent */ + joinedLen(parts)
     }
     const maxTwoLineInner = Math.max(
-      ...FREEBUFF_MODELS.map((m) =>
+      ...availableModels.map((m) =>
         Math.max(labelLineLen(m), detailsLineLen(m)),
       ),
     )
@@ -185,7 +205,7 @@ export const FreebuffModelSelector: React.FC = () => {
       ),
       nameColumnWidth: maxNameLen,
     }
-  }, [contentMaxWidth, deploymentAvailabilityLabel])
+  }, [availableModels, contentMaxWidth, deploymentAvailabilityLabel])
 
   const isJoinable = useCallback(
     (modelId: string) => {
@@ -228,7 +248,7 @@ export const FreebuffModelSelector: React.FC = () => {
         }
         if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: FREEBUFF_MODEL_IDS,
+          modelIds: availableModelIds,
           focusedId,
           direction,
         })
@@ -238,7 +258,14 @@ export const FreebuffModelSelector: React.FC = () => {
           setFocusedId(targetId)
         }
       },
-      [pending, pick, focusedId, committedModelId, isJoinable],
+      [
+        pending,
+        pick,
+        focusedId,
+        committedModelId,
+        isJoinable,
+        availableModelIds,
+      ],
     ),
   )
 
@@ -345,7 +372,7 @@ export const FreebuffModelSelector: React.FC = () => {
         gap: 0,
       }}
     >
-      {SECTIONS.map((section, sectionIdx) => (
+      {sections.map((section, sectionIdx) => (
         <box
           key={section.key}
           style={{
