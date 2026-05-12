@@ -29,6 +29,7 @@ export default async function LoginPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const rawAuthCode = resolvedSearchParams?.auth_code
   const authCode = Array.isArray(rawAuthCode) ? rawAuthCode[0] : rawAuthCode
+  const searchParamKeys = Object.keys(resolvedSearchParams).sort()
 
   if (authCode) {
     if (!isCliAuthCodeCandidate(authCode)) {
@@ -41,6 +42,11 @@ export default async function LoginPage({
           authCodeParamCount: Array.isArray(rawAuthCode)
             ? rawAuthCode.length
             : 1,
+          searchParamKeys,
+          searchParamCount: searchParamKeys.length,
+          hasCallbackUrlParam: searchParamKeys.includes('callbackUrl'),
+          hasCodeParam: searchParamKeys.includes('code'),
+          hasRedirectParam: searchParamKeys.includes('redirect'),
           dotCount: authCode.match(/\./g)?.length ?? 0,
           hyphenCount: authCode.match(/-/g)?.length ?? 0,
           requestHost: headerStore.get('host') ?? '',
