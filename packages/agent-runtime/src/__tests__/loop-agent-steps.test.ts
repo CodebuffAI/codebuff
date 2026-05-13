@@ -1,9 +1,7 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
-import {
-  clearMockedModules,
-} from '@codebuff/common/testing/mock-modules'
+import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
 import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { AbortError, promptSuccess } from '@codebuff/common/util/error'
@@ -20,7 +18,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import { APICallError } from 'ai'
+import { APICallError, RetryError } from 'ai'
 import { z } from 'zod/v4'
 
 import { loopAgentSteps } from '../run-agent-step'
@@ -661,13 +659,15 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     // Mock promptAiSdk to capture the n parameter
     loopAgentStepsBaseParams.promptAiSdk = async (params: any) => {
       agentStepN = params.n
-      return promptSuccess(JSON.stringify([
-        'Response 1',
-        'Response 2',
-        'Response 3',
-        'Response 4',
-        'Response 5',
-      ]))
+      return promptSuccess(
+        JSON.stringify([
+          'Response 1',
+          'Response 2',
+          'Response 3',
+          'Response 4',
+          'Response 5',
+        ]),
+      )
     }
 
     await loopAgentSteps({
@@ -972,7 +972,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(result.output.type).toBe('error')
       if (result.output.type === 'error') {
         // Should use the server's message, NOT the generic "Forbidden"
-        expect(result.output.message).toBe('Free mode is not available in your country.')
+        expect(result.output.message).toBe(
+          'Free mode is not available in your country.',
+        )
         // Should NOT have the 'Agent run error: ' prefix since message came from responseBody
         expect(result.output.message).not.toContain('Agent run error:')
         // Should propagate the error code so the CLI can match on it
@@ -1020,6 +1022,54 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         expect(result.output.message).toContain('Internal Server Error')
         // No error code since responseBody wasn't parseable
         expect(result.output.error).toBeUndefined()
+      }
+    })
+
+    it('should unwrap retry errors to propagate underlying 409 gate errors', async () => {
+      const llmOnlyTemplate = {
+        ...mockTemplate,
+        handleSteps: undefined,
+      }
+
+      const localAgentTemplates = {
+        'test-agent': llmOnlyTemplate,
+      }
+
+      const apiError = new APICallError({
+        statusCode: 409,
+        message: 'Conflict',
+        url: 'https://api.codebuff.com/v1/chat/completions',
+        requestBodyValues: {},
+        responseBody: JSON.stringify({
+          error: 'session_superseded',
+          message:
+            'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+        }),
+        isRetryable: true,
+      })
+
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        throw new RetryError({
+          message: 'Failed after 4 attempts. Last error: Conflict',
+          reason: 'maxRetriesExceeded',
+          errors: [apiError],
+        })
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates,
+      })
+
+      expect(result.output.type).toBe('error')
+      if (result.output.type === 'error') {
+        expect(result.output.message).toBe(
+          'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+        )
+        expect(result.output.message).not.toContain('Agent run error:')
+        expect(result.output.error).toBe('session_superseded')
+        expect(result.output.statusCode).toBe(409)
       }
     })
   })

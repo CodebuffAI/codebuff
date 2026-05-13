@@ -15,7 +15,7 @@ import {
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
-import { parseApiErrorResponseBody } from '@codebuff/common/util/error'
+import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { getErrorStatusCode } from './error-utils'
@@ -535,21 +535,15 @@ async function runOnce({
   }).catch((error) => {
     let errorMessage =
       error instanceof Error ? error.message : String(error ?? '')
-    const statusCode = getErrorStatusCode(error)
-
-    // Extract structured error details from the API response body
-    // (e.g., AI SDK's AI_APICallError includes a responseBody with the server's JSON response)
-    const responseBody =
-      error && typeof error === 'object' && 'responseBody' in error
-        ? (error as { responseBody: unknown }).responseBody
-        : undefined
+    const apiErrorDetails = extractApiErrorDetails(error)
+    const statusCode = apiErrorDetails.statusCode ?? getErrorStatusCode(error)
     const {
       countryBlockReason,
       countryCode,
       errorCode,
       ipPrivacySignals,
       message: parsedMessage,
-    } = parseApiErrorResponseBody(responseBody)
+    } = apiErrorDetails
     if (parsedMessage) {
       errorMessage = parsedMessage
     }

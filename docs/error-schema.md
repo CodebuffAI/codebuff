@@ -16,13 +16,13 @@ The server returns JSON error responses with an HTTP status code. There are two 
 
 Used for:
 
-| Status | Example message |
-|--------|----------------|
-| 400 | `"Invalid JSON in request body"` |
-| 400 | `"No runId found in request body"` |
-| 401 | `"Unauthorized"` |
-| 401 | `"Invalid Codebuff API key"` |
-| 402 | `"Out of credits. Please add credits at https://codebuff.com/usage. Your free credits reset in 3 hours."` |
+| Status | Example message                                                                                           |
+| ------ | --------------------------------------------------------------------------------------------------------- |
+| 400    | `"Invalid JSON in request body"`                                                                          |
+| 400    | `"No runId found in request body"`                                                                        |
+| 401    | `"Unauthorized"`                                                                                          |
+| 401    | `"Invalid Codebuff API key"`                                                                              |
+| 402    | `"Out of credits. Please add credits at https://codebuff.com/usage. Your free credits reset in 3 hours."` |
 
 ### Typed errors (error code + message)
 
@@ -32,11 +32,13 @@ Used for:
 
 Used for errors that the client needs to identify programmatically:
 
-| Status | `error` code | Example `message` |
-|--------|-------------|-------------------|
-| 403 | `account_suspended` | `"Your account has been suspended. Please contact support@codebuff.com if you did not expect this."` |
-| 403 | `free_mode_unavailable` | `"Free mode is not available in your country."` (Freebuff: `"Freebuff is not available in your country."`) |
-| 429 | `rate_limit_exceeded` | `"Subscription weekly limit reached. Your limit resets in 2 hours. Enable 'Continue with credits' in the CLI to use a-la-carte credits."` |
+| Status | `error` code             | Example `message`                                                                                                                         |
+| ------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 403    | `account_suspended`      | `"Your account has been suspended. Please contact support@codebuff.com if you did not expect this."`                                      |
+| 403    | `free_mode_unavailable`  | `"Free mode is not available in your country."` (Freebuff: `"Freebuff is not available in your country."`)                                |
+| 409    | `session_superseded`     | `"Another instance of freebuff has taken over this session. Only one instance per account is allowed."`                                   |
+| 409    | `session_model_mismatch` | `"This session is bound to <model>; restart freebuff to switch models."`                                                                  |
+| 429    | `rate_limit_exceeded`    | `"Subscription weekly limit reached. Your limit resets in 2 hours. Enable 'Continue with credits' in the CLI to use a-la-carte credits."` |
 
 ### Catch-all server error
 
@@ -65,20 +67,38 @@ AI SDK creates:   APICallError {
                   }
 ```
 
-The server's human-readable `message` and machine-readable `error` code are buried inside `responseBody` as a JSON string. The `APICallError.message` is just the HTTP status text ("Forbidden", "Payment Required", etc.).
+The server's human-readable `message` and machine-readable `error` code are buried inside `responseBody` as a JSON string. The `APICallError.message` is often just the HTTP status text ("Forbidden", "Payment Required", "Conflict", etc.).
 
-## Client-Side Error Recovery
+Some statuses that the AI SDK considers retryable, including HTTP 409, can be retried and then wrapped in an `AI_RetryError`:
 
-To recover the server's structured error details, we use `parseApiErrorResponseBody()` from `common/src/util/error.ts`:
-
-```typescript
-export function parseApiErrorResponseBody(responseBody: unknown): {
-  errorCode?: string
-  message?: string
+```
+AI_RetryError {
+  message: "Failed after 4 attempts. Last error: Conflict",
+  lastError: APICallError { statusCode: 409, responseBody: "{\"error\":\"session_superseded\",...}" },
+  errors: [APICallError, ...]
 }
 ```
 
-This is called in two places:
+In this case the structured server response is no longer on the top-level error. It must be recovered from `lastError` or `errors`.
+
+## Client-Side Error Recovery
+
+To recover the server's structured error details, callers use `extractApiErrorDetails()` from `common/src/util/error.ts`:
+
+```typescript
+export function extractApiErrorDetails(error: unknown): {
+  statusCode?: number
+  errorCode?: string
+  message?: string
+  countryCode?: string
+  countryBlockReason?: string
+  ipPrivacySignals?: string[]
+}
+```
+
+`extractApiErrorDetails()` checks the top-level error and nested retry wrapper fields (`lastError`, `errors`, and `cause`). For each candidate it extracts `statusCode`/`status` and parses any API `responseBody` with `parseApiErrorResponseBody()`.
+
+This helper is called in two places:
 
 ### 1. Agent Runtime catch block
 
@@ -88,18 +108,17 @@ This is the **primary** error handler. Most API errors are caught here because t
 
 ```typescript
 catch (error) {
-  if (error instanceof APICallError) {
-    const parsed = parseApiErrorResponseBody(error.responseBody)
-    // parsed.errorCode = 'free_mode_unavailable'
-    // parsed.message = 'Free mode is not available in your country.'
-  }
+  const apiErrorDetails = extractApiErrorDetails(error)
+  // apiErrorDetails.errorCode = 'free_mode_unavailable'
+  // apiErrorDetails.message = 'Free mode is not available in your country.'
+  // apiErrorDetails.statusCode = 403
   // ...
   return {
     output: {
       type: 'error',
       message: hasServerMessage ? errorMessage : 'Agent run error: ' + errorMessage,
-      statusCode,
-      error: errorCode,   // ← machine-readable code for client matching
+      statusCode: apiErrorDetails.statusCode,
+      error: apiErrorDetails.errorCode,   // ← machine-readable code for client matching
     },
   }
 }
@@ -110,6 +129,8 @@ catch (error) {
 **File:** `sdk/src/run.ts` (in `callMainPrompt().catch()`)
 
 This is a **fallback** handler for errors that escape the agent runtime (e.g., errors during setup before the agent loop starts).
+
+It also calls `extractApiErrorDetails()` so retry-wrapped setup errors preserve the same `statusCode`, `error`, and `message` fields as agent-loop errors.
 
 ## Error Output Schema
 
@@ -122,7 +143,7 @@ z.object({
   type: z.literal('error'),
   message: z.string(),
   statusCode: z.number().optional(),
-  error: z.string().optional(),       // machine-readable error code
+  error: z.string().optional(), // machine-readable error code
 })
 ```
 
@@ -152,12 +173,13 @@ For all other errors, the raw `output.message` is displayed in the `UserErrorBan
     │  HTTP 403               │                         │                       │                      │
     │  { error, message }     │                         │                       │                      │
     │────────────────────────▶│                         │                       │                      │
-    │                         │  APICallError           │                       │                      │
-    │                         │  .message="Forbidden"   │                       │                      │
+    │                         │  APICallError or        │                       │                      │
+    │                         │  AI_RetryError          │                       │                      │
     │                         │  .responseBody="{...}"  │                       │                      │
+    │                         │  or .lastError          │                       │                      │
     │                         │────────────────────────▶│                       │                      │
-    │                         │                         │  catch (APICallError) │                      │
-    │                         │                         │  parseResponseBody()  │                      │
+    │                         │                         │  catch (error)        │                      │
+    │                         │                         │  extractApiError...() │                      │
     │                         │                         │  extract error code   │                      │
     │                         │                         │  extract message      │                      │
     │                         │                         │─────────────────────▶ │                      │
@@ -177,6 +199,7 @@ For all other errors, the raw `output.message` is displayed in the `UserErrorBan
 To add a new error type that the CLI can identify and handle specially:
 
 1. **Server** (`web/src/app/api/v1/chat/completions/_post.ts`): Return a typed error:
+
    ```typescript
    return NextResponse.json(
      { error: 'your_error_code', message: 'User-friendly message.' },
@@ -185,6 +208,7 @@ To add a new error type that the CLI can identify and handle specially:
    ```
 
 2. **CLI error detection** (`cli/src/utils/error-handling.ts`): Add a checker:
+
    ```typescript
    export const isYourError = (error: unknown): boolean => {
      if (
@@ -210,4 +234,4 @@ To add a new error type that the CLI can identify and handle specially:
    }
    ```
 
-No changes needed in the agent runtime or SDK — `parseApiErrorResponseBody` automatically extracts any `error` and `message` fields from the server's response body.
+No changes needed in the agent runtime or SDK — `extractApiErrorDetails()` automatically extracts any `error` and `message` fields from the server's response body, including when the API error is nested inside an AI SDK retry wrapper.
