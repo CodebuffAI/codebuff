@@ -226,12 +226,25 @@ function toLandingSession(
       ? current.queueDepthByModel
       : undefined
   const rateLimitsByModel = getRateLimitsByModel(current)
+  const countryCode =
+    current && 'countryCode' in current ? current.countryCode : undefined
+  const countryBlockReason =
+    current && 'countryBlockReason' in current
+      ? current.countryBlockReason
+      : undefined
+  const ipPrivacySignals =
+    current && 'ipPrivacySignals' in current
+      ? current.ipPrivacySignals
+      : undefined
 
   return {
     status: 'none',
     ...(accessTier ? { accessTier } : {}),
     ...(queueDepthByModel ? { queueDepthByModel } : {}),
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
+    ...(countryCode ? { countryCode } : {}),
+    ...(countryBlockReason ? { countryBlockReason } : {}),
+    ...(ipPrivacySignals ? { ipPrivacySignals } : {}),
   }
 }
 
@@ -632,6 +645,13 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                   rateLimitsByModel:
                     response.rateLimitsByModel ??
                     landingSession.rateLimitsByModel,
+                  countryCode: response.countryCode ?? landingSession.countryCode,
+                  countryBlockReason:
+                    response.countryBlockReason ??
+                    landingSession.countryBlockReason,
+                  ipPrivacySignals:
+                    response.ipPrivacySignals ??
+                    landingSession.ipPrivacySignals,
                 })
               }
             })

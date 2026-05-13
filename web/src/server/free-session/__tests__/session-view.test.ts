@@ -78,6 +78,28 @@ describe('toSessionStateResponse', () => {
     })
   })
 
+  test('limited queued row includes limited-mode reason metadata', () => {
+    const view = toSessionStateResponse({
+      row: row({
+        status: 'queued',
+        access_tier: 'limited',
+        country_code: 'US',
+        country_block_reason: 'anonymous_network',
+        ip_privacy_signals: ['vpn'],
+      }),
+      position: 1,
+      ...baseArgs,
+      now,
+    })
+    expect(view).toMatchObject({
+      status: 'queued',
+      accessTier: 'limited',
+      countryCode: 'US',
+      countryBlockReason: 'anonymous_network',
+      ipPrivacySignals: ['vpn'],
+    })
+  })
+
   test('active unexpired row maps to active response with remaining ms', () => {
     const admittedAt = new Date(now.getTime() - 10 * 60_000)
     const expiresAt = new Date(now.getTime() + 50 * 60_000)

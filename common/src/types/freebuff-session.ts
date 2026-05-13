@@ -65,13 +65,21 @@ export type FreebuffIpPrivacySignal =
   | 'hosting'
   | 'service'
 
+export interface FreebuffLimitedModeReason {
+  /** Present for limited access so the model picker can explain why the
+   *  reduced model set is shown without re-running geo/IP logic locally. */
+  countryCode?: string | null
+  countryBlockReason?: FreebuffCountryBlockReason | null
+  ipPrivacySignals?: FreebuffIpPrivacySignal[] | null
+}
+
 export type FreebuffSessionServerResponse =
   | {
       /** Waiting room is globally off; free-mode requests flow through
        *  unchanged. Client should treat this as "admitted forever". */
       status: 'disabled'
     }
-  | {
+  | ({
       /** User has no session row. CLI must POST to (re-)queue. Also returned
        *  when `getSessionState` notices the user has been swept past the
        *  grace window. */
@@ -88,8 +96,8 @@ export type FreebuffSessionServerResponse =
        *  the picker show today's premium-session usage before the user commits
        *  to a queue. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       status: 'queued'
       accessTier: FreebuffAccessTier
       instanceId: string
@@ -108,8 +116,8 @@ export type FreebuffSessionServerResponse =
       /** Premium-session quota for this model. Absent for unlimited models. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       status: 'active'
       accessTier: FreebuffAccessTier
       instanceId: string
@@ -121,8 +129,8 @@ export type FreebuffSessionServerResponse =
       /** Premium-session quota for this model. Absent for unlimited models. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       /** Session is over. While `instanceId` is present we're inside the
        *  server-side grace window — chat requests still go through so the
        *  agent can finish, but the CLI must not accept new prompts. Once
@@ -143,7 +151,7 @@ export type FreebuffSessionServerResponse =
        *  session ended. Lets the post-session banner show "N of M premium
        *  sessions used today" without an extra round-trip. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
+    } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
        *  stops and the UI shows a "close the other CLI" screen. The server

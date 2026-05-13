@@ -1,5 +1,14 @@
 import type { InternalSessionRow, SessionStateResponse } from './types'
 
+function limitedModeReasonFromRow(row: InternalSessionRow) {
+  if ((row.access_tier ?? 'full') !== 'limited') return {}
+  return {
+    countryCode: row.country_code ?? null,
+    countryBlockReason: row.country_block_reason ?? null,
+    ipPrivacySignals: row.ip_privacy_signals ?? null,
+  }
+}
+
 /**
  * Pure function converting an internal session row (or absence thereof) into
  * the public response shape. Never reads the clock — caller supplies `now` so
@@ -33,6 +42,7 @@ export function toSessionStateResponse(params: {
         admittedAt: (row.admitted_at ?? row.created_at).toISOString(),
         expiresAt: row.expires_at.toISOString(),
         remainingMs: expiresAtMs - nowMs,
+        ...limitedModeReasonFromRow(row),
       }
     }
     const graceEndsMs = expiresAtMs + graceMs
@@ -45,6 +55,7 @@ export function toSessionStateResponse(params: {
         expiresAt: row.expires_at.toISOString(),
         gracePeriodEndsAt: new Date(graceEndsMs).toISOString(),
         gracePeriodRemainingMs: graceEndsMs - nowMs,
+        ...limitedModeReasonFromRow(row),
       }
     }
   }
@@ -60,6 +71,7 @@ export function toSessionStateResponse(params: {
       queueDepthByModel,
       estimatedWaitMs: estimateWaitMs({ position }),
       queuedAt: row.queued_at.toISOString(),
+      ...limitedModeReasonFromRow(row),
     }
   }
 

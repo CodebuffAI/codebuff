@@ -59,6 +59,15 @@ function toSessionCountryAccess(
   }
 }
 
+function toLimitedModeReason(countryAccess: FreeModeCountryAccess) {
+  if (countryAccess.allowed) return {}
+  return {
+    countryCode: countryAccess.countryCode,
+    countryBlockReason: countryAccess.blockReason,
+    ipPrivacySignals: countryAccess.ipPrivacy?.signals ?? null,
+  }
+}
+
 /** Header the CLI uses to identify which instance is polling. Used by GET to
  *  detect when another CLI on the same account has rotated the id. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
@@ -220,6 +229,7 @@ export async function getFreebuffSession(
           message: 'Call POST to join the waiting room.',
           queueDepthByModel: state.queueDepthByModel,
           rateLimitsByModel: state.rateLimitsByModel,
+          ...toLimitedModeReason(countryAccess),
         },
         { status: 200 },
       )
