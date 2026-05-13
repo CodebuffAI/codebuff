@@ -1,5 +1,7 @@
 # Codebuff & Freebuff
 
+English | [简体中文](./README.zh-CN.md)
+
 **[Codebuff](https://codebuff.com)** is an open-source AI coding assistant that edits your codebase through natural language instructions. **[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version — no subscription, no credits, no configuration.
 
 Instead of using one model for everything, Codebuff coordinates specialized agents that work together to understand your project and make precise changes.
