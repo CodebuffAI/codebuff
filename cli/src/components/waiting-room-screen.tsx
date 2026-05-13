@@ -405,7 +405,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               sessionCounter={
                 <>
                   <span fg={premiumUsedColor}>
-                    {formattedSharedPremiumUsed} of {sessionLimit}{' '}
+                    {formatSessionUnits(sharedPremiumUsed)} of {sessionLimit}{' '}
                     {sessionLabel} used
                   </span>
                   <span fg={theme.muted}>
