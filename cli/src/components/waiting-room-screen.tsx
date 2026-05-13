@@ -409,7 +409,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                     {sessionLabel} used
                   </span>
                   <span fg={theme.muted}>
-                    {'  ·  '}
+                    {', '}
                     resets in {premiumResetCountdown}
                   </span>
                 </>
@@ -438,7 +438,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   used
                 </span>
                 <span fg={theme.muted}>
-                  {'  ·  '}
+                  {', '}
                   resets in {premiumResetCountdown}
                 </span>
               </text>
