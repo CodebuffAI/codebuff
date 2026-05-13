@@ -17,6 +17,7 @@ import type { Adapter } from 'next-auth/adapters'
 
 import {
   getCliAuthCodeHashPrefix,
+  getCliAuthOnboardSearchParams,
   isCliAuthCodeCandidate,
 } from '@/app/onboard/_helpers'
 import { logger } from '@/util/logger'
@@ -131,12 +132,14 @@ export const authOptions: NextAuthOptions = {
             },
             'Freebuff auth redirect received non-CLI-shaped auth_code',
           )
+          return baseUrl
         }
 
         const onboardUrl = new URL(`${baseUrl}/onboard`)
-        potentialRedirectUrl.searchParams.forEach((value, key) => {
-          onboardUrl.searchParams.set(key, value)
-        })
+        onboardUrl.search = getCliAuthOnboardSearchParams(
+          potentialRedirectUrl.searchParams,
+          authCode,
+        ).toString()
         return onboardUrl.toString()
       }
 

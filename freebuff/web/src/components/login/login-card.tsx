@@ -14,6 +14,7 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card'
+import { getCliAuthOnboardPath } from '@/lib/cli-auth-code-shape'
 
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()
@@ -32,7 +33,7 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
     let callbackUrl = '/'
 
     if (authCode) {
-      callbackUrl = `/onboard?${searchParams.toString()}`
+      callbackUrl = getCliAuthOnboardPath(searchParams, authCode)
     }
 
     window.location.href = callbackUrl
@@ -41,11 +42,9 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
   const handleUseAnotherAccount = () => {
     persistReferrer()
 
-    const searchParamsString = searchParams.toString()
-
     let callbackUrl = '/login'
     if (authCode) {
-      callbackUrl = `/onboard?${searchParamsString}`
+      callbackUrl = getCliAuthOnboardPath(searchParams, authCode)
     }
 
     signIn('github', { callbackUrl, prompt: 'login' })
