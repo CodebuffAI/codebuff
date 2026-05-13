@@ -4,9 +4,11 @@ import { motion } from 'framer-motion'
 import { ChevronDown, Cpu, Globe2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { CopyButton } from '@/components/copy-button'
+
+import { COUNTRY_POINTS, WORLD_LAND_PATHS } from './world-map-data'
 
 import type { FreebuffLiveStats } from '@/server/live-stats'
 import type { LucideIcon } from 'lucide-react'
@@ -15,43 +17,21 @@ const INSTALL_COMMAND = 'npm install -g freebuff'
 const POLL_MS = 15_000
 const MAP_SIZE = { width: 1000, height: 520 }
 const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' })
-
-const COUNTRY_POINTS: Record<string, readonly [lat: number, lon: number]> = {
-  AT: [47.5, 14.5],
-  AU: [-25.3, 133.8],
-  BE: [50.5, 4.5],
-  CA: [56.1, -106.3],
-  CH: [46.8, 8.2],
-  DE: [51.2, 10.4],
-  DK: [56, 10],
-  ES: [40.4, -3.7],
-  FI: [64, 26],
-  FR: [46.2, 2.2],
-  GB: [55, -3],
-  IE: [53.4, -8.2],
-  IL: [31, 35],
-  IS: [65, -18],
-  IT: [42.8, 12.8],
-  LI: [47.1, 9.6],
-  LU: [49.8, 6.1],
-  MT: [35.9, 14.4],
-  NL: [52.1, 5.3],
-  NO: [61, 8],
-  NZ: [-41, 174],
-  PT: [39.4, -8.2],
-  SE: [62, 15],
-  SG: [1.4, 103.8],
-  US: [39.8, -98.6],
+type CountryPoint = readonly [lat: number, lon: number]
+type PlottedCountry = FreebuffLiveStats['countries'][number] & {
+  point: CountryPoint
 }
 
-const LAND_PATHS = [
-  'M93 151 C137 94 226 78 303 114 C376 149 362 217 288 237 C229 254 229 323 171 303 C104 280 61 197 93 151Z',
-  'M276 291 C320 311 350 354 330 414 C313 468 269 500 247 466 C223 428 232 365 205 332 C185 307 229 277 276 291Z',
-  'M444 118 C523 79 655 87 727 124 C799 160 890 160 923 214 C955 265 879 295 823 270 C744 235 725 292 638 283 C551 274 502 240 438 259 C386 274 338 225 357 176 C371 142 403 138 444 118Z',
-  'M690 310 C731 277 796 297 825 333 C852 366 831 426 779 436 C728 447 671 390 690 310Z',
-  'M766 439 C805 423 863 442 889 478 C837 492 792 489 746 470 C748 455 755 446 766 439Z',
-  'M421 96 C448 80 495 83 516 105 C486 118 454 121 421 96Z',
-]
+const COUNTRY_POINT_LOOKUP = COUNTRY_POINTS as Record<string, CountryPoint>
+
+const EQUAL_EARTH = {
+  a1: 1.340264,
+  a2: -0.081106,
+  a3: 0.000893,
+  a4: 0.003796,
+  maxX: 2.74,
+  maxY: 1.36,
+}
 
 const SETUP_STEPS = [
   'Open your terminal',
@@ -61,7 +41,11 @@ const SETUP_STEPS = [
 ]
 
 function countryName(code: string): string {
-  return code === 'UNKNOWN' ? 'Unknown' : (REGION_NAMES.of(code) ?? code)
+  if (code === 'UNKNOWN') {
+    return 'Unknown'
+  }
+
+  return /^[A-Z]{2}$/.test(code) ? (REGION_NAMES.of(code) ?? code) : code
 }
 
 function formattedTime(iso: string): string {
@@ -73,10 +57,53 @@ function formattedTime(iso: string): string {
 }
 
 function projectPoint(lat: number, lon: number) {
+  const lambda = (lon * Math.PI) / 180
+  const phi = (lat * Math.PI) / 180
+  const theta = Math.asin((Math.sqrt(3) / 2) * Math.sin(phi))
+  const theta2 = theta * theta
+  const theta6 = theta2 * theta2 * theta2
+  const theta8 = theta6 * theta2
+  const x =
+    (2 * Math.sqrt(3) * lambda * Math.cos(theta)) /
+    (3 *
+      (9 * EQUAL_EARTH.a4 * theta8 +
+        7 * EQUAL_EARTH.a3 * theta6 +
+        3 * EQUAL_EARTH.a2 * theta2 +
+        EQUAL_EARTH.a1))
+  const y =
+    EQUAL_EARTH.a1 * theta +
+    EQUAL_EARTH.a2 * theta * theta2 +
+    EQUAL_EARTH.a3 * theta * theta6 +
+    EQUAL_EARTH.a4 * theta * theta8
+
   return {
-    x: ((lon + 180) / 360) * MAP_SIZE.width,
-    y: ((90 - lat) / 180) * MAP_SIZE.height,
+    x: ((x + EQUAL_EARTH.maxX) / (EQUAL_EARTH.maxX * 2)) * MAP_SIZE.width,
+    y: ((EQUAL_EARTH.maxY - y) / (EQUAL_EARTH.maxY * 2)) * MAP_SIZE.height,
   }
+}
+
+function linePath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+) {
+  return `M${from.x} ${from.y} L${to.x} ${to.y}`
+}
+
+const GRATICULE_LINES = [
+  ...[-120, -60, 0, 60, 120].map((lon) => ({
+    key: `lon-${lon}`,
+    d: linePath(projectPoint(-62, lon), projectPoint(78, lon)),
+  })),
+  ...[-45, 0, 45].map((lat) => ({
+    key: `lat-${lat}`,
+    d: linePath(projectPoint(lat, -178), projectPoint(lat, 178)),
+  })),
+]
+
+function isPlottedCountry(
+  country: PlottedCountry | null,
+): country is PlottedCountry {
+  return country !== null
 }
 
 function useLiveStats(initialStats: FreebuffLiveStats) {
@@ -86,9 +113,13 @@ function useLiveStats(initialStats: FreebuffLiveStats) {
     let isMounted = true
 
     async function refresh() {
-      const response = await fetch('/api/live', { cache: 'no-store' })
-      if (response.ok && isMounted) {
-        setStats((await response.json()) as FreebuffLiveStats)
+      try {
+        const response = await fetch('/api/live', { cache: 'no-store' })
+        if (response.ok && isMounted) {
+          setStats((await response.json()) as FreebuffLiveStats)
+        }
+      } catch {
+        // Keep the previous snapshot if a transient refresh fails.
       }
     }
 
@@ -102,16 +133,26 @@ function useLiveStats(initialStats: FreebuffLiveStats) {
   return stats
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function LiveUsersHero({ value }: { value: number }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs uppercase tracking-[0.18em] text-white/45">
-          {label}
+    <div className="relative overflow-hidden rounded-lg border border-acid-matrix/35 bg-[radial-gradient(circle_at_20%_20%,rgba(124,255,63,0.22),transparent_34%),linear-gradient(135deg,rgba(124,255,63,0.12),rgba(34,211,238,0.06)_48%,rgba(255,255,255,0.04))] p-5 shadow-[0_0_55px_rgba(124,255,63,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] md:min-w-[310px] md:p-6">
+      <div className="absolute -right-16 -top-16 h-36 w-36 rounded-full border border-cyan-300/20" />
+      <div className="absolute -bottom-20 right-12 h-40 w-40 rounded-full border border-acid-matrix/15" />
+      <div className="relative flex items-center gap-3">
+        <motion.span
+          className="h-2.5 w-2.5 rounded-full bg-acid-matrix shadow-[0_0_20px_rgba(124,255,63,0.95)]"
+          animate={{ opacity: [0.45, 1, 0.45], scale: [0.8, 1.25, 0.8] }}
+          transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <span className="font-mono text-xs uppercase tracking-[0.24em] text-white/58">
+          Live users
         </span>
       </div>
-      <div className="mt-3 min-h-10 text-3xl font-serif leading-none text-white">
-        {value}
+      <div className="relative mt-3 font-mono text-6xl font-medium leading-none text-acid-matrix neon-text md:text-7xl">
+        {value.toLocaleString()}
+      </div>
+      <div className="relative mt-3 text-sm text-white/56">
+        active Freebuff sessions right now
       </div>
     </div>
   )
@@ -149,35 +190,64 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
   const maxCount = Math.max(1, ...stats.countries.map((row) => row.count))
   const plottedCountries = stats.countries
     .map((country) => {
-      const point = COUNTRY_POINTS[country.countryCode]
+      const point = COUNTRY_POINT_LOOKUP[country.countryCode]
       return point ? { ...country, point } : null
     })
-    .filter((country) => country !== null)
+    .filter(isPlottedCountry)
+  const unplottedCount = stats.countries.length - plottedCountries.length
 
   return (
-    <section className="relative overflow-hidden rounded-lg border border-white/10 bg-[#03110f] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+    <section className="relative self-start overflow-hidden rounded-lg border border-white/10 bg-[#020807] shadow-[0_24px_90px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(34,211,238,0.14),transparent_38%),linear-gradient(180deg,rgba(124,255,63,0.04),rgba(0,0,0,0.2))]" />
+      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-black/45 px-3 py-2 backdrop-blur md:left-5 md:top-5">
+        <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
+          Active countries
+        </div>
+        <div className="mt-1 text-2xl font-serif leading-none text-white">
+          {stats.countries.length.toLocaleString()}
+        </div>
+      </div>
+
       <svg
         viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
         role="img"
         aria-label="World map of live Freebuff users by country"
-        className="h-[360px] w-full md:h-[520px]"
+        className="relative h-[300px] w-full md:h-[520px]"
       >
         <defs>
           <pattern
             id="live-map-grid"
-            width="50"
-            height="50"
+            width="48"
+            height="48"
             patternUnits="userSpaceOnUse"
           >
             <path
-              d="M50 0H0V50"
+              d="M48 0H0V48"
               fill="none"
-              stroke="rgba(255,255,255,0.055)"
+              stroke="rgba(124,255,63,0.055)"
               strokeWidth="1"
             />
           </pattern>
-          <filter id="marker-glow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
+          <linearGradient id="live-ocean" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#03100d" />
+            <stop offset="46%" stopColor="#041918" />
+            <stop offset="100%" stopColor="#010504" />
+          </linearGradient>
+          <linearGradient id="live-land" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.20)" />
+            <stop offset="55%" stopColor="rgba(124,255,63,0.11)" />
+            <stop offset="100%" stopColor="rgba(34,211,238,0.12)" />
+          </linearGradient>
+          <filter id="land-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow
+              dx="0"
+              dy="10"
+              stdDeviation="12"
+              floodColor="rgba(0,0,0,0.55)"
+            />
+          </filter>
+          <filter id="marker-glow" x="-90%" y="-90%" width="280%" height="280%">
+            <feGaussianBlur stdDeviation="7" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -185,30 +255,46 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
           </filter>
         </defs>
 
-        <rect width={MAP_SIZE.width} height={MAP_SIZE.height} fill="#03110f" />
+        <rect
+          width={MAP_SIZE.width}
+          height={MAP_SIZE.height}
+          fill="url(#live-ocean)"
+        />
         <rect
           width={MAP_SIZE.width}
           height={MAP_SIZE.height}
           fill="url(#live-map-grid)"
         />
-        <path
-          d="M0 260 C140 220 240 300 380 260 S650 205 1000 245 V520 H0Z"
-          fill="rgba(34, 211, 238, 0.035)"
-        />
-        {LAND_PATHS.map((path) => (
+        {GRATICULE_LINES.map((line) => (
           <path
-            key={path}
+            key={line.key}
+            d={line.d}
+            fill="none"
+            stroke="rgba(255,255,255,0.075)"
+            strokeDasharray="4 8"
+          />
+        ))}
+        <path
+          d="M0 355 C170 303 305 379 475 330 S760 298 1000 342 V520 H0Z"
+          fill="rgba(34, 211, 238, 0.055)"
+        />
+        {WORLD_LAND_PATHS.map((path, index) => (
+          <path
+            key={`${index}-${path.slice(0, 16)}`}
             d={path}
-            fill="rgba(255,255,255,0.105)"
-            stroke="rgba(255,255,255,0.13)"
-            strokeWidth="1.5"
+            fill="url(#live-land)"
+            fillRule="evenodd"
+            stroke="rgba(255,255,255,0.16)"
+            strokeWidth="0.8"
+            filter="url(#land-shadow)"
           />
         ))}
 
-        {plottedCountries.map(({ countryCode, count, point }) => {
+        {plottedCountries.map(({ countryCode, count, point }, index) => {
           const [lat, lon] = point
           const { x, y } = projectPoint(lat, lon)
-          const radius = 7 + Math.sqrt(count / maxCount) * 20
+          const radius = 6 + Math.sqrt(count / maxCount) * 24
+          const showLabel = index < 9 || radius >= 19
 
           return (
             <g key={countryCode}>
@@ -216,31 +302,51 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
                 cx={x}
                 cy={y}
                 r={radius}
-                fill="rgba(34, 211, 238, 0.16)"
-                stroke="rgba(34, 211, 238, 0.45)"
+                fill="rgba(34, 211, 238, 0.18)"
+                stroke="rgba(34, 211, 238, 0.58)"
                 strokeWidth="2"
-                initial={{ opacity: 0.35, scale: 0.75 }}
+                initial={{ opacity: 0.28, scale: 0.74 }}
                 animate={{
-                  opacity: [0.35, 0.78, 0.35],
+                  opacity: [0.28, 0.82, 0.28],
                   scale: [0.85, 1, 0.85],
                 }}
                 transition={{
-                  duration: 3,
+                  duration: 3.2,
+                  delay: index * 0.04,
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
                 style={{ transformOrigin: `${x}px ${y}px` }}
                 filter="url(#marker-glow)"
               />
-              <circle cx={x} cy={y} r="4.5" fill="#7CFF3F" />
-              <text
-                x={x}
-                y={y - radius - 9}
-                textAnchor="middle"
-                className="fill-white text-[18px] font-medium"
-              >
-                {count}
-              </text>
+              <circle
+                cx={x}
+                cy={y}
+                r={Math.max(3.8, Math.min(6.5, radius * 0.25))}
+                fill="#7CFF3F"
+                stroke="rgba(255,255,255,0.82)"
+                strokeWidth="1.2"
+              />
+              {showLabel && (
+                <g>
+                  <rect
+                    x={x + radius * 0.46}
+                    y={y - radius - 17}
+                    width={String(count).length * 10 + 20}
+                    height="24"
+                    rx="5"
+                    fill="rgba(0,0,0,0.66)"
+                    stroke="rgba(255,255,255,0.14)"
+                  />
+                  <text
+                    x={x + radius * 0.46 + 10}
+                    y={y - radius}
+                    className="fill-white font-mono text-[16px] font-medium"
+                  >
+                    {count}
+                  </text>
+                </g>
+              )}
               <title>
                 {countryName(countryCode)}: {count}
               </title>
@@ -255,6 +361,12 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
           <div className="mt-1 text-sm text-white/50">
             Live sessions will appear here as users start Freebuff.
           </div>
+        </div>
+      )}
+      {unplottedCount > 0 && (
+        <div className="absolute bottom-4 right-4 rounded-md border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/48 backdrop-blur">
+          {unplottedCount} region{unplottedCount === 1 ? '' : 's'} listed
+          off-map
         </div>
       )}
     </section>
@@ -296,7 +408,7 @@ function CountryList({ stats }: { stats: FreebuffLiveStats }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
       {stats.countries.map((country) => (
         <div
           key={country.countryCode}
@@ -393,13 +505,6 @@ export default function LiveClient({
 }) {
   const [hasMounted, setHasMounted] = useState(false)
   const stats = useLiveStats(initialStats)
-  const topCountry = useMemo(
-    () =>
-      stats.countries[0]
-        ? countryName(stats.countries[0].countryCode)
-        : 'None yet',
-    [stats.countries],
-  )
 
   useEffect(() => {
     setHasMounted(true)
@@ -410,8 +515,8 @@ export default function LiveClient({
       <section className="relative overflow-hidden border-b border-white/10">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(124,255,63,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:56px_56px]" />
         <div className="relative container mx-auto px-4 pb-6 pt-10 md:pb-8 md:pt-14">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-4xl">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
                 <h1 className="relative max-w-3xl pl-7 font-serif text-4xl leading-tight text-white md:pl-8 md:text-6xl">
                   <span
@@ -439,21 +544,19 @@ export default function LiveClient({
                   </span>
                 )}
               </div>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-white/54 md:text-lg">
+                Real-time Freebuff sessions across every country we can
+                identify, refreshed as people start coding.
+              </p>
             </div>
-          </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <StatTile
-              label="Live users"
-              value={stats.totalLiveUsers.toLocaleString()}
-            />
-            <StatTile label="Top country" value={topCountry} />
+            <LiveUsersHero value={stats.totalLiveUsers} />
           </div>
         </div>
       </section>
 
       <section className="container mx-auto px-4 pb-8 pt-5 md:pb-10 md:pt-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_minmax(330px,0.78fr)]">
           <WorldMap stats={stats} />
 
           <div className="space-y-6">
