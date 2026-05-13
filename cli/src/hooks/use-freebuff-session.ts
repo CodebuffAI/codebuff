@@ -216,6 +216,25 @@ function shouldReleaseSlot(current: FreebuffSessionResponse | null): boolean {
   )
 }
 
+function toLandingSession(
+  current: FreebuffSessionResponse | null,
+): Extract<FreebuffSessionResponse, { status: 'none' }> {
+  const accessTier =
+    current && 'accessTier' in current ? current.accessTier : undefined
+  const queueDepthByModel =
+    current && 'queueDepthByModel' in current
+      ? current.queueDepthByModel
+      : undefined
+  const rateLimitsByModel = getRateLimitsByModel(current)
+
+  return {
+    status: 'none',
+    ...(accessTier ? { accessTier } : {}),
+    ...(queueDepthByModel ? { queueDepthByModel } : {}),
+    ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
+  }
+}
+
 /** Best-effort DELETE of the caller's session row, gated on actually holding
  *  one. Used both by exit paths and any flow that wants the next POST to
  *  start clean (rejoin, return-to-landing). Always swallows errors — the
@@ -588,7 +607,10 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // picker metadata from the response, ignoring whatever status it
           // claims. Polling resumes when the user commits to a model via
           // joinFreebuffQueue.
-          apply({ status: 'none' })
+          const landingSession = toLandingSession(
+            useFreebuffSessionStore.getState().session,
+          )
+          apply(landingSession)
           const fetchController = abortController
           callSession('GET', token, { signal: fetchController.signal })
             .then((response) => {
@@ -602,9 +624,14 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
               if (response.status === 'none' || response.status === 'queued') {
                 apply({
                   status: 'none',
-                  accessTier: response.accessTier,
-                  queueDepthByModel: response.queueDepthByModel,
-                  rateLimitsByModel: response.rateLimitsByModel,
+                  accessTier:
+                    response.accessTier ?? landingSession.accessTier,
+                  queueDepthByModel:
+                    response.queueDepthByModel ??
+                    landingSession.queueDepthByModel,
+                  rateLimitsByModel:
+                    response.rateLimitsByModel ??
+                    landingSession.rateLimitsByModel,
                 })
               }
             })
