@@ -80,6 +80,8 @@ const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
     res_proxy: 'residential proxy',
     tor: 'Tor',
     vpn: 'VPN',
+    hosting: 'hosting network',
+    service: 'privacy service',
   }
 
 const formatPrivacySignalList = (
@@ -99,6 +101,38 @@ const formatPrivacySignalList = (
   if (labels.length === 1) return labels[0]
   if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
   return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
+}
+
+const getLimitedModeReason = (
+  session: FreebuffSessionResponse | null,
+): string | null => {
+  if (!session || !('countryBlockReason' in session)) {
+    return 'reduced free model access'
+  }
+
+  const countryCode =
+    'countryCode' in session &&
+    session.countryCode &&
+    session.countryCode !== 'UNKNOWN'
+      ? session.countryCode
+      : null
+
+  switch (session.countryBlockReason) {
+    case 'anonymous_network':
+      return `${formatPrivacySignalList(
+        session.ipPrivacySignals ?? undefined,
+      )} detected`
+    case 'country_not_allowed':
+      return `outside available countries${countryCode ? ` (${countryCode})` : ''}`
+    case 'anonymized_or_unknown_country':
+    case 'missing_client_ip':
+    case 'unresolved_client_ip':
+      return 'location could not be verified'
+    case 'ip_privacy_lookup_failed':
+      return 'network check could not finish'
+    default:
+      return 'reduced free model access'
+  }
 }
 
 const TakeoverPrompt: React.FC = () => {
@@ -261,6 +295,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const isQueued = session?.status === 'queued'
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
+  const limitedModeReason =
+    accessTier === 'limited' ? getLimitedModeReason(session) : null
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
@@ -337,17 +373,28 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     >
       {/* Top-right exit affordance so mouse users have a clear way out even
           when they don't know Ctrl+C works. width: '100%' is required for
-          justifyContent: 'flex-end' to actually push the X to the right. */}
+          justifyContent to actually push the X to the right. */}
       <box
         style={{
           width: '100%',
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           paddingTop: 1,
+          paddingLeft: 2,
           paddingRight: 2,
           flexShrink: 0,
         }}
       >
+        <box>
+          {limitedModeReason && (
+            <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+              <span fg={theme.secondary} attributes={TextAttributes.BOLD}>
+                Limited mode
+              </span>
+              <span fg={theme.muted}> · {limitedModeReason}</span>
+            </text>
+          )}
+        </box>
         <Button
           onClick={exitFreebuffCleanly}
           onMouseOver={() => setExitHover(true)}

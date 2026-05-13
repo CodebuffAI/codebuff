@@ -246,6 +246,8 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(body.status).toBe('queued')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(body.countryCode).toBe('JP')
+    expect(body.countryBlockReason).toBe('country_not_allowed')
     expect(sessionDeps.rows.get('u1')).toMatchObject({
       access_tier: 'limited',
       country_code: 'JP',
@@ -341,6 +343,35 @@ describe('GET /api/v1/freebuff/session', () => {
     const body = await resp.json()
     expect(body.status).toBe('none')
     expect(body.accessTier).toBe('limited')
+    expect(body.countryCode).toBe('JP')
+    expect(body.countryBlockReason).toBe('country_not_allowed')
+    expect(body.ipPrivacySignals).toBeNull()
+  })
+
+  test('returns limited-mode privacy reason on GET', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'US' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async () => ({
+          allowed: false,
+          countryCode: 'US',
+          blockReason: 'anonymous_network',
+          cfCountry: 'US',
+          geoipCountry: null,
+          ipPrivacy: { signals: ['vpn', 'hosting'] },
+          hasClientIp: true,
+          clientIpHash: 'test-ip-hash',
+        }),
+      }),
+    )
+    expect(resp.status).toBe(200)
+    const body = await resp.json()
+    expect(body.status).toBe('none')
+    expect(body.accessTier).toBe('limited')
+    expect(body.countryCode).toBe('US')
+    expect(body.countryBlockReason).toBe('anonymous_network')
+    expect(body.ipPrivacySignals).toEqual(['vpn', 'hosting'])
   })
 
   test('rechecks country on GET so access tier changes are visible immediately', async () => {
