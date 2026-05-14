@@ -396,6 +396,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   ...(IS_FREEBUFF ? [] : AGENT_MODES).map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
+      aliases: [`model:${mode.toLowerCase()}`],
       handler: (params, args) => {
         const trimmedArgs = args.trim()
 
