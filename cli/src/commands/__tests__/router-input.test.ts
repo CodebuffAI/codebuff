@@ -210,6 +210,10 @@ describe('command-registry', () => {
       expect(credits).toBeDefined()
       expect(credits?.name).toBe('usage')
 
+      const modelDefault = findCommand('model:default')
+      expect(modelDefault).toBeDefined()
+      expect(modelDefault?.name).toBe('mode:default')
+
       const quit = findCommand('quit')
       expect(quit).toBeDefined()
       expect(quit?.name).toBe('exit')
@@ -267,6 +271,18 @@ describe('command-registry', () => {
         for (const alias of slashCommand.aliases ?? []) {
           expect(registered.has(alias)).toBe(true)
         }
+      }
+    })
+
+    test('mode commands expose model aliases for slash suggestions', () => {
+      const modeCommands = SLASH_COMMANDS.filter((cmd) =>
+        cmd.id.startsWith('mode:'),
+      )
+      expect(modeCommands.length).toBeGreaterThan(0)
+
+      for (const command of modeCommands) {
+        const modeName = command.id.slice('mode:'.length)
+        expect(command.aliases).toContain(`model:${modeName}`)
       }
     })
 

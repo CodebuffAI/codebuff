@@ -29,6 +29,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
       id: `mode:${mode.toLowerCase()}`,
       label: `mode:${mode.toLowerCase()}`,
       description: `Switch to ${mode} mode`,
+      aliases: [`model:${mode.toLowerCase()}`],
     }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
