@@ -2,11 +2,11 @@ import { Agent } from 'undici'
 
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
   extractRequestMetadata,
+  getProviderApiKey,
   insertMessageToBigQuery,
 } from './helpers'
 
@@ -83,14 +83,12 @@ function createAvianRequest(params: {
     avianBody.stream_options = { include_usage: true }
   }
 
-  if (!env.AVIAN_API_KEY) {
-    throw new Error('AVIAN_API_KEY is not configured')
-  }
+  const apiKey = getProviderApiKey('AVIAN_API_KEY')
 
   return fetch(`${AVIAN_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.AVIAN_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'x-session-affinity': sessionId,
     },

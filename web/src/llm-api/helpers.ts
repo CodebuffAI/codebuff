@@ -6,11 +6,29 @@ import {
   isFreeModeAllowedAgentModel,
 } from '@codebuff/common/constants/free-agents'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
+import { env } from '@codebuff/internal/env'
 
+import type { ServerEnv } from '@codebuff/internal/env-schema'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import type { ChatCompletionRequestBody } from './types'
+
+/** Known provider API key names in the env schema. */
+type ProviderApiKeyName = Extract<keyof ServerEnv, `${string}_API_KEY`>
+
+/**
+ * Retrieve a provider API key from the validated env, throwing a clear error
+ * if the key is missing or empty. Centralises the "is it configured?" check
+ * so individual provider modules don't need to guard against undefined.
+ */
+export function getProviderApiKey(name: ProviderApiKeyName): string {
+  const value = env[name]
+  if (!value) {
+    throw new Error(`${name} is not configured`)
+  }
+  return value
+}
 
 export type UsageData = {
   inputTokens: number
