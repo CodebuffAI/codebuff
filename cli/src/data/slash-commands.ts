@@ -177,7 +177,8 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'end-session',
     label: 'end-session',
-    description: 'End your free session and return to the waiting room (lets you switch model)',
+    description: 'End your free session (lets you switch model)',
+    aliases: ['model'],
   },
   {
     id: 'logout',

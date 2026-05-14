@@ -597,6 +597,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   // user picks a model and hits Enter to rejoin the queue.
   defineCommand({
     name: 'end-session',
+    aliases: ['model'],
     handler: (params) => {
       params.setMessages((prev) => [
         ...prev,
