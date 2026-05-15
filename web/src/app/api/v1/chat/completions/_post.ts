@@ -874,6 +874,9 @@ export async function postChatCompletions(params: {
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
+      const shouldRecordMessages = freebuffAccessTier !== 'limited'
+      const { messages: _messages, ...bodyWithoutMessages } = body
+      const telemetryBody = shouldRecordMessages ? body : bodyWithoutMessages
       const providerLabel = siliconflowError
         ? 'SiliconFlow'
         : opencodeZenError
@@ -901,7 +904,9 @@ export async function postChatCompletions(params: {
           messageCount: Array.isArray(typedBody.messages)
             ? typedBody.messages.length
             : 0,
-          messages: typedBody.messages,
+          ...(shouldRecordMessages
+            ? { messages: typedBody.messages }
+            : { messagesOmitted: true, accessTier: freebuffAccessTier }),
           providerStatusCode: (
             openrouterError ??
             fireworksError ??
@@ -935,7 +940,7 @@ export async function postChatCompletions(params: {
         userId,
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
-          body,
+          body: telemetryBody,
           agentId,
           streaming: bodyStream,
         },

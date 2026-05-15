@@ -74,6 +74,13 @@ export function isDeepSeekModel(model: string): boolean {
   return DEEPSEEK_ROUTED_MODELS.has(model)
 }
 
+function isDeepSeekV4FlashModel(model: string): boolean {
+  return (
+    model === deepseekModels.deepseekV4Flash ||
+    model === deepseekModels.deepseekV4FlashDirect
+  )
+}
+
 function getDeepSeekPricing(model: string): DeepSeekPricing {
   const entry = DEEPSEEK_MODELS[model]
   if (!entry) {
@@ -279,6 +286,7 @@ export async function handleDeepSeekStream({
     body,
     logger,
   })
+  const skipDisconnectedBilling = isDeepSeekV4FlashModel(body.model)
 
   const response = await createDeepSeekRequest({ body, originalModel, fetch })
 
@@ -392,13 +400,26 @@ export async function handleDeepSeekStream({
     cancel() {
       clearInterval(heartbeatInterval)
       clientDisconnected = true
+      if (skipDisconnectedBilling) {
+        reader
+          .cancel('client disconnected from DeepSeek V4 Flash stream')
+          .catch((error) => {
+            logger.warn(
+              { error },
+              'Failed to cancel disconnected DeepSeek V4 Flash stream',
+            )
+          })
+      }
       logger.warn(
         {
           clientDisconnected,
           responseTextLength: state.responseText.length,
           reasoningTextLength: state.reasoningText.length,
+          skippedBilling: skipDisconnectedBilling,
         },
-        'Client cancelled stream, continuing DeepSeek consumption for billing',
+        skipDisconnectedBilling
+          ? 'Client cancelled DeepSeek V4 Flash stream, ending without billing'
+          : 'Client cancelled stream, continuing DeepSeek consumption for billing',
       )
     },
   })
