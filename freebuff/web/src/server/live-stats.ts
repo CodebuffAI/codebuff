@@ -21,6 +21,12 @@ export interface FreebuffLiveStats {
   generatedAt: string
 }
 
+const LIVE_STATS_CACHE_MS = 60_000
+let cachedLiveStats: {
+  expiresAt: number
+  stats: FreebuffLiveStats
+} | null = null
+
 const MODEL_LABELS = Object.fromEntries(
   SUPPORTED_FREEBUFF_MODELS.map(
     (model) => [model.id, model.displayName] as const,
@@ -48,8 +54,16 @@ function sortCounts<T extends { count: number }>(rows: T[]): T[] {
 }
 
 export async function getFreebuffLiveStats(
-  now = new Date(),
+  now?: Date,
+  options: { cache?: boolean } = {},
 ): Promise<FreebuffLiveStats> {
+  const useCache = options.cache ?? now === undefined
+  const requestTime = now ?? new Date()
+
+  if (useCache && cachedLiveStats && cachedLiveStats.expiresAt > Date.now()) {
+    return cachedLiveStats.stats
+  }
+
   const [countryRows, modelRows] = await Promise.all([
     db
       .select({
@@ -57,7 +71,7 @@ export async function getFreebuffLiveStats(
         count: count(),
       })
       .from(schema.freeSession)
-      .where(liveSessionWhere(now))
+      .where(liveSessionWhere(requestTime))
       .groupBy(schema.freeSession.country_code),
     db
       .select({
@@ -65,7 +79,7 @@ export async function getFreebuffLiveStats(
         count: count(),
       })
       .from(schema.freeSession)
-      .where(liveSessionWhere(now))
+      .where(liveSessionWhere(requestTime))
       .groupBy(schema.freeSession.model),
   ])
 
@@ -84,10 +98,19 @@ export async function getFreebuffLiveStats(
     })),
   )
 
-  return {
+  const stats = {
     totalLiveUsers: models.reduce((sum, row) => sum + row.count, 0),
     countries,
     models,
-    generatedAt: now.toISOString(),
+    generatedAt: requestTime.toISOString(),
   }
+
+  if (useCache) {
+    cachedLiveStats = {
+      expiresAt: Date.now() + LIVE_STATS_CACHE_MS,
+      stats,
+    }
+  }
+
+  return stats
 }

@@ -9,7 +9,8 @@ export async function GET() {
   const stats = await getFreebuffLiveStats()
   return NextResponse.json(stats, {
     headers: {
-      'Cache-Control': 'no-store, max-age=0',
+      'Cache-Control':
+        'public, max-age=0, s-maxage=60, stale-while-revalidate=30',
     },
   })
 }

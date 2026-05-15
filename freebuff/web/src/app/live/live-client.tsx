@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { CopyButton } from '@/components/copy-button'
+import { cn } from '@/lib/utils'
 
 import { COUNTRY_POINTS, WORLD_LAND_PATHS } from './world-map-data'
 
@@ -14,9 +15,15 @@ import type { FreebuffLiveStats } from '@/server/live-stats'
 import type { LucideIcon } from 'lucide-react'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
-const POLL_MS = 15_000
+const POLL_MS = 60_000
 const MAP_SIZE = { width: 1000, height: 520 }
 const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' })
+const EMPTY_LIVE_STATS: FreebuffLiveStats = {
+  totalLiveUsers: 0,
+  countries: [],
+  models: [],
+  generatedAt: '1970-01-01T00:00:00.000Z',
+}
 type CountryPoint = readonly [lat: number, lon: number]
 type PlottedCountry = FreebuffLiveStats['countries'][number] & {
   point: CountryPoint
@@ -106,7 +113,10 @@ function isPlottedCountry(
   return country !== null
 }
 
-function useLiveStats(initialStats: FreebuffLiveStats) {
+function useLiveStats(
+  initialStats: FreebuffLiveStats,
+  options: { refreshOnMount?: boolean } = {},
+) {
   const [stats, setStats] = useState(initialStats)
 
   useEffect(() => {
@@ -123,12 +133,16 @@ function useLiveStats(initialStats: FreebuffLiveStats) {
       }
     }
 
+    if (options.refreshOnMount) {
+      void refresh()
+    }
+
     const interval = window.setInterval(refresh, POLL_MS)
     return () => {
       isMounted = false
       window.clearInterval(interval)
     }
-  }, [])
+  }, [options.refreshOnMount])
 
   return stats
 }
@@ -186,7 +200,15 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   )
 }
 
-function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
+function WorldMap({
+  stats,
+  compact = false,
+  isLoading = false,
+}: {
+  stats: FreebuffLiveStats
+  compact?: boolean
+  isLoading?: boolean
+}) {
   const maxCount = Math.max(1, ...stats.countries.map((row) => row.count))
   const plottedCountries = stats.countries
     .map((country) => {
@@ -199,20 +221,25 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
   return (
     <section className="relative self-start overflow-hidden rounded-lg border border-white/10 bg-[#020807] shadow-[0_24px_90px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.05)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(34,211,238,0.14),transparent_38%),linear-gradient(180deg,rgba(124,255,63,0.04),rgba(0,0,0,0.2))]" />
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-black/45 px-3 py-2 backdrop-blur md:left-5 md:top-5">
-        <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
-          Active countries
+      {!compact && (
+        <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-black/45 px-3 py-2 backdrop-blur md:left-5 md:top-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
+            Active countries
+          </div>
+          <div className="mt-1 text-2xl font-serif leading-none text-white">
+            {stats.countries.length.toLocaleString()}
+          </div>
         </div>
-        <div className="mt-1 text-2xl font-serif leading-none text-white">
-          {stats.countries.length.toLocaleString()}
-        </div>
-      </div>
+      )}
 
       <svg
         viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
         role="img"
         aria-label="World map of live Freebuff users by country"
-        className="relative h-[300px] w-full md:h-[520px]"
+        className={cn(
+          'relative w-full',
+          compact ? 'h-[230px] md:h-[380px]' : 'h-[300px] md:h-[520px]',
+        )}
       >
         <defs>
           <pattern
@@ -355,7 +382,12 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
         })}
       </svg>
 
-      {plottedCountries.length === 0 && (
+      {plottedCountries.length === 0 && isLoading && (
+        <div className="absolute inset-x-6 top-1/2 mx-auto max-w-sm -translate-y-1/2 rounded-lg border border-white/10 bg-black/55 px-5 py-4 text-center backdrop-blur">
+          <div className="font-serif text-2xl text-white">Loading live map</div>
+        </div>
+      )}
+      {plottedCountries.length === 0 && !isLoading && (
         <div className="absolute inset-x-6 top-1/2 mx-auto max-w-sm -translate-y-1/2 rounded-lg border border-white/10 bg-black/55 px-5 py-4 text-center backdrop-blur">
           <div className="font-serif text-2xl text-white">Standing by</div>
           <div className="mt-1 text-sm text-white/50">
@@ -363,12 +395,52 @@ function WorldMap({ stats }: { stats: FreebuffLiveStats }) {
           </div>
         </div>
       )}
-      {unplottedCount > 0 && (
+      {!compact && unplottedCount > 0 && (
         <div className="absolute bottom-4 right-4 rounded-md border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/48 backdrop-blur">
           {unplottedCount} region{unplottedCount === 1 ? '' : 's'} listed
           off-map
         </div>
       )}
+    </section>
+  )
+}
+
+export function CompactLiveStats({
+  initialStats = EMPTY_LIVE_STATS,
+}: {
+  initialStats?: FreebuffLiveStats
+}) {
+  const stats = useLiveStats(initialStats, { refreshOnMount: true })
+  const isLoading = stats.generatedAt === EMPTY_LIVE_STATS.generatedAt
+
+  return (
+    <section className="relative overflow-hidden bg-black py-14 md:py-20">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(124,255,63,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.035)_1px,transparent_1px)] bg-[size:56px_56px]" />
+      <div className="relative container mx-auto px-4">
+        <div className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <motion.span
+                className="h-2.5 w-2.5 rounded-full bg-acid-matrix shadow-[0_0_20px_rgba(124,255,63,0.95)]"
+                animate={{ opacity: [0.45, 1, 0.45], scale: [0.8, 1.2, 0.8] }}
+                transition={{
+                  duration: 1.9,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              />
+              <span className="font-mono text-xs uppercase tracking-[0.22em] text-white/48">
+                Active users
+              </span>
+            </div>
+            <div className="mt-2 font-mono text-5xl font-medium leading-none text-acid-matrix neon-text md:text-7xl">
+              {isLoading ? '...' : stats.totalLiveUsers.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        <WorldMap stats={stats} compact isLoading={isLoading} />
+      </div>
     </section>
   )
 }
