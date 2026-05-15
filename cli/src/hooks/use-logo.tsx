@@ -26,6 +26,12 @@ interface UseLogoOptions {
    * Block color for solid block characters (white for dark mode, black for light mode)
    */
   blockColor?: string
+  /**
+   * Optional vertical budget (in rows) for the logo. When fewer than the
+   * ASCII art's 6 lines are available, the hook downgrades to the single-line
+   * text variant so callers on short terminals don't have to special-case it.
+   */
+  maxHeight?: number
 }
 
 interface LogoResult {
@@ -61,12 +67,19 @@ export const useLogo = ({
   textColor,
   accentColor = '#9EFC62',
   blockColor = '#ffffff',
+  maxHeight,
 }: UseLogoOptions): LogoResult => {
+  // The ASCII art (full and small) is 6 lines tall. If the caller can't spare
+  // that many rows, collapse straight to the single-line text variant.
+  const ASCII_LOGO_LINES = 6
   const rawLogoString = useMemo(() => {
+    if (maxHeight != null && maxHeight < ASCII_LOGO_LINES) {
+      return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
+    }
     if (availableWidth >= 70) return LOGO
     if (availableWidth >= 20) return LOGO_SMALL
     return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
-  }, [availableWidth])
+  }, [availableWidth, maxHeight])
 
   // Format text block for plain text contexts (chat messages, etc.)
   const textBlock = useMemo(() => {
@@ -84,7 +97,14 @@ export const useLogo = ({
     // Text-only variant for very narrow widths
     if (rawLogoString === 'CODEBUFF' || rawLogoString === 'FREEBUFF') {
       const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
-      const displayText = availableWidth < 30 ? brandName : `${brandName} CLI`
+      // When we collapsed to text purely to fit a short terminal (not because
+      // the terminal is narrow), keep it to the bare brand name — "Freebuff
+      // CLI" reads as filler in that already-cramped space.
+      const forcedByHeight = maxHeight != null && maxHeight < ASCII_LOGO_LINES
+      const displayText =
+        availableWidth < 30 || forcedByHeight
+          ? brandName
+          : `${brandName} CLI`
 
       return (
         <text style={{ wrapMode: 'none' }}>
@@ -135,7 +155,7 @@ export const useLogo = ({
         ))}
       </>
     )
-  }, [rawLogoString, availableWidth, applySheenToChar, textColor, accentColor, blockColor])
+  }, [rawLogoString, availableWidth, applySheenToChar, textColor, accentColor, blockColor, maxHeight])
 
   return { component, textBlock }
 }

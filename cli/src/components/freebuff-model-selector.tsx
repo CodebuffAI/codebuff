@@ -1,6 +1,12 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { Button } from './button'
 import {
@@ -24,7 +30,7 @@ import {
 } from '../utils/freebuff-model-navigation'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
-import type { KeyEvent } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
 // Section grouping: premium models share one quota pool, unlimited has none.
 // Putting the tier on a section header lets each row drop its redundant
@@ -58,8 +64,22 @@ type Section = {
  * PREMIUM section header. Names align in a column so taglines line up across
  * rows. On narrow terminals the secondary details (warning / deployment
  * hours) drop onto an indented second line under the row.
+ *
+ * On short terminals the parent passes `maxHeight`: the row list then lives
+ * in a scrollbox capped at that many rows, a scrollbar appears when the
+ * models don't all fit, and Tab/arrow navigation keeps the focused row
+ * scrolled into view.
  */
-export const FreebuffModelSelector: React.FC = () => {
+interface FreebuffModelSelectorProps {
+  /** Max vertical rows the picker may occupy. When the rendered rows exceed
+   *  this, the list scrolls (scrollbar shown, focused row kept in view);
+   *  otherwise the scrollbox shrinks to fit and no scrollbar appears. */
+  maxHeight: number
+}
+
+export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
+  maxHeight,
+}) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
   // waiting-room screen wraps this picker in a `maxWidth: contentMaxWidth`
@@ -216,6 +236,50 @@ export const FreebuffModelSelector: React.FC = () => {
       nameColumnWidth: maxNameLen,
     }
   }, [availableModels, contentMaxWidth, deploymentAvailabilityLabel, showTagline])
+
+  // Flattened vertical layout: every model's top offset + height within the
+  // scroll content, plus the total. Mirrors the JSX below exactly so the
+  // auto-scroll math lands the focused row precisely. A button is 2 border
+  // rows + its text line(s); in wrapDetails mode a row with a warning or
+  // deployment-hours label spills its details onto a second indented line.
+  // Headers add 1 row; sections after the first add 1 row of marginTop.
+  const SECTION_GAP = 1
+  const { totalHeight, offsetById } = useMemo(() => {
+    const offsets: Record<string, { top: number; height: number }> = {}
+    let y = 0
+    sections.forEach((section, idx) => {
+      if (idx > 0) y += SECTION_GAP
+      if (section.label) y += 1
+      section.models.forEach((m) => {
+        const wraps =
+          wrapDetails && (!!m.warning || m.availability === 'deployment_hours')
+        const h = 2 /* borders */ + (wraps ? 2 : 1)
+        offsets[m.id] = { top: y, height: h }
+        y += h
+      })
+    })
+    return { totalHeight: y, offsetById: offsets }
+  }, [sections, wrapDetails])
+
+  const needsScroll = totalHeight > maxHeight
+  const scrollViewportHeight = Math.max(1, Math.min(totalHeight, maxHeight))
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  // Keep the keyboard-focused row inside the viewport as the user Tabs/arrows
+  // through a list taller than the available rows.
+  useEffect(() => {
+    const sb = scrollRef.current
+    if (!sb || !needsScroll) return
+    const entry = offsetById[focusedId]
+    if (!entry) return
+    const viewportHeight = sb.viewport.height
+    const currentScroll = sb.scrollTop
+    if (entry.top < currentScroll) {
+      sb.scrollTop = entry.top
+    } else if (entry.top + entry.height > currentScroll + viewportHeight) {
+      sb.scrollTop = entry.top + entry.height - viewportHeight
+    }
+  }, [focusedId, offsetById, needsScroll])
 
   const isJoinable = useCallback(
     (modelId: string) => {
@@ -376,30 +440,61 @@ export const FreebuffModelSelector: React.FC = () => {
     )
   }
 
-  return (
+  const sectionsContent = sections.map((section, sectionIdx) => (
     <box
+      key={section.key}
       style={{
         flexDirection: 'column',
         alignItems: 'flex-start',
         gap: 0,
+        marginTop: sectionIdx === 0 ? 0 : SECTION_GAP,
       }}
     >
-      {sections.map((section, sectionIdx) => (
-        <box
-          key={section.key}
-          style={{
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            gap: 0,
-            marginTop: sectionIdx === 0 ? 0 : 1,
-          }}
-        >
-          {section.label && (
-            <text style={{ fg: theme.muted }}>{section.label}</text>
-          )}
-          {section.models.map(renderModelButton)}
-        </box>
-      ))}
+      {section.label && (
+        <text style={{ fg: theme.muted }}>{section.label}</text>
+      )}
+      {section.models.map(renderModelButton)}
     </box>
+  ))
+
+  // Scrollbox clamped to the rows the parent can spare. When everything fits
+  // it shrinks to the content height and no scrollbar shows, so tall
+  // terminals look exactly like a plain column.
+  return (
+    <scrollbox
+      ref={scrollRef}
+      scrollX={false}
+      scrollbarOptions={{ visible: false }}
+      verticalScrollbarOptions={{
+        visible: needsScroll,
+        trackOptions: { width: 1 },
+      }}
+      style={{
+        height: scrollViewportHeight,
+        // A scrollbox stretches to fill its parent, which would left-align
+        // the picker; pin it to the button column width (plus a gutter for
+        // the scrollbar) so the landing block stays content-sized and the
+        // parent can center it as it did before this was a scrollbox.
+        width: buttonOuterWidth + (needsScroll ? 1 : 0),
+        flexShrink: 0,
+        rootOptions: {
+          flexDirection: 'row',
+          backgroundColor: 'transparent',
+        },
+        wrapperOptions: {
+          border: false,
+          backgroundColor: 'transparent',
+          flexDirection: 'column',
+        },
+        contentOptions: {
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 0,
+          backgroundColor: 'transparent',
+        },
+      }}
+    >
+      {sectionsContent}
+    </scrollbox>
   )
 }

@@ -256,7 +256,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 }) => {
   const theme = useTheme()
   const renderer = useRenderer()
-  const { terminalWidth, contentMaxWidth } = useTerminalDimensions()
+  const { terminalWidth, terminalHeight, contentMaxWidth } =
+    useTerminalDimensions()
+
+  // Progressive disclosure as the terminal gets shorter. The picker is the
+  // only thing the user must be able to reach, so chrome is shed first:
+  //   tall   (>=26): full ASCII logo + roomy spacing, content anchored low
+  //   medium (>=18): one-line text logo, tightened spacing, content up top
+  //   short  (<18) : no logo at all
+  //   tiny   (<15) : also drop the ad banner
+  // Section headers always show — the picker scrolls within whatever rows
+  // remain (see selectorMaxHeight below), so there's no need to hide them.
+  const logoMode: 'full' | 'text' | 'none' =
+    terminalHeight >= 26 ? 'full' : terminalHeight >= 19 ? 'text' : 'none'
+  const compact = terminalHeight < 22
+  const showAds = terminalHeight >= 16
+  const textMarginBottom = compact ? 0 : 1
+  const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
   const blockColor = getLogoBlockColor(theme.name)
@@ -274,6 +290,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     accentColor,
     blockColor,
     applySheenToChar,
+    // 'text' forces the one-line variant; 'none' is handled by not rendering.
+    maxHeight: logoMode === 'full' ? undefined : 1,
   })
 
   // Always enable ads in the waiting room — this is where monetization lives.
@@ -351,6 +369,48 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     now,
   )
 
+  // Rows the picker may occupy = terminal height minus the fixed chrome
+  // around it. Each term mirrors the real layout exactly (no padded
+  // estimate, no blanket safety row) so the scrollbox fills the available
+  // space with no dead band below it:
+  //   - top bar: paddingTop 1 + the ✕ row = 2
+  //   - ad banner: CHOICE_AD_BANNER_HEIGHT, only when shown
+  //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
+  //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
+  //   - the prompt/counter (landing) or the position panel (queued)
+  // Line wrapping is derived from the actual strings vs contentMaxWidth, so
+  // a wrapped counter is accounted for precisely instead of guessed at.
+  const wrappedRows = (text: string) =>
+    Math.max(1, Math.ceil(text.length / contentMaxWidth))
+  const counterText =
+    `${formattedSharedPremiumUsed} of ${sessionLimit} ${sessionLabel} used, ` +
+    `resets in ${premiumResetCountdown}`
+  const logoBlockRows =
+    logoMode === 'none'
+      ? 0
+      : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
+  const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
+  const adRows = showAds ? CHOICE_AD_BANNER_HEIGHT : 0
+  const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
+  const landingTextRows =
+    wrappedRows('Pick a model to start') +
+    textMarginBottom +
+    wrappedRows(counterText) +
+    textMarginBottom
+  const queuedTextRows =
+    wrappedRows("You're in the waiting room") +
+    1 /* marginBottom */ +
+    4 /* position panel */
+  const selectorMaxHeight = Math.max(
+    3,
+    terminalHeight -
+      reservedChrome -
+      (isQueued ? queuedTextRows : landingTextRows),
+  )
+  // The limited-tier panel owns its own title/counter, so the only chrome
+  // around it is the shared frame (no extra prompt rows to subtract).
+  const limitedPanelMaxHeight = Math.max(3, terminalHeight - reservedChrome)
+
   useEffect(() => {
     if (!isLanding || !premiumRateLimit) return
 
@@ -415,16 +475,26 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           flexGrow: 1,
           flexDirection: 'column',
           alignItems: 'center',
-          // flex-end so the logo + title + info clump sits just above the ad,
-          // matching how chat anchors its header/messages to the input bar.
-          justifyContent: 'flex-end',
+          // With the full logo we anchor the clump low (flex-end), matching how
+          // chat pins its header/messages to the input bar. Once the logo is
+          // shrunk/hidden on shorter terminals, anchoring low just leaves a big
+          // dead band under the top bar — so hug the top instead.
+          justifyContent: logoMode === 'full' ? 'flex-end' : 'flex-start',
           paddingLeft: 2,
           paddingRight: 2,
+          // A row of breathing room under the top bar for the text logo; the
+          // full logo brings its own spacing and the tiniest (no-logo) screens
+          // can't spare the row.
+          paddingTop: logoMode === 'text' ? 1 : 0,
           paddingBottom: 1,
-          gap: 1,
+          gap: logoMode === 'full' ? 1 : 0,
         }}
       >
-        <box style={{ marginBottom: 1 }}>{logoComponent}</box>
+        {logoMode !== 'none' && (
+          <box style={{ marginBottom: 1, flexShrink: 0 }}>
+            {logoComponent}
+          </box>
+        )}
 
         <box
           style={{
@@ -449,6 +519,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           {isLanding && accessTier === 'limited' && (
             <LimitedLandingPanel
               isQuotaExhausted={isPremiumExhausted}
+              maxHeight={limitedPanelMaxHeight}
+              sessionCounterText={`${formatSessionUnits(
+                sharedPremiumUsed,
+              )} of ${sessionLimit} ${sessionLabel} used, resets in ${premiumResetCountdown}`}
               sessionCounter={
                 <>
                   <span fg={premiumUsedColor}>
@@ -472,13 +546,19 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 gap: 0,
               }}
             >
-              <text style={{ marginBottom: 1, wrapMode: 'word' }}>
+              <text
+                style={{ marginBottom: textMarginBottom, wrapMode: 'word' }}
+              >
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
                 </span>
               </text>
               <text
-                style={{ fg: theme.muted, marginBottom: 1, wrapMode: 'word' }}
+                style={{
+                  fg: theme.muted,
+                  marginBottom: textMarginBottom,
+                  wrapMode: 'word',
+                }}
               >
                 <span fg={premiumUsedColor}>
                   {formattedSharedPremiumUsed} of {sessionLimit} {sessionLabel}{' '}
@@ -489,7 +569,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   resets in {premiumResetCountdown}
                 </span>
               </text>
-              <FreebuffModelSelector />
+              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
             </box>
           )}
 
@@ -512,7 +592,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   : "You're in the waiting room"}
               </text>
 
-              <FreebuffModelSelector />
+              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
 
               <box
                 style={{
@@ -637,20 +717,26 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       </box>
 
       {/* Reserve the ad banner slot before the async ad fetch resolves so the
-          waiting-room content does not jump when the banner fills. */}
-      <box
-        style={{
-          width: '100%',
-          flexShrink: 0,
-          height: CHOICE_AD_BANNER_HEIGHT,
-        }}
-      >
-        {ads ? (
-          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
-        ) : (
-          <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
-        )}
-      </box>
+          waiting-room content does not jump when the banner fills. On very
+          short terminals the banner is dropped entirely to give the picker
+          back its 5 rows. */}
+      {showAds && (
+        <box
+          style={{
+            width: '100%',
+            flexShrink: 0,
+            height: CHOICE_AD_BANNER_HEIGHT,
+          }}
+        >
+          {ads ? (
+            <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
+          ) : (
+            <text style={{ fg: theme.muted }}>
+              {'─'.repeat(terminalWidth)}
+            </text>
+          )}
+        </box>
+      )}
     </box>
   )
 }
