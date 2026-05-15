@@ -95,7 +95,7 @@ function getTargetInfo(): TargetInfo {
       arch: 'arm64',
     },
     'win32-x64': {
-      bunTarget: 'bun-windows-x64',
+      bunTarget: 'bun-windows-x64-baseline',
       platform: 'win32',
       arch: 'x64',
     },

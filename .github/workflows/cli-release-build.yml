@@ -321,7 +321,7 @@ jobs:
         shell: bash
         env:
           VERBOSE: true
-          OVERRIDE_TARGET: bun-windows-x64
+          OVERRIDE_TARGET: bun-windows-x64-baseline
           OVERRIDE_PLATFORM: win32
           OVERRIDE_ARCH: x64
 

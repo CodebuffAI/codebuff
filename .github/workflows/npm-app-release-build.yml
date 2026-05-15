@@ -53,7 +53,7 @@ jobs:
             arch: arm64
           - os: windows-latest
             target: win32-x64
-            bun_target: bun-windows-x64
+            bun_target: bun-windows-x64-baseline
             platform: win32
             arch: x64
     runs-on: ${{ matrix.os }}
