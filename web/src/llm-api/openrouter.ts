@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -154,6 +155,7 @@ export async function handleOpenRouterNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
   const byok = openrouterApiKey !== null
 
   // If n > 1, make n parallel requests
@@ -200,7 +202,7 @@ export async function handleOpenRouterNonStream({
       messageId: firstData.id,
       userId,
       startTime,
-      request: body,
+      request: auditRequest,
       reasoningText,
       responseText,
       usageData: aggregatedUsage,
@@ -272,7 +274,7 @@ export async function handleOpenRouterNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -337,6 +339,7 @@ export async function handleOpenRouterStream({
 
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const byok = openrouterApiKey !== null
   const response = await createOpenRouterRequest({
@@ -388,7 +391,7 @@ export async function handleOpenRouterStream({
       byok,
       startTime,
       state,
-      request: body,
+      request: auditRequest,
       fetch,
       logger,
       insertMessage: insertMessageBigquery,
@@ -448,7 +451,7 @@ export async function handleOpenRouterStream({
               costMode,
               byok,
               startTime,
-              request: body,
+              request: auditRequest,
               line,
               state,
               logger,

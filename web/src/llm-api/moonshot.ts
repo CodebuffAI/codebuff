@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -288,6 +289,7 @@ export async function handleMoonshotNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createMoonshotRequest({ body, originalModel, fetch })
   if (!response.ok) {
@@ -306,7 +308,7 @@ export async function handleMoonshotNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -368,6 +370,7 @@ export async function handleMoonshotStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createMoonshotRequest({ body, originalModel, fetch })
   if (!response.ok) {
@@ -435,7 +438,7 @@ export async function handleMoonshotStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

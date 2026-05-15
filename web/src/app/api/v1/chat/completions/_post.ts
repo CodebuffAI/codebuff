@@ -42,6 +42,7 @@ import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
+import { createRequestAuditRecord } from '@/llm-api/helpers'
 import {
   CanopyWaveError,
   handleCanopyWaveNonStream,
@@ -874,9 +875,7 @@ export async function postChatCompletions(params: {
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const shouldRecordMessages = freebuffAccessTier !== 'limited'
-      const { messages: _messages, ...bodyWithoutMessages } = body
-      const telemetryBody = shouldRecordMessages ? body : bodyWithoutMessages
+      const telemetryBody = createRequestAuditRecord(body)
       const providerLabel = siliconflowError
         ? 'SiliconFlow'
         : opencodeZenError
@@ -904,9 +903,8 @@ export async function postChatCompletions(params: {
           messageCount: Array.isArray(typedBody.messages)
             ? typedBody.messages.length
             : 0,
-          ...(shouldRecordMessages
-            ? { messages: typedBody.messages }
-            : { messagesOmitted: true, accessTier: freebuffAccessTier }),
+          messagesOmitted: true,
+          accessTier: freebuffAccessTier,
           providerStatusCode: (
             openrouterError ??
             fireworksError ??
