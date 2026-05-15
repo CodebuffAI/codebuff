@@ -11,6 +11,7 @@ import { env } from '@codebuff/internal/env'
 import { FIREWORKS_DEPLOYMENT_MAP } from './fireworks-config'
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -273,6 +274,7 @@ export async function handleFireworksNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createFireworksRequestWithFallback({
     body,
@@ -298,7 +300,7 @@ export async function handleFireworksNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -362,6 +364,7 @@ export async function handleFireworksStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createFireworksRequestWithFallback({
     body,
@@ -431,7 +434,7 @@ export async function handleFireworksStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

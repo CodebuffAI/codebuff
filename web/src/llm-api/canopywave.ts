@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -165,6 +166,7 @@ export async function handleCanopyWaveNonStream({
   const originalModel = body.model
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createCanopyWaveRequest({ body, originalModel, fetch })
 
@@ -181,7 +183,7 @@ export async function handleCanopyWaveNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -242,6 +244,7 @@ export async function handleCanopyWaveStream({
   const originalModel = body.model
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createCanopyWaveRequest({ body, originalModel, fetch })
 
@@ -305,7 +308,7 @@ export async function handleCanopyWaveStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

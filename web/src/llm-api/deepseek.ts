@@ -7,6 +7,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -203,6 +204,7 @@ export async function handleDeepSeekNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createDeepSeekRequest({ body, originalModel, fetch })
 
@@ -222,7 +224,7 @@ export async function handleDeepSeekNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -286,6 +288,7 @@ export async function handleDeepSeekStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
   const skipDisconnectedBilling = isDeepSeekV4FlashModel(body.model)
 
   const response = await createDeepSeekRequest({ body, originalModel, fetch })
@@ -355,7 +358,7 @@ export async function handleDeepSeekStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

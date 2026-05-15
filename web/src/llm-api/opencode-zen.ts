@@ -7,6 +7,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -260,6 +261,7 @@ export async function handleOpenCodeZenNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createOpenCodeZenRequest({
     body,
@@ -282,7 +284,7 @@ export async function handleOpenCodeZenNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -344,6 +346,7 @@ export async function handleOpenCodeZenStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createOpenCodeZenRequest({
     body,
@@ -415,7 +418,7 @@ export async function handleOpenCodeZenStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

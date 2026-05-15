@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -63,7 +64,6 @@ const OUTPUT_TOKEN_COSTS: Record<string, number> = {
 // Extended timeout for deep-thinking models (e.g., gpt-5.x) that can take
 // a long time to start streaming.
 const OPENAI_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
-
 const openaiAgent = new Agent({
   headersTimeout: OPENAI_HEADERS_TIMEOUT_MS,
   bodyTimeout: 0,
@@ -234,8 +234,10 @@ export async function handleOpenAINonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
-  const modelShortName = extractShortModelName(body.model)
+  const originalModel = body.model
+  const modelShortName = extractShortModelName(originalModel)
   const openaiBody = buildOpenAIBody(body, modelShortName)
   openaiBody.stream = false
   if (n) openaiBody.n = n
@@ -276,7 +278,7 @@ export async function handleOpenAINonStream({
       messageId: data.id,
       userId,
       startTime,
-      request: body,
+      request: auditRequest,
       reasoningText,
       responseText,
       usageData,
@@ -297,7 +299,7 @@ export async function handleOpenAINonStream({
       clientId,
       clientRequestId,
       startTime,
-      model: body.model,
+      model: originalModel,
       reasoningText,
       responseText,
       usageData,
@@ -332,7 +334,7 @@ export async function handleOpenAINonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -353,7 +355,7 @@ export async function handleOpenAINonStream({
     clientId,
     clientRequestId,
     startTime,
-    model: body.model,
+    model: originalModel,
     reasoningText,
     responseText: content,
     usageData,
@@ -393,8 +395,10 @@ export async function handleOpenAIStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
-  const modelShortName = extractShortModelName(body.model)
+  const originalModel = body.model
+  const modelShortName = extractShortModelName(originalModel)
   const openaiBody = buildOpenAIBody(body, modelShortName)
   openaiBody.stream = true
   openaiBody.stream_options = { include_usage: true }
@@ -527,7 +531,7 @@ export async function handleOpenAIStream({
                       messageId: obj.id,
                       userId,
                       startTime,
-                      request: body,
+                      request: auditRequest,
                       reasoningText,
                       responseText,
                       usageData,
@@ -548,7 +552,7 @@ export async function handleOpenAIStream({
                       clientId,
                       clientRequestId,
                       startTime,
-                      model: body.model,
+                      model: originalModel,
                       reasoningText,
                       responseText,
                       usageData,
@@ -615,7 +619,7 @@ export async function handleOpenAIStream({
                     messageId: obj.id,
                     userId,
                     startTime,
-                    request: body,
+                    request: auditRequest,
                     reasoningText,
                     responseText,
                     usageData,
@@ -636,7 +640,7 @@ export async function handleOpenAIStream({
                     clientId,
                     clientRequestId,
                     startTime,
-                    model: body.model,
+                    model: originalModel,
                     reasoningText,
                     responseText,
                     usageData,
