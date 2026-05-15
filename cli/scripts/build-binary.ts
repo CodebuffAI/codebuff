@@ -12,7 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'fs'
-import { tmpdir } from 'os'
+import { homedir, tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -28,6 +28,8 @@ const OVERRIDE_PLATFORM = process.env.OVERRIDE_PLATFORM as
   | NodeJS.Platform
   | undefined
 const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
+const OVERRIDE_COMPILE_EXECUTABLE_PATH =
+  process.env.BUN_COMPILE_EXECUTABLE_PATH
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -111,6 +113,82 @@ function getTargetInfo(): TargetInfo {
   return target
 }
 
+async function getCompileExecutablePath(
+  targetInfo: TargetInfo,
+): Promise<string | undefined> {
+  if (OVERRIDE_COMPILE_EXECUTABLE_PATH) {
+    return OVERRIDE_COMPILE_EXECUTABLE_PATH
+  }
+
+  // Bun 1.3.11 can fail to extract this target from inside `bun build` on
+  // Windows runners. Pre-fetch the official release zip and point Bun at the
+  // extracted runtime so release and Freebuff CI builds still produce the
+  // baseline binary.
+  if (
+    process.platform !== 'win32' ||
+    targetInfo.bunTarget !== 'bun-windows-x64-baseline'
+  ) {
+    return undefined
+  }
+
+  const cacheRoot = join(
+    process.env.BUN_INSTALL ?? join(homedir(), '.bun'),
+    'install',
+    'cache',
+  )
+  const runtimeDir = join(
+    cacheRoot,
+    `${targetInfo.bunTarget}-v${Bun.version}-runtime`,
+  )
+  const runtimePath = join(runtimeDir, 'bun.exe')
+
+  if (existsSync(runtimePath)) {
+    return runtimePath
+  }
+
+  rmSync(runtimeDir, { recursive: true, force: true })
+  mkdirSync(runtimeDir, { recursive: true })
+
+  const zipPath = join(runtimeDir, `${targetInfo.bunTarget}.zip`)
+  const downloadUrl = `https://github.com/oven-sh/bun/releases/download/bun-v${Bun.version}/${targetInfo.bunTarget}.zip`
+
+  logAlways(`Downloading ${targetInfo.bunTarget}: ${downloadUrl}`)
+  const response = await fetch(downloadUrl)
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download ${targetInfo.bunTarget}: ${response.status} ${response.statusText}`,
+    )
+  }
+  writeFileSync(zipPath, new Uint8Array(await response.arrayBuffer()))
+
+  runCommand(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      `Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${runtimeDir.replaceAll("'", "''")}' -Force`,
+    ],
+    { env: process.env },
+  )
+
+  const extractedRuntimePath = join(
+    runtimeDir,
+    'bun-windows-x64-baseline',
+    'bun.exe',
+  )
+  if (!existsSync(extractedRuntimePath)) {
+    throw new Error(
+      `Downloaded ${targetInfo.bunTarget}, but bun.exe was not found at ${extractedRuntimePath}`,
+    )
+  }
+
+  writeFileSync(runtimePath, readFileSync(extractedRuntimePath))
+  return runtimePath
+}
+
 async function main() {
   const [, , binaryNameArg, version] = process.argv
   const binaryName = binaryNameArg ?? 'codecane'
@@ -122,6 +200,7 @@ async function main() {
   log(`Building ${binaryName} @ ${version}`)
 
   const targetInfo = getTargetInfo()
+  const compileExecutablePath = await getCompileExecutablePath(targetInfo)
   const binDir = join(cliRoot, 'bin')
 
   if (!existsSync(binDir)) {
@@ -172,6 +251,9 @@ async function main() {
     '--compile',
     '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
     `--target=${targetInfo.bunTarget}`,
+    ...(compileExecutablePath
+      ? [`--compile-executable-path=${compileExecutablePath}`]
+      : []),
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
