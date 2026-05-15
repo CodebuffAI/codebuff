@@ -315,13 +315,18 @@ jobs:
             echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
           fi
 
+      - name: Prepare Windows baseline Bun compile runtime
+        uses: ./.github/actions/setup-bun-compile-runtime
+        with:
+          target: bun-windows-x64-baseline
+
       - name: Build binary
         run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
         working-directory: cli
         shell: bash
         env:
           VERBOSE: true
-          OVERRIDE_TARGET: bun-windows-x64
+          OVERRIDE_TARGET: bun-windows-x64-baseline
           OVERRIDE_PLATFORM: win32
           OVERRIDE_ARCH: x64
 

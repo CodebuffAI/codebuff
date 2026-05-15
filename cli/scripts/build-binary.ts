@@ -28,6 +28,8 @@ const OVERRIDE_PLATFORM = process.env.OVERRIDE_PLATFORM as
   | NodeJS.Platform
   | undefined
 const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
+const OVERRIDE_COMPILE_EXECUTABLE_PATH =
+  process.env.BUN_COMPILE_EXECUTABLE_PATH
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -95,7 +97,7 @@ function getTargetInfo(): TargetInfo {
       arch: 'arm64',
     },
     'win32-x64': {
-      bunTarget: 'bun-windows-x64',
+      bunTarget: 'bun-windows-x64-baseline',
       platform: 'win32',
       arch: 'x64',
     },
@@ -172,6 +174,9 @@ async function main() {
     '--compile',
     '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
     `--target=${targetInfo.bunTarget}`,
+    ...(OVERRIDE_COMPILE_EXECUTABLE_PATH
+      ? [`--compile-executable-path=${OVERRIDE_COMPILE_EXECUTABLE_PATH}`]
+      : []),
     `--outfile=${outputFile}`,
     '--sourcemap=none',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
