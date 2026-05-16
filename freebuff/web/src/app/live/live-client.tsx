@@ -9,21 +9,18 @@ import { useEffect, useState } from 'react'
 import { CopyButton } from '@/components/copy-button'
 import { cn } from '@/lib/utils'
 
+import {
+  EMPTY_LIVE_STATS,
+  countryName,
+  useLiveStats,
+} from './live-stats-client'
 import { COUNTRY_POINTS, WORLD_LAND_PATHS } from './world-map-data'
 
 import type { FreebuffLiveStats } from '@/server/live-stats'
 import type { LucideIcon } from 'lucide-react'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
-const POLL_MS = 60_000
 const MAP_SIZE = { width: 1000, height: 520 }
-const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' })
-const EMPTY_LIVE_STATS: FreebuffLiveStats = {
-  totalLiveUsers: 0,
-  countries: [],
-  models: [],
-  generatedAt: '1970-01-01T00:00:00.000Z',
-}
 type CountryPoint = readonly [lat: number, lon: number]
 type PlottedCountry = FreebuffLiveStats['countries'][number] & {
   point: CountryPoint
@@ -46,14 +43,6 @@ const SETUP_STEPS = [
   INSTALL_COMMAND,
   'freebuff',
 ]
-
-function countryName(code: string): string {
-  if (code === 'UNKNOWN') {
-    return 'Unknown'
-  }
-
-  return /^[A-Z]{2}$/.test(code) ? (REGION_NAMES.of(code) ?? code) : code
-}
 
 function formattedTime(iso: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -111,40 +100,6 @@ function isPlottedCountry(
   country: PlottedCountry | null,
 ): country is PlottedCountry {
   return country !== null
-}
-
-function useLiveStats(
-  initialStats: FreebuffLiveStats,
-  options: { refreshOnMount?: boolean } = {},
-) {
-  const [stats, setStats] = useState(initialStats)
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function refresh() {
-      try {
-        const response = await fetch('/api/live', { cache: 'no-store' })
-        if (response.ok && isMounted) {
-          setStats((await response.json()) as FreebuffLiveStats)
-        }
-      } catch {
-        // Keep the previous snapshot if a transient refresh fails.
-      }
-    }
-
-    if (options.refreshOnMount) {
-      void refresh()
-    }
-
-    const interval = window.setInterval(refresh, POLL_MS)
-    return () => {
-      isMounted = false
-      window.clearInterval(interval)
-    }
-  }, [options.refreshOnMount])
-
-  return stats
 }
 
 function LiveUsersHero({ value }: { value: number }) {

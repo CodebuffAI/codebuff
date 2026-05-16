@@ -13,7 +13,7 @@ import { CopyButton } from '@/components/copy-button'
 import { HeroGrid } from '@/components/hero-grid'
 import { Icons } from '@/components/icons'
 import { cn } from '@/lib/utils'
-import { CompactLiveStats } from './live/live-client'
+import { HomepageLiveStats } from './live/live-summary'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
 
@@ -569,7 +569,7 @@ export default function HomeClient() {
         </div>
       </div>
 
-      <CompactLiveStats />
+      <HomepageLiveStats />
     </div>
   )
 }
