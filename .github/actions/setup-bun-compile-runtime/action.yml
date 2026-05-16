@@ -3,7 +3,7 @@ description: 'Download and cache a Bun runtime used by bun build --compile-execu
 
 inputs:
   target:
-    description: 'Bun compile target, for example bun-windows-x64-baseline'
+    description: 'Bun compile target, for example bun-windows-x64'
     required: true
 
 runs:
