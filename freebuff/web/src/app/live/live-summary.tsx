@@ -101,7 +101,6 @@ export function HomepageLiveStats({
   const isLoading = stats.generatedAt === EMPTY_LIVE_STATS.generatedAt
   const topCountries = stats.countries.slice(0, 4).map((country) => ({
     label: countryName(country.countryCode),
-    sublabel: country.countryCode,
     value: country.count,
   }))
   const topModels = stats.models.slice(0, 4).map((model) => ({
@@ -133,9 +132,6 @@ export function HomepageLiveStats({
             <div className="mt-3 font-mono text-6xl font-medium leading-none text-acid-matrix neon-text md:text-8xl">
               {isLoading ? '...' : stats.totalLiveUsers.toLocaleString()}
             </div>
-            <p className="mt-4 max-w-md text-sm leading-6 text-white/52 md:text-base">
-              Active Freebuff sessions right now, grouped by country and model.
-            </p>
             <Link
               href="/live"
               className="mt-6 inline-flex items-center gap-2 rounded-md border border-acid-matrix/45 bg-acid-matrix/10 px-4 py-2 text-sm font-medium text-acid-matrix transition-colors hover:bg-acid-matrix/15"
