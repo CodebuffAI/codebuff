@@ -1,4 +1,5 @@
 import { env } from '@codebuff/common/env'
+import { extractApiErrorDetails } from '@codebuff/common/util/error'
 
 import type { ChatMessage } from '../types/chat'
 import type {
@@ -59,6 +60,55 @@ export const isFreeModeUnavailableError = (error: unknown): boolean => {
     return true
   }
   return false
+}
+
+const getTopLevelApiErrorDetails = (
+  error: unknown,
+): {
+  statusCode?: number
+  errorCode?: string
+  message?: string
+} => {
+  if (!error || typeof error !== 'object') return {}
+  const statusCode = (error as { statusCode?: unknown }).statusCode
+  const status = (error as { status?: unknown }).status
+  const errorCode = (error as { error?: unknown }).error
+  const message = (error as { message?: unknown }).message
+  const resolvedStatusCode =
+    typeof statusCode === 'number'
+      ? statusCode
+      : typeof status === 'number'
+        ? status
+        : undefined
+
+  return {
+    ...(resolvedStatusCode !== undefined && { statusCode: resolvedStatusCode }),
+    ...(typeof errorCode === 'string' && { errorCode }),
+    ...(typeof message === 'string' && message.length > 0 && { message }),
+  }
+}
+
+const getCliApiErrorDetails = (error: unknown) => {
+  const parsed = extractApiErrorDetails(error)
+  const topLevel = getTopLevelApiErrorDetails(error)
+
+  return {
+    statusCode: topLevel.statusCode ?? parsed.statusCode,
+    errorCode: topLevel.errorCode ?? parsed.errorCode,
+    // Prefer responseBody messages over top-level HTTP status text.
+    message: parsed.message ?? topLevel.message,
+  }
+}
+
+export const getFreebuffRateLimitErrorMessage = (
+  error: unknown,
+): string | null => {
+  const details = getCliApiErrorDetails(error)
+  if (details.statusCode !== 429) return null
+  if (details.errorCode === 'free_mode_rate_limited') {
+    return details.message ?? FREEBUFF_RATE_LIMIT_MESSAGE
+  }
+  return FREEBUFF_RATE_LIMIT_MESSAGE
 }
 
 export const getCountryBlockFromFreeModeError = (
@@ -133,6 +183,9 @@ export const getFreebuffGateErrorKind = (
 }
 
 export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
+
+export const FREEBUFF_RATE_LIMIT_MESSAGE =
+  'Freebuff is temporarily busy. Please try again in a moment.'
 
 export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_FREEBUFF
   ? 'Freebuff is not available in your country.'
