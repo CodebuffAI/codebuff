@@ -14,6 +14,7 @@ import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
   getCountryBlockFromFreeModeError,
   getFreebuffGateErrorKind,
+  getFreebuffRateLimitErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
@@ -417,6 +418,15 @@ export const handleRunCompletion = (params: {
       return
     }
 
+    const freebuffRateLimitMessage = IS_FREEBUFF
+      ? getFreebuffRateLimitErrorMessage(output)
+      : null
+    if (freebuffRateLimitMessage) {
+      updater.setError(freebuffRateLimitMessage)
+      finalizeAfterError()
+      return
+    }
+
     // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
     updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
@@ -514,6 +524,14 @@ export const handleRunError = (params: {
   const gateKind = getFreebuffGateErrorKind(error)
   if (gateKind) {
     handleFreebuffGateError(gateKind, updater)
+    return
+  }
+
+  const freebuffRateLimitMessage = IS_FREEBUFF
+    ? getFreebuffRateLimitErrorMessage(error)
+    : null
+  if (freebuffRateLimitMessage) {
+    updater.setError(freebuffRateLimitMessage)
     return
   }
 
