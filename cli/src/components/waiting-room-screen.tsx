@@ -73,16 +73,16 @@ const formatRetryAfter = (ms: number): string => {
 }
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
-  {
-    anonymous: 'anonymized network',
-    proxy: 'proxy',
-    relay: 'relay',
-    res_proxy: 'residential proxy',
-    tor: 'Tor',
-    vpn: 'VPN',
-    hosting: 'hosting network',
-    service: 'privacy service',
-  }
+{
+  anonymous: 'anonymized network',
+  proxy: 'proxy',
+  relay: 'relay',
+  res_proxy: 'residential proxy',
+  tor: 'Tor',
+  vpn: 'VPN',
+  hosting: 'hosting network',
+  service: 'privacy service',
+}
 
 const formatPrivacySignalList = (
   signals: FreebuffIpPrivacySignal[] | undefined,
@@ -112,8 +112,8 @@ const getLimitedModeReason = (
 
   const countryCode =
     'countryCode' in session &&
-    session.countryCode &&
-    session.countryCode !== 'UNKNOWN'
+      session.countryCode &&
+      session.countryCode !== 'UNKNOWN'
       ? session.countryCode
       : null
 
@@ -123,7 +123,7 @@ const getLimitedModeReason = (
         session.ipPrivacySignals ?? undefined,
       )} detected`
     case 'country_not_allowed':
-      return `outside available countries${countryCode ? ` (${countryCode})` : ''}`
+      return `based on detected country${countryCode ? `: ${countryCode}` : ''}`
     case 'anonymized_or_unknown_country':
     case 'missing_client_ip':
     case 'unresolved_client_ip':
@@ -404,8 +404,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const selectorMaxHeight = Math.max(
     3,
     terminalHeight -
-      reservedChrome -
-      (isQueued ? queuedTextRows : landingTextRows),
+    reservedChrome -
+    (isQueued ? queuedTextRows : landingTextRows),
   )
   // The limited-tier panel owns its own title/counter, so the only chrome
   // around it is the shared frame (no extra prompt rows to subtract).
@@ -416,7 +416,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
     const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
-      refreshFreebuffLandingMetadata().catch(() => {})
+      refreshFreebuffLandingMetadata().catch(() => { })
     }, delayMs)
 
     return () => clearTimeout(timer)
