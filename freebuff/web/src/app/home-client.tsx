@@ -32,7 +32,7 @@ const faqs = [
   {
     question: 'Which countries is Freebuff available in?',
     answer:
-      'Full Freebuff access is currently available in:\n\nUnited States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, France, Italy, Spain, Portugal, Finland, Belgium, Luxembourg, Liechtenstein, Switzerland, Austria, Singapore, Malta, Israel, Ireland, and Iceland.\n\nIf you are outside those countries or using a VPN, Freebuff still works in limited mode.',
+      'All countries. Freebuff is available in "full" or "limited" mode. The following countries have full access:\n\nUnited States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, France, Italy, Spain, Portugal, Finland, Belgium, Luxembourg, Liechtenstein, Switzerland, Austria, Singapore, Malta, Israel, Ireland, and Iceland.\n\nIf you are outside those countries or using a VPN, Freebuff still works in limited mode.',
   },
   {
     question: 'What is limited mode?',
