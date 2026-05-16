@@ -162,10 +162,10 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=prod" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
 
-      - name: Prepare Windows baseline Bun compile runtime
+      - name: Prepare Windows Bun compile runtime
         uses: ./.github/actions/setup-bun-compile-runtime
         with:
-          target: bun-windows-x64-baseline
+          target: bun-windows-x64
 
       - name: Build Freebuff binary
         run: bun freebuff/cli/build.ts 0.0.0-e2e
