@@ -28,7 +28,7 @@ const inputSchema = z
             .string()
             .min(1, 'Paths cannot be empty')
             .describe(
-              `File path to read relative to the **project root**. Absolute file paths will not work.`,
+              `File path to read. Prefer paths relative to the **project root**; absolute paths inside the project are accepted, but paths outside the project will not work.`,
             ),
         ),
       )
