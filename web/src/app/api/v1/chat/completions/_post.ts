@@ -1,6 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  type FreebuffAccessTier,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   isFreebuffModelAllowedForAccessTier,
   isSupportedFreebuffModelId,
@@ -293,7 +294,7 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
     const stripeCustomerId = userInfo.stripe_customer_id ?? null
-    let freebuffAccessTier: 'full' | 'limited' = 'full'
+    let freebuffAccessTier: FreebuffAccessTier = 'full'
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -311,19 +312,6 @@ export async function postChatCompletions(params: {
       )
     }
 
-    // Track API request. Freebuff success-path analytics are sampled to keep
-    // high-volume free traffic from dominating PostHog and log forwarding.
-    trackSuccessEvent({
-      event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
-      userId,
-      properties: {
-        hasStream: !!bodyStream,
-        hasRunId: !!runId,
-        userInfo,
-      },
-      logger,
-    })
-
     // For free mode requests, classify the request into full or limited
     // access. Disallowed countries and anonymized networks are no longer
     // blocked outright; they are limited to the cheap DeepSeek Flash path.
@@ -338,6 +326,9 @@ export async function postChatCompletions(params: {
           env.FREEBUFF_DEV_FORCE_LIMITED,
       })
       freebuffAccessTier = getFreeModeAccessTier(countryAccess)
+      trackEvent = withDefaultProperties(trackEvent, {
+        accessTier: freebuffAccessTier,
+      })
 
       if (!countryAccess.allowed || sampleFreebuffSuccess) {
         logger.info(
@@ -368,6 +359,19 @@ export async function postChatCompletions(params: {
         })
       }
     }
+
+    // Track API request. Freebuff success-path analytics are sampled to keep
+    // high-volume free traffic from dominating PostHog and log forwarding.
+    trackSuccessEvent({
+      event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
+      userId,
+      properties: {
+        hasStream: !!bodyStream,
+        hasRunId: !!runId,
+        userInfo,
+      },
+      logger,
+    })
 
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id

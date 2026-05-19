@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TEST_USER_ID } from '@codebuff/common/constants/paths'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -627,6 +628,72 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
+      'includes full freebuff access tier on successful usage analytics',
+      async () => {
+        const originalRandom = Math.random
+        Math.random = () => 0
+        try {
+          const req = new NextRequest(
+            'http://localhost:3000/api/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: allowedFreeModeHeaders('test-api-key-new-free'),
+              body: JSON.stringify({
+                model: 'minimax/minimax-m2.7',
+                stream: false,
+                codebuff_metadata: {
+                  run_id: 'run-free',
+                  client_id: 'test-client-id-123',
+                  cost_mode: 'free',
+                },
+              }),
+            },
+          )
+
+          const response = await postChatCompletionsForTest({
+            req,
+            getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+            logger: mockLogger,
+            trackEvent: mockTrackEvent,
+            getUserUsageData: mockGetUserUsageData,
+            getAgentRunFromId: mockGetAgentRunFromId,
+            fetch: mockFetch,
+            insertMessageBigquery: mockInsertMessageBigquery,
+            loggerWithContext: mockLoggerWithContext,
+            checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+          })
+
+          expect(response.status).toBe(200)
+
+          const trackedEvents = (
+            mockTrackEvent as ReturnType<typeof mock>
+          ).mock.calls.map(
+            ([params]) => params as Parameters<TrackEventFn>[0],
+          )
+          const requestEvent = trackedEvents.find(
+            ({ event }) => event === AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
+          )
+          const generationEvent = trackedEvents.find(
+            ({ event }) =>
+              event === AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,
+          )
+
+          expect(requestEvent?.properties).toMatchObject({
+            freebuff: true,
+            accessTier: 'full',
+          })
+          expect(generationEvent?.properties).toMatchObject({
+            freebuff: true,
+            accessTier: 'full',
+          })
+        } finally {
+          Math.random = originalRandom
+        }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
       'lets a BYOK free-tier new account through the paid-plan gate',
       async () => {
         const req = new NextRequest(
@@ -750,6 +817,19 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.error).toBe('session_model_mismatch')
       expect(checkSessionAdmissible).toHaveBeenCalledTimes(0)
+      const validationEvent = (
+        mockTrackEvent as ReturnType<typeof mock>
+      ).mock.calls
+        .map(([params]) => params as Parameters<TrackEventFn>[0])
+        .find(
+          ({ event, properties }) =>
+            event === AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR &&
+            properties?.error === 'session_model_mismatch',
+        )
+      expect(validationEvent?.properties).toMatchObject({
+        freebuff: true,
+        accessTier: 'limited',
+      })
     })
 
     it('classifies anonymized Cloudflare country codes as limited access', async () => {
