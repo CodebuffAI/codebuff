@@ -120,9 +120,6 @@ function LiveUsersHero({ value }: { value: number }) {
       <div className="relative mt-3 font-mono text-6xl font-medium leading-none text-acid-matrix neon-text md:text-7xl">
         {value.toLocaleString()}
       </div>
-      <div className="relative mt-3 text-sm text-white/56">
-        active Freebuff sessions right now
-      </div>
     </div>
   )
 }
@@ -445,9 +442,6 @@ function CountryList({ stats }: { stats: FreebuffLiveStats }) {
             <div className="truncate text-sm font-medium text-white">
               {countryName(country.countryCode)}
             </div>
-            <div className="font-mono text-xs text-white/40">
-              {country.countryCode}
-            </div>
           </div>
           <div className="font-mono text-lg text-acid-matrix">
             {country.count}
@@ -572,8 +566,7 @@ export default function LiveClient({
                 )}
               </div>
               <p className="mt-4 max-w-2xl text-base leading-7 text-white/54 md:text-lg">
-                Real-time Freebuff sessions across every country we can
-                identify, refreshed as people start coding.
+                Real-time Freebuff sessions across every country.
               </p>
             </div>
 
