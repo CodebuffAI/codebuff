@@ -17,12 +17,20 @@ import { ToolBlockGroup } from './tool-block-group'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
 import { isTextBlock } from '../../types/chat'
+import {
+  getAgentDisplayPrompt,
+  getBasherFinishedOutputPreview,
+} from '../../utils/agent-display'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   processBlocks,
   type BlockProcessorHandlers,
 } from '../../utils/block-processor'
-import { shouldRenderAsSimpleText, isMultiPromptEditor } from '../../utils/constants'
+import { getCodeSearcherCollapsedPreview } from '../../utils/code-search-summary'
+import {
+  shouldRenderAsSimpleText,
+  isMultiPromptEditor,
+} from '../../utils/constants'
 import {
   isImplementorAgent,
   getImplementorIndex,
@@ -47,10 +55,21 @@ function getCollapsedPreview(
   agentBlock: AgentContentBlock,
   isStreaming: boolean,
   isCollapsed: boolean,
+  availableWidth: number,
 ): string {
   // No preview needed if expanded and not streaming
   if (!isStreaming && !isCollapsed) {
     return ''
+  }
+
+  if (!isStreaming) {
+    const outputPreview = getBasherFinishedOutputPreview(
+      agentBlock,
+      Math.max(24, Math.min(120, availableWidth - 4)),
+    )
+    if (outputPreview) {
+      return outputPreview
+    }
   }
 
   // For multi-prompt editors, try progress-focused preview first
@@ -64,9 +83,15 @@ function getCollapsedPreview(
     }
   }
 
-  // Default preview: use initialPrompt or first line of text content
-  if (agentBlock.initialPrompt) {
-    return sanitizePreview(agentBlock.initialPrompt)
+  const codeSearcherPreview = getCodeSearcherCollapsedPreview(agentBlock)
+  if (codeSearcherPreview) {
+    return codeSearcherPreview
+  }
+
+  // Default preview: use the displayed prompt or first line of text content.
+  const displayPrompt = getAgentDisplayPrompt(agentBlock)
+  if (displayPrompt) {
+    return sanitizePreview(displayPrompt)
   }
 
   const textContent =
@@ -355,8 +380,12 @@ export const AgentBranchWrapper = memo(
             b.type === 'tool' && b.toolName === 'set_output',
         )
         // set_output wraps data in a 'data' property, so we need to access input.data
-        const outputData = (setOutputBlock?.input as { data?: Record<string, unknown> })?.data
-        const implementationId = outputData?.implementationId as string | undefined
+        const outputData = (
+          setOutputBlock?.input as { data?: Record<string, unknown> }
+        )?.data
+        const implementationId = outputData?.implementationId as
+          | string
+          | undefined
         if (implementationId) {
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
@@ -412,7 +441,13 @@ export const AgentBranchWrapper = memo(
     const isStreaming = agentBlock.status === 'running' || agentIsStreaming
 
     // Compute collapsed preview text
-    const preview = getCollapsedPreview(agentBlock, isStreaming, isCollapsed)
+    const preview = getCollapsedPreview(
+      agentBlock,
+      isStreaming,
+      isCollapsed,
+      availableWidth,
+    )
+    const displayPrompt = getAgentDisplayPrompt(agentBlock)
 
     const effectiveStatus = isStreaming ? 'running' : agentBlock.status
     const {
@@ -429,7 +464,7 @@ export const AgentBranchWrapper = memo(
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
           name={agentBlock.agentName}
-          prompt={agentBlock.initialPrompt}
+          prompt={displayPrompt}
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}

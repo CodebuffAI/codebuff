@@ -396,6 +396,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   ...(IS_FREEBUFF ? [] : AGENT_MODES).map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
+      aliases: [`model:${mode.toLowerCase()}`],
       handler: (params, args) => {
         const trimmedArgs = args.trim()
 
@@ -596,6 +597,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   // user picks a model and hits Enter to rejoin the queue.
   defineCommand({
     name: 'end-session',
+    aliases: ['model'],
     handler: (params) => {
       params.setMessages((prev) => [
         ...prev,

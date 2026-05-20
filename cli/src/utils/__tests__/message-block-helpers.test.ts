@@ -39,6 +39,10 @@ describe('getAgentBaseName', () => {
     expect(getAgentBaseName('file-picker')).toBe('file-picker')
   })
 
+  test('normalizes direct tool aliases to canonical agent names', () => {
+    expect(getAgentBaseName('code_reviewer_lite')).toBe('code-reviewer-lite')
+  })
+
   test('handles scoped name without version', () => {
     expect(getAgentBaseName('codebuff/file-picker')).toBe('file-picker')
   })
@@ -371,6 +375,23 @@ describe('extractSpawnAgentResultContent', () => {
       content: 'Structured output message',
       hasError: false,
     })
+  })
+
+  test('uses an empty structuredOutput message as no display content', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: {
+        message: '',
+        results: [
+          {
+            stdout: 'Found 1 match\n./file.ts:\nLine 1: needle',
+            message: 'Exit code: 0',
+          },
+        ],
+      },
+    })
+
+    expect(result).toEqual({ content: '', hasError: false })
   })
 })
 

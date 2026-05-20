@@ -1,11 +1,14 @@
 import { describe, test, expect } from 'bun:test'
 
 import {
+  getFreebuffRateLimitErrorMessage,
+  getFreeModeUnavailableErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   getCountryBlockFromFreeModeError,
   OUT_OF_CREDITS_MESSAGE,
   FREE_MODE_UNAVAILABLE_MESSAGE,
+  FREEBUFF_RATE_LIMIT_MESSAGE,
   createErrorMessage,
 } from '../error-handling'
 
@@ -79,6 +82,18 @@ describe('error-handling', () => {
       expect(isFreeModeUnavailableError(error)).toBe(true)
     })
 
+    test('returns true for responseBody free_mode_unavailable errors', () => {
+      expect(
+        isFreeModeUnavailableError({
+          statusCode: 403,
+          responseBody: JSON.stringify({
+            error: 'free_mode_unavailable',
+            message: 'Freebuff cannot be used from VPN traffic.',
+          }),
+        }),
+      ).toBe(true)
+    })
+
     test('returns false for 403 without error field', () => {
       const error = { statusCode: 403, message: 'Forbidden' }
       expect(isFreeModeUnavailableError(error)).toBe(false)
@@ -115,6 +130,106 @@ describe('error-handling', () => {
     })
   })
 
+  describe('getFreebuffRateLimitErrorMessage', () => {
+    test('returns the generic message for untyped 429 errors', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          statusCode: 429,
+          message: 'Too Many Requests',
+        }),
+      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+    })
+
+    test('returns the generic message for thrown API errors with status 429', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          status: 429,
+          message: 'Too Many Requests',
+        }),
+      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+    })
+
+    test('returns the generic message for retry-wrapped untyped 429 errors', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          message: 'Failed after 4 attempts. Last error: Too Many Requests',
+          lastError: {
+            statusCode: 429,
+            message: 'Too Many Requests',
+          },
+        }),
+      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+    })
+
+    test('returns null for non-429 status codes', () => {
+      expect(getFreebuffRateLimitErrorMessage({ statusCode: 402 })).toBe(null)
+      expect(getFreebuffRateLimitErrorMessage({ statusCode: 500 })).toBe(null)
+    })
+
+    test('returns null for string statusCode', () => {
+      expect(getFreebuffRateLimitErrorMessage({ statusCode: '429' })).toBe(
+        null,
+      )
+    })
+
+    test('preserves normalized free mode quota messages', () => {
+      const message =
+        'Free mode rate limit exceeded (1 minute limit). Try again in 30 seconds.'
+
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          statusCode: 429,
+          error: 'free_mode_rate_limited',
+          message,
+        }),
+      ).toBe(message)
+    })
+
+    test('preserves responseBody free mode quota messages', () => {
+      const message =
+        'Free mode rate limit exceeded (1 minute limit). Try again in 30 seconds.'
+
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          statusCode: 429,
+          message: 'Too Many Requests',
+          responseBody: JSON.stringify({
+            error: 'free_mode_rate_limited',
+            message,
+          }),
+        }),
+      ).toBe(message)
+    })
+
+    test('preserves retry-wrapped free mode quota messages', () => {
+      const message =
+        'Free mode rate limit exceeded (1 minute limit). Try again in 30 seconds.'
+
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          message: 'Failed after 4 attempts. Last error: Too Many Requests',
+          lastError: {
+            statusCode: 429,
+            message: 'Too Many Requests',
+            responseBody: JSON.stringify({
+              error: 'free_mode_rate_limited',
+              message,
+            }),
+          },
+        }),
+      ).toBe(message)
+    })
+
+    test('falls back to the generic message when typed quota errors have no message', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          statusCode: 429,
+          error: 'free_mode_rate_limited',
+        }),
+      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+    })
+  })
+
   describe('getCountryBlockFromFreeModeError', () => {
     test('extracts country block details from free-mode unavailable errors', () => {
       const error = {
@@ -129,6 +244,24 @@ describe('error-handling', () => {
         countryCode: 'US',
         countryBlockReason: 'anonymous_network',
         ipPrivacySignals: ['vpn', 'hosting'],
+      })
+    })
+
+    test('extracts country block details from responseBody errors', () => {
+      const error = {
+        statusCode: 403,
+        responseBody: JSON.stringify({
+          error: 'free_mode_unavailable',
+          countryCode: 'US',
+          countryBlockReason: 'anonymous_network',
+          ipPrivacySignals: ['proxy', 'hosting', 123],
+        }),
+      }
+
+      expect(getCountryBlockFromFreeModeError(error)).toEqual({
+        countryCode: 'US',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['proxy', 'hosting'],
       })
     })
 
@@ -163,6 +296,44 @@ describe('error-handling', () => {
     })
   })
 
+  describe('getFreeModeUnavailableErrorMessage', () => {
+    test('uses a VPN/proxy-specific message for anonymous-network blocks', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          error: 'free_mode_unavailable',
+          message: 'Forbidden',
+          countryBlockReason: 'anonymous_network',
+          ipPrivacySignals: ['vpn', 'hosting'],
+        }),
+      ).toContain('VPN')
+    })
+
+    test('uses a VPN/proxy-specific message from responseBody details', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          message: 'Forbidden',
+          responseBody: JSON.stringify({
+            error: 'free_mode_unavailable',
+            countryBlockReason: 'anonymous_network',
+            ipPrivacySignals: ['tor'],
+          }),
+        }),
+      ).toContain('Tor')
+    })
+
+    test('preserves server message for non-privacy free mode blocks', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          error: 'free_mode_unavailable',
+          message: 'Free mode is not available in your country.',
+        }),
+      ).toBe('Free mode is not available in your country.')
+    })
+  })
+
   describe('OUT_OF_CREDITS_MESSAGE', () => {
     test('contains usage URL', () => {
       expect(OUT_OF_CREDITS_MESSAGE).toContain('/usage')
@@ -174,6 +345,15 @@ describe('error-handling', () => {
 
     test('contains add credits instruction', () => {
       expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('add credits')
+    })
+  })
+
+  describe('FREEBUFF_RATE_LIMIT_MESSAGE', () => {
+    test('encourages retry without mentioning credits or payment', () => {
+      const message = FREEBUFF_RATE_LIMIT_MESSAGE.toLowerCase()
+      expect(message).toContain('try again')
+      expect(message).not.toContain('credit')
+      expect(message).not.toContain('pay')
     })
   })
 

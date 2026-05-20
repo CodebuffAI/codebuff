@@ -27,9 +27,13 @@ function parseAgentId(agent: string): {
 } {
   if (agent.startsWith('external:')) {
     const externalType = agent.slice('external:'.length) as ExternalAgentType
-    if (externalType !== 'claude' && externalType !== 'codex') {
+    if (
+      externalType !== 'claude' &&
+      externalType !== 'codex' &&
+      externalType !== 'opencode'
+    ) {
       throw new Error(
-        `Unknown external agent type: ${externalType}. Supported: claude, codex`,
+        `Unknown external agent type: ${externalType}. Supported: claude, codex, opencode`,
       )
     }
     return { agentId: agent, externalAgentType: externalType }
@@ -187,7 +191,10 @@ async function runTask(options: {
         tracesDir,
         `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}-agent.json`,
       )
-      fs.writeFileSync(agentTracePath, JSON.stringify(agentResult.trace, null, 2))
+      fs.writeFileSync(
+        agentTracePath,
+        JSON.stringify(agentResult.trace, null, 2),
+      )
     }
 
     fs.writeFileSync(

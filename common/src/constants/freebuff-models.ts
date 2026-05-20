@@ -34,15 +34,22 @@ export interface FreebuffModelOption {
 export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
+export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
+export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
+export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
 /** Deprecated wire compatibility field. Premium usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
+export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
+  FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
 const FREEBUFF_EASTERN_TIMEZONE = 'America/New_York'
 const FREEBUFF_PACIFIC_TIMEZONE = 'America/Los_Angeles'
 
@@ -81,6 +88,13 @@ export const FREEBUFF_MODELS = [
     availability: 'always',
   },
   {
+    id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    displayName: 'DeepSeek V4 Flash',
+    tagline: 'Most efficient',
+    availability: 'always',
+    warning: 'Collects data for training',
+  },
+  {
     id: FREEBUFF_MINIMAX_MODEL_ID,
     displayName: 'MiniMax M2.7',
     tagline: 'Fastest',
@@ -113,13 +127,12 @@ export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. DeepSeek is the
- *  smartest of the free options; the picker surfaces its data-collection
- *  caveat (`warning`) so users can opt out to Kimi if that's a concern.
+/** What new freebuff users see selected in the picker. MiniMax is the
+ *  fastest always-available option and backs the default base2-free agent.
  *  Callers that need a guaranteed-available id for resolution / auto-fallbacks
  *  should use FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  FREEBUFF_MINIMAX_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
@@ -127,6 +140,30 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  smartest model without auto-flipping anyone to a closed serverless model. */
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MINIMAX_MODEL_ID
+
+export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+export const LIMITED_FREEBUFF_MODELS = FREEBUFF_MODELS.filter(
+  (model) => model.id === LIMITED_FREEBUFF_MODEL_ID,
+)
+
+export type FreebuffAccessTier = 'full' | 'limited'
+
+export function getFreebuffModelsForAccessTier(
+  accessTier: FreebuffAccessTier | null | undefined,
+): readonly FreebuffModelOption[] {
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODELS
+  return FREEBUFF_MODELS
+}
+
+export function isFreebuffModelAllowedForAccessTier(
+  model: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): boolean {
+  if (!model) return false
+  if (accessTier !== 'limited') return isSupportedFreebuffModelId(model)
+  return model === LIMITED_FREEBUFF_MODEL_ID
+}
 
 export function isFreebuffModelId(
   id: string | null | undefined,
@@ -139,6 +176,17 @@ export function resolveFreebuffModel(
   id: string | null | undefined,
 ): FreebuffModelId {
   return isFreebuffModelId(id) ? id : FALLBACK_FREEBUFF_MODEL_ID
+}
+
+export function resolveFreebuffModelForAccessTier(
+  id: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined,
+): SupportedFreebuffModelId {
+  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  const resolved = resolveSupportedFreebuffModel(id)
+  return isFreebuffModelAllowedForAccessTier(resolved, accessTier)
+    ? resolved
+    : FALLBACK_FREEBUFF_MODEL_ID
 }
 
 export function isSupportedFreebuffModelId(

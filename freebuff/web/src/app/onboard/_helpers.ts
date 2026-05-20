@@ -1,29 +1,123 @@
+import { createHash } from 'node:crypto'
+
 import { genAuthCode } from '@codebuff/common/util/credentials'
+
+import {
+  getCliAuthOnboardSearchParams,
+  isCliAuthCodeCandidate,
+  isOpaqueCliAuthCodeToken,
+  parseCliAuthCodeShape,
+} from '@/lib/cli-auth-code-shape'
+
+export {
+  getCliAuthOnboardSearchParams,
+  isCliAuthCodeCandidate,
+  isOpaqueCliAuthCodeToken,
+}
+
+const CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login:'
+const CONSUMED_CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX = 'cli-login-consumed:'
+const CONSUMED_CLI_AUTH_CODE_TOKEN_VALUE = 'consumed'
+
+function getCliAuthCodeHash(authCode: string): string {
+  return createHash('sha256').update(authCode.trim()).digest('hex')
+}
+
+export function buildCliAuthCode(
+  fingerprintId: string,
+  expiresAt: string,
+  fingerprintHash: string,
+): string {
+  return `${fingerprintId}.${expiresAt}.${fingerprintHash}`
+}
+
+export function getCliAuthCodeHashPrefix(authCode: string): string {
+  return getCliAuthCodeHash(authCode).slice(0, 12)
+}
+
+export function getCliAuthCodeTokenIdentifier(authCodeToken: string): string {
+  return `${CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX}${authCodeToken}`
+}
+
+export function getConsumedCliAuthCodeTokenIdentifier(
+  authCodeToken: string,
+): string {
+  return `${CONSUMED_CLI_AUTH_CODE_TOKEN_IDENTIFIER_PREFIX}${getCliAuthCodeHash(
+    authCodeToken,
+  )}`
+}
+
+export function getConsumedCliAuthCodeTokenValue(): string {
+  return CONSUMED_CLI_AUTH_CODE_TOKEN_VALUE
+}
+
+export type CliAuthCodeTokenConsumeResult =
+  | { status: 'resolved'; authCode: string }
+  | { status: 'already_consumed' }
+  | { status: 'missing' }
+
+export type CliAuthCodeResolution =
+  | {
+      status: 'ready'
+      authCode: string
+      resolvedOpaqueToken: boolean
+    }
+  | {
+      status: 'already_consumed'
+      authCode: string
+      resolvedOpaqueToken: false
+    }
+  | {
+      status: 'missing'
+      authCode: string
+      resolvedOpaqueToken: false
+    }
+
+export async function resolveCliAuthCode(
+  authCode: string,
+  consumeCliAuthCodeToken: (
+    authCodeToken: string,
+  ) => Promise<CliAuthCodeTokenConsumeResult>,
+): Promise<CliAuthCodeResolution> {
+  const normalizedAuthCode = authCode.trim()
+  if (!isOpaqueCliAuthCodeToken(normalizedAuthCode)) {
+    return {
+      status: 'ready',
+      authCode: normalizedAuthCode,
+      resolvedOpaqueToken: false,
+    }
+  }
+
+  const tokenResult = await consumeCliAuthCodeToken(normalizedAuthCode)
+  if (tokenResult.status === 'resolved') {
+    return {
+      status: 'ready',
+      authCode: tokenResult.authCode,
+      resolvedOpaqueToken: true,
+    }
+  }
+
+  if (tokenResult.status === 'already_consumed') {
+    return {
+      status: 'already_consumed',
+      authCode: normalizedAuthCode,
+      resolvedOpaqueToken: false,
+    }
+  }
+
+  return {
+    status: 'missing',
+    authCode: normalizedAuthCode,
+    resolvedOpaqueToken: false,
+  }
+}
 
 export function parseAuthCode(authCode: string): {
   fingerprintId: string
   expiresAt: string
   receivedHash: string
 } {
-  const normalizedAuthCode = authCode.trim()
-  const hashSeparatorIndex = normalizedAuthCode.lastIndexOf('.')
-  const expiresSeparatorIndex = normalizedAuthCode.lastIndexOf(
-    '.',
-    hashSeparatorIndex - 1,
-  )
-
-  if (hashSeparatorIndex === -1 || expiresSeparatorIndex === -1) {
-    return { fingerprintId: '', expiresAt: '', receivedHash: '' }
-  }
-
-  const fingerprintId = normalizedAuthCode.slice(0, expiresSeparatorIndex)
-  const expiresAt = normalizedAuthCode.slice(
-    expiresSeparatorIndex + 1,
-    hashSeparatorIndex,
-  )
-  const receivedHash = normalizedAuthCode.slice(hashSeparatorIndex + 1)
-
-  return { fingerprintId, expiresAt, receivedHash }
+  return parseCliAuthCodeShape(authCode)
 }
 
 export function validateAuthCode(

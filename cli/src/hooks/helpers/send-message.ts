@@ -13,11 +13,12 @@ import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
   getCountryBlockFromFreeModeError,
+  getFreeModeUnavailableErrorMessage,
   getFreebuffGateErrorKind,
+  getFreebuffRateLimitErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
-  FREE_MODE_UNAVAILABLE_MESSAGE,
 } from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
@@ -55,7 +56,9 @@ export type ResetEarlyReturnStateParams = {
   isQueuePausedRef?: MutableRefObject<boolean>
 }
 
-export const resetEarlyReturnState = (params: ResetEarlyReturnStateParams): void => {
+export const resetEarlyReturnState = (
+  params: ResetEarlyReturnStateParams,
+): void => {
   const {
     setCanProcessQueue,
     updateChainInProgress,
@@ -186,11 +189,12 @@ export const prepareUserMessage = async (params: {
     }
   }
 
-  const { attachments: imageAttachments, messageContent } = await processImagesForMessage({
-    content: finalContent,
-    pendingImages,
-    projectRoot: getProjectRoot(),
-  })
+  const { attachments: imageAttachments, messageContent } =
+    await processImagesForMessage({
+      content: finalContent,
+      pendingImages,
+      projectRoot: getProjectRoot(),
+    })
 
   const shouldInsertDivider =
     lastMessageMode === null || lastMessageMode !== agentMode
@@ -214,7 +218,12 @@ export const prepareUserMessage = async (params: {
     }))
 
   // Pass original content (not finalContent) for display, but finalContent goes to agent
-  const userMessage = getUserMessage(content, imageAttachments, textAttachmentsForMessage, fileAttachmentsForMessage)
+  const userMessage = getUserMessage(
+    content,
+    imageAttachments,
+    textAttachmentsForMessage,
+    fileAttachmentsForMessage,
+  )
   const userMessageId = userMessage.id
   if (imageAttachments.length > 0) {
     userMessage.attachments = imageAttachments
@@ -381,7 +390,6 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
-
     if (isOutOfCreditsError(output)) {
       updater.setError(OUT_OF_CREDITS_MESSAGE)
       useChatStore.getState().setInputMode('outOfCredits')
@@ -391,7 +399,7 @@ export const handleRunCompletion = (params: {
     }
 
     if (isFreeModeUnavailableError(output)) {
-      updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+      updater.setError(getFreeModeUnavailableErrorMessage(output))
       if (IS_FREEBUFF) {
         markFreebuffSessionCountryBlocked(
           getCountryBlockFromFreeModeError(output) ?? {
@@ -406,6 +414,15 @@ export const handleRunCompletion = (params: {
     const gateKind = getFreebuffGateErrorKind(output)
     if (gateKind) {
       handleFreebuffGateError(gateKind, updater)
+      finalizeAfterError()
+      return
+    }
+
+    const freebuffRateLimitMessage = IS_FREEBUFF
+      ? getFreebuffRateLimitErrorMessage(output)
+      : null
+    if (freebuffRateLimitMessage) {
+      updater.setError(freebuffRateLimitMessage)
       finalizeAfterError()
       return
     }
@@ -493,7 +510,7 @@ export const handleRunError = (params: {
   }
 
   if (isFreeModeUnavailableError(error)) {
-    updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+    updater.setError(getFreeModeUnavailableErrorMessage(error))
     if (IS_FREEBUFF) {
       markFreebuffSessionCountryBlocked(
         getCountryBlockFromFreeModeError(error) ?? {
@@ -507,6 +524,14 @@ export const handleRunError = (params: {
   const gateKind = getFreebuffGateErrorKind(error)
   if (gateKind) {
     handleFreebuffGateError(gateKind, updater)
+    return
+  }
+
+  const freebuffRateLimitMessage = IS_FREEBUFF
+    ? getFreebuffRateLimitErrorMessage(error)
+    : null
+  if (freebuffRateLimitMessage) {
+    updater.setError(freebuffRateLimitMessage)
     return
   }
 
@@ -527,6 +552,7 @@ function handleFreebuffGateError(
   switch (kind) {
     case 'session_expired':
     case 'waiting_room_required':
+    case 'session_model_mismatch':
       // Our seat is gone mid-chat. Finalize the AI message so its streaming
       // indicator stops — otherwise `isComplete` stays false and the message
       // keeps rendering a blinking cursor forever, making the user think the

@@ -13,6 +13,10 @@ export interface ChatHistoryEntry {
   messageCount: number
 }
 
+function getChatsDir(): string {
+  return path.join(getProjectDataDir(), 'chats')
+}
+
 /**
  * Get the first user message from a list of chat messages
  */
@@ -43,14 +47,14 @@ interface ChatDirInfo {
  */
 export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
   try {
-    const chatsDir = path.join(getProjectDataDir(), 'chats')
-    
+    const chatsDir = getChatsDir()
+
     if (!fs.existsSync(chatsDir)) {
       return []
     }
 
     const chatDirs = fs.readdirSync(chatsDir)
-    
+
     // First pass: get mtime for all chat directories (fast, no file reading)
     const chatDirInfos: ChatDirInfo[] = []
     for (const chatId of chatDirs) {
@@ -58,7 +62,7 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
       try {
         const stat = fs.statSync(chatPath)
         if (!stat.isDirectory()) continue
-        
+
         chatDirInfos.push({
           chatId,
           chatPath,
@@ -69,14 +73,14 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
         // Skip directories we can't stat
       }
     }
-    
+
     // Sort by mtime first (most recent first)
     chatDirInfos.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
-    
+
     // Second pass: only read message content for the top N chats
     const chats: ChatHistoryEntry[] = []
     const chatsToLoad = chatDirInfos.slice(0, maxChats)
-    
+
     for (const info of chatsToLoad) {
       try {
         let messageCount = 0
@@ -100,8 +104,11 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
         }
       } catch (error) {
         logger.debug(
-          { chatId: info.chatId, error: error instanceof Error ? error.message : String(error) },
-          'Failed to read chat messages'
+          {
+            chatId: info.chatId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to read chat messages',
         )
       }
     }
@@ -110,9 +117,52 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
-      'Failed to list chats'
+      'Failed to list chats',
     )
     return []
+  }
+}
+
+/**
+ * Delete a saved chat session from local history.
+ */
+export function deleteChatSession(chatId: string): boolean {
+  try {
+    const safeChatId = chatId.trim()
+    if (
+      !safeChatId ||
+      safeChatId === '.' ||
+      safeChatId === '..' ||
+      path.basename(safeChatId) !== safeChatId
+    ) {
+      logger.warn({ chatId }, 'Refusing to delete invalid chat id')
+      return false
+    }
+
+    const chatsDir = getChatsDir()
+    const chatPath = path.join(chatsDir, safeChatId)
+
+    if (!fs.existsSync(chatPath)) {
+      return false
+    }
+
+    const stat = fs.statSync(chatPath)
+    if (!stat.isDirectory()) {
+      logger.warn(
+        { chatId, chatPath },
+        'Refusing to delete non-directory chat path',
+      )
+      return false
+    }
+
+    fs.rmSync(chatPath, { recursive: true, force: false })
+    return true
+  } catch (error) {
+    logger.error(
+      { chatId, error: error instanceof Error ? error.message : String(error) },
+      'Failed to delete chat session',
+    )
+    return false
   }
 }
 

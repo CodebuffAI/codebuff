@@ -29,6 +29,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
       id: `mode:${mode.toLowerCase()}`,
       label: `mode:${mode.toLowerCase()}`,
       description: `Switch to ${mode} mode`,
+      aliases: [`model:${mode.toLowerCase()}`],
     }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
@@ -176,7 +177,8 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'end-session',
     label: 'end-session',
-    description: 'End your free session and return to the waiting room (lets you switch model)',
+    description: 'End your free session (lets you switch model)',
+    aliases: ['model'],
   },
   {
     id: 'logout',

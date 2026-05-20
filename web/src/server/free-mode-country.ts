@@ -1,8 +1,13 @@
 import { createHmac } from 'node:crypto'
 
 import geoip from 'geoip-lite'
+import {
+  FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
+  isFreebuffHardBlockedPrivacySignal,
+} from '@codebuff/common/util/freebuff-privacy'
 
 import type { NextRequest } from 'next/server'
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
@@ -19,6 +24,10 @@ export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'NL',
   'DK',
   'DE',
+  'FR',
+  'IT',
+  'ES',
+  'PT',
   'FI',
   'BE',
   'LU',
@@ -32,7 +41,11 @@ export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'IS',
 ])
 
-const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set(['T1', 'XX'])
+const CLOUDFLARE_TOR_COUNTRY = 'T1'
+const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set([
+  CLOUDFLARE_TOR_COUNTRY,
+  'XX',
+])
 
 export type FreeModeCountryBlockReason = FreebuffCountryBlockReason
 export type FreeModeIpPrivacySignal = FreebuffIpPrivacySignal
@@ -56,12 +69,24 @@ export type LookupIpPrivacyFn = (
   ip: string,
 ) => Promise<FreeModeIpPrivacy | null>
 
-type FreeModeCountryAccessOptions = {
+export function getFreeModeAccessTier(
+  countryAccess: Pick<FreeModeCountryAccess, 'allowed'>,
+): FreebuffAccessTier {
+  return countryAccess.allowed ? 'full' : 'limited'
+}
+
+export type FreeModeCountryAccessOptions = {
   lookupIpPrivacy?: LookupIpPrivacyFn
   fetch?: typeof globalThis.fetch
   ipinfoToken: string
   ipHashSecret?: string
   allowLocalhost?: boolean
+  /** Dev-only escape hatch: when true (and `allowLocalhost` is also true),
+   *  the localhost bypass returns `allowed: false` so callers exercise the
+   *  limited Freebuff tier instead of full. Cache writes/reads are skipped
+   *  for these requests (clientIpHash is nulled) so flipping the flag takes
+   *  effect on the next request without manual cache eviction. */
+  forceLimited?: boolean
 }
 
 const LOCALHOST_IPS = new Set(['::1', '::ffff:127.0.0.1'])
@@ -84,16 +109,34 @@ const ipinfoPrivacyCache = new Map<
   { expiresAt: number; privacy: FreeModeIpPrivacy | null }
 >()
 
-const FREE_MODE_BLOCKED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
+const FREE_MODE_LIMITED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
+  ...FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
   'anonymous',
-  'vpn',
-  'proxy',
-  'tor',
   'relay',
-  'res_proxy',
   'hosting',
   'service',
 ])
+
+export function hasHardBlockedPrivacySignal(
+  ipPrivacy: FreeModeIpPrivacy | null | undefined,
+): boolean {
+  return (
+    ipPrivacy?.signals.some(isFreebuffHardBlockedPrivacySignal) ?? false
+  )
+}
+
+export function shouldHardBlockFreeModeAccess(
+  countryAccess: Pick<
+    FreeModeCountryAccess,
+    'blockReason' | 'cfCountry' | 'ipPrivacy'
+  >,
+): boolean {
+  return (
+    countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY ||
+    (countryAccess.blockReason === 'anonymous_network' &&
+      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy))
+  )
+}
 
 export function extractClientIp(req: NextRequest): string | undefined {
   const cfConnectingIp = req.headers.get('cf-connecting-ip')?.trim()
@@ -109,7 +152,7 @@ export function extractClientIp(req: NextRequest): string | undefined {
   return undefined
 }
 
-function hashClientIp(
+export function hashClientIp(
   clientIp: string | undefined,
   secret: string | undefined,
 ): string | null {
@@ -205,6 +248,20 @@ export async function getFreeModeCountryAccess(
     !cfCountry &&
     (!clientIp || isLocalhostIp(clientIp))
   ) {
+    if (options.forceLimited) {
+      return {
+        allowed: false,
+        countryCode: 'US',
+        blockReason: 'country_not_allowed',
+        cfCountry: null,
+        geoipCountry: null,
+        ipPrivacy: { signals: [] },
+        hasClientIp: Boolean(clientIp),
+        // Null hash skips the country-access cache so toggling the env var
+        // takes effect immediately without evicting prior allowed=true rows.
+        clientIpHash: null,
+      }
+    }
     return {
       allowed: true,
       countryCode: 'US',
@@ -224,7 +281,8 @@ export async function getFreeModeCountryAccess(
       blockReason: 'anonymized_or_unknown_country',
       cfCountry,
       geoipCountry: null,
-      ipPrivacy: null,
+      ipPrivacy:
+        cfCountry === CLOUDFLARE_TOR_COUNTRY ? { signals: ['tor'] } : null,
       hasClientIp: Boolean(clientIp),
       clientIpHash,
     }
@@ -323,7 +381,7 @@ export async function getFreeModeCountryAccess(
 
   if (
     ipPrivacy.signals.some((signal) =>
-      FREE_MODE_BLOCKED_PRIVACY_SIGNALS.has(signal),
+      FREE_MODE_LIMITED_PRIVACY_SIGNALS.has(signal),
     )
   ) {
     return {

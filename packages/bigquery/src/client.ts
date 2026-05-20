@@ -2,10 +2,18 @@ import { IS_PROD } from '@codebuff/common/env'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { BigQuery } from '@google-cloud/bigquery'
 
-import { MESSAGE_SCHEMA, RELABELS_SCHEMA, TRACES_SCHEMA } from './schema'
+import {
+  CHAT_COMPLETION_TRACES_SCHEMA,
+  MESSAGE_SCHEMA,
+  RELABELS_SCHEMA,
+  TRACES_SCHEMA,
+} from './schema'
 
 import type { BaseTrace, GetRelevantFilesTrace, Relabel, Trace } from './schema'
-import type { MessageRow } from '@codebuff/common/types/contracts/bigquery'
+import type {
+  ChatCompletionTraceRow,
+  MessageRow,
+} from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const DATASET = IS_PROD ? 'codebuff_data' : 'codebuff_data_dev'
@@ -13,6 +21,7 @@ const DATASET = IS_PROD ? 'codebuff_data' : 'codebuff_data_dev'
 const TRACES_TABLE = 'traces'
 const RELABELS_TABLE = 'relabels'
 const MESSAGE_TABLE = 'message'
+const CHAT_COMPLETION_TRACES_TABLE = 'chat_completion_traces'
 
 // Create a single BigQuery client instance to be used by all functions
 let client: BigQuery | null = null
@@ -77,6 +86,17 @@ export async function setupBigQuery({
         fields: ['user_id'],
       },
     })
+    await ds.table(CHAT_COMPLETION_TRACES_TABLE).get({
+      autoCreate: true,
+      schema: CHAT_COMPLETION_TRACES_SCHEMA,
+      timePartitioning: {
+        type: 'MONTH',
+        field: 'created_at',
+      },
+      clustering: {
+        fields: ['user_id', 'trace_session_id', 'trace_lineage_id'],
+      },
+    })
   } catch (error) {
     const err = error as Error & { code?: string; details?: unknown }
     logger.error(
@@ -91,6 +111,53 @@ export async function setupBigQuery({
       'Failed to initialize BigQuery',
     )
     throw error // Re-throw to be caught by caller
+  }
+}
+
+export async function insertChatCompletionTraceBigquery({
+  row,
+  dataset,
+  logger,
+}: {
+  row: ChatCompletionTraceRow
+  dataset?: string
+  logger: Logger
+}) {
+  const resolvedDataset = dataset ?? DATASET
+  try {
+    await getClient()
+      .dataset(resolvedDataset)
+      .table(CHAT_COMPLETION_TRACES_TABLE)
+      .insert({
+        ...row,
+        request: JSON.stringify(row.request),
+        messages: JSON.stringify(row.messages),
+        delta_message_hashes: JSON.stringify(row.delta_message_hashes),
+        tools: row.tools ? JSON.stringify(row.tools) : null,
+      })
+
+    logger.debug(
+      {
+        traceId: row.id,
+        userId: row.user_id,
+        clientId: row.client_id,
+        traceSessionId: row.trace_session_id,
+        traceLineageId: row.trace_lineage_id,
+        runId: row.run_id,
+        messageStartIndex: row.message_start_index,
+        messageDeltaCount: row.message_delta_count,
+        fullSnapshot: row.full_snapshot,
+      },
+      'Inserted chat completion trace into BigQuery',
+    )
+    return true
+  } catch (error) {
+    logger.error(
+      { error: getErrorObject(error), traceId: row.id },
+      'Failed to insert chat completion trace into BigQuery',
+    )
+
+    return false
   }
 }
 

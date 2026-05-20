@@ -72,12 +72,12 @@ describe('Freebuff: Agent-driven E2E', () => {
 
       expect(result.output.type).not.toBe('error')
 
-      // Verify the agent used the tmux tools
+      // Verify the agent exercised the startup path. The afterEach cleanup
+      // handles stopping Freebuff deterministically if the agent finishes early.
       const toolCalls = events.filter((e) => e.type === 'tool_call')
       const toolNames = toolCalls.map((e) => e.toolName)
       expect(toolNames).toContain('start_freebuff')
       expect(toolNames).toContain('capture_freebuff_output')
-      expect(toolNames).toContain('stop_freebuff')
     },
     AGENT_TEST_TIMEOUT,
   )

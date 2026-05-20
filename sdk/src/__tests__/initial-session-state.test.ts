@@ -116,6 +116,31 @@ describe('Initial Session State', () => {
   })
 
   test('discovers project files automatically when projectFiles is undefined', async () => {
+    mockFs.readdir = (async (dirPath: string) => {
+      if (dirPath === '/test-project') {
+        return ['src', '.git', 'knowledge.md', 'README.md', '.gitignore']
+      }
+      if (dirPath === '/test-project/src') {
+        return ['index.ts', 'utils.ts', 'generated.ts']
+      }
+      return []
+    }) as CodebuffFileSystem['readdir']
+    mockFs.stat = (async (filePath: string) =>
+      ({
+        isDirectory: () =>
+          filePath === '/test-project/src' || filePath === '/test-project/.git',
+        isFile: () =>
+          filePath !== '/test-project/src' && filePath !== '/test-project/.git',
+        size: filePath.endsWith('generated.ts') ? 1_000_001 : 100,
+      }) as MockStatResult & { size: number }) as CodebuffFileSystem['stat']
+
+    const readFilePaths: string[] = []
+    const originalReadFile = mockFs.readFile
+    mockFs.readFile = (async (filePath: string, encoding?: BufferEncoding) => {
+      readFilePaths.push(filePath)
+      return originalReadFile(filePath, encoding)
+    }) as CodebuffFileSystem['readFile']
+
     const sessionState = await initialSessionState({
       cwd: '/test-project',
       projectFiles: undefined,
@@ -126,6 +151,13 @@ describe('Initial Session State', () => {
     expect(sessionState.fileContext.fileTree).toBeDefined()
     expect(sessionState.mainAgentState.agentId).toBe('main-agent')
     expect(sessionState.mainAgentState.messageHistory).toEqual([])
+    expect(readFilePaths.some((p) => p.endsWith('src/index.ts'))).toBe(true)
+    expect(readFilePaths.some((p) => p.endsWith('src/utils.ts'))).toBe(true)
+    expect(readFilePaths.some((p) => p.endsWith('src/generated.ts'))).toBe(
+      false,
+    )
+    expect(readFilePaths.some((p) => p.endsWith('README.md'))).toBe(false)
+    expect(readFilePaths.some((p) => p.endsWith('knowledge.md'))).toBe(true)
   })
 
   test('derives knowledgeFiles from projectFiles when not provided', async () => {

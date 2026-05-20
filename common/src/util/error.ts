@@ -254,6 +254,93 @@ export function parseApiErrorResponseBody(responseBody: unknown): {
   }
 }
 
+export type ApiErrorDetails = ReturnType<typeof parseApiErrorResponseBody> & {
+  statusCode?: number
+}
+
+function getApiErrorCandidates(
+  error: unknown,
+  seen = new Set<object>(),
+): unknown[] {
+  if (!error || typeof error !== 'object') return [error]
+  if (seen.has(error)) return []
+  seen.add(error)
+
+  const candidates: unknown[] = [error]
+  const errorWithNested = error as {
+    lastError?: unknown
+    errors?: unknown[]
+    cause?: unknown
+  }
+
+  candidates.push(...getApiErrorCandidates(errorWithNested.lastError, seen))
+
+  if (Array.isArray(errorWithNested.errors)) {
+    for (const nestedError of [...errorWithNested.errors].reverse()) {
+      candidates.push(...getApiErrorCandidates(nestedError, seen))
+    }
+  }
+
+  candidates.push(...getApiErrorCandidates(errorWithNested.cause, seen))
+
+  return candidates
+}
+
+function getApiErrorStatusCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+
+  if ('statusCode' in error) {
+    const statusCode = (error as { statusCode: unknown }).statusCode
+    if (typeof statusCode === 'number') return statusCode
+  }
+
+  if ('status' in error) {
+    const status = (error as { status: unknown }).status
+    if (typeof status === 'number') return status
+  }
+
+  return undefined
+}
+
+function getApiErrorResponseBody(error: unknown): unknown {
+  if (!error || typeof error !== 'object') return undefined
+  if (!('responseBody' in error)) return undefined
+  return (error as { responseBody: unknown }).responseBody
+}
+
+function hasParsedApiErrorDetails(
+  details: ReturnType<typeof parseApiErrorResponseBody>,
+): boolean {
+  return (
+    details.errorCode !== undefined ||
+    details.message !== undefined ||
+    details.countryCode !== undefined ||
+    details.countryBlockReason !== undefined ||
+    details.ipPrivacySignals !== undefined
+  )
+}
+
+/**
+ * Extracts HTTP status and structured server error fields from API errors,
+ * including AI SDK RetryError wrappers whose useful APICallError is nested in
+ * `lastError` / `errors`.
+ */
+export function extractApiErrorDetails(error: unknown): ApiErrorDetails {
+  for (const candidate of getApiErrorCandidates(error)) {
+    const statusCode = getApiErrorStatusCode(candidate)
+    const parsed = parseApiErrorResponseBody(getApiErrorResponseBody(candidate))
+
+    if (statusCode !== undefined || hasParsedApiErrorDetails(parsed)) {
+      return {
+        ...parsed,
+        ...(statusCode !== undefined && { statusCode }),
+      }
+    }
+  }
+
+  return {}
+}
+
 // Extended error properties that various libraries add to Error objects
 interface ExtendedErrorProperties {
   status?: number
@@ -330,9 +417,7 @@ export function getErrorObject(
           ? extError.statusCode
           : undefined,
       code: typeof extError.code === 'string' ? extError.code : undefined,
-      rawError: options.includeRawError
-        ? safeStringify(error)
-        : undefined,
+      rawError: options.includeRawError ? safeStringify(error) : undefined,
       // API error fields
       responseBody,
       url: typeof extError.url === 'string' ? extError.url : undefined,

@@ -826,6 +826,10 @@ export const freeSessionStatusEnum = pgEnum('free_session_status', [
   'queued',
   'active',
 ])
+export const freebuffAccessTierEnum = pgEnum('freebuff_access_tier', [
+  'full',
+  'limited',
+])
 
 /**
  * Free-user session / waiting-room state. One row per user is enforced by the
@@ -853,6 +857,9 @@ export const freeSession = pgTable(
      *  its own queue (admission picks one queued user per model per tick) and
      *  the model is fixed for the life of an active session. */
     model: text('model').notNull(),
+    access_tier: freebuffAccessTierEnum('access_tier')
+      .notNull()
+      .default('full'),
     /** Resolved country/privacy metadata from the latest successful
      *  free-session POST country gate. Raw IP is not stored; `client_ip_hash`
      *  is HMAC-SHA256 with the server auth secret for correlation only. */
@@ -910,6 +917,54 @@ export const freeSession = pgTable(
 )
 
 /**
+ * Shared cache for free-mode country/privacy decisions. Raw IP addresses are
+ * never persisted; client_ip_hash is HMAC-SHA256 with the server auth secret.
+ */
+export const freeModeCountryAccessCache = pgTable(
+  'free_mode_country_access_cache',
+  {
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    client_ip_hash: text('client_ip_hash').notNull(),
+    allowed: boolean('allowed').notNull(),
+    country_code: text('country_code'),
+    cf_country: text('cf_country'),
+    geoip_country: text('geoip_country'),
+    country_block_reason: text(
+      'country_block_reason',
+    ).$type<FreebuffCountryBlockReason | null>(),
+    ip_privacy_signals: text('ip_privacy_signals')
+      .array()
+      .$type<FreebuffIpPrivacySignal[] | null>(),
+    checked_at: timestamp('checked_at', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+    expires_at: timestamp('expires_at', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+    created_at: timestamp('created_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.user_id, table.client_ip_hash] }),
+    index('idx_free_mode_country_cache_expires_at').on(table.expires_at),
+  ],
+)
+
+/**
  * Audit log of every admission — one row per queued→active transition. Used
  * to track shared premium-session usage for Freebuff's 5 sessions per Pacific
  * day allowance. `session_units` starts at 1.0 and may be reduced when users
@@ -928,6 +983,9 @@ export const freeSessionAdmit = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     model: text('model').notNull(),
+    access_tier: freebuffAccessTierEnum('access_tier')
+      .notNull()
+      .default('full'),
     admitted_at: timestamp('admitted_at', {
       mode: 'date',
       withTimezone: true,

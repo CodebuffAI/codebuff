@@ -8,13 +8,17 @@ export const serverEnvSchema = clientEnvSchema.extend({
   ANTHROPIC_API_KEY: z.string().min(1),
   AVIAN_API_KEY: z.string().min(1).optional(),
   FIREWORKS_API_KEY: z.string().min(1),
+  MOONSHOT_API_KEY: z.string().min(1).optional(),
   CANOPYWAVE_API_KEY: z.string().min(1).optional(),
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
   SILICONFLOW_API_KEY: z.string().min(1).optional(),
+  OPENCODE_API_KEY: z.string().min(1).optional(),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
   IPINFO_TOKEN: z.string().min(1),
+  // ZeroClick tenant API key used for server-side offer fallback requests.
+  ZEROCLICK_API_KEY: z.string().min(1).optional(),
   // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
   // Optional: when unset the Carbon provider returns no ad and callers fall
   // back to their cached ads / fallback content. `CVADC53U` is the public
@@ -66,6 +70,14 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .int()
     .positive()
     .default(60 * 60 * 1000),
+
+  // Dev-only override: when 'true', force free-mode requests to the 'limited'
+  // access tier so the limited UX (single DeepSeek Flash model) can be
+  // exercised on localhost. Ignored unless NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'.
+  FREEBUFF_DEV_FORCE_LIMITED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -89,13 +101,16 @@ export const serverProcessEnv: ServerInput = {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   AVIAN_API_KEY: process.env.AVIAN_API_KEY,
   FIREWORKS_API_KEY: process.env.FIREWORKS_API_KEY,
+  MOONSHOT_API_KEY: process.env.MOONSHOT_API_KEY,
   CANOPYWAVE_API_KEY: process.env.CANOPYWAVE_API_KEY,
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
   SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
+  OPENCODE_API_KEY: process.env.OPENCODE_API_KEY,
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
   IPINFO_TOKEN: process.env.IPINFO_TOKEN,
+  ZEROCLICK_API_KEY: process.env.ZEROCLICK_API_KEY,
   CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 
@@ -126,4 +141,5 @@ export const serverProcessEnv: ServerInput = {
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
   FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
+  FREEBUFF_DEV_FORCE_LIMITED: process.env.FREEBUFF_DEV_FORCE_LIMITED,
 }

@@ -7,6 +7,11 @@ import { useTransition } from 'react'
 import { Icons } from '../icons'
 import { Button } from '../ui/button'
 
+import {
+  getCliAuthOnboardPath,
+  isCliAuthCodeCandidate,
+} from '@/lib/cli-auth-code-shape'
+
 import type { OAuthProviderType } from 'next-auth/providers/oauth-types'
 
 export function SignInButton({
@@ -34,8 +39,8 @@ export function SignInButton({
       if (pathname === '/login') {
         const authCode = searchParams.get('auth_code')
 
-        if (authCode) {
-          callbackUrl = `/onboard?${searchParams.toString()}`
+        if (authCode && isCliAuthCodeCandidate(authCode)) {
+          callbackUrl = getCliAuthOnboardPath(searchParams, authCode)
         } else {
           callbackUrl = '/'
         }

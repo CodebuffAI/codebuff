@@ -417,6 +417,8 @@ export type ModelName =
   // DeepSeek
   | 'deepseek/deepseek-v4-pro'
   | 'deepseek-v4-pro'
+  | 'deepseek/deepseek-v4-flash'
+  | 'deepseek-v4-flash'
   | 'deepseek/deepseek-chat-v3-0324'
   | 'deepseek/deepseek-chat-v3-0324:nitro'
   | 'deepseek/deepseek-r1-0528'

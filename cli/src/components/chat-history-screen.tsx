@@ -7,7 +7,11 @@ import { SelectableList } from './selectable-list'
 import { useSearchableList } from '../hooks/use-searchable-list'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
-import { getAllChats, formatRelativeTime } from '../utils/chat-history'
+import {
+  deleteChatSession,
+  formatRelativeTime,
+  getAllChats,
+} from '../utils/chat-history'
 
 import type { SelectableListItem } from './selectable-list'
 
@@ -21,6 +25,7 @@ const LAYOUT = {
   MAX_RENDERED_CHATS: 100, // Only render this many in the list
   TIME_COL_WIDTH: 12, // e.g., "2 hours ago"
   MSGS_COL_WIDTH: 8, // e.g., "99 msgs"
+  DELETE_COL_WIDTH: 6, // e.g., "[×]" + marginRight
   GAP_WIDTH: 3, // gap between columns
 } as const
 
@@ -42,34 +47,39 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
   const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
 
   // Two-phase loading: load initial chats immediately, then more in background
-  const initialChats = useMemo(() => getAllChats(LAYOUT.INITIAL_CHATS), [])
-  const [backgroundChats, setBackgroundChats] = useState<typeof initialChats>(
-    [],
-  )
+  const [chats, setChats] = useState(() => getAllChats(LAYOUT.INITIAL_CHATS))
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Load more chats in the background after initial render
   useEffect(() => {
     // Use setTimeout to defer the expensive loading to after first paint
     const timer = setTimeout(() => {
-      const moreChats = getAllChats(
-        LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS,
-      )
-      // Only keep the chats beyond the initial set
-      setBackgroundChats(moreChats.slice(LAYOUT.INITIAL_CHATS))
+      setChats(getAllChats(LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS))
     }, 0)
     return () => clearTimeout(timer)
   }, [])
 
-  // Combine initial and background chats
-  const chats = useMemo(
-    () => [...initialChats, ...backgroundChats],
-    [initialChats, backgroundChats],
-  )
+  const handleDeleteChat = useCallback((chatId: string) => {
+    const deleted = deleteChatSession(chatId)
+    if (deleted) {
+      setChats((prev) => prev.filter((chat) => chat.chatId !== chatId))
+      setStatusMessage('Chat deleted')
+      return
+    }
+
+    setStatusMessage('Could not delete chat')
+  }, [])
 
   // Calculate available width for the prompt text (last column, variable width)
-  // Format: "[time]   [msgs]   [prompt...]"
+  // Format: "[time]   [msgs]   [prompt...] [×]"
+  // reservedWidth accounts for: time col, msgs col, delete button area,
+  // 2 gaps between columns, list border (2), scrollbar (1), and button padding (2)
   const reservedWidth =
-    LAYOUT.TIME_COL_WIDTH + LAYOUT.MSGS_COL_WIDTH + LAYOUT.GAP_WIDTH * 2 + 2 // +2 for padding
+    LAYOUT.TIME_COL_WIDTH +
+    LAYOUT.MSGS_COL_WIDTH +
+    LAYOUT.DELETE_COL_WIDTH +
+    LAYOUT.GAP_WIDTH * 2 +
+    5 // border + scrollbar + button padding
   const maxPromptWidth = Math.max(20, contentWidth - reservedWidth)
 
   // Truncate text to fit single line
@@ -81,8 +91,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
 
   // Pad text to fixed width (right-pad with spaces)
   const padRight = (text: string, width: number): string => {
-    if (text.length >= width) return text.slice(0, width)
-    return text + ' '.repeat(width - text.length)
+    // Use Array.from to count code points so emoji/wide chars don't break padding
+    const len = Array.from(text).length
+    if (len >= width) return text
+    return text + ' '.repeat(width - len)
   }
 
   // Convert chats to SelectableListItem format with aligned columns
@@ -98,7 +110,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           `${chat.messageCount} msgs`,
           LAYOUT.MSGS_COL_WIDTH,
         )
-        const prompt = truncateText(chat.lastPrompt, maxPromptWidth)
+        const prompt = padRight(
+          truncateText(chat.lastPrompt, maxPromptWidth),
+          maxPromptWidth,
+        )
 
         return {
           id: chat.chatId,
@@ -144,6 +159,13 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
       onSelectChat(item.id)
     },
     [onSelectChat],
+  )
+
+  const handleChatDelete = useCallback(
+    (item: SelectableListItem) => {
+      handleDeleteChat(item.id)
+    },
+    [handleDeleteChat],
   )
 
   // Handle keyboard input
@@ -275,9 +297,11 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             items={filteredItems.slice(0, LAYOUT.MAX_RENDERED_CHATS)}
             focusedIndex={focusedIndex}
             onSelect={handleChatSelect}
+            actionLabel="[×]"
+            onAction={handleChatDelete}
             onFocusChange={handleFocusChange}
             emptyMessage={
-              initialChats.length === 0
+              chats.length === 0
                 ? 'No chat history yet'
                 : searchQuery
                   ? 'No matching chats'
@@ -314,8 +338,14 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           {/* Help text */}
           <box style={{ flexGrow: 1, flexShrink: 1 }}>
             <text style={{ fg: theme.muted }}>
-              ↑↓ navigate · Enter select · Esc cancel
+              ↑↓ navigate · Enter select · Click [×] to remove · Esc cancel
             </text>
+            {statusMessage && (
+              <text style={{ fg: theme.muted }}>
+                {' · '}
+                {statusMessage}
+              </text>
+            )}
           </box>
 
           {/* Buttons - hidden on narrow screens */}

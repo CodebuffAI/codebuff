@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -130,6 +131,7 @@ export async function handleSiliconFlowNonStream({
   const originalModel = body.model
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createSiliconFlowRequest({ body, originalModel, fetch })
 
@@ -146,7 +148,7 @@ export async function handleSiliconFlowNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -207,6 +209,7 @@ export async function handleSiliconFlowStream({
   const originalModel = body.model
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createSiliconFlowRequest({ body, originalModel, fetch })
 
@@ -270,7 +273,7 @@ export async function handleSiliconFlowStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,

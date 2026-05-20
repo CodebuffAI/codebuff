@@ -67,6 +67,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'queued',
+      accessTier: 'full',
       instanceId: 'inst-1',
       model: TEST_MODEL,
       position: 3,
@@ -74,6 +75,28 @@ describe('toSessionStateResponse', () => {
       queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
       estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
       queuedAt: now.toISOString(),
+    })
+  })
+
+  test('limited queued row includes limited-mode reason metadata', () => {
+    const view = toSessionStateResponse({
+      row: row({
+        status: 'queued',
+        access_tier: 'limited',
+        country_code: 'US',
+        country_block_reason: 'anonymous_network',
+        ip_privacy_signals: ['vpn'],
+      }),
+      position: 1,
+      ...baseArgs,
+      now,
+    })
+    expect(view).toMatchObject({
+      status: 'queued',
+      accessTier: 'limited',
+      countryCode: 'US',
+      countryBlockReason: 'anonymous_network',
+      ipPrivacySignals: ['vpn'],
     })
   })
 
@@ -92,6 +115,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'active',
+      accessTier: 'full',
       instanceId: 'inst-1',
       model: TEST_MODEL,
       admittedAt: admittedAt.toISOString(),
@@ -115,6 +139,7 @@ describe('toSessionStateResponse', () => {
     })
     expect(view).toEqual({
       status: 'ended',
+      accessTier: 'full',
       instanceId: 'inst-1',
       admittedAt: admittedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),

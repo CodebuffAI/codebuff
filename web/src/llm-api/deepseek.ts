@@ -1,11 +1,13 @@
 import { Agent } from 'undici'
 
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
+import { deepseekModels } from '@codebuff/common/constants/model-config'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -43,6 +45,17 @@ const DEEPSEEK_V4_PRO_PRICING: DeepSeekPricing = {
   outputCostPerToken: 0.87 / 1_000_000,
 }
 
+const DEEPSEEK_V4_FLASH_PRICING: DeepSeekPricing = {
+  inputCostPerToken: 0.14 / 1_000_000,
+  cachedInputCostPerToken: 0.0028 / 1_000_000,
+  outputCostPerToken: 0.28 / 1_000_000,
+}
+
+const DEEPSEEK_PRICING_BY_DIRECT_MODEL_ID: Record<string, DeepSeekPricing> = {
+  [deepseekModels.deepseekV4ProDirect]: DEEPSEEK_V4_PRO_PRICING,
+  [deepseekModels.deepseekV4FlashDirect]: DEEPSEEK_V4_FLASH_PRICING,
+}
+
 const DEEPSEEK_MODELS: Record<
   string,
   { deepseekId: string; pricing: DeepSeekPricing }
@@ -51,7 +64,7 @@ const DEEPSEEK_MODELS: Record<
     model,
     {
       deepseekId,
-      pricing: DEEPSEEK_V4_PRO_PRICING,
+      pricing: getPricingForDeepSeekId(deepseekId),
     },
   ]),
 )
@@ -62,12 +75,27 @@ export function isDeepSeekModel(model: string): boolean {
   return DEEPSEEK_ROUTED_MODELS.has(model)
 }
 
+function isDeepSeekV4FlashModel(model: string): boolean {
+  return (
+    model === deepseekModels.deepseekV4Flash ||
+    model === deepseekModels.deepseekV4FlashDirect
+  )
+}
+
 function getDeepSeekPricing(model: string): DeepSeekPricing {
   const entry = DEEPSEEK_MODELS[model]
   if (!entry) {
     throw new Error(`No DeepSeek pricing found for model: ${model}`)
   }
   return entry.pricing
+}
+
+function getPricingForDeepSeekId(deepseekId: string): DeepSeekPricing {
+  const pricing = DEEPSEEK_PRICING_BY_DIRECT_MODEL_ID[deepseekId]
+  if (!pricing) {
+    throw new Error(`No DeepSeek pricing found for direct model: ${deepseekId}`)
+  }
+  return pricing
 }
 
 type StreamState = {
@@ -176,6 +204,7 @@ export async function handleDeepSeekNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
 
   const response = await createDeepSeekRequest({ body, originalModel, fetch })
 
@@ -195,7 +224,7 @@ export async function handleDeepSeekNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -259,6 +288,8 @@ export async function handleDeepSeekStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
+  const skipDisconnectedBilling = isDeepSeekV4FlashModel(body.model)
 
   const response = await createDeepSeekRequest({ body, originalModel, fetch })
 
@@ -327,7 +358,7 @@ export async function handleDeepSeekStream({
               clientRequestId,
               costMode,
               startTime,
-              request: body,
+              request: auditRequest,
               originalModel,
               line,
               state,
@@ -372,13 +403,26 @@ export async function handleDeepSeekStream({
     cancel() {
       clearInterval(heartbeatInterval)
       clientDisconnected = true
+      if (skipDisconnectedBilling) {
+        reader
+          .cancel('client disconnected from DeepSeek V4 Flash stream')
+          .catch((error) => {
+            logger.warn(
+              { error },
+              'Failed to cancel disconnected DeepSeek V4 Flash stream',
+            )
+          })
+      }
       logger.warn(
         {
           clientDisconnected,
           responseTextLength: state.responseText.length,
           reasoningTextLength: state.reasoningText.length,
+          skippedBilling: skipDisconnectedBilling,
         },
-        'Client cancelled stream, continuing DeepSeek consumption for billing',
+        skipDisconnectedBilling
+          ? 'Client cancelled DeepSeek V4 Flash stream, ending without billing'
+          : 'Client cancelled stream, continuing DeepSeek consumption for billing',
       )
     },
   })

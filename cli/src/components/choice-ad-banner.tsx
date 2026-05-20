@@ -11,7 +11,7 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface ChoiceAdBannerProps {
   ads: AdResponse[]
-  onImpression?: (impUrl: string) => void
+  onImpression?: (ad: AdResponse) => void
 }
 
 export const CHOICE_AD_BANNER_HEIGHT = 5 // border-top + 2 lines description + spacer + cta row + border-bottom
@@ -82,7 +82,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
   useEffect(() => {
     if (onImpression) {
       for (const ad of visibleAds) {
-        onImpression(ad.impUrl)
+        onImpression(ad)
       }
     }
   }, [visibleAds, onImpression])
@@ -139,7 +139,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
               </box>
               <box style={{ flexGrow: 1 }} />
               {/* Bottom: CTA + domain */}
-              <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center' }}>
+              <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center', height: 1, overflow: 'hidden' }}>
                 <text
                   style={{
                     fg: theme.name === 'light' ? '#ffffff' : theme.background,
@@ -152,6 +152,7 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
                 <text
                   style={{
                     fg: theme.muted,
+                    wrapMode: 'none',
                     attributes:
                       label.variant === 'domain'
                         ? TextAttributes.UNDERLINE

@@ -1,12 +1,16 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
+import { LimitedLandingPanel } from './limited-landing-panel'
 import { ShimmerText } from './shimmer-text'
-import { takeOverFreebuffSession } from '../hooks/use-freebuff-session'
+import {
+  refreshFreebuffLandingMetadata,
+  takeOverFreebuffSession,
+} from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
@@ -15,8 +19,18 @@ import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { exitFreebuffCleanly } from '../utils/freebuff-exit'
+import {
+  formatFreebuffPremiumResetCountdown,
+  getFreebuffPremiumResetAt,
+} from '../utils/freebuff-premium-reset'
+import { formatSessionUnits } from '../utils/format-session-units'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
-import { FREEBUFF_PREMIUM_SESSION_LIMIT } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
+} from '@codebuff/common/constants/freebuff-models'
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -59,18 +73,17 @@ const formatRetryAfter = (ms: number): string => {
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
 }
 
-const formatSessionUnits = (units: number): string =>
-  Number.isInteger(units) ? String(units) : units.toFixed(1)
-
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
-  {
-    anonymous: 'anonymized network',
-    proxy: 'proxy',
-    relay: 'relay',
-    res_proxy: 'residential proxy',
-    tor: 'Tor',
-    vpn: 'VPN',
-  }
+{
+  anonymous: 'anonymized network',
+  proxy: 'proxy',
+  relay: 'relay',
+  res_proxy: 'residential proxy',
+  tor: 'Tor',
+  vpn: 'VPN',
+  hosting: 'hosting network',
+  service: 'privacy service',
+}
 
 const formatPrivacySignalList = (
   signals: FreebuffIpPrivacySignal[] | undefined,
@@ -89,6 +102,38 @@ const formatPrivacySignalList = (
   if (labels.length === 1) return labels[0]
   if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
   return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
+}
+
+const getLimitedModeReason = (
+  session: FreebuffSessionResponse | null,
+): string | null => {
+  if (!session || !('countryBlockReason' in session)) {
+    return 'reduced free model access'
+  }
+
+  const countryCode =
+    'countryCode' in session &&
+      session.countryCode &&
+      session.countryCode !== 'UNKNOWN'
+      ? session.countryCode
+      : null
+
+  switch (session.countryBlockReason) {
+    case 'anonymous_network':
+      return `${formatPrivacySignalList(
+        session.ipPrivacySignals ?? undefined,
+      )} detected`
+    case 'country_not_allowed':
+      return `based on detected country${countryCode ? `: ${countryCode}` : ''}`
+    case 'anonymized_or_unknown_country':
+    case 'missing_client_ip':
+    case 'unresolved_client_ip':
+      return 'location could not be verified'
+    case 'ip_privacy_lookup_failed':
+      return 'network check could not finish'
+    default:
+      return 'reduced free model access'
+  }
 }
 
 const TakeoverPrompt: React.FC = () => {
@@ -212,7 +257,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 }) => {
   const theme = useTheme()
   const renderer = useRenderer()
-  const { terminalWidth, contentMaxWidth } = useTerminalDimensions()
+  const { terminalWidth, terminalHeight, contentMaxWidth } =
+    useTerminalDimensions()
+
+  // Progressive disclosure as the terminal gets shorter. The picker is the
+  // only thing the user must be able to reach, so chrome is shed first:
+  //   tall   (>=26): full ASCII logo + roomy spacing, content anchored low
+  //   medium (>=18): one-line text logo, tightened spacing, content up top
+  //   short  (<18) : no logo at all
+  //   tiny   (<15) : also drop the ad banner
+  // Section headers always show — the picker scrolls within whatever rows
+  // remain (see selectorMaxHeight below), so there's no need to hide them.
+  const logoMode: 'full' | 'text' | 'none' =
+    terminalHeight >= 26 ? 'full' : terminalHeight >= 19 ? 'text' : 'none'
+  const compact = terminalHeight < 22
+  const showAds = terminalHeight >= 16
+  const textMarginBottom = compact ? 0 : 1
+  const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
   const blockColor = getLogoBlockColor(theme.name)
@@ -230,17 +291,19 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     accentColor,
     blockColor,
     applySheenToChar,
+    // 'text' forces the one-line variant; 'none' is handled by not rendering.
+    maxHeight: logoMode === 'full' ? undefined : 1,
   })
 
   // Always enable ads in the waiting room — this is where monetization lives.
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
-  // Try Gravity first, then fall back to Carbon when Gravity doesn't fill.
+  // Try Gravity first, then fall back to ZeroClick when Gravity doesn't fill.
   const { ads, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
     provider: 'gravity',
-    fallbackProvider: 'carbon',
+    fallbackProvider: 'zeroclick',
     surface: 'waiting_room',
   })
 
@@ -248,38 +311,117 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
   const [exitHover, setExitHover] = useState(false)
 
-  // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
-  // the user wanders away and comes back.
-  const queuedAtMs = useMemo(() => {
-    if (session?.status === 'queued') return Date.parse(session.queuedAt)
-    return null
-  }, [session])
-  const now = useNow(1000, queuedAtMs !== null)
-  const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
-
   const isQueued = session?.status === 'queued'
+  const accessTier =
+    session && 'accessTier' in session ? session.accessTier : 'full'
+  const limitedModeReason =
+    accessTier === 'limited' ? getLimitedModeReason(session) : null
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
+  // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
+  // the user wanders away and comes back. On the landing picker we tick once a
+  // minute so the premium reset countdown stays fresh.
+  const queuedAtMs = useMemo(() => {
+    if (session?.status === 'queued') return Date.parse(session.queuedAt)
+    return null
+  }, [session])
+  const now = useNow(isQueued ? 1000 : 60_000, isQueued || isLanding)
+  const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
   // Premium quota counter for the title line. All premium models share one
   // pool; the server replicates the same snapshot under each premium model
   // id, so any entry has the right count. Renders amber when exhausted so
   // the limit reads as "you've hit it" rather than just another count.
-  const rateLimitsByModel =
-    session && 'rateLimitsByModel' in session
-      ? session.rateLimitsByModel
-      : undefined
-  const sharedPremiumUsed = rateLimitsByModel
-    ? (Object.values(rateLimitsByModel)[0]?.recentCount ?? 0)
-    : 0
-  const premiumLeft = Math.max(
-    0,
-    FREEBUFF_PREMIUM_SESSION_LIMIT - sharedPremiumUsed,
+  const rateLimitsByModel = getRateLimitsByModel(session)
+  const premiumRateLimit = rateLimitsByModel
+    ? Object.values(rateLimitsByModel)[0]
+    : undefined
+  const sharedPremiumUsed = premiumRateLimit?.recentCount ?? 0
+  const isPremiumExhausted =
+    sharedPremiumUsed >=
+    (accessTier === 'limited'
+      ? FREEBUFF_LIMITED_SESSION_LIMIT
+      : FREEBUFF_PREMIUM_SESSION_LIMIT)
+  const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
+  // Pad the used count so the title's centered container doesn't shift width
+  // as the count ticks from "0" → "1.3" → "2" while loading.
+  const sessionLimit =
+    accessTier === 'limited'
+      ? FREEBUFF_LIMITED_SESSION_LIMIT
+      : FREEBUFF_PREMIUM_SESSION_LIMIT
+  // Limited-tier users don't see any premium models, so calling these "limited
+  // sessions" leaks the tier name without informing the user — just "sessions"
+  // reads naturally next to the count and reset countdown.
+  const sessionLabel =
+    accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const sessionUnitWidth = String(sessionLimit).length + 2
+  const formattedSharedPremiumUsed =
+    formatSessionUnits(sharedPremiumUsed).padStart(sessionUnitWidth)
+  const premiumResetAt = getFreebuffPremiumResetAt({
+    rateLimitsByModel,
+    nowMs: now,
+  })
+  const premiumResetAtMs = premiumResetAt.getTime()
+  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
+    premiumResetAt,
+    now,
   )
-  const premiumLeftColor = premiumLeft === 0 ? theme.secondary : theme.muted
+
+  // Rows the picker may occupy = terminal height minus the fixed chrome
+  // around it. Each term mirrors the real layout exactly (no padded
+  // estimate, no blanket safety row) so the scrollbox fills the available
+  // space with no dead band below it:
+  //   - top bar: paddingTop 1 + the ✕ row = 2
+  //   - ad banner: CHOICE_AD_BANNER_HEIGHT, only when shown
+  //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
+  //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
+  //   - the prompt/counter (landing) or the position panel (queued)
+  // Line wrapping is derived from the actual strings vs contentMaxWidth, so
+  // a wrapped counter is accounted for precisely instead of guessed at.
+  const wrappedRows = (text: string) =>
+    Math.max(1, Math.ceil(text.length / contentMaxWidth))
+  const counterText =
+    `${formattedSharedPremiumUsed} of ${sessionLimit} ${sessionLabel} used, ` +
+    `resets in ${premiumResetCountdown}`
+  const logoBlockRows =
+    logoMode === 'none'
+      ? 0
+      : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
+  const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
+  const adRows = showAds ? CHOICE_AD_BANNER_HEIGHT : 0
+  const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
+  const landingTextRows =
+    wrappedRows('Pick a model to start') +
+    textMarginBottom +
+    wrappedRows(counterText) +
+    textMarginBottom
+  const queuedTextRows =
+    wrappedRows("You're in the waiting room") +
+    1 /* marginBottom */ +
+    4 /* position panel */
+  const selectorMaxHeight = Math.max(
+    3,
+    terminalHeight -
+    reservedChrome -
+    (isQueued ? queuedTextRows : landingTextRows),
+  )
+  // The limited-tier panel owns its own title/counter, so the only chrome
+  // around it is the shared frame (no extra prompt rows to subtract).
+  const limitedPanelMaxHeight = Math.max(3, terminalHeight - reservedChrome)
+
+  useEffect(() => {
+    if (!isLanding || !premiumRateLimit) return
+
+    const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
+    const timer = setTimeout(() => {
+      refreshFreebuffLandingMetadata().catch(() => { })
+    }, delayMs)
+
+    return () => clearTimeout(timer)
+  }, [isLanding, premiumRateLimit, premiumResetAtMs])
 
   return (
     <box
@@ -292,17 +434,28 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     >
       {/* Top-right exit affordance so mouse users have a clear way out even
           when they don't know Ctrl+C works. width: '100%' is required for
-          justifyContent: 'flex-end' to actually push the X to the right. */}
+          justifyContent to actually push the X to the right. */}
       <box
         style={{
           width: '100%',
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           paddingTop: 1,
+          paddingLeft: 2,
           paddingRight: 2,
           flexShrink: 0,
         }}
       >
+        <box>
+          {limitedModeReason && (
+            <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+              <span fg={theme.secondary} attributes={TextAttributes.BOLD}>
+                Limited mode
+              </span>
+              <span fg={theme.muted}> · {limitedModeReason}</span>
+            </text>
+          )}
+        </box>
         <Button
           onClick={exitFreebuffCleanly}
           onMouseOver={() => setExitHover(true)}
@@ -323,16 +476,26 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           flexGrow: 1,
           flexDirection: 'column',
           alignItems: 'center',
-          // flex-end so the logo + title + info clump sits just above the ad,
-          // matching how chat anchors its header/messages to the input bar.
-          justifyContent: 'flex-end',
+          // With the full logo we anchor the clump low (flex-end), matching how
+          // chat pins its header/messages to the input bar. Once the logo is
+          // shrunk/hidden on shorter terminals, anchoring low just leaves a big
+          // dead band under the top bar — so hug the top instead.
+          justifyContent: logoMode === 'full' ? 'flex-end' : 'flex-start',
           paddingLeft: 2,
           paddingRight: 2,
+          // A row of breathing room under the top bar for the text logo; the
+          // full logo brings its own spacing and the tiniest (no-logo) screens
+          // can't spare the row.
+          paddingTop: logoMode === 'text' ? 1 : 0,
           paddingBottom: 1,
-          gap: 1,
+          gap: logoMode === 'full' ? 1 : 0,
         }}
       >
-        <box style={{ marginBottom: 1 }}>{logoComponent}</box>
+        {logoMode !== 'none' && (
+          <box style={{ marginBottom: 1, flexShrink: 0 }}>
+            {logoComponent}
+          </box>
+        )}
 
         <box
           style={{
@@ -354,7 +517,29 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </text>
           )}
 
-          {isLanding && (
+          {isLanding && accessTier === 'limited' && (
+            <LimitedLandingPanel
+              isQuotaExhausted={isPremiumExhausted}
+              maxHeight={limitedPanelMaxHeight}
+              sessionCounterText={`${formatSessionUnits(
+                sharedPremiumUsed,
+              )} of ${sessionLimit} ${sessionLabel} used, resets in ${premiumResetCountdown}`}
+              sessionCounter={
+                <>
+                  <span fg={premiumUsedColor}>
+                    {formatSessionUnits(sharedPremiumUsed)} of {sessionLimit}{' '}
+                    {sessionLabel} used
+                  </span>
+                  <span fg={theme.muted}>
+                    {', '}
+                    resets in {premiumResetCountdown}
+                  </span>
+                </>
+              }
+            />
+          )}
+
+          {isLanding && accessTier !== 'limited' && (
             <box
               style={{
                 flexDirection: 'column',
@@ -362,16 +547,30 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 gap: 0,
               }}
             >
-              <text style={{ marginBottom: 1, wrapMode: 'word' }}>
+              <text
+                style={{ marginBottom: textMarginBottom, wrapMode: 'word' }}
+              >
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
                 </span>
-                <span fg={premiumLeftColor}>
-                  {'  ·  '}
-                  {premiumLeft} premium left today
+              </text>
+              <text
+                style={{
+                  fg: theme.muted,
+                  marginBottom: textMarginBottom,
+                  wrapMode: 'word',
+                }}
+              >
+                <span fg={premiumUsedColor}>
+                  {formattedSharedPremiumUsed} of {sessionLimit} {sessionLabel}{' '}
+                  used
+                </span>
+                <span fg={theme.muted}>
+                  {', '}
+                  resets in {premiumResetCountdown}
                 </span>
               </text>
-              <FreebuffModelSelector />
+              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
             </box>
           )}
 
@@ -394,7 +593,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   : "You're in the waiting room"}
               </text>
 
-              <FreebuffModelSelector />
+              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
 
               <box
                 style={{
@@ -444,7 +643,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 {session.countryBlockReason === 'anonymous_network' ? (
                   <>
                     We detected{' '}
-                    {formatPrivacySignalList(session.ipPrivacySignals)} traffic
+                    {formatFreebuffHardBlockedPrivacySignals(
+                      session.ipPrivacySignals,
+                    )}{' '}
+                    traffic
                     {session.countryCode === 'UNKNOWN' ? (
                       ''
                     ) : (
@@ -454,8 +656,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                         <span fg={theme.foreground}>{session.countryCode}</span>
                       </>
                     )}
-                    . Freebuff can't be used from anonymized networks. Press
-                    Ctrl+C to exit.
+                    . Freebuff can't be used from VPN, proxy, or Tor traffic.
+                    Disable it and restart Freebuff to try again.
                   </>
                 ) : session.countryCode === 'UNKNOWN' ? (
                   <>
@@ -504,7 +706,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                premium sessions today. Try again in{' '}
+                {session.accessTier === 'limited'
+                  ? 'sessions'
+                  : 'premium sessions'}{' '}
+                today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
@@ -516,20 +721,26 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       </box>
 
       {/* Reserve the ad banner slot before the async ad fetch resolves so the
-          waiting-room content does not jump when the banner fills. */}
-      <box
-        style={{
-          width: '100%',
-          flexShrink: 0,
-          height: CHOICE_AD_BANNER_HEIGHT,
-        }}
-      >
-        {ads ? (
-          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
-        ) : (
-          <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
-        )}
-      </box>
+          waiting-room content does not jump when the banner fills. On very
+          short terminals the banner is dropped entirely to give the picker
+          back its 5 rows. */}
+      {showAds && (
+        <box
+          style={{
+            width: '100%',
+            flexShrink: 0,
+            height: CHOICE_AD_BANNER_HEIGHT,
+          }}
+        >
+          {ads ? (
+            <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
+          ) : (
+            <text style={{ fg: theme.muted }}>
+              {'─'.repeat(terminalWidth)}
+            </text>
+          )}
+        </box>
+      )}
     </box>
   )
 }

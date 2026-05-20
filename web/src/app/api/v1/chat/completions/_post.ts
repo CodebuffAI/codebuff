@@ -1,18 +1,28 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  type FreebuffAccessTier,
+  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  isFreebuffModelAllowedForAccessTier,
+  isSupportedFreebuffModelId,
+} from '@codebuff/common/constants/freebuff-models'
+import {
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeMode,
   isFreeModeAllowedAgentModel,
 } from '@codebuff/common/constants/free-agents'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { formatFreebuffHardBlockedMessage } from '@codebuff/common/util/freebuff-privacy'
 import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
+import type {
+  InsertChatCompletionTraceBigqueryFn,
+  InsertMessageBigqueryFn,
+} from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
 import type {
   GetAgentRunFromIdFn,
@@ -37,6 +47,8 @@ import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
+import { recordChatCompletionTrace } from '@/llm-api/chat-completion-trace'
+import { createRequestAuditRecord } from '@/llm-api/helpers'
 import {
   AvianError,
   handleAvianNonStream,
@@ -62,6 +74,18 @@ import {
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
 import {
+  handleMoonshotNonStream,
+  handleMoonshotStream,
+  isMoonshotModel,
+  MoonshotError,
+} from '@/llm-api/moonshot'
+import {
+  OpenCodeZenError,
+  handleOpenCodeZenNonStream,
+  handleOpenCodeZenStream,
+  isOpenCodeZenModel,
+} from '@/llm-api/opencode-zen'
+import {
   SiliconFlowError,
   handleSiliconFlowNonStream,
   handleSiliconFlowStream,
@@ -78,10 +102,21 @@ import {
   handleOpenRouterStream,
   OpenRouterError,
 } from '@/llm-api/openrouter'
-import { checkSessionAdmissible } from '@/server/free-session/public-api'
-import { getFreeModeCountryAccess } from '@/server/free-mode-country'
+import {
+  checkSessionAdmissible,
+  endUserSession,
+} from '@/server/free-session/public-api'
+import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
+import {
+  getFreeModeAccessTier,
+  shouldHardBlockFreeModeAccess,
+} from '@/server/free-mode-country'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
+import type {
+  FreeModeCountryAccess,
+  FreeModeCountryAccessOptions,
+} from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
@@ -123,7 +158,24 @@ export const formatQuotaResetCountdown = (
 }
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
+export type EndUserSessionFn = typeof endUserSession
 export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
+export type ResolveFreeModeCountryAccessFn = (
+  userId: string,
+  req: NextRequest,
+  options: FreeModeCountryAccessOptions,
+) => Promise<FreeModeCountryAccess>
+
+const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
+
+function sampleSuccessLogger(logger: Logger, sampled: boolean): Logger {
+  if (sampled) return logger
+  return {
+    ...logger,
+    info: (() => {}) as Logger['info'],
+    debug: (() => {}) as Logger['debug'],
+  }
+}
 
 type GateRejectCode = Extract<SessionGateResult, { ok: false }>['code']
 
@@ -136,6 +188,12 @@ const STATUS_BY_GATE_CODE = {
   freebuff_update_required: 426,
 } satisfies Record<GateRejectCode, number>
 
+function getHardBlockedFreeModeMessage(
+  countryAccess: Pick<FreeModeCountryAccess, 'ipPrivacy'>,
+): string {
+  return formatFreebuffHardBlockedMessage(countryAccess.ipPrivacy?.signals)
+}
+
 export async function postChatCompletions(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -146,6 +204,7 @@ export async function postChatCompletions(params: {
   getAgentRunFromId: GetAgentRunFromIdFn
   fetch: typeof globalThis.fetch
   insertMessageBigquery: InsertMessageBigqueryFn
+  insertChatCompletionTraceBigquery?: InsertChatCompletionTraceBigqueryFn
   ensureSubscriberBlockGrant?: (params: {
     userId: string
     logger: Logger
@@ -157,6 +216,11 @@ export async function postChatCompletions(params: {
   /** Optional override for the free-mode rate limiter. Tests inject this to
    *  avoid coupling to process-global limiter state. */
   checkFreeModeRateLimit?: CheckFreeModeRateLimitFn
+  /** Optional override for country/cache checks. Tests inject this to avoid
+   *  coupling to Postgres-backed cache state. */
+  resolveFreeModeCountryAccess?: ResolveFreeModeCountryAccessFn
+  /** Optional override for releasing stale waiting-room rows on hard blocks. */
+  endFreebuffSession?: EndUserSessionFn
 }) {
   const {
     req,
@@ -166,13 +230,20 @@ export async function postChatCompletions(params: {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
+    insertChatCompletionTraceBigquery,
     ensureSubscriberBlockGrant,
     getUserPreferences,
     checkSessionAdmissible: checkSession = checkSessionAdmissible,
     checkFreeModeRateLimit = defaultCheckFreeModeRateLimit,
+    resolveFreeModeCountryAccess,
+    endFreebuffSession = endUserSession,
   } = params
   let { logger } = params
   let { trackEvent } = params
+  const resolveCountryAccess: ResolveFreeModeCountryAccessFn =
+    resolveFreeModeCountryAccess ??
+    ((userId, req, options) =>
+      getCachedFreeModeCountryAccess({ userId, req, options, logger }))
 
   try {
     // Parse request body
@@ -201,6 +272,14 @@ export async function postChatCompletions(params: {
     // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
+    const sampleFreebuffSuccess =
+      !isFreeModeRequest || Math.random() < FREEBUFF_SUCCESS_SAMPLE_RATE
+
+    const trackSuccessEvent: TrackEventFn = (eventParams) => {
+      if (sampleFreebuffSuccess) {
+        trackEvent(eventParams)
+      }
+    }
 
     trackEvent = withDefaultProperties(trackEvent, {
       freebuff: isFreeModeRequest,
@@ -244,6 +323,7 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
     const stripeCustomerId = userInfo.stripe_customer_id ?? null
+    let freebuffAccessTier: FreebuffAccessTier = 'full'
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -261,38 +341,72 @@ export async function postChatCompletions(params: {
       )
     }
 
-    // Track API request
-    trackEvent({
-      event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
-      userId,
-      properties: {
-        hasStream: !!bodyStream,
-        hasRunId: !!runId,
-        userInfo,
-      },
-      logger,
-    })
-
-    // For free mode requests, require a resolved allowlisted country.
+    // For free mode requests, classify the request into full, limited, or
+    // hard-blocked access. Most non-allowlist/privacy cases are limited to the
+    // cheap DeepSeek Flash path, but VPN/proxy/Tor traffic is rejected outright.
     if (isFreeModeRequest) {
-      const countryAccess = await getFreeModeCountryAccess(req, {
+      const countryAccess = await resolveCountryAccess(userId, req, {
         fetch,
         ipinfoToken: env.IPINFO_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
+        forceLimited:
+          env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
+          env.FREEBUFF_DEV_FORCE_LIMITED,
       })
+      freebuffAccessTier = getFreeModeAccessTier(countryAccess)
+      const hardBlocked = shouldHardBlockFreeModeAccess(countryAccess)
 
-      logger.info(
-        {
-          cfHeader: countryAccess.cfCountry,
-          geoipResult: countryAccess.geoipCountry,
-          resolvedCountry: countryAccess.countryCode,
-          countryBlockReason: countryAccess.blockReason,
-          ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-          clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
-        },
-        'Free mode country detection',
-      )
+      if (!countryAccess.allowed || sampleFreebuffSuccess) {
+        logger.info(
+          {
+            cfHeader: countryAccess.cfCountry,
+            geoipResult: countryAccess.geoipCountry,
+            resolvedCountry: countryAccess.countryCode,
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+          },
+          'Free mode country detection',
+        )
+      }
+
+      if (hardBlocked) {
+        const error = 'free_mode_unavailable'
+        const message = getHardBlockedFreeModeMessage(countryAccess)
+        await endFreebuffSession({
+          userId,
+          userEmail: userInfo.email ?? null,
+        })
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error,
+            countryCode: countryAccess.countryCode,
+            countryBlockReason: countryAccess.blockReason,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+            accessStatus: 'blocked',
+          },
+          logger,
+        })
+        return NextResponse.json(
+          {
+            error,
+            message,
+            countryCode: countryAccess.countryCode ?? 'UNKNOWN',
+            countryBlockReason: countryAccess.blockReason ?? undefined,
+            ipPrivacySignals: countryAccess.ipPrivacy?.signals ?? undefined,
+          },
+          { status: 403 },
+        )
+      }
+
+      trackEvent = withDefaultProperties(trackEvent, {
+        accessTier: freebuffAccessTier,
+        accessStatus: freebuffAccessTier,
+      })
 
       if (!countryAccess.allowed) {
         trackEvent({
@@ -307,19 +421,21 @@ export async function postChatCompletions(params: {
           },
           logger,
         })
-
-        return NextResponse.json(
-          {
-            error: 'free_mode_unavailable',
-            message: 'Free mode is not available in your country.',
-            countryCode: countryAccess.countryCode ?? 'UNKNOWN',
-            countryBlockReason: countryAccess.blockReason,
-            ipPrivacySignals: countryAccess.ipPrivacy?.signals,
-          },
-          { status: 403 },
-        )
       }
     }
+
+    // Track API request. Freebuff success-path analytics are sampled to keep
+    // high-volume free traffic from dominating PostHog and log forwarding.
+    trackSuccessEvent({
+      event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
+      userId,
+      properties: {
+        hasStream: !!bodyStream,
+        hasRunId: !!runId,
+        userInfo,
+      },
+      logger,
+    })
 
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
@@ -451,29 +567,62 @@ export async function postChatCompletions(params: {
       }
     }
 
+    if (
+      isFreeModeRequest &&
+      freebuffAccessTier === 'limited' &&
+      (isSupportedFreebuffModelId(typedBody.model) ||
+        typedBody.model === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+      !isFreebuffModelAllowedForAccessTier(typedBody.model, freebuffAccessTier)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'session_model_mismatch',
+          model: typedBody.model,
+          accessTier: freebuffAccessTier,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'session_model_mismatch',
+          message:
+            'Limited free access is only available with DeepSeek V4 Flash.',
+        },
+        { status: STATUS_BY_GATE_CODE.session_model_mismatch },
+      )
+    }
+
+    let freeModeSessionGate: SessionGateResult | null = null
+
     // Freebuff waiting-room gate. Usually enforced only when
     // FREEBUFF_WAITING_ROOM_ENABLED=true. Runs before the rate limiter so
     // rejected requests don't burn a queued user's free-mode counters.
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
-      const gate = await checkSession({
+      freeModeSessionGate = await checkSession({
         userId,
+        accessTier: freebuffAccessTier,
         userEmail: userInfo.email,
         claimedInstanceId,
         requestedModel: typedBody.model,
         requireActiveSession: isFreebuffGeminiThinkerAgent(agentId),
       })
-      if (!gate.ok) {
+      if (!freeModeSessionGate.ok) {
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,
-          properties: { error: gate.code },
+          properties: { error: freeModeSessionGate.code },
           logger,
         })
         return NextResponse.json(
-          { error: gate.code, message: gate.message },
-          { status: STATUS_BY_GATE_CODE[gate.code] },
+          {
+            error: freeModeSessionGate.code,
+            message: freeModeSessionGate.message,
+          },
+          { status: STATUS_BY_GATE_CODE[freeModeSessionGate.code] },
         )
       }
     }
@@ -516,8 +665,9 @@ export async function postChatCompletions(params: {
     // This is done AFTER validation so malformed requests don't start a new 5-hour block.
     // When the function is provided, always include subscription credits in the balance:
     // error/null results mean subscription grants have 0 balance, so including them is harmless.
-    const includeSubscriptionCredits = !!ensureSubscriberBlockGrant
-    if (ensureSubscriberBlockGrant) {
+    const includeSubscriptionCredits =
+      !isFreeModeRequest && !!ensureSubscriberBlockGrant
+    if (!isFreeModeRequest && ensureSubscriberBlockGrant) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({
           userId,
@@ -535,7 +685,7 @@ export async function postChatCompletions(params: {
             ? await getUserPreferences({ userId, logger })
             : { fallbackToALaCarte: true } // Default to allowing a-la-carte if no preference function
 
-          if (!preferences.fallbackToALaCarte && !isFreeModeRequest) {
+          if (!preferences.fallbackToALaCarte) {
             const resetTime = blockGrantResult.resetsAt
             const resetCountdown = formatQuotaResetCountdown(
               resetTime.toISOString(),
@@ -583,125 +733,113 @@ export async function postChatCompletions(params: {
       }
     }
 
-    // Fetch user credit data (includes subscription credits when block grant was ensured)
-    const {
-      balance: { totalRemaining },
-      nextQuotaReset,
-    } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
+    // Free-mode requests have already passed their model/session/rate gates
+    // and should not touch paid billing/usage paths.
+    if (!isFreeModeRequest) {
+      // Fetch user credit data (includes subscription credits when block grant was ensured)
+      const {
+        balance: { totalRemaining },
+        nextQuotaReset,
+      } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
 
-    // Credit check
-    if (totalRemaining <= 0 && !isFreeModeRequest) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
-        userId,
-        properties: {
-          totalRemaining,
-          nextQuotaReset,
-        },
-        logger,
-      })
-      return NextResponse.json(
-        {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
-        },
-        { status: 402 },
-      )
+      // Credit check
+      if (totalRemaining <= 0) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
+          userId,
+          properties: {
+            totalRemaining,
+            nextQuotaReset,
+          },
+          logger,
+        })
+        return NextResponse.json(
+          {
+            message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
+          },
+          { status: 402 },
+        )
+      }
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
+    const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
+
+    recordChatCompletionTrace({
+      body: typedBody,
+      userId,
+      agentId,
+      ancestorRunIds,
+      logger: providerLogger,
+      insertChatCompletionTraceBigquery,
+    })
 
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
         // Streaming request — route supported models to direct providers.
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
-        const useCanopyWave = isCanopyWaveModel(typedBody.model)
-        const useAvian = !useCanopyWave && isAvianModel(typedBody.model)
+        const useOpenCodeZen = isOpenCodeZenModel(typedBody.model)
+        const useMoonshot = !useOpenCodeZen && isMoonshotModel(typedBody.model)
+        const useCanopyWave =
+          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(typedBody.model)
+        const useAvian =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          isAvianModel(typedBody.model)
         const useDeepSeek =
-          !useCanopyWave && !useAvian && isDeepSeekModel(typedBody.model)
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useAvian &&
+          isDeepSeekModel(typedBody.model)
         const useFireworks =
+          !useMoonshot &&
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useAvian &&
           !useDeepSeek &&
           isFireworksModel(typedBody.model)
         const useOpenAIDirect =
+          !useMoonshot &&
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useAvian &&
           !useDeepSeek &&
           !useFireworks &&
           isOpenAIDirectModel(typedBody.model)
+        const baseArgs = {
+          body: typedBody,
+          userId,
+          stripeCustomerId,
+          agentId,
+          fetch,
+          logger: providerLogger,
+          insertMessageBigquery,
+        }
         const stream = useSiliconFlow
-          ? await handleSiliconFlowStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
-          : useCanopyWave
-            ? await handleCanopyWaveStream({
-                body: typedBody,
-                userId,
-                stripeCustomerId,
-                agentId,
-                fetch,
-                logger,
-                insertMessageBigquery,
-              })
-            : useAvian
-              ? await handleAvianStream({
-                  body: typedBody,
-                  userId,
-                  stripeCustomerId,
-                  agentId,
-                  fetch,
-                  logger,
-                  insertMessageBigquery,
-                })
-              : useDeepSeek
-                ? await handleDeepSeekStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
-                : useFireworks
-                  ? await handleFireworksStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
-                  : useOpenAIDirect
-                    ? await handleOpenAIStream({
-                        body: typedBody,
-                        userId,
-                        stripeCustomerId,
-                        agentId,
-                        fetch,
-                        logger,
-                        insertMessageBigquery,
-                      })
-                    : await handleOpenRouterStream({
-                        body: typedBody,
-                        userId,
-                        stripeCustomerId,
-                        agentId,
-                        openrouterApiKey,
-                        fetch,
-                        logger,
-                        insertMessageBigquery,
-                      })
+          ? await handleSiliconFlowStream(baseArgs)
+          : useMoonshot
+            ? await handleMoonshotStream(baseArgs)
+            : useOpenCodeZen
+              ? await handleOpenCodeZenStream(baseArgs)
+              : useCanopyWave
+                ? await handleCanopyWaveStream(baseArgs)
+                : useAvian
+                  ? await handleAvianStream(baseArgs)
+                  : useDeepSeek
+                    ? await handleDeepSeekStream(baseArgs)
+                    : useFireworks
+                      ? await handleFireworksStream(baseArgs)
+                      : useOpenAIDirect
+                        ? await handleOpenAIStream(baseArgs)
+                        : await handleOpenRouterStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
 
-        trackEvent({
+        trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
           userId,
           properties: {
@@ -720,98 +858,72 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to provider for supported models
+        // Non-streaming request — route to direct providers for supported models
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
-        const useCanopyWave = isCanopyWaveModel(model)
-        const useAvianNonStream = !useCanopyWave && isAvianModel(model)
+        const useOpenCodeZen = isOpenCodeZenModel(model)
+        const useMoonshot = !useOpenCodeZen && isMoonshotModel(model)
+        const useCanopyWave =
+          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(model)
+        const useAvianNonStream =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          isAvianModel(model)
         const useDeepSeek =
-          !useCanopyWave && !useAvianNonStream && isDeepSeekModel(model)
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useAvianNonStream &&
+          isDeepSeekModel(model)
         const useFireworks =
+          !useMoonshot &&
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useAvianNonStream &&
           !useDeepSeek &&
           isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
+          !useMoonshot &&
+          !useOpenCodeZen &&
           !useCanopyWave &&
           !useAvianNonStream &&
           !useDeepSeek &&
           !useFireworks &&
           isOpenAIDirectModel(model)
 
+        const baseArgs = {
+          body: typedBody,
+          userId,
+          stripeCustomerId,
+          agentId,
+          fetch,
+          logger: providerLogger,
+          insertMessageBigquery,
+        }
         const nonStreamRequest = useSiliconFlow
-          ? handleSiliconFlowNonStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
-          : useCanopyWave
-            ? handleCanopyWaveNonStream({
-                body: typedBody,
-                userId,
-                stripeCustomerId,
-                agentId,
-                fetch,
-                logger,
-                insertMessageBigquery,
-              })
-            : useAvianNonStream
-              ? handleAvianNonStream({
-                  body: typedBody,
-                  userId,
-                  stripeCustomerId,
-                  agentId,
-                  fetch,
-                  logger,
-                  insertMessageBigquery,
-                })
-              : useDeepSeek
-                ? handleDeepSeekNonStream({
-                    body: typedBody,
-                    userId,
-                    stripeCustomerId,
-                    agentId,
-                    fetch,
-                    logger,
-                    insertMessageBigquery,
-                  })
-                : useFireworks
-                  ? handleFireworksNonStream({
-                      body: typedBody,
-                      userId,
-                      stripeCustomerId,
-                      agentId,
-                      fetch,
-                      logger,
-                      insertMessageBigquery,
-                    })
-                  : shouldUseOpenAIEndpoint
-                    ? handleOpenAINonStream({
-                        body: typedBody,
-                        userId,
-                        stripeCustomerId,
-                        agentId,
-                        fetch,
-                        logger,
-                        insertMessageBigquery,
-                      })
-                    : handleOpenRouterNonStream({
-                        body: typedBody,
-                        userId,
-                        stripeCustomerId,
-                        agentId,
-                        openrouterApiKey,
-                        fetch,
-                        logger,
-                        insertMessageBigquery,
-                      })
+          ? handleSiliconFlowNonStream(baseArgs)
+          : useMoonshot
+            ? handleMoonshotNonStream(baseArgs)
+            : useOpenCodeZen
+              ? handleOpenCodeZenNonStream(baseArgs)
+              : useCanopyWave
+                ? handleCanopyWaveNonStream(baseArgs)
+                : useAvianNonStream
+                  ? handleAvianNonStream(baseArgs)
+                  : useDeepSeek
+                    ? handleDeepSeekNonStream(baseArgs)
+                    : useFireworks
+                      ? handleFireworksNonStream(baseArgs)
+                      : shouldUseOpenAIEndpoint
+                        ? handleOpenAINonStream(baseArgs)
+                        : handleOpenRouterNonStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
         const result = await nonStreamRequest
 
-        trackEvent({
+        trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,
           userId,
           properties: {
@@ -845,6 +957,10 @@ export async function postChatCompletions(params: {
       if (error instanceof DeepSeekError) {
         deepseekError = error
       }
+      let moonshotError: MoonshotError | undefined
+      if (error instanceof MoonshotError) {
+        moonshotError = error
+      }
       let siliconflowError: SiliconFlowError | undefined
       if (error instanceof SiliconFlowError) {
         siliconflowError = error
@@ -853,22 +969,31 @@ export async function postChatCompletions(params: {
       if (error instanceof OpenAIError) {
         openaiError = error
       }
+      let opencodeZenError: OpenCodeZenError | undefined
+      if (error instanceof OpenCodeZenError) {
+        opencodeZenError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
+      const telemetryBody = createRequestAuditRecord(body)
       const providerLabel = avianError
         ? 'Avian'
         : siliconflowError
           ? 'SiliconFlow'
-          : canopywaveError
-            ? 'CanopyWave'
-            : deepseekError
-              ? 'DeepSeek'
-              : fireworksError
-                ? 'Fireworks'
-                : openaiError
-                  ? 'OpenAI'
-                  : 'OpenRouter'
+          : opencodeZenError
+            ? 'OpenCode Zen'
+            : moonshotError
+              ? 'Moonshot'
+              : canopywaveError
+                ? 'CanopyWave'
+                : deepseekError
+                  ? 'DeepSeek'
+                  : fireworksError
+                    ? 'Fireworks'
+                    : openaiError
+                      ? 'OpenAI'
+                      : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -881,24 +1006,29 @@ export async function postChatCompletions(params: {
           messageCount: Array.isArray(typedBody.messages)
             ? typedBody.messages.length
             : 0,
-          messages: typedBody.messages,
+          messagesOmitted: true,
+          accessTier: freebuffAccessTier,
           providerStatusCode: (
             openrouterError ??
             avianError ??
             fireworksError ??
+            moonshotError ??
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
-            openaiError
+            openaiError ??
+            opencodeZenError
           )?.statusCode,
           providerStatusText: (
             openrouterError ??
             avianError ??
             fireworksError ??
+            moonshotError ??
             canopywaveError ??
             deepseekError ??
             siliconflowError ??
-            openaiError
+            openaiError ??
+            opencodeZenError
           )?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
@@ -913,7 +1043,7 @@ export async function postChatCompletions(params: {
         userId,
         properties: {
           error: error instanceof Error ? error.message : 'Unknown error',
-          body,
+          body: telemetryBody,
           agentId,
           streaming: bodyStream,
         },
@@ -930,6 +1060,9 @@ export async function postChatCompletions(params: {
       if (error instanceof FireworksError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
+      if (error instanceof MoonshotError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
       if (error instanceof CanopyWaveError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
@@ -940,6 +1073,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof OpenAIError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof OpenCodeZenError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 

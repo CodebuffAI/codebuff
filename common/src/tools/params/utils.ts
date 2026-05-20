@@ -33,6 +33,31 @@ export function coerceToArray(val: unknown): unknown {
 }
 
 /**
+ * Coerces a stringified JSON object into an object.
+ * This is intentionally narrow so malformed values still fail validation.
+ */
+export function coerceToObject(val: unknown): unknown {
+  if (typeof val !== 'string') {
+    return val
+  }
+
+  try {
+    const parsed = JSON.parse(val)
+    if (
+      parsed != null &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed
+    }
+  } catch {
+    // Leave the original value untouched so schema validation can reject it.
+  }
+
+  return val
+}
+
+/**
  * Handles common replacement-key aliases emitted by some models while keeping
  * the documented schema stable.
  */

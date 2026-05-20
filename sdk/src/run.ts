@@ -15,7 +15,7 @@ import {
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
-import { parseApiErrorResponseBody } from '@codebuff/common/util/error'
+import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { getErrorStatusCode } from './error-utils'
@@ -27,6 +27,7 @@ import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
+import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
@@ -176,6 +177,8 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
     const abortError = createAbortError(signal)
     return {
       sessionState: options.previousRun?.sessionState,
+      traceSessionId:
+        options.previousRun?.traceSessionId ?? crypto.randomUUID(),
       output: {
         type: 'error',
         message: abortError.message,
@@ -268,6 +271,7 @@ async function runOnce({
       logger,
     })
   }
+  const traceSessionId = previousRun?.traceSessionId ?? crypto.randomUUID()
 
   let resolve: (value: RunReturnType) => any = () => {}
   let _reject: (error: any) => any = () => {}
@@ -321,6 +325,7 @@ async function runOnce({
     message = message ?? 'Run cancelled by user.'
     return {
       sessionState: getCancelledSessionState(message),
+      traceSessionId,
       output: {
         type: 'error',
         message,
@@ -434,7 +439,11 @@ async function runOnce({
         cwd,
         fs,
       })
-      return toOptionalFile(files[filePath] ?? null)
+      const lookupKeys = cwd
+        ? getProjectPathLookupKeys(cwd, filePath)
+        : [filePath]
+      const fileKey = lookupKeys.find((key) => key in files)
+      return toOptionalFile(fileKey === undefined ? null : files[fileKey]!)
     },
     sendAction: ({ action }) => {
       if (action.type === 'action-error') {
@@ -455,6 +464,7 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
+          traceSessionId,
         })
         return
       }
@@ -464,6 +474,7 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
+          traceSessionId,
         })
         return
       }
@@ -525,32 +536,30 @@ async function runOnce({
     repoId: undefined,
     clientSessionId: promptId,
     userId,
-    extraCodebuffMetadata,
+    extraCodebuffMetadata: {
+      ...(extraCodebuffMetadata ?? {}),
+      trace_session_id: traceSessionId,
+    },
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     let errorMessage =
       error instanceof Error ? error.message : String(error ?? '')
-    const statusCode = getErrorStatusCode(error)
-
-    // Extract structured error details from the API response body
-    // (e.g., AI SDK's AI_APICallError includes a responseBody with the server's JSON response)
-    const responseBody =
-      error && typeof error === 'object' && 'responseBody' in error
-        ? (error as { responseBody: unknown }).responseBody
-        : undefined
+    const apiErrorDetails = extractApiErrorDetails(error)
+    const statusCode = apiErrorDetails.statusCode ?? getErrorStatusCode(error)
     const {
       countryBlockReason,
       countryCode,
       errorCode,
       ipPrivacySignals,
       message: parsedMessage,
-    } = parseApiErrorResponseBody(responseBody)
+    } = apiErrorDetails
     if (parsedMessage) {
       errorMessage = parsedMessage
     }
 
     resolve({
       sessionState: getCancelledSessionState(errorMessage),
+      traceSessionId,
       output: {
         type: 'error',
         message: errorMessage,
@@ -826,11 +835,13 @@ async function handlePromptResponse({
   resolve,
   onError,
   initialSessionState,
+  traceSessionId,
 }: {
   action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
   resolve: (value: RunReturnType) => any
   onError: (error: { message: string }) => void
   initialSessionState: SessionState
+  traceSessionId: string
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
@@ -838,6 +849,7 @@ async function handlePromptResponse({
     const statusCode = extractStatusCodeFromMessage(action.message)
     resolve({
       sessionState: initialSessionState,
+      traceSessionId,
       output: {
         type: 'error',
         message: action.message,
@@ -857,6 +869,7 @@ async function handlePromptResponse({
       onError({ message })
       resolve({
         sessionState: initialSessionState,
+        traceSessionId,
         output: {
           type: 'error',
           message,
@@ -868,6 +881,7 @@ async function handlePromptResponse({
 
     const state: RunState = {
       sessionState,
+      traceSessionId,
       output: output ?? {
         type: 'error',
         message: 'No output from agent',
@@ -881,6 +895,7 @@ async function handlePromptResponse({
     })
     resolve({
       sessionState: initialSessionState,
+      traceSessionId,
       output: {
         type: 'error',
         message: 'Internal error: prompt response type not handled',

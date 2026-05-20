@@ -2,6 +2,7 @@ import React from 'react'
 
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
+import { countCodeSearchResults } from '../../utils/code-search-summary'
 
 import type { ToolRenderConfig } from './types'
 
@@ -18,21 +19,7 @@ export const CodeSearchComponent = defineToolComponent({
     const pattern = input?.pattern ?? ''
     const cwd = input?.cwd ?? ''
 
-    // Count results from output
-    let totalResults = 0
-
-    if (toolBlock.output && typeof toolBlock.output === 'string') {
-      const lines = toolBlock.output.split('\n')
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-
-        // Result lines start with a number followed by a colon
-        if (/^\d+:/.test(trimmed)) {
-          totalResults++
-        }
-      }
-    }
+    const totalResults = countCodeSearchResults(toolBlock.output)
 
     // Build single-line summary
     let summary = ''
@@ -52,12 +39,7 @@ export const CodeSearchComponent = defineToolComponent({
 
     // Return as content using SimpleToolCallItem
     return {
-      content: (
-        <SimpleToolCallItem
-          name="Search"
-          description={summary}
-        />
-      ),
+      content: <SimpleToolCallItem name="Search" description={summary} />,
     }
   },
 })

@@ -15,6 +15,11 @@ import GitHubProvider from 'next-auth/providers/github'
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
 
+import {
+  getCliAuthCodeHashPrefix,
+  getCliAuthOnboardSearchParams,
+  isCliAuthCodeCandidate,
+} from '@/app/onboard/_helpers'
 import { logger } from '@/util/logger'
 
 async function createAndLinkStripeCustomer(params: {
@@ -104,10 +109,37 @@ export const authOptions: NextAuthOptions = {
       const authCode = potentialRedirectUrl.searchParams.get('auth_code')
 
       if (authCode) {
+        if (!isCliAuthCodeCandidate(authCode)) {
+          const searchParamKeys = Array.from(
+            potentialRedirectUrl.searchParams.keys(),
+          ).sort()
+          logger.warn(
+            {
+              authCodeLength: authCode.length,
+              authCodeTrimmedLength: authCode.trim().length,
+              authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+              authCodeParamCount:
+                potentialRedirectUrl.searchParams.getAll('auth_code').length,
+              searchParamKeys,
+              searchParamCount: searchParamKeys.length,
+              hasCallbackUrlParam: searchParamKeys.includes('callbackUrl'),
+              hasCodeParam: searchParamKeys.includes('code'),
+              hasRedirectParam: searchParamKeys.includes('redirect'),
+              dotCount: authCode.match(/\./g)?.length ?? 0,
+              hyphenCount: authCode.match(/-/g)?.length ?? 0,
+              redirectUrlOrigin: potentialRedirectUrl.origin,
+              baseUrl,
+            },
+            'Freebuff auth redirect received non-CLI-shaped auth_code',
+          )
+          return baseUrl
+        }
+
         const onboardUrl = new URL(`${baseUrl}/onboard`)
-        potentialRedirectUrl.searchParams.forEach((value, key) => {
-          onboardUrl.searchParams.set(key, value)
-        })
+        onboardUrl.search = getCliAuthOnboardSearchParams(
+          potentialRedirectUrl.searchParams,
+          authCode,
+        ).toString()
         return onboardUrl.toString()
       }
 

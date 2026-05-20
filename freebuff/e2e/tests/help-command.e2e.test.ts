@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execFileSync } from 'node:child_process'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 
@@ -9,7 +9,7 @@ const TEST_TIMEOUT = 60_000
 describe('Freebuff: --help flag', () => {
   test('shows CLI usage information', () => {
     const binary = requireFreebuffBinary()
-    const output = execSync(`'${binary}' --help`, {
+    const output = execFileSync(binary, ['--help'], {
       encoding: 'utf-8',
       timeout: 10_000,
     })
@@ -23,7 +23,7 @@ describe('Freebuff: --help flag', () => {
 
   test('does not reference Codebuff', () => {
     const binary = requireFreebuffBinary()
-    const output = execSync(`'${binary}' --help`, {
+    const output = execFileSync(binary, ['--help'], {
       encoding: 'utf-8',
       timeout: 10_000,
     })

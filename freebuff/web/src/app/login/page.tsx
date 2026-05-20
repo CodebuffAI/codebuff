@@ -1,7 +1,14 @@
 'use server'
 
 import { env } from '@codebuff/common/env'
+import { headers } from 'next/headers'
 
+import {
+  getCliAuthCodeHashPrefix,
+  isAuthCodeExpired,
+  isCliAuthCodeCandidate,
+  parseAuthCode,
+} from '@/app/onboard/_helpers'
 import { BackgroundBeams } from '@/components/background-beams'
 import { HeroGrid } from '@/components/hero-grid'
 import { LoginCard } from '@/components/login/login-card'
@@ -12,7 +19,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
-import { isAuthCodeExpired, parseAuthCode } from '@/app/onboard/_helpers'
+import { logger } from '@/util/logger'
 
 export default async function LoginPage({
   searchParams,
@@ -20,10 +27,64 @@ export default async function LoginPage({
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const authCode = resolvedSearchParams?.auth_code as string | undefined
+  const rawAuthCode = resolvedSearchParams?.auth_code
+  const authCode = Array.isArray(rawAuthCode) ? rawAuthCode[0] : rawAuthCode
+  const validAuthCode =
+    authCode && isCliAuthCodeCandidate(authCode) ? authCode : undefined
+  const searchParamKeys = Object.keys(resolvedSearchParams).sort()
 
   if (authCode) {
-    const { expiresAt } = parseAuthCode(authCode)
+    if (!validAuthCode) {
+      const headerStore = await headers()
+      logger.warn(
+        {
+          authCodeLength: authCode.length,
+          authCodeTrimmedLength: authCode.trim().length,
+          authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+          authCodeParamCount: Array.isArray(rawAuthCode)
+            ? rawAuthCode.length
+            : 1,
+          searchParamKeys,
+          searchParamCount: searchParamKeys.length,
+          hasCallbackUrlParam: searchParamKeys.includes('callbackUrl'),
+          hasCodeParam: searchParamKeys.includes('code'),
+          hasRedirectParam: searchParamKeys.includes('redirect'),
+          dotCount: authCode.match(/\./g)?.length ?? 0,
+          hyphenCount: authCode.match(/-/g)?.length ?? 0,
+          requestHost: headerStore.get('host') ?? '',
+          forwardedHost: headerStore.get('x-forwarded-host') ?? '',
+          forwardedProto: headerStore.get('x-forwarded-proto') ?? '',
+          originHeader: headerStore.get('origin') ?? '',
+          referer: headerStore.get('referer') ?? '',
+          userAgent: headerStore.get('user-agent') ?? '',
+          referrerParam:
+            typeof resolvedSearchParams.referrer === 'string'
+              ? resolvedSearchParams.referrer
+              : '',
+          utmSource:
+            typeof resolvedSearchParams.utm_source === 'string'
+              ? resolvedSearchParams.utm_source
+              : '',
+          utmMedium:
+            typeof resolvedSearchParams.utm_medium === 'string'
+              ? resolvedSearchParams.utm_medium
+              : '',
+          utmCampaign:
+            typeof resolvedSearchParams.utm_campaign === 'string'
+              ? resolvedSearchParams.utm_campaign
+              : '',
+          utmContent:
+            typeof resolvedSearchParams.utm_content === 'string'
+              ? resolvedSearchParams.utm_content
+              : '',
+        },
+        'Freebuff login received non-CLI-shaped auth_code',
+      )
+    }
+
+    const { expiresAt } = validAuthCode
+      ? parseAuthCode(validAuthCode)
+      : { expiresAt: '' }
 
     if (expiresAt && isAuthCodeExpired(expiresAt)) {
       return (
@@ -65,7 +126,7 @@ export default async function LoginPage({
       <HeroGrid />
       <BackgroundBeams />
       <main className="relative z-10 flex flex-col items-center justify-center min-h-screen py-20">
-        <LoginCard authCode={authCode} />
+        <LoginCard authCode={validAuthCode} />
       </main>
     </div>
   )

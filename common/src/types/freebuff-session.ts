@@ -1,3 +1,5 @@
+import type { FreebuffAccessTier } from '../constants/freebuff-models'
+
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
  * for the CLI (which deserializes these) and the server (which serializes
@@ -31,6 +33,20 @@ export type FreebuffSessionRateLimitByModel = Record<
   FreebuffSessionRateLimit
 >
 
+/** Pull the per-model premium quota snapshot off whichever session statuses
+ *  carry it (queued, active, ended, none). Returns undefined for terminal /
+ *  pre-join states that have no quota field. The parameter is intentionally
+ *  loose so the CLI can pass its `FreebuffSessionResponse` (which adds the
+ *  client-only `takeover_prompt` variant) without a discriminated-union
+ *  ceremony at every call site. */
+export const getRateLimitsByModel = (
+  session: { status: string } | null | undefined,
+): FreebuffSessionRateLimitByModel | undefined =>
+  session && 'rateLimitsByModel' in session
+    ? (session as { rateLimitsByModel?: FreebuffSessionRateLimitByModel })
+        .rateLimitsByModel
+    : undefined
+
 export type FreebuffCountryBlockReason =
   | 'country_not_allowed'
   | 'anonymized_or_unknown_country'
@@ -49,17 +65,26 @@ export type FreebuffIpPrivacySignal =
   | 'hosting'
   | 'service'
 
+export interface FreebuffLimitedModeReason {
+  /** Present for limited access so the model picker can explain why the
+   *  reduced model set is shown without re-running geo/IP logic locally. */
+  countryCode?: string | null
+  countryBlockReason?: FreebuffCountryBlockReason | null
+  ipPrivacySignals?: FreebuffIpPrivacySignal[] | null
+}
+
 export type FreebuffSessionServerResponse =
   | {
       /** Waiting room is globally off; free-mode requests flow through
        *  unchanged. Client should treat this as "admitted forever". */
       status: 'disabled'
     }
-  | {
+  | ({
       /** User has no session row. CLI must POST to (re-)queue. Also returned
        *  when `getSessionState` notices the user has been swept past the
        *  grace window. */
       status: 'none'
+      accessTier?: FreebuffAccessTier
       message?: string
       /** Snapshot of every model's queue depth at GET time. The picker no
        *  longer renders this (queues effectively never form at current
@@ -71,9 +96,10 @@ export type FreebuffSessionServerResponse =
        *  the picker show today's premium-session usage before the user commits
        *  to a queue. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       status: 'queued'
+      accessTier: FreebuffAccessTier
       instanceId: string
       /** Model the user is queued for. Each model has its own queue. */
       model: string
@@ -90,9 +116,10 @@ export type FreebuffSessionServerResponse =
       /** Premium-session quota for this model. Absent for unlimited models. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       status: 'active'
+      accessTier: FreebuffAccessTier
       instanceId: string
       /** Model the active session is bound to — cannot change mid-session. */
       model: string
@@ -102,8 +129,8 @@ export type FreebuffSessionServerResponse =
       /** Premium-session quota for this model. Absent for unlimited models. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
-    }
-  | {
+    } & FreebuffLimitedModeReason)
+  | ({
       /** Session is over. While `instanceId` is present we're inside the
        *  server-side grace window — chat requests still go through so the
        *  agent can finish, but the CLI must not accept new prompts. Once
@@ -114,12 +141,17 @@ export type FreebuffSessionServerResponse =
        *  client may also synthesize a no-grace `{ status: 'ended' }` when a
        *  poll reveals the row was swept. Both render the same UI. */
       status: 'ended'
+      accessTier?: FreebuffAccessTier
       instanceId?: string
       admittedAt?: string
       expiresAt?: string
       gracePeriodEndsAt?: string
       gracePeriodRemainingMs?: number
-    }
+      /** Snapshot of the user's premium-session quota at the moment the
+       *  session ended. Lets the post-session banner show "N of M premium
+       *  sessions used today" without an extra round-trip. */
+      rateLimitsByModel?: FreebuffSessionRateLimitByModel
+    } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
        *  stops and the UI shows a "close the other CLI" screen. The server
@@ -136,6 +168,7 @@ export type FreebuffSessionServerResponse =
        *  CLI stops polling and shows a "not available in your country"
        *  screen. `countryCode` is the resolved country, or UNKNOWN. */
       status: 'country_blocked'
+      message?: string
       countryCode: string
       countryBlockReason?: FreebuffCountryBlockReason
       ipPrivacySignals?: FreebuffIpPrivacySignal[]
@@ -147,12 +180,14 @@ export type FreebuffSessionServerResponse =
        *  your active DeepSeek session to switch?" → on confirm, DELETE then
        *  re-POST with the new model. */
       status: 'model_locked'
+      accessTier?: FreebuffAccessTier
       currentModel: string
       requestedModel: string
     }
   | {
       /** Requested model is valid but not selectable right now. */
       status: 'model_unavailable'
+      accessTier?: FreebuffAccessTier
       requestedModel: string
       availableHours: string
     }
@@ -170,6 +205,7 @@ export type FreebuffSessionServerResponse =
        *  reset. Terminal for the CLI's current poll session; the user can exit
        *  and come back later. */
       status: 'rate_limited'
+      accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
       /** Max premium session units permitted per Pacific day (e.g. 5). */

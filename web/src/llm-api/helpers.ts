@@ -1,5 +1,8 @@
 import { setupBigQuery } from '@codebuff/bigquery'
-import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
+import {
+  consumeCreditsAndAddAgentStep,
+  recordMessageWithoutBilling,
+} from '@codebuff/billing'
 import {
   isFreeAgent,
   isFreeMode,
@@ -9,6 +12,9 @@ import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { env } from '@codebuff/internal/env'
 
 import type { ServerEnv } from '@codebuff/internal/env-schema'
+
+import { createRequestAuditRecord } from './request-audit'
+
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -30,6 +36,8 @@ export function getProviderApiKey(name: ProviderApiKeyName): string {
   return value
 }
 
+export { createRequestAuditRecord } from './request-audit'
+
 export type UsageData = {
   inputTokens: number
   outputTokens: number
@@ -50,14 +58,20 @@ export function extractRequestMetadata(params: {
   const rawClientId = metadata?.client_id
   const clientId = typeof rawClientId === 'string' ? rawClientId : null
   if (!clientId) {
-    logger.warn({ body }, 'Received request without client_id')
+    logger.warn(
+      { request: createRequestAuditRecord(body) },
+      'Received request without client_id',
+    )
   }
 
   const rawRunId = metadata?.run_id
   const clientRequestId: string | null =
     typeof rawRunId === 'string' ? rawRunId : null
   if (!clientRequestId) {
-    logger.warn({ body }, 'Received request without run_id')
+    logger.warn(
+      { request: createRequestAuditRecord(body) },
+      'Received request without run_id',
+    )
   }
 
   const n = metadata?.n
@@ -169,7 +183,34 @@ export async function consumeCreditsForMessage(params: {
   // Also validates publisher to prevent spoofing attacks
   const isFreeAgentSmallRequest = isFreeAgent(agentId) && initialCredits < 5
 
-  const credits = isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
+  const credits =
+    isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
+
+  if (isFreeModeAndAllowed) {
+    await recordMessageWithoutBilling({
+      messageId,
+      userId,
+      agentId,
+      clientId,
+      clientRequestId,
+      startTime,
+      model,
+      reasoningText,
+      response: responseText,
+      cost: usageData.cost,
+      credits: 0,
+      inputTokens: usageData.inputTokens,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: usageData.cacheReadInputTokens,
+      reasoningTokens:
+        usageData.reasoningTokens > 0 ? usageData.reasoningTokens : null,
+      outputTokens: usageData.outputTokens,
+      byok,
+      logger,
+      ttftMs: ttftMs ?? null,
+    })
+    return 0
+  }
 
   await consumeCreditsAndAddAgentStep({
     messageId,

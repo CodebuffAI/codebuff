@@ -127,8 +127,9 @@ export const MAIN_AGENT_ID = 'main-agent'
  * Mapping from agent mode to agent ID.
  * Single source of truth for all agent modes (order = cycling order).
  *
- * Freebuff maps LITE to the free-tier agent (base2-free) so it stays fully free;
- * regular Codebuff maps LITE to base2-lite which charges credits normally.
+ * Freebuff resolves LITE through the selected freebuff model at send time;
+ * this fallback stays on base2-free for non-runtime callers. Regular
+ * Codebuff maps LITE to base2-lite which charges credits normally.
  */
 export const AGENT_MODE_TO_ID = {
   DEFAULT: 'base2',
@@ -152,4 +153,7 @@ export const AGENT_MODE_TO_COST_MODE = {
   LITE: IS_FREEBUFF ? 'free' : 'lite',
   MAX: 'max',
   PLAN: 'normal',
-} as const satisfies Record<AgentMode, 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'>
+} as const satisfies Record<
+  AgentMode,
+  'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
+>

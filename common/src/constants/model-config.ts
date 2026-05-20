@@ -62,11 +62,20 @@ export const avianModels = {
 } as const
 export type AvianModel = (typeof avianModels)[keyof typeof avianModels]
 
+export const openCodeZenModels = {
+  opencode_kimi_k2_6: 'opencode/kimi-k2.6',
+  opencode_minimax_m2_7: 'opencode/minimax-m2.7',
+} as const
+export type OpenCodeZenModel =
+  (typeof openCodeZenModels)[keyof typeof openCodeZenModels]
+
 export const deepseekModels = {
   deepseekChat: 'deepseek-chat',
   deepseekReasoner: 'deepseek-reasoner',
   deepseekV4ProDirect: 'deepseek-v4-pro',
   deepseekV4Pro: 'deepseek/deepseek-v4-pro',
+  deepseekV4FlashDirect: 'deepseek-v4-flash',
+  deepseekV4Flash: 'deepseek/deepseek-v4-flash',
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
@@ -100,6 +109,7 @@ export type FinetunedVertexModel =
 export const models = {
   ...openaiModels,
   ...avianModels,
+  ...openCodeZenModels,
   ...deepseekModels,
   ...openrouterModels,
   ...finetunedVertexModels,

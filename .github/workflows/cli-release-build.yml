@@ -315,6 +315,11 @@ jobs:
             echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
           fi
 
+      - name: Prepare Windows Bun compile runtime
+        uses: ./.github/actions/setup-bun-compile-runtime
+        with:
+          target: bun-windows-x64
+
       - name: Build binary
         run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
         working-directory: cli

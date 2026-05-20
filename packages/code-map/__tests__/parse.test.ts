@@ -51,6 +51,31 @@ describe('parse module', () => {
       expect(mockQuery.captures).toHaveBeenCalledWith(mockTree.rootNode)
     })
 
+    it('should skip parsing source larger than the byte limit', () => {
+      const mockParser = createMockTreeSitterParser()
+      const mockLanguageConfig: LanguageConfig = {
+        extensions: ['.ts'],
+        wasmFile: 'tree-sitter-typescript.wasm',
+        queryText: 'mock query',
+        parser: mockParser,
+        query: createMockTreeSitterQuery(),
+      }
+
+      const result = parseTokens(
+        'test.ts',
+        mockLanguageConfig,
+        () => 'x'.repeat(20),
+        { maxBytes: 10 },
+      )
+
+      expect(result).toEqual({
+        numLines: 0,
+        identifiers: [],
+        calls: [],
+      })
+      expect(mockParser.parse).not.toHaveBeenCalled()
+    })
+
     it('should handle null file content gracefully', () => {
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -593,6 +618,23 @@ console.log('Total:', formatCurrency(total));
       // Verify that the structure is correct even if no tokens are found
       expect(typeof result.tokenScores).toBe('object')
       expect(typeof result.tokenCallers).toBe('object')
+    })
+
+    it('should continue scoring when a provided reader rejects for one file', async () => {
+      const result = await getFileTokenScores(
+        '/tmp/test-project',
+        ['src/unreadable.ts', 'src/readable.ts'],
+        async (filePath: string) => {
+          if (filePath === 'src/unreadable.ts') {
+            throw new Error('permission denied')
+          }
+
+          return 'export function readable() { return helper() }\nfunction helper() { return 1 }\n'
+        },
+      )
+
+      expect(result.tokenScores).toBeDefined()
+      expect(result.tokenCallers).toBeDefined()
     })
   })
 })

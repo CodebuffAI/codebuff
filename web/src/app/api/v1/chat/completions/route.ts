@@ -1,4 +1,7 @@
-import { insertMessageBigquery } from '@codebuff/bigquery'
+import {
+  insertChatCompletionTraceBigquery,
+  insertMessageBigquery,
+} from '@codebuff/bigquery'
 import { ensureSubscriberBlockGrant } from '@codebuff/billing/subscription'
 import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
+    insertChatCompletionTraceBigquery,
     ensureSubscriberBlockGrant,
     getUserPreferences,
   })

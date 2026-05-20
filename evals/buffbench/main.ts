@@ -8,6 +8,7 @@ async function main() {
   // Compare Codebuff agents against external CLI agents
   // Use 'external:claude' for Claude Code CLI
   // Use 'external:codex' for OpenAI Codex CLI
+  // Use 'external:opencode' for OpenCode CLI
   await runBuffBench({
     evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
     agents: ['base2-free-evals'],

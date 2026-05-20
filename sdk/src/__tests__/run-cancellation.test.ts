@@ -4,6 +4,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { RetryError } from 'ai'
 
 // Type for tool call content blocks in message history
 interface ToolCallContentBlock {
@@ -251,6 +252,61 @@ describe('Run Cancellation Handling', () => {
     expect(output.countryCode).toBe('US')
     expect(output.countryBlockReason).toBe('anonymous_network')
     expect(output.ipPrivacySignals).toEqual(['vpn', 'hosting'])
+  })
+
+  it('extracts error code and message from nested AI SDK retry errors', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const apiError = new Error('Conflict') as Error & {
+      statusCode: number
+      responseBody: string
+    }
+    apiError.statusCode = 409
+    apiError.responseBody = JSON.stringify({
+      error: 'session_model_mismatch',
+      message:
+        'This session is bound to deepseek; restart freebuff to switch models.',
+    })
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(
+      new RetryError({
+        message: 'Failed after 4 attempts. Last error: Conflict',
+        reason: 'maxRetriesExceeded',
+        errors: [apiError],
+      }),
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'hello',
+    })
+
+    const output = result.output as {
+      type: 'error'
+      message: string
+      statusCode?: number
+      error?: string
+    }
+    expect(output.message).toBe(
+      'This session is bound to deepseek; restart freebuff to switch models.',
+    )
+    expect(output.statusCode).toBe(409)
+    expect(output.error).toBe('session_model_mismatch')
   })
 
   it('extracts error code from responseBody for account_suspended 403', async () => {

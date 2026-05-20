@@ -6,6 +6,7 @@ import { env } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
+  createRequestAuditRecord,
   extractRequestMetadata,
   insertMessageToBigQuery,
 } from './helpers'
@@ -40,6 +41,7 @@ type StreamState = {
 // endpoint. OR finalizes generation records asynchronously; 500ms is enough
 // in practice and keeps the delay off the client response path.
 const GENERATION_LOOKUP_DELAY_MS = 500
+const DISCONNECTED_STREAM_DRAIN_TIMEOUT_MS = 2 * 60 * 1000
 
 // Extended timeout for deep-thinking models (e.g., gpt-5) that can take
 // a long time to start streaming.
@@ -153,6 +155,7 @@ export async function handleOpenRouterNonStream({
     body,
     logger,
   })
+  const auditRequest = createRequestAuditRecord(body)
   const byok = openrouterApiKey !== null
 
   // If n > 1, make n parallel requests
@@ -199,7 +202,7 @@ export async function handleOpenRouterNonStream({
       messageId: firstData.id,
       userId,
       startTime,
-      request: body,
+      request: auditRequest,
       reasoningText,
       responseText,
       usageData: aggregatedUsage,
@@ -271,7 +274,7 @@ export async function handleOpenRouterNonStream({
     messageId: data.id,
     userId,
     startTime,
-    request: body,
+    request: auditRequest,
     reasoningText,
     responseText: content,
     usageData,
@@ -336,6 +339,7 @@ export async function handleOpenRouterStream({
 
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
+  const auditRequest = createRequestAuditRecord(body)
 
   const byok = openrouterApiKey !== null
   const response = await createOpenRouterRequest({
@@ -363,6 +367,7 @@ export async function handleOpenRouterStream({
     billed: false,
   }
   let clientDisconnected = false
+  let disconnectedStreamDrainTimeout: NodeJS.Timeout | null = null
 
   // Runs once on any stream-exit path. If we didn't bill through the normal
   // path (stream ended without a usage chunk, got a provider error chunk,
@@ -386,7 +391,7 @@ export async function handleOpenRouterStream({
       byok,
       startTime,
       state,
-      request: body,
+      request: auditRequest,
       fetch,
       logger,
       insertMessage: insertMessageBigquery,
@@ -446,7 +451,7 @@ export async function handleOpenRouterStream({
               costMode,
               byok,
               startTime,
-              request: body,
+              request: auditRequest,
               line,
               state,
               logger,
@@ -488,12 +493,41 @@ export async function handleOpenRouterStream({
         }
         await ensureBilled()
       } finally {
+        if (disconnectedStreamDrainTimeout) {
+          clearTimeout(disconnectedStreamDrainTimeout)
+        }
         clearInterval(heartbeatInterval)
       }
     },
     cancel() {
       clearInterval(heartbeatInterval)
       clientDisconnected = true
+      disconnectedStreamDrainTimeout = setTimeout(() => {
+        const stateSummary = {
+          clientDisconnected,
+          responseTextLength: state.responseText.length,
+          reasoningTextLength: state.reasoningText.length,
+          generationId: state.generationId,
+          billed: state.billed,
+        }
+        if (!state.billed && !state.generationId) {
+          logger.warn(
+            stateSummary,
+            'Disconnected OpenRouter stream exceeded drain timeout before fallback billing was possible; continuing to drain',
+          )
+          return
+        }
+        logger.warn(
+          stateSummary,
+          'Cancelling disconnected OpenRouter stream after drain timeout',
+        )
+        reader.cancel('client disconnected drain timeout').catch((error) => {
+          logger.warn(
+            { error },
+            'Failed to cancel disconnected OpenRouter stream',
+          )
+        })
+      }, DISCONNECTED_STREAM_DRAIN_TIMEOUT_MS)
       // Log truncated state to prevent OOM during logging (state can be up to 2MB)
       logger.warn(
         {

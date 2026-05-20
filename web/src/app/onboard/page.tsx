@@ -6,11 +6,17 @@ import { getServerSession } from 'next-auth'
 
 import {
   checkFingerprintConflict,
+  consumeCliAuthCodeToken,
   createCliSession,
   getSessionTokenFromCookies,
   hasCliSessionForAuthHash,
 } from './_db'
-import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
+import {
+  isAuthCodeExpired,
+  parseAuthCode,
+  resolveCliAuthCode,
+  validateAuthCode,
+} from './_helpers'
 import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 
 import CardWithBeams from '@/components/card-with-beams'
@@ -48,7 +54,24 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
-  const { fingerprintId, expiresAt, receivedHash } = parseAuthCode(authCode)
+  const authCodeResolution = await resolveCliAuthCode(
+    authCode,
+    consumeCliAuthCodeToken,
+  )
+
+  if (authCodeResolution.status === 'already_consumed') {
+    return (
+      <CardWithBeams
+        title="This login link was already used"
+        description="Return to your terminal to continue, or restart Codebuff if it is still waiting for login."
+        content={<p>You can close this browser window.</p>}
+      />
+    )
+  }
+
+  const { authCode: resolvedAuthCode } = authCodeResolution
+  const { fingerprintId, expiresAt, receivedHash } =
+    parseAuthCode(resolvedAuthCode)
   const { valid, expectedHash: fingerprintHash } = validateAuthCode(
     receivedHash,
     fingerprintId,

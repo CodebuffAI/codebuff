@@ -13,6 +13,7 @@ import { CopyButton } from '@/components/copy-button'
 import { HeroGrid } from '@/components/hero-grid'
 import { Icons } from '@/components/icons'
 import { cn } from '@/lib/utils'
+import { HomepageLiveStats } from './live/live-summary'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
 
@@ -26,12 +27,17 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'You can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- MiniMax M2.7: fastest.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiniMax M2.7: fastest.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
     answer:
-      'Freebuff is currently available in:\n\nUnited States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Liechtenstein, Switzerland, Austria, Singapore, Malta, Israel, Ireland, and Iceland.',
+      'All countries. Freebuff is available in "full" or "limited" mode. The following countries have full access:\n\nUnited States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, France, Italy, Spain, Portugal, Finland, Belgium, Luxembourg, Liechtenstein, Switzerland, Austria, Singapore, Malta, Israel, Ireland, and Iceland.\n\nIf you are outside those countries or using a VPN, Freebuff still works in limited mode.',
+  },
+  {
+    question: 'What is limited mode?',
+    answer:
+      'Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash only, with 5 one-hour sessions per day.',
   },
   {
     question: 'Are you training on my data?',
@@ -562,6 +568,8 @@ export default function HomeClient() {
           </div>
         </div>
       </div>
+
+      <HomepageLiveStats />
     </div>
   )
 }
