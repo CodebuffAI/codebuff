@@ -1,12 +1,14 @@
-import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals'
+import {
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals'
 
 jest.mock('@codebuff/bigquery', () => ({
   setupBigQuery: jest.fn(),
-}))
-
-jest.mock('@codebuff/billing', () => ({
-  consumeCreditsAndAddAgentStep: jest.fn(),
-  recordMessageWithoutBilling: jest.fn(),
 }))
 
 import type { ChatCompletionTraceRow } from '@codebuff/common/types/contracts/bigquery'
@@ -14,7 +16,7 @@ import type { ChatCompletionRequestBody } from '../types'
 import type {
   recordChatCompletionTrace as recordChatCompletionTraceType,
   resetChatCompletionTraceCacheForTests as resetChatCompletionTraceCacheForTestsType,
-} from '../helpers'
+} from '../chat-completion-trace'
 
 const testLogger = {
   debug: () => {},
@@ -26,40 +28,52 @@ const testLogger = {
 const baseBody = (
   messages: ChatCompletionRequestBody['messages'],
 ): ChatCompletionRequestBody => ({
-    model: 'deepseek/deepseek-v4-pro',
-    stream: true,
-    messages,
-    tools: [
-      {
-        type: 'function',
-        function: { name: 'read_files', parameters: {} },
-      },
-    ],
-    codebuff_metadata: {
-      client_id: 'client-1',
-      run_id: 'run-1',
-      trace_session_id: 'session-1',
-      trace_request_id: 'trace-1',
-      cost_mode: 'free',
+  model: 'deepseek/deepseek-v4-pro',
+  stream: true,
+  messages,
+  tools: [
+    {
+      type: 'function',
+      function: { name: 'read_files', parameters: {} },
     },
+  ],
+  codebuff_metadata: {
+    client_id: 'client-1',
+    run_id: 'run-1',
+    trace_session_id: 'session-1',
+    trace_request_id: 'trace-1',
+    cost_mode: 'free',
+  },
 })
 
 describe('buildChatCompletionTraceRow', () => {
   let recordChatCompletionTrace: typeof recordChatCompletionTraceType
   let resetChatCompletionTraceCacheForTests: typeof resetChatCompletionTraceCacheForTestsType
   let rows: ChatCompletionTraceRow[]
+  let traceWriteTasks: Promise<void>[]
 
   beforeAll(async () => {
-    const helpers = await import('../helpers')
-    recordChatCompletionTrace = helpers.recordChatCompletionTrace
+    const traceModule = await import('../chat-completion-trace')
+    recordChatCompletionTrace = traceModule.recordChatCompletionTrace
     resetChatCompletionTraceCacheForTests =
-      helpers.resetChatCompletionTraceCacheForTests
+      traceModule.resetChatCompletionTraceCacheForTests
   })
 
   beforeEach(() => {
     resetChatCompletionTraceCacheForTests()
     rows = []
+    traceWriteTasks = []
   })
+
+  const scheduleTraceWrite = (task: () => Promise<void>) => {
+    traceWriteTasks.push(task())
+  }
+
+  const flushTraceWrites = async () => {
+    const tasks = traceWriteTasks
+    traceWriteTasks = []
+    await Promise.all(tasks)
+  }
 
   const record = async (params: {
     body: ChatCompletionRequestBody
@@ -67,7 +81,7 @@ describe('buildChatCompletionTraceRow', () => {
     agentId?: string
     ancestorRunIds?: string[]
   }) => {
-    await recordChatCompletionTrace({
+    recordChatCompletionTrace({
       body: params.body,
       userId: params.userId ?? 'user-1',
       agentId: params.agentId ?? 'base2-free-deepseek',
@@ -77,7 +91,9 @@ describe('buildChatCompletionTraceRow', () => {
         rows.push(row)
         return true
       },
+      scheduleTraceWrite,
     })
+    await flushTraceWrites()
     return rows.at(-1)!
   }
 
@@ -178,14 +194,16 @@ describe('buildChatCompletionTraceRow', () => {
   })
 
   it('does not advance the prefix cache when BigQuery insert fails', async () => {
-    await recordChatCompletionTrace({
+    recordChatCompletionTrace({
       body: baseBody([{ role: 'user', content: 'hello' }]),
       userId: 'user-1',
       agentId: 'base2-free-deepseek',
       ancestorRunIds: [],
       logger: testLogger,
       insertChatCompletionTraceBigquery: async () => false,
+      scheduleTraceWrite,
     })
+    await flushTraceWrites()
 
     const row = await record({
       body: baseBody([
@@ -210,7 +228,7 @@ describe('buildChatCompletionTraceRow', () => {
       cost_mode: 'free',
     }
 
-    const traceRequestId = await recordChatCompletionTrace({
+    const traceRequestId = recordChatCompletionTrace({
       body,
       userId: 'user-1',
       agentId: 'base2-free-deepseek',
@@ -220,10 +238,40 @@ describe('buildChatCompletionTraceRow', () => {
         rows.push(row)
         return true
       },
+      scheduleTraceWrite,
     })
 
     expect(traceRequestId).toBeNull()
     expect(rows).toHaveLength(0)
     expect(body.codebuff_metadata?.trace_request_id).toBeUndefined()
+  })
+
+  it('schedules BigQuery work off the caller stack', async () => {
+    let scheduledTask: (() => Promise<void>) | undefined
+    const body = baseBody([{ role: 'user', content: 'hello' }])
+
+    const traceRequestId = recordChatCompletionTrace({
+      body,
+      userId: 'user-1',
+      agentId: 'base2-free-deepseek',
+      ancestorRunIds: [],
+      logger: testLogger,
+      insertChatCompletionTraceBigquery: async ({ row }) => {
+        rows.push(row)
+        return true
+      },
+      scheduleTraceWrite: (task) => {
+        scheduledTask = task
+      },
+    })
+
+    expect(typeof traceRequestId).toBe('string')
+    expect(body.codebuff_metadata?.trace_request_id).toBe(traceRequestId)
+    expect(rows).toHaveLength(0)
+
+    await scheduledTask?.()
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.id).toBe(traceRequestId)
   })
 })

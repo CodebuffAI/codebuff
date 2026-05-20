@@ -46,10 +46,8 @@ import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
-import {
-  createRequestAuditRecord,
-  recordChatCompletionTrace,
-} from '@/llm-api/helpers'
+import { recordChatCompletionTrace } from '@/llm-api/chat-completion-trace'
+import { createRequestAuditRecord } from '@/llm-api/helpers'
 import {
   CanopyWaveError,
   handleCanopyWaveNonStream,
@@ -709,7 +707,7 @@ export async function postChatCompletions(params: {
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
     const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
 
-    await recordChatCompletionTrace({
+    recordChatCompletionTrace({
       body: typedBody,
       userId,
       agentId,
