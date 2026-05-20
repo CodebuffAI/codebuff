@@ -324,7 +324,11 @@ describe('Context Pruning Threshold E2E', () => {
 
       const sessionState = await initialSessionState({})
       const runStateWithMessages = withMessageHistory({
-        runState: { sessionState, output: { type: 'error', message: '' } },
+        runState: {
+          traceSessionId: 'test-trace-session',
+          sessionState,
+          output: { type: 'error', message: '' },
+        },
         messages,
       })
 
@@ -398,7 +402,11 @@ describe('Context Pruning Threshold E2E', () => {
 
       const sessionState = await initialSessionState({})
       const runStateWithMessages = withMessageHistory({
-        runState: { sessionState, output: { type: 'error', message: '' } },
+        runState: {
+          traceSessionId: 'test-trace-session',
+          sessionState,
+          output: { type: 'error', message: '' },
+        },
         messages,
       })
 
@@ -494,6 +502,7 @@ describe('Context Pruning Threshold E2E', () => {
       const sessionStateCal = await initialSessionState({})
       const runStateCal = withMessageHistory({
         runState: {
+          traceSessionId: 'test-trace-session',
           sessionState: sessionStateCal,
           output: { type: 'error', message: '' },
         },
@@ -544,7 +553,11 @@ describe('Context Pruning Threshold E2E', () => {
       // =========================================================================
       const sessionState = await initialSessionState({})
       const runStateWithMessages = withMessageHistory({
-        runState: { sessionState, output: { type: 'error', message: '' } },
+        runState: {
+          traceSessionId: 'test-trace-session',
+          sessionState,
+          output: { type: 'error', message: '' },
+        },
         messages,
       })
 

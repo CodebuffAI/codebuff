@@ -62,6 +62,7 @@ export function selectHighestPriorityKnowledgeFile(
 export type RunState = {
   sessionState?: SessionState
   output: AgentOutput
+  traceSessionId: string
 }
 
 export type InitialSessionStateOptions = {
@@ -630,6 +631,7 @@ export async function generateInitialRunState({
   fs: CodebuffFileSystem
 }): Promise<RunState> {
   return {
+    traceSessionId: crypto.randomUUID(),
     sessionState: await initialSessionState({
       cwd,
       skillsDir,

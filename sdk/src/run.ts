@@ -177,6 +177,8 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
     const abortError = createAbortError(signal)
     return {
       sessionState: options.previousRun?.sessionState,
+      traceSessionId:
+        options.previousRun?.traceSessionId ?? crypto.randomUUID(),
       output: {
         type: 'error',
         message: abortError.message,
@@ -269,6 +271,7 @@ async function runOnce({
       logger,
     })
   }
+  const traceSessionId = previousRun?.traceSessionId ?? crypto.randomUUID()
 
   let resolve: (value: RunReturnType) => any = () => {}
   let _reject: (error: any) => any = () => {}
@@ -322,6 +325,7 @@ async function runOnce({
     message = message ?? 'Run cancelled by user.'
     return {
       sessionState: getCancelledSessionState(message),
+      traceSessionId,
       output: {
         type: 'error',
         message,
@@ -460,6 +464,7 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
+          traceSessionId,
         })
         return
       }
@@ -469,6 +474,7 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
+          traceSessionId,
         })
         return
       }
@@ -530,7 +536,10 @@ async function runOnce({
     repoId: undefined,
     clientSessionId: promptId,
     userId,
-    extraCodebuffMetadata,
+    extraCodebuffMetadata: {
+      ...(extraCodebuffMetadata ?? {}),
+      trace_session_id: traceSessionId,
+    },
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     let errorMessage =
@@ -550,6 +559,7 @@ async function runOnce({
 
     resolve({
       sessionState: getCancelledSessionState(errorMessage),
+      traceSessionId,
       output: {
         type: 'error',
         message: errorMessage,
@@ -825,11 +835,13 @@ async function handlePromptResponse({
   resolve,
   onError,
   initialSessionState,
+  traceSessionId,
 }: {
   action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
   resolve: (value: RunReturnType) => any
   onError: (error: { message: string }) => void
   initialSessionState: SessionState
+  traceSessionId: string
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
@@ -837,6 +849,7 @@ async function handlePromptResponse({
     const statusCode = extractStatusCodeFromMessage(action.message)
     resolve({
       sessionState: initialSessionState,
+      traceSessionId,
       output: {
         type: 'error',
         message: action.message,
@@ -856,6 +869,7 @@ async function handlePromptResponse({
       onError({ message })
       resolve({
         sessionState: initialSessionState,
+        traceSessionId,
         output: {
           type: 'error',
           message,
@@ -867,6 +881,7 @@ async function handlePromptResponse({
 
     const state: RunState = {
       sessionState,
+      traceSessionId,
       output: output ?? {
         type: 'error',
         message: 'No output from agent',
@@ -880,6 +895,7 @@ async function handlePromptResponse({
     })
     resolve({
       sessionState: initialSessionState,
+      traceSessionId,
       output: {
         type: 'error',
         message: 'Internal error: prompt response type not handled',

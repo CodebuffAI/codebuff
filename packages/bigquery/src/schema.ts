@@ -143,3 +143,31 @@ export const MESSAGE_SCHEMA: TableSchema = {
     { name: 'cache_read_input_tokens', type: 'INTEGER', mode: 'NULLABLE' },
   ],
 }
+
+export const CHAT_COMPLETION_TRACES_SCHEMA: TableSchema = {
+  fields: [
+    { name: 'id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'user_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'client_id', type: 'STRING', mode: 'NULLABLE' },
+    { name: 'trace_session_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'trace_lineage_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'run_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'agent_id', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'created_at', type: 'TIMESTAMP', mode: 'REQUIRED' },
+    { name: 'model', type: 'STRING', mode: 'REQUIRED' },
+    { name: 'cost_mode', type: 'STRING', mode: 'NULLABLE' },
+    { name: 'request', type: 'JSON', mode: 'REQUIRED' },
+    { name: 'message_count', type: 'INTEGER', mode: 'REQUIRED' },
+    { name: 'message_start_index', type: 'INTEGER', mode: 'REQUIRED' },
+    { name: 'message_delta_count', type: 'INTEGER', mode: 'REQUIRED' },
+    { name: 'previous_message_count', type: 'INTEGER', mode: 'NULLABLE' },
+    { name: 'common_prefix_length', type: 'INTEGER', mode: 'REQUIRED' },
+    { name: 'cache_hit', type: 'BOOLEAN', mode: 'REQUIRED' },
+    { name: 'full_snapshot', type: 'BOOLEAN', mode: 'REQUIRED' },
+    { name: 'messages', type: 'JSON', mode: 'REQUIRED' },
+    { name: 'delta_message_hashes', type: 'JSON', mode: 'REQUIRED' },
+    { name: 'tool_count', type: 'INTEGER', mode: 'REQUIRED' },
+    { name: 'tools', type: 'JSON', mode: 'NULLABLE' },
+    { name: 'tools_omitted', type: 'BOOLEAN', mode: 'REQUIRED' },
+  ],
+}
