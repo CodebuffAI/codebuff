@@ -69,6 +69,16 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
+  if (authCodeResolution.status === 'missing') {
+    return (
+      <CardWithBeams
+        title="This login link has expired"
+        description="Return to your terminal and restart Codebuff to generate a new login link."
+        content={<p>You can close this browser window.</p>}
+      />
+    )
+  }
+
   const { authCode: resolvedAuthCode } = authCodeResolution
   const { fingerprintId, expiresAt, receivedHash } =
     parseAuthCode(resolvedAuthCode)

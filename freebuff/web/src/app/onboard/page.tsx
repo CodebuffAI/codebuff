@@ -126,6 +126,27 @@ const Onboard = async ({ searchParams }: PageProps) => {
     )
   }
 
+  if (authCodeResolution.status === 'missing') {
+    logger.info(
+      {
+        authCodeLength: authCode.length,
+        authCodeTrimmedLength: authCode.trim().length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        userId: user.id,
+      },
+      'Missing Freebuff CLI auth code token',
+    )
+
+    return (
+      <StatusCard
+        title="Login link expired"
+        description="This browser login link is no longer active."
+        message="Return to your terminal and restart Freebuff to generate a new login link."
+      />
+    )
+  }
+
   const {
     authCode: resolvedAuthCode,
     resolvedOpaqueToken,
