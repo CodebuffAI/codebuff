@@ -17,7 +17,9 @@ type TraceCacheEntry = {
 }
 
 const MAX_TRACE_CACHE_ENTRIES = 10_000
+const MAX_TRACE_CACHE_MESSAGE_HASHES = 250_000
 const traceCache = new Map<string, TraceCacheEntry>()
+let traceCacheMessageHashCount = 0
 
 type ScheduleTraceWrite = (task: () => Promise<void>) => void
 
@@ -47,15 +49,26 @@ function countCommonPrefix(left: string[], right: string[]) {
 
 function rememberTraceCacheEntry(key: string, entry: TraceCacheEntry) {
   if (traceCache.has(key)) {
-    traceCache.delete(key)
+    forgetTraceCacheEntry(key)
   }
   traceCache.set(key, entry)
+  traceCacheMessageHashCount += entry.messageHashes.length
 
-  while (traceCache.size > MAX_TRACE_CACHE_ENTRIES) {
+  while (
+    traceCache.size > MAX_TRACE_CACHE_ENTRIES ||
+    traceCacheMessageHashCount > MAX_TRACE_CACHE_MESSAGE_HASHES
+  ) {
     const oldestKey = traceCache.keys().next().value
     if (!oldestKey) break
-    traceCache.delete(oldestKey)
+    forgetTraceCacheEntry(oldestKey)
   }
+}
+
+function forgetTraceCacheEntry(key: string) {
+  const entry = traceCache.get(key)
+  if (!entry) return
+  traceCache.delete(key)
+  traceCacheMessageHashCount -= entry.messageHashes.length
 }
 
 function buildChatCompletionTraceRecord(params: {
@@ -245,4 +258,5 @@ export function recordChatCompletionTrace(params: {
 
 export function resetChatCompletionTraceCacheForTests() {
   traceCache.clear()
+  traceCacheMessageHashCount = 0
 }
