@@ -31,7 +31,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       blockReason: 'anonymized_or_unknown_country',
       cfCountry,
       geoipCountry: null,
-      ipPrivacy: null,
+      ipPrivacy: cfCountry === 'T1' ? { signals: ['tor'] } : null,
       hasClientIp,
       clientIpHash: hasClientIp ? 'test-ip-hash' : null,
     }
@@ -268,10 +268,10 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('creates a limited DeepSeek Flash session for anonymized Cloudflare country', async () => {
+  test('creates a limited DeepSeek Flash session for unknown Cloudflare country', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
-      makeReq('ok', { cfCountry: 'T1' }),
+      makeReq('ok', { cfCountry: 'XX' }),
       makeDeps(sessionDeps, 'u1'),
     )
     expect(resp.status).toBe(200)
@@ -289,6 +289,82 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     const body = await resp.json()
     expect(body.status).toBe('queued')
+  })
+
+  test('blocks VPN/proxy privacy signals before joining the queue', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'old-inst',
+      model: DEFAULT_MODEL,
+      queued_at: new Date(),
+      admitted_at: null,
+      expires_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'US' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async () => ({
+          allowed: false,
+          countryCode: 'US',
+          blockReason: 'anonymous_network',
+          cfCountry: 'US',
+          geoipCountry: null,
+          ipPrivacy: { signals: ['vpn', 'hosting'] },
+          hasClientIp: true,
+          clientIpHash: 'test-ip-hash',
+        }),
+      }),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.message).toContain('VPN')
+    expect(body.countryBlockReason).toBe('anonymous_network')
+    expect(body.ipPrivacySignals).toEqual(['vpn', 'hosting'])
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('blocks Cloudflare Tor before joining the queue', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'T1' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.message).toContain('Tor')
+    expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
+    expect(body.ipPrivacySignals).toEqual(['tor'])
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('keeps hosting-only privacy signals in limited mode', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'US' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async () => ({
+          allowed: false,
+          countryCode: 'US',
+          blockReason: 'anonymous_network',
+          cfCountry: 'US',
+          geoipCountry: null,
+          ipPrivacy: { signals: ['hosting'] },
+          hasClientIp: true,
+          clientIpHash: 'test-ip-hash',
+        }),
+      }),
+    )
+    expect(resp.status).toBe(200)
+    const body = await resp.json()
+    expect(body.status).toBe('queued')
+    expect(body.accessTier).toBe('limited')
+    expect(body.ipPrivacySignals).toEqual(['hosting'])
   })
 
   test('returns model_unavailable for legacy GLM 5.1 outside deployment hours', async () => {
@@ -348,7 +424,7 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.ipPrivacySignals).toBeNull()
   })
 
-  test('returns limited-mode privacy reason on GET', async () => {
+  test('returns limited-mode privacy reason on GET for hosting-only signal', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await getFreebuffSession(
       makeReq('ok', { cfCountry: 'US' }),
@@ -359,7 +435,7 @@ describe('GET /api/v1/freebuff/session', () => {
           blockReason: 'anonymous_network',
           cfCountry: 'US',
           geoipCountry: null,
-          ipPrivacy: { signals: ['vpn', 'hosting'] },
+          ipPrivacy: { signals: ['hosting'] },
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -371,7 +447,70 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.accessTier).toBe('limited')
     expect(body.countryCode).toBe('US')
     expect(body.countryBlockReason).toBe('anonymous_network')
-    expect(body.ipPrivacySignals).toEqual(['vpn', 'hosting'])
+    expect(body.ipPrivacySignals).toEqual(['hosting'])
+  })
+
+  test('returns country_blocked on GET for VPN/proxy privacy signals', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'active',
+      active_instance_id: 'old-inst',
+      model: DEFAULT_MODEL,
+      queued_at: new Date(),
+      admitted_at: new Date(),
+      expires_at: new Date(Date.now() + 60_000),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'US' }),
+      makeDeps(sessionDeps, 'u1', {
+        getCountryAccess: async () => ({
+          allowed: false,
+          countryCode: 'US',
+          blockReason: 'anonymous_network',
+          cfCountry: 'US',
+          geoipCountry: null,
+          ipPrivacy: { signals: ['res_proxy'] },
+          hasClientIp: true,
+          clientIpHash: 'test-ip-hash',
+        }),
+      }),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.message).toContain('proxy')
+    expect(body.countryBlockReason).toBe('anonymous_network')
+    expect(body.ipPrivacySignals).toEqual(['res_proxy'])
+    expect(sessionDeps.rows.size).toBe(0)
+  })
+
+  test('returns country_blocked on GET for Cloudflare Tor', async () => {
+    const sessionDeps = makeSessionDeps()
+    sessionDeps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'old-inst',
+      model: DEFAULT_MODEL,
+      queued_at: new Date(),
+      admitted_at: null,
+      expires_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    const resp = await getFreebuffSession(
+      makeReq('ok', { cfCountry: 'T1' }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(403)
+    const body = await resp.json()
+    expect(body.status).toBe('country_blocked')
+    expect(body.message).toContain('Tor')
+    expect(body.countryBlockReason).toBe('anonymized_or_unknown_country')
+    expect(body.ipPrivacySignals).toEqual(['tor'])
+    expect(sessionDeps.rows.size).toBe(0)
   })
 
   test('rechecks country on GET so access tier changes are visible immediately', async () => {

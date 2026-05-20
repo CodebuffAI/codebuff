@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test'
 
 import {
   getFreebuffRateLimitErrorMessage,
+  getFreeModeUnavailableErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   getCountryBlockFromFreeModeError,
@@ -79,6 +80,18 @@ describe('error-handling', () => {
         message: 'Free mode is not available in your country.',
       }
       expect(isFreeModeUnavailableError(error)).toBe(true)
+    })
+
+    test('returns true for responseBody free_mode_unavailable errors', () => {
+      expect(
+        isFreeModeUnavailableError({
+          statusCode: 403,
+          responseBody: JSON.stringify({
+            error: 'free_mode_unavailable',
+            message: 'Freebuff cannot be used from VPN traffic.',
+          }),
+        }),
+      ).toBe(true)
     })
 
     test('returns false for 403 without error field', () => {
@@ -234,6 +247,24 @@ describe('error-handling', () => {
       })
     })
 
+    test('extracts country block details from responseBody errors', () => {
+      const error = {
+        statusCode: 403,
+        responseBody: JSON.stringify({
+          error: 'free_mode_unavailable',
+          countryCode: 'US',
+          countryBlockReason: 'anonymous_network',
+          ipPrivacySignals: ['proxy', 'hosting', 123],
+        }),
+      }
+
+      expect(getCountryBlockFromFreeModeError(error)).toEqual({
+        countryCode: 'US',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['proxy', 'hosting'],
+      })
+    })
+
     test('defaults missing country code to UNKNOWN', () => {
       const error = {
         statusCode: 403,
@@ -262,6 +293,44 @@ describe('error-handling', () => {
       expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain(
         'not available in your country',
       )
+    })
+  })
+
+  describe('getFreeModeUnavailableErrorMessage', () => {
+    test('uses a VPN/proxy-specific message for anonymous-network blocks', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          error: 'free_mode_unavailable',
+          message: 'Forbidden',
+          countryBlockReason: 'anonymous_network',
+          ipPrivacySignals: ['vpn', 'hosting'],
+        }),
+      ).toContain('VPN')
+    })
+
+    test('uses a VPN/proxy-specific message from responseBody details', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          message: 'Forbidden',
+          responseBody: JSON.stringify({
+            error: 'free_mode_unavailable',
+            countryBlockReason: 'anonymous_network',
+            ipPrivacySignals: ['tor'],
+          }),
+        }),
+      ).toContain('Tor')
+    })
+
+    test('preserves server message for non-privacy free mode blocks', () => {
+      expect(
+        getFreeModeUnavailableErrorMessage({
+          statusCode: 403,
+          error: 'free_mode_unavailable',
+          message: 'Free mode is not available in your country.',
+        }),
+      ).toBe('Free mode is not available in your country.')
     })
   })
 
