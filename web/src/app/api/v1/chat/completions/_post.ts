@@ -18,7 +18,10 @@ import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
+import type {
+  InsertChatCompletionTraceBigqueryFn,
+  InsertMessageBigqueryFn,
+} from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
 import type {
   GetAgentRunFromIdFn,
@@ -43,7 +46,10 @@ import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
-import { createRequestAuditRecord } from '@/llm-api/helpers'
+import {
+  createRequestAuditRecord,
+  recordChatCompletionTrace,
+} from '@/llm-api/helpers'
 import {
   CanopyWaveError,
   handleCanopyWaveNonStream,
@@ -180,6 +186,7 @@ export async function postChatCompletions(params: {
   getAgentRunFromId: GetAgentRunFromIdFn
   fetch: typeof globalThis.fetch
   insertMessageBigquery: InsertMessageBigqueryFn
+  insertChatCompletionTraceBigquery?: InsertChatCompletionTraceBigqueryFn
   ensureSubscriberBlockGrant?: (params: {
     userId: string
     logger: Logger
@@ -203,6 +210,7 @@ export async function postChatCompletions(params: {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
+    insertChatCompletionTraceBigquery,
     ensureSubscriberBlockGrant,
     getUserPreferences,
     checkSessionAdmissible: checkSession = checkSessionAdmissible,
@@ -700,6 +708,15 @@ export async function postChatCompletions(params: {
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
     const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
+
+    await recordChatCompletionTrace({
+      body: typedBody,
+      userId,
+      agentId,
+      ancestorRunIds,
+      logger: providerLogger,
+      insertChatCompletionTraceBigquery,
+    })
 
     // Handle streaming vs non-streaming
     try {

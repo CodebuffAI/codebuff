@@ -4,6 +4,8 @@ import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/b
 export interface CodebuffMetadata {
   client_id?: string
   run_id?: string
+  trace_session_id?: string
+  trace_request_id?: string
   n?: number
   cost_mode?: string
   /** Server-issued session instance id (see /api/v1/freebuff/session). Required
@@ -112,6 +114,10 @@ export function isCodebuffMetadata(value: unknown): value is CodebuffMetadata {
   return (
     (v.client_id === undefined || typeof v.client_id === 'string') &&
     (v.run_id === undefined || typeof v.run_id === 'string') &&
+    (v.trace_session_id === undefined ||
+      typeof v.trace_session_id === 'string') &&
+    (v.trace_request_id === undefined ||
+      typeof v.trace_request_id === 'string') &&
     (v.n === undefined || typeof v.n === 'number') &&
     (v.cost_mode === undefined || typeof v.cost_mode === 'string') &&
     (v.freebuff_instance_id === undefined ||
