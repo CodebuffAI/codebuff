@@ -30,6 +30,7 @@ import {
   FREEBUFF_PREMIUM_SESSION_LIMIT,
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -642,7 +643,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 {session.countryBlockReason === 'anonymous_network' ? (
                   <>
                     We detected{' '}
-                    {formatPrivacySignalList(session.ipPrivacySignals)} traffic
+                    {formatFreebuffHardBlockedPrivacySignals(
+                      session.ipPrivacySignals,
+                    )}{' '}
+                    traffic
                     {session.countryCode === 'UNKNOWN' ? (
                       ''
                     ) : (
@@ -652,8 +656,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                         <span fg={theme.foreground}>{session.countryCode}</span>
                       </>
                     )}
-                    . Freebuff can't be used from anonymized networks. Press
-                    Ctrl+C to exit.
+                    . Freebuff can't be used from VPN, proxy, or Tor traffic.
+                    Disable it and restart Freebuff to try again.
                   </>
                 ) : session.countryCode === 'UNKNOWN' ? (
                   <>

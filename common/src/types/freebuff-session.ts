@@ -168,6 +168,7 @@ export type FreebuffSessionServerResponse =
        *  CLI stops polling and shows a "not available in your country"
        *  screen. `countryCode` is the resolved country, or UNKNOWN. */
       status: 'country_blocked'
+      message?: string
       countryCode: string
       countryBlockReason?: FreebuffCountryBlockReason
       ipPrivacySignals?: FreebuffIpPrivacySignal[]

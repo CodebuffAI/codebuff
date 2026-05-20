@@ -589,7 +589,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             method: 'POST',
             headers: {
               Authorization: 'Bearer test-api-key-new-free',
-              'cf-ipcountry': 'T1',
+              'cf-ipcountry': 'XX',
               'x-forwarded-for': '8.8.8.8',
             },
             body: JSON.stringify({
@@ -623,6 +623,86 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
         expect(response.status).toBe(200)
         expect(mockGetUserUsageData).not.toHaveBeenCalled()
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'blocks hard VPN/proxy privacy signals before the session gate',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free-deepseek-flash',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+                freebuff_instance_id: 'active-instance-123',
+              },
+            }),
+          },
+        )
+
+        const endFreebuffSession = mock(async () => {})
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mock(() => {
+            throw new Error('session gate should not be reached')
+          }),
+          endFreebuffSession,
+          resolveFreeModeCountryAccess: async () => ({
+            allowed: false,
+            countryCode: 'US',
+            blockReason: 'anonymous_network',
+            cfCountry: 'US',
+            geoipCountry: null,
+            ipPrivacy: { signals: ['vpn', 'hosting'] },
+            hasClientIp: true,
+            clientIpHash: 'test-ip-hash',
+          }),
+        })
+        expect(endFreebuffSession).toHaveBeenCalledWith({
+          userId: 'user-new-free',
+          userEmail: null,
+        })
+
+        expect(response.status).toBe(403)
+        const body = await response.json()
+        expect(body).toMatchObject({
+          error: 'free_mode_unavailable',
+          countryCode: 'US',
+          countryBlockReason: 'anonymous_network',
+          ipPrivacySignals: ['vpn', 'hosting'],
+        })
+        expect(body.message).toContain('VPN')
+        const validationEvent = (
+          mockTrackEvent as ReturnType<typeof mock>
+        ).mock.calls
+          .map(([params]) => params as Parameters<TrackEventFn>[0])
+          .find(
+            ({ event, properties }) =>
+              event === AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR &&
+              properties?.error === 'free_mode_unavailable',
+          )
+        expect(validationEvent?.properties).toMatchObject({
+          accessStatus: 'blocked',
+          countryCode: 'US',
+          ipPrivacySignals: ['vpn', 'hosting'],
+        })
+        expect(validationEvent?.properties).not.toHaveProperty('accessTier')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
@@ -844,7 +924,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: {
             Authorization: 'Bearer test-api-key-new-free',
-            'cf-ipcountry': 'T1',
+            'cf-ipcountry': 'XX',
             'x-forwarded-for': '8.8.8.8',
           },
           body: JSON.stringify({

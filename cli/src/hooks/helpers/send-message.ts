@@ -13,12 +13,12 @@ import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
   getCountryBlockFromFreeModeError,
+  getFreeModeUnavailableErrorMessage,
   getFreebuffGateErrorKind,
   getFreebuffRateLimitErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
-  FREE_MODE_UNAVAILABLE_MESSAGE,
 } from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
@@ -399,7 +399,7 @@ export const handleRunCompletion = (params: {
     }
 
     if (isFreeModeUnavailableError(output)) {
-      updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+      updater.setError(getFreeModeUnavailableErrorMessage(output))
       if (IS_FREEBUFF) {
         markFreebuffSessionCountryBlocked(
           getCountryBlockFromFreeModeError(output) ?? {
@@ -510,7 +510,7 @@ export const handleRunError = (params: {
   }
 
   if (isFreeModeUnavailableError(error)) {
-    updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+    updater.setError(getFreeModeUnavailableErrorMessage(error))
     if (IS_FREEBUFF) {
       markFreebuffSessionCountryBlocked(
         getCountryBlockFromFreeModeError(error) ?? {

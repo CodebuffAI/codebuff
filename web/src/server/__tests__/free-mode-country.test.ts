@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 import {
   getFreeModeCountryAccess,
+  shouldHardBlockFreeModeAccess,
   lookupIpinfoPrivacy,
 } from '../free-mode-country'
 
@@ -57,7 +58,7 @@ describe('free mode country access', () => {
     expect(access.blockReason).toBe('country_not_allowed')
   })
 
-  test('blocks anonymized Cloudflare country codes without falling back to IP geo', async () => {
+  test('hard-blocks Cloudflare Tor without falling back to IP geo', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'T1',
@@ -68,6 +69,23 @@ describe('free mode country access', () => {
     expect(access.allowed).toBe(false)
     expect(access.countryCode).toBe(null)
     expect(access.blockReason).toBe('anonymized_or_unknown_country')
+    expect(access.ipPrivacy?.signals).toEqual(['tor'])
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
+  })
+
+  test('limits unknown Cloudflare country codes without falling back to IP geo', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'XX',
+        'x-forwarded-for': '8.8.8.8',
+      }),
+      noAnonymousNetwork,
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.countryCode).toBe(null)
+    expect(access.blockReason).toBe('anonymized_or_unknown_country')
+    expect(access.ipPrivacy).toBe(null)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
   test('blocks missing client location as unknown', async () => {
@@ -158,7 +176,7 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
   })
 
-  test('blocks allowlisted countries when IPinfo reports hosting or service', async () => {
+  test('limits allowlisted countries when IPinfo reports hosting or service', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -174,6 +192,39 @@ describe('free mode country access', () => {
     expect(access.allowed).toBe(false)
     expect(access.blockReason).toBe('anonymous_network')
     expect(access.ipPrivacy?.signals).toEqual(['hosting', 'service'])
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('hard-blocks only VPN, proxy, Tor, or residential proxy signals', async () => {
+    const vpnAccess = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn', 'hosting'],
+        }),
+      },
+    )
+    expect(vpnAccess.allowed).toBe(false)
+    expect(shouldHardBlockFreeModeAccess(vpnAccess)).toBe(true)
+
+    const anonymousOnlyAccess = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['anonymous', 'relay'],
+        }),
+      },
+    )
+    expect(anonymousOnlyAccess.allowed).toBe(false)
+    expect(shouldHardBlockFreeModeAccess(anonymousOnlyAccess)).toBe(false)
   })
 
   test('allows allowlisted countries when privacy lookup finds no anonymous signals', async () => {
