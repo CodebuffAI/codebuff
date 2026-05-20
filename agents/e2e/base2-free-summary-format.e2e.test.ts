@@ -324,6 +324,7 @@ describe('Base2-Free Summary Format Compliance', () => {
         })
         const runStateWithMessages = withMessageHistory({
           runState: {
+            traceSessionId: 'test-trace-session',
             sessionState,
             output: { type: 'error', message: '' },
           },
@@ -461,6 +462,7 @@ describe('Base2-Free Summary Format Compliance', () => {
         })
         const runStateWithMessages = withMessageHistory({
           runState: {
+            traceSessionId: 'test-trace-session',
             sessionState,
             output: { type: 'error', message: '' },
           },

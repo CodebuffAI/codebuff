@@ -151,7 +151,11 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       // Create initial session state with the large message history
       const sessionState = await initialSessionState({})
       const runStateWithMessages = withMessageHistory({
-        runState: { sessionState, output: { type: 'error', message: '' } },
+        runState: {
+          traceSessionId: 'test-trace-session',
+          sessionState,
+          output: { type: 'error', message: '' },
+        },
         messages: initialMessages,
       })
 
@@ -277,7 +281,11 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
 
       const sessionState = await initialSessionState({})
       const runStateWithMessages = withMessageHistory({
-        runState: { sessionState, output: { type: 'error', message: '' } },
+        runState: {
+          traceSessionId: 'test-trace-session',
+          sessionState,
+          output: { type: 'error', message: '' },
+        },
         messages: initialMessages,
       })
 
