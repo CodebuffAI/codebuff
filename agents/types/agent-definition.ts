@@ -345,7 +345,7 @@ export type TerminalTools = 'run_terminal_command' | 'code_search'
 /**
  * Web and browser tools
  */
-export type WebTools = 'web_search' | 'read_docs'
+export type WebTools = 'web_search' | 'read_docs' | 'read_url'
 
 /**
  * Agent management tools
