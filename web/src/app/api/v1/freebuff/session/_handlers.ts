@@ -9,6 +9,8 @@ import {
 } from '@/server/free-session/public-api'
 import {
   getFreeModeAccessTier,
+  getFreeModePrivacyDecision,
+  getFreeModePrivacyProviderDecision,
   shouldHardBlockFreeModeAccess,
 } from '@/server/free-mode-country'
 import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
@@ -39,6 +41,7 @@ async function getCountryAccess(
       logger: deps.logger,
       options: {
         ipinfoToken: env.IPINFO_TOKEN,
+        spurToken: env.SPUR_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
         forceLimited:
@@ -76,12 +79,46 @@ function hardBlockedResponse(countryAccess: FreeModeCountryAccess) {
   return NextResponse.json(
     {
       status: 'country_blocked',
-      message: formatFreebuffHardBlockedMessage(countryAccess.ipPrivacy?.signals),
+      message: formatFreebuffHardBlockedMessage(
+        countryAccess.ipPrivacy?.signals,
+      ),
       countryCode: countryAccess.countryCode ?? 'UNKNOWN',
       countryBlockReason: countryAccess.blockReason ?? undefined,
       ipPrivacySignals: countryAccess.ipPrivacy?.signals ?? undefined,
     },
     { status: 403 },
+  )
+}
+
+function logCountryAccess(
+  route: 'GET' | 'POST',
+  userId: string,
+  countryAccess: FreeModeCountryAccess,
+  deps: FreebuffSessionDeps,
+): void {
+  const privacyProviderDecision =
+    getFreeModePrivacyProviderDecision(countryAccess)
+  if (countryAccess.allowed && privacyProviderDecision !== 'ipinfo_only') return
+
+  const privacyHardBlocked = shouldHardBlockFreeModeAccess(countryAccess)
+  deps.logger.info(
+    {
+      route,
+      userId,
+      accessTier: getFreeModeAccessTier(countryAccess),
+      cfHeader: countryAccess.cfCountry,
+      geoipResult: countryAccess.geoipCountry,
+      resolvedCountry: countryAccess.countryCode,
+      countryBlockReason: countryAccess.blockReason,
+      ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+      spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
+      spurStatus: countryAccess.spurStatus,
+      privacyDecision: getFreeModePrivacyDecision(countryAccess),
+      privacyProviderDecision,
+      privacyHardBlocked,
+      clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
+    },
+    '[freebuff/session] country detection',
   )
 }
 
@@ -190,6 +227,7 @@ export async function postFreebuffSession(
   if ('error' in auth) return auth.error
 
   const countryAccess = await getCountryAccess(auth.userId, req, deps)
+  logCountryAccess('POST', auth.userId, countryAccess, deps)
   if (shouldHardBlockFreeModeAccess(countryAccess)) {
     await endSessionForHardBlock(auth, deps)
     return hardBlockedResponse(countryAccess)
@@ -241,6 +279,7 @@ export async function getFreebuffSession(
 
   try {
     const countryAccess = await getCountryAccess(auth.userId, req, deps)
+    logCountryAccess('GET', auth.userId, countryAccess, deps)
     if (shouldHardBlockFreeModeAccess(countryAccess)) {
       await endSessionForHardBlock(auth, deps)
       return hardBlockedResponse(countryAccess)

@@ -22,6 +22,9 @@ import type { AdapterAccount } from 'next-auth/adapters'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
+  FreebuffPrivacyDecision,
+  FreebuffPrivacyProviderDecision,
+  FreebuffSpurStatus,
 } from '@codebuff/common/types/freebuff-session'
 
 export const ReferralStatus = pgEnum('referral_status', [
@@ -937,6 +940,16 @@ export const freeModeCountryAccessCache = pgTable(
     ip_privacy_signals: text('ip_privacy_signals')
       .array()
       .$type<FreebuffIpPrivacySignal[] | null>(),
+    spur_ip_privacy_signals: text('spur_ip_privacy_signals')
+      .array()
+      .$type<FreebuffIpPrivacySignal[] | null>(),
+    spur_status: text('spur_status').$type<FreebuffSpurStatus | null>(),
+    privacy_decision: text('privacy_decision').$type<
+      FreebuffPrivacyDecision | null
+    >(),
+    privacy_provider_decision: text('privacy_provider_decision').$type<
+      FreebuffPrivacyProviderDecision | null
+    >(),
     checked_at: timestamp('checked_at', {
       mode: 'date',
       withTimezone: true,

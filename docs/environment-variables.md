@@ -6,6 +6,7 @@
 - Server secrets: validated in `packages/internal/src/env-schema.ts` (used via `@codebuff/internal/env`).
 - Runtime/OS env: pass typed snapshots instead of reading `process.env` throughout the codebase.
 - `IPINFO_TOKEN` is required; free-mode country gating uses it to check IPinfo privacy signals for VPN/proxy/Tor/relay/hosting traffic.
+- `SPUR_TOKEN` is required; hard VPN/proxy/Tor/residential-proxy free-mode blocks require Spur Context API corroboration. In allowlisted countries, a successful clean Spur result overrides IPinfo privacy signals back to full access, while a Spur lookup failure falls back to limited access.
 - `CODEBUFF_FULL_TELEMETRY=true` or `CODEBUFF_FULL_TELEMETRY_IDS=user-id,email@example.com`
   disables client analytics sampling for targeted debugging. Use sparingly because it can send full CLI log payloads.
 

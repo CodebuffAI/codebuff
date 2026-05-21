@@ -372,6 +372,20 @@
       "when": 1778617513407,
       "tag": "0052_black_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1779337734037,
+      "tag": "0053_solid_karnak",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1779339183837,
+      "tag": "0054_clumsy_robin_chapel",
+      "breakpoints": true
     }
   ]
 }

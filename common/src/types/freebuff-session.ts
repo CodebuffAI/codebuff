@@ -65,6 +65,31 @@ export type FreebuffIpPrivacySignal =
   | 'hosting'
   | 'service'
 
+export type FreebuffSpurStatus =
+  | 'not_checked'
+  | 'clean'
+  | 'suspicious'
+  | 'failed'
+
+export type FreebuffPrivacyDecision =
+  | 'allowed_clean'
+  | 'ipinfo_suspicious_spur_clean'
+  | 'corroborated_block'
+  | 'cloudflare_tor_block'
+  | 'spur_failed_limited'
+  | 'ipinfo_failed_limited'
+  | 'limited_other'
+
+export type FreebuffPrivacyProviderDecision =
+  | 'not_checked'
+  | 'cloudflare_tor'
+  | 'ipinfo_clean'
+  | 'ipinfo_failed'
+  | 'ipinfo_only'
+  | 'spur_failed'
+  | 'corroborated_soft'
+  | 'corroborated_hard'
+
 export interface FreebuffLimitedModeReason {
   /** Present for limited access so the model picker can explain why the
    *  reduced model set is shown without re-running geo/IP logic locally. */

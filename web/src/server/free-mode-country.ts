@@ -11,6 +11,9 @@ import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-mod
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
+  FreebuffPrivacyDecision,
+  FreebuffPrivacyProviderDecision,
+  FreebuffSpurStatus,
 } from '@codebuff/common/types/freebuff-session'
 
 export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
@@ -61,11 +64,17 @@ export type FreeModeCountryAccess = {
   cfCountry: string | null
   geoipCountry: string | null
   ipPrivacy: FreeModeIpPrivacy | null
+  spurIpPrivacy: FreeModeIpPrivacy | null
+  spurStatus: FreebuffSpurStatus
   hasClientIp: boolean
   clientIpHash: string | null
 }
 
 export type LookupIpPrivacyFn = (
+  ip: string,
+) => Promise<FreeModeIpPrivacy | null>
+
+export type LookupSpurIpPrivacyFn = (
   ip: string,
 ) => Promise<FreeModeIpPrivacy | null>
 
@@ -77,8 +86,10 @@ export function getFreeModeAccessTier(
 
 export type FreeModeCountryAccessOptions = {
   lookupIpPrivacy?: LookupIpPrivacyFn
+  lookupSpurIpPrivacy?: LookupSpurIpPrivacyFn
   fetch?: typeof globalThis.fetch
   ipinfoToken: string
+  spurToken: string
   ipHashSecret?: string
   allowLocalhost?: boolean
   /** Dev-only escape hatch: when true (and `allowLocalhost` is also true),
@@ -108,6 +119,10 @@ const ipinfoPrivacyCache = new Map<
   string,
   { expiresAt: number; privacy: FreeModeIpPrivacy | null }
 >()
+const spurPrivacyCache = new Map<
+  string,
+  { expiresAt: number; privacy: FreeModeIpPrivacy | null }
+>()
 
 const FREE_MODE_LIMITED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
   ...FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
@@ -120,22 +135,99 @@ const FREE_MODE_LIMITED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
 export function hasHardBlockedPrivacySignal(
   ipPrivacy: FreeModeIpPrivacy | null | undefined,
 ): boolean {
-  return (
-    ipPrivacy?.signals.some(isFreebuffHardBlockedPrivacySignal) ?? false
-  )
+  return ipPrivacy?.signals.some(isFreebuffHardBlockedPrivacySignal) ?? false
 }
 
 export function shouldHardBlockFreeModeAccess(
   countryAccess: Pick<
     FreeModeCountryAccess,
-    'blockReason' | 'cfCountry' | 'ipPrivacy'
+    'blockReason' | 'cfCountry' | 'ipPrivacy' | 'spurIpPrivacy'
   >,
 ): boolean {
   return (
     countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY ||
     (countryAccess.blockReason === 'anonymous_network' &&
-      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy))
+      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
+      hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy))
   )
+}
+
+export function getFreeModePrivacyDecision(
+  countryAccess: Pick<
+    FreeModeCountryAccess,
+    | 'allowed'
+    | 'blockReason'
+    | 'cfCountry'
+    | 'ipPrivacy'
+    | 'spurIpPrivacy'
+    | 'spurStatus'
+  >,
+): FreebuffPrivacyDecision {
+  if (countryAccess.allowed) {
+    return countryAccess.spurStatus === 'clean' &&
+      countryAccess.ipPrivacy?.signals.length
+      ? 'ipinfo_suspicious_spur_clean'
+      : 'allowed_clean'
+  }
+  if (countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY) {
+    return 'cloudflare_tor_block'
+  }
+  if (countryAccess.blockReason === 'ip_privacy_lookup_failed') {
+    return 'ipinfo_failed_limited'
+  }
+  if (countryAccess.blockReason === 'anonymous_network') {
+    if (
+      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
+      hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy)
+    ) {
+      return 'corroborated_block'
+    }
+    if (countryAccess.spurStatus === 'failed') {
+      return 'spur_failed_limited'
+    }
+  }
+  return 'limited_other'
+}
+
+export function getFreeModePrivacyProviderDecision(
+  countryAccess: Pick<
+    FreeModeCountryAccess,
+    | 'blockReason'
+    | 'cfCountry'
+    | 'ipPrivacy'
+    | 'spurIpPrivacy'
+    | 'spurStatus'
+  >,
+): FreebuffPrivacyProviderDecision {
+  if (countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY) {
+    return 'cloudflare_tor'
+  }
+  if (countryAccess.blockReason === 'ip_privacy_lookup_failed') {
+    return 'ipinfo_failed'
+  }
+  if (!countryAccess.ipPrivacy) {
+    return 'not_checked'
+  }
+  if (countryAccess.ipPrivacy.signals.length === 0) {
+    return 'ipinfo_clean'
+  }
+  if (countryAccess.spurStatus === 'failed') {
+    return 'spur_failed'
+  }
+  if (countryAccess.spurStatus === 'clean') {
+    return 'ipinfo_only'
+  }
+  if (
+    countryAccess.spurStatus === 'suspicious' &&
+    hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
+    hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy)
+  ) {
+    return 'corroborated_hard'
+  }
+  if (countryAccess.spurStatus === 'suspicious') {
+    return 'corroborated_soft'
+  }
+  return 'not_checked'
 }
 
 export function extractClientIp(req: NextRequest): string | undefined {
@@ -176,6 +268,22 @@ function setIpinfoPrivacyCache(
   })
 }
 
+function setSpurPrivacyCache(
+  ip: string,
+  privacy: FreeModeIpPrivacy | null,
+): void {
+  while (spurPrivacyCache.size >= IPINFO_PRIVACY_CACHE_MAX_ENTRIES) {
+    const oldestIp = spurPrivacyCache.keys().next().value
+    if (!oldestIp) break
+    spurPrivacyCache.delete(oldestIp)
+  }
+
+  spurPrivacyCache.set(ip, {
+    expiresAt: Date.now() + IPINFO_PRIVACY_CACHE_TTL_MS,
+    privacy,
+  })
+}
+
 function privacySignalsFromIpinfo(
   data: Record<string, unknown>,
 ): FreeModeIpPrivacySignal[] {
@@ -201,6 +309,79 @@ function privacySignalsFromIpinfo(
   if (data.is_anonymous === true) {
     signals.push('anonymous')
   }
+  return signals
+}
+
+function pushUniqueSignal(
+  signals: FreeModeIpPrivacySignal[],
+  signal: FreeModeIpPrivacySignal,
+): void {
+  if (!signals.includes(signal)) signals.push(signal)
+}
+
+function signalFromSpurValue(value: unknown): FreeModeIpPrivacySignal | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.toUpperCase()
+  if (normalized.includes('RESIDENTIAL') || normalized.includes('RES_PROXY')) {
+    return 'res_proxy'
+  }
+  if (normalized.includes('TOR')) return 'tor'
+  if (normalized.includes('VPN')) return 'vpn'
+  if (normalized.includes('PROXY')) return 'proxy'
+  return null
+}
+
+function signalFromSpurService(value: unknown): FreeModeIpPrivacySignal | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.toUpperCase()
+  if (
+    normalized === 'OPENVPN' ||
+    normalized === 'WIREGUARD' ||
+    normalized === 'IPSEC' ||
+    normalized.includes('VPN')
+  ) {
+    return 'vpn'
+  }
+  return null
+}
+
+export function privacySignalsFromSpur(
+  data: Record<string, unknown>,
+): FreeModeIpPrivacySignal[] {
+  const signals: FreeModeIpPrivacySignal[] = []
+
+  const services = Array.isArray(data.services) ? data.services : []
+  for (const service of services) {
+    const signal = signalFromSpurService(service)
+    if (signal) pushUniqueSignal(signals, signal)
+  }
+
+  const tunnels = Array.isArray(data.tunnels) ? data.tunnels : []
+  for (const tunnel of tunnels) {
+    if (!tunnel || typeof tunnel !== 'object') continue
+    const tunnelRecord = tunnel as Record<string, unknown>
+    const operatorSignal = signalFromSpurValue(tunnelRecord.operator)
+    if (operatorSignal) pushUniqueSignal(signals, operatorSignal)
+    const signal = signalFromSpurValue(tunnelRecord.type)
+    if (signal) pushUniqueSignal(signals, signal)
+  }
+
+  const client =
+    data.client && typeof data.client === 'object'
+      ? (data.client as Record<string, unknown>)
+      : {}
+  const behaviors = Array.isArray(client.behaviors) ? client.behaviors : []
+  for (const behavior of behaviors) {
+    const signal = signalFromSpurValue(behavior)
+    if (signal) pushUniqueSignal(signals, signal)
+  }
+
+  const proxies = Array.isArray(client.proxies) ? client.proxies : []
+  for (const proxy of proxies) {
+    const signal = signalFromSpurValue(proxy) ?? 'proxy'
+    pushUniqueSignal(signals, signal)
+  }
+
   return signals
 }
 
@@ -230,6 +411,66 @@ export async function lookupIpinfoPrivacy(params: {
   return privacy
 }
 
+export async function lookupSpurIpPrivacy(params: {
+  ip: string
+  token: string
+  fetch: typeof globalThis.fetch
+}): Promise<FreeModeIpPrivacy | null> {
+  const cached = spurPrivacyCache.get(params.ip)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.privacy
+  }
+
+  const response = await params.fetch(
+    `https://api.spur.us/v2/context/${encodeURIComponent(params.ip)}`,
+    {
+      headers: {
+        Token: params.token,
+      },
+    },
+  )
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await response.json()) as Record<string, unknown>
+  const privacy = {
+    signals: privacySignalsFromSpur(data),
+  }
+  setSpurPrivacyCache(params.ip, privacy)
+  return privacy
+}
+
+async function lookupSpurPrivacyStatus(
+  clientIp: string,
+  options: FreeModeCountryAccessOptions,
+): Promise<{
+  privacy: FreeModeIpPrivacy | null
+  status: FreebuffSpurStatus
+}> {
+  try {
+    const privacy = options.lookupSpurIpPrivacy
+      ? await options.lookupSpurIpPrivacy(clientIp)
+      : await lookupSpurIpPrivacy({
+          ip: clientIp,
+          token: options.spurToken,
+          fetch: options.fetch ?? globalThis.fetch,
+        })
+    if (!privacy) return { privacy: null, status: 'failed' }
+    return {
+      privacy,
+      status: hasHardBlockedPrivacySignal(privacy) ? 'suspicious' : 'clean',
+    }
+  } catch {
+    return { privacy: null, status: 'failed' }
+  }
+}
+
+const NOT_CHECKED_SPUR_CONTEXT = {
+  spurIpPrivacy: null,
+  spurStatus: 'not_checked' as const,
+}
+
 export async function getFreeModeCountryAccess(
   req: NextRequest,
   options: FreeModeCountryAccessOptions,
@@ -256,6 +497,7 @@ export async function getFreeModeCountryAccess(
         cfCountry: null,
         geoipCountry: null,
         ipPrivacy: { signals: [] },
+        ...NOT_CHECKED_SPUR_CONTEXT,
         hasClientIp: Boolean(clientIp),
         // Null hash skips the country-access cache so toggling the env var
         // takes effect immediately without evicting prior allowed=true rows.
@@ -269,6 +511,7 @@ export async function getFreeModeCountryAccess(
       cfCountry: null,
       geoipCountry: null,
       ipPrivacy: { signals: [] },
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: Boolean(clientIp),
       clientIpHash,
     }
@@ -283,6 +526,7 @@ export async function getFreeModeCountryAccess(
       geoipCountry: null,
       ipPrivacy:
         cfCountry === CLOUDFLARE_TOR_COUNTRY ? { signals: ['tor'] } : null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: Boolean(clientIp),
       clientIpHash,
     }
@@ -295,6 +539,7 @@ export async function getFreeModeCountryAccess(
       countryCode: cfCountry,
       cfCountry,
       geoipCountry: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: Boolean(clientIp),
       clientIpHash,
     }
@@ -306,6 +551,7 @@ export async function getFreeModeCountryAccess(
       cfCountry: null,
       geoipCountry: null,
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: false,
       clientIpHash,
     }
@@ -319,6 +565,7 @@ export async function getFreeModeCountryAccess(
         cfCountry: null,
         geoipCountry: null,
         ipPrivacy: null,
+        ...NOT_CHECKED_SPUR_CONTEXT,
         hasClientIp: true,
         clientIpHash,
       }
@@ -328,6 +575,7 @@ export async function getFreeModeCountryAccess(
       countryCode: geoipCountry,
       cfCountry: null,
       geoipCountry,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: true,
       clientIpHash,
     }
@@ -339,6 +587,7 @@ export async function getFreeModeCountryAccess(
       allowed: false,
       blockReason: 'country_not_allowed',
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       clientIpHash,
     }
   }
@@ -351,6 +600,7 @@ export async function getFreeModeCountryAccess(
       cfCountry,
       geoipCountry: null,
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp: false,
       clientIpHash,
     }
@@ -375,6 +625,7 @@ export async function getFreeModeCountryAccess(
       allowed: false,
       blockReason: 'ip_privacy_lookup_failed',
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       clientIpHash,
     }
   }
@@ -384,11 +635,28 @@ export async function getFreeModeCountryAccess(
       FREE_MODE_LIMITED_PRIVACY_SIGNALS.has(signal),
     )
   ) {
+    const { privacy: spurIpPrivacy, status: spurStatus } =
+      await lookupSpurPrivacyStatus(clientIp, options)
+
+    if (spurIpPrivacy && spurStatus === 'clean') {
+      return {
+        ...baseAccess,
+        allowed: true,
+        blockReason: null,
+        ipPrivacy,
+        spurIpPrivacy,
+        spurStatus,
+        clientIpHash,
+      }
+    }
+
     return {
       ...baseAccess,
       allowed: false,
       blockReason: 'anonymous_network',
       ipPrivacy,
+      spurIpPrivacy,
+      spurStatus,
       clientIpHash,
     }
   }
@@ -398,6 +666,8 @@ export async function getFreeModeCountryAccess(
     allowed: true,
     blockReason: null,
     ipPrivacy,
+    spurIpPrivacy: null,
+    spurStatus: 'not_checked',
     clientIpHash,
   }
 }

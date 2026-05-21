@@ -103,6 +103,8 @@ import {
 import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
 import {
   getFreeModeAccessTier,
+  getFreeModePrivacyDecision,
+  getFreeModePrivacyProviderDecision,
   shouldHardBlockFreeModeAccess,
 } from '@/server/free-mode-country'
 
@@ -342,6 +344,7 @@ export async function postChatCompletions(params: {
       const countryAccess = await resolveCountryAccess(userId, req, {
         fetch,
         ipinfoToken: env.IPINFO_TOKEN,
+        spurToken: env.SPUR_TOKEN,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
         forceLimited:
@@ -350,6 +353,9 @@ export async function postChatCompletions(params: {
       })
       freebuffAccessTier = getFreeModeAccessTier(countryAccess)
       const hardBlocked = shouldHardBlockFreeModeAccess(countryAccess)
+      const privacyDecision = getFreeModePrivacyDecision(countryAccess)
+      const privacyProviderDecision =
+        getFreeModePrivacyProviderDecision(countryAccess)
 
       if (!countryAccess.allowed || sampleFreebuffSuccess) {
         logger.info(
@@ -359,6 +365,11 @@ export async function postChatCompletions(params: {
             resolvedCountry: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
+            spurStatus: countryAccess.spurStatus,
+            privacyDecision,
+            privacyProviderDecision,
+            privacyHardBlocked: hardBlocked,
             clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
           },
           'Free mode country detection',
@@ -380,6 +391,11 @@ export async function postChatCompletions(params: {
             countryCode: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
+            spurStatus: countryAccess.spurStatus,
+            privacyDecision,
+            privacyProviderDecision,
+            privacyHardBlocked: hardBlocked,
             clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
             accessStatus: 'blocked',
           },
@@ -400,6 +416,10 @@ export async function postChatCompletions(params: {
       trackEvent = withDefaultProperties(trackEvent, {
         accessTier: freebuffAccessTier,
         accessStatus: freebuffAccessTier,
+        privacyDecision,
+        privacyProviderDecision,
+        privacyHardBlocked: hardBlocked,
+        spurStatus: countryAccess.spurStatus,
       })
 
       if (!countryAccess.allowed) {
@@ -411,6 +431,11 @@ export async function postChatCompletions(params: {
             countryCode: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
+            spurStatus: countryAccess.spurStatus,
+            privacyDecision,
+            privacyProviderDecision,
+            privacyHardBlocked: hardBlocked,
             clientIp: countryAccess.hasClientIp ? '[redacted]' : undefined,
           },
           logger,

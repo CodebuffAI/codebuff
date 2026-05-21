@@ -16,6 +16,10 @@ import type { InternalSessionRow } from '@/server/free-session/types'
 import type { NextRequest } from 'next/server'
 
 const DEFAULT_MODEL = 'minimax/minimax-m2.7'
+const NOT_CHECKED_SPUR_CONTEXT = {
+  spurIpPrivacy: null,
+  spurStatus: 'not_checked' as const,
+}
 
 function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
@@ -32,6 +36,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       cfCountry,
       geoipCountry: null,
       ipPrivacy: cfCountry === 'T1' ? { signals: ['tor'] } : null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp,
       clientIpHash: hasClientIp ? 'test-ip-hash' : null,
     }
@@ -44,6 +49,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       cfCountry,
       geoipCountry: null,
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp,
       clientIpHash: hasClientIp ? 'test-ip-hash' : null,
     }
@@ -56,6 +62,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       cfCountry,
       geoipCountry: null,
       ipPrivacy: null,
+      ...NOT_CHECKED_SPUR_CONTEXT,
       hasClientIp,
       clientIpHash: 'test-ip-hash',
     }
@@ -67,6 +74,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
     cfCountry,
     geoipCountry: null,
     ipPrivacy: { signals: [] },
+    ...NOT_CHECKED_SPUR_CONTEXT,
     hasClientIp,
     clientIpHash: 'test-ip-hash',
   }
@@ -314,6 +322,8 @@ describe('POST /api/v1/freebuff/session', () => {
           cfCountry: 'US',
           geoipCountry: null,
           ipPrivacy: { signals: ['vpn', 'hosting'] },
+          spurIpPrivacy: { signals: ['vpn'] },
+          spurStatus: 'suspicious',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -343,18 +353,20 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(sessionDeps.rows.size).toBe(0)
   })
 
-  test('keeps hosting-only privacy signals in limited mode', async () => {
+  test('allows full access when hosting-only privacy signals are cleared by Spur', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
       makeReq('ok', { cfCountry: 'US' }),
       makeDeps(sessionDeps, 'u1', {
         getCountryAccess: async () => ({
-          allowed: false,
+          allowed: true,
           countryCode: 'US',
-          blockReason: 'anonymous_network',
+          blockReason: null,
           cfCountry: 'US',
           geoipCountry: null,
           ipPrivacy: { signals: ['hosting'] },
+          spurIpPrivacy: { signals: [] },
+          spurStatus: 'clean',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -363,8 +375,8 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('queued')
-    expect(body.accessTier).toBe('limited')
-    expect(body.ipPrivacySignals).toEqual(['hosting'])
+    expect(body.accessTier).toBe('full')
+    expect(body.ipPrivacySignals).toBeUndefined()
   })
 
   test('returns model_unavailable for legacy GLM 5.1 outside deployment hours', async () => {
@@ -424,18 +436,20 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.ipPrivacySignals).toBeNull()
   })
 
-  test('returns limited-mode privacy reason on GET for hosting-only signal', async () => {
+  test('returns full access on GET when hosting-only privacy signal is cleared by Spur', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await getFreebuffSession(
       makeReq('ok', { cfCountry: 'US' }),
       makeDeps(sessionDeps, 'u1', {
         getCountryAccess: async () => ({
-          allowed: false,
+          allowed: true,
           countryCode: 'US',
-          blockReason: 'anonymous_network',
+          blockReason: null,
           cfCountry: 'US',
           geoipCountry: null,
           ipPrivacy: { signals: ['hosting'] },
+          spurIpPrivacy: { signals: [] },
+          spurStatus: 'clean',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -444,10 +458,10 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('none')
-    expect(body.accessTier).toBe('limited')
-    expect(body.countryCode).toBe('US')
-    expect(body.countryBlockReason).toBe('anonymous_network')
-    expect(body.ipPrivacySignals).toEqual(['hosting'])
+    expect(body.accessTier).toBe('full')
+    expect(body.countryCode).toBeUndefined()
+    expect(body.countryBlockReason).toBeUndefined()
+    expect(body.ipPrivacySignals).toBeUndefined()
   })
 
   test('returns country_blocked on GET for VPN/proxy privacy signals', async () => {
@@ -473,6 +487,8 @@ describe('GET /api/v1/freebuff/session', () => {
           cfCountry: 'US',
           geoipCountry: null,
           ipPrivacy: { signals: ['res_proxy'] },
+          spurIpPrivacy: { signals: ['res_proxy'] },
+          spurStatus: 'suspicious',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
