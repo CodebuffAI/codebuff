@@ -108,6 +108,7 @@ export function createBase2(
       !isFree && 'propose_str_replace',
       !isFree && 'propose_write_file',
       !noAskUser && 'ask_user',
+      'read_url',
       'skill',
       'set_output',
       'list_directory',
