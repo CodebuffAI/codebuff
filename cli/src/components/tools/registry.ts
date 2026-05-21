@@ -8,6 +8,7 @@ import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
 import { ReadURLComponent } from './read-url'
 import { RenderUIComponent } from './render-ui'
+import { WebSearchComponent } from './web-search'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { SkillComponent } from './skill'
 import { StrReplaceComponent } from './str-replace'
@@ -41,6 +42,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
   [ReadURLComponent.toolName, ReadURLComponent],
   [RenderUIComponent.toolName, RenderUIComponent],
+  [WebSearchComponent.toolName, WebSearchComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
   [StrReplaceComponent.toolName, StrReplaceComponent],
   [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],
