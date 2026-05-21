@@ -132,6 +132,7 @@ export default {
 ### Web & Research
 
 - **`web_search`**: Search the internet for information
+- **`read_url`**: Fetch a URL and extract readable page text
 - **`read_docs`**: Read technical documentation
 - **`browser_logs`**: Navigate and inspect web pages
 

@@ -307,6 +307,10 @@ const definition: AgentDefinition = {
             ? `web search for "${query}"`
             : 'web search'
         }
+        case 'read_url': {
+          const url = input.url as string | undefined
+          return url ? `read URL: ${url}` : 'read a URL'
+        }
         case 'gravity_index': {
           const query = input.query as string | undefined
           const action = input.action as string | undefined

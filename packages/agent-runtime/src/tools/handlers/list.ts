@@ -16,6 +16,7 @@ import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleReadSubtree } from './tool/read-subtree'
+import { handleReadUrl } from './tool/read-url'
 import { handleRenderUI } from './tool/render-ui'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
@@ -64,6 +65,7 @@ export const codebuffToolHandlers = {
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_subtree: handleReadSubtree,
+  read_url: handleReadUrl,
   render_ui: handleRenderUI,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,

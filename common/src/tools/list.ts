@@ -19,6 +19,7 @@ import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { readSubtreeParams } from './params/tool/read-subtree'
+import { readUrlParams } from './params/tool/read-url'
 import { renderUIParams } from './params/tool/render-ui'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
@@ -59,6 +60,7 @@ export const toolParams = {
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_subtree: readSubtreeParams,
+  read_url: readUrlParams,
   render_ui: renderUIParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
@@ -130,6 +132,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('run_file_change_hooks'),
     input: toolParams.run_file_change_hooks.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('read_url'),
+    input: toolParams.read_url.inputSchema,
   }),
   z.object({
     toolName: z.literal('run_terminal_command'),

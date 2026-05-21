@@ -29,6 +29,7 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
+import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -704,6 +705,8 @@ async function handleToolCall({
         cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
         env,
       } as Parameters<typeof runTerminalCommand>[0])
+    } else if (toolName === 'read_url') {
+      result = await readUrl(input as Parameters<typeof readUrl>[0])
     } else if (toolName === 'code_search') {
       result = await codeSearch({
         projectPath: requireCwd(cwd, 'code_search'),
