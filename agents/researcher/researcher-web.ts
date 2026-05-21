@@ -1,6 +1,5 @@
 import { publisher } from '../constants'
 
-import type { ToolCall } from '../types/agent-definition'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
@@ -17,36 +16,18 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['web_search'],
+  toolNames: ['web_search', 'run_terminal_command'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert researcher who can search the web to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use web_search to find current information.`,
+  systemPrompt: `You are an expert researcher who can search the web to find relevant information. Your goal is to answer the user's question from current search results and any useful source pages. Use web_search to get Serper JSON search results. Use run_terminal_command with tools like curl to fetch web pages that would help answer the user's question.`,
   instructionsPrompt: `Provide comprehensive research on the user's prompt.
 
-Use web_search to find current information. Repeat the web_search tool call until you have gathered all the relevant information.
+Use web_search to find current information. The tool returns JSON search results, so inspect the titles, links, snippets, answer boxes, and related results before deciding what to fetch next.
 
-Then, write up a concise report that includes key findings for the user's prompt.
+Use run_terminal_command to fetch any web page that would help answer the user's question. Prefer targeted, relevant pages from the search results. Avoid fetching pages that are unlikely to add useful evidence.
+
+Then, write up a concise answer that includes key findings for the user's prompt and cites source URLs when useful.
 `.trim(),
-
-  handleSteps: function* ({ agentState, prompt, params }) {
-    const { toolResult } = yield {
-      toolName: 'web_search' as const,
-      input: { query: prompt || '', depth: 'standard' as const },
-      includeToolCall: false,
-    } satisfies ToolCall<'web_search'>
-
-    const results = (toolResult
-      ?.filter((r) => r.type === 'json')
-      ?.map((r) => r.value)?.[0] ?? {}) as {
-        result: string | undefined
-        errorMessage: string | undefined
-      }
-
-    yield {
-      type: 'STEP_TEXT',
-      text: results.result ?? results.errorMessage ?? '',
-    }
-  },
 }
 
 export default definition

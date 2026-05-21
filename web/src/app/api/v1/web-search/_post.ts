@@ -1,4 +1,4 @@
-import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
+import { searchWeb } from '@codebuff/agent-runtime/llm-api/serper-api'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { sleep } from '@codebuff/common/util/promise'
 import { NextResponse } from 'next/server'
@@ -10,7 +10,7 @@ import {
   requireUserFromApiKey,
 } from '../_helpers'
 
-import type { LinkupEnv } from '@codebuff/agent-runtime/llm-api/linkup-api'
+import type { SerperEnv } from '@codebuff/agent-runtime/llm-api/serper-api'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserUsageDataFn,
@@ -39,7 +39,7 @@ export async function postWebSearch(params: {
   getUserUsageData: GetUserUsageDataFn
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
-  serverEnv: LinkupEnv
+  serverEnv: SerperEnv
   ensureSubscriberBlockGrant?: (params: {
     userId: string
     logger: Logger

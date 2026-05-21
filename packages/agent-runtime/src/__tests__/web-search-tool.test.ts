@@ -5,7 +5,6 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess, success } from '@codebuff/common/util/error'
 import {
   afterEach,
-
   beforeEach,
   describe,
   expect,
@@ -243,7 +242,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
 
   test('should handle API errors gracefully', async () => {
     spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      error: 'Linkup API timeout',
+      error: 'Serper API timeout',
     })
 
     mockAgentStream([
@@ -275,7 +274,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
     expect(last).toContain('errorMessage')
-    expect(last).toContain('Linkup API timeout')
+    expect(last).toContain('Serper API timeout')
   })
 
   test('should handle non-Error exceptions from facade', async () => {

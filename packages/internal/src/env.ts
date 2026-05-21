@@ -21,7 +21,7 @@ if (isCI) {
   ensureEnvDefault('CANOPYWAVE_API_KEY', 'test')
   ensureEnvDefault('DEEPSEEK_API_KEY', 'test')
   ensureEnvDefault('OPENCODE_API_KEY', 'test')
-  ensureEnvDefault('LINKUP_API_KEY', 'test')
+  ensureEnvDefault('SERPER_API_KEY', 'test')
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')
   ensureEnvDefault('SPUR_TOKEN', 'test')

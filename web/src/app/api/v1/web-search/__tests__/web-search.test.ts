@@ -15,7 +15,7 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { BlockGrantResult } from '@codebuff/billing/subscription'
 
-const testServerEnv = { LINKUP_API_KEY: 'test-linkup-key' }
+const testServerEnv = { SERPER_API_KEY: 'test-serper-key' }
 
 describe('/api/v1/web-search POST endpoint', () => {
   let mockLogger: Logger
@@ -55,13 +55,25 @@ describe('/api/v1/web-search POST endpoint', () => {
       value: { chargedToOrganization: false },
     })) as ConsumeCreditsWithFallbackFn
 
-    // Mock fetch to return Linkup-like response
+    // Mock fetch to return Serper-like response
     mockFetch = Object.assign(
       async () =>
-        new Response(JSON.stringify({ answer: 'result', sources: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            organic: [
+              {
+                title: 'Result',
+                link: 'https://example.com',
+                snippet: 'result',
+                position: 1,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
       { preconnect: () => {} },
     ) as typeof fetch
   })

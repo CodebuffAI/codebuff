@@ -2,22 +2,31 @@ import { withTimeout } from '@codebuff/common/util/promise'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export interface LinkupEnv {
-  LINKUP_API_KEY: string
+export interface SerperEnv {
+  SERPER_API_KEY?: string
 }
 
-const LINKUP_API_BASE_URL = 'https://api.linkup.so/v1'
+const SERPER_API_BASE_URL = 'https://google.serper.dev'
 const FETCH_TIMEOUT_MS = 30_000
 
-export interface LinkupSearchResult {
-  name: string
-  snippet: string
-  url: string
+export interface SerperOrganicResult {
+  title?: string
+  link?: string
+  snippet?: string
+  position?: number
 }
 
-export interface LinkupSearchResponse {
-  answer: string
-  sources: LinkupSearchResult[]
+export interface SerperSearchResponse {
+  searchParameters?: {
+    q?: string
+    type?: string
+    num?: number
+  }
+  knowledgeGraph?: unknown
+  answerBox?: unknown
+  organic?: SerperOrganicResult[]
+  peopleAlsoAsk?: unknown[]
+  relatedSearches?: unknown[]
 }
 
 const headersToRecord = (headers: Headers): Record<string, string> => {
@@ -33,21 +42,20 @@ export async function searchWeb(options: {
   depth?: 'standard' | 'deep'
   logger: Logger
   fetch: typeof globalThis.fetch
-  serverEnv: LinkupEnv
+  serverEnv: SerperEnv
 }): Promise<string | null> {
   const { query, depth = 'standard', logger, fetch, serverEnv } = options
   const apiStartTime = Date.now()
 
-  if (!serverEnv.LINKUP_API_KEY) {
-    return 'No API key found. Please set LINKUP_API_KEY in your environment.'
+  if (!serverEnv.SERPER_API_KEY) {
+    return 'No API key found. Please set SERPER_API_KEY in your environment.'
   }
 
   const requestBody = {
     q: query,
-    depth,
-    outputType: 'sourcedAnswer' as const,
+    num: depth === 'deep' ? 20 : 10,
   }
-  const requestUrl = `${LINKUP_API_BASE_URL}/search`
+  const requestUrl = `${SERPER_API_BASE_URL}/search`
 
   const apiContext = {
     query,
@@ -63,7 +71,7 @@ export async function searchWeb(options: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${serverEnv.LINKUP_API_KEY}`,
+          'X-API-KEY': serverEnv.SERPER_API_KEY,
         },
         body: JSON.stringify(requestBody),
       }),
@@ -101,12 +109,12 @@ export async function searchWeb(options: {
       return null
     }
 
-    let data: LinkupSearchResponse
+    let data: SerperSearchResponse
     let parseDuration = 0
     try {
       const parseStartTime = Date.now()
       const responseBody = await response.json()
-      data = responseBody as LinkupSearchResponse
+      data = responseBody as SerperSearchResponse
       parseDuration = Date.now() - parseStartTime
     } catch (jsonError) {
       logger.error(
@@ -130,29 +138,29 @@ export async function searchWeb(options: {
       return null
     }
 
-    if (!data.answer || typeof data.answer !== 'string') {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       logger.error(
         {
           ...apiContext,
           responseKeys: Object.keys(data || {}),
-          answerType: typeof data?.answer,
-          answerLength: data?.answer?.length || 0,
-          sourcesCount: data?.sources?.length || 0,
           fetchDuration,
           parseDuration,
           totalDuration: Date.now() - apiStartTime,
         },
-        'Invalid response format - missing or invalid answer field',
+        'Invalid response format from Serper',
       )
       return null
     }
 
+    const result = JSON.stringify(data, null, 2)
     const totalDuration = Date.now() - apiStartTime
     logger.info(
       {
         ...apiContext,
-        answerLength: data.answer.length,
-        sourcesCount: data.sources?.length || 0,
+        resultLength: result.length,
+        organicCount: data.organic?.length || 0,
+        hasAnswerBox: Boolean(data.answerBox),
+        hasKnowledgeGraph: Boolean(data.knowledgeGraph),
         fetchDuration,
         parseDuration,
         totalDuration,
@@ -161,8 +169,7 @@ export async function searchWeb(options: {
       'Completed web search',
     )
 
-    // Return the answer as a single result for compatibility
-    return data.answer
+    return result
   } catch (error) {
     const totalDuration = Date.now() - apiStartTime
     logger.error(

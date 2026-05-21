@@ -14,18 +14,16 @@ import {
   test,
 } from 'bun:test'
 
-import { searchWeb } from '../linkup-api'
+import { searchWeb } from '../serper-api'
 
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
-// Test server env for Linkup API
-const testServerEnv = { LINKUP_API_KEY: 'test-api-key' }
+const testServerEnv = { SERPER_API_KEY: 'test-api-key' }
 
-describe('Linkup API', () => {
+describe('Serper API', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & { serverEnv: typeof testServerEnv }
 
   beforeAll(async () => {
-    // Mock withTimeout utility
     await mockModule('@codebuff/common/util/promise', () => ({
       withTimeout: async (promise: Promise<any>, timeout: number) => promise,
     }))
@@ -48,14 +46,14 @@ describe('Linkup API', () => {
 
   test('should successfully search with basic query', async () => {
     const mockResponse = {
-      answer:
-        'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.',
-      sources: [
+      searchParameters: { q: 'React tutorial', type: 'search', num: 10 },
+      organic: [
         {
-          name: 'React Documentation',
-          url: 'https://react.dev',
+          title: 'React Documentation',
+          link: 'https://react.dev',
           snippet:
             'React is a JavaScript library for building user interfaces.',
+          position: 1,
         },
       ],
     }
@@ -74,23 +72,18 @@ describe('Linkup API', () => {
       query: 'React tutorial',
     })
 
-    expect(result).toBe(
-      'React is a JavaScript library for building user interfaces. You can learn how to build your first React application by following the official documentation.',
-    )
-
-    // Verify fetch was called with correct parameters
+    expect(JSON.parse(result!)).toEqual(mockResponse)
     expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/v1/search',
+      'https://google.serper.dev/search',
       expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer test-api-key',
+          'X-API-KEY': 'test-api-key',
         },
         body: JSON.stringify({
           q: 'React tutorial',
-          depth: 'standard',
-          outputType: 'sourcedAnswer',
+          num: 10,
         }),
       }),
     )
@@ -98,13 +91,13 @@ describe('Linkup API', () => {
 
   test('should handle custom depth', async () => {
     const mockResponse = {
-      answer:
-        'Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.',
-      sources: [
+      searchParameters: { q: 'React patterns', type: 'search', num: 20 },
+      organic: [
         {
-          name: 'Advanced React Patterns',
-          url: 'https://example.com/advanced-react',
+          title: 'Advanced React Patterns',
+          link: 'https://example.com/advanced-react',
           snippet: 'Deep dive into React patterns and best practices.',
+          position: 1,
         },
       ],
     }
@@ -124,18 +117,13 @@ describe('Linkup API', () => {
       depth: 'deep',
     })
 
-    expect(result).toBe(
-      'Advanced React patterns include render props, higher-order components, and custom hooks for building reusable and maintainable components.',
-    )
-
-    // Verify fetch was called with correct parameters
+    expect(JSON.parse(result!)).toEqual(mockResponse)
     expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/v1/search',
+      'https://google.serper.dev/search',
       expect.objectContaining({
         body: JSON.stringify({
           q: 'React patterns',
-          depth: 'deep',
-          outputType: 'sourcedAnswer',
+          num: 20,
         }),
       }),
     )
@@ -169,7 +157,7 @@ describe('Linkup API', () => {
   test('should handle invalid response format', async () => {
     agentRuntimeImpl.fetch = mock(() => {
       return Promise.resolve(
-        new Response(JSON.stringify({ invalid: 'format' }), {
+        new Response(JSON.stringify(['invalid']), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
@@ -181,10 +169,21 @@ describe('Linkup API', () => {
     expect(result).toBeNull()
   })
 
-  test('should handle missing answer field', async () => {
+  test('should return JSON search results without an answer field', async () => {
+    const mockResponse = {
+      organic: [
+        {
+          title: 'Test result',
+          link: 'https://example.com',
+          snippet: 'Test snippet',
+          position: 1,
+        },
+      ],
+    }
+
     agentRuntimeImpl.fetch = mock(() => {
       return Promise.resolve(
-        new Response(JSON.stringify({ sources: [] }), {
+        new Response(JSON.stringify(mockResponse), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
@@ -196,12 +195,13 @@ describe('Linkup API', () => {
       query: 'test query',
     })
 
-    expect(result).toBeNull()
+    expect(JSON.parse(result!)).toEqual(mockResponse)
   })
-  test('should handle empty answer', async () => {
+
+  test('should return sparse JSON search results', async () => {
     const mockResponse = {
-      answer: '',
-      sources: [],
+      searchParameters: { q: 'test query', type: 'search' },
+      organic: [],
     }
 
     agentRuntimeImpl.fetch = mock(() => {
@@ -215,14 +215,13 @@ describe('Linkup API', () => {
 
     const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
-    expect(result).toBeNull()
+    expect(JSON.parse(result!)).toEqual(mockResponse)
   })
 
   test('should use default options when none provided', async () => {
     const mockResponse = {
-      answer: 'Test answer content',
-      sources: [
-        { name: 'Test', url: 'https://example.com', snippet: 'Test content' },
+      organic: [
+        { title: 'Test', link: 'https://example.com', snippet: 'Test content' },
       ],
     }
 
@@ -237,14 +236,12 @@ describe('Linkup API', () => {
 
     await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
-    // Verify fetch was called with default parameters
     expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
-      'https://api.linkup.so/v1/search',
+      'https://google.serper.dev/search',
       expect.objectContaining({
         body: JSON.stringify({
           q: 'test query',
-          depth: 'standard',
-          outputType: 'sourcedAnswer',
+          num: 10,
         }),
       }),
     )
@@ -264,7 +261,6 @@ describe('Linkup API', () => {
     const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
 
     expect(result).toBeNull()
-    // Verify that error logging was called
     expect(agentRuntimeImpl.logger.error).toHaveBeenCalled()
   })
 
@@ -287,13 +283,12 @@ describe('Linkup API', () => {
     })
 
     expect(result).toBeNull()
-    // Verify that detailed error logging was called with 404 info
     expect(agentRuntimeImpl.logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 404,
         statusText: 'Not Found',
         responseBody: mockErrorResponse,
-        requestUrl: 'https://api.linkup.so/v1/search',
+        requestUrl: 'https://google.serper.dev/search',
         query: 'test query for 404',
       }),
       expect.stringContaining('404'),
