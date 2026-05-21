@@ -369,6 +369,104 @@ describe('sdk-event-handlers', () => {
     expect(getStreamingAgents().size).toBe(0)
   })
 
+  test('hides spawn_agents error placeholders with no user-facing output', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    ctx.message.updater.addBlock(
+      createAgentBlock({
+        agentId: 'tool-1-0',
+        agentType: 'basher',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      }),
+    )
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    const toolResultEvent: ToolResultEvent = {
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'basher',
+              value: {
+                errorMessage:
+                  'Error spawning agent: Invalid params for agent basher',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    handleEvent(toolResultEvent)
+
+    expect(getMessages()[0].blocks).toEqual([])
+    expect(getStreamingAgents().size).toBe(0)
+  })
+
+  test('renders spawn_agents error content when agent already streamed output', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'tool-1-0',
+        agentName: 'Basher',
+        agentType: 'basher',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Checking files...',
+            textType: 'text',
+          },
+        ],
+        initialPrompt: '',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      } as any,
+    ])
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    const toolResultEvent: ToolResultEvent = {
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'basher',
+              value: {
+                errorMessage:
+                  'Error spawning agent: Invalid params for agent basher',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    handleEvent(toolResultEvent)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    expect(agentBlock.blocks).toHaveLength(2)
+    expect(agentBlock.blocks?.[0]).toMatchObject({
+      type: 'text',
+      content: 'Checking files...',
+    })
+    expect(agentBlock.blocks?.[1]).toMatchObject({
+      type: 'text',
+      content: 'Error spawning agent: Invalid params for agent basher',
+    })
+    expect(getStreamingAgents().size).toBe(0)
+  })
+
   test('handles spawn_agents tool results for agents with tool blocks (lastMessage mode)', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
 
