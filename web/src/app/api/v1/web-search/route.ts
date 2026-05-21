@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     getUserUsageData,
     consumeCreditsWithFallback,
     fetch,
-    serverEnv: { LINKUP_API_KEY: env.LINKUP_API_KEY },
+    serverEnv: { SERPER_API_KEY: env.SERPER_API_KEY },
     ensureSubscriberBlockGrant,
   })
 }

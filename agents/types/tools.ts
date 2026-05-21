@@ -398,7 +398,7 @@ export interface ThinkDeeplyParams {
 }
 
 /**
- * Search the web for current information using Linkup API.
+ * Search the web for current information using Serper API.
  */
 export interface WebSearchParams {
   /** The search query to find relevant web content */
