@@ -39,27 +39,28 @@ function extractOutputText(output: AgentOutput): string {
     return JSON.stringify(output.value ?? {})
   }
 
-  return output.value
-    .map((message) => {
-      const content = (message as { content?: unknown }).content
-      if (typeof content === 'string') return content
-      if (!Array.isArray(content)) return ''
-      return content
-        .map((part) => {
-          if (
-            part &&
-            typeof part === 'object' &&
-            'type' in part &&
-            part.type === 'text' &&
-            'text' in part
-          ) {
-            return String(part.text)
-          }
-          return ''
-        })
-        .join('')
+  const assistantText = output.value.flatMap((message) => {
+    if ((message as { role?: unknown }).role !== 'assistant') return []
+
+    const content = (message as { content?: unknown }).content
+    if (typeof content === 'string') return [content]
+    if (!Array.isArray(content)) return []
+
+    return content.flatMap((part) => {
+      if (
+        part &&
+        typeof part === 'object' &&
+        'type' in part &&
+        part.type === 'text' &&
+        'text' in part
+      ) {
+        return [String(part.text)]
+      }
+      return []
     })
-    .join('\n')
+  })
+
+  return assistantText.join('\n')
 }
 
 describe('researcher-web SDK integration', () => {
@@ -95,8 +96,12 @@ describe('researcher-web SDK integration', () => {
         handleEvent: (event) => {
           events.push(event)
         },
-        prompt:
-          'Use web search to answer this React docs question. In React 19, which hook returns state, a form action, and an isPending value for form actions? Answer with the exact hook name and one short sentence.',
+        prompt: [
+          'Use web search to answer this React docs question.',
+          'After searching, fetch the most relevant React docs page with run_terminal_command before answering.',
+          'In React 19, which hook returns state, a form action, and an isPending value for form actions?',
+          'Answer with the exact hook name and one short sentence.',
+        ].join(' '),
       })
 
       const outputText = extractOutputText(result.output)
@@ -109,6 +114,13 @@ describe('researcher-web SDK integration', () => {
         events.some(
           (event) =>
             event.type === 'tool_call' && event.toolName === 'web_search',
+        ),
+      ).toBe(true)
+      expect(
+        events.some(
+          (event) =>
+            event.type === 'tool_call' &&
+            event.toolName === 'run_terminal_command',
         ),
       ).toBe(true)
     },
