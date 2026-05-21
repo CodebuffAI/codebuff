@@ -24,9 +24,6 @@ import type {
 import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { NextRequest } from 'next/server'
 
-
-
-
 const bodySchema = z.object({
   query: z.string().min(1, 'query is required'),
   depth: z.enum(['standard', 'deep']).optional().default('standard'),
@@ -43,7 +40,10 @@ export async function postWebSearch(params: {
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
   serverEnv: LinkupEnv
-  ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
+  ensureSubscriberBlockGrant?: (params: {
+    userId: string
+    logger: Logger
+  }) => Promise<BlockGrantResult | null>
 }) {
   const {
     req,
