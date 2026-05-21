@@ -136,6 +136,7 @@ export enum AnalyticsEvent {
 
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',
+  ADS_CLICKED = 'ads.clicked',
 
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',

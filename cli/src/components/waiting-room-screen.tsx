@@ -299,7 +299,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
   // Try Gravity first, then fall back to ZeroClick when Gravity doesn't fill.
-  const { ads, recordImpression } = useGravityAd({
+  const { ads, recordClick, recordImpression } = useGravityAd({
     enabled: true,
     forceStart: true,
     provider: 'gravity',
@@ -733,7 +733,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           }}
         >
           {ads ? (
-            <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
+            <ChoiceAdBanner
+              ads={ads}
+              onClick={recordClick}
+              onImpression={recordImpression}
+            />
           ) : (
             <text style={{ fg: theme.muted }}>
               {'─'.repeat(terminalWidth)}

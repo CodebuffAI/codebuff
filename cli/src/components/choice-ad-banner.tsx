@@ -11,6 +11,7 @@ import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface ChoiceAdBannerProps {
   ads: AdResponse[]
+  onClick?: (ad: AdResponse) => void
   onImpression?: (ad: AdResponse) => void
 }
 
@@ -61,7 +62,11 @@ function columnWidths(count: number, availableWidth: number): number[] {
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpression }) => {
+export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
+  ads,
+  onClick,
+  onImpression,
+}) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -115,7 +120,9 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({ ads, onImpressio
             <Button
               key={ad.impUrl}
               onClick={() => {
-                if (ad.clickUrl) safeOpen(ad.clickUrl)
+                if (!ad.clickUrl) return
+                onClick?.(ad)
+                safeOpen(ad.clickUrl)
               }}
               onMouseOver={() => setHoveredIndex(i)}
               onMouseOut={() => setHoveredIndex(null)}
