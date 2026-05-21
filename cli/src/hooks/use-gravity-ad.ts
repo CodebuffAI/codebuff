@@ -42,6 +42,7 @@ export type AdSurface = 'waiting_room'
 export type GravityAdState = {
   ads: AdResponse[] | null
   isLoading: boolean
+  recordClick: (ad: AdResponse) => void
   recordImpression: (ad: AdResponse) => void
 }
 
@@ -231,6 +232,35 @@ export const useGravityAd = (options?: {
     })
   }
 
+  const recordClick = (ad: AdResponse): void => {
+    const authToken = getAuthToken()
+    if (!authToken) {
+      logger.warn('[ads] No auth token, skipping ad click recording')
+      return
+    }
+
+    void fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        'User-Agent': getCliAdRequestUserAgent(),
+      },
+      body: JSON.stringify({ impUrl: ad.impUrl, surface: surface ?? 'chat' }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          logger.debug(
+            { status: res.status },
+            '[ads] Failed to record ad click',
+          )
+        }
+      })
+      .catch((err) => {
+        logger.debug({ err }, '[ads] Failed to record ad click')
+      })
+  }
+
   type FetchAdResult = { ads: AdResponse[] } | null
 
   // Fetch an ad via web API
@@ -411,6 +441,7 @@ export const useGravityAd = (options?: {
   return {
     ads: visible ? ads : null,
     isLoading,
+    recordClick,
     recordImpression: recordImpressionOnce,
   }
 }
