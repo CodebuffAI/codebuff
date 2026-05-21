@@ -358,50 +358,79 @@ const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
 /**
  * Recursively finds and updates agent blocks that match a spawn_agents tool call.
  */
+const updateSpawnAgentBlock = (
+  block: ContentBlock,
+  toolCallId: string,
+  results: any[],
+): ContentBlock | null => {
+  if (block.type !== 'agent') {
+    return block
+  }
+
+  const spawnIndex = block.spawnIndex
+  const childBlocks = block.blocks
+  const isSpawnResultTarget =
+    block.spawnToolCallId === toolCallId &&
+    spawnIndex !== undefined &&
+    childBlocks
+
+  if (isSpawnResultTarget) {
+    const result = results[spawnIndex]
+    if (result?.value) {
+      const { content, hasError } = extractSpawnAgentResultContent(result.value)
+
+      if (hasError) {
+        if (childBlocks.length === 0) {
+          return null
+        }
+
+        return {
+          ...block,
+          blocks: content
+            ? [...childBlocks, { type: 'text', content } as ContentBlock]
+            : childBlocks,
+          status: 'complete' as const,
+        }
+      }
+
+      // Agents like thinker return all output at the end via lastMessage,
+      // while agents like basher may have already streamed their text.
+      const hasStreamedTextContent = childBlocks.some(
+        (b) => b.type === 'text' && b.textType === 'text',
+      )
+      const finalBlocks =
+        content && !hasStreamedTextContent
+          ? [...childBlocks, { type: 'text', content } as ContentBlock]
+          : childBlocks
+
+      if (finalBlocks.length > 0) {
+        return {
+          ...block,
+          blocks: finalBlocks,
+          status: 'complete' as const,
+        }
+      }
+    }
+  }
+
+  if (!childBlocks?.length) {
+    return block
+  }
+
+  return {
+    ...block,
+    blocks: updateSpawnAgentBlocks(childBlocks, toolCallId, results),
+  }
+}
+
 const updateSpawnAgentBlocks = (
   blocks: ContentBlock[],
   toolCallId: string,
   results: any[],
 ): ContentBlock[] => {
-  return blocks.map((block) => {
-    if (block.type !== 'agent') {
-      return block
-    }
-
-    if (block.spawnToolCallId === toolCallId && block.spawnIndex !== undefined && block.blocks) {
-      const result = results[block.spawnIndex]
-
-      if (result?.value) {
-        const { content, hasError } = extractSpawnAgentResultContent(result.value)
-        // Check if the agent already streamed text content (e.g., basher).
-        // Agents like thinker return all output at the end via lastMessage,
-        // so we should add final content even if they have tool blocks.
-        const hasStreamedTextContent = block.blocks.some(
-          (b) => b.type === 'text' && b.textType === 'text'
-        )
-        const finalBlocks = content && !hasStreamedTextContent
-          ? [...block.blocks, { type: 'text', content } as ContentBlock]
-          : block.blocks
-        if (hasError || finalBlocks.length > 0) {
-          return {
-            ...block,
-            blocks: finalBlocks,
-            status: hasError ? ('failed' as const) : ('complete' as const),
-          }
-        }
-      }
-    }
-
-    // Recursively process nested agent blocks
-    if (block.blocks?.length) {
-      const updatedNestedBlocks = updateSpawnAgentBlocks(block.blocks, toolCallId, results)
-      if (updatedNestedBlocks !== block.blocks) {
-        return { ...block, blocks: updatedNestedBlocks }
-      }
-    }
-
-    return block
-  })
+  return blocks
+    .map((block) => updateSpawnAgentBlock(block, toolCallId, results))
+    .filter((block): block is ContentBlock => block !== null)
 }
 
 const handleSpawnAgentsResult = (
@@ -433,7 +462,8 @@ const handleToolResult = (
   )
 
   const firstOutput = event.output?.[0]
-  const firstOutputValue = firstOutput && 'value' in firstOutput ? firstOutput.value : undefined
+  const firstOutputValue =
+    firstOutput && 'value' in firstOutput ? firstOutput.value : undefined
   const isSpawnAgentsResult =
     Array.isArray(firstOutputValue) &&
     firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
