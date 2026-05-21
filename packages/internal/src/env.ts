@@ -24,6 +24,7 @@ if (isCI) {
   ensureEnvDefault('LINKUP_API_KEY', 'test')
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')
+  ensureEnvDefault('SPUR_TOKEN', 'test')
   ensureEnvDefault('PORT', '4242')
   ensureEnvDefault('DATABASE_URL', 'postgres://user:pass@localhost:5432/db')
   ensureEnvDefault('CODEBUFF_GITHUB_ID', 'test-id')

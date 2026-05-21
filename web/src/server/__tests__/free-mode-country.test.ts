@@ -2,9 +2,13 @@ import { describe, expect, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
 import {
+  getFreeModePrivacyProviderDecision,
+  getFreeModePrivacyDecision,
   getFreeModeCountryAccess,
   shouldHardBlockFreeModeAccess,
   lookupIpinfoPrivacy,
+  lookupSpurIpPrivacy,
+  privacySignalsFromSpur,
 } from '../free-mode-country'
 
 function makeReq(headers: Record<string, string> = {}): NextRequest {
@@ -15,6 +19,7 @@ function makeReq(headers: Record<string, string> = {}): NextRequest {
 
 const noAnonymousNetwork = {
   ipinfoToken: 'test-token',
+  spurToken: 'test-spur-token',
   lookupIpPrivacy: async () => ({ signals: [] }),
 }
 
@@ -129,6 +134,7 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async (ip) => {
           checkedIp = ip
           return { signals: [] }
@@ -139,7 +145,7 @@ describe('free mode country access', () => {
     expect(checkedIp).toBe('203.0.113.10')
   })
 
-  test('blocks allowlisted countries when the client IP is an anonymous network', async () => {
+  test('allows allowlisted countries when Spur does not corroborate IPinfo VPN detection', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -147,18 +153,28 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: ['vpn'],
         }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: [],
+        }),
       },
     )
-    expect(access.allowed).toBe(false)
+    expect(access.allowed).toBe(true)
     expect(access.countryCode).toBe('US')
-    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.blockReason).toBe(null)
     expect(access.ipPrivacy?.signals).toEqual(['vpn'])
+    expect(access.spurIpPrivacy?.signals).toEqual([])
+    expect(access.spurStatus).toBe('clean')
+    expect(getFreeModePrivacyDecision(access)).toBe(
+      'ipinfo_suspicious_spur_clean',
+    )
+    expect(getFreeModePrivacyProviderDecision(access)).toBe('ipinfo_only')
   })
 
-  test('blocks allowlisted countries when IPinfo reports a residential proxy', async () => {
+  test('allows allowlisted countries when Spur does not corroborate IPinfo residential proxy detection', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -166,17 +182,23 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: ['res_proxy'],
         }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: [],
+        }),
       },
     )
-    expect(access.allowed).toBe(false)
-    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
+    expect(access.spurIpPrivacy?.signals).toEqual([])
+    expect(access.spurStatus).toBe('clean')
   })
 
-  test('limits allowlisted countries when IPinfo reports hosting or service', async () => {
+  test('allows allowlisted countries when Spur does not corroborate IPinfo hosting or service detection', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -184,14 +206,19 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: ['hosting', 'service'],
         }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: [],
+        }),
       },
     )
-    expect(access.allowed).toBe(false)
-    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
     expect(access.ipPrivacy?.signals).toEqual(['hosting', 'service'])
+    expect(access.spurStatus).toBe('clean')
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
@@ -203,13 +230,22 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: ['vpn', 'hosting'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
         }),
       },
     )
     expect(vpnAccess.allowed).toBe(false)
+    expect(vpnAccess.spurStatus).toBe('suspicious')
     expect(shouldHardBlockFreeModeAccess(vpnAccess)).toBe(true)
+    expect(getFreeModePrivacyDecision(vpnAccess)).toBe('corroborated_block')
+    expect(getFreeModePrivacyProviderDecision(vpnAccess)).toBe(
+      'corroborated_hard',
+    )
 
     const anonymousOnlyAccess = await getFreeModeCountryAccess(
       makeReq({
@@ -218,13 +254,45 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: ['anonymous', 'relay'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
         }),
       },
     )
     expect(anonymousOnlyAccess.allowed).toBe(false)
     expect(shouldHardBlockFreeModeAccess(anonymousOnlyAccess)).toBe(false)
+  })
+
+  test('keeps IPinfo VPN/proxy detections in limited mode when Spur lookup fails', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => {
+          throw new Error('provider unavailable')
+        },
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.ipPrivacy?.signals).toEqual(['vpn'])
+    expect(access.spurIpPrivacy).toBe(null)
+    expect(access.spurStatus).toBe('failed')
+    expect(getFreeModePrivacyDecision(access)).toBe('spur_failed_limited')
+    expect(getFreeModePrivacyProviderDecision(access)).toBe('spur_failed')
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
   test('allows allowlisted countries when privacy lookup finds no anonymous signals', async () => {
@@ -235,6 +303,7 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => ({
           signals: [],
         }),
@@ -252,6 +321,7 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         lookupIpPrivacy: async () => {
           throw new Error('provider unavailable')
         },
@@ -299,6 +369,7 @@ describe('free mode country access', () => {
       }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         ipHashSecret: 'secret',
         lookupIpPrivacy: async () => ({ signals: [] }),
       },
@@ -325,9 +396,90 @@ describe('free mode country access', () => {
     })
   })
 
+  test('parses Spur Context API anonymizer signals', async () => {
+    let requestedUrl = ''
+    let tokenHeader = ''
+    const fetch = async (url: string | URL | Request, init?: RequestInit) => {
+      requestedUrl = String(url)
+      tokenHeader =
+        init?.headers &&
+        typeof init.headers === 'object' &&
+        !Array.isArray(init.headers)
+          ? String((init.headers as Record<string, string>).Token)
+          : ''
+      return Response.json({
+        risks: ['CALLBACK_PROXY', 'GEO_MISMATCH'],
+        client: {
+          proxies: ['OXYLABS_PROXY'],
+        },
+        tunnels: [
+          {
+            type: 'VPN',
+            operator: 'PROTON_VPN',
+          },
+          {
+            type: 'TOR',
+          },
+        ],
+      })
+    }
+
+    const privacy = await lookupSpurIpPrivacy({
+      ip: '198.51.100.45',
+      token: 'spur-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(requestedUrl).toBe('https://api.spur.us/v2/context/198.51.100.45')
+    expect(tokenHeader).toBe('spur-token')
+    expect(privacy).toEqual({
+      signals: ['vpn', 'tor', 'proxy'],
+    })
+  })
+
+  test('parses Tor from Spur tunnel operator context', () => {
+    expect(
+      privacySignalsFromSpur({
+        tunnels: [
+          {
+            operator: 'TOR_PROXY',
+            type: 'PROXY',
+          },
+        ],
+      }),
+    ).toEqual(['tor', 'proxy'])
+  })
+
+  test('parses VPN protocol services from Spur context', () => {
+    expect(
+      privacySignalsFromSpur({
+        services: ['OPENVPN', 'WIREGUARD', 'HTTPS'],
+      }),
+    ).toEqual(['vpn'])
+  })
+
+  test('parses explicit Tor/proxy client behaviors from Spur context', () => {
+    expect(
+      privacySignalsFromSpur({
+        client: {
+          behaviors: ['FILE_SHARING', 'TOR_PROXY_USER'],
+        },
+      }),
+    ).toEqual(['tor'])
+  })
+
+  test('does not treat generic Spur proxy risk strings as corroboration', () => {
+    expect(
+      privacySignalsFromSpur({
+        risks: ['CALLBACK_PROXY'],
+      }),
+    ).toEqual([])
+  })
+
   test('allowLocalhost bypasses gating when no CF country and no client IP', async () => {
     const access = await getFreeModeCountryAccess(makeReq(), {
       ipinfoToken: 'test-token',
+      spurToken: 'test-spur-token',
       allowLocalhost: true,
     })
     expect(access.allowed).toBe(true)
@@ -341,6 +493,7 @@ describe('free mode country access', () => {
       makeReq({ 'x-forwarded-for': '127.0.0.1' }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         allowLocalhost: true,
       },
     )
@@ -354,6 +507,7 @@ describe('free mode country access', () => {
       makeReq({ 'cf-ipcountry': 'JP' }),
       {
         ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
         allowLocalhost: true,
       },
     )
@@ -364,6 +518,7 @@ describe('free mode country access', () => {
   test('allowLocalhost off (default) keeps the strict missing-IP block', async () => {
     const access = await getFreeModeCountryAccess(makeReq(), {
       ipinfoToken: 'test-token',
+      spurToken: 'test-spur-token',
     })
     expect(access.allowed).toBe(false)
     expect(access.blockReason).toBe('missing_client_ip')

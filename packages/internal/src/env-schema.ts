@@ -16,6 +16,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
   IPINFO_TOKEN: z.string().min(1),
+  SPUR_TOKEN: z.string().min(1),
   // ZeroClick tenant API key used for server-side offer fallback requests.
   ZEROCLICK_API_KEY: z.string().min(1).optional(),
   // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
@@ -108,6 +109,7 @@ export const serverProcessEnv: ServerInput = {
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
   IPINFO_TOKEN: process.env.IPINFO_TOKEN,
+  SPUR_TOKEN: process.env.SPUR_TOKEN,
   ZEROCLICK_API_KEY: process.env.ZEROCLICK_API_KEY,
   CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,

@@ -670,6 +670,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             cfCountry: 'US',
             geoipCountry: null,
             ipPrivacy: { signals: ['vpn', 'hosting'] },
+            spurIpPrivacy: { signals: ['vpn'] },
+            spurStatus: 'suspicious',
             hasClientIp: true,
             clientIpHash: 'test-ip-hash',
           }),
@@ -701,6 +703,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           accessStatus: 'blocked',
           countryCode: 'US',
           ipPrivacySignals: ['vpn', 'hosting'],
+          spurStatus: 'suspicious',
+          privacyDecision: 'corroborated_block',
+          privacyProviderDecision: 'corroborated_hard',
+          privacyHardBlocked: true,
         })
         expect(validationEvent?.properties).not.toHaveProperty('accessTier')
       },
@@ -747,9 +753,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
           const trackedEvents = (
             mockTrackEvent as ReturnType<typeof mock>
-          ).mock.calls.map(
-            ([params]) => params as Parameters<TrackEventFn>[0],
-          )
+          ).mock.calls.map(([params]) => params as Parameters<TrackEventFn>[0])
           const requestEvent = trackedEvents.find(
             ({ event }) => event === AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
           )
@@ -761,10 +765,18 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(requestEvent?.properties).toMatchObject({
             freebuff: true,
             accessTier: 'full',
+            privacyDecision: 'allowed_clean',
+            privacyProviderDecision: 'ipinfo_clean',
+            privacyHardBlocked: false,
+            spurStatus: 'not_checked',
           })
           expect(generationEvent?.properties).toMatchObject({
             freebuff: true,
             accessTier: 'full',
+            privacyDecision: 'allowed_clean',
+            privacyProviderDecision: 'ipinfo_clean',
+            privacyHardBlocked: false,
+            spurStatus: 'not_checked',
           })
         } finally {
           Math.random = originalRandom
