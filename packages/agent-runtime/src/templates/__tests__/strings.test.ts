@@ -109,7 +109,7 @@ describe('getAgentPrompt', () => {
   })
 
   test('formats current date for prompts', () => {
-    expect(formatCurrentDate(new Date('2026-05-22T12:00:00Z'))).toBe(
+    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe(
       'May 22, 2026',
     )
   })
