@@ -1,7 +1,8 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { describe, test, expect, mock } from 'bun:test'
 
-import { getAgentPrompt } from '../strings'
+import { PLACEHOLDER } from '../types'
+import { formatCurrentDate, getAgentPrompt } from '../strings'
 
 import type { AgentTemplate } from '../types'
 import type { AgentState } from '@codebuff/common/types/session-state'
@@ -81,6 +82,38 @@ const createMockAgentTemplate = (
 })
 
 describe('getAgentPrompt', () => {
+  test('replaces CURRENT_DATE when formatting prompts', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'date-agent',
+      systemPrompt: `Today is ${PLACEHOLDER.CURRENT_DATE}.`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'date-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext(),
+      agentState: createMockAgentState('date-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toBe(`Today is ${formatCurrentDate(new Date())}.`)
+    expect(result).not.toContain(PLACEHOLDER.CURRENT_DATE)
+  })
+
+  test('formats current date for prompts', () => {
+    expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe(
+      'May 22, 2026',
+    )
+  })
+
   describe('spawnerPrompt inclusion in instructionsPrompt', () => {
     test('includes spawnerPrompt for each spawnable agent with spawnerPrompt defined', async () => {
       const filePickerTemplate = createMockAgentTemplate({
