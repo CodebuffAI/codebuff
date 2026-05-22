@@ -24,6 +24,8 @@ interface LimitedLandingPanelProps {
   sessionCounterText: string
   /** True when the shared per-day quota is fully spent. Disables the CTA. */
   isQuotaExhausted: boolean
+  /** Plain-text explanation shown instead of the CTA when quota is exhausted. */
+  exhaustedMessageText: string
   /** Max vertical rows the panel may occupy. When its content is taller the
    *  panel scrolls (scrollbar shown) instead of letting flexbox compress the
    *  bordered button onto its own border. */
@@ -42,6 +44,7 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
   sessionCounter,
   sessionCounterText,
   isQuotaExhausted,
+  exhaustedMessageText,
   maxHeight,
 }) => {
   const theme = useTheme()
@@ -52,16 +55,22 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
 
   // Rendered height of the panel, matching the JSX below row-for-row so the
   // scroll budget is exact: name + warning (each wrap-aware) + the counter
-  // line with its 1-row top/bottom margins + the 3-row bordered button.
+  // line with its 1-row top/bottom margins + either the 3-row bordered button
+  // or the exhausted-quota message.
+  const exhaustedTitleText = 'Daily session limit reached'
   const wrappedRows = (text: string) =>
     Math.max(1, Math.ceil(text.length / contentMaxWidth))
+  const BUTTON_ROWS = 3 // 2 border rows + label
+  const actionRows = isQuotaExhausted
+    ? wrappedRows(exhaustedTitleText) + wrappedRows(exhaustedMessageText)
+    : BUTTON_ROWS
   const contentHeight =
     wrappedRows(model.displayName) +
     (model.warning ? wrappedRows(model.warning) : 0) +
     1 /* counter marginTop */ +
     wrappedRows(sessionCounterText) +
     1 /* counter marginBottom */ +
-    3 /* button: 2 border rows + label */
+    actionRows
   const needsScroll = contentHeight > maxHeight
   const viewportHeight = Math.max(1, Math.min(contentHeight, maxHeight))
 
@@ -72,6 +81,9 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
   // 'center'` on the parent can center the whole block again.
   const BUTTON_LABEL = 'Start session   Enter'
   const BUTTON_CHROME = 6 // 2 border + 4 padding (paddingLeft/Right 2)
+  const actionWidth = isQuotaExhausted
+    ? Math.max(exhaustedTitleText.length, exhaustedMessageText.length)
+    : BUTTON_LABEL.length + BUTTON_CHROME
   const panelWidth =
     Math.min(
       contentMaxWidth,
@@ -79,7 +91,7 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
         model.displayName.length,
         model.warning?.length ?? 0,
         sessionCounterText.length,
-        BUTTON_LABEL.length + BUTTON_CHROME,
+        actionWidth,
       ),
     ) + (needsScroll ? 1 : 0) /* scrollbar gutter */
 
@@ -159,30 +171,43 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
       >
         {sessionCounter}
       </text>
-      <Button
-        onClick={start}
-        style={{
-          borderStyle: 'single',
-          borderColor: interactable ? theme.primary : theme.border,
-          paddingLeft: 2,
-          paddingRight: 2,
-          flexShrink: 0,
-        }}
-        border={['top', 'bottom', 'left', 'right']}
-      >
-        <text
-          style={{ fg: interactable ? theme.foreground : theme.muted }}
-          attributes={TextAttributes.BOLD}
+      {isQuotaExhausted ? (
+        <>
+          <text style={{ wrapMode: 'word', flexShrink: 0 }}>
+            <span fg={theme.secondary} attributes={TextAttributes.BOLD}>
+              {exhaustedTitleText}
+            </span>
+          </text>
+          <text style={{ fg: theme.muted, wrapMode: 'word', flexShrink: 0 }}>
+            {exhaustedMessageText}
+          </text>
+        </>
+      ) : (
+        <Button
+          onClick={start}
+          style={{
+            borderStyle: 'single',
+            borderColor: interactable ? theme.primary : theme.border,
+            paddingLeft: 2,
+            paddingRight: 2,
+            flexShrink: 0,
+          }}
+          border={['top', 'bottom', 'left', 'right']}
         >
-          {pending ? (
-            'Starting…'
-          ) : (
-            <>
-              Start session<span fg={theme.muted}>{'   Enter'}</span>
-            </>
-          )}
-        </text>
-      </Button>
+          <text
+            style={{ fg: interactable ? theme.foreground : theme.muted }}
+            attributes={TextAttributes.BOLD}
+          >
+            {pending ? (
+              'Starting…'
+            ) : (
+              <>
+                Start session<span fg={theme.muted}>{'   Enter'}</span>
+              </>
+            )}
+          </text>
+        </Button>
+      )}
     </scrollbox>
   )
 }
