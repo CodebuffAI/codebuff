@@ -17,14 +17,6 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-function formatCurrentDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date)
-}
-
 export function createBase2(
   mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
   options?: {
@@ -138,7 +130,7 @@ export function createBase2(
 
     systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Codebuff, a CLI tool where users can chat with you to code with AI.
 
-Current date: ${formatCurrentDate(new Date())}.
+Current date: ${PLACEHOLDER.CURRENT_DATE}.
 
 # Core Mandates
 
