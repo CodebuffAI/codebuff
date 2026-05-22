@@ -520,6 +520,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           {isLanding && accessTier === 'limited' && (
             <LimitedLandingPanel
               isQuotaExhausted={isPremiumExhausted}
+              exhaustedMessageText={`You've used your ${sessionLimit} ${sessionLabel} for today. Resets in ${premiumResetCountdown}.`}
               maxHeight={limitedPanelMaxHeight}
               sessionCounterText={`${formatSessionUnits(
                 sharedPremiumUsed,
