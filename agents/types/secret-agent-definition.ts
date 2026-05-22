@@ -23,6 +23,7 @@ export interface SecretAgentDefinition
 const placeholderNames = [
   'AGENT_NAME',
   'AGENTS_PROMPT',
+  'CURRENT_DATE',
   'FILE_TREE_PROMPT_SMALL',
   'FILE_TREE_PROMPT',
   'FILE_TREE_PROMPT_LARGE',

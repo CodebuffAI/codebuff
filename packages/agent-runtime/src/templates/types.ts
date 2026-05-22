@@ -13,6 +13,7 @@ export type { AgentTemplate, StepGenerator, StepHandler }
 
 const placeholderNames = [
   'AGENT_NAME',
+  'CURRENT_DATE',
   'FILE_TREE_PROMPT_SMALL',
   'FILE_TREE_PROMPT',
   'FILE_TREE_PROMPT_LARGE',
