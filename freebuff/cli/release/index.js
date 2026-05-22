@@ -477,20 +477,12 @@ async function checkForUpdates(runningProcess, exitListener) {
 
       await downloadBinary(latestVersion)
 
-      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-        stdio: 'inherit',
-        detached: false,
-      })
+      const newChild = spawnInstalledBinary({ detached: false })
 
       newChild.on('exit', (code, signal) => {
         resetTerminal()
         printCrashDiagnostics(code, signal)
         process.exit(signal ? 1 : (code || 0))
-      })
-
-      newChild.on('error', (err) => {
-        console.error('Failed to start freebuff:', err.message)
-        process.exit(1)
       })
 
       return new Promise(() => {})
@@ -548,12 +540,76 @@ function printCrashDiagnostics(code, signal) {
   console.error('')
 }
 
-async function main() {
-  await ensureBinaryExists()
+function getInstalledBinaryStatus() {
+  try {
+    const stats = fs.statSync(CONFIG.binaryPath)
+    return stats.isFile() ? `yes (${formatBytes(stats.size)})` : 'no'
+  } catch {
+    return 'no'
+  }
+}
+
+function printSpawnFailure(err) {
+  resetTerminal()
+  const code = err && err.code ? ` (${err.code})` : ''
+
+  console.error(`Failed to start ${packageName}: ${err.message}${code}`)
+  console.error('')
+  console.error('System info:')
+  console.error(`  Platform: ${process.platform} ${process.arch}`)
+  console.error(`  Node:     ${process.version}`)
+  console.error(`  Binary:   ${CONFIG.binaryPath}`)
+  console.error(`  Exists:   ${getInstalledBinaryStatus()}`)
+
+  if (process.platform === 'win32') {
+    console.error('')
+    console.error(
+      'On Windows, this can happen when Windows Security or antivirus blocks',
+    )
+    console.error(
+      'or quarantines the downloaded executable, or when the binary requires',
+    )
+    console.error('CPU instructions that are not available on this machine.')
+  }
+
+  console.error('')
+  console.error('Try deleting the downloaded files and running again:')
+  console.error(`  ${CONFIG.configDir}`)
+  console.error('')
+}
+
+function spawnInstalledBinary(options = {}) {
+  if (!fs.existsSync(CONFIG.binaryPath)) {
+    try {
+      if (fs.existsSync(CONFIG.metadataPath)) fs.unlinkSync(CONFIG.metadataPath)
+    } catch {
+      // best effort
+    }
+    const error = new Error(
+      `downloaded binary is missing at ${CONFIG.binaryPath}`,
+    )
+    error.code = 'BINARY_MISSING'
+    printSpawnFailure(error)
+    process.exit(1)
+  }
 
   const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
+    ...options,
   })
+
+  child.on('error', (err) => {
+    printSpawnFailure(err)
+    process.exit(1)
+  })
+
+  return child
+}
+
+async function main() {
+  await ensureBinaryExists()
+
+  const child = spawnInstalledBinary()
 
   const exitListener = (code, signal) => {
     resetTerminal()
@@ -562,11 +618,6 @@ async function main() {
   }
 
   child.on('exit', exitListener)
-
-  child.on('error', (err) => {
-    console.error('Failed to start freebuff:', err.message)
-    process.exit(1)
-  })
 
   setTimeout(() => {
     checkForUpdates(child, exitListener)
