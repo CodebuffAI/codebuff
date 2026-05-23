@@ -107,6 +107,7 @@ async function build() {
               '@codebuff/common',
               '@codebuff/agent-runtime',
               '@codebuff/code-map',
+              '@codebuff/llm-providers',
             ],
           },
         },
@@ -159,10 +160,7 @@ async function fixDuplicateImports() {
     await writeFile('dist/index.d.ts', content)
     console.log('  ✓ Fixed duplicate imports in bundled types')
   } catch (error) {
-    console.warn(
-      '  ⚠ Warning: Could not fix duplicate imports:',
-      error.message,
-    )
+    console.warn('  ⚠ Warning: Could not fix duplicate imports:', error.message)
   }
 }
 

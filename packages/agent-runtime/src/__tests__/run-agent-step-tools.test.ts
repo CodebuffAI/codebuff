@@ -1,11 +1,13 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
+import {
+  createMockDbOperations,
+  setupDbSpies,
+} from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
-import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,
@@ -66,7 +68,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Setup spies for database operations using typed helper
-    dbSpies = setupDbSpies(db)
+    dbSpies = setupDbSpies(createMockDbOperations())
 
     // Mock analytics
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})

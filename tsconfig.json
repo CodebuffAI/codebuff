@@ -10,6 +10,7 @@
       "@codebuff/sdk": ["./sdk/src/index.ts"],
       "@codebuff/sdk/*": ["./sdk/*"],
       "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
+      "@codebuff/llm-providers/*": ["./packages/llm-providers/src/*"],
       "@codebuff/billing/*": ["./packages/billing/src/*"],
       "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
       "@codebuff/internal/*": ["./packages/internal/src/*"],
@@ -24,6 +25,7 @@
     { "path": "./sdk" },
     { "path": "./packages/billing" },
     { "path": "./packages/bigquery" },
+    { "path": "./packages/llm-providers" },
     { "path": "./packages/internal" },
     { "path": "./packages/code-map" },
     { "path": "./scripts" }

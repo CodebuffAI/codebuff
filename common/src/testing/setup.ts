@@ -114,7 +114,7 @@ export interface TestSetupResult {
  * @example
  * ```typescript
  * import * as analytics from '@codebuff/common/analytics'
- * import db from '@codebuff/internal/db'
+ * const db = createMockDbOperations()
  *
  * describe('my test', () => {
  *   const setup = createTestSetup({
