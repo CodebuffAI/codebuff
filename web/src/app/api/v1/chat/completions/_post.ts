@@ -116,6 +116,7 @@ import type {
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
+import { beginChatCompletionRequestMetrics } from './request-metrics'
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,
@@ -794,6 +795,16 @@ export async function postChatCompletions(params: {
       insertChatCompletionTraceBigquery,
     })
 
+    const requestMetrics = beginChatCompletionRequestMetrics({
+      logger,
+      userId,
+      agentId,
+      runId: runIdFromBody,
+      model: typedBody.model,
+      streaming: bodyStream,
+      costMode,
+    })
+
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
@@ -859,7 +870,7 @@ export async function postChatCompletions(params: {
           logger,
         })
 
-        return new NextResponse(stream, {
+        return new NextResponse(requestMetrics.wrapStream(stream), {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -934,9 +945,11 @@ export async function postChatCompletions(params: {
           logger,
         })
 
+        requestMetrics.end('completed')
         return NextResponse.json(result)
       }
     } catch (error) {
+      requestMetrics.end('error', { error: getErrorObject(error) })
       let openrouterError: OpenRouterError | undefined
       if (error instanceof OpenRouterError) {
         openrouterError = error

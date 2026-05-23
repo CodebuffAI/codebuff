@@ -1779,6 +1779,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(response.headers.get('Content-Type')).toBe('text/event-stream')
         expect(response.headers.get('Cache-Control')).toBe('no-cache')
         expect(response.headers.get('Connection')).toBe('keep-alive')
+        expect(await response.text()).toContain(' stream')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
