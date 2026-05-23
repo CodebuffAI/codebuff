@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react'
 
 import { buildReviewPrompt, REVIEW_BASE_PROMPT } from '../commands/prompt-builders'
 import { useTheme } from '../hooks/use-theme'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
@@ -61,7 +62,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
           setSelectedIndex((prev) => Math.min(REVIEW_OPTIONS.length - 1, prev + 1))
           return
         }
-        if (key.name === 'return' || key.name === 'enter') {
+        if (isPlainEnterKey(key)) {
           const option = REVIEW_OPTIONS[selectedIndex]
           if (option) {
             handleSelect(option)

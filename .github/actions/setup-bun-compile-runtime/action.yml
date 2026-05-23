@@ -14,11 +14,13 @@ runs:
       shell: bash
       run: echo "version=$(bun --version)" >> "$GITHUB_OUTPUT"
 
-    - name: Cache Bun compile runtime
-      uses: actions/cache@v5
+    - name: Restore Bun compile runtime cache
+      id: compile-runtime-cache
+      uses: actions/cache/restore@v5
+      continue-on-error: true
       with:
         path: ${{ runner.temp }}/bun-compile-runtimes/${{ inputs.target }}-v${{ steps.bun-version.outputs.version }}
-        key: ${{ runner.os }}-bun-compile-runtime-${{ inputs.target }}-v${{ steps.bun-version.outputs.version }}
+        key: ${{ runner.os }}-bun-compile-runtime-v2-${{ inputs.target }}-v${{ steps.bun-version.outputs.version }}
 
     - name: Prepare Bun compile runtime
       shell: pwsh
@@ -49,3 +51,11 @@ runs:
         }
 
         "BUN_COMPILE_EXECUTABLE_PATH=$runtimePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Save Bun compile runtime cache
+      if: steps.compile-runtime-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      continue-on-error: true
+      with:
+        path: ${{ runner.temp }}/bun-compile-runtimes/${{ inputs.target }}-v${{ steps.bun-version.outputs.version }}
+        key: ${{ runner.os }}-bun-compile-runtime-v2-${{ inputs.target }}-v${{ steps.bun-version.outputs.version }}

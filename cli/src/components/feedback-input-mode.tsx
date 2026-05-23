@@ -8,6 +8,7 @@ import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { IS_FREEBUFF } from '../utils/constants'
 import { createTextPasteHandler } from '../utils/strings'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
@@ -120,8 +121,7 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
           }}
           onSubmit={onSubmit}
           onKeyIntercept={(key) => {
-            const isEnter = key.name === 'return' || key.name === 'enter'
-            if (!isEnter) return false
+            if (!isPlainEnterKey(key)) return false
             // Just add newline on Enter
             const newText = value.slice(0, cursor) + '\n' + value.slice(cursor)
             onChange(newText)

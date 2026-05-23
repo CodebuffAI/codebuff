@@ -12,7 +12,7 @@ import {
   type ChatKeyboardState,
   type ChatKeyboardAction,
 } from '../utils/keyboard-actions'
-import { markReturnKeySeen } from '../utils/terminal-enter-detection'
+import { markReturnKeySeenForKey } from '../utils/terminal-enter-detection'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -305,9 +305,7 @@ export function useChatKeyboard({
           reportActivity()
         }
 
-        if (key.name === 'return' || key.name === 'enter') {
-          markReturnKeySeen()
-        }
+        markReturnKeySeenForKey(key)
 
         const action = resolveChatKeyboardAction(key, state)
         const handled = dispatchAction(action, handlers)

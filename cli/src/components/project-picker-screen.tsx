@@ -15,6 +15,7 @@ import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { formatCwd } from '../utils/path-helpers'
 import { loadRecentProjects } from '../utils/recent-projects'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 
 import type { SelectableListItem } from './selectable-list'
@@ -226,7 +227,14 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
 
   // Handle search input keyboard intercept
   const handleSearchKeyIntercept = useCallback(
-    (key: { name?: string; shift?: boolean; ctrl?: boolean }) => {
+    (key: {
+      name?: string
+      sequence?: string
+      shift?: boolean
+      ctrl?: boolean
+      meta?: boolean
+      option?: boolean
+    }) => {
       if (key.name === 'escape') {
         if (searchQuery.length > 0) {
           setSearchQuery('')
@@ -246,7 +254,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
         )
         return true
       }
-      if (key.name === 'return' || key.name === 'enter') {
+      if (isPlainEnterKey(key)) {
         // If search looks like a path, try to navigate there directly
         if (searchQuery.startsWith('/') || searchQuery.startsWith('~')) {
           if (tryNavigateToPath(searchQuery)) {
