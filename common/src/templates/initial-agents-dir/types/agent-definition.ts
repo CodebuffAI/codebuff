@@ -370,13 +370,16 @@ export type ModelName =
   // Recommended Models
 
   // OpenAI
+  | 'openai/gpt-5.5'
+  | 'openai/gpt-5.4'
+  | 'openai/gpt-5.4-mini'
+  | 'openai/gpt-5.4-nano'
   | 'openai/gpt-5.3'
   | 'openai/gpt-5.3-codex'
   | 'openai/gpt-5.2'
+  | 'openai/gpt-5.2-chat-latest'
   | 'openai/gpt-5.1'
   | 'openai/gpt-5.1-chat'
-  | 'openai/gpt-5-mini'
-  | 'openai/gpt-5-nano'
 
   // Anthropic
   | 'anthropic/claude-sonnet-4.6'

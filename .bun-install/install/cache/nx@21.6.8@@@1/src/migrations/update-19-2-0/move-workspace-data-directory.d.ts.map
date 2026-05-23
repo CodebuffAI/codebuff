@@ -1,0 +1,1 @@
+{"version":3,"file":"move-workspace-data-directory.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/migrations/update-19-2-0/move-workspace-data-directory.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAE,MAAM,uBAAuB,CAAC;AAE7C,wBAA8B,uBAAuB,CAAC,IAAI,EAAE,IAAI,iBAG/D;AAED,wBAAgB,oBAAoB,CAAC,IAAI,EAAE,IAAI,QAU9C;AAED,wBAAgB,eAAe,CAAC,IAAI,EAAE,IAAI,QAqBzC"}

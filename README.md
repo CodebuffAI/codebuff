@@ -1,10 +1,10 @@
-# Codebuff & Freebuff
+# Openbuff
 
 English | [简体中文](./README.zh-CN.md)
 
-**[Codebuff](https://codebuff.com)** is an open-source AI coding assistant that edits your codebase through natural language instructions. **[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version — no subscription, no credits, no configuration.
+**Openbuff** is a local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible providers.
 
-Instead of using one model for everything, Codebuff coordinates specialized agents that work together to understand your project and make precise changes.
+Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
 <div align="center">
   <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
@@ -15,7 +15,7 @@ Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 
 
 ## How it works
 
-When you ask Codebuff to "add authentication to my API," it might invoke:
+When you ask Openbuff to "add authentication to my API," it might invoke:
 
 1. A **File Picker Agent** to scan your codebase to understand the architecture and find relevant files
 2. A **Planner Agent** to plan which files need changes and in what order
@@ -33,30 +33,30 @@ This multi-agent approach gives you better context understanding, more accurate 
 Install:
 
 ```bash
-npm install -g codebuff
+npm install -g openbuff
 ```
 
 Run:
 
 ```bash
 cd your-project
-codebuff
+openbuff
 ```
 
-Then just tell Codebuff what you want and it handles the rest:
+Then just tell Openbuff what you want and it handles the rest:
 
 - "Fix the SQL injection vulnerability in user registration"
 - "Add rate limiting to all API endpoints"
 - "Refactor the database connection code for better performance"
 
-Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
+Openbuff will find the right files, make changes across your codebase, and run tests to make sure nothing breaks.
 
 ## Create custom agents
 
-To get started building your own agents, start Codebuff and run the `/init` command:
+To get started building your own agents, start Openbuff and run the `/init` command:
 
 ```bash
-codebuff
+openbuff
 ```
 
 Then inside the CLI:
@@ -67,7 +67,7 @@ Then inside the CLI:
 
 This creates:
 ```
-knowledge.md               # Project context for Codebuff
+knowledge.md               # Project context for Openbuff
 .agents/
 └── types/                 # TypeScript type definitions
     ├── agent-definition.ts
@@ -85,7 +85,7 @@ For example, here's a `git-committer` agent that creates git commits based on th
 export default {
   id: 'git-committer',
   displayName: 'Git Committer',
-  model: 'openai/gpt-5-nano',
+  model: 'openai/gpt-5.4-nano',
   toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
 
   instructionsPrompt:
@@ -117,14 +117,13 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 // 1. Initialize the client
 const client = new CodebuffClient({
-  apiKey: 'your-api-key',
   cwd: '/path/to/your/project',
-  onError: (error) => console.error('Codebuff error:', error.message),
+  onError: (error) => console.error('Openbuff error:', error.message),
 })
 
 // 2. Do a coding task...
 const result = await client.run({
-  agent: 'base', // Codebuff's base coding agent
+  agent: 'base', // Openbuff's base coding agent
   prompt: 'Add error handling to all API endpoints',
   handleEvent: (event) => {
     console.log('Progress', event)
@@ -135,7 +134,7 @@ const result = await client.run({
 const myCustomAgent: AgentDefinition = {
   id: 'greeter',
   displayName: 'Greeter',
-  model: 'openai/gpt-5.1',
+  model: 'openai/gpt-5.5',
   instructionsPrompt: 'Say hello!',
 }
 await client.run({
@@ -151,6 +150,31 @@ await client.run({
 
 Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
+## Provider configuration
+
+Openbuff runs local/BYOK by default: no Codebuff cloud auth, credits, or hosted
+inference. Configure OpenAI-compatible providers and per-agent model routing in
+`openbuff.json`. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md).
+
+Inside the CLI:
+
+```text
+/setup opencode-go   # or openai, codex, openrouter, ollama, glm
+/provider add        # interactive provider wizard, including custom providers
+/provider connect codex
+/provider           # show loaded config, provider URLs, missing env vars
+/models             # show default/lite/max/plan routing
+/models configure   # interactive model routing wizard
+/models set editor-proposal 2 opencode-go/glm-5.1
+```
+
+From the shell:
+
+```bash
+export OPENCODE_GO_API_KEY="your_key"
+bun run smoke:openbuff
+```
+
 ## Freebuff: The free coding agent
 
 Don't want a subscription? **[Freebuff](https://www.npmjs.com/package/freebuff)** is a free variant of Codebuff — no subscription, no credits, no configuration. Just install and start coding.
@@ -163,15 +187,15 @@ freebuff
 
 Freebuff is ad-supported and uses models optimized for fast, high-quality assistance. It includes built-in web research, browser use, and more. Learn more in the [Freebuff README](./freebuff/README.md).
 
-## Why choose Codebuff
+## Why choose Openbuff
 
 **Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
 
-**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
+**Provider-flexible**: Unlike single-provider tools, Openbuff can route each agent to any configured provider: OpenAI API, ChatGPT/Codex subscription OAuth, OpenRouter, opencode gateways, GLM/Z.ai, local Ollama/LM Studio, or another OpenAI-compatible endpoint.
 
-**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
+**Reuse local agents**: Compose bundled and project-local `.agents/` without depending on the hosted Codebuff registry.
 
-**SDK**: Build Codebuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
+**SDK**: Build Openbuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
 
 ## Advanced Usage
 
@@ -180,13 +204,13 @@ Freebuff is ad-supported and uses models optimized for fast, high-quality assist
 Create your own agents with specialized workflows using the `/init` command:
 
 ```bash
-codebuff
+openbuff
 /init
 ```
 
 This creates a custom agent structure in `.agents/` that you can customize.
 
-## Contributing to Codebuff
+## Contributing to Openbuff
 
 We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
 
@@ -220,7 +244,7 @@ See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive
 Some ways you can help:
 
 - 🐛 **Fix bugs** or add features
-- 🤖 **Create specialized agents** and publish them to the Agent Store
+- 🤖 **Create specialized agents** and share reusable local templates
 - 📚 **Improve documentation** or write tutorials
 - 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
 
@@ -228,7 +252,7 @@ Some ways you can help:
 
 ### Install
 
-**CLI**: `npm install -g codebuff`
+**CLI**: `npm install -g openbuff`
 
 **SDK**: `npm install @codebuff/sdk`
 

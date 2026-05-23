@@ -298,6 +298,53 @@ describe('Spawn Agents Permissions', () => {
       expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
     })
 
+    it('should time out hung editor proposal subagents instead of waiting forever', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '5'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: { signal: AbortSignal }) =>
+          new Promise((_, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => reject(options.signal.reason ?? new Error('aborted')),
+              { once: true },
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall('editor-implementor-proposal-1')
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        expect(JSON.stringify(output)).toContain('Error spawning agent')
+        expect(JSON.stringify(output)).toContain(
+          'editor-implementor-proposal-1 timed out',
+        )
+        expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+      }
+    })
+
     it('should allow underscored agent_type when hyphenated agent is spawnable', async () => {
       const parentAgent = createMockAgent('parent', ['file-picker'])
       const childAgent = createMockAgent('file-picker')

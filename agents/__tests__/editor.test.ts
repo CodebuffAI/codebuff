@@ -1,6 +1,8 @@
 import { describe, test, expect } from 'bun:test'
 
 import editor, { createCodeEditor } from '../editor/editor'
+import { createBestOfNImplementor } from '../editor/best-of-n/editor-implementor'
+import { createMultiPromptEditor } from '../editor/best-of-n/editor-multi-prompt'
 
 import type { AgentState, ToolCall } from '../types/agent-definition'
 
@@ -57,7 +59,7 @@ describe('editor agent', () => {
 
     test('creates gpt-5 editor', () => {
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
-      expect(gpt5Editor.model).toBe('openai/gpt-5.1')
+      expect(gpt5Editor.model).toBe('openai/gpt-5.5')
     })
 
     test('creates glm editor', () => {
@@ -398,6 +400,354 @@ describe('editor agent', () => {
 
     test('mentions new components in new files', () => {
       expect(editor.instructionsPrompt).toContain('new file')
+    })
+  })
+
+  describe('best-of-N implementor', () => {
+    test('stops after propose tool results instead of waiting for a no-tool final turn', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const mockAgentState = createMockAgentState(initialMessages)
+      const generator = implementor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {},
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const updatedState = createMockAgentState([
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/example.ts',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_str_replace',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: 'src/example.ts',
+                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: [],
+        stepsComplete: false,
+      })
+
+      expect(result.value).toEqual({
+        toolName: 'set_output',
+        input: {
+          toolCalls: [
+            {
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/example.ts',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+          ],
+          toolResults: [
+            {
+              file: 'src/example.ts',
+              unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+            },
+          ],
+          unifiedDiffs: '--- src/example.ts ---\n@@ -1 +1 @@\n-old\n+new',
+        },
+        includeToolCall: false,
+      })
+    })
+
+    test('adds a direct retry reminder when a proposal step only thinks/narrates', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const mockAgentState = createMockAgentState(initialMessages)
+      const generator = implementor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {},
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const updatedState = createMockAgentState([
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: '<think>Still thinking...</think>' }],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: [],
+        stepsComplete: false,
+      })
+
+      expect(result.value).toMatchObject({
+        toolName: 'set_messages',
+        includeToolCall: false,
+      })
+      expect(
+        (result.value as any).input.messages.at(-1).content[0].text,
+      ).toContain('Immediately emit exactly one or more valid XML tool calls')
+    })
+
+    test('retries when a proposal step ends without a propose tool result', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const mockAgentState = createMockAgentState(initialMessages)
+      const generator = implementor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {},
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const updatedState = createMockAgentState([
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'I can make that change.' }],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: [],
+        stepsComplete: true,
+      })
+
+      expect(result.value).toMatchObject({
+        toolName: 'set_messages',
+        includeToolCall: false,
+      })
+      const retryText = (result.value as any).input.messages.at(-1).content[0]
+        .text
+      expect(retryText).toContain('<codebuff_tool_call>')
+      expect(retryText).toContain('propose_str_replace')
+      expect(retryText).toContain('propose_write_file')
+    })
+  })
+
+  describe('multi-prompt editor', () => {
+    test('spawns proposals sequentially and retries unusable proposal output once', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal', 'modular'] },
+      })
+
+      // First trim the inherited prompt messages.
+      expect((generator.next().value as ToolCall<'set_messages'>).toolName).toBe(
+        'set_messages',
+      )
+
+      const firstSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+      expect(firstSpawn.input.agents).toHaveLength(1)
+      expect(firstSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
+      )
+
+      const retrySpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'provider stalled' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+      expect(retrySpawn.input.agents).toHaveLength(1)
+      expect(retrySpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
+      )
+      expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
+
+      const secondProposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: { path: 'src/a.ts', replacements: [] },
+                    },
+                  ],
+                  toolResults: [
+                    { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                  ],
+                  unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(secondProposalSpawn.input.agents).toHaveLength(1)
+      expect(secondProposalSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-2',
+      )
+    })
+
+    test('applies the first usable proposal when selector fails', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect((generator.next().value as ToolCall<'set_messages'>).toolName).toBe(
+        'set_messages',
+      )
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        toolName: 'spawn_agents',
+      })
+
+      const selectorSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'src/a.ts',
+                        replacements: [
+                          { oldString: 'old', newString: 'new' },
+                        ],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                  ],
+                  unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(selectorSpawn.input.agents[0].agent_type).toBe(
+        'best-of-n-selector2',
+      )
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector quota reached' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [{ oldString: 'old', newString: 'new' }],
+        },
+      })
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'src/a.ts', message: 'updated' },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).reason).toContain('Selector failed')
+      expect((outputCall.input as any).chosenStrategy).toBe('minimal')
     })
   })
 })

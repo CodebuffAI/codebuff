@@ -604,6 +604,12 @@ describe('isImplementorAgent', () => {
       isImplementorAgent({ agentType: 'editor-implementor-gpt-5', blocks: [] }),
     ).toBe(true)
     expect(
+      isImplementorAgent({
+        agentType: 'editor-implementor-proposal-1',
+        blocks: [],
+      }),
+    ).toBe(true)
+    expect(
       isImplementorAgent({ agentType: 'editor-implementor2', blocks: [] }),
     ).toBe(true)
   })
@@ -629,6 +635,14 @@ describe('getImplementorDisplayName', () => {
     expect(getImplementorDisplayName('editor-implementor-gemini')).toBe(
       'Gemini',
     )
+    expect(getImplementorDisplayName('editor-implementor-proposal-2')).toBe(
+      'Proposal #2',
+    )
+    expect(
+      getImplementorDisplayName('editor-implementor-proposal-2', undefined, {
+        proposalLabel: 'Proposal #7',
+      }),
+    ).toBe('Proposal #7')
   })
 
   test('adds index when provided', () => {

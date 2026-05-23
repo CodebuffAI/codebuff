@@ -3,7 +3,7 @@ import { cyan, green, red, yellow, bold } from 'picocolors'
 import { LOGIN_WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
 import { saveUserCredentials } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_FREEBUFF, isLocalMode } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
 
@@ -21,7 +21,9 @@ export async function runPlainLogin(): Promise<void> {
   const fingerprintId = await getFingerprintId()
 
   console.log()
-  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))
+  console.log(
+    bold(IS_FREEBUFF ? 'Freebuff Login' : isLocalMode() ? 'Openbuff Login' : 'Codebuff Login'),
+  )
   console.log()
   console.log('Generating login URL...')
 
@@ -72,7 +74,7 @@ export async function runPlainLogin(): Promise<void> {
     console.log()
     console.log(green(`✓ Logged in as ${user.name} (${user.email})`))
     console.log()
-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
+    const cliName = IS_FREEBUFF ? 'freebuff' : isLocalMode() ? 'openbuff' : 'codebuff'
     console.log('You can now run ' + cyan(cliName) + ' to start.')
     process.exit(0)
   } else if (result.status === 'timeout') {

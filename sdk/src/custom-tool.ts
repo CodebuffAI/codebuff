@@ -44,7 +44,7 @@ export function getCustomToolDefinition<
 }: {
   toolName: TN extends ToolName
     ? TN & {
-        error: `Hi there. This is a message from the Codebuff team: You have used a custom tool where you needed to use overrideTools instead for name: ${TN}`
+        error: `Hi there. This is a message from the Openbuff team: You have used a custom tool where you needed to use overrideTools instead for name: ${TN}`
       }
     : TN
   inputSchema: z.ZodType<Args, Input>

@@ -15,6 +15,7 @@ function getOpenAIMetadata(message: {
 
 export function convertToOpenAICompatibleChatMessages(
   prompt: LanguageModelV2Prompt,
+  options: { stringifyTextContent?: boolean } = {},
 ): OpenAICompatibleChatPrompt {
   const messages: OpenAICompatibleChatPrompt = []
   for (const { role, content, ...message } of prompt) {
@@ -26,37 +27,50 @@ export function convertToOpenAICompatibleChatMessages(
       }
 
       case 'user': {
-        messages.push({
-          role: 'user',
-          content: content.map((part) => {
-            const partMetadata = getOpenAIMetadata(part)
-            switch (part.type) {
-              case 'text': {
-                return { type: 'text', text: part.text, ...partMetadata }
-              }
-              case 'file': {
-                if (part.mediaType.startsWith('image/')) {
-                  const mediaType =
-                    part.mediaType === 'image/*' ? 'image/jpeg' : part.mediaType
+        const convertedContent = content.map((part) => {
+          const partMetadata = getOpenAIMetadata(part)
+          switch (part.type) {
+            case 'text': {
+              return { type: 'text' as const, text: part.text, ...partMetadata }
+            }
+            case 'file': {
+              if (part.mediaType.startsWith('image/')) {
+                const mediaType =
+                  part.mediaType === 'image/*' ? 'image/jpeg' : part.mediaType
 
-                  return {
-                    type: 'image_url',
-                    image_url: {
-                      url:
-                        part.data instanceof URL
-                          ? part.data.toString()
-                          : `data:${mediaType};base64,${convertToBase64(part.data)}`,
-                    },
-                    ...partMetadata,
-                  }
-                } else {
-                  throw new UnsupportedFunctionalityError({
-                    functionality: `file part media type ${part.mediaType}`,
-                  })
+                return {
+                  type: 'image_url' as const,
+                  image_url: {
+                    url:
+                      part.data instanceof URL
+                        ? part.data.toString()
+                        : `data:${mediaType};base64,${convertToBase64(part.data)}`,
+                  },
+                  ...partMetadata,
                 }
+              } else {
+                throw new UnsupportedFunctionalityError({
+                  functionality: `file part media type ${part.mediaType}`,
+                })
               }
             }
-          }),
+          }
+        })
+        const textOnlyContent =
+          options.stringifyTextContent === true &&
+          convertedContent.every(
+            (part) =>
+              part.type === 'text' &&
+              Object.keys(part).every((key) => key === 'type' || key === 'text'),
+          )
+
+        messages.push({
+          role: 'user',
+          content: textOnlyContent
+            ? convertedContent
+                .map((part) => (part.type === 'text' ? part.text : ''))
+                .join('\n')
+            : convertedContent,
           ...metadata,
         })
 

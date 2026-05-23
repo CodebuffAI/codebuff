@@ -1,0 +1,1 @@
+{"version":3,"file":"escape-dollar-sign-env-variables.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/migrations/update-16-8-0/escape-dollar-sign-env-variables.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,IAAI,EAAE,MAAM,uBAAuB,CAAC;AAG7C;;;;;;;;;GASG;AACH,MAAM,CAAC,OAAO,UAAU,4BAA4B,CAAC,IAAI,EAAE,IAAI,QAoC9D"}

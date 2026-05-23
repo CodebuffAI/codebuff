@@ -1,0 +1,215 @@
+{
+  "name": "discord-api-types",
+  "version": "0.38.31",
+  "description": "Discord API typings that are kept up to date for use in bot library creation.",
+  "homepage": "https://discord-api-types.dev",
+  "workspaces": [
+    "scripts/actions/documentation"
+  ],
+  "exports": {
+    "./globals": {
+      "types": "./globals.d.ts",
+      "require": "./globals.js",
+      "import": "./globals.mjs"
+    },
+    "./v6": {
+      "types": "./v6.d.ts",
+      "require": "./v6.js",
+      "import": "./v6.mjs"
+    },
+    "./v8": {
+      "types": "./v8.d.ts",
+      "require": "./v8.js",
+      "import": "./v8.mjs"
+    },
+    "./v9": {
+      "types": "./v9.d.ts",
+      "require": "./v9.js",
+      "import": "./v9.mjs"
+    },
+    "./v10": {
+      "types": "./v10.d.ts",
+      "require": "./v10.js",
+      "import": "./v10.mjs"
+    },
+    "./gateway": {
+      "types": "./gateway/index.d.ts",
+      "require": "./gateway/index.js",
+      "import": "./gateway/index.mjs"
+    },
+    "./gateway/v*": {
+      "types": "./gateway/v*.d.ts",
+      "require": "./gateway/v*.js",
+      "import": "./gateway/v*.mjs"
+    },
+    "./payloads": {
+      "types": "./payloads/index.d.ts",
+      "require": "./payloads/index.js",
+      "import": "./payloads/index.mjs"
+    },
+    "./payloads/v*": {
+      "types": "./payloads/v*/index.d.ts",
+      "require": "./payloads/v*/index.js",
+      "import": "./payloads/v*/index.mjs"
+    },
+    "./rest": {
+      "types": "./rest/index.d.ts",
+      "require": "./rest/index.js",
+      "import": "./rest/index.mjs"
+    },
+    "./rest/v*": {
+      "types": "./rest/v*/index.d.ts",
+      "require": "./rest/v*/index.js",
+      "import": "./rest/v*/index.mjs"
+    },
+    "./rpc": {
+      "types": "./rpc/index.d.ts",
+      "require": "./rpc/index.js",
+      "import": "./rpc/index.mjs"
+    },
+    "./rpc/v*": {
+      "types": "./rpc/v*.d.ts",
+      "require": "./rpc/v*.js",
+      "import": "./rpc/v*.mjs"
+    },
+    "./voice": {
+      "types": "./voice/index.d.ts",
+      "require": "./voice/index.js",
+      "import": "./voice/index.mjs"
+    },
+    "./voice/v*": {
+      "types": "./voice/v*.d.ts",
+      "require": "./voice/v*.js",
+      "import": "./voice/v*.mjs"
+    },
+    "./utils": {
+      "types": "./utils/index.d.ts",
+      "require": "./utils/index.js",
+      "import": "./utils/index.mjs"
+    },
+    "./utils/v*": {
+      "types": "./utils/v*.d.ts",
+      "require": "./utils/v*.js",
+      "import": "./utils/v*.mjs"
+    }
+  },
+  "scripts": {
+    "build:ci": "tsc --noEmit --incremental false",
+    "build:deno": "node ./scripts/deno.mjs",
+    "build:generated": "tsx ./scripts/generate-prettier-routes-interface.ts",
+    "build:node": "yarn build:generated && tsc && run-p 'esm:*'",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "ci:pr": "run-s changelog lint build:deno && node ./scripts/bump-website-version.mjs",
+    "clean:deno": "rimraf deno/",
+    "clean:node": "rimraf --glob \"{gateway,payloads,rest,rpc,voice,utils}/**/*.{js,mjs,d.ts,*map}\" \"{globals,v*}.{js,mjs,d.ts,*map}\"",
+    "clean": "run-p 'clean:*'",
+    "esm:gateway": "gen-esm-wrapper ./gateway/index.js ./gateway/index.mjs",
+    "esm:globals": "gen-esm-wrapper ./globals.js ./globals.mjs",
+    "esm:payloads": "gen-esm-wrapper ./payloads/index.js ./payloads/index.mjs",
+    "esm:rest": "gen-esm-wrapper ./rest/index.js ./rest/index.mjs",
+    "esm:rpc": "gen-esm-wrapper ./rpc/index.js ./rpc/index.mjs",
+    "esm:utils": "gen-esm-wrapper ./utils/index.js ./utils/index.mjs",
+    "esm:versions": "node ./scripts/versions.mjs",
+    "esm:voice": "gen-esm-wrapper ./voice/index.js ./voice/index.mjs",
+    "lint": "prettier --write . && eslint --format=pretty --fix --ext mjs,ts \"{gateway,payloads,rest,rpc,voice,utils}/**/*.ts\" \"{globals,v*}.ts\" \"scripts/**/*.mjs\"",
+    "postinstallDev": "is-ci || husky",
+    "prepack": "run-s clean test:lint build:node",
+    "postpack": "run-s clean:node build:deno && git checkout -- './deno/**/*.ts' './rest/**/*.ts'",
+    "test:lint": "prettier --check . && eslint --format=pretty --ext mjs,ts \"{gateway,payloads,rest,rpc,voice,utils}/**/*.ts\" \"{globals,v*}.ts\" \"scripts/**/*.mjs\"",
+    "test:types": "tsc -p tests"
+  },
+  "keywords": [
+    "discord",
+    "discord api",
+    "types",
+    "discordjs"
+  ],
+  "author": "Vlad Frangu <me@vladfrangu.dev>",
+  "license": "MIT",
+  "files": [
+    "_generated_/**/*.{js,js.map,d.ts,d.ts.map,mjs}",
+    "{gateway,payloads,rest,rpc,voice,utils}/**/*.{js,js.map,d.ts,d.ts.map,mjs}",
+    "{globals,v*}.{js,js.map,d.ts,d.ts.map,mjs}"
+  ],
+  "devDependencies": {
+    "@commitlint/cli": "^20.0.0",
+    "@commitlint/config-angular": "^20.0.0",
+    "@favware/npm-deprecate": "^2.0.0",
+    "@octokit/action": "^8.0.2",
+    "@octokit/webhooks-types": "^7.6.1",
+    "@sapphire/prettier-config": "^2.0.0",
+    "@types/lodash.merge": "^4",
+    "@types/node": "^22.15.29",
+    "@typescript-eslint/utils": "^8.33.0",
+    "conventional-changelog": "^7.0.2",
+    "conventional-changelog-angular": "^8.0.0",
+    "conventional-recommended-bump": "^11.1.0",
+    "eslint": "^9.28.0",
+    "eslint-config-neon": "^0.2.7",
+    "eslint-formatter-pretty": "^7.0.0",
+    "eslint-import-resolver-typescript": "^4.4.2",
+    "gen-esm-wrapper": "^1.1.3",
+    "husky": "^9.1.7",
+    "is-ci": "^4.1.0",
+    "lint-staged": "^16.1.0",
+    "lodash.merge": "^4.6.2",
+    "npm-run-all2": "^8.0.4",
+    "prettier": "^3.5.3",
+    "pretty-quick": "^4.1.1",
+    "rimraf": "^6.0.1",
+    "ts-morph": "^27.0.0",
+    "tsutils": "^3.21.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.0"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/discordjs/discord-api-types"
+  },
+  "lint-staged": {
+    "{gateway,payloads,rest,rpc,voice,utils}/**/*.{mjs,js,ts}": "eslint --fix --ext mjs,js,ts",
+    "{globals,v*}.ts": "eslint --fix --ext mjs,js,ts"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-angular"
+    ],
+    "rules": {
+      "type-enum": [
+        2,
+        "always",
+        [
+          "chore",
+          "build",
+          "ci",
+          "docs",
+          "feat",
+          "fix",
+          "perf",
+          "refactor",
+          "revert",
+          "style",
+          "test",
+          "types",
+          "wip"
+        ]
+      ],
+      "scope-case": [
+        1,
+        "always",
+        "pascal-case"
+      ]
+    }
+  },
+  "packageManager": "yarn@4.10.3",
+  "volta": {
+    "node": "24.10.0",
+    "yarn": "4.10.3"
+  }
+}

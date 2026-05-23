@@ -60,6 +60,12 @@ export type OpenAICompatibleChatConfig = {
    * The supported URLs for the model.
    */
   supportedUrls?: () => LanguageModelV2['supportedUrls'];
+
+  /**
+   * Whether text-only user messages should be sent as plain strings.
+   * Some strict OpenAI-compatible APIs reject the content part array form.
+   */
+  stringifyTextContent?: boolean;
 };
 
 export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
@@ -205,7 +211,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         verbosity: compatibleOptions.textVerbosity,
 
         // messages:
-        messages: convertToOpenAICompatibleChatMessages(prompt),
+        messages: convertToOpenAICompatibleChatMessages(prompt, {
+          stringifyTextContent: this.config.stringifyTextContent,
+        }),
 
         // tools:
         tools: openaiTools,
@@ -389,6 +397,74 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     const providerOptionsName = this.providerOptionsName;
     let isActiveReasoning = false;
     let isActiveText = false;
+    let finishEmitted = false;
+
+    function emitFinish(controller: TransformStreamDefaultController<LanguageModelV2StreamPart>) {
+      if (finishEmitted) {
+        return;
+      }
+
+      if (isActiveReasoning) {
+        controller.enqueue({ type: 'reasoning-end', id: 'reasoning-0' });
+        isActiveReasoning = false;
+      }
+
+      if (isActiveText) {
+        controller.enqueue({ type: 'text-end', id: 'txt-0' });
+        isActiveText = false;
+      }
+
+      // go through all tool calls and send the ones that are not finished
+      for (const toolCall of toolCalls.filter(
+        toolCall => !toolCall.hasFinished,
+      )) {
+        controller.enqueue({
+          type: 'tool-input-end',
+          id: toolCall.id,
+        });
+
+        controller.enqueue({
+          type: 'tool-call',
+          toolCallId: toolCall.id ?? generateId(),
+          toolName: toolCall.function.name,
+          input: toolCall.function.arguments,
+        });
+        toolCall.hasFinished = true;
+      }
+
+      const providerMetadata: SharedV2ProviderMetadata = {
+        [providerOptionsName]: {},
+        ...metadataExtractor?.buildMetadata(),
+      };
+      if (
+        usage.completionTokensDetails.acceptedPredictionTokens != null
+      ) {
+        providerMetadata[providerOptionsName].acceptedPredictionTokens =
+          usage.completionTokensDetails.acceptedPredictionTokens;
+      }
+      if (
+        usage.completionTokensDetails.rejectedPredictionTokens != null
+      ) {
+        providerMetadata[providerOptionsName].rejectedPredictionTokens =
+          usage.completionTokensDetails.rejectedPredictionTokens;
+      }
+
+      controller.enqueue({
+        type: 'finish',
+        finishReason,
+        usage: {
+          inputTokens: usage.promptTokens ?? undefined,
+          outputTokens: usage.completionTokens ?? undefined,
+          totalTokens: usage.totalTokens ?? undefined,
+          reasoningTokens:
+            usage.completionTokensDetails.reasoningTokens ?? undefined,
+          cachedInputTokens:
+            usage.promptTokensDetails.cachedTokens ?? undefined,
+        },
+        providerMetadata,
+      });
+      finishEmitted = true;
+    }
 
     return {
       stream: response.pipeThrough(
@@ -619,65 +695,21 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 }
               }
             }
+
+            // Some OpenAI-compatible providers send the final finish_reason
+            // chunk for a tool-call turn but keep the SSE connection open
+            // instead of closing with [DONE]. Once the provider has explicitly
+            // said the assistant turn ended because of tool calls, all useful
+            // tool-call data has arrived; finish locally so agent tool
+            // execution can continue across providers.
+            if (finishReason === 'tool-calls') {
+              emitFinish(controller);
+              controller.terminate();
+            }
           },
 
           flush(controller) {
-            if (isActiveReasoning) {
-              controller.enqueue({ type: 'reasoning-end', id: 'reasoning-0' });
-            }
-
-            if (isActiveText) {
-              controller.enqueue({ type: 'text-end', id: 'txt-0' });
-            }
-
-            // go through all tool calls and send the ones that are not finished
-            for (const toolCall of toolCalls.filter(
-              toolCall => !toolCall.hasFinished,
-            )) {
-              controller.enqueue({
-                type: 'tool-input-end',
-                id: toolCall.id,
-              });
-
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: toolCall.id ?? generateId(),
-                toolName: toolCall.function.name,
-                input: toolCall.function.arguments,
-              });
-            }
-
-            const providerMetadata: SharedV2ProviderMetadata = {
-              [providerOptionsName]: {},
-              ...metadataExtractor?.buildMetadata(),
-            };
-            if (
-              usage.completionTokensDetails.acceptedPredictionTokens != null
-            ) {
-              providerMetadata[providerOptionsName].acceptedPredictionTokens =
-                usage.completionTokensDetails.acceptedPredictionTokens;
-            }
-            if (
-              usage.completionTokensDetails.rejectedPredictionTokens != null
-            ) {
-              providerMetadata[providerOptionsName].rejectedPredictionTokens =
-                usage.completionTokensDetails.rejectedPredictionTokens;
-            }
-
-            controller.enqueue({
-              type: 'finish',
-              finishReason,
-              usage: {
-                inputTokens: usage.promptTokens ?? undefined,
-                outputTokens: usage.completionTokens ?? undefined,
-                totalTokens: usage.totalTokens ?? undefined,
-                reasoningTokens:
-                  usage.completionTokensDetails.reasoningTokens ?? undefined,
-                cachedInputTokens:
-                  usage.promptTokensDetails.cachedTokens ?? undefined,
-              },
-              providerMetadata,
-            });
+            emitFinish(controller);
           },
         }),
       ),

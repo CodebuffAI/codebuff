@@ -32,6 +32,13 @@ export * from './native/ripgrep'
 export * from './run-state'
 export { ToolHelpers } from './tools'
 export * from './constants'
+export * from './provider-config'
+export {
+  CODEBUFF_LOCAL_MODE_ENV_VAR,
+  OPENBUFF_LOCAL_MODE_ENV_VAR,
+  LOCAL_MODE_API_KEY,
+  isLocalModeEnabled,
+} from '@codebuff/common/constants/local-mode'
 
 export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'

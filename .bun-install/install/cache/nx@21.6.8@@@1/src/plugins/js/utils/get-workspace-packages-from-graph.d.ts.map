@@ -1,0 +1,1 @@
+{"version":3,"file":"get-workspace-packages-from-graph.d.ts","sourceRoot":"","sources":["../../../../../../../packages/nx/src/plugins/js/utils/get-workspace-packages-from-graph.ts"],"names":[],"mappings":"AAAA,OAAO,EACL,KAAK,YAAY,EACjB,uBAAuB,EACxB,MAAM,+BAA+B,CAAC;AAEvC,wBAAgB,6BAA6B,CAAC,KAAK,EAAE,YAAY,wCAShE"}

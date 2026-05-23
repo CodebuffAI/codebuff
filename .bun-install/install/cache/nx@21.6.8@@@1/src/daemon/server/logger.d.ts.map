@@ -1,0 +1,1 @@
+{"version":3,"file":"logger.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/server/logger.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAIH,cAAM,YAAY;IAChB,GAAG,CAAC,GAAG,CAAC,EAAE,OAAO,EAAE;IAenB,UAAU,CAAC,GAAG,CAAC,EAAE,OAAO,EAAE;IAI1B,UAAU,CAAC,GAAG,CAAC,EAAE,OAAO,EAAE;IAI1B,OAAO,CAAC,gBAAgB;IAIxB,OAAO,CAAC,MAAM;CAGf;AAED,eAAO,MAAM,YAAY,cAAqB,CAAC"}

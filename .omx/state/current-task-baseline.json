@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "branch_name": "main",
+      "worktree_path": "/home/ben/Code/CLI/codebuff",
+      "status": "active",
+      "created_at": "2026-05-22T08:46:01.149Z",
+      "updated_at": "2026-05-23T12:48:40.924Z"
+    }
+  ]
+}

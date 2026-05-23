@@ -1,0 +1,1 @@
+{"version":3,"file":"handle-process-in-background.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/server/handle-process-in-background.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,UAAU,CAAC;AAIzC,wBAAsB,yBAAyB,CAAC,OAAO,EAAE;IACvD,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,EAAE,MAAM,CAAC;IACpB,IAAI,EAAE,GAAG,CAAC;CACX,GAAG,OAAO,CAAC,aAAa,CAAC,CAyBzB"}

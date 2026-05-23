@@ -1,0 +1,9 @@
+{
+  "session_id": "omx-1779539678445-le4ujp",
+  "started_at": "2026-05-23T12:34:38.510Z",
+  "cwd": "/home/ben/Code/CLI/codebuff",
+  "pid": 80156,
+  "platform": "linux",
+  "pid_start_ticks": 158390,
+  "pid_cmdline": "node /home/ben/.local/share/mise/installs/node/26/bin/omx"
+}

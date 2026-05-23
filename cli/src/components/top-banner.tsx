@@ -56,7 +56,7 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
       return (
         <>
           <text style={{ wrapMode: 'word', fg: textColor }}>
-            You started {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} in a subdirectory of a git repo.
+            You started {IS_FREEBUFF ? 'Freebuff' : 'Openbuff'} in a subdirectory of a git repo.
           </text>
           {gitRoot && onSwitchToGitRoot ? (
             <TerminalLink

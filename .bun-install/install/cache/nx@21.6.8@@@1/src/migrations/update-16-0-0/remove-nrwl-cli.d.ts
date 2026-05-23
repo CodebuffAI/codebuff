@@ -1,0 +1,3 @@
+import { Tree } from '../../generators/tree';
+export default function (tree: Tree): Promise<void>;
+//# sourceMappingURL=remove-nrwl-cli.d.ts.map

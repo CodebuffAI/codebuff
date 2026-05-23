@@ -1,0 +1,1 @@
+{"version":3,"file":"get-registered-sync-generators.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/message-types/get-registered-sync-generators.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,8BAA8B,EACzC,gCAAyC,CAAC;AAE5C,MAAM,MAAM,wCAAwC,GAAG;IACrD,IAAI,EAAE,OAAO,8BAA8B,CAAC;CAC7C,CAAC;AAEF,wBAAgB,0CAA0C,CACxD,OAAO,EAAE,OAAO,GACf,OAAO,IAAI,wCAAwC,CAOrD"}

@@ -4,6 +4,7 @@ import {
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
 } from '@codebuff/common/analytics-core'
+import { isLocalModeEnabled } from '@codebuff/common/constants/local-mode'
 import {
   env as defaultEnv,
   IS_PROD as defaultIsProd,
@@ -134,6 +135,10 @@ function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
 }
 
 export function initAnalytics() {
+  if (isLocalModeEnabled({ env: process.env })) {
+    return
+  }
+
   const { env, isProd, createClient, generateAnonymousId } = resolveDeps()
 
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
@@ -180,6 +185,10 @@ export function trackEvent(
   event: AnalyticsEvent,
   properties?: Record<string, any>,
 ) {
+  if (isLocalModeEnabled({ env: process.env })) {
+    return
+  }
+
   const { isProd } = resolveDeps()
   const distinctId = getDistinctId()
 
@@ -232,6 +241,10 @@ export function trackEvent(
 }
 
 export function identifyUser(userId: string, properties?: Record<string, any>) {
+  if (isLocalModeEnabled({ env: process.env })) {
+    return
+  }
+
   if (!client) {
     const error = new Error('Analytics client not initialized')
     logAnalyticsError(error, {

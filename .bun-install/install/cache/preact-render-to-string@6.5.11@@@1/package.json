@@ -1,0 +1,174 @@
+{
+	"name": "preact-render-to-string",
+	"amdName": "preactRenderToString",
+	"version": "6.5.11",
+	"description": "Render JSX to an HTML string, with support for Preact components.",
+	"main": "dist/index.js",
+	"umd:main": "dist/index.umd.js",
+	"module": "dist/index.module.js",
+	"jsnext:main": "dist/index.module.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"browser": "./dist/index.module.js",
+			"umd": "./dist/index.umd.js",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
+		},
+		"./jsx": {
+			"types": "./dist/jsx.d.ts",
+			"browser": "./dist/jsx/index.module.js",
+			"umd": "./dist/jsx/index.umd.js",
+			"import": "./dist/jsx/index.mjs",
+			"require": "./dist/jsx/index.js"
+		},
+		"./stream": {
+			"types": "./dist/stream.d.ts",
+			"browser": "./dist/stream/index.module.js",
+			"import": "./dist/stream/index.mjs",
+			"require": "./dist/stream/index.js"
+		},
+		"./stream-node": {
+			"types": "./dist/stream-node.d.ts",
+			"import": "./dist/stream/node/index.mjs",
+			"require": "./dist/stream/node/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"prebench": "npm run build",
+		"bench": "BABEL_ENV=test node -r @babel/register benchmarks index.js",
+		"bench:v8": "BABEL_ENV=test microbundle benchmarks/index.js -f modern --alias benchmarkjs-pretty=benchmarks/lib/benchmark-lite.js --external none --target node --no-compress --no-sourcemap --raw -o benchmarks/.v8.mjs && v8 --module benchmarks/.v8.modern.js",
+		"build": "npm run -s transpile && npm run -s transpile:jsx && npm run -s transpile:stream && npm run -s transpile:stream-node && npm run -s copy-typescript-definition",
+		"postbuild": "node ./config/node-13-exports.js && node ./config/node-commonjs.js && node ./config/node-verify-exports.js && check-export-map",
+		"transpile": "microbundle src/index.js -f es,cjs,umd",
+		"transpile:stream": "microbundle src/stream.js -o dist/stream/index.js -f es,cjs,umd",
+		"transpile:stream-node": "microbundle src/stream-node.js -o dist/stream/node/index.js -f es,cjs,umd --target node",
+		"transpile:jsx": "microbundle src/jsx.js -o dist/jsx/index.js -f es,cjs,umd && microbundle dist/jsx/index.js -o dist/jsx/index.js -f cjs",
+		"copy-typescript-definition": "copyfiles -f src/*.d.ts dist",
+		"test": "eslint src test && tsc && npm run test:mocha && npm run test:mocha:compat && npm run test:mocha:debug && npm run bench",
+		"test:mocha": "BABEL_ENV=test mocha -r @babel/register -r test/setup.js test/*.test.jsx",
+		"test:mocha:compat": "BABEL_ENV=test mocha -r @babel/register -r test/setup.js 'test/compat/*.test.js' 'test/compat/*.test.jsx'",
+		"test:mocha:debug": "BABEL_ENV=test mocha -r @babel/register -r test/setup.js 'test/debug/*.test.jsx'",
+		"format": "prettier src/**/*.{d.ts,js} test/**/*.js --write",
+		"prepublishOnly": "npm run build",
+		"release": "npm run build && git commit -am $npm_package_version && git tag $npm_package_version && git push && git push --tags && npm publish"
+	},
+	"keywords": [
+		"preact",
+		"render",
+		"universal",
+		"isomorphic"
+	],
+	"files": [
+		"src",
+		"dist",
+		"jsx.js",
+		"jsx.d.ts",
+		"typings.json"
+	],
+	"eslintConfig": {
+		"extends": "developit",
+		"rules": {
+			"react/prefer-stateless-function": 0,
+			"react/jsx-no-bind": 0,
+			"react/no-danger": 0,
+			"jest/valid-expect": 0,
+			"new-cap": 0,
+			"curly": "off",
+			"brace-style": "off",
+			"indent": "off",
+			"lines-around-comment": "off"
+		},
+		"settings": {
+			"react": {
+				"version": "16.8"
+			}
+		}
+	},
+	"babel": {
+		"env": {
+			"test": {
+				"presets": [
+					[
+						"@babel/preset-env",
+						{
+							"targets": {
+								"node": true
+							}
+						}
+					]
+				],
+				"plugins": [
+					[
+						"@babel/plugin-transform-react-jsx",
+						{
+							"pragma": "h"
+						}
+					]
+				]
+			}
+		}
+	},
+	"minify": {
+		"compress": {
+			"reduce_funcs": false
+		}
+	},
+	"author": "The Preact Authors (https://github.com/preactjs/preact/contributors)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/preactjs/preact-render-to-string"
+	},
+	"bugs": "https://github.com/preactjs/preact-render-to-string/issues",
+	"homepage": "https://github.com/preactjs/preact-render-to-string",
+	"peerDependencies": {
+		"preact": ">=10"
+	},
+	"devDependencies": {
+		"@babel/plugin-transform-react-jsx": "^7.12.12",
+		"@babel/preset-env": "^7.12.11",
+		"@babel/register": "^7.12.10",
+		"@changesets/changelog-github": "^0.4.1",
+		"@changesets/cli": "^2.18.0",
+		"baseline-rts": "npm:preact-render-to-string@latest",
+		"benchmarkjs-pretty": "^2.0.1",
+		"chai": "^4.2.0",
+		"check-export-map": "^1.3.1",
+		"copyfiles": "^2.4.1",
+		"eslint": "^7.16.0",
+		"eslint-config-developit": "^1.2.0",
+		"husky": "^4.3.6",
+		"lint-staged": "^10.5.3",
+		"microbundle": "^0.15.1",
+		"mocha": "^8.2.1",
+		"preact": "^10.13.0",
+		"prettier": "^2.2.1",
+		"pretty-format": "^3.8.0",
+		"sinon": "^9.2.2",
+		"sinon-chai": "^3.5.0",
+		"typescript": "^5.0.0",
+		"web-streams-polyfill": "^3.2.1"
+	},
+	"prettier": {
+		"singleQuote": true,
+		"trailingComma": "none",
+		"useTabs": true,
+		"tabWidth": 2
+	},
+	"lint-staged": {
+		"**/*.{js,jsx,ts,tsx,yml}": [
+			"prettier --write"
+		]
+	},
+	"husky": {
+		"hooks": {
+			"pre-commit": "lint-staged"
+		}
+	},
+	"publishConfig": {
+		"provenance": true
+	}
+}

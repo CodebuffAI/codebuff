@@ -1,3 +1,4 @@
+import { LOCAL_MODE_API_KEY, isLocalModeEnabled } from '@codebuff/common/constants/local-mode'
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
 import { WEBSITE_URL } from './constants'
@@ -11,18 +12,22 @@ export class CodebuffClient {
   public options: CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
+    localMode: boolean
   }
 
   constructor(options: CodebuffClientOptions) {
+    const localMode = isLocalModeEnabled({
+      localMode: options.localMode,
+      env: process.env,
+    })
     const foundApiKey = options.apiKey ?? getCodebuffApiKeyFromEnv()
-    if (!foundApiKey) {
+    if (!foundApiKey && !localMode) {
       throw new Error(
         `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
       )
     }
 
     this.options = {
-      apiKey: foundApiKey,
       handleEvent: (event) => {
         if (event.type === 'error') {
           throw new Error(
@@ -32,6 +37,8 @@ export class CodebuffClient {
       },
       fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
       ...options,
+      apiKey: foundApiKey ?? LOCAL_MODE_API_KEY,
+      localMode,
     }
   }
 
@@ -60,11 +67,15 @@ export class CodebuffClient {
   }
 
   /**
-   * Check connection to the Codebuff backend by hitting the /healthz endpoint.
+   * Openbuff does not require a hosted backend connection in local/BYOK mode.
    *
-   * @returns Promise that resolves to true if connected, false otherwise
+   * @returns Promise that resolves to true when local mode is active.
    */
   public async checkConnection(): Promise<boolean> {
+    if (this.options.localMode) {
+      return true
+    }
+
     try {
       const response = await fetch(`${WEBSITE_URL}/api/healthz`, {
         method: 'GET',

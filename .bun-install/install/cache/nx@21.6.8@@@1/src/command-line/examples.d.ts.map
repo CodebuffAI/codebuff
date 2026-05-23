@@ -1,0 +1,1 @@
+{"version":3,"file":"examples.d.ts","sourceRoot":"","sources":["../../../../../packages/nx/src/command-line/examples.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,OAAO;IACtB,OAAO,EAAE,MAAM,CAAC;IAChB,WAAW,EAAE,MAAM,CAAC;CACrB;AAED,eAAO,MAAM,QAAQ,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,EAAE,CAgc9C,CAAC"}

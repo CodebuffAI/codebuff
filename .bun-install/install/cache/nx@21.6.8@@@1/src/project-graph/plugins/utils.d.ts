@@ -1,0 +1,3 @@
+import { CreateNodesContext, CreateNodesContextV2, CreateNodesResult } from './public-api';
+export declare function createNodesFromFiles<T = unknown>(createNodes: (projectConfigurationFile: string, options: T | undefined, context: CreateNodesContext, idx: number) => CreateNodesResult | Promise<CreateNodesResult>, configFiles: readonly string[], options: T, context: CreateNodesContextV2): Promise<[file: string, value: CreateNodesResult][]>;
+//# sourceMappingURL=utils.d.ts.map

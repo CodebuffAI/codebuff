@@ -118,13 +118,13 @@ export function parseStreamChunk(
  * Parse the JSON content inside a tool call tag.
  */
 function parseToolCallContent(content: string): ParsedToolCall | null {
-  const trimmed = content.trim()
-  if (!trimmed) {
+  const normalized = normalizeToolCallJsonContent(content)
+  if (!normalized) {
     return null
   }
 
   try {
-    const parsed = JSON.parse(trimmed)
+    const parsed = parseToolCallJson(normalized)
     const toolName = parsed[toolNameParam]
 
     if (typeof toolName !== 'string') {
@@ -141,6 +141,41 @@ function parseToolCallContent(content: string): ParsedToolCall | null {
     // Invalid JSON - skip
     return null
   }
+}
+
+function parseToolCallJson(normalized: string): any {
+  try {
+    return JSON.parse(normalized)
+  } catch {
+    // Be tolerant of common LLM JSON mistakes copied from examples, but only
+    // after strict parsing fails so valid string content is not rewritten.
+    return JSON.parse(normalized.replace(/,\s*([}\]])/g, '$1'))
+  }
+}
+
+function normalizeToolCallJsonContent(content: string): string {
+  let normalized = content.trim()
+  if (!normalized) {
+    return ''
+  }
+
+  // Models often wrap the JSON in a markdown fence even though the XML tag is
+  // already the delimiter. Strip common fences before parsing.
+  const fenceMatch = normalized.match(/^```(?:json|javascript|js)?\s*([\s\S]*?)\s*```$/i)
+  if (fenceMatch) {
+    normalized = fenceMatch[1].trim()
+  }
+
+  // If the model includes explanatory text inside the XML tag, keep the JSON
+  // object itself. This is intentionally conservative and only extracts a
+  // complete outer object.
+  const firstBrace = normalized.indexOf('{')
+  const lastBrace = normalized.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    normalized = normalized.slice(firstBrace, lastBrace + 1)
+  }
+
+  return normalized
 }
 
 /**

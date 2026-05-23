@@ -1,0 +1,1 @@
+{"version":3,"file":"build-all-workspace-files.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/project-graph/utils/build-all-workspace-files.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,QAAQ,EAAE,cAAc,EAAE,MAAM,4BAA4B,CAAC;AAGtE,wBAAgB,sBAAsB,CACpC,cAAc,EAAE,cAAc,EAC9B,WAAW,EAAE,QAAQ,EAAE,GACtB,QAAQ,EAAE,CAcZ"}

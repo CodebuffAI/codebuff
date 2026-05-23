@@ -148,6 +148,61 @@ Middle text
       expect(result.toolCalls[0].toolName).toBe('test_tool')
     })
 
+    it('should tolerate markdown fences and trailing commas inside tool call JSON', () => {
+      const state = createStreamParserState()
+      const chunk = `<codebuff_tool_call>
+\`\`\`json
+{
+  "cb_tool_name": "test_tool",
+  "path": "foo.ts",
+  "items": [
+    "a",
+  ],
+}
+\`\`\`
+</codebuff_tool_call>`
+
+      const result = parseStreamChunk(chunk, state)
+
+      expect(result.filteredText).toBe('')
+      expect(result.toolCalls).toHaveLength(1)
+      expect(result.toolCalls[0].toolName).toBe('test_tool')
+      expect(result.toolCalls[0].input).toEqual({
+        path: 'foo.ts',
+        items: ['a'],
+      })
+    })
+
+    it('should not rewrite comma-brace sequences inside valid JSON strings', () => {
+      const state = createStreamParserState()
+      const chunk = `<codebuff_tool_call>
+{"cb_tool_name": "test_tool", "content": "keep ,} and ,] intact"}
+</codebuff_tool_call>`
+
+      const result = parseStreamChunk(chunk, state)
+
+      expect(result.toolCalls).toHaveLength(1)
+      expect(result.toolCalls[0].input).toEqual({
+        content: 'keep ,} and ,] intact',
+      })
+    })
+
+    it('should extract the JSON object when extra text appears inside the tool call tag', () => {
+      const state = createStreamParserState()
+      const chunk = `<codebuff_tool_call>
+Here is the edit:
+{"cb_tool_name": "test_tool", "path": "foo.ts"}
+Done.
+</codebuff_tool_call>`
+
+      const result = parseStreamChunk(chunk, state)
+
+      expect(result.filteredText).toBe('')
+      expect(result.toolCalls).toHaveLength(1)
+      expect(result.toolCalls[0].toolName).toBe('test_tool')
+      expect(result.toolCalls[0].input).toEqual({ path: 'foo.ts' })
+    })
+
     it('should handle realistic streaming scenario with small chunks', () => {
       const state = createStreamParserState()
       const allChunks: string[] = []

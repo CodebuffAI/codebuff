@@ -1,0 +1,1 @@
+{"version":3,"file":"core-plugins.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/utils/plugins/core-plugins.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,UAAU;IACzB,IAAI,EAAE,MAAM,CAAC;IACb,YAAY,EAAE,WAAW,GAAG,YAAY,GAAG,sBAAsB,GAAG,OAAO,CAAC;IAC5E,IAAI,CAAC,EAAE,MAAM,CAAC;CACf;AAED,eAAO,MAAM,YAAY,EAAE,UAAU,EA6GpC,CAAC"}

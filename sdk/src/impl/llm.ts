@@ -248,11 +248,70 @@ function emitCacheDebugUsage(params: {
   })
 }
 
+const POST_STREAM_METADATA_TIMEOUT_MS = 500
+
+async function awaitOptionalPostStreamMetadata<T>(params: {
+  promise: PromiseLike<T>
+  label: string
+  logger: ParamsOf<PromptAiSdkStreamFn>['logger']
+  timeoutMs?: number
+}): Promise<T | undefined> {
+  const { promise, label, logger, timeoutMs = POST_STREAM_METADATA_TIMEOUT_MS } =
+    params
+
+  let timeout: number | undefined
+  const guardedPromise = Promise.resolve(promise).catch((error) => {
+    logger.warn(
+      { error: getErrorObject(error) },
+      `Ignoring ${label} error after stream completed`,
+    )
+    return undefined
+  })
+  const timeoutPromise = new Promise<undefined>((resolve) => {
+    timeout = globalThis.setTimeout(resolve, timeoutMs)
+  })
+
+  const value = await Promise.race([guardedPromise, timeoutPromise])
+  if (timeout) globalThis.clearTimeout(timeout)
+  if (value === undefined) {
+    logger.debug(
+      { timeoutMs },
+      `Skipping ${label}; provider did not settle it after stream completion`,
+    )
+  }
+  return value
+}
+
 export type ChatGptOAuthStreamErrorPolicy =
   | 'fallback-rate-limit'
   | 'fail-auth-reconnect'
   | 'fail-fast'
   | 'ignore'
+
+function withConfiguredReasoningEffort(
+  providerOptions: Record<string, JSONObject> | undefined,
+  reasoningEffort: string | undefined,
+): Record<string, JSONObject> | undefined {
+  if (!reasoningEffort) return providerOptions
+
+  return {
+    ...(providerOptions ?? {}),
+    openaiCompatible: {
+      ...((providerOptions?.openaiCompatible as JSONObject | undefined) ?? {}),
+      reasoningEffort,
+    },
+    openai: {
+      ...((providerOptions?.openai as JSONObject | undefined) ?? {}),
+      reasoningEffort,
+    },
+  }
+}
+
+function hasProviderOptions(
+  providerOptions: Record<string, JSONObject> | undefined,
+): providerOptions is Record<string, JSONObject> {
+  return Object.keys(providerOptions ?? {}).length > 0
+}
 
 export function classifyChatGptOAuthStreamError(params: {
   isChatGptOAuth: boolean
@@ -306,10 +365,12 @@ export async function* promptAiSdkStream(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
+    agentId: params.agentId,
     skipChatGptOAuth: params.skipChatGptOAuth,
     costMode: params.costMode,
+    localMode: params.localMode,
   }
-  const { model: aiSDKModel, isChatGptOAuth } =
+  const { model: aiSDKModel, isChatGptOAuth, compatibility, reasoningEffort } =
     await getModelForRequest(modelParams)
 
   if (isChatGptOAuth) {
@@ -324,22 +385,35 @@ export async function* promptAiSdkStream(
     })
   }
 
+  const providerOptionsWithReasoning = withConfiguredReasoningEffort(
+    originalProviderOptions as Record<string, JSONObject> | undefined,
+    reasoningEffort,
+  )
+  const requestProviderOptions =
+    isChatGptOAuth || compatibility.stripProviderMetadata
+      ? providerOptionsWithReasoning
+      : getProviderOptions({
+        ...params,
+        providerOptions: providerOptionsWithReasoning,
+        agentProviderOptions: params.agentProviderOptions,
+      })
+
   const response = streamText({
     ...streamParams,
+    ...(compatibility.supportsTools === false
+      ? { tools: undefined, toolChoice: undefined }
+      : {}),
     prompt: undefined,
     model: aiSDKModel,
-    messages: convertCbToModelMessages(params),
+    messages: convertCbToModelMessages({
+      ...params,
+      includeCacheControl:
+        isChatGptOAuth && compatibility.stripCacheControl === false,
+    }),
     ...(isChatGptOAuth && { maxRetries: 0 }),
-    // For ChatGPT OAuth direct, don't send codebuff metadata/provider options to OpenAI
-    ...(isChatGptOAuth
-      ? {}
-      : {
-        providerOptions: getProviderOptions({
-          ...params,
-          providerOptions: originalProviderOptions,
-          agentProviderOptions: params.agentProviderOptions,
-        }),
-      }),
+    ...(hasProviderOptions(requestProviderOptions)
+      ? { providerOptions: requestProviderOptions }
+      : {}),
     // Handle tool call errors gracefully by passing them through to our validation layer
     // instead of throwing (which would halt the agent). The only special case is when
     // the tool name matches a spawnable agent - transform those to spawn_agents calls.
@@ -658,25 +732,52 @@ export async function* promptAiSdkStream(
     }
   }
 
-  const responseValue = await response.response
-  const messageId = responseValue.id
-
-  const requestMetadata = await response.request
-  emitCacheDebugProviderRequest({
-    callback: params.onCacheDebugProviderRequestBuilt,
-    provider: getModelProvider(aiSDKModel),
-    rawBody: requestMetadata.body,
+  const responseValue = await awaitOptionalPostStreamMetadata({
+    promise: response.response,
+    label: 'provider response metadata',
+    logger,
   })
+  const messageId =
+    responseValue && typeof responseValue.id === 'string'
+      ? responseValue.id
+      : null
 
-  const usageResult = await response.usage
-  emitCacheDebugUsage({
-    callback: params.onCacheDebugUsageReceived,
-    usage: usageResult,
-  })
+  if (params.onCacheDebugProviderRequestBuilt) {
+    const requestMetadata = await awaitOptionalPostStreamMetadata({
+      promise: response.request,
+      label: 'provider request metadata',
+      logger,
+    })
+    if (requestMetadata) {
+      emitCacheDebugProviderRequest({
+        callback: params.onCacheDebugProviderRequestBuilt,
+        provider: getModelProvider(aiSDKModel),
+        rawBody: requestMetadata.body,
+      })
+    }
+  }
+
+  if (params.onCacheDebugUsageReceived) {
+    const usageResult = await awaitOptionalPostStreamMetadata({
+      promise: response.usage,
+      label: 'provider usage metadata',
+      logger,
+    })
+    if (usageResult) {
+      emitCacheDebugUsage({
+        callback: params.onCacheDebugUsageReceived,
+        usage: usageResult,
+      })
+    }
+  }
 
   // Skip cost tracking for ChatGPT OAuth (user is on their own subscription)
-  if (!isChatGptOAuth) {
-    const providerMetadataResult = await response.providerMetadata
+  if (!isChatGptOAuth && !compatibility.stripProviderMetadata) {
+    const providerMetadataResult = await awaitOptionalPostStreamMetadata({
+      promise: response.providerMetadata,
+      label: 'provider billing metadata',
+      logger,
+    })
     const providerMetadata = providerMetadataResult ?? {}
 
     let costOverrideDollars: number | undefined
@@ -721,20 +822,39 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
+    agentId: params.agentId,
+    skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
+    localMode: params.localMode,
   }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, compatibility, reasoningEffort } = await getModelForRequest(modelParams)
+
+  const providerOptionsWithReasoning = withConfiguredReasoningEffort(
+    (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
+    reasoningEffort,
+  )
+  const requestProviderOptions = compatibility.stripProviderMetadata
+    ? providerOptionsWithReasoning
+    : getProviderOptions({
+      ...params,
+      providerOptions: providerOptionsWithReasoning,
+      agentProviderOptions: params.agentProviderOptions,
+      cacheDebugCorrelation: params.cacheDebugCorrelation,
+    })
 
   const response = await generateText({
     ...params,
+    ...(compatibility.supportsTools === false
+      ? { tools: undefined, toolChoice: undefined }
+      : {}),
     prompt: undefined,
     model: aiSDKModel,
-    messages: convertCbToModelMessages(params),
-    providerOptions: getProviderOptions({
+    messages: convertCbToModelMessages({
       ...params,
-      agentProviderOptions: params.agentProviderOptions,
-      cacheDebugCorrelation: params.cacheDebugCorrelation,
+      includeCacheControl: compatibility.stripCacheControl === false,
     }),
+    ...(hasProviderOptions(requestProviderOptions)
+      ? { providerOptions: requestProviderOptions }
+      : {}),
   })
   emitCacheDebugProviderRequest({
     callback: params.onCacheDebugProviderRequestBuilt,
@@ -788,21 +908,40 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
+    agentId: params.agentId,
+    skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
+    localMode: params.localMode,
   }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, compatibility, reasoningEffort } = await getModelForRequest(modelParams)
+
+  const providerOptionsWithReasoning = withConfiguredReasoningEffort(
+    (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
+    reasoningEffort,
+  )
+  const requestProviderOptions = compatibility.stripProviderMetadata
+    ? providerOptionsWithReasoning
+    : getProviderOptions({
+      ...params,
+      providerOptions: providerOptionsWithReasoning,
+      agentProviderOptions: params.agentProviderOptions,
+      cacheDebugCorrelation: params.cacheDebugCorrelation,
+    })
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,
+    ...(compatibility.supportsTools === false
+      ? { tools: undefined, toolChoice: undefined }
+      : {}),
     prompt: undefined,
     model: aiSDKModel,
     output: 'object',
-    messages: convertCbToModelMessages(params),
-    providerOptions: getProviderOptions({
+    messages: convertCbToModelMessages({
       ...params,
-      agentProviderOptions: params.agentProviderOptions,
-      cacheDebugCorrelation: params.cacheDebugCorrelation,
+      includeCacheControl: compatibility.stripCacheControl === false,
     }),
+    ...(hasProviderOptions(requestProviderOptions)
+      ? { providerOptions: requestProviderOptions }
+      : {}),
   })
 
   emitCacheDebugProviderRequest({

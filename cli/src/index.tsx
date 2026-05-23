@@ -22,19 +22,17 @@ import {
   focusManager,
 } from '@tanstack/react-query'
 import { Command } from 'commander'
-import { cyan, green, red, yellow } from 'picocolors'
+import { green, red } from 'picocolors'
 import React from 'react'
 
 import { App } from './app'
-import { handlePublish } from './commands/publish'
-import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
-import { IS_FREEBUFF } from './utils/constants'
+import { IS_FREEBUFF, isLocalMode } from './utils/constants'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
@@ -103,6 +101,7 @@ type ParsedArgs = {
   continueId?: string | null
   cwd?: string
   initialMode?: AgentMode
+  localMode: boolean
 }
 
 function parseArgs(): ParsedArgs {
@@ -126,10 +125,10 @@ function parseArgs(): ParsedArgs {
       .helpOption('-h, --help', 'Show this help message')
       .parse(process.argv)
   } else {
-    // Codebuff: full CLI with all options
+    // Openbuff: local-first CLI with all options
     program
-      .name('codebuff')
-      .description('Codebuff CLI - AI-powered coding assistant')
+      .name('openbuff')
+      .description('Openbuff CLI - local/BYOK AI coding assistant')
       .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
       .option(
         '--agent <agent-id>',
@@ -148,7 +147,8 @@ function parseArgs(): ParsedArgs {
       .option('--free', 'Start in LITE mode (deprecated alias)')
       .option('--max', 'Start in MAX mode')
       .option('--plan', 'Start in PLAN mode')
-      .addHelpText('after', '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry')
+      .option('--local', 'Local/BYOK mode (default; kept for compatibility)')
+      .addHelpText('after', '\nCommands:\n  init                           Create local project context')
       .helpOption('-h, --help', 'Show this help message')
       .argument('[prompt...]', 'Initial prompt to send to the agent')
       .allowExcessArguments(true)
@@ -157,6 +157,9 @@ function parseArgs(): ParsedArgs {
 
   const options = program.opts()
   const args = program.args
+  const localMode = true
+  process.env.OPENBUFF_LOCAL_MODE = 'true'
+  if (options.local) process.env.CODEBUFF_LOCAL_MODE = 'true'
 
   const continueFlag = options.continue
 
@@ -182,6 +185,7 @@ function parseArgs(): ParsedArgs {
         : null,
     cwd: options.cwd,
     initialMode,
+    localMode,
   }
 }
 
@@ -284,6 +288,7 @@ async function main(): Promise<void> {
     continueId,
     cwd,
     initialMode,
+    localMode,
   } = parseArgs()
 
   const isLoginCommand = process.argv[2] === 'login'
@@ -293,11 +298,11 @@ async function main(): Promise<void> {
   await initializeApp({ cwd })
 
   // Set the auth token for the API client
-  setApiClientAuthToken(getAuthToken())
+  setApiClientAuthToken(localMode ? undefined : getAuthToken())
 
   // Handle login command before rendering the app
   if (isLoginCommand) {
-    await runPlainLogin()
+    logger.info(green('Openbuff runs locally; no cloud login is required.'))
     return
   }
 
@@ -317,6 +322,7 @@ async function main(): Promise<void> {
     continueChat,
     initialMode: initialMode ?? 'DEFAULT',
     isFreeBuff: IS_FREEBUFF,
+    localMode,
   })
 
   // Initialize agent registry (loads user agents via SDK).
@@ -330,28 +336,11 @@ async function main(): Promise<void> {
 
   // Handle publish command before rendering the app
   if (isPublishCommand) {
-    const publishIndex = process.argv.indexOf('publish')
-    const agentIds = process.argv.slice(publishIndex + 1)
-    const result = await handlePublish(agentIds)
-
-    if (result.success && result.publisherId && result.agents) {
-      logger.info(green('✅ Successfully published:'))
-      for (const agent of result.agents) {
-        logger.info(
-          cyan(
-            `  - ${agent.displayName} (${result.publisherId}/${agent.id}@${agent.version})`,
-          ),
-        )
-      }
-      process.exit(0)
-    } else {
-      logger.error(red('❌ Publish failed'))
-      if (result.error) logger.error(red(`Error: ${result.error}`))
-      if (result.details) logger.error(red(result.details))
-      if (result.hint) logger.warn(yellow(`Hint: ${result.hint}`))
-      process.exit(1)
-    }
+    logger.error(red('Agent publishing is disabled in Openbuff local mode.'))
+    process.exit(1)
   }
+
+
 
   if (clearLogs) {
     clearLogFile()
@@ -371,6 +360,12 @@ async function main(): Promise<void> {
 
     React.useEffect(() => {
       const apiKey = getAuthTokenDetails().token ?? ''
+
+      if (isLocalMode()) {
+        setRequireAuth(false)
+        setHasInvalidCredentials(false)
+        return
+      }
 
       if (!apiKey) {
         setRequireAuth(true)

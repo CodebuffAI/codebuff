@@ -9,6 +9,7 @@ export const IMPLEMENTOR_AGENT_IDS = [
   'editor-implementor-opus',
   'editor-implementor-gemini',
   'editor-implementor-gpt-5',
+  'editor-implementor-proposal-',
 ] as const
 
 /** All edit tool names (both direct and proposed variants) */
@@ -65,7 +66,18 @@ export const isImplementorAgent = (
 export const getImplementorDisplayName = (
   agentType: string,
   index?: number,
+  params?: Record<string, unknown>,
 ): string => {
+  const proposalLabel = params?.proposalLabel
+  if (typeof proposalLabel === 'string' && proposalLabel.trim()) {
+    return proposalLabel
+  }
+
+  const proposalMatch = agentType.match(/editor-implementor-proposal-(\d+)/)
+  if (proposalMatch?.[1]) {
+    return `Proposal #${proposalMatch[1]}`
+  }
+
   let baseName = 'Implementor'
   if (agentType.includes('editor-implementor-opus')) {
     baseName = 'Opus'

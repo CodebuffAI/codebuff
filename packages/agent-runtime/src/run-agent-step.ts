@@ -411,7 +411,11 @@ export const runAgentStep = async (
   // Raw stream from AI SDK
   const stream = getAgentStreamFromTemplate({
     ...params,
-    agentId: agentState.parentId ? agentState.agentId : undefined,
+    // Use the stable agent type for model routing. Spawned subagents have a
+    // generated runtime instance id in agentState.agentId; using that here
+    // prevents openbuff.json agent overrides such as
+    // "editor-implementor-proposal-2" from matching.
+    agentId: agentState.agentType ?? agentTemplate.id,
     costMode: params.costMode,
     cacheDebugCorrelation: cacheDebugCorrelation
       ? serializeCacheDebugCorrelation(cacheDebugCorrelation)
@@ -655,6 +659,7 @@ export async function loopAgentSteps(
     userInputId,
     clientEnv,
     ciEnv,
+    localMode,
   } = params
 
   let agentTemplate = params.agentTemplate
@@ -879,6 +884,7 @@ export async function loopAgentSteps(
         countTokensJson(toolsForTokenCount)
 
       if (
+        localMode ||
         shouldUseLocalTokenCountForFreebuffDeepseekFlash({
           agentId: agentTemplate.id,
           model: agentTemplate.model,

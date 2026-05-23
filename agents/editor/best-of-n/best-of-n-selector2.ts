@@ -17,7 +17,7 @@ export const createBestOfNSelector2 = (options: {
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
         ? 'anthropic/claude-opus-4.7'
-        : 'openai/gpt-5.4',
+        : 'openai/gpt-5.5',
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high',
@@ -141,7 +141,7 @@ Then, do not write any other explanations AT ALL. You should directly output a s
 }
 
 const definition: SecretAgentDefinition = {
-  ...createBestOfNSelector2({ model: 'opus' }),
+  ...createBestOfNSelector2({ model: 'gpt-5' }),
   id: 'best-of-n-selector2',
 }
 

@@ -1,0 +1,1 @@
+{"version":3,"file":"command-object.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/command-line/register/command-object.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,OAAO,CAAC;AAItC,MAAM,WAAW,eAAe;IAC9B,GAAG,CAAC,EAAE,MAAM,CAAC;IACb,OAAO,CAAC,EAAE,OAAO,CAAC;CACnB;AAED,eAAO,MAAM,oBAAoB,EAAE,aAAa,CAAC,EAAE,EAAE,eAAe,CAqBnE,CAAC"}

@@ -189,6 +189,88 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(stepCount).toBe(1)
   })
 
+  it('routes spawned subagent model requests by stable agent type, not runtime instance id', async () => {
+    let routedAgentId: string | undefined
+    agentRuntimeImpl.promptAiSdkStream = mock(async function* ({ agentId }) {
+      routedAgentId = agentId
+      yield { type: 'text' as const, text: 'LLM response\n\n' }
+      return promptSuccess('mock-message-id')
+    })
+
+    const subAgentState = {
+      ...mockAgentState,
+      agentId: 'generated-runtime-agent-id',
+      agentType: 'test-agent',
+      parentId: 'parent-agent-id',
+    }
+
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: agentRuntimeImpl.promptAiSdkStream,
+      agentState: subAgentState,
+      agentType: 'test-agent',
+      localAgentTemplates: {
+        'test-agent': mockTemplate,
+      },
+    })
+
+    expect(routedAgentId).toBe('test-agent')
+  })
+
+  it('keeps native propose tool schemas enabled for editor proposal agents', async () => {
+    let routedAgentId: string | undefined
+    let toolNamesSentToProvider: string[] = []
+    let maxOutputTokensSentToProvider: number | undefined
+    let toolChoiceSentToProvider: unknown
+
+    agentRuntimeImpl.promptAiSdkStream = mock(async function* ({
+      agentId,
+      maxOutputTokens,
+      toolChoice,
+      tools,
+    }) {
+      routedAgentId = agentId
+      toolNamesSentToProvider = Object.keys(tools ?? {})
+      maxOutputTokensSentToProvider = maxOutputTokens
+      toolChoiceSentToProvider = toolChoice
+      yield { type: 'text' as const, text: 'No tool call on this fake stream' }
+      return promptSuccess('mock-message-id')
+    })
+
+    const proposalTemplate = {
+      ...mockTemplate,
+      id: 'editor-implementor-proposal-2',
+      displayName: 'Implementation Proposal 2',
+      toolNames: ['propose_str_replace', 'propose_write_file'],
+      handleSteps: function* () {
+        yield 'STEP'
+      },
+    } satisfies AgentTemplate as AgentTemplate
+
+    const subAgentState = {
+      ...mockAgentState,
+      agentId: 'generated-runtime-agent-id',
+      agentType: 'editor-implementor-proposal-2',
+      parentId: 'parent-agent-id',
+    }
+
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: agentRuntimeImpl.promptAiSdkStream,
+      agentState: subAgentState,
+      agentType: 'editor-implementor-proposal-2',
+      localAgentTemplates: {
+        'editor-implementor-proposal-2': proposalTemplate,
+      },
+    })
+
+    expect(routedAgentId).toBe('editor-implementor-proposal-2')
+    expect(toolNamesSentToProvider).toContain('propose_str_replace')
+    expect(toolNamesSentToProvider).toContain('propose_write_file')
+    expect(maxOutputTokensSentToProvider).toBe(32_000)
+    expect(toolChoiceSentToProvider).toBe('required')
+  })
+
   it('should demonstrate correct behavior when programmatic agent completes without STEP', async () => {
     // This test shows that when a programmatic agent doesn't yield STEP,
     // it should complete without calling the LLM at all (since it ends with end_turn)

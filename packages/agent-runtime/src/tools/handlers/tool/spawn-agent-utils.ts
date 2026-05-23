@@ -34,6 +34,65 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
 
+const DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS = 120_000
+
+function isEditorProposalAgent(agentId: string): boolean {
+  return /^editor-implementor-proposal-\d+$/.test(agentId)
+}
+
+function getEditorProposalTimeoutMs(): number {
+  const raw = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+  if (!raw) return DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS
+  }
+  return parsed
+}
+
+function createTimeoutSignal(params: {
+  parentSignal: AbortSignal
+  timeoutMs: number | undefined
+  timeoutMessage: string
+}): {
+  signal: AbortSignal
+  didTimeout: () => boolean
+  cleanup: () => void
+} {
+  const { parentSignal, timeoutMs, timeoutMessage } = params
+  if (!timeoutMs || timeoutMs <= 0) {
+    return {
+      signal: parentSignal,
+      didTimeout: () => false,
+      cleanup: () => {},
+    }
+  }
+
+  const controller = new AbortController()
+  let timedOut = false
+  const forwardAbort = () => controller.abort(parentSignal.reason)
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort(new Error(timeoutMessage))
+  }, timeoutMs)
+
+  if (parentSignal.aborted) {
+    forwardAbort()
+  } else {
+    parentSignal.addEventListener('abort', forwardAbort, { once: true })
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer)
+      parentSignal.removeEventListener('abort', forwardAbort)
+    },
+  }
+}
+
 /**
  * Common context params needed for spawning subagents.
  * These are the params that don't change between different spawn calls
@@ -363,6 +422,17 @@ export async function executeSubagent(
     prompt,
     spawnParams,
   } = withDefaults
+  const timeoutMs = isEditorProposalAgent(agentTemplate.id)
+    ? getEditorProposalTimeoutMs()
+    : undefined
+  const timeoutMessage = `Subagent ${agentTemplate.id} timed out after ${Math.round(
+    (timeoutMs ?? 0) / 1000,
+  )}s while generating an editor proposal. Set OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS=0 to disable this guard.`
+  const timeoutSignal = createTimeoutSignal({
+    parentSignal: withDefaults.signal,
+    timeoutMs,
+    timeoutMessage,
+  })
 
   const startEvent = {
     type: 'subagent_start' as const,
@@ -376,15 +446,26 @@ export async function executeSubagent(
   }
   onResponseChunk(startEvent)
 
-  const result = await loopAgentSteps({
-    ...withDefaults,
-    // Don't propagate parent's image content to subagents.
-    // If subagents need to see images, they get them through includeMessageHistory,
-    // not by creating new image-containing messages for their prompts.
-    content: undefined,
-    ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
-    agentType: agentTemplate.id,
-  })
+  let result: Awaited<ReturnType<typeof loopAgentSteps>>
+  try {
+    result = await loopAgentSteps({
+      ...withDefaults,
+      signal: timeoutSignal.signal,
+      // Don't propagate parent's image content to subagents.
+      // If subagents need to see images, they get them through includeMessageHistory,
+      // not by creating new image-containing messages for their prompts.
+      content: undefined,
+      ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
+      agentType: agentTemplate.id,
+    })
+  } catch (error) {
+    if (timeoutSignal.didTimeout()) {
+      throw new Error(timeoutMessage)
+    }
+    throw error
+  } finally {
+    timeoutSignal.cleanup()
+  }
 
   onResponseChunk({
     type: 'subagent_finish',

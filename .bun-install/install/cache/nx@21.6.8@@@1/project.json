@@ -1,0 +1,180 @@
+{
+    "name": "nx",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "packages/nx",
+    "projectType": "library",
+    "implicitDependencies": ["graph-client"],
+    "release": {
+        "version": {
+            "generator": "@nx/js:release-version"
+        }
+    },
+    "targets": {
+        "build-native-wasm": {
+            "cache": true,
+            "inputs": ["native"],
+            "outputs": [
+                "{projectRoot}/src/native/*.wasm",
+                "{projectRoot}/src/native/*.js",
+                "{projectRoot}/src/native/*.cjs",
+                "{projectRoot}/src/native/*.mjs",
+                "{projectRoot}/src/native/index.d.ts"
+            ],
+            "executor": "@monodon/rust:napi",
+            "options": {
+                "target": "wasm32-wasip1-threads",
+                "dist": "packages/nx/src/native",
+                "jsFile": "native-bindings.js",
+                "release": true
+            }
+        },
+        "build-native": {
+            "outputs": [
+                "{projectRoot}/src/native/*.node",
+                "{projectRoot}/src/native/*.js",
+                "{projectRoot}/src/native/index.d.ts"
+            ],
+            "executor": "@monodon/rust:napi",
+            "options": {
+                "dist": "packages/nx/src/native",
+                "jsFile": "native-bindings.js",
+                "release": true
+            },
+            "configurations": {
+                "local": {
+                    "release": false
+                }
+            }
+        },
+        "copy-native-package-directories": {
+            "command": "node scripts/copy.js dist/packages/nx/native-packages/* dist/packages"
+        },
+        "artifacts": {
+            "dependsOn": ["copy-native-package-directories"],
+            "command": "pnpm napi artifacts --package-json-path dist/packages/nx/package.json -d ./artifacts --npm-dir dist/packages"
+        },
+        "echo": {
+            "command": "echo hi"
+        },
+        "build": {
+            "dependsOn": [
+                "^build-client",
+                "build-base",
+                "build-native",
+                "legacy-post-build"
+            ],
+            "inputs": [
+                "production",
+                "^production",
+                {
+                    "dependentTasksOutputFiles": "**/*.node",
+                    "transitive": true
+                }
+            ],
+            "executor": "nx:run-commands",
+            "outputs": [
+                "{workspaceRoot}/dist/packages/nx/**/*.{node,wasm,js,mjs,cjs}",
+                "{workspaceRoot}/dist/packages/nx/src/core/graph",
+                "{workspaceRoot}/dist/packages/nx/bin/nx.js",
+                "{workspaceRoot}/dist/packages/nx/README.md"
+            ],
+            "options": {
+                "commands": [
+                    {
+                        "command": "node ./scripts/copy-local-native.js nx"
+                    },
+                    {
+                        "command": "node ./scripts/copy-graph-client.js"
+                    },
+                    {
+                        "command": "node ./scripts/chmod dist/packages/nx/bin/nx.js"
+                    },
+                    {
+                        "command": "node ./scripts/copy-readme.js nx"
+                    }
+                ],
+                "parallel": false
+            }
+        },
+        "test-native": {},
+        "format-native": {
+            "command": "cargo fmt",
+            "cache": true,
+            "inputs": ["native"],
+            "options": {
+                "cwd": "{projectRoot}/src/native",
+                "args": ["--all", "--check"]
+            },
+            "configurations": {
+                "fix": {
+                    "args": ["--all"]
+                }
+            }
+        },
+        "lint-native": {
+            "command": "cargo clippy",
+            "cache": true,
+            "inputs": ["native"],
+            "options": {
+                "cwd": "{projectRoot}/src/native",
+                "args": ["--frozen"]
+            },
+            "configurations": {
+                "fix": {
+                    "args": []
+                }
+            }
+        },
+        "legacy-post-build": {
+            "executor": "@nx/workspace-plugin:legacy-post-build",
+            "options": {
+                "main": "./bin/nx.js",
+                "types": "./bin/nx.d.ts",
+                "tsConfig": "./tsconfig.lib.json",
+                "assets": [
+                    {
+                        "input": "packages/nx",
+                        "glob": ".npmignore",
+                        "output": "/"
+                    },
+                    {
+                        "input": "packages/nx",
+                        "glob": "**/files/**",
+                        "output": "/"
+                    },
+                    {
+                        "input": "packages/nx",
+                        "glob": "**/files/**/.gitkeep",
+                        "output": "/"
+                    },
+                    {
+                        "input": "packages/nx",
+                        "glob": "**/*.json",
+                        "ignore": [
+                            "**/tsconfig*.json",
+                            "**/project.json",
+                            "**/__fixtures__/**"
+                        ],
+                        "output": "/"
+                    },
+                    {
+                        "input": "packages/nx",
+                        "glob": "**/*.{mjs,cjs,js,css,html,svg,wasm}",
+                        "ignore": ["**/jest.config.js"],
+                        "output": "/"
+                    },
+                    {
+                        "input": "packages/nx",
+                        "glob": "**/*.d.ts",
+                        "output": "/"
+                    },
+                    {
+                        "input": "",
+                        "glob": "LICENSE",
+                        "output": "/"
+                    }
+                ]
+            }
+        }
+    }
+}

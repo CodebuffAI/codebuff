@@ -10,6 +10,7 @@ import {
   getChatGptOAuthStatus,
   stopChatGptOAuthServer,
 } from '../utils/chatgpt-oauth'
+import { isLocalMode } from '../utils/constants'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 type FlowState =
@@ -199,7 +200,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     return {
       success: true,
       message:
-        'Successfully connected your ChatGPT subscription! Codebuff will use it for supported OpenAI streaming requests.',
+        `Successfully connected your ChatGPT subscription! ${isLocalMode() ? 'Openbuff' : 'Codebuff'} will use it for supported OpenAI streaming requests.`,
     }
   } catch (err) {
     return {

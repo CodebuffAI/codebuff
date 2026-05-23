@@ -1,0 +1,1 @@
+{"version":3,"file":"get-plugins.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/project-graph/plugins/get-plugins.ts"],"names":[],"mappings":"AAUA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,oBAAoB,CAAC;AAiBzD,wBAAsB,UAAU,CAC9B,IAAI,SAAgB,GACnB,OAAO,CAAC,cAAc,EAAE,CAAC,CAgC3B;AAaD,wBAAsB,qBAAqB,CAAC,IAAI,SAAgB,6BAyB/D;AAED,wBAAgB,cAAc,SAG7B"}

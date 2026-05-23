@@ -2,6 +2,7 @@ import { validateAgents } from '@codebuff/sdk'
 import { useCallback, useState } from 'react'
 
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
+import { isLocalMode } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { filterNetworkErrors } from '../utils/validation-error-helpers'
 
@@ -40,7 +41,7 @@ export const useAgentValidation = (): UseAgentValidationResult => {
       const agentDefinitions = loadAgentDefinitions()
 
       const validationResult = await validateAgents(agentDefinitions, {
-        remote: true,
+        remote: !isLocalMode(),
       })
 
       if (validationResult.success) {
@@ -50,6 +51,12 @@ export const useAgentValidation = (): UseAgentValidationResult => {
         const filteredValidationErrors = filterNetworkErrors(
           validationResult.validationErrors,
         )
+
+        if (filteredValidationErrors.length === 0) {
+          setValidationErrors([])
+          return { success: true, errors: [] }
+        }
+
         setValidationErrors(filteredValidationErrors)
         return { success: false, errors: filteredValidationErrors }
       }

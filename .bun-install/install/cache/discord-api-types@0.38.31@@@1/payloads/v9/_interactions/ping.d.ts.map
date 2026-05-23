@@ -1,0 +1,1 @@
+{"version":3,"file":"ping.d.ts","sourceRoot":"","sources":["ping.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,QAAQ,CAAC;AACjD,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,aAAa,CAAC;AAEnD,MAAM,MAAM,kBAAkB,GAAG,IAAI,CAAC,kBAAkB,CAAC,eAAe,CAAC,IAAI,EAAE,KAAK,CAAC,EAAE,QAAQ,CAAC,CAAC"}

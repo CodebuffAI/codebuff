@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "codebuff-tui": "./bin/codecane"
+    "openbuff": "./bin/openbuff"
   },
   "exports": {
     ".": {
@@ -15,9 +15,9 @@
     }
   },
   "scripts": {
-    "dev": "bun run prebuild:agents && bun run src/index.tsx --cwd ..",
+    "dev": "NEXT_PUBLIC_CB_ENVIRONMENT=dev NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3000 NEXT_PUBLIC_SUPPORT_EMAIL=support@openbuff.local NEXT_PUBLIC_POSTHOG_API_KEY=openbuff-dev NEXT_PUBLIC_POSTHOG_HOST_URL=https://app.posthog.com NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_openbuff NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL=https://billing.openbuff.local NEXT_PUBLIC_WEB_PORT=3000 OPENBUFF_LOCAL_MODE=true bun run prebuild:agents && NEXT_PUBLIC_CB_ENVIRONMENT=dev NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3000 NEXT_PUBLIC_SUPPORT_EMAIL=support@openbuff.local NEXT_PUBLIC_POSTHOG_API_KEY=openbuff-dev NEXT_PUBLIC_POSTHOG_HOST_URL=https://app.posthog.com NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_openbuff NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL=https://billing.openbuff.local NEXT_PUBLIC_WEB_PORT=3000 OPENBUFF_LOCAL_MODE=true bun run src/index.tsx --cwd ..",
     "prebuild:agents": "bun run scripts/prebuild-agents.ts",
-    "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts openbuff $npm_package_version",
     "release": "bun run scripts/release.ts",
     "test": "NODE_ENV=production bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",

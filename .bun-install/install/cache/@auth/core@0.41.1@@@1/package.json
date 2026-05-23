@@ -1,0 +1,114 @@
+{
+  "name": "@auth/core",
+  "version": "0.41.1",
+  "description": "Authentication for the Web.",
+  "keywords": [
+    "authentication",
+    "authjs",
+    "jwt",
+    "oauth",
+    "oidc",
+    "passwordless",
+    "standard",
+    "vanilla",
+    "webapi"
+  ],
+  "homepage": "https://authjs.dev",
+  "repository": "https://github.com/nextauthjs/next-auth.git",
+  "author": "Balázs Orbán <info@balazsorban.com>",
+  "contributors": [
+    "Balázs Orbán <info@balazsorban.com>",
+    "Nico Domino <yo@ndo.dev>",
+    "Lluis Agusti <hi@llu.lu>",
+    "Thang Huu Vu <hi@thvu.dev>",
+    "Iain Collins <me@iaincollins.com>"
+  ],
+  "type": "module",
+  "types": "./index.d.ts",
+  "files": [
+    "*.js",
+    "*.d.ts*",
+    "lib",
+    "providers",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./adapters": {
+      "types": "./adapters.d.ts",
+      "import": "./adapters.js",
+      "default": "./adapters.js"
+    },
+    "./errors": {
+      "types": "./errors.d.ts",
+      "import": "./errors.js",
+      "default": "./errors.js"
+    },
+    "./jwt": {
+      "types": "./jwt.d.ts",
+      "import": "./jwt.js",
+      "default": "./jwt.js"
+    },
+    "./providers": {
+      "types": "./providers/index.d.ts"
+    },
+    "./providers/*": {
+      "types": "./providers/*.d.ts",
+      "import": "./providers/*.js",
+      "default": "./providers/*.js"
+    },
+    "./types": {
+      "types": "./types.d.ts"
+    }
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@panva/hkdf": "^1.2.1",
+    "jose": "^6.0.6",
+    "oauth4webapi": "^3.3.0",
+    "preact": "10.24.3",
+    "preact-render-to-string": "6.5.11"
+  },
+  "peerDependencies": {
+    "@simplewebauthn/browser": "^9.0.1",
+    "@simplewebauthn/server": "^9.0.2",
+    "nodemailer": "^7.0.7"
+  },
+  "peerDependenciesMeta": {
+    "@simplewebauthn/browser": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
+      "optional": true
+    },
+    "nodemailer": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@simplewebauthn/browser": "9.0.1",
+    "@simplewebauthn/server": "9.0.3",
+    "@simplewebauthn/types": "^9.0.1",
+    "@types/node": "18.11.10",
+    "@types/nodemailer": "6.4.6",
+    "@types/react": "18.0.37",
+    "autoprefixer": "10.4.13",
+    "postcss": "8.4.19",
+    "postcss-nesting": "^12.1.5",
+    "typedoc": "^0.25.12",
+    "typedoc-plugin-markdown": "4.0.0-next.53"
+  },
+  "scripts": {
+    "build": "pnpm css && pnpm providers && tsc",
+    "clean": "rm -rf *.js *.d.ts* lib providers",
+    "css": "node scripts/generate-css",
+    "dev": "pnpm css && pnpm providers && tsc -w",
+    "test": "vitest run -c ../utils/vitest.config.ts",
+    "test:watch": "vitest -c ../utils/vitest.config.ts",
+    "providers": "node scripts/generate-providers"
+  }
+}

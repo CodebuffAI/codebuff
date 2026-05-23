@@ -1,0 +1,1 @@
+{"version":3,"file":"get-context-file-data.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/message-types/get-context-file-data.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,qBAAqB,EAAG,uBAAgC,CAAC;AAEtE,MAAM,MAAM,4BAA4B,GAAG;IACzC,IAAI,EAAE,OAAO,qBAAqB,CAAC;CACpC,CAAC;AAEF,wBAAgB,8BAA8B,CAC5C,OAAO,EAAE,OAAO,GACf,OAAO,IAAI,4BAA4B,CAOzC"}

@@ -509,4 +509,5 @@ describe('processStreamWithTags', () => {
 
     expect(events).toEqual([])
   })
+
 })

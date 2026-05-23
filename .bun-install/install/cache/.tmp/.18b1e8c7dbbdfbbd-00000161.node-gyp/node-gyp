@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ "x$npm_config_node_gyp" = "x" ]; then
+  bun x --silent node-gyp $@
+else
+  "$npm_config_node_gyp" $@
+fi

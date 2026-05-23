@@ -11,7 +11,7 @@ type CodeEditorVariant =
   | 'minimax'
 
 const EDITOR_MODEL_BY_VARIANT: Record<CodeEditorVariant, string> = {
-  'gpt-5': 'openai/gpt-5.1',
+  'gpt-5': 'openai/gpt-5.5',
   opus: 'anthropic/claude-opus-4.7',
   glm: 'z-ai/glm-5.1',
   kimi: 'moonshotai/kimi-k2.6',

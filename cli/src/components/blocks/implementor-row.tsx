@@ -121,6 +121,7 @@ const ImplementorCard = memo(
     const displayName = getImplementorDisplayName(
       agentBlock.agentType,
       implementorIndex,
+      agentBlock.params,
     )
 
     // Get file stats for compact view

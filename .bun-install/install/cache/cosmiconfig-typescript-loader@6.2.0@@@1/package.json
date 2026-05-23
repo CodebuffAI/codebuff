@@ -1,0 +1,81 @@
+{
+  "name": "cosmiconfig-typescript-loader",
+  "version": "6.2.0",
+  "description": "TypeScript loader for cosmiconfig",
+  "author": "Alex Miller <codex.nz@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/Codex-/cosmiconfig-typescript-loader#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Codex-/cosmiconfig-typescript-loader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Codex-/cosmiconfig-typescript-loader/issues"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "main": "dist/cjs/index.cjs",
+  "module": "dist/esm/index.mjs",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/cjs/index.cjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "pnpm build:types && pnpm build:sources",
+    "build:sources": "node ./scripts/esbuild.config.mjs",
+    "build:types": "tsc -p tsconfig.build.json",
+    "check:types": "tsc -p tsconfig.json",
+    "format": "pnpm format:check --write",
+    "format:check": "prettier --check \"{**/*,*}.{js,cjs,mjs,ts}\"",
+    "lint": "eslint .",
+    "lint:fix": "pnpm lint --fix",
+    "release": "release-it",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "engines": {
+    "node": ">=v18"
+  },
+  "peerDependencies": {
+    "@types/node": "*",
+    "cosmiconfig": ">=9",
+    "typescript": ">=5"
+  },
+  "dependencies": {
+    "jiti": "^2.6.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@swc/core": "^1.13.5",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "auto-changelog": "^2.5.0",
+    "chalk": "^5.6.2",
+    "cosmiconfig": "^9.0.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import-x": "^4.16.1",
+    "jest": "^30.2.0",
+    "prettier": "^3.6.2",
+    "release-it": "^19.0.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0"
+  },
+  "keywords": [
+    "cosmiconfig",
+    "typescript"
+  ]
+}

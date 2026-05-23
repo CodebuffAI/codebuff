@@ -1,0 +1,6234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>ip-address 5.9.0 | Documentation</title>
+  <meta name='description' content='A library for parsing IPv4 and IPv6 IP addresses in node and the browser.'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <link href='assets/bass.css' rel='stylesheet' />
+  <link href='assets/style.css' rel='stylesheet' />
+  <link href='assets/github.css' rel='stylesheet' />
+  <link href='assets/split.css' rel='stylesheet' />
+</head>
+<body class='documentation m0'>
+    <div class='flex'>
+      <div id='split-left' class='overflow-auto fs0 height-viewport-100'>
+        <div class='py1 px2'>
+          <h3 class='mb0 no-anchor'>ip-address</h3>
+          <div class='mb1'><code>5.9.0</code></div>
+          <input
+            placeholder='Filter'
+            id='filter-input'
+            class='col12 block input'
+            type='text' />
+          <div id='toc'>
+            <ul class='list-reset h5 py1-ul'>
+              
+                
+                <li><a
+                  href='#address4'
+                  class=" toggle-sibling">
+                  Address4
+                  <span class='icon'>▸</span>
+                </a>
+                
+                <div class='toggle-target display-none'>
+                  
+                  <ul class='list-reset py1-ul pl1'>
+                    <li class='h5'><span>Static members</span></li>
+                    
+                      <li><a
+                        href='#address4fromhex'
+                        class='regular pre-open'>
+                        .fromHex
+                      </a></li>
+                    
+                      <li><a
+                        href='#address4frominteger'
+                        class='regular pre-open'>
+                        .fromInteger
+                      </a></li>
+                    
+                      <li><a
+                        href='#address4frombiginteger'
+                        class='regular pre-open'>
+                        .fromBigInteger
+                      </a></li>
+                    
+                    </ul>
+                  
+                  
+                    <ul class='list-reset py1-ul pl1'>
+                      <li class='h5'><span>Instance members</span></li>
+                      
+                      <li><a
+                        href='#address4isvalid'
+                        class='regular pre-open'>
+                        #isValid
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4correctform'
+                        class='regular pre-open'>
+                        #correctForm
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4iscorrect'
+                        class='regular pre-open'>
+                        #isCorrect
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4tohex'
+                        class='regular pre-open'>
+                        #toHex
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4toarray'
+                        class='regular pre-open'>
+                        #toArray
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4togroup6'
+                        class='regular pre-open'>
+                        #toGroup6
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4biginteger'
+                        class='regular pre-open'>
+                        #bigInteger
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4_startaddress'
+                        class='regular pre-open'>
+                        #_startAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4startaddress'
+                        class='regular pre-open'>
+                        #startAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4startaddressexclusive'
+                        class='regular pre-open'>
+                        #startAddressExclusive
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4_endaddress'
+                        class='regular pre-open'>
+                        #_endAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4endaddress'
+                        class='regular pre-open'>
+                        #endAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4endaddressexclusive'
+                        class='regular pre-open'>
+                        #endAddressExclusive
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4mask'
+                        class='regular pre-open'>
+                        #mask
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4getbitsbase2'
+                        class='regular pre-open'>
+                        #getBitsBase2
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4isinsubnet'
+                        class='regular pre-open'>
+                        #isInSubnet
+                      </a></li>
+                      
+                      <li><a
+                        href='#address4binaryzeropad'
+                        class='regular pre-open'>
+                        #binaryZeroPad
+                      </a></li>
+                      
+                    </ul>
+                  
+                  
+                  
+                </div>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#address6'
+                  class=" toggle-sibling">
+                  Address6
+                  <span class='icon'>▸</span>
+                </a>
+                
+                <div class='toggle-target display-none'>
+                  
+                  <ul class='list-reset py1-ul pl1'>
+                    <li class='h5'><span>Static members</span></li>
+                    
+                      <li><a
+                        href='#address6frombiginteger'
+                        class='regular pre-open'>
+                        .fromBigInteger
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6fromurl'
+                        class='regular pre-open'>
+                        .fromURL
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6fromaddress4'
+                        class='regular pre-open'>
+                        .fromAddress4
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6fromarpa'
+                        class='regular pre-open'>
+                        .fromArpa
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6frombytearray'
+                        class='regular pre-open'>
+                        .fromByteArray
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6fromunsignedbytearray'
+                        class='regular pre-open'>
+                        .fromUnsignedByteArray
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6scopes'
+                        class='regular pre-open'>
+                        .SCOPES
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6types'
+                        class='regular pre-open'>
+                        .TYPES
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6re_bad_characters'
+                        class='regular pre-open'>
+                        .RE_BAD_CHARACTERS
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6re_bad_address'
+                        class='regular pre-open'>
+                        .RE_BAD_ADDRESS
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6re_subnet_string'
+                        class='regular pre-open'>
+                        .RE_SUBNET_STRING
+                      </a></li>
+                    
+                      <li><a
+                        href='#address6re_zone_string'
+                        class='regular pre-open'>
+                        .RE_ZONE_STRING
+                      </a></li>
+                    
+                    </ul>
+                  
+                  
+                    <ul class='list-reset py1-ul pl1'>
+                      <li class='h5'><span>Instance members</span></li>
+                      
+                      <li><a
+                        href='#address6microsofttranscription'
+                        class='regular pre-open'>
+                        #microsoftTranscription
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6mask'
+                        class='regular pre-open'>
+                        #mask
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6possiblesubnets'
+                        class='regular pre-open'>
+                        #possibleSubnets
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6_startaddress'
+                        class='regular pre-open'>
+                        #_startAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6startaddress'
+                        class='regular pre-open'>
+                        #startAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6startaddressexclusive'
+                        class='regular pre-open'>
+                        #startAddressExclusive
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6_endaddress'
+                        class='regular pre-open'>
+                        #_endAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6endaddress'
+                        class='regular pre-open'>
+                        #endAddress
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6endaddressexclusive'
+                        class='regular pre-open'>
+                        #endAddressExclusive
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6getscope'
+                        class='regular pre-open'>
+                        #getScope
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6gettype'
+                        class='regular pre-open'>
+                        #getType
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6getbits'
+                        class='regular pre-open'>
+                        #getBits
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6getbitsbase2'
+                        class='regular pre-open'>
+                        #getBitsBase2
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6getbitsbase16'
+                        class='regular pre-open'>
+                        #getBitsBase16
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6getbitspastsubnet'
+                        class='regular pre-open'>
+                        #getBitsPastSubnet
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6reverseform'
+                        class='regular pre-open'>
+                        #reverseForm
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6correctform'
+                        class='regular pre-open'>
+                        #correctForm
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6binaryzeropad'
+                        class='regular pre-open'>
+                        #binaryZeroPad
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6canonicalform'
+                        class='regular pre-open'>
+                        #canonicalForm
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6decimal'
+                        class='regular pre-open'>
+                        #decimal
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6biginteger'
+                        class='regular pre-open'>
+                        #bigInteger
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6to4'
+                        class='regular pre-open'>
+                        #to4
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6to4in6'
+                        class='regular pre-open'>
+                        #to4in6
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6inspectteredo'
+                        class='regular pre-open'>
+                        #inspectTeredo
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6inspect6to4'
+                        class='regular pre-open'>
+                        #inspect6to4
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6to6to4'
+                        class='regular pre-open'>
+                        #to6to4
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6tobytearray'
+                        class='regular pre-open'>
+                        #toByteArray
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6tounsignedbytearray'
+                        class='regular pre-open'>
+                        #toUnsignedByteArray
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6isvalid'
+                        class='regular pre-open'>
+                        #isValid
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6isinsubnet'
+                        class='regular pre-open'>
+                        #isInSubnet
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6iscorrect'
+                        class='regular pre-open'>
+                        #isCorrect
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6iscanonical'
+                        class='regular pre-open'>
+                        #isCanonical
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6islinklocal'
+                        class='regular pre-open'>
+                        #isLinkLocal
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6ismulticast'
+                        class='regular pre-open'>
+                        #isMulticast
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6is4'
+                        class='regular pre-open'>
+                        #is4
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6isteredo'
+                        class='regular pre-open'>
+                        #isTeredo
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6is6to4'
+                        class='regular pre-open'>
+                        #is6to4
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6isloopback'
+                        class='regular pre-open'>
+                        #isLoopback
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6regularexpressionstring'
+                        class='regular pre-open'>
+                        #regularExpressionString
+                      </a></li>
+                      
+                      <li><a
+                        href='#address6regularexpression'
+                        class='regular pre-open'>
+                        #regularExpression
+                      </a></li>
+                      
+                    </ul>
+                  
+                  
+                  
+                </div>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#href'
+                  class="">
+                  href
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#link'
+                  class="">
+                  link
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#group'
+                  class="">
+                  group
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#spanallzeroes'
+                  class="">
+                  spanAllZeroes
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#spanall'
+                  class="">
+                  spanAll
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#spanleadingzeroes'
+                  class="">
+                  spanLeadingZeroes
+                  
+                </a>
+                
+                </li>
+              
+                
+                <li><a
+                  href='#simplegroup'
+                  class="">
+                  simpleGroup
+                  
+                </a>
+                
+                </li>
+              
+            </ul>
+          </div>
+          <div class='mt1 h6 quiet'>
+            <a href='https://documentation.js.org/reading-documentation.html'>Need help reading this?</a>
+          </div>
+        </div>
+      </div>
+      <div id='split-right' class='relative overflow-auto height-viewport-100'>
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='address4'>
+      Address4
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L15-L45'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Represents an IPv4 address</p>
+
+    <div class='pre p1 fill-light mt0'>new Address4(address: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>address</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    An IPv4 address string
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Static Members</div>
+    <div class="clearfix">
+  
+    <div class='border-bottom' id='address4fromhex'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromHex(hex)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L99-L111'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts a hex string to an IPv4 address object</p>
+
+    <div class='pre p1 fill-light mt0'>fromHex(hex: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>hex</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    a hex string to convert
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4frominteger'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromInteger(integer)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L120-L122'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts an integer into a IPv4 address object</p>
+
+    <div class='pre p1 fill-light mt0'>fromInteger(integer: integer): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>integer</span> <code class='quiet'>(integer)</code>
+	    a number to convert
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4frombiginteger'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromBigInteger(bigInteger)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L262-L264'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts a BigInteger to a v4 address object</p>
+
+    <div class='pre p1 fill-light mt0'>fromBigInteger(bigInteger: BigInteger): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>bigInteger</span> <code class='quiet'>(BigInteger)</code>
+	    a BigInteger to convert
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+</div>
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Instance Members</div>
+    <div class="clearfix">
+  
+    <div class='border-bottom' id='address4isvalid'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isValid()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L68-L70'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return true if the address is valid</p>
+
+    <div class='pre p1 fill-light mt0'>isValid(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">Boolean</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">Boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4correctform'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>correctForm()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L78-L82'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns the correct form of an address</p>
+
+    <div class='pre p1 fill-light mt0'>correctForm(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4iscorrect'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isCorrect</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L90-L90'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is correct, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isCorrect</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">Boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4tohex'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>toHex()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L130-L134'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts an IPv4 address object to a hex string</p>
+
+    <div class='pre p1 fill-light mt0'>toHex(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4toarray'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>toArray()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L142-L146'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts an IPv4 address object to an array of bytes</p>
+
+    <div class='pre p1 fill-light mt0'>toArray(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4togroup6'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>toGroup6()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L154-L167'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Converts an IPv4 address object to an IPv6 address group</p>
+
+    <div class='pre p1 fill-light mt0'>toGroup6(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4biginteger'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>bigInteger()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L175-L183'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns the address as a BigInteger</p>
+
+    <div class='pre p1 fill-light mt0'>bigInteger(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4_startaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>_startAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L191-L195'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Helper function getting start address.</p>
+
+    <div class='pre p1 fill-light mt0'>_startAddress(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4startaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>startAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L204-L206'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The first address in the range given by this address' subnet.
+Often referred to as the Network Address.</p>
+
+    <div class='pre p1 fill-light mt0'>startAddress(): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4startaddressexclusive'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>startAddressExclusive()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L215-L218'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The first host address in the range given by this address's subnet ie
+the first address after the Network Address</p>
+
+    <div class='pre p1 fill-light mt0'>startAddressExclusive(): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4_endaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>_endAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L226-L230'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Helper function getting end address.</p>
+
+    <div class='pre p1 fill-light mt0'>_endAddress(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4endaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>endAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L239-L241'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The last address in the range given by this address' subnet
+Often referred to as the Broadcast</p>
+
+    <div class='pre p1 fill-light mt0'>endAddress(): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4endaddressexclusive'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>endAddressExclusive()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L250-L253'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The last host address in the range given by this address's subnet ie
+the last address prior to the Broadcast Address</p>
+
+    <div class='pre p1 fill-light mt0'>endAddressExclusive(): <a href="#address4">Address4</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address4">Address4</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4mask'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>mask(optionalMask)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L273-L279'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns the first n bits of the address, defaulting to the
+subnet mask</p>
+
+    <div class='pre p1 fill-light mt0'>mask(optionalMask: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalMask</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4getbitsbase2'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getBitsBase2(start, end)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L287-L289'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns the bits in the given range as a base-2 string</p>
+
+    <div class='pre p1 fill-light mt0'>getBitsBase2(start: any, end: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>start</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>end</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4isinsubnet'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isInSubnet</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L297-L297'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the given address is in the subnet of the current address</p>
+
+    <div class='pre p1 fill-light mt0'>isInSubnet</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address4binaryzeropad'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>binaryZeroPad()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv4.js#L305-L307'>
+      <span>lib/ipv4.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns a zero-padded base-2 string representation of the address</p>
+
+    <div class='pre p1 fill-light mt0'>binaryZeroPad(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+</div>
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='address6'>
+      Address6
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L37-L88'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Represents an IPv6 address</p>
+
+    <div class='pre p1 fill-light mt0'>new Address6(address: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>, groups: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>)</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>address</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    An IPv6 address string
+
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>groups</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>
+            = <code>8</code>)</code>
+	    How many octets to parse
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> address = <span class="hljs-keyword">new</span> Address6(<span class="hljs-string">'2001::/32'</span>);</pre>
+    
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Static Members</div>
+    <div class="clearfix">
+  
+    <div class='border-bottom' id='address6frombiginteger'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromBigInteger(bigInteger)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L105-L115'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Convert a BigInteger to a v6 address object</p>
+
+    <div class='pre p1 fill-light mt0'>fromBigInteger(bigInteger: BigInteger): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>bigInteger</span> <code class='quiet'>(BigInteger)</code>
+	    a BigInteger to convert
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> bigInteger = <span class="hljs-keyword">new</span> BigInteger(<span class="hljs-string">'1000000000000'</span>);
+<span class="hljs-keyword">var</span> address = Address6.fromBigInteger(bigInteger);
+address.correctForm(); <span class="hljs-comment">// '::e8:d4a5:1000'</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6fromurl'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromURL(url)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L128-L186'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Convert a URL (with optional port number) to an address object</p>
+
+    <div class='pre p1 fill-light mt0'>fromURL(url: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>url</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    a URL with optional port number
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> addressAndPort = Address6.fromURL(<span class="hljs-string">'http://[ffff::]:8080/foo/'</span>);
+addressAndPort.address.correctForm(); <span class="hljs-comment">// 'ffff::'</span>
+addressAndPort.port; <span class="hljs-comment">// 8080</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6fromaddress4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromAddress4(address4, address)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L199-L205'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Create an IPv6-mapped address given an IPv4 address</p>
+
+    <div class='pre p1 fill-light mt0'>fromAddress4(address4: any, address: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>address4</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>address</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    An IPv4 address string
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> address = Address6.fromAddress4(<span class="hljs-string">'192.168.0.1'</span>);
+address.correctForm(); <span class="hljs-comment">// '::ffff:c0a8:1'</span>
+address.to4in6(); <span class="hljs-comment">// '::ffff:192.168.0.1'</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6fromarpa'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromArpa(arpaFormAddress)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L217-L240'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return an address from ip6.arpa form</p>
+
+    <div class='pre p1 fill-light mt0'>fromArpa(arpaFormAddress: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): Adress6</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>arpaFormAddress</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    an 'ip6.arpa' form address
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>Adress6</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> address = Address6.fromArpa(e.f.f.f<span class="hljs-number">.3</span>.c<span class="hljs-number">.2</span><span class="hljs-number">.6</span>.f.f.f.e<span class="hljs-number">.6</span><span class="hljs-number">.6</span><span class="hljs-number">.8</span>.e<span class="hljs-number">.1</span><span class="hljs-number">.0</span><span class="hljs-number">.6</span><span class="hljs-number">.7</span><span class="hljs-number">.9</span><span class="hljs-number">.4</span>.e.c<span class="hljs-number">.0</span><span class="hljs-number">.0</span><span class="hljs-number">.0</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span><span class="hljs-number">.0</span><span class="hljs-number">.0</span><span class="hljs-number">.2</span>.ip6.arpa.)
+address.correctForm(); <span class="hljs-comment">// '2001:0:ce49:7601:e866:efff:62c3:fffe'</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6frombytearray'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromByteArray(bytes)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L941-L943'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Convert a byte array to an Address6 object</p>
+
+    <div class='pre p1 fill-light mt0'>fromByteArray(bytes: any): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>bytes</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6fromunsignedbytearray'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>fromUnsignedByteArray(bytes)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L951-L964'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Convert an unsigned byte array to an Address6 object</p>
+
+    <div class='pre p1 fill-light mt0'>fromUnsignedByteArray(bytes: any): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>bytes</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6scopes'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>SCOPES</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L9-L18'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Represents IPv6 address scopes</p>
+
+    <div class='pre p1 fill-light mt0'>SCOPES</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6types'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>TYPES</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L25-L48'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Represents IPv6 address types</p>
+
+    <div class='pre p1 fill-light mt0'>TYPES</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6re_bad_characters'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>RE_BAD_CHARACTERS</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L55-L55'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>A regular expression that matches bad characters in an IPv6 address</p>
+
+    <div class='pre p1 fill-light mt0'>RE_BAD_CHARACTERS</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6re_bad_address'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>RE_BAD_ADDRESS</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L62-L62'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>A regular expression that matches an incorrect IPv6 address</p>
+
+    <div class='pre p1 fill-light mt0'>RE_BAD_ADDRESS</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6re_subnet_string'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>RE_SUBNET_STRING</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L69-L69'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>A regular expression that matches an IPv6 subnet</p>
+
+    <div class='pre p1 fill-light mt0'>RE_SUBNET_STRING</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6re_zone_string'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>RE_ZONE_STRING</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/constants.js#L76-L76'>
+      <span>lib/v6/constants.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>A regular expression that matches an IPv6 zone</p>
+
+    <div class='pre p1 fill-light mt0'>RE_ZONE_STRING</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+</div>
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Instance Members</div>
+    <div class="clearfix">
+  
+    <div class='border-bottom' id='address6microsofttranscription'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>microsoftTranscription()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L267-L270'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the Microsoft UNC transcription of the address</p>
+
+    <div class='pre p1 fill-light mt0'>microsoftTranscription(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the Microsoft UNC transcription of the address
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6mask'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>mask(optionalMask, mask)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L279-L285'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the first n bits of the address, defaulting to the subnet mask</p>
+
+    <div class='pre p1 fill-light mt0'>mask(optionalMask: any, mask: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalMask</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>mask</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>
+            = <code>subnet</code>)</code>
+	    the number of bits to mask
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the first n bits of the address as a string
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6possiblesubnets'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>possibleSubnets(optionalSubnetSize, size)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L295-L309'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the number of possible subnets of a given size in the address</p>
+
+    <div class='pre p1 fill-light mt0'>possibleSubnets(optionalSubnetSize: any, size: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalSubnetSize</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>size</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number">number</a>
+            = <code>128</code>)</code>
+	    the subnet size
+
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6_startaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>_startAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L317-L321'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Helper function getting start address.</p>
+
+    <div class='pre p1 fill-light mt0'>_startAddress(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6startaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>startAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L330-L332'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The first address in the range given by this address' subnet
+Often referred to as the Network Address.</p>
+
+    <div class='pre p1 fill-light mt0'>startAddress(): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6startaddressexclusive'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>startAddressExclusive()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L341-L344'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The first host address in the range given by this address's subnet ie
+the first address after the Network Address</p>
+
+    <div class='pre p1 fill-light mt0'>startAddressExclusive(): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6_endaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>_endAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L352-L356'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Helper function getting end address.</p>
+
+    <div class='pre p1 fill-light mt0'>_endAddress(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6endaddress'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>endAddress()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L365-L367'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The last address in the range given by this address' subnet
+Often referred to as the Broadcast</p>
+
+    <div class='pre p1 fill-light mt0'>endAddress(): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6endaddressexclusive'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>endAddressExclusive()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L376-L379'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>The last host address in the range given by this address's subnet ie
+the last address prior to the Broadcast Address</p>
+
+    <div class='pre p1 fill-light mt0'>endAddressExclusive(): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6getscope'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getScope()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L387-L396'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the scope of the address</p>
+
+    <div class='pre p1 fill-light mt0'>getScope(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6gettype'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getType()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L404-L412'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the type of the address</p>
+
+    <div class='pre p1 fill-light mt0'>getType(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6getbits'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getBits(start, end)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L420-L422'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the bits in the given range as a BigInteger</p>
+
+    <div class='pre p1 fill-light mt0'>getBits(start: any, end: any): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>start</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>end</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6getbitsbase2'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getBitsBase2(start, end)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L430-L432'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the bits in the given range as a base-2 string</p>
+
+    <div class='pre p1 fill-light mt0'>getBitsBase2(start: any, end: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>start</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>end</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6getbitsbase16'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getBitsBase16(start, end)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L440-L448'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the bits in the given range as a base-16 string</p>
+
+    <div class='pre p1 fill-light mt0'>getBitsBase16(start: any, end: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>start</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>end</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6getbitspastsubnet'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>getBitsPastSubnet()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L456-L458'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the bits that are set past the subnet mask length</p>
+
+    <div class='pre p1 fill-light mt0'>getBitsPastSubnet(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6reverseform'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>reverseForm(options)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L468-L495'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the reversed ip6.arpa form of the address</p>
+
+    <div class='pre p1 fill-light mt0'>reverseForm(options: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a>): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>options</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a>)</code>
+	    
+          </div>
+          
+          <table class='mt1 mb2 fixed-table h5 col-12'>
+            <colgroup>
+              <col width='30%' />
+              <col width='70%' />
+            </colgroup>
+            <thead>
+              <tr class='bold fill-light'>
+                <th>Name</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody class='mt1'>
+              
+                <tr>
+  <td class='break-word'><span class='code bold'>options.omitSuffix</span> <code class='quiet'><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>
+  </td>
+  <td class='break-word'><span>omit the "ip6.arpa" suffix
+</span></td>
+</tr>
+
+
+              
+            </tbody>
+          </table>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6correctform'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>correctForm()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L503-L561'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the correct form of the address</p>
+
+    <div class='pre p1 fill-light mt0'>correctForm(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6binaryzeropad'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>binaryZeroPad()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L574-L576'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return a zero-padded base-2 string representation of the address</p>
+
+    <div class='pre p1 fill-light mt0'>binaryZeroPad(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> address = <span class="hljs-keyword">new</span> Address6(<span class="hljs-string">'2001:4860:4001:803::1011'</span>);
+address.binaryZeroPad();
+<span class="hljs-comment">// '0010000000000001010010000110000001000000000000010000100000000011</span>
+<span class="hljs-comment">//  0000000000000000000000000000000000000000000000000001000000010001'</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6canonicalform'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>canonicalForm()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L723-L729'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the canonical form of the address</p>
+
+    <div class='pre p1 fill-light mt0'>canonicalForm(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6decimal'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>decimal()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L737-L745'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the decimal form of the address</p>
+
+    <div class='pre p1 fill-light mt0'>decimal(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6biginteger'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>bigInteger()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L753-L759'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the address as a BigInteger</p>
+
+    <div class='pre p1 fill-light mt0'>bigInteger(): BigInteger</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code>BigInteger</code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6to4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>to4()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L770-L775'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the last two groups of this address as an IPv4 address string</p>
+
+    <div class='pre p1 fill-light mt0'>to4(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Example</div>
+    
+      
+      <pre class='p1 overflow-auto round fill-light'><span class="hljs-keyword">var</span> address = <span class="hljs-keyword">new</span> Address6(<span class="hljs-string">'2001:4860:4001::1825:bf11'</span>);
+address.to4(); <span class="hljs-comment">// '24.37.191.17'</span></pre>
+    
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6to4in6'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>to4in6()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L783-L796'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return the v4-in-v6 form of the address</p>
+
+    <div class='pre p1 fill-light mt0'>to4in6(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6inspectteredo'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>inspectTeredo()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L804-L858'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return an object containing the Teredo properties of the address</p>
+
+    <div class='pre p1 fill-light mt0'>inspectTeredo(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6inspect6to4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>inspect6to4()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L866-L880'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return an object containing the 6to4 properties of the address</p>
+
+    <div class='pre p1 fill-light mt0'>inspect6to4(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6to6to4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>to6to4()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L888-L902'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return a v6 6to4 address from a v6 v4inv6 address</p>
+
+    <div class='pre p1 fill-light mt0'>to6to4(): <a href="#address6">Address6</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="#address6">Address6</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6tobytearray'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>toByteArray()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L910-L919'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return a byte array</p>
+
+    <div class='pre p1 fill-light mt0'>toByteArray(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6tounsignedbytearray'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>toUnsignedByteArray()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/ipv6.js#L931-L933'>
+      <span>lib/ipv6.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Return an unsigned byte array</p>
+
+    <div class='pre p1 fill-light mt0'>toUnsignedByteArray(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6isvalid'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isValid()</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L12-L14'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is valid, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isValid(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6isinsubnet'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isInSubnet</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L22-L22'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the given address is in the subnet of the current address</p>
+
+    <div class='pre p1 fill-light mt0'>isInSubnet</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6iscorrect'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isCorrect</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L30-L30'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is correct, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isCorrect</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6iscanonical'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isCanonical</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L38-L40'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is in the canonical form, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isCanonical</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6islinklocal'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isLinkLocal</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L48-L56'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a link local address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isLinkLocal</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6ismulticast'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isMulticast</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L64-L66'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a multicast address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isMulticast</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6is4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>is4</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L74-L76'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a v4-in-v6 address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>is4</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6isteredo'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isTeredo</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L84-L86'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a Teredo address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isTeredo</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6is6to4'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>is6to4</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L94-L96'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a 6to4 address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>is6to4</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6isloopback'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>isLoopback</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/attributes.js#L104-L106'>
+      <span>lib/v6/attributes.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Returns true if the address is a loopback address, false otherwise</p>
+
+    <div class='pre p1 fill-light mt0'>isLoopback</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean">boolean</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6regularexpressionstring'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>regularExpressionString(optionalSubString)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/regular-expressions.js#L100-L140'>
+      <span>lib/v6/regular-expressions.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Generate a regular expression string that can be used to find or validate
+all variations of this address</p>
+
+    <div class='pre p1 fill-light mt0'>regularExpressionString(optionalSubString: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalSubString</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+    <div class='border-bottom' id='address6regularexpression'>
+      <div class="clearfix small pointer toggle-sibling">
+        <div class="py1 contain">
+            <a class='icon pin-right py1 dark-link caret-right'>▸</a>
+            <span class='code strong strong truncate'>regularExpression(optionalSubstring, optionalSubString)</span>
+        </div>
+      </div>
+      <div class="clearfix display-none toggle-target">
+        <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/regular-expressions.js#L150-L152'>
+      <span>lib/v6/regular-expressions.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Generate a regular expression that can be used to find or validate all
+variations of this address.</p>
+
+    <div class='pre p1 fill-light mt0'>regularExpression(optionalSubstring: any, optionalSubString: <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RegExp">RegExp</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalSubstring</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalSubString</span> <code class='quiet'>(<a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">string</a>)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RegExp">RegExp</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+      </div>
+    </div>
+  
+</div>
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='href'>
+      href
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/html.js#L10-L18'>
+      <span>lib/v6/html.js</span>
+      </a>
+    
+  </div>
+  
+
+  
+    <div class='pre p1 fill-light mt0'>href(optionalPort: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalPort</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the address in link form with a default port of 80
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='link'>
+      link
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/html.js#L23-L53'>
+      <span>lib/v6/html.js</span>
+      </a>
+    
+  </div>
+  
+
+  
+    <div class='pre p1 fill-light mt0'>link(options: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>options</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        a link suitable for conveying the address via a URL hash
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='group'>
+      group
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/html.js#L59-L107'>
+      <span>lib/v6/html.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Groups an address</p>
+
+    <div class='pre p1 fill-light mt0'>group(): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='spanallzeroes'>
+      spanAllZeroes
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/helpers.js#L8-L10'>
+      <span>lib/v6/helpers.js</span>
+      </a>
+    
+  </div>
+  
+
+  
+    <div class='pre p1 fill-light mt0'>spanAllZeroes</div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the string with all zeroes contained in a 
+<span>
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='spanall'>
+      spanAll
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/helpers.js#L15-L27'>
+      <span>lib/v6/helpers.js</span>
+      </a>
+    
+  </div>
+  
+
+  
+    <div class='pre p1 fill-light mt0'>spanAll(s: any, optionalOffset: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>s</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>optionalOffset</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the string with each character contained in a 
+<span>
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='spanleadingzeroes'>
+      spanLeadingZeroes
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/helpers.js#L36-L42'>
+      <span>lib/v6/helpers.js</span>
+      </a>
+    
+  </div>
+  
+
+  
+    <div class='pre p1 fill-light mt0'>spanLeadingZeroes(address: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>address</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        the string with leading zeroes contained in a 
+<span>
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+          
+          <section class='p2 mb2 clearfix bg-white minishadow'>
+
+  
+  <div class='clearfix'>
+    
+    <h3 class='fl m0' id='simplegroup'>
+      simpleGroup
+    </h3>
+    
+    
+      <a class='fr fill-darken0 round round pad1x quiet h5' href='https://github.com/beaugunderson/ip-address/blob/00b5eb296a38f234de6183b77ed16b46e9649860/lib/v6/helpers.js#L48-L64'>
+      <span>lib/v6/helpers.js</span>
+      </a>
+    
+  </div>
+  
+
+  <p>Groups an address</p>
+
+    <div class='pre p1 fill-light mt0'>simpleGroup(addressString: any, offset: any): <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></div>
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Parameters</div>
+    <div class='prose'>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>addressString</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+        <div class='space-bottom0'>
+          <div>
+            <span class='code bold'>offset</span> <code class='quiet'>(any)</code>
+	    
+          </div>
+          
+        </div>
+      
+    </div>
+  
+
+  
+
+  
+    
+      <div class='py1 quiet mt1 prose-big'>Returns</div>
+      <code><a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String">String</a></code>:
+        a grouped address
+
+      
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</section>
+
+          
+        
+      </div>
+    </div>
+  <script src='assets/anchor.js'></script>
+  <script src='assets/split.js'></script>
+  <script src='assets/site.js'></script>
+</body>
+</html>

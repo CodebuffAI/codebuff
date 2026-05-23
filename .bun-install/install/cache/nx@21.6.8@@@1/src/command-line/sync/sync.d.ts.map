@@ -1,0 +1,1 @@
+{"version":3,"file":"sync.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/command-line/sync/sync.ts"],"names":[],"mappings":"AAcA,OAAO,KAAK,EAAE,QAAQ,EAAE,MAAM,kBAAkB,CAAC;AAGjD,UAAU,WAAY,SAAQ,QAAQ;IACpC,KAAK,CAAC,EAAE,OAAO,CAAC;CACjB;AAED,wBAAgB,WAAW,CAAC,OAAO,EAAE,WAAW,GAAG,OAAO,CAAC,MAAM,CAAC,CAyJjE"}

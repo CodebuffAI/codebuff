@@ -1,0 +1,1 @@
+{"version":3,"file":"azure-ad.d.ts","sourceRoot":"","sources":["../src/providers/azure-ad.ts"],"names":[],"mappings":"AAAA;;;;;;;;;GASG;AACH,OAAO,gBAAgB,EAAE,EACvB,uBAAuB,EACxB,MAAM,yBAAyB,CAAA;AAEhC,MAAM,MAAM,cAAc,GAAG,uBAAuB,CAAA;AAEpD;;;;GAIG;AACH,MAAM,CAAC,OAAO,UAAU,OAAO,CAC7B,MAAM,EAAE,UAAU,CAAC,OAAO,gBAAgB,CAAC,CAAC,CAAC,CAAC,GAC7C,UAAU,CAAC,OAAO,gBAAgB,CAAC,CAMrC"}

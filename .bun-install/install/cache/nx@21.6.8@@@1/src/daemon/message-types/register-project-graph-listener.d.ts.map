@@ -1,0 +1,1 @@
+{"version":3,"file":"register-project-graph-listener.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/message-types/register-project-graph-listener.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,+BAA+B,oCACT,CAAC;AAEpC,MAAM,MAAM,mCAAmC,GAAG;IAChD,IAAI,EAAE,OAAO,+BAA+B,CAAC;CAC9C,CAAC;AAEF,wBAAgB,qCAAqC,CACnD,OAAO,EAAE,OAAO,GACf,OAAO,IAAI,mCAAmC,CAOhD"}

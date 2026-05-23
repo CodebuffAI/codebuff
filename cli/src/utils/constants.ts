@@ -1,5 +1,11 @@
 import type { ToolName } from '@codebuff/sdk'
 
+import {
+  CODEBUFF_LOCAL_MODE_ENV_VAR,
+  OPENBUFF_LOCAL_MODE_ENV_VAR,
+  isLocalModeEnabled,
+} from '@codebuff/common/constants/local-mode'
+
 import { getCliEnv } from './env'
 
 /**
@@ -7,6 +13,15 @@ import { getCliEnv } from './env'
  * Injected via --define at compile time; enables dead-code elimination by the bundler.
  */
 export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
+
+export const isLocalMode = (): boolean =>
+  !process.argv.includes('--cloud') &&
+  isLocalModeEnabled({
+    env: {
+      [OPENBUFF_LOCAL_MODE_ENV_VAR]: process.env[OPENBUFF_LOCAL_MODE_ENV_VAR],
+      [CODEBUFF_LOCAL_MODE_ENV_VAR]: process.env[CODEBUFF_LOCAL_MODE_ENV_VAR],
+    },
+  })
 
 /** Message shown when the user ends a freebuff session early. */
 export const END_SESSION_MESSAGE =

@@ -3,6 +3,7 @@ import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
+import { isLocalMode } from './constants'
 import { getCliEnv, getSystemProcessEnv } from './env'
 import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
@@ -47,8 +48,9 @@ export function resetCodebuffClient(): void {
 export async function getCodebuffClient(): Promise<CodebuffClient | null> {
   if (!clientInstance) {
     const { token: apiKey } = getAuthTokenDetails()
+    const localMode = isLocalMode()
 
-    if (!apiKey) {
+    if (!apiKey && !localMode) {
       logger.warn(
         {},
         `No authentication token found. Please run the login flow or set ${API_KEY_ENV_VAR}.`,
@@ -74,6 +76,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
       const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
         apiKey,
+        localMode,
         cwd: projectRoot,
         agentDefinitions,
         logger,

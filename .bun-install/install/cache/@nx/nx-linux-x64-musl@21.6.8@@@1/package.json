@@ -1,0 +1,26 @@
+{
+  "name": "@nx/nx-linux-x64-musl",
+  "version": "21.6.8",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nrwl/nx.git",
+    "directory": "packages/nx/native-packages/linux-x64-musl"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "main": "nx.linux-x64-musl.node",
+  "files": [
+    "nx.linux-x64-musl.node"
+  ],
+  "libc": [
+    "musl"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

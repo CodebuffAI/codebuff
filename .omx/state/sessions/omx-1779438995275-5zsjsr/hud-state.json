@@ -1,0 +1,6 @@
+{
+  "last_turn_at": "2026-05-22T09:12:16.813Z",
+  "last_progress_at": "2026-05-22T09:12:16.813Z",
+  "turn_count": 2,
+  "last_agent_output": "Implemented the local/BYOK plan.\n\nWhat changed:\n- Added explicit local mode:\n  - CLI: `codebuff --lo"
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"resolve-changelog-renderer.d.ts","sourceRoot":"","sources":["../../../../../../../packages/nx/src/command-line/release/utils/resolve-changelog-renderer.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,iBAAiB,MAAM,wCAAwC,CAAC;AAM5E,wBAAgB,wBAAwB,CACtC,qBAAqB,EAAE,MAAM,GAC5B,OAAO,iBAAiB,CAqB1B"}

@@ -1,0 +1,77 @@
+{
+  "name": "magic-bytes.js",
+  "version": "1.12.1",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "release": {
+    "branches": [
+      "master"
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      "@semantic-release/github",
+      "@semantic-release/git"
+    ]
+  },
+  "scripts": {
+    "prettier": "prettier --write \"{src,__{tests,mocks}__}/**/*.{tsx,ts}\"",
+    "pre-test": "jest --clear-cache",
+    "prebuild": "rimraf dist",
+    "test": "jest",
+    "build": "tsc",
+    "example:html": "webpack --config example/html/webpack.config.js; open example/html/index.html",
+    "example:webapp": "vite --config example/webapp/vite.config.js example/webapp",
+    "build:example:webapp": "vite --config example/webapp/vite.config.js build example/webapp",
+    "semantic-release": "semantic-release",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "url": "https://github.com/LarsKoelpin/magic-bytes",
+    "type": "git"
+  },
+  "author": "Lars Kölpin",
+  "license": "MIT",
+  "description": "Detect Filetype by bytes",
+  "keywords": [
+    "magic-bytes",
+    "mime",
+    "filetype",
+    "file",
+    "extension",
+    "magic byte",
+    "magic number",
+    "mime",
+    "mimetype",
+    "validation",
+    "javascript",
+    "upload"
+  ],
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.15.0",
+    "@commitlint/cli": "^17.7.1",
+    "@commitlint/config-conventional": "^17.7.0",
+    "@semantic-release/git": "^10.0.1",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.6.2",
+    "husky": "^8.0.3",
+    "jest": "^27.0.6",
+    "open": "^9.1.0",
+    "prettier": "^2.6.1",
+    "prettier-plugin-organize-imports": "^2.3.4",
+    "regenerator-runtime": "^0.11.1",
+    "semantic-release": "^22.0.5",
+    "ts-jest": "^27.0.5",
+    "ts-loader": "^9.4.4",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.3.5",
+    "vite": "^4.4.9",
+    "webpack-cli": "^5.1.4",
+    "rimraf": "^6.0.1"
+  }
+}

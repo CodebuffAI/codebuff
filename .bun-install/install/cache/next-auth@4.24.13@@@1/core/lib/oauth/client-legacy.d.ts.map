@@ -1,0 +1,1 @@
+{"version":3,"file":"client-legacy.d.ts","sourceRoot":"","sources":["../../../src/core/lib/oauth/client-legacy.ts"],"names":[],"mappings":"AAGA,OAAO,EAAE,KAAK,EAAE,MAAM,OAAO,CAAA;AAC7B,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,aAAa,CAAA;AAElD;;GAEG;AACH,wBAAgB,YAAY,CAAC,OAAO,EAAE,eAAe,CAAC,OAAO,CAAC,SA6D7D;AAED,eAAO,MAAM,gBAAgB,eAAY,CAAA"}

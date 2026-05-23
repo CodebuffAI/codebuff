@@ -29,12 +29,16 @@ export const CHATGPT_OAUTH_TOKEN_ENV_VAR = 'CODEBUFF_CHATGPT_OAUTH_TOKEN'
  * This includes optimistic aliases requested by the user.
  */
 export const OPENROUTER_TO_OPENAI_MODEL_MAP: Record<string, string> = {
+  'openai/gpt-5.5': 'gpt-5.5',
   'openai/gpt-5.4': 'gpt-5.4',
+  'openai/gpt-5.4-mini': 'gpt-5.4-mini',
+  'openai/gpt-5.4-nano': 'gpt-5.4-nano',
   'openai/gpt-5.4-codex': 'gpt-5.4-codex',
   'openai/gpt-5.3': 'gpt-5.3',
   'openai/gpt-5.3-codex': 'gpt-5.3-codex',
   'openai/gpt-5.2': 'gpt-5.2',
   'openai/gpt-5.2-codex': 'gpt-5.2-codex',
+  'openai/gpt-5.2-chat-latest': 'gpt-5.2-chat-latest',
 
   // Nearby/optimistic aliases supported in current model config.
   'openai/gpt-5.1': 'gpt-5.1',

@@ -1,0 +1,26 @@
+{
+  "name": "@nx/nx-linux-x64-gnu",
+  "version": "21.6.8",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nrwl/nx.git",
+    "directory": "packages/nx/native-packages/linux-x64-gnu"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "main": "nx.linux-x64-gnu.node",
+  "files": [
+    "nx.linux-x64-gnu.node"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

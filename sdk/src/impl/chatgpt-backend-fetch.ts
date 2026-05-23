@@ -160,7 +160,7 @@ function convertTools(tools: ChatCompletionsTool[]): unknown[] {
   })
 }
 
-function transformRequestBody(
+export function transformChatGptBackendRequestBody(
   body: Record<string, unknown>,
 ): Record<string, unknown> {
   const messages = (body.messages ?? []) as ChatCompletionsMessage[]
@@ -180,7 +180,6 @@ function transformRequestBody(
     input: convertMessages(nonSystemMessages),
     stream: true,
     store: false,
-    include: ['reasoning.encrypted_content'],
   }
 
   if (tools?.length) {
@@ -196,8 +195,7 @@ function transformRequestBody(
 
   const reasoningEffort = body.reasoning_effort as string | undefined
   transformed.reasoning = {
-    effort: reasoningEffort || 'high',
-    summary: 'auto',
+    effort: reasoningEffort || 'low',
   }
 
   transformed.text = { verbosity: 'medium' }
@@ -218,6 +216,7 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
   let responseModel: string | null = null
   let nextToolCallIndex = 0
   const outputIndexToToolIndex = new Map<number, number>()
+  const outputIndexToArguments = new Map<number, string>()
   let emittedRole = false
 
   function emit(
@@ -266,17 +265,12 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
         break
       }
 
-      case 'response.reasoning_summary_text.delta': {
-        emit(controller, {
-          id: responseId,
-          choices: [
-            {
-              index: 0,
-              delta: { reasoning_content: data.delta as string },
-              finish_reason: null,
-            },
-          ],
-        })
+      case 'response.reasoning_summary_text.delta':
+      case 'response.reasoning_text.delta':
+      case 'response.reasoning.delta': {
+        // Do not forward hidden/reasoning text to the chat-completions facade.
+        // Some GPT/Codex models otherwise surface only "*thinking*" blocks in
+        // the TUI instead of actionable assistant text/tool calls.
         break
       }
 
@@ -286,6 +280,7 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
           const tcIndex = nextToolCallIndex++
           const outputIdx = (data.output_index as number) ?? 0
           outputIndexToToolIndex.set(outputIdx, tcIndex)
+          outputIndexToArguments.set(outputIdx, '')
           emit(controller, {
             id: responseId,
             choices: [
@@ -313,6 +308,9 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
 
       case 'response.function_call_arguments.delta': {
         const outputIdx = (data.output_index as number) ?? 0
+        const delta = (data.delta as string) ?? ''
+        const previousArguments = outputIndexToArguments.get(outputIdx) ?? ''
+        outputIndexToArguments.set(outputIdx, previousArguments + delta)
         const tcIdx = outputIndexToToolIndex.get(outputIdx) ?? 0
         emit(controller, {
           id: responseId,
@@ -323,7 +321,7 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
                 tool_calls: [
                   {
                     index: tcIdx,
-                    function: { arguments: data.delta as string },
+                    function: { arguments: delta },
                   },
                 ],
               },
@@ -331,6 +329,73 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
             },
           ],
         })
+        break
+      }
+
+      case 'response.function_call_arguments.done': {
+        const outputIdx = (data.output_index as number) ?? 0
+        const doneArguments = (data.arguments as string | undefined) ?? ''
+        const previousArguments = outputIndexToArguments.get(outputIdx) ?? ''
+        const missingSuffix = doneArguments.startsWith(previousArguments)
+          ? doneArguments.slice(previousArguments.length)
+          : doneArguments
+
+        if (missingSuffix) {
+          outputIndexToArguments.set(outputIdx, doneArguments)
+          const tcIdx = outputIndexToToolIndex.get(outputIdx) ?? 0
+          emit(controller, {
+            id: responseId,
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [
+                    {
+                      index: tcIdx,
+                      function: { arguments: missingSuffix },
+                    },
+                  ],
+                },
+                finish_reason: null,
+              },
+            ],
+          })
+        }
+        break
+      }
+
+      case 'response.output_item.done': {
+        const item = data.item as Record<string, unknown> | undefined
+        if (item?.type === 'function_call') {
+          const outputIdx = (data.output_index as number) ?? 0
+          const doneArguments = (item.arguments as string | undefined) ?? ''
+          const previousArguments = outputIndexToArguments.get(outputIdx) ?? ''
+          const missingSuffix = doneArguments.startsWith(previousArguments)
+            ? doneArguments.slice(previousArguments.length)
+            : doneArguments
+
+          if (missingSuffix) {
+            outputIndexToArguments.set(outputIdx, doneArguments)
+            const tcIdx = outputIndexToToolIndex.get(outputIdx) ?? 0
+            emit(controller, {
+              id: responseId,
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: tcIdx,
+                        function: { arguments: missingSuffix },
+                      },
+                    ],
+                  },
+                  finish_reason: null,
+                },
+              ],
+            })
+          }
+        }
         break
       }
 
@@ -471,7 +536,7 @@ export function createChatGptBackendFetch(): FetchFunction {
     if (init?.body && typeof init.body === 'string') {
       try {
         const body = JSON.parse(init.body) as Record<string, unknown>
-        const transformedBody = transformRequestBody(body)
+        const transformedBody = transformChatGptBackendRequestBody(body)
         transformedInit = { ...init, body: JSON.stringify(transformedBody) }
       } catch {
         // If body can't be parsed, pass through unchanged

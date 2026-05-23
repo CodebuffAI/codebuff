@@ -1,0 +1,1 @@
+{"version":3,"file":"element-inference.es.js","sourceRoot":"","sources":["../../../src/entrypoints/element-inference.es.ts"],"names":[],"mappings":";;;AAAA,mFAA6G;AAApG,gHAAA,WAAW,OAAA;AAAE,mHAAA,cAAc,OAAA;AAAE,qHAAA,gBAAgB,OAAA","sourcesContent":["export { findElement, getElementPath, elementIsVisible } from '../extensions/product-tours/element-inference'\n"]}

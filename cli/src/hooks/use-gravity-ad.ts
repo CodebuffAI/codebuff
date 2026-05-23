@@ -6,7 +6,7 @@ import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_FREEBUFF, isLocalMode } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 
@@ -490,7 +490,7 @@ function getAdUserAgent(): string {
 }
 
 function getCliAdRequestUserAgent(): string {
-  const product = IS_FREEBUFF ? 'Freebuff-CLI' : 'Codebuff-CLI'
+  const product = IS_FREEBUFF ? 'Freebuff-CLI' : isLocalMode() ? 'Openbuff-CLI' : 'Codebuff-CLI'
   const version = getCliEnv().CODEBUFF_CLI_VERSION ?? 'dev'
   return `${product}/${version}`
 }

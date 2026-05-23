@@ -3,7 +3,7 @@ import { describe, it, expect } from 'bun:test'
 import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compatible-chat-messages'
 
 describe('user messages', () => {
-  it('should keep messages with only a text part', async () => {
+  it('should keep messages with only a text part by default', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
@@ -14,6 +14,20 @@ describe('user messages', () => {
     expect(result).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
     ])
+  })
+
+  it('stringifies text-only user content when requested', async () => {
+    const result = convertToOpenAICompatibleChatMessages(
+      [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      { stringifyTextContent: true },
+    )
+
+    expect(result).toEqual([{ role: 'user', content: 'Hello' }])
   })
 
   it('should convert messages with image parts', async () => {

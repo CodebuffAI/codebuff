@@ -1,0 +1,1 @@
+{"version":3,"file":"force-shutdown.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/daemon/message-types/force-shutdown.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,cAAc,EAAG,gBAAyB,CAAC;AAExD,MAAM,MAAM,0BAA0B,GAAG;IACvC,IAAI,EAAE,OAAO,cAAc,CAAC;CAC7B,CAAC;AAEF,wBAAgB,4BAA4B,CAC1C,OAAO,EAAE,OAAO,GACf,OAAO,IAAI,0BAA0B,CAOvC"}

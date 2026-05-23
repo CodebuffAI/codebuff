@@ -15,8 +15,20 @@ import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
-import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
+import {
+  AGENT_MODES,
+  END_SESSION_MESSAGE,
+  IS_FREEBUFF,
+  isLocalMode,
+} from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import {
+  configureOpenbuffModelFromArgs,
+  formatOpenbuffModelStatus,
+  formatOpenbuffProviderStatus,
+  handleOpenbuffProviderCommand,
+  setupOpenbuffProviderFromArgs,
+} from '../utils/openbuff-provider'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
 
@@ -172,6 +184,9 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'image',
   'publish',
   'gpt-5-agent',
+  'setup',
+  'models',
+  'provider',
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set([
@@ -264,6 +279,14 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'logout',
     aliases: ['signout'],
     handler: (params) => {
+      if (isLocalMode()) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage('Logout is disabled in Openbuff.'),
+        ])
+        clearInput(params)
+        return
+      }
       params.abortControllerRef.current?.abort()
       params.stopStreaming()
       params.setCanProcessQueue(false)
@@ -354,10 +377,94 @@ const ALL_COMMANDS: CommandDefinition[] = [
       }, 0)
     },
   }),
+  defineCommandWithArgs({
+    name: 'setup',
+    handler: (params, args) => {
+      try {
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(setupOpenbuffProviderFromArgs(args)),
+        ])
+      } catch (error) {
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(error instanceof Error ? error.message : String(error)),
+        ])
+      }
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'models',
+    handler: (params, args) => {
+      let message: string
+      try {
+        message = args.trim()
+          ? configureOpenbuffModelFromArgs(args)
+          : formatOpenbuffModelStatus()
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(message),
+      ])
+      if (args.trim().match(/^(configure|wizard)$/)) {
+        useChatStore.getState().setInputMode('openbuff:models')
+      }
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'provider',
+    handler: (params, args) => {
+      let message: string
+      let startWizard = false
+      let connectCodex = false
+      try {
+        if (args.trim()) {
+          const result = handleOpenbuffProviderCommand(args)
+          message = result.message
+          startWizard = !!result.startWizard
+          connectCodex = !!result.connectCodex
+        } else {
+          message = formatOpenbuffProviderStatus()
+        }
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(message),
+      ])
+      if (startWizard) {
+        useChatStore.getState().setInputMode('openbuff:provider')
+      } else if (connectCodex) {
+        useChatStore.getState().setInputMode('connect:chatgpt')
+      }
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
   defineCommand({
     name: 'usage',
     aliases: ['credits'],
     handler: async (params) => {
+      if (isLocalMode()) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage('Usage and credits are disabled in Openbuff.'),
+        ])
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return
+      }
       const { postUserMessage } = await handleUsageCommand()
       params.setMessages((prev) => postUserMessage(prev))
       params.saveToHistory(params.inputValue.trim())
@@ -368,6 +475,14 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'subscribe',
     aliases: ['strong', 'sub', 'buy-credits'],
     handler: (params) => {
+      if (isLocalMode()) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage('Subscriptions are disabled in Openbuff.'),
+        ])
+        clearInput(params)
+        return
+      }
       safeOpen(WEBSITE_URL + '/subscribe')
       clearInput(params)
     },

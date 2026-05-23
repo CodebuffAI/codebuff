@@ -16,6 +16,8 @@ export type InputMode =
   | 'image'
   | 'help'
   | 'connect:chatgpt'
+  | 'openbuff:provider'
+  | 'openbuff:models'
   | 'outOfCredits'
   | 'subscriptionLimit'
 
@@ -147,6 +149,26 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     color: 'info',
     placeholder: 'authorizing in browser... press Escape to cancel',
     widthAdjustment: 3,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
+  'openbuff:provider': {
+    icon: '⚙',
+    label: 'Provider',
+    color: 'info',
+    placeholder: 'answer the provider wizard prompt...',
+    widthAdjustment: 12,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
+  'openbuff:models': {
+    icon: '⚙',
+    label: 'Models',
+    color: 'info',
+    placeholder: 'answer the model routing wizard prompt...',
+    widthAdjustment: 10,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,

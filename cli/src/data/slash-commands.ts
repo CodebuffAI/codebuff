@@ -1,5 +1,5 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODES, IS_FREEBUFF, isLocalMode } from '../utils/constants'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
@@ -41,12 +41,21 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'image',
   'publish',
   'init',
+  'setup',
+  'models',
+  'provider',
 ])
 
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
   'connect',
   'plan',
   'end-session',
+])
+
+const LOCAL_MODE_REMOVED_COMMAND_IDS = new Set([
+  'usage',
+  'subscribe',
+  'logout',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -83,6 +92,21 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'init',
     description: 'Create a starter knowledge.md file',
     implicitCommand: true,
+  },
+  {
+    id: 'setup',
+    label: 'setup',
+    description: 'Create or inspect an Openbuff provider config',
+  },
+  {
+    id: 'models',
+    label: 'models',
+    description: 'Show or configure mode, agent, and model routing',
+  },
+  {
+    id: 'provider',
+    label: 'provider',
+    description: 'Show, add, remove, connect, or disconnect Openbuff providers',
   },
   // {
   //   id: 'undo',
@@ -149,7 +173,11 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'feedback',
     label: 'feedback',
-    description: IS_FREEBUFF ? 'Share general feedback about Freebuff' : 'Share general feedback about Codebuff',
+    description: IS_FREEBUFF
+      ? 'Share general feedback about Freebuff'
+      : isLocalMode()
+        ? 'Share general feedback about Openbuff'
+        : 'Share general feedback about Codebuff',
   },
   {
     id: 'bash',
@@ -200,9 +228,13 @@ export const SLASH_COMMANDS = IS_FREEBUFF
   ? ALL_SLASH_COMMANDS.filter(
       (cmd) => !FREEBUFF_REMOVED_COMMAND_IDS.has(cmd.id),
     )
-  : ALL_SLASH_COMMANDS.filter(
-      (cmd) => !FREEBUFF_ONLY_COMMAND_IDS.has(cmd.id),
-    )
+  : ALL_SLASH_COMMANDS.filter((cmd) => {
+      if (FREEBUFF_ONLY_COMMAND_IDS.has(cmd.id)) return false
+      if (isLocalMode() && LOCAL_MODE_REMOVED_COMMAND_IDS.has(cmd.id)) {
+        return false
+      }
+      return true
+    })
 
 export const SLASHLESS_COMMAND_IDS = new Set(
   SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand).map((cmd) =>

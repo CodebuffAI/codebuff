@@ -1,0 +1,1 @@
+{"version":3,"file":"add-nx-to-turborepo.d.ts","sourceRoot":"","sources":["../../../../../../../packages/nx/src/command-line/init/implementation/add-nx-to-turborepo.ts"],"names":[],"mappings":"AAKA,OAAO,EAAE,QAAQ,EAAE,MAAM,YAAY,CAAC;AAQtC,KAAK,OAAO,GAAG,IAAI,CAAC,QAAQ,EAAE,SAAS,GAAG,aAAa,CAAC,CAAC;AAEzD,wBAAsB,gBAAgB,CAAC,QAAQ,EAAE,OAAO,iBAgDvD"}

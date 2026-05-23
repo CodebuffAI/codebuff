@@ -21,7 +21,7 @@ import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
-import { IS_FREEBUFF } from './utils/constants'
+import { IS_FREEBUFF, isLocalMode } from './utils/constants'
 import { findGitRoot } from './utils/git'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
@@ -226,7 +226,7 @@ export const App = ({
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
-          {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf to help you build.
+          {IS_FREEBUFF ? 'Freebuff' : isLocalMode() ? 'Openbuff' : 'Codebuff'} will run commands on your behalf to help you build.
         </text>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}

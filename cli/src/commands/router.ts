@@ -25,6 +25,10 @@ import { showClipboardMessage } from '../utils/clipboard'
 import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
+  handleOpenbuffModelsWizardInput,
+  handleOpenbuffProviderWizardInput,
+} from '../utils/openbuff-provider'
+import {
   capturePendingAttachments,
   hasProcessingFiles,
   hasProcessingImages,
@@ -406,6 +410,52 @@ export async function routeUserPrompt(
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')
+    return
+  }
+
+  if (inputMode === 'openbuff:provider') {
+    let result: { done: boolean; message: string }
+    try {
+      result = handleOpenbuffProviderWizardInput(trimmed)
+    } catch (error) {
+      result = {
+        done: true,
+        message: error instanceof Error ? error.message : String(error),
+      }
+    }
+    setMessages((prev) => [
+      ...prev,
+      getUserMessage(trimmed),
+      getSystemMessage(result.message),
+    ])
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    if (result.done) {
+      setInputMode('default')
+    }
+    return
+  }
+
+  if (inputMode === 'openbuff:models') {
+    let result: { done: boolean; message: string }
+    try {
+      result = handleOpenbuffModelsWizardInput(trimmed)
+    } catch (error) {
+      result = {
+        done: true,
+        message: error instanceof Error ? error.message : String(error),
+      }
+    }
+    setMessages((prev) => [
+      ...prev,
+      getUserMessage(trimmed),
+      getSystemMessage(result.message),
+    ])
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    if (result.done) {
+      setInputMode('default')
+    }
     return
   }
 

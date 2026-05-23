@@ -1,14 +1,13 @@
 /**
- * Model provider abstraction for routing requests to the appropriate LLM provider.
+ * Model provider abstraction for Openbuff local/BYOK routing.
  *
  * This module handles:
- * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
- * - Default: Requests through Codebuff backend (which routes to OpenRouter)
+ * - OpenAI-compatible providers configured in openbuff.json
+ * - Optional ChatGPT/Codex OAuth direct requests for allowlisted OpenAI models
+ *
+ * Openbuff intentionally has no Codebuff hosted inference fallback.
  */
 
-import path from 'path'
-
-import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
   CHATGPT_BACKEND_BASE_URL,
@@ -22,16 +21,24 @@ import {
   VERSION,
 } from '@codebuff/internal/openai-compatible/index'
 
-import { WEBSITE_URL } from '../constants'
+import { getValidChatGptOAuthCredentials } from '../credentials'
 import {
-  getValidChatGptOAuthCredentials,
-} from '../credentials'
-import { getByokOpenrouterApiKeyFromEnv } from '../env'
+  DEFAULT_PROVIDER_COMPATIBILITY,
+  loadProviderConfigSync,
+  resolveConfiguredAgentModelConfig,
+  resolveConfiguredProviderModel,
+} from '../provider-config'
 import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
 } from './chatgpt-backend-fetch'
 
+import type {
+  OpenbuffReasoningEffort,
+  ProviderCompatibility,
+  ResolvedProviderModel,
+} from '../provider-config'
+import type { FetchFunction } from '@ai-sdk/provider-utils'
 import type { LanguageModel } from 'ai'
 
 // ============================================================================
@@ -43,7 +50,7 @@ let chatGptOAuthRateLimitedUntil: number | null = null
 
 /**
  * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
- * and use Codebuff backend until the reset time.
+ * until the reset time.
  */
 export function markChatGptOAuthRateLimited(resetAt?: Date): void {
   const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
@@ -78,14 +85,18 @@ export function resetChatGptOAuthRateLimit(): void {
  * Parameters for requesting a model.
  */
 export interface ModelRequestParams {
-  /** Codebuff API key for backend authentication */
+  /** Historical Codebuff API key slot. Openbuff local provider routing does not require it. */
   apiKey: string
-  /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
+  /** Model ID requested by an agent. Can be remapped by openbuff.json. */
   model: string
-  /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
+  /** Agent ID requesting this model. Used for per-agent model overrides. */
+  agentId?: string
+  /** If true, skip ChatGPT OAuth. */
   skipChatGptOAuth?: boolean
-  /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
+  /** Cost mode (e.g. 'free') — affects ChatGPT OAuth error wording. */
   costMode?: string
+  /** Deprecated; Openbuff always avoids hosted Codebuff inference. */
+  localMode?: boolean
 }
 
 /**
@@ -96,37 +107,74 @@ export interface ModelResult {
   model: LanguageModel
   /** Whether this model uses ChatGPT OAuth direct (affects cost tracking) */
   isChatGptOAuth: boolean
-}
-
-// Usage accounting type for OpenRouter/Codebuff backend responses
-type OpenRouterUsageAccounting = {
-  cost: number | null
-  costDetails: {
-    upstreamInferenceCost: number | null
-  }
+  /** Compatibility behavior requested by the provider config. */
+  compatibility: ProviderCompatibility
+  /** Optional reasoning effort selected by openbuff.json routing. */
+  reasoningEffort?: OpenbuffReasoningEffort
 }
 
 /**
  * Get the appropriate model for a request.
  *
- * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
- * returns an OpenAI direct model. Otherwise, returns the Codebuff backend model.
- * 
+ * Resolves the requested agent model through openbuff.json, then routes to a
+ * matching OpenAI-compatible provider. If configured, ChatGPT OAuth can still
+ * serve allowlisted OpenAI models directly. There is no Codebuff backend
+ * inference fallback in Openbuff.
+ *
  * This function is async because it may need to refresh the OAuth token.
  */
-export async function getModelForRequest(params: ModelRequestParams): Promise<ModelResult> {
-  const { apiKey, model, skipChatGptOAuth, costMode } = params
+export async function getModelForRequest(
+  params: ModelRequestParams,
+): Promise<ModelResult> {
+  const { model, agentId, skipChatGptOAuth, costMode } = params
+  const loadedProviderConfig = loadProviderConfigSync()
+  const effectiveAgentModelConfig = resolveConfiguredAgentModelConfig({
+    agentId,
+    model,
+    loadedConfig: loadedProviderConfig,
+  })
+  const effectiveModel = effectiveAgentModelConfig.model
 
-  // Check if we should use ChatGPT OAuth direct
-  // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
+  const configuredProviderModel = resolveConfiguredProviderModel({
+    model: effectiveModel,
+    loadedConfig: loadedProviderConfig,
+  })
+  if (configuredProviderModel) {
+    if (configuredProviderModel.provider.type === 'chatgpt-oauth') {
+      const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
+      if (!chatGptOAuthCredentials) {
+        throw new Error(
+          `ChatGPT/Codex OAuth credentials unavailable for provider '${configuredProviderModel.providerId}'. Please reconnect with /connect.`,
+        )
+      }
+
+      return {
+        model: createOpenAIOAuthModel(
+          configuredProviderModel.providerModel,
+          chatGptOAuthCredentials.accessToken,
+        ),
+        isChatGptOAuth: true,
+        compatibility: configuredProviderModel.compatibility,
+        reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+      }
+    }
+
+    return {
+      model: createConfiguredOpenAICompatibleModel(configuredProviderModel),
+      isChatGptOAuth: false,
+      compatibility: configuredProviderModel.compatibility,
+      reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+    }
+  }
+
+  // Check if we should use ChatGPT OAuth direct.
+  // Only attempt for allowlisted models.
   if (
     CHATGPT_OAUTH_ENABLED &&
     !skipChatGptOAuth &&
-    isOpenAIProviderModel(model) &&
-    isChatGptOAuthModelAllowed(model)
+    isOpenAIProviderModel(effectiveModel) &&
+    isChatGptOAuthModelAllowed(effectiveModel)
   ) {
-    // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
-    // the Codebuff backend — freebuff should only use the direct OpenAI route or fail.
     if (isChatGptOAuthRateLimited()) {
       if (isFreeMode(costMode)) {
         throw new Error(
@@ -138,12 +186,20 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
 
       if (chatGptOAuthCredentials) {
         return {
-          model: createOpenAIOAuthModel(model, chatGptOAuthCredentials.accessToken),
+          model: createOpenAIOAuthModel(
+            effectiveModel,
+            chatGptOAuthCredentials.accessToken,
+          ),
           isChatGptOAuth: true,
+          compatibility: {
+            ...DEFAULT_PROVIDER_COMPATIBILITY,
+            stripProviderMetadata: true,
+            supportsRequiredToolChoice: true,
+          },
+          reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
         }
       }
 
-      // In free mode, if credentials are unavailable, don't fall through to backend.
       if (isFreeMode(costMode)) {
         throw new Error(
           'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
@@ -152,18 +208,145 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
     }
   }
 
-  // Default: use Codebuff backend
-  return {
-    model: createCodebuffBackendModel(apiKey, model),
-    isChatGptOAuth: false,
+  throw new Error(
+    `Openbuff could not route model '${effectiveModel}'${
+      agentId ? ` for agent '${agentId}'` : ''
+    }. Add a provider mapping in openbuff.json or set OPENBUFF_PROVIDER_CONFIG.`,
+  )
+}
+
+function createConfiguredOpenAICompatibleModel(
+  resolvedModel: ResolvedProviderModel,
+): LanguageModel {
+  const { providerId, provider, providerModel, apiKey } = resolvedModel
+  if (provider.type !== 'openai-compatible') {
+    throw new Error(
+      `Provider '${providerId}' is not an OpenAI-compatible provider.`,
+    )
   }
+  const baseURL = provider.baseURL.replace(/\/$/, '')
+
+  return new OpenAICompatibleChatLanguageModel(providerModel, {
+    provider: providerId,
+    url: ({ path: endpoint }: { path: string }) => `${baseURL}${endpoint}`,
+    headers: () => ({
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/openbuff-custom-provider`,
+    }),
+    fetch: createConfiguredProviderFetch(resolvedModel),
+    includeUsage: undefined,
+    supportsStructuredOutputs: provider.supportsStructuredOutputs,
+    stringifyTextContent: resolvedModel.compatibility.stringifyTextContent,
+  })
+}
+
+function shouldDisableThinkingForProviderModel(providerModel: string): boolean {
+  return /(^|[-_/])deepseek([-_/]|$)/i.test(providerModel)
+}
+
+function shouldDowngradeRequiredToolChoiceForProviderModel(
+  resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
+    compatibility?: Partial<ProviderCompatibility>
+  },
+): boolean {
+  if (resolvedModel.compatibility?.supportsRequiredToolChoice === false) {
+    return true
+  }
+
+  // Some OpenAI-compatible coding providers accept tool schemas but hang or
+  // reject when tool_choice is forced to "required". The proposal prompt still
+  // strongly asks for propose_* tool calls; omitting the forced choice lets
+  // these models complete normally.
+  return /(^|[-_/])(deepseek|glm)([-_/]|$)/i.test(
+    resolvedModel.providerModel,
+  )
+}
+
+function shouldTransformRequestForProviderModel(
+  resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
+    compatibility?: Partial<ProviderCompatibility>
+  },
+): boolean {
+  return (
+    shouldDisableThinkingForProviderModel(resolvedModel.providerModel) ||
+    shouldDowngradeRequiredToolChoiceForProviderModel(resolvedModel)
+  )
+}
+
+export function applyConfiguredProviderRequestCompatibility(
+  body: Record<string, unknown>,
+  resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
+    compatibility?: Partial<ProviderCompatibility>
+  },
+): Record<string, unknown> {
+  if (!shouldTransformRequestForProviderModel(resolvedModel)) {
+    return body
+  }
+
+  const shouldDisableThinking = shouldDisableThinkingForProviderModel(
+    resolvedModel.providerModel,
+  )
+  const shouldDowngradeRequiredToolChoice =
+    shouldDowngradeRequiredToolChoiceForProviderModel(resolvedModel) &&
+    body.tool_choice === 'required'
+
+  return {
+    ...body,
+    ...(shouldDisableThinking
+      ? {
+          thinking: { type: 'disabled' },
+          reasoning_effort: undefined,
+        }
+      : {}),
+    ...(shouldDowngradeRequiredToolChoice
+      ? {
+          tool_choice: undefined,
+        }
+      : {}),
+  }
+}
+
+function createConfiguredProviderFetch(
+  resolvedModel: ResolvedProviderModel,
+): FetchFunction | undefined {
+  if (!shouldTransformRequestForProviderModel(resolvedModel)) {
+    return undefined
+  }
+
+  const fetchFn = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    let transformedInit = init
+
+    if (init?.body && typeof init.body === 'string') {
+      try {
+        const body = JSON.parse(init.body) as Record<string, unknown>
+        transformedInit = {
+          ...init,
+          body: JSON.stringify(
+            applyConfiguredProviderRequestCompatibility(body, resolvedModel),
+          ),
+        }
+      } catch {
+        // If the body is not JSON, pass it through unchanged.
+      }
+    }
+
+    return globalThis.fetch(input, transformedInit)
+  }
+
+  return fetchFn as FetchFunction
 }
 
 /**
  * Create an OpenAI model that routes through the ChatGPT backend API (Codex endpoint).
  * Uses a custom fetch that transforms between Chat Completions and Responses API formats.
  */
-function createOpenAIOAuthModel(model: string, oauthToken: string): LanguageModel {
+function createOpenAIOAuthModel(
+  model: string,
+  oauthToken: string,
+): LanguageModel {
   const openAIModelId = toOpenAIModelId(model)
   const accountId = extractChatGptAccountId(oauthToken)
 
@@ -176,83 +359,12 @@ function createOpenAIOAuthModel(model: string, oauthToken: string): LanguageMode
       'OpenAI-Beta': 'responses=experimental',
       originator: 'codex_cli_rs',
       accept: 'text/event-stream',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/openbuff-chatgpt-oauth`,
       ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
     }),
     fetch: createChatGptBackendFetch(),
     supportsStructuredOutputs: true,
+    stringifyTextContent: true,
     includeUsage: undefined,
-  })
-}
-
-/**
- * Create a model that routes through the Codebuff backend.
- * This is the existing behavior - requests go to Codebuff backend which forwards to OpenRouter.
- */
-function createCodebuffBackendModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const openrouterUsage: OpenRouterUsageAccounting = {
-    cost: null,
-    costDetails: {
-      upstreamInferenceCost: null,
-    },
-  }
-
-  const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
-
-  return new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'codebuff',
-    url: ({ path: endpoint }) =>
-      new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
-      ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
-    }),
-    metadataExtractor: {
-      extractMetadata: async ({ parsedBody }: { parsedBody: any }) => {
-        if (openrouterApiKey !== undefined) {
-          return { codebuff: { usage: openrouterUsage } }
-        }
-
-        if (typeof parsedBody?.usage?.cost === 'number') {
-          openrouterUsage.cost = parsedBody.usage.cost
-        }
-        if (
-          typeof parsedBody?.usage?.cost_details?.upstream_inference_cost ===
-          'number'
-        ) {
-          openrouterUsage.costDetails.upstreamInferenceCost =
-            parsedBody.usage.cost_details.upstream_inference_cost
-        }
-        return { codebuff: { usage: openrouterUsage } }
-      },
-      createStreamExtractor: () => ({
-        processChunk: (parsedChunk: any) => {
-          if (openrouterApiKey !== undefined) {
-            return
-          }
-
-          if (typeof parsedChunk?.usage?.cost === 'number') {
-            openrouterUsage.cost = parsedChunk.usage.cost
-          }
-          if (
-            typeof parsedChunk?.usage?.cost_details?.upstream_inference_cost ===
-            'number'
-          ) {
-            openrouterUsage.costDetails.upstreamInferenceCost =
-              parsedChunk.usage.cost_details.upstream_inference_cost
-          }
-        },
-        buildMetadata: () => {
-          return { codebuff: { usage: openrouterUsage } }
-        },
-      }),
-    },
-    fetch: undefined,
-    includeUsage: undefined,
-    supportsStructuredOutputs: true,
   })
 }

@@ -1,0 +1,1 @@
+{"version":3,"file":"find-workspace-root.d.ts","sourceRoot":"","sources":["../../../../../packages/nx/src/utils/find-workspace-root.ts"],"names":[],"mappings":"AAEA;;;;;GAKG;AACH,wBAAgB,iBAAiB,CAAC,GAAG,EAAE,MAAM,GAAG,oBAAoB,GAAG,IAAI,CAU1E;AAED,MAAM,WAAW,oBAAoB;IACnC,IAAI,EAAE,IAAI,GAAG,SAAS,CAAC;IACvB,GAAG,EAAE,MAAM,CAAC;CACb"}

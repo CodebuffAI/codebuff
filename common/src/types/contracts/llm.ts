@@ -62,6 +62,8 @@ export type PromptAiSdkStreamFn = (
     localAgentTemplates?: Record<string, AgentTemplate>
     /** Cost mode - 'free' mode means 0 credits charged for all agents */
     costMode?: string
+    /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
+    localMode?: boolean
     /** Extra key/values merged into the request's `codebuff_metadata` field.
      *  Used to forward client-scoped identifiers (e.g. `freebuff_instance_id`)
      *  that server-side gates read from the chat-completions body. */
@@ -98,6 +100,8 @@ export type PromptAiSdkFn = (
     maxRetries?: number
     /** Cost mode - 'free' mode means 0 credits charged for all agents */
     costMode?: string
+    /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
+    localMode?: boolean
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
@@ -132,6 +136,8 @@ export type PromptAiSdkStructuredInput<T> = {
   cacheDebugCorrelation?: string
   agentProviderOptions?: OpenRouterProviderRoutingOptions
   maxRetries?: number
+  /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
+  localMode?: boolean
   sendAction: SendActionFn
   logger: Logger
   trackEvent: TrackEventFn

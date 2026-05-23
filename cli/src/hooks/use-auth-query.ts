@@ -1,5 +1,9 @@
 import { createHash } from 'crypto'
 
+import {
+  LOCAL_MODE_USER_EMAIL,
+  LOCAL_MODE_USER_ID,
+} from '@codebuff/common/constants/local-mode'
 import { getCiEnv } from '@codebuff/common/env-ci'
 import {
   getUserInfoFromApiKey as defaultGetUserInfoFromApiKey,
@@ -19,6 +23,7 @@ import {
   type User,
 } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
+import { isLocalMode } from '../utils/constants'
 import { logger as defaultLogger, loggerContext } from '../utils/logger'
 
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
@@ -133,12 +138,16 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
   } = deps
 
   const userCredentials = getUserCredentials()
+  const localMode = isLocalMode()
   const apiKey = userCredentials?.authToken || getCiEnv().CODEBUFF_API_KEY || ''
 
   return useQuery({
-    queryKey: authQueryKeys.validation(apiKey),
-    queryFn: () => validateApiKey({ apiKey, getUserInfoFromApiKey, logger }),
-    enabled: !!apiKey,
+    queryKey: authQueryKeys.validation(localMode ? 'local-mode' : apiKey),
+    queryFn: () =>
+      localMode
+        ? { id: LOCAL_MODE_USER_ID, email: LOCAL_MODE_USER_EMAIL }
+        : validateApiKey({ apiKey, getUserInfoFromApiKey, logger }),
+    enabled: localMode || !!apiKey,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     // Retry only for retryable network errors (5xx, timeouts, etc.)

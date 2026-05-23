@@ -1,0 +1,1 @@
+{"version":3,"file":"fix-ci.d.ts","sourceRoot":"","sources":["../../../../../../../packages/nx/src/command-line/nx-cloud/fix-ci/fix-ci.ts"],"names":[],"mappings":"AAEA,MAAM,WAAW,SAAS;IACxB,OAAO,CAAC,EAAE,OAAO,CAAC;CACnB;AAED,wBAAgB,YAAY,CAAC,IAAI,EAAE,SAAS,GAAG,OAAO,CAAC,MAAM,CAAC,CAE7D"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"disable-crystal-for-existing-workspaces.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/migrations/update-18-0-0/disable-crystal-for-existing-workspaces.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,IAAI,EAAE,MAAM,uBAAuB,CAAC;AAG7C,wBAA8B,OAAO,CAAC,IAAI,EAAE,IAAI,iBAM/C"}

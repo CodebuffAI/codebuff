@@ -1,0 +1,1 @@
+{"version":3,"file":"package-json.d.ts","sourceRoot":"","sources":["../../../../packages/nx/plugins/package-json.ts"],"names":[],"mappings":"AAQA,OAAO,EAAE,oBAAoB,EAAE,MAAM,2CAA2C,CAAC;AAGjF,MAAM,MAAM,6BAA6B,GAAG;IAC1C,CAAC,IAAI,EAAE,MAAM,GAAG,oBAAoB,CAAC;CACtC,CAAC;AAIF,wBAAgB,iCAAiC,kCAMhD"}

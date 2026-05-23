@@ -1,0 +1,1 @@
+{"version":3,"file":"load-resolved-plugin.d.ts","sourceRoot":"","sources":["../../../../../../packages/nx/src/project-graph/plugins/load-resolved-plugin.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,sBAAsB,CAAC;AAChE,OAAO,EAAE,cAAc,EAAE,MAAM,oBAAoB,CAAC;AAGpD,wBAAsB,yBAAyB,CAC7C,mBAAmB,EAAE,mBAAmB,EACxC,UAAU,EAAE,MAAM,EAClB,IAAI,EAAE,MAAM,2BAKb"}

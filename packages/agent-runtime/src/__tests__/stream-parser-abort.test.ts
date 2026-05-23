@@ -232,4 +232,5 @@ describe('stream parser abort handling', () => {
     expect(allText).toContain('analysis')
     expect(allText).toContain('... more text')
   })
+
 })

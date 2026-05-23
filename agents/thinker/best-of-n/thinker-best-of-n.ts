@@ -16,7 +16,7 @@ export function createThinkerBestOfN(
   return {
     publisher,
     model: isGpt5
-      ? 'openai/gpt-5.1'
+      ? 'openai/gpt-5.5'
       : isOpus
         ? 'anthropic/claude-opus-4.7'
         : 'anthropic/claude-sonnet-4.5',

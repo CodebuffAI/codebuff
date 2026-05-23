@@ -20,7 +20,6 @@ import { cloneDeep } from 'lodash'
 
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
-import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
@@ -75,6 +74,8 @@ const wrapContentForUserMessage = (
 
 export type CodebuffClientOptions = {
   apiKey?: string
+  /** Run fully local/BYOK where Codebuff auth, billing, and run tracking are optional. */
+  localMode?: boolean
 
   cwd?: string
   /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
@@ -167,6 +168,7 @@ type RunExecutionOptions = RunOptions &
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
+    localMode: boolean
   }
 type RunReturnType = RunState
 
@@ -190,6 +192,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
 async function runOnce({
   apiKey,
   fingerprintId,
+  localMode,
 
   cwd,
   skillsDir,
@@ -376,6 +379,7 @@ async function runOnce({
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
     apiKey,
+    localMode,
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
@@ -496,7 +500,7 @@ async function runOnce({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  const userInfo = await getUserInfoFromApiKey({
+  const userInfo = await agentRuntimeImpl.getUserInfoFromApiKey({
     ...agentRuntimeImpl,
     apiKey,
     fields: ['id'],

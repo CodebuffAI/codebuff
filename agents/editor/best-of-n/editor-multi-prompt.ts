@@ -31,6 +31,11 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     ],
     spawnableAgents: [
       'best-of-n-selector2',
+      'editor-implementor-proposal-1',
+      'editor-implementor-proposal-2',
+      'editor-implementor-proposal-3',
+      'editor-implementor-proposal-4',
+      'editor-implementor-proposal-5',
       'editor-implementor-opus',
       'editor-implementor-gpt-5',
     ],
@@ -94,28 +99,74 @@ function* handleStepsMultiPrompt({
     includeToolCall: false,
   } satisfies ToolCall<'set_messages'>
 
-  // Spawn one opus implementor per prompt
-  const implementorAgents: { agent_type: string; prompt?: string }[] =
-    prompts.map((prompt) => ({
-      agent_type: 'editor-implementor-opus',
-      prompt: `Strategy: ${prompt}`,
-    }))
+  const proposalAgentTypes = [
+    'editor-implementor-proposal-1',
+    'editor-implementor-proposal-2',
+    'editor-implementor-proposal-3',
+    'editor-implementor-proposal-4',
+    'editor-implementor-proposal-5',
+  ] as const
 
-  // Spawn all implementor agents
-  const { toolResult: implementorResults } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: implementorAgents,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
-
-  // Extract spawn results - each is structured output with { toolCalls, toolResults, unifiedDiffs }
-  const spawnedImplementations = extractSpawnResults<{
+  type ProposalResult = {
     toolCalls: { toolName: string; input: any }[]
     toolResults: any[]
     unifiedDiffs: string
-  }>(implementorResults)
+  }
+
+  // Spawn proposal implementors sequentially. The parallel batch was fast with
+  // the hosted backend, but local OpenAI-compatible/OAuth providers often have
+  // low per-account concurrency; when one stream stalls the whole Promise.all
+  // batch waits forever. Sequential spawning is slower but much more reliable,
+  // and the per-proposal retry below prevents one flaky model call from losing
+  // the entire best-of-N run.
+  const spawnedImplementations: ProposalResult[] = []
+  const maxProposalAttempts = 2
+
+  for (const [index, prompt] of prompts.entries()) {
+    const agentType =
+      proposalAgentTypes[index] ??
+      proposalAgentTypes[proposalAgentTypes.length - 1]
+    let lastResult: ProposalResult | { errorMessage: string } | undefined
+
+    for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
+      const { toolResult: implementorResults } = yield {
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: agentType,
+              prompt:
+                attempt === 0
+                  ? `Strategy: ${prompt}`
+                  : `Retry Strategy: ${prompt}\n\nThe previous proposal attempt did not return usable edit tool calls. Produce the implementation now by calling propose_str_replace or propose_write_file. Do not narrate or continue thinking.`,
+            },
+          ],
+        },
+        includeToolCall: false,
+      } satisfies ToolCall<'spawn_agents'>
+
+      lastResult = extractSpawnResults<ProposalResult | { errorMessage: string }>(
+        implementorResults,
+      )[0]
+
+      if (isUsableProposal(lastResult)) {
+        break
+      }
+    }
+
+    spawnedImplementations.push(
+      lastResult && 'toolCalls' in lastResult
+        ? lastResult
+        : {
+            toolCalls: [],
+            toolResults: [],
+            unifiedDiffs:
+              'errorMessage' in (lastResult ?? {})
+                ? `Error: ${(lastResult as { errorMessage: string }).errorMessage}`
+                : 'Error: proposal failed to return a usable implementation',
+          },
+    )
+  }
 
   // Build implementations for selector using the unified diffs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -163,20 +214,47 @@ function* handleStepsMultiPrompt({
     suggestedImprovements: string
   }>(selectorResult)[0]
 
+  const fallbackImplementation = implementations.find(
+    (implementation) => implementation.toolCalls.length > 0,
+  )
+
   if (!selectorOutput || !('implementationId' in selectorOutput)) {
+    if (fallbackImplementation) {
+      yield* applyImplementation({
+        chosenImplementation: fallbackImplementation,
+        reason:
+          'Selector failed to return an implementation; applied the first usable proposal instead.',
+        suggestedImprovements:
+          'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.',
+      })
+      return
+    }
+
     yield {
       toolName: 'set_output',
-      input: { error: 'Selector failed to return an implementation' },
+      input: {
+        error:
+          'Selector failed to return an implementation, and no proposal returned usable edit tool calls.',
+      },
     } satisfies ToolCall<'set_output'>
     return
   }
 
   const { implementationId } = selectorOutput
-  const chosenImplementation = implementations.find(
+  let chosenImplementation = implementations.find(
     (implementation) => implementation.id === implementationId,
   )
 
   if (!chosenImplementation) {
+    if (fallbackImplementation) {
+      yield* applyImplementation({
+        chosenImplementation: fallbackImplementation,
+        reason: `Selector chose unknown implementation ${implementationId}; applied the first usable proposal instead.`,
+        suggestedImprovements: selectorOutput.suggestedImprovements,
+      })
+      return
+    }
+
     yield {
       toolName: 'set_output',
       input: {
@@ -186,42 +264,21 @@ function* handleStepsMultiPrompt({
     return
   }
 
-  // Apply the chosen implementation's tool calls as real edits
-  const appliedToolResults: any[] = []
-  for (const toolCall of chosenImplementation.toolCalls) {
-    // Convert propose_* tool calls to real edit tool calls
-    const realToolName =
-      toolCall.toolName === 'propose_str_replace'
-        ? 'str_replace'
-        : toolCall.toolName === 'propose_write_file'
-          ? 'write_file'
-          : toolCall.toolName
-
-    if (realToolName === 'str_replace' || realToolName === 'write_file') {
-      const { toolResult } = yield {
-        toolName: realToolName,
-        input: toolCall.input,
-        includeToolCall: true,
-      } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
-
-      appliedToolResults.push(toolResult)
-    }
+  if (chosenImplementation.toolCalls.length === 0 && fallbackImplementation) {
+    chosenImplementation = fallbackImplementation
   }
 
   // Extract suggested improvements from selector output
   const { reason, suggestedImprovements } = selectorOutput
 
-  // Set output with the applied results and suggested improvements
-  yield {
-    toolName: 'set_output',
-    input: {
-      chosenStrategy: chosenImplementation.strategy,
-      reason,
-      toolResults: appliedToolResults,
-      suggestedImprovements,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_output'>
+  yield* applyImplementation({
+    chosenImplementation,
+    reason:
+      chosenImplementation.id === implementationId
+        ? reason
+        : `${reason}\n\nSelector chose an unusable implementation, so the first usable proposal was applied instead.`,
+    suggestedImprovements,
+  })
 
   /**
    * Extracts the array of subagent results from spawn_agents tool output.
@@ -242,6 +299,61 @@ function* handleStepsMultiPrompt({
         result && 'value' in result ? result.value : result,
       )
       .filter(Boolean)
+  }
+
+  function isUsableProposal(
+    result: ProposalResult | { errorMessage: string } | undefined,
+  ): result is ProposalResult {
+    return Boolean(
+      result &&
+        'toolCalls' in result &&
+        Array.isArray(result.toolCalls) &&
+        result.toolCalls.length > 0 &&
+        typeof result.unifiedDiffs === 'string' &&
+        result.unifiedDiffs.trim().length > 0,
+    )
+  }
+
+  function* applyImplementation(params: {
+    chosenImplementation: (typeof implementations)[number]
+    reason: string
+    suggestedImprovements: string
+  }): ReturnType<NonNullable<SecretAgentDefinition['handleSteps']>> {
+    const { chosenImplementation, reason, suggestedImprovements } = params
+
+    // Apply the chosen implementation's tool calls as real edits
+    const appliedToolResults: any[] = []
+    for (const toolCall of chosenImplementation.toolCalls) {
+      // Convert propose_* tool calls to real edit tool calls
+      const realToolName =
+        toolCall.toolName === 'propose_str_replace'
+          ? 'str_replace'
+          : toolCall.toolName === 'propose_write_file'
+            ? 'write_file'
+            : toolCall.toolName
+
+      if (realToolName === 'str_replace' || realToolName === 'write_file') {
+        const { toolResult } = yield {
+          toolName: realToolName,
+          input: toolCall.input,
+          includeToolCall: true,
+        } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
+
+        appliedToolResults.push(toolResult)
+      }
+    }
+
+    // Set output with the applied results and suggested improvements
+    yield {
+      toolName: 'set_output',
+      input: {
+        chosenStrategy: chosenImplementation.strategy,
+        reason,
+        toolResults: appliedToolResults,
+        suggestedImprovements,
+      },
+      includeToolCall: false,
+    } satisfies ToolCall<'set_output'>
   }
 }
 

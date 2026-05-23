@@ -1,0 +1,1 @@
+{"version":3,"file":"project-logger.d.ts","sourceRoot":"","sources":["../../../../../../../packages/nx/src/command-line/release/version/project-logger.ts"],"names":[],"mappings":"AA0BA,qBAAa,aAAa;IAIZ,OAAO,CAAC,WAAW;IAH/B,OAAO,CAAC,IAAI,CAAgB;IAC5B,OAAO,CAAC,KAAK,CAA0B;gBAEnB,WAAW,EAAE,MAAM;IAIvC,MAAM,CAAC,GAAG,EAAE,MAAM;IAIlB,KAAK;CAcN"}
