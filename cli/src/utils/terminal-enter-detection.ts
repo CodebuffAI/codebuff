@@ -25,6 +25,10 @@ export function shouldMarkReturnKeySeen(key: EnterDetectionKey): boolean {
 }
 
 export function isPlainEnterKey(key: EnterDetectionKey): boolean {
+  // Some local interceptors consume Enter before the global keyboard hooks see
+  // it, so record non-keypad Return here before consulting the linefeed fallback.
+  markReturnKeySeenForKey(key)
+
   return (
     (key.name === 'return' ||
       key.name === 'enter' ||

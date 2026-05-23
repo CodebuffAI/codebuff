@@ -58,6 +58,13 @@ describe('terminal enter detection', () => {
     expect(isPlainEnterKey({ name: '', sequence: '\x1bOM' })).toBe(true)
   })
 
+  test('plain Enter detection records return before later linefeed checks', () => {
+    expect(isLinefeedActingAsEnter()).toBe(true)
+    expect(isPlainEnterKey({ name: 'return', sequence: '\r' })).toBe(true)
+    expect(isLinefeedActingAsEnter()).toBe(false)
+    expect(isPlainEnterKey({ name: 'linefeed', sequence: '\n' })).toBe(false)
+  })
+
   test('does not recognize modified keypad Enter as plain Enter', () => {
     expect(
       isPlainEnterKey({
