@@ -393,6 +393,13 @@
       "when": 1779661395724,
       "tag": "0055_glossy_gertrude_yorkes",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1779667810810,
+      "tag": "0056_simple_tyrannus",
+      "breakpoints": true
     }
   ]
 }

@@ -12,12 +12,14 @@ import {
   listMCPTools,
   callMCPTool,
 } from '@codebuff/common/mcp/client'
+import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
+import { getComposioCustomToolDefinitions } from './composio'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -233,6 +235,7 @@ async function runOnce({
     spawn = require('child_process').spawn as CodebuffSpawn
   }
   const preparedContent = wrapContentForUserMessage(content)
+  let activeCustomToolDefinitions = customToolDefinitions ?? []
 
   // Init session state
   let agentId
@@ -396,9 +399,9 @@ async function runOnce({
           mcpConfig,
         },
         overrides: overrideTools ?? {},
-        customToolDefinitions: customToolDefinitions
+        customToolDefinitions: activeCustomToolDefinitions
           ? Object.fromEntries(
-              customToolDefinitions.map((def) => [def.toolName, def]),
+              activeCustomToolDefinitions.map((def) => [def.toolName, def]),
             )
           : {},
         cwd,
@@ -511,8 +514,26 @@ async function runOnce({
   if (!userInfo) {
     return getCancelledRunState('Invalid API key or user not found')
   }
-
   const userId = userInfo.id
+
+  const composioCustomToolDefinitions = await getComposioCustomToolDefinitions({
+    apiKey,
+    logger,
+  })
+
+  for (const toolName of COMPOSIO_META_TOOL_NAMES) {
+    delete sessionState.fileContext.customToolDefinitions[toolName]
+  }
+
+  if (composioCustomToolDefinitions.length > 0) {
+    activeCustomToolDefinitions = [
+      ...activeCustomToolDefinitions,
+      ...composioCustomToolDefinitions,
+    ]
+    sessionState = await applyOverridesToSessionState(cwd, sessionState, {
+      customToolDefinitions: activeCustomToolDefinitions,
+    })
+  }
 
   if (signal?.aborted) {
     return getCancelledRunState('Run cancelled by user.')
