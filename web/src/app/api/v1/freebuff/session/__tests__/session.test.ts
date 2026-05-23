@@ -299,7 +299,7 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(body.status).toBe('queued')
   })
 
-  test('blocks VPN/proxy privacy signals before joining the queue', async () => {
+  test('puts VPN/proxy privacy signals in limited mode before joining the queue', async () => {
     const sessionDeps = makeSessionDeps()
     sessionDeps.rows.set('u1', {
       user_id: 'u1',
@@ -329,13 +329,14 @@ describe('POST /api/v1/freebuff/session', () => {
         }),
       }),
     )
-    expect(resp.status).toBe(403)
+    expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('country_blocked')
-    expect(body.message).toContain('VPN')
+    expect(body.status).toBe('queued')
+    expect(body.accessTier).toBe('limited')
+    expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(body.countryBlockReason).toBe('anonymous_network')
     expect(body.ipPrivacySignals).toEqual(['vpn', 'hosting'])
-    expect(sessionDeps.rows.size).toBe(0)
+    expect(sessionDeps.rows.size).toBe(1)
   })
 
   test('blocks Cloudflare Tor before joining the queue', async () => {
@@ -464,7 +465,7 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.ipPrivacySignals).toBeUndefined()
   })
 
-  test('returns country_blocked on GET for VPN/proxy privacy signals', async () => {
+  test('returns limited mode on GET for VPN/proxy privacy signals', async () => {
     const sessionDeps = makeSessionDeps()
     sessionDeps.rows.set('u1', {
       user_id: 'u1',
@@ -494,10 +495,10 @@ describe('GET /api/v1/freebuff/session', () => {
         }),
       }),
     )
-    expect(resp.status).toBe(403)
+    expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('country_blocked')
-    expect(body.message).toContain('proxy')
+    expect(body.status).toBe('none')
+    expect(body.accessTier).toBe('limited')
     expect(body.countryBlockReason).toBe('anonymous_network')
     expect(body.ipPrivacySignals).toEqual(['res_proxy'])
     expect(sessionDeps.rows.size).toBe(0)

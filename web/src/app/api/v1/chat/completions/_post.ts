@@ -337,9 +337,10 @@ export async function postChatCompletions(params: {
       )
     }
 
-    // For free mode requests, classify the request into full, limited, or
-    // hard-blocked access. Most non-allowlist/privacy cases are limited to the
-    // cheap DeepSeek Flash path, but VPN/proxy/Tor traffic is rejected outright.
+    // For free mode requests, classify the request into full or limited
+    // access. Most non-allowlist/privacy cases, including VPN/proxy traffic,
+    // are limited to the cheap DeepSeek Flash path; Cloudflare Tor remains a
+    // hard block.
     if (isFreeModeRequest) {
       const countryAccess = await resolveCountryAccess(userId, req, {
         fetch,

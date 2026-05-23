@@ -628,7 +628,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'blocks hard VPN/proxy privacy signals before the session gate',
+      'puts VPN/proxy privacy signals in limited mode before the session gate',
       async () => {
         const req = new NextRequest(
           'http://localhost:3000/api/v1/chat/completions',
@@ -649,6 +649,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         )
 
         const endFreebuffSession = mock(async () => {})
+        const checkSessionAdmissible = mock(async (params) => {
+          expect(params.accessTier).toBe('limited')
+          return { ok: true, reason: 'active', remainingMs: 60_000 } as const
+        })
         const response = await postChatCompletionsForTest({
           req,
           getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
@@ -659,9 +663,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fetch: mockFetch,
           insertMessageBigquery: mockInsertMessageBigquery,
           loggerWithContext: mockLoggerWithContext,
-          checkSessionAdmissible: mock(() => {
-            throw new Error('session gate should not be reached')
-          }),
+          checkSessionAdmissible,
           endFreebuffSession,
           resolveFreeModeCountryAccess: async () => ({
             allowed: false,
@@ -676,20 +678,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             clientIpHash: 'test-ip-hash',
           }),
         })
-        expect(endFreebuffSession).toHaveBeenCalledWith({
-          userId: 'user-new-free',
-          userEmail: null,
-        })
 
-        expect(response.status).toBe(403)
-        const body = await response.json()
-        expect(body).toMatchObject({
-          error: 'free_mode_unavailable',
-          countryCode: 'US',
-          countryBlockReason: 'anonymous_network',
-          ipPrivacySignals: ['vpn', 'hosting'],
-        })
-        expect(body.message).toContain('VPN')
+        expect(response.status).toBe(200)
+        expect(endFreebuffSession).not.toHaveBeenCalled()
+        expect(checkSessionAdmissible).toHaveBeenCalledTimes(1)
         const validationEvent = (
           mockTrackEvent as ReturnType<typeof mock>
         ).mock.calls
@@ -697,18 +689,18 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           .find(
             ({ event, properties }) =>
               event === AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR &&
-              properties?.error === 'free_mode_unavailable',
+              properties?.error === 'free_mode_not_available_in_country',
           )
         expect(validationEvent?.properties).toMatchObject({
-          accessStatus: 'blocked',
+          accessTier: 'limited',
+          accessStatus: 'limited',
           countryCode: 'US',
           ipPrivacySignals: ['vpn', 'hosting'],
           spurStatus: 'suspicious',
           privacyDecision: 'corroborated_block',
           privacyProviderDecision: 'corroborated_hard',
-          privacyHardBlocked: true,
+          privacyHardBlocked: false,
         })
-        expect(validationEvent?.properties).not.toHaveProperty('accessTier')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
