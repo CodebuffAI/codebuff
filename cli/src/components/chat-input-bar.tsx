@@ -11,8 +11,8 @@ import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
 import { useChatStore } from '../state/chat-store'
+import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
 import { getInputModeConfig } from '../utils/input-modes'
-import { isLinefeedActingAsEnter } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
@@ -133,38 +133,13 @@ export const ChatInputBar = ({
       meta?: boolean
       option?: boolean
     }) => {
-      const isPlainEnter =
-        (key.name === 'return' || key.name === 'enter' ||
-          (key.name === 'linefeed' && isLinefeedActingAsEnter())) &&
-        !key.shift &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option
-      const isTab = key.name === 'tab' && !key.ctrl && !key.meta && !key.option
-      const isUp = key.name === 'up' && !key.ctrl && !key.meta && !key.option
-      const isDown = key.name === 'down' && !key.ctrl && !key.meta && !key.option
-      const isUpDown = isUp || isDown
-
-      const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
-      if (hasSuggestions) {
-        if (isUpDown && lastEditDueToNav) {
-          return true
-        }
-        if (isPlainEnter || isTab || isUpDown) {
-          return true
-        }
-      }
-
-      const historyUpEnabled = lastEditDueToNav || cursorPosition === 0
-      const historyDownEnabled = lastEditDueToNav || cursorPosition === inputValue.length
-      if (isUp && historyUpEnabled) {
-        return true
-      }
-      if (isDown && historyDownEnabled) {
-        return true
-      }
-
-      return false
+      return shouldInterceptChatInputKey(key, {
+        hasSlashSuggestions,
+        hasMentionSuggestions,
+        lastEditDueToNav,
+        cursorPosition,
+        inputLength: inputValue.length,
+      })
     },
   )
 
