@@ -27,7 +27,10 @@ export function resolveFilePathWithinProject(
     return null
   }
 
-  return { fullPath, relativePath }
+  return {
+    fullPath: fullPath.replace(/\\/g, '/'),
+    relativePath: relativePath.replace(/\\/g, '/'),
+  }
 }
 
 export function getProjectPathLookupKeys(

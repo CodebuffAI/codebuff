@@ -54,7 +54,13 @@ export const createFilePicker = (
     systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
     instructionsPrompt: `Instructions:
 Provide an extremely short report of the locations in the codebase that could be helpful. Focus on the files that are most relevant to the user prompt.
-In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful.
+In your report, please give a very concise analysis that includes the full paths of files that are relevant and (extremely briefly) how they could be useful. Include the purpose of each file and what it contains.
+
+Think about:
+- Which files contain the code that needs to be modified?
+- Which files contain tests, configuration, or type definitions that are related?
+- Which files contain similar patterns or examples that could serve as reference implementations?
+- Which files define interfaces, types, or contracts that the implementation must satisfy?
 
 Do not use any further tools or spawn any further agents.
   `.trim(),

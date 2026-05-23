@@ -2,7 +2,12 @@ import { mock } from 'bun:test'
 
 import type { CodebuffFileSystem } from '../../types/filesystem'
 import type { Mock } from 'bun:test'
-import type { PathLike , Stats } from 'node:fs'
+import type { PathLike, Stats } from 'node:fs'
+
+/** Normalize filesystem paths for cross-platform mock consistency. */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^[a-zA-Z]:/, '')
+}
 
 export interface CreateMockFsOptions {
   files?: Record<string, string>
@@ -50,7 +55,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
   const createdDirs: Set<string> = new Set(Object.keys(directories))
 
   const defaultReadFile = async (path: PathLike): Promise<string> => {
-    const pathStr = String(path)
+    const pathStr = normalizePath(String(path))
     if (pathStr in writtenFiles) {
       return writtenFiles[pathStr]
     }
@@ -58,7 +63,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
   }
 
   const defaultReaddir = async (path: PathLike): Promise<string[]> => {
-    const pathStr = String(path)
+    const pathStr = normalizePath(String(path))
     if (pathStr in directories) {
       return directories[pathStr]
     }
@@ -69,18 +74,18 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     path: PathLike,
     data: string,
   ): Promise<void> => {
-    const pathStr = String(path)
+    const pathStr = normalizePath(String(path))
     writtenFiles[pathStr] = data
   }
 
   const defaultMkdir = async (path: PathLike): Promise<string | undefined> => {
-    const pathStr = String(path)
+    const pathStr = normalizePath(String(path))
     createdDirs.add(pathStr)
     return undefined
   }
 
   const defaultStat = async (path: PathLike): Promise<Stats> => {
-    const pathStr = String(path)
+    const pathStr = normalizePath(String(path))
     const isFile = pathStr in writtenFiles
     const isDir = pathStr in directories || createdDirs.has(pathStr)
 
@@ -118,24 +123,25 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
   }
 
   const readFileFn = readFileImpl
-    ? async (path: PathLike) => readFileImpl(String(path))
+    ? async (path: PathLike) => readFileImpl(normalizePath(String(path)))
     : defaultReadFile
 
   const readdirFn = readdirImpl
-    ? async (path: PathLike) => readdirImpl(String(path))
+    ? async (path: PathLike) => readdirImpl(normalizePath(String(path)))
     : defaultReaddir
 
   const writeFileFn = writeFileImpl
-    ? async (path: PathLike, data: string) => writeFileImpl(String(path), data)
+    ? async (path: PathLike, data: string) =>
+        writeFileImpl(normalizePath(String(path)), data)
     : defaultWriteFile
 
   const mkdirFn = mkdirImpl
     ? async (path: PathLike, opts?: { recursive?: boolean }) =>
-        mkdirImpl(String(path), opts)
+        mkdirImpl(normalizePath(String(path)), opts)
     : defaultMkdir
 
   const statFn = statImpl
-    ? async (path: PathLike) => statImpl(String(path))
+    ? async (path: PathLike) => statImpl(normalizePath(String(path)))
     : defaultStat
 
   return {

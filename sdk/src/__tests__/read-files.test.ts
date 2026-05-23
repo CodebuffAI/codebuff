@@ -17,6 +17,11 @@ import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { PathLike } from 'node:fs'
 
 // Helper to create a mock filesystem
+function normalizeMockPath(p: string): string {
+  // Normalize Windows backslashes to forward slashes and strip drive letters
+  return p.replace(/\\/g, '/').replace(/^[a-zA-Z]:\//, '/')
+}
+
 function createMockFs(config: {
   files?: Record<string, { content: string; size?: number }>
   errors?: Record<string, { code?: string; message?: string }>
@@ -25,7 +30,7 @@ function createMockFs(config: {
 
   return {
     readFile: async (filePath: PathLike) => {
-      const pathStr = String(filePath)
+      const pathStr = normalizeMockPath(String(filePath))
       if (errors[pathStr]) {
         throw createNodeError(
           errors[pathStr].message || 'Unknown error',
@@ -41,7 +46,7 @@ function createMockFs(config: {
       )
     },
     stat: async (filePath: PathLike) => {
-      const pathStr = String(filePath)
+      const pathStr = normalizeMockPath(String(filePath))
       if (errors[pathStr]) {
         throw createNodeError(
           errors[pathStr].message || 'Unknown error',

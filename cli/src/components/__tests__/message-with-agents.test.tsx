@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { enableMapSet } from 'immer'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
+
+enableMapSet()
 import { useChatStore } from '../../state/chat-store'
 import { useMessageBlockStore } from '../../state/message-block-store'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'

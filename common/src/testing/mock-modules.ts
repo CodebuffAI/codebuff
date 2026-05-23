@@ -4,33 +4,26 @@ export type MockResult = {
   clear: () => void
 }
 
-const originalModuleCache: Record<string, any> = {}
 let mockModuleCache: Record<string, MockResult> = {}
 
 /**
+ * Mocks a module by applying bun's mock.module() directly.
  *
- * @param modulePath - the path starting from this files' path.
- * @param renderMocks - function to generate mocks (by their named or default exports)
- * @returns an object
+ * Unlike the previous implementation, this does NOT eagerly import the original
+ * module first. Eagerly importing modules that have side effects (like env
+ * validation or DB client creation) causes "cannot access X before initialization"
+ * temporal dead zone (TDZ) errors when circular dependencies exist, and triggers
+ * environment variable validation failures when env vars are missing.
+ *
+ * @param modulePath - the module path to mock (e.g. '@codebuff/internal/db')
+ * @param renderMocks - function returning the mock exports object
  */
 export async function mockModule(
   modulePath: string,
   renderMocks: () => Record<string, any>,
 ): Promise<MockResult> {
-  let original = originalModuleCache[modulePath]
-  if (!original) {
-    const moduleExports = await import(modulePath)
-    original = {
-      ...moduleExports,
-    }
-    originalModuleCache[modulePath] = original
-  }
   let mocks = renderMocks()
-  let result = {
-    ...original,
-    ...mocks,
-  }
-  mock.module(modulePath, () => result)
+  mock.module(modulePath, () => mocks)
   let num = 0
   let key = modulePath
   while (key in mockModuleCache) {
@@ -39,7 +32,6 @@ export async function mockModule(
   }
   const mocked: MockResult = {
     clear: () => {
-      mock.module(modulePath, () => original)
       delete mockModuleCache[key]
     },
   }

@@ -156,6 +156,11 @@ describe('init-direnv', () => {
     })
 
     test('handles symlinked directories', () => {
+      // Symlinks require elevated privileges or Developer Mode on Windows
+      if (os.platform() === 'win32') {
+        return
+      }
+
       const actualDir = path.join(tempDir, 'actual')
       fs.mkdirSync(actualDir)
       fs.writeFileSync(path.join(actualDir, '.envrc'), 'export FOO=bar')
@@ -381,6 +386,9 @@ describe('init-direnv', () => {
     })
 
     test('sets environment variables from direnv export', () => {
+      // Direnv is not available on Windows; skip the test
+      if (os.platform() === 'win32') return
+
       fs.writeFileSync(path.join(tempDir, '.envrc'), 'export TEST_VAR=test_value')
       process.chdir(tempDir)
 
@@ -414,6 +422,9 @@ describe('init-direnv', () => {
     })
 
     test('unsets environment variables when direnv returns null', () => {
+      // Direnv is not available on Windows; skip the test
+      if (os.platform() === 'win32') return
+
       fs.writeFileSync(path.join(tempDir, '.envrc'), 'unset OLD_VAR')
       process.chdir(tempDir)
       process.env.OLD_VAR = 'should_be_removed'

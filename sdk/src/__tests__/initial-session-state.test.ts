@@ -11,6 +11,8 @@ import type { MockStatResult } from '@codebuff/common/testing/mock-types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
+const normalizeMockPath = (p: string) => p.replace(/\\/g, '/')
+
 describe('Initial Session State', () => {
   let mockFs: CodebuffFileSystem
   let mockLogger: Logger
@@ -18,31 +20,33 @@ describe('Initial Session State', () => {
   beforeEach(() => {
     mockFs = {
       readFile: async (path: string) => {
-        if (path.includes('src/index.ts')) {
+        const p = normalizeMockPath(path)
+        if (p.includes('src/index.ts')) {
           return 'console.log("Hello world");'
         }
-        if (path.includes('src/utils.ts')) {
+        if (p.includes('src/utils.ts')) {
           return 'export function add(a: number, b: number) { return a + b; }'
         }
-        if (path.includes('knowledge.md')) {
+        if (p.includes('knowledge.md')) {
           return '# Knowledge\n\nThis is a knowledge file.'
         }
-        if (path.includes('README.md')) {
+        if (p.includes('README.md')) {
           return '# Project\n\nThis is a readme.'
         }
-        if (path.includes('.gitignore')) {
+        if (p.includes('.gitignore')) {
           return 'node_modules/\n.git/'
         }
-        if (path.includes('.codebuffignore')) {
+        if (p.includes('.codebuffignore')) {
           return ''
         }
-        if (path.includes('.manicodeignore')) {
+        if (p.includes('.manicodeignore')) {
           return ''
         }
         throw new Error(`File not found: ${path}`)
       },
       readdir: async (path: string) => {
-        if (path.includes('test-project')) {
+        const p = normalizeMockPath(path)
+        if (p.includes('test-project')) {
           return [
             { name: 'src', isDirectory: () => true, isFile: () => false },
             { name: '.git', isDirectory: () => true, isFile: () => false },
@@ -59,7 +63,7 @@ describe('Initial Session State', () => {
             },
           ]
         }
-        if (path.includes('src')) {
+        if (p.includes('src')) {
           return [
             { name: 'index.ts', isDirectory: () => false, isFile: () => true },
             { name: 'utils.ts', isDirectory: () => false, isFile: () => true },
@@ -67,18 +71,22 @@ describe('Initial Session State', () => {
         }
         return []
       },
-      stat: async (path: string): Promise<MockStatResult> => ({
-        isDirectory: () => path.includes('src') || path.includes('.git'),
-        isFile: () => !path.includes('src') && !path.includes('.git'),
-      }),
+      stat: async (path: string): Promise<MockStatResult> => {
+        const p = normalizeMockPath(path)
+        return {
+          isDirectory: () => p.includes('src') || p.includes('.git'),
+          isFile: () => !p.includes('src') && !p.includes('.git'),
+        }
+      },
       exists: async (path: string) => {
-        if (path.includes('.gitignore')) return true
-        if (path.includes('.codebuffignore')) return true
-        if (path.includes('.manicodeignore')) return true
-        if (path.includes('src')) return true
-        if (path.includes('.git')) return true
-        if (path.includes('knowledge.md')) return true
-        if (path.includes('README.md')) return true
+        const p = normalizeMockPath(path)
+        if (p.includes('.gitignore')) return true
+        if (p.includes('.codebuffignore')) return true
+        if (p.includes('.manicodeignore')) return true
+        if (p.includes('src')) return true
+        if (p.includes('.git')) return true
+        if (p.includes('knowledge.md')) return true
+        if (p.includes('README.md')) return true
         return false
       },
       mkdir: async () => {},
@@ -117,10 +125,11 @@ describe('Initial Session State', () => {
 
   test('discovers project files automatically when projectFiles is undefined', async () => {
     mockFs.readdir = (async (dirPath: string) => {
-      if (dirPath === '/test-project') {
+      const p = normalizeMockPath(dirPath)
+      if (p === '/test-project') {
         return ['src', '.git', 'knowledge.md', 'README.md', '.gitignore']
       }
-      if (dirPath === '/test-project/src') {
+      if (p === '/test-project/src') {
         return ['index.ts', 'utils.ts', 'generated.ts']
       }
       return []
@@ -128,16 +137,20 @@ describe('Initial Session State', () => {
     mockFs.stat = (async (filePath: string) =>
       ({
         isDirectory: () =>
-          filePath === '/test-project/src' || filePath === '/test-project/.git',
+          normalizeMockPath(filePath) === '/test-project/src' ||
+          normalizeMockPath(filePath) === '/test-project/.git',
         isFile: () =>
-          filePath !== '/test-project/src' && filePath !== '/test-project/.git',
-        size: filePath.endsWith('generated.ts') ? 1_000_001 : 100,
+          normalizeMockPath(filePath) !== '/test-project/src' &&
+          normalizeMockPath(filePath) !== '/test-project/.git',
+        size: normalizeMockPath(filePath).endsWith('generated.ts')
+          ? 1_000_001
+          : 100,
       }) as MockStatResult & { size: number }) as CodebuffFileSystem['stat']
 
     const readFilePaths: string[] = []
     const originalReadFile = mockFs.readFile
     mockFs.readFile = (async (filePath: string, encoding?: BufferEncoding) => {
-      readFilePaths.push(filePath)
+      readFilePaths.push(normalizeMockPath(filePath))
       return originalReadFile(filePath, encoding)
     }) as CodebuffFileSystem['readFile']
 

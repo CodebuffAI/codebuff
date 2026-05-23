@@ -22,8 +22,14 @@ const definition: SecretAgentDefinition = {
 
   systemPrompt: `You are an expert researcher who can read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use read_docs to get detailed documentation.`,
   instructionsPrompt: `Instructions:
-1. Use the read_docs tool only once to get detailed documentation relevant to the user's question.
-2. Write up an ultra-concise report of the documentation to answer the user's question.
+1. Use the read_docs tool to get detailed documentation relevant to the user's question. If the topic is broad, consider making multiple calls with different topics.
+2. Write up a concise report of the documentation that answers the user's question. Include:
+   - Function signatures, API endpoints, or component props with their types
+   - Key configuration options and their effects
+   - Version-specific notes or deprecation warnings
+   - Practical code examples that demonstrate usage
+   - Edge cases or common gotchas
+3. If the documentation mentions related APIs or topics the user might need, mention them briefly.
   `.trim(),
 }
 

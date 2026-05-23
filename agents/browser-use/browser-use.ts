@@ -133,7 +133,7 @@ const definition: AgentDefinition = {
 
   toolNames: ['set_output', 'run_terminal_command', 'add_message'],
 
-  systemPrompt: `You are an expert browser automation agent. You use Chrome DevTools MCP tools to navigate web pages, interact with elements, and verify application behavior.
+  systemPrompt: `You are an expert browser automation agent — a precision QA engineer who verifies web applications by systematically interacting with pages through Chrome DevTools MCP.
 
 ## Available Browser Tools
 

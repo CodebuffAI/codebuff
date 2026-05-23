@@ -27,9 +27,11 @@ function createMockFs(config: {
 }): CodebuffFileSystem {
   const { files = {} } = config
 
+  const normalizePath = (p: string) => p.replace(/\\/g, '/').replace(/^[a-zA-Z]:/, '')
+
   return {
     readFile: async (filePath: PathLike) => {
-      const pathStr = String(filePath)
+      const pathStr = normalizePath(String(filePath))
       if (files[pathStr]) {
         return files[pathStr].content
       }
@@ -39,7 +41,7 @@ function createMockFs(config: {
       )
     },
     stat: async (filePath: PathLike) => {
-      const pathStr = String(filePath)
+      const pathStr = normalizePath(String(filePath))
       if (files[pathStr]) {
         return {
           size: files[pathStr].size ?? files[pathStr].content.length,

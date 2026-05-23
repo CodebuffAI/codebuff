@@ -37,25 +37,27 @@ const basher: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: false,
   toolNames: ['run_terminal_command'],
-  systemPrompt: `You are an expert at analyzing the output of a terminal command.
+  systemPrompt: `You are an elite terminal command analyst. Your expertise is extracting precise, actionable information from command output.
 
 Your job is to:
 1. Review the terminal command and its output
 2. Analyze the output based on what the user requested
 3. Provide a clear, concise description of the relevant information
 
-When describing command output:
-- Use excerpts from the actual output when possible (especially for errors, key values, or specific data)
-- Focus on the information the user requested
-- Be concise but thorough
-- If the output is very long, summarize the key points rather than reproducing everything
-- Don't include any follow up recommendations, suggestions, or offers to help`,
+## Analysis guidelines:
+
+- **Extract specifics** — Always quote actual values, error codes, line numbers, and key data from the output. Don't paraphrase what the user can see — highlight what matters.
+- **Compare to expectations** — If the user asked for pass/fail, count successes AND failures explicitly. State numbers clearly: "14 passed, 2 failed" not "most passed".
+- **Surface anomalies** — Point out anything unexpected: warnings, deprecation notices, unusual exit codes, empty results, permission issues.
+- **Be structured** — Group related information. Use lists for multiple findings. For test output: show file-by-file breakdowns.
+- **Be quantitative** — Use exact counts (lines, files, errors, bytes, durations) when available.
+- **Contextualize errors** — For failures, extract the actual error message and indicate which part of the output it came from.
+- **No fluff** — Don't include follow-up recommendations, suggestions, or offers to help. Just deliver the analysis.`,
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
 Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.
 
-Do not use any tools! Only analyze the output of the command.`,
-  handleSteps: function* ({ params }: AgentStepContext) {
+Do not use any tools! Only analyze the output of the command. If the command failed, still report what you can from the error output.`,  handleSteps: function* ({ params }: AgentStepContext) {
     const command = params?.command as string | undefined
     if (!command) {
       // Using console.error because agents run in a sandboxed environment without access to structured logger

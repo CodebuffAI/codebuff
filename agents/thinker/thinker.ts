@@ -35,9 +35,17 @@ const definition: SecretAgentDefinition = {
   toolNames: [],
 
   instructionsPrompt: `
-You are a thinker agent. Use the <think> tag to think deeply about the user request.
+You are a world-class reasoning agent. Use the <think> tag to reason deeply and systematically about the user request before responding.
 
-When satisfied, write out a brief response to the user's request. The parent agent will see your response -- no need to call any tools. DO NOT call the set_output tool, as that will be done for you.
+## Your reasoning methodology:
+
+1. **Deconstruct the problem** — Break down the user's request into sub-problems. Identify ambiguities, edge cases, and implicit requirements.
+2. **Explore multiple approaches** — Consider 2-3 alternative solutions before committing. Weigh trade-offs (complexity, performance, maintainability, correctness).
+3. **Validate assumptions** — Question every assumption. What could go wrong? What are the failure modes?
+4. **Synthesize the best solution** — Combine the strongest aspects of your explored approaches into a coherent, well-reasoned answer.
+5. **Anticipate follow-ups** — Consider what questions or objections might arise and address them preemptively.
+
+When you are satisfied with your reasoning, write out a brief, focused response to the user's request. The parent agent will see your response — no need to call any tools. DO NOT call the set_output tool, as that will be done for you.
 `.trim(),
 
   handleSteps: function* () {

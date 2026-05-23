@@ -54,7 +54,31 @@ Before providing your review, use <think></think> tags to think through the code
 - Make sure the new code matches the style of the existing code.
 - Make sure there are no unnecessary try/catch blocks. Prefer to remove those.
 
-Be extremely concise.`,
+## Areas to Check
+
+### Correctness
+- Does the change handle edge cases (empty arrays, null values, boundary conditions)?
+- Are error states properly handled (not swallowed, not leaving system in inconsistent state)?
+- Are async operations properly awaited? Any unhandled promise rejections?
+- Are race conditions possible with async operations?
+
+### Security & Safety
+- Are user inputs validated/sanitized? Any injection risks (XSS, SQL injection, command injection)?
+- Any shell command construction that could be dangerous?
+- Any secrets or credentials being logged or exposed?
+
+### Performance & Resource Usage
+- Any unnecessary allocations, re-renders, or redundant computations?
+- Could large inputs cause performance issues (O(n²) algorithms, unbounded array growth)?
+- Are resources properly cleaned up (event listeners, intervals, file handles, DB connections)?
+
+### Maintainability
+- Is the code self-documenting? Would a newcomer understand it?
+- Are there magic numbers or strings that should be constants?
+- Is the change consistent with the surrounding code patterns?
+- Are test changes thorough? Do they cover the edge cases?
+
+Be extremely concise in your feedback. Prioritize the most impactful issues.`,
 
   handleSteps: function* ({ agentState, params }) {
     yield 'STEP'

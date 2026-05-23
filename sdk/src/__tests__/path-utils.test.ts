@@ -1,3 +1,4 @@
+import path from 'path'
 import { describe, expect, test } from 'bun:test'
 
 import {
@@ -8,21 +9,21 @@ import {
 describe('resolveFilePathWithinProject', () => {
   test('normalizes relative paths to full and project-relative paths', () => {
     expect(resolveFilePathWithinProject('/repo', 'src/file.ts')).toEqual({
-      fullPath: '/repo/src/file.ts',
+      fullPath: path.resolve('/repo', 'src/file.ts').replace(/\\/g, '/'),
       relativePath: 'src/file.ts',
     })
   })
 
   test('normalizes absolute paths inside the project', () => {
     expect(resolveFilePathWithinProject('/repo', '/repo/src/file.ts')).toEqual({
-      fullPath: '/repo/src/file.ts',
+      fullPath: path.resolve('/repo', 'src/file.ts').replace(/\\/g, '/'),
       relativePath: 'src/file.ts',
     })
   })
 
   test('allows file names that start with two dots inside the project', () => {
     expect(resolveFilePathWithinProject('/repo', '/repo/..config')).toEqual({
-      fullPath: '/repo/..config',
+      fullPath: path.resolve('/repo', '..config').replace(/\\/g, '/'),
       relativePath: '..config',
     })
   })
