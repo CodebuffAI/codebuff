@@ -7,8 +7,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
-  isFreebuffDeploymentHours,
 } from '@codebuff/common/constants/freebuff-models'
 import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
@@ -963,7 +961,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
 
     it(
-      'lets old freebuff clients keep using GLM 5.1 through Fireworks availability rules',
+      'rejects removed GLM 5.1 for free mode before provider calls',
       async () => {
         const fetchedBodies: Record<string, unknown>[] = []
         const fetchViaFireworks = mock(
@@ -994,7 +992,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             method: 'POST',
             headers: allowedFreeModeHeaders('test-api-key-new-free'),
             body: JSON.stringify({
-              model: FREEBUFF_GLM_MODEL_ID,
+              model: 'z-ai/glm-5.1',
               stream: false,
               codebuff_metadata: {
                 run_id: 'run-free',
@@ -1019,19 +1017,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         })
 
         const body = await response.json()
-        if (isFreebuffDeploymentHours()) {
-          expect(response.status).toBe(200)
-          expect(fetchedBodies).toHaveLength(1)
-          expect(fetchedBodies[0].model).toBe(
-            'accounts/fireworks/models/glm-5p1',
-          )
-          expect(body.model).toBe(FREEBUFF_GLM_MODEL_ID)
-          expect(body.provider).toBe('Fireworks')
-        } else {
-          expect(response.status).toBe(503)
-          expect(fetchedBodies).toHaveLength(0)
-          expect(body.error.code).toBe('DEPLOYMENT_OUTSIDE_HOURS')
-        }
+        expect(response.status).toBe(403)
+        expect(fetchedBodies).toHaveLength(0)
+        expect(body.error).toBe('free_mode_invalid_agent_model')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

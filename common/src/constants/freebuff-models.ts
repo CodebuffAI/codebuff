@@ -35,7 +35,6 @@ export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
-export const FREEBUFF_GLM_MODEL_ID = 'z-ai/glm-5.1'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
@@ -102,29 +101,15 @@ export const FREEBUFF_MODELS = [
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
-export const LEGACY_FREEBUFF_MODELS = [
-  {
-    id: FREEBUFF_GLM_MODEL_ID,
-    displayName: 'GLM 5.1',
-    tagline: 'Legacy',
-    availability: 'deployment_hours',
-  },
-] as const satisfies readonly FreebuffModelOption[]
-
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
 ] as const
 
-export const SUPPORTED_FREEBUFF_MODELS = [
-  ...FREEBUFF_MODELS,
-  ...LEGACY_FREEBUFF_MODELS,
-] as const satisfies readonly FreebuffModelOption[]
+export const SUPPORTED_FREEBUFF_MODELS = FREEBUFF_MODELS
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
-export type SupportedFreebuffModelId =
-  (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
+export type SupportedFreebuffModelId = FreebuffModelId
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the picker. MiniMax is the

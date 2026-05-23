@@ -5,7 +5,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
@@ -68,7 +67,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set([
     FREEBUFF_MINIMAX_MODEL_ID,
-    FREEBUFF_GLM_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
@@ -94,10 +92,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'tmux-cli': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
 
   // Code reviewer for free mode
-  'code-reviewer-minimax': new Set([
-    FREEBUFF_MINIMAX_MODEL_ID,
-    FREEBUFF_GLM_MODEL_ID,
-  ]),
+  'code-reviewer-minimax': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
   'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
