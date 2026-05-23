@@ -516,9 +516,14 @@ async function runOnce({
   }
   const userId = userInfo.id
 
+  if (signal?.aborted) {
+    return getCancelledRunState('Run cancelled by user.')
+  }
+
   const composioCustomToolDefinitions = await getComposioCustomToolDefinitions({
     apiKey,
     logger,
+    signal,
   })
 
   for (const toolName of COMPOSIO_META_TOOL_NAMES) {

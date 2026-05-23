@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { env } from '@codebuff/internal/env'
 
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type {
@@ -13,6 +14,7 @@ type ComposioUser = {
   id: string
   email: string
   discord_id: string | null
+  banned: boolean
 }
 
 export async function requireComposioUser(params: {
@@ -39,7 +41,7 @@ export async function requireComposioUser(params: {
 
   const userInfo = await getUserInfoFromApiKey({
     apiKey,
-    fields: ['id', 'email', 'discord_id'],
+    fields: ['id', 'email', 'discord_id', 'banned'],
     logger,
   })
   if (!userInfo) {
@@ -48,6 +50,19 @@ export async function requireComposioUser(params: {
       response: NextResponse.json(
         { error: 'Invalid API key or user not found' },
         { status: 401 },
+      ),
+    }
+  }
+
+  if (userInfo.banned) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: 'account_suspended',
+          message: `Your account has been suspended. Please contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if you did not expect this.`,
+        },
+        { status: 403 },
       ),
     }
   }

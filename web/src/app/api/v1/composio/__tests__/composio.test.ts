@@ -41,11 +41,20 @@ describe('/api/v1/composio', () => {
     }
     loggerWithContext = mock(() => logger)
     getUserInfoFromApiKey = mock(async ({ apiKey }) => {
+      if (apiKey === 'banned-key') {
+        return {
+          id: 'banned-user',
+          email: 'banned@example.com',
+          discord_id: null,
+          banned: true,
+        } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
+      }
       if (apiKey !== 'valid-key') return null
       return {
         id: 'user-123',
         email: 'user@example.com',
         discord_id: null,
+        banned: false,
       } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
     })
   })
@@ -290,5 +299,34 @@ describe('/api/v1/composio', () => {
     expect(await response.json()).toEqual({
       error: 'Missing or invalid Authorization header',
     })
+  })
+
+  test('rejects suspended users before rate limiting or tool lookup', async () => {
+    const getToolsForUser = mock(async () => ({
+      sessionId: 'session-123',
+      tools: [],
+    }))
+    const checkRateLimit = mock(() => ({ limited: false as const }))
+    const req = new NextRequest('http://localhost/api/v1/composio/tools', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer banned-key' },
+    })
+
+    const response = await postComposioTools({
+      req,
+      getUserInfoFromApiKey,
+      db: mockDb,
+      logger,
+      loggerWithContext,
+      getToolsForUser,
+      checkRateLimit,
+    })
+
+    expect(response.status).toBe(403)
+    const body = await response.json()
+    expect(body.error).toBe('account_suspended')
+    expect(body.message).toContain('Your account has been suspended')
+    expect(getToolsForUser).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalled()
   })
 })
