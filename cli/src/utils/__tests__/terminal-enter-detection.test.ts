@@ -26,6 +26,16 @@ describe('terminal enter detection', () => {
     expect(isLinefeedActingAsEnter()).toBe(false)
   })
 
+  test('marks Kitty CSI-u Return as return seen', () => {
+    expect(
+      shouldMarkReturnKeySeen({ name: 'return', sequence: '\x1b[13u' }),
+    ).toBe(true)
+
+    markReturnKeySeenForKey({ name: 'return', sequence: '\x1b[13u' })
+
+    expect(isLinefeedActingAsEnter()).toBe(false)
+  })
+
   test('does not mark keypad Enter escape sequences as return seen', () => {
     expect(
       shouldMarkReturnKeySeen({ name: 'kpenter', sequence: '\x1b[57414u' }),

@@ -1,3 +1,5 @@
+import { isKeypadEnter } from './keypad-keys'
+
 /**
  * Most terminals send \r for Enter and \n for Ctrl+J. A few niche Linux
  * terminal emulators send \n for Enter instead, making the two
@@ -15,9 +17,7 @@ const defaultHasSeenReturnKey = process.platform === 'darwin'
 let hasSeenReturnKey = defaultHasSeenReturnKey
 
 export function shouldMarkReturnKeySeen(key: EnterDetectionKey): boolean {
-  return (
-    (key.name === 'return' || key.name === 'enter') && key.sequence === '\r'
-  )
+  return (key.name === 'return' || key.name === 'enter') && !isKeypadEnter(key)
 }
 
 export function markReturnKeySeen(): void {
