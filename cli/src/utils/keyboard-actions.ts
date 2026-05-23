@@ -1,4 +1,5 @@
 import { getInputModeConfig, type InputMode } from './input-modes'
+import { isKeypadEnter } from './keypad-keys'
 import { isLinefeedActingAsEnter } from './terminal-enter-detection'
 import type { KeyEvent } from '@opentui/core'
 
@@ -131,8 +132,9 @@ export function resolveChatKeyboardAction(
   const isTab = key.name === 'tab' && !hasModifier(key)
   const isShiftTab =
     key.name === 'tab' && key.shift && !key.ctrl && !key.meta && !key.option
+  const keypadEnter = isKeypadEnter(key)
   const isEnter =
-    (key.name === 'return' || key.name === 'enter' ||
+    (key.name === 'return' || key.name === 'enter' || keypadEnter ||
       (key.name === 'linefeed' && isLinefeedActingAsEnter())) &&
     !key.shift &&
     !hasModifier(key)
