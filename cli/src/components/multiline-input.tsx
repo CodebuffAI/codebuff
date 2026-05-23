@@ -21,7 +21,10 @@ import {
   isKeypadEnter,
 } from '../utils/keypad-keys'
 import { clamp } from '../utils/math'
-import { isLinefeedActingAsEnter, markReturnKeySeen } from '../utils/terminal-enter-detection'
+import {
+  isLinefeedActingAsEnter,
+  markReturnKeySeenForKey,
+} from '../utils/terminal-enter-detection'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
@@ -554,9 +557,7 @@ export const MultilineInput = forwardRef<
       const isReturnOrEnter =
         key.name === 'return' || key.name === 'enter' || keypadEnter
 
-      if (isReturnOrEnter) {
-        markReturnKeySeen()
-      }
+      markReturnKeySeenForKey(key)
 
       const linefeedIsEnter = lowerKeyName === 'linefeed' && isLinefeedActingAsEnter()
       const isEnterKey = isReturnOrEnter || linefeedIsEnter
