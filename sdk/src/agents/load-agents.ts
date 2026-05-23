@@ -105,6 +105,43 @@ export type LoadLocalAgentsResult = {
 
 const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 
+const shouldSkipAgentDirectory = (name: string): boolean =>
+  name.startsWith('.') ||
+  name === 'node_modules' ||
+  name === 'skills' ||
+  name.startsWith('skills-')
+
+const isLoadableAgentFileName = (fileName: string): boolean => {
+  const extension = path.extname(fileName).toLowerCase()
+  return (
+    agentFileExtensions.has(extension) &&
+    !fileName.endsWith('.d.ts') &&
+    !/[./](test|spec)\.[cm]?[tj]sx?$/.test(fileName)
+  )
+}
+
+const looksLikeAgentDefinitionSource = (fullPath: string): boolean => {
+  let source: string
+  try {
+    source = fs.readFileSync(fullPath, 'utf8')
+  } catch {
+    return false
+  }
+
+  const exportsAgentDefinition =
+    /\bexport\s+default\b/.test(source) ||
+    /\bmodule\.exports\s*=/.test(source) ||
+    /\bexports\.default\s*=/.test(source)
+  if (!exportsAgentDefinition) {
+    return false
+  }
+
+  return (
+    /(^|[,{]\s*)['"]?id['"]?\s*:/m.test(source) ||
+    /(^|[,{]\s*)['"]?model['"]?\s*:/m.test(source)
+  )
+}
+
 const getAllAgentFiles = (dir: string): string[] => {
   const files: string[] = []
   try {
@@ -112,16 +149,14 @@ const getAllAgentFiles = (dir: string): string[] => {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === 'skills') continue
+        if (shouldSkipAgentDirectory(entry.name)) continue
         files.push(...getAllAgentFiles(fullPath))
         continue
       }
-      const extension = path.extname(entry.name).toLowerCase()
       const isAgentFile =
         entry.isFile() &&
-        agentFileExtensions.has(extension) &&
-        !entry.name.endsWith('.d.ts') &&
-        !entry.name.endsWith('.test.ts')
+        isLoadableAgentFileName(entry.name) &&
+        looksLikeAgentDefinitionSource(fullPath)
       if (isAgentFile) {
         files.push(fullPath)
       }
