@@ -15,6 +15,7 @@ import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
 import { loadLocalAgents, loadAgentDefinitions } from '../utils/local-agent-registry'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 
@@ -110,7 +111,14 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
 
   // Handle keyboard navigation in checklist
   const handleSearchKeyIntercept = useCallback(
-    (key: { name?: string; shift?: boolean }) => {
+    (key: {
+      name?: string
+      sequence?: string
+      shift?: boolean
+      ctrl?: boolean
+      meta?: boolean
+      option?: boolean
+    }) => {
       if (key.name === 'escape') {
         // Escape: clear input if there is any, otherwise exit publish mode
         if (searchQuery.length > 0) {
@@ -129,7 +137,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
         setFocusedIndex(Math.min(filteredAgents.length - 1, focusedIndex + 1))
         return true
       }
-      if (key.name === 'return' || key.name === 'enter') {
+      if (isPlainEnterKey(key)) {
         // Enter: toggle selection
         const agent = filteredAgents[focusedIndex]
         if (agent) {

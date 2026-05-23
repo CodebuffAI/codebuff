@@ -12,6 +12,7 @@ import {
   formatRelativeTime,
   getAllChats,
 } from '../utils/chat-history'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { SelectableListItem } from './selectable-list'
 
@@ -170,7 +171,14 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
 
   // Handle keyboard input
   const handleKeyIntercept = useCallback(
-    (key: { name?: string; shift?: boolean; ctrl?: boolean }) => {
+    (key: {
+      name?: string
+      sequence?: string
+      shift?: boolean
+      ctrl?: boolean
+      meta?: boolean
+      option?: boolean
+    }) => {
       if (key.name === 'escape') {
         if (searchQuery.length > 0) {
           setSearchQuery('')
@@ -189,7 +197,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
         setFocusedIndex((prev) => Math.min(maxIndex, prev + 1))
         return true
       }
-      if (key.name === 'return' || key.name === 'enter') {
+      if (isPlainEnterKey(key)) {
         const focused = filteredItems[focusedIndex]
         if (focused) {
           onSelectChat(focused.id)

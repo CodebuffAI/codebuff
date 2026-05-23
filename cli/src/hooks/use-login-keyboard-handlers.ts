@@ -1,6 +1,8 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
+
 import type { KeyEvent } from '@opentui/core'
 
 interface UseLoginKeyboardHandlersParams {
@@ -27,11 +29,7 @@ export function useLoginKeyboardHandlers({
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
-        const isEnter =
-          (key.name === 'return' || key.name === 'enter') &&
-          !key.ctrl &&
-          !key.meta &&
-          !key.shift
+        const isEnter = isPlainEnterKey(key)
 
         const isCKey = key.name === 'c' && !key.ctrl && !key.meta && !key.shift
         const isCtrlC = key.ctrl && key.name === 'c'

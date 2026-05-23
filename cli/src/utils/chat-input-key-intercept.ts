@@ -1,5 +1,4 @@
-import { isKeypadEnter } from './keypad-keys'
-import { isLinefeedActingAsEnter } from './terminal-enter-detection'
+import { isPlainEnterKey } from './terminal-enter-detection'
 
 type ChatInputKey = {
   name?: string
@@ -22,15 +21,7 @@ export function shouldInterceptChatInputKey(
   key: ChatInputKey,
   state: ChatInputKeyInterceptState,
 ): boolean {
-  const isPlainEnter =
-    (key.name === 'return' ||
-      key.name === 'enter' ||
-      isKeypadEnter(key) ||
-      (key.name === 'linefeed' && isLinefeedActingAsEnter())) &&
-    !key.shift &&
-    !key.ctrl &&
-    !key.meta &&
-    !key.option
+  const isPlainEnter = isPlainEnterKey(key)
   const isTab = key.name === 'tab' && !key.ctrl && !key.meta && !key.option
   const isUp = key.name === 'up' && !key.ctrl && !key.meta && !key.option
   const isDown = key.name === 'down' && !key.ctrl && !key.meta && !key.option

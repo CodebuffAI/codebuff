@@ -16,6 +16,7 @@ import {
 import { getOptionLabel, KEYBOARD_HINTS, CUSTOM_OPTION_INDEX } from './constants'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
+import { isPlainEnterKey } from '../../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 
@@ -338,7 +339,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
             }
             return
           }
-          if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+          if (isPlainEnterKey(key) || key.name === 'space') {
             preventDefault()
             handleSubmit()
             return
@@ -442,7 +443,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           return
         }
 
-        if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+        if (isPlainEnterKey(key) || key.name === 'space') {
           preventDefault()
 
           if (expandedIndex === null) {

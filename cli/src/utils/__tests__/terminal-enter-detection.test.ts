@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   isLinefeedActingAsEnter,
+  isPlainEnterKey,
   markReturnKeySeenForKey,
   resetReturnKeySeenForTests,
   shouldMarkReturnKeySeen,
@@ -48,5 +49,22 @@ describe('terminal enter detection', () => {
     markReturnKeySeenForKey({ name: '', sequence: '\x1bOM' })
 
     expect(isLinefeedActingAsEnter()).toBe(true)
+  })
+
+  test('recognizes keypad Enter as plain Enter', () => {
+    expect(
+      isPlainEnterKey({ name: 'kpenter', sequence: '\x1b[57414u' }),
+    ).toBe(true)
+    expect(isPlainEnterKey({ name: '', sequence: '\x1bOM' })).toBe(true)
+  })
+
+  test('does not recognize modified keypad Enter as plain Enter', () => {
+    expect(
+      isPlainEnterKey({
+        name: 'kpenter',
+        sequence: '\x1b[57414u',
+        shift: true,
+      }),
+    ).toBe(false)
   })
 })

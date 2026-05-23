@@ -11,6 +11,7 @@ import {
 import { useTheme } from '../hooks/use-theme'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { formatSessionUnits } from '../utils/format-session-units'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
@@ -89,7 +90,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     useCallback(
       (key: KeyEvent) => {
         if (!canRestart) return
-        if (key.name === 'return' || key.name === 'enter') {
+        if (isPlainEnterKey(key)) {
           key.preventDefault?.()
           startSameChatSession()
           return
