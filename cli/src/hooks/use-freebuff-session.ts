@@ -514,9 +514,8 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           return
         }
         if (next.status === 'model_unavailable') {
-          // Server says the requested model isn't available right now (e.g.
-          // legacy GLM 5.1 outside deployment hours). Flip to the
-          // always-available fallback for this run. In-memory only —
+          // Server says the requested model isn't available right now. Flip
+          // to the always-available fallback for this run. In-memory only —
           // `setSelectedModel` doesn't persist, so the user's saved preference
           // is preserved for their next launch.
           useFreebuffModelStore
@@ -637,15 +636,15 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
               if (response.status === 'none' || response.status === 'queued') {
                 apply({
                   status: 'none',
-                  accessTier:
-                    response.accessTier ?? landingSession.accessTier,
+                  accessTier: response.accessTier ?? landingSession.accessTier,
                   queueDepthByModel:
                     response.queueDepthByModel ??
                     landingSession.queueDepthByModel,
                   rateLimitsByModel:
                     response.rateLimitsByModel ??
                     landingSession.rateLimitsByModel,
-                  countryCode: response.countryCode ?? landingSession.countryCode,
+                  countryCode:
+                    response.countryCode ?? landingSession.countryCode,
                   countryBlockReason:
                     response.countryBlockReason ??
                     landingSession.countryBlockReason,

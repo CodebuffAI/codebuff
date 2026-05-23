@@ -5,7 +5,7 @@
 The waiting room is the admission control layer for **free-mode** requests against the freebuff Fireworks deployments. It has three jobs:
 
 1. **Drip-admit users per model** — each selectable freebuff model has its own FIFO queue. Admission runs one tick (default `ADMISSION_TICK_MS`, 15s) that tries to admit one user per model, so heavier models can sit cold without starving lighter ones.
-2. **Gate on per-deployment health and hours** — a single fleet probe per tick (`getFleetHealth` in `web/src/server/free-session/fireworks-health.ts`) hits the Fireworks metrics endpoint and classifies each dedicated deployment as `healthy | degraded | unhealthy`. Only models whose deployment is `healthy` and currently available admit that tick; GLM 5.1 is available during 9am ET-5pm PT on weekdays, while MiniMax M2.7 is serverless and always available.
+2. **Gate on per-deployment health and hours** — a single fleet probe per tick (`getFleetHealth` in `web/src/server/free-session/fireworks-health.ts`) hits the Fireworks metrics endpoint and classifies each dedicated deployment as `healthy | degraded | unhealthy`. Only models whose deployment is `healthy` and currently available admit that tick; models without a dedicated deployment are treated as serverless and always available.
 3. **One instance per account** — prevent a single user from running N concurrent freebuff CLIs to get N× throughput.
 
 Users who cannot be admitted immediately are placed in the queue for their chosen model and given an estimated wait time. Admitted users get a fixed-length session (default 1h) bound to the model they were admitted on; chat completions use that model for the life of the session.
@@ -153,18 +153,18 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 
 ### Tunables
 
-| Constant                     | Location                                  | Default                                                             | Purpose                                                                                                                                                                       |
-| ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ADMISSION_TICK_MS`          | `config.ts`                               | 15000                                                               | How often the ticker fires. Up to one user is admitted per model per tick.                                                                                                    |
-| `FREEBUFF_MODELS`            | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7`, `deepseek-v4-flash` | Selectable models; each gets its own queue and admission slot.                                                                                                                |
-| `FIREWORKS_DEPLOYMENT_MAP`   | `web/src/llm-api/fireworks-config.ts`     | `glm-5.1`                                                           | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback) — drop this default when they migrate to their own deployments. |
-| `HEALTH_CACHE_TTL_MS`        | `fireworks-health.ts`                     | 25000                                                               | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit.                                                                           |
-| `FREEBUFF_SESSION_LENGTH_MS` | env                                       | 3_600_000                                                           | Session lifetime                                                                                                                                                              |
-| `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`.   |
+| Constant                     | Location                                  | Default                                                             | Purpose                                                                                                                                                                     |
+| ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMISSION_TICK_MS`          | `config.ts`                               | 15000                                                               | How often the ticker fires. Up to one user is admitted per model per tick.                                                                                                  |
+| `FREEBUFF_MODELS`            | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7`, `deepseek-v4-flash` | Selectable models; each gets its own queue and admission slot.                                                                                                              |
+| `FIREWORKS_DEPLOYMENT_MAP`   | `web/src/llm-api/fireworks-config.ts`     | none for current freebuff models                                    | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback).                                                              |
+| `HEALTH_CACHE_TTL_MS`        | `fireworks-health.ts`                     | 25000                                                               | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit.                                                                         |
+| `FREEBUFF_SESSION_LENGTH_MS` | env                                       | 3_600_000                                                           | Session lifetime                                                                                                                                                            |
+| `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
 ### Premium Session Quota
 
-DeepSeek V4 Pro, Kimi, and legacy GLM share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax and DeepSeek V4 Flash remain unlimited.
+DeepSeek V4 Pro and Kimi share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax and DeepSeek V4 Flash remain unlimited.
 
 ## HTTP API
 
@@ -198,7 +198,7 @@ Response shapes:
   "queueDepth": 43,        // size of this model's queue
   "queueDepthByModel": {   // snapshot of every model's queue — powers the
     "minimax/minimax-m2.7": 43, //  "N ahead" hint in the selector. Missing
-    "z-ai/glm-5.1": 4   //  entries should be treated as 0.
+    "deepseek/deepseek-v4-pro": 4 // entries should be treated as 0.
   },
   "estimatedWaitMs": 384000,
   "queuedAt": "2026-04-17T12:00:00Z"
@@ -298,7 +298,7 @@ waitMs = (position - 1) * 24_000
 - Position 1 → 0 (next tick admits you)
 - Position 2 → 24s, and so on.
 
-`position` is scoped to this model's queue — a user at position 1 in the `minimax/minimax-m2.7` queue is not affected by the depth of the `z-ai/glm-5.1` queue. The estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence, health-gated pauses, and deployment-hours availability (during a GLM Fireworks incident or outside 9am ET-5pm PT, only GLM's queue stalls; MiniMax keeps draining), so the real wait can be longer or shorter.
+`position` is scoped to this model's queue — a user at position 1 in the `minimax/minimax-m2.7` queue is not affected by the depth of the `deepseek/deepseek-v4-pro` queue. The estimate is intentionally decoupled from the admission tick — it's a human-friendly rule-of-thumb for the UI, not a precise projection. Actual wait depends on admission-tick cadence and health-gated pauses, so the real wait can be longer or shorter.
 
 ## CLI Integration (frontend-side contract)
 
@@ -337,7 +337,7 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 | Spamming POST/GET to starve admission tick                    | Admission uses per-model Postgres advisory locks; DDoS protection is upstream (Next's global rate limits). Consider adding a per-user limiter on `/session` if traffic warrants. |
 | Repeatedly POSTing different models to get across every queue | Single row per user (PK on `user_id`); switching models moves the row, never clones it. A user holds exactly one queue slot at any time.                                         |
 | Fireworks metrics endpoint down / slow                        | `getFleetHealth()` fails closed (timeout, non-OK, or missing API key) → every dedicated-deployment model is flagged `unhealthy` and its queue pauses.                            |
-| One deployment degraded while others are fine                 | Health is classified per-deployment; only the affected model's queue pauses, so a degraded GLM deployment doesn't block MiniMax admissions.                                      |
+| One deployment degraded while others are fine                 | Health is classified per-deployment; only the affected model's queue pauses, so a degraded dedicated deployment doesn't block serverless model admissions.                       |
 | Zombie expired sessions holding capacity                      | Swept on every admission tick, even when upstream is unhealthy                                                                                                                   |
 
 ## Testing

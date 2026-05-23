@@ -380,17 +380,17 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(body.ipPrivacySignals).toBeUndefined()
   })
 
-  test('returns model_unavailable for legacy GLM 5.1 outside deployment hours', async () => {
+  test('falls back for removed GLM 5.1 requests', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
       makeReq('ok', { model: 'z-ai/glm-5.1' }),
       makeDeps(sessionDeps, 'u1'),
     )
-    expect(resp.status).toBe(409)
+    expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('model_unavailable')
-    expect(body.availableHours).toBe('9am ET-5pm PT every day')
-    expect(sessionDeps.rows.size).toBe(0)
+    expect(body.status).toBe('queued')
+    expect(body.model).toBe('minimax/minimax-m2.7')
+    expect(sessionDeps.rows.get('u1')?.model).toBe('minimax/minimax-m2.7')
   })
 
   // Banned bots with valid API keys were POSTing every few seconds and

@@ -4,7 +4,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
@@ -25,6 +24,7 @@ import type { InternalSessionRow } from '../types'
 const SESSION_LEN = 60 * 60 * 1000
 const GRACE_MS = 30 * 60 * 1000
 const DEFAULT_MODEL = 'minimax/minimax-m2.7'
+const REMOVED_GLM_MODEL = 'z-ai/glm-5.1'
 const DEFAULT_PREMIUM_RESET_AT = '2026-04-18T07:00:00.000Z'
 
 function expectedRateLimit(model: string, recentCount: number) {
@@ -264,42 +264,25 @@ describe('requestSession', () => {
     expect(state.instanceId).toBe('inst-1')
   })
 
-  test('deployment-hours-only model is unavailable outside deployment hours', async () => {
-    // Legacy GLM 5.1 is the only freebuff model still gated to deployment
-    // hours — Kimi and DeepSeek both run 24/7 from the picker.
+  test('removed GLM 5.1 request falls back to the default model', async () => {
     const state = await requestSession({
       userId: 'u1',
-      model: FREEBUFF_GLM_MODEL_ID,
-      deps,
-    })
-    expect(state).toEqual({
-      status: 'model_unavailable',
-      requestedModel: FREEBUFF_GLM_MODEL_ID,
-      availableHours: '9am ET-5pm PT every day',
-    })
-    expect(deps.rows.size).toBe(0)
-  })
-
-  test('legacy GLM 5.1 model is still accepted for old clients during deployment hours', async () => {
-    deps._tick(new Date('2026-04-17T16:00:00Z'))
-    const state = await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_GLM_MODEL_ID,
+      model: REMOVED_GLM_MODEL,
       deps,
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(deps.rows.get('u1')?.model).toBe(FREEBUFF_GLM_MODEL_ID)
-    expect(state.rateLimit).toEqual(expectedRateLimit(FREEBUFF_GLM_MODEL_ID, 0))
+    expect(state.model).toBe(DEFAULT_MODEL)
+    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
   })
 
-  test('legacy GLM 5.1 active session can be reclaimed outside deployment hours', async () => {
+  test('removed GLM 5.1 active session cannot be reclaimed', async () => {
     const admittedAt = new Date(deps._now().getTime() - 10 * 60 * 1000)
     deps.rows.set('u1', {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-pre',
-      model: FREEBUFF_GLM_MODEL_ID,
+      model: REMOVED_GLM_MODEL,
       queued_at: admittedAt,
       admitted_at: admittedAt,
       expires_at: new Date(deps._now().getTime() + SESSION_LEN),
@@ -309,13 +292,13 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: FREEBUFF_GLM_MODEL_ID,
+      model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('active')
-    if (state.status !== 'active') throw new Error('unreachable')
-    expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit).toEqual(expectedRateLimit(FREEBUFF_GLM_MODEL_ID, 0))
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.model).toBe(DEFAULT_MODEL)
+    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
   })
 
   test('queued response includes a per-model depth snapshot for the selector', async () => {
@@ -548,27 +531,25 @@ describe('requestSession', () => {
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rate_limited: legacy GLM 5.1 uses the shared premium quota', async () => {
+  test('rate_limited: removed GLM 5.1 request does not use the shared premium quota', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     for (let i = 0; i < PREMIUM_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: FREEBUFF_GLM_MODEL_ID,
+        model: PREMIUM_MODEL,
         admitted_at: new Date(now.getTime() - (i + 1) * 60 * 60 * 1000),
       })
     }
 
     const state = await requestSession({
       userId: 'u1',
-      model: FREEBUFF_GLM_MODEL_ID,
+      model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('rate_limited')
-    if (state.status !== 'rate_limited') throw new Error('unreachable')
-    expect(state.model).toBe(FREEBUFF_GLM_MODEL_ID)
-    expect(state.limit).toBe(PREMIUM_LIMIT)
-    expect(state.windowHours).toBe(PREMIUM_WINDOW_HOURS)
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.model).toBe(DEFAULT_MODEL)
   })
 
   test("rate_limited: admits before today's Pacific reset do not count", async () => {
@@ -1309,6 +1290,24 @@ describe('checkSessionAdmissible', () => {
     expect(result.ok).toBe(true)
     if (!result.ok || result.reason !== 'active') throw new Error('unreachable')
     expect(result.remainingMs).toBe(SESSION_LEN)
+  })
+
+  test('active removed GLM 5.1 session is not admissible', async () => {
+    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+    const row = deps.rows.get('u1')!
+    row.model = REMOVED_GLM_MODEL
+    row.status = 'active'
+    row.admitted_at = deps._now()
+    row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+
+    const result = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: row.active_instance_id,
+      requestedModel: REMOVED_GLM_MODEL,
+      deps,
+    })
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('session_model_mismatch')
   })
 
   test('active Kimi session admits Gemini thinker requests', async () => {

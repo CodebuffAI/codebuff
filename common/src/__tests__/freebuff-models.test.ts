@@ -5,7 +5,6 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_GLM_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
@@ -84,15 +83,14 @@ describe('freebuff model availability', () => {
     ).toBe(false)
   })
 
-  test('supports GLM 5.1 as a legacy server-side model without selecting it for new clients', () => {
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_GLM_MODEL_ID,
+  test('does not support GLM 5.1 for freebuff sessions', () => {
+    const glm = 'z-ai/glm-5.1'
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(glm)
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      glm,
     )
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_GLM_MODEL_ID,
-    )
-    expect(isFreebuffModelId(FREEBUFF_GLM_MODEL_ID)).toBe(false)
-    expect(isSupportedFreebuffModelId(FREEBUFF_GLM_MODEL_ID)).toBe(true)
+    expect(isFreebuffModelId(glm)).toBe(false)
+    expect(isSupportedFreebuffModelId(glm)).toBe(false)
   })
 
   test('formats the close time in the user local timezone while deployment is open', () => {
