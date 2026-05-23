@@ -305,21 +305,18 @@ export const encryptedApiKeys = pgTable(
   }),
 )
 
-export const composioSession = pgTable(
-  'composio_session',
-  {
-    user_id: text('user_id')
-      .primaryKey()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    session_id: text('session_id').notNull().unique(),
-    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-)
+export const composioSession = pgTable('composio_session', {
+  user_id: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  session_id: text('session_id').notNull().unique(),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
 
 // Organization tables
 export const orgRoleEnum = pgEnum('org_role', ['owner', 'admin', 'member'])

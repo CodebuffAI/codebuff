@@ -295,7 +295,7 @@ async function runOnce({
   // Comparing array identity detects progress more robustly than length:
   // context pruning could shrink history below its starting length without
   // meaning the runtime never ran.
-  const initialMessageHistory = sessionState.mainAgentState.messageHistory
+  let initialMessageHistory = sessionState.mainAgentState.messageHistory
 
   /** Calculates the current session state if cancelled.
    *
@@ -533,6 +533,7 @@ async function runOnce({
     sessionState = await applyOverridesToSessionState(cwd, sessionState, {
       customToolDefinitions: activeCustomToolDefinitions,
     })
+    initialMessageHistory = sessionState.mainAgentState.messageHistory
   }
 
   if (signal?.aborted) {

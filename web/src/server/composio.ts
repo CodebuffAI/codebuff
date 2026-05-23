@@ -38,9 +38,6 @@ type CachedComposioSession = {
   tools: ComposioToolDefinition[]
 }
 
-const sessionsByUserId = new Map<string, Promise<CachedComposioSession>>()
-const sessionsBySessionId = new Map<string, CachedComposioSession>()
-
 function parseEnvFileValue(contents: string, key: string): string | undefined {
   for (const rawLine of contents.split(/\r?\n/)) {
     const line = rawLine.trim()
@@ -188,8 +185,6 @@ async function createSessionForUser(params: {
       sessionId: session.sessionId,
     }),
   }
-
-  sessionsBySessionId.set(cachedSession.sessionId, cachedSession)
   return cachedSession
 }
 
@@ -212,15 +207,10 @@ async function rehydrateSession(params: {
         })
       : [],
   }
-
-  if (params.includeTools) {
-    sessionsByUserId.set(params.userId, Promise.resolve(cachedSession))
-  }
-  sessionsBySessionId.set(params.sessionId, cachedSession)
   return cachedSession
 }
 
-async function getCachedSession(params: {
+async function getSessionForUser(params: {
   db: CodebuffPgDatabase
   userId: string
   logger: Logger
@@ -228,43 +218,34 @@ async function getCachedSession(params: {
   const apiKey = getComposioApiKey()
   if (!apiKey) return null
 
-  let cached = sessionsByUserId.get(params.userId)
-  if (!cached) {
-    cached = (async () => {
-      const storedSession = await getStoredSessionByUser({
-        db: params.db,
-        userId: params.userId,
-      })
-      if (storedSession) {
-        params.logger.info(
-          { userId: params.userId },
-          'Rehydrating Composio session from database',
-        )
-        return rehydrateSession({
-          userId: params.userId,
-          sessionId: storedSession.session_id,
-          apiKey,
-          includeTools: true,
-        })
-      }
-
+  try {
+    const storedSession = await getStoredSessionByUser({
+      db: params.db,
+      userId: params.userId,
+    })
+    if (storedSession) {
       params.logger.info(
         { userId: params.userId },
-        'Creating new Composio session',
+        'Rehydrating Composio session from database',
       )
-      return createSessionForUser({
-        db: params.db,
+      return rehydrateSession({
         userId: params.userId,
+        sessionId: storedSession.session_id,
         apiKey,
+        includeTools: true,
       })
-    })()
-    sessionsByUserId.set(params.userId, cached)
-  }
+    }
 
-  try {
-    return await cached
+    params.logger.info(
+      { userId: params.userId },
+      'Creating new Composio session',
+    )
+    return createSessionForUser({
+      db: params.db,
+      userId: params.userId,
+      apiKey,
+    })
   } catch (error) {
-    sessionsByUserId.delete(params.userId)
     params.logger.error(
       { error: getErrorObject(error), userId: params.userId },
       'Failed to initialize Composio session',
@@ -278,7 +259,7 @@ export async function getComposioToolsForUser(params: {
   userId: string
   logger: Logger
 }): Promise<{ sessionId: string; tools: ComposioToolDefinition[] } | null> {
-  const cached = await getCachedSession(params)
+  const cached = await getSessionForUser(params)
   if (!cached) return null
 
   return {
@@ -308,28 +289,22 @@ export async function executeComposioTool(params: {
   const apiKey = getComposioApiKey()
   if (!apiKey) return null
 
-  let cached = sessionsBySessionId.get(params.sessionId)
-  if (!cached) {
-    const storedSession = await getStoredSessionById({
-      db: params.db,
-      userId: params.userId,
-      sessionId: params.sessionId,
-    })
-    if (storedSession) {
-      cached = await rehydrateSession({
-        userId: params.userId,
-        sessionId: params.sessionId,
-        apiKey,
-        includeTools: false,
-      })
-    }
-  }
-
-  if (!cached || cached.userId !== params.userId) {
+  const storedSession = await getStoredSessionById({
+    db: params.db,
+    userId: params.userId,
+    sessionId: params.sessionId,
+  })
+  if (!storedSession) {
     return null
   }
 
   try {
+    const cached = await rehydrateSession({
+      userId: params.userId,
+      sessionId: params.sessionId,
+      apiKey,
+      includeTools: false,
+    })
     const result = await cached.session.execute(params.toolName, params.input)
     return [{ type: 'json', value: toJsonValue(result) }]
   } catch (error) {
