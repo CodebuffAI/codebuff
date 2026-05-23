@@ -56,6 +56,24 @@ function resetTerminal(options = {}) {
   }
 }
 
+function getUnsignedExitCode(code) {
+  return code != null && code < 0 ? (code >>> 0) : code
+}
+
+function isWindowsNativeCrashCode(code) {
+  const unsignedCode = getUnsignedExitCode(code)
+  return (
+    process.platform === 'win32' &&
+    (unsignedCode === 0xC000001D ||
+      unsignedCode === 0xC0000005 ||
+      unsignedCode === 0xC0000409)
+  )
+}
+
+function shouldExitAlternateScreen(code, signal) {
+  return Boolean(signal) || isWindowsNativeCrashCode(code)
+}
+
 function createConfig(packageName) {
   const homeDir = os.homedir()
   const configDir = path.join(homeDir, '.config', 'manicode')
@@ -485,7 +503,9 @@ async function checkForUpdates(runningProcess, exitListener) {
       })
 
       newChild.on('exit', (code, signal) => {
-        resetTerminal({ exitAlternateScreen: Boolean(signal) })
+        resetTerminal({
+          exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+        })
         printCrashDiagnostics(code, signal)
         process.exit(signal ? 1 : (code || 0))
       })
@@ -504,7 +524,7 @@ async function checkForUpdates(runningProcess, exitListener) {
 
 function printCrashDiagnostics(code, signal) {
   // Windows NTSTATUS codes (unsigned DWORD)
-  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
+  const unsignedCode = getUnsignedExitCode(code)
   const isIllegalInstruction =
     signal === 'SIGILL' ||
     (process.platform === 'win32' && unsignedCode === 0xC000001D)
@@ -566,7 +586,9 @@ async function main() {
   })
 
   const exitListener = (code, signal) => {
-    resetTerminal({ exitAlternateScreen: Boolean(signal) })
+    resetTerminal({
+      exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+    })
     printCrashDiagnostics(code, signal)
     process.exit(signal ? 1 : (code || 0))
   }
