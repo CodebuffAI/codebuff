@@ -137,8 +137,8 @@ const looksLikeAgentDefinitionSource = (fullPath: string): boolean => {
   }
 
   return (
-    /(^|[,{]\s*)['"]?id['"]?\s*:/m.test(source) ||
-    /(^|[,{]\s*)['"]?model['"]?\s*:/m.test(source)
+    /(?:^|[^\w$])id(?:[^\w$]|$)/m.test(source) ||
+    /(?:^|[^\w$])model(?:[^\w$]|$)/m.test(source)
   )
 }
 

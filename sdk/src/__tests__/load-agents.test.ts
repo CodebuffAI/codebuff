@@ -303,6 +303,31 @@ describe('loadLocalAgents', () => {
       expect(existsSync(markerFile)).toBe(false)
     })
 
+    test('loads valid agent definitions that use shorthand required fields', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'shorthand-agent.ts',
+        `
+          const id = 'shorthand-agent'
+          const model = '${MODEL_NAME}'
+
+          export default {
+            id,
+            displayName: 'Shorthand Agent',
+            model
+          }
+        `,
+      )
+
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
+
+      expect(result['shorthand-agent']).toBeDefined()
+      expect(result['shorthand-agent']!.model).toBe(MODEL_NAME)
+    })
+
     test('skips quarantined skill directories without importing executable scripts', async () => {
       const quarantineScriptsDir = path.join(
         agentsDir,
