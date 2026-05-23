@@ -52,7 +52,7 @@ The public SDK used by the CLI and available to external users via `@codebuff/sd
   - **Executes tool calls locally** on the user's machine (file edits, terminal commands, code search)
   - Manages model provider selection: Claude OAuth, ChatGPT OAuth, or Codebuff backend
   - Handles credentials, retry logic, and error transformation
-- **Depends on:** `agent-runtime`, `common`, `internal` (for OpenAI-compatible provider)
+- **Depends on:** `agent-runtime`, `common`, `llm-providers`
 
 ### `packages/agent-runtime/` — Agent Execution Engine
 
@@ -113,16 +113,22 @@ The Codebuff web server, marketing site, and API.
 
 ### `packages/internal/` — Internal Utilities
 
-Server-side utilities, database schema, and vendor forks shared between `web` and `sdk`.
+Server-side utilities, database schema, and service integrations shared by private server packages.
 
 - **Key areas:**
   - `src/db/` — Drizzle ORM schema (`schema.ts`), migrations, Docker Compose for local Postgres
   - `src/env.ts` — Server environment variable validation (@t3-oss/env-nextjs)
   - `src/loops/` — Loops email service integration (transactional emails)
-  - `src/openai-compatible/` — Forked OpenAI-compatible AI SDK provider (used by the SDK to call the Codebuff backend)
-  - `src/openrouter-ai-sdk/` — Forked OpenRouter AI SDK provider (used by the web server)
   - `src/templates/` — Agent template fetching and validation
 - **Depends on:** `common`
+
+### `packages/llm-providers/` — Public LLM Provider Shims
+
+Provider adapters that are safe for public packages to depend on.
+
+- **Key areas:**
+  - `src/openai-compatible/` — Forked OpenAI-compatible AI SDK provider used by the SDK for the Codebuff backend and ChatGPT OAuth flows
+- **Depends on:** AI SDK provider packages
 
 ### `packages/billing/` — Billing & Credits
 

@@ -1,0 +1,35 @@
+{
+  "name": "@codebuff/llm-providers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./openai-compatible": {
+      "bun": "./src/openai-compatible/index.ts",
+      "import": "./src/openai-compatible/index.ts",
+      "types": "./src/openai-compatible/index.ts",
+      "default": "./src/openai-compatible/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": "1.3.11"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "2.0.1",
+    "@ai-sdk/provider-utils": "^3.0.17",
+    "ai": "^5.0.52",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {}
+}

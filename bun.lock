@@ -212,7 +212,6 @@
       "name": "@codebuff/internal",
       "version": "1.0.0",
       "dependencies": {
-        "@ai-sdk/provider-utils": "^3.0.17",
         "@codebuff/common": "workspace:*",
         "drizzle-kit": "0.31.8",
         "drizzle-orm": "0.45.1",
@@ -220,6 +219,16 @@
         "msw": "^2.12.1",
         "postgres": "^3.4.7",
         "server-only": "0.0.1",
+      },
+    },
+    "packages/llm-providers": {
+      "name": "@codebuff/llm-providers",
+      "version": "1.0.0",
+      "dependencies": {
+        "@ai-sdk/provider": "2.0.1",
+        "@ai-sdk/provider-utils": "^3.0.17",
+        "ai": "^5.0.52",
+        "zod": "^4.2.1",
       },
     },
     "scripts": {
@@ -498,6 +507,8 @@
     "@codebuff/freebuff-web": ["@codebuff/freebuff-web@workspace:freebuff/web"],
 
     "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
+
+    "@codebuff/llm-providers": ["@codebuff/llm-providers@workspace:packages/llm-providers"],
 
     "@codebuff/scripts": ["@codebuff/scripts@workspace:scripts"],
 

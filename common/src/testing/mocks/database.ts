@@ -241,7 +241,7 @@ export interface DbSpies {
  *
  * @example
  * ```typescript
- * import db from '@codebuff/internal/db'
+ * const db = createMockDbOperations()
  *
  * describe('my test', () => {
  *   let dbSpies: DbSpies

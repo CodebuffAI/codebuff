@@ -2,11 +2,13 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
-import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
+import {
+  createMockDbOperations,
+  setupDbSpies,
+} from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { AbortError, promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
-import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,
@@ -61,7 +63,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     llmCallCount = 0
 
     // Setup spies for database operations using typed helper
-    dbSpies = setupDbSpies(db)
+    dbSpies = setupDbSpies(createMockDbOperations())
 
     agentRuntimeImpl.promptAiSdkStream = mock(async function* ({}) {
       llmCallCount++

@@ -18,7 +18,8 @@
       "@codebuff/common/*": ["../common/src/*"],
       "@codebuff/agent-runtime/*": ["../packages/agent-runtime/src/*"],
       "@codebuff/code-map": ["../packages/code-map/src/index.ts"],
-      "@codebuff/code-map/*": ["../packages/code-map/src/*"]
+      "@codebuff/code-map/*": ["../packages/code-map/src/*"],
+      "@codebuff/llm-providers/*": ["../packages/llm-providers/src/*"]
     }
   },
   "include": ["src/**/*.ts"],
