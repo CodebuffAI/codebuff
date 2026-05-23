@@ -222,7 +222,7 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
-  test('hard-blocks only VPN, proxy, Tor, or residential proxy signals', async () => {
+  test('keeps corroborated VPN/proxy privacy signals in limited mode', async () => {
     const vpnAccess = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -241,7 +241,7 @@ describe('free mode country access', () => {
     )
     expect(vpnAccess.allowed).toBe(false)
     expect(vpnAccess.spurStatus).toBe('suspicious')
-    expect(shouldHardBlockFreeModeAccess(vpnAccess)).toBe(true)
+    expect(shouldHardBlockFreeModeAccess(vpnAccess)).toBe(false)
     expect(getFreeModePrivacyDecision(vpnAccess)).toBe('corroborated_block')
     expect(getFreeModePrivacyProviderDecision(vpnAccess)).toBe(
       'corroborated_hard',

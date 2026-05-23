@@ -115,7 +115,7 @@ describe('free mode country access cache', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
-  test('does not persist corroborated hard privacy blocks', async () => {
+  test('stores corroborated VPN/proxy limited decisions', async () => {
     const cacheStore: FreeModeCountryAccessCacheStore = {
       get: mock(async () => null),
       set: mock(async () => {}),
@@ -141,7 +141,14 @@ describe('free mode country access cache', () => {
     expect(access.allowed).toBe(false)
     expect(access.spurIpPrivacy?.signals).toEqual(['vpn'])
     expect(access.spurStatus).toBe('suspicious')
-    expect(cacheStore.set).not.toHaveBeenCalled()
+    expect(cacheStore.set).toHaveBeenCalledWith({
+      userId,
+      access,
+      now,
+    })
+    expect(expiresAtForCountryAccess(access, now).getTime() - now.getTime()).toBe(
+      FREE_MODE_COUNTRY_CACHE_ANONYMOUS_NETWORK_TTL_MS,
+    )
   })
 
   test('stores transient limited decisions when Spur fails after hard IPinfo signals', async () => {

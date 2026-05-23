@@ -141,15 +141,10 @@ export function hasHardBlockedPrivacySignal(
 export function shouldHardBlockFreeModeAccess(
   countryAccess: Pick<
     FreeModeCountryAccess,
-    'blockReason' | 'cfCountry' | 'ipPrivacy' | 'spurIpPrivacy'
+    'cfCountry'
   >,
 ): boolean {
-  return (
-    countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY ||
-    (countryAccess.blockReason === 'anonymous_network' &&
-      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
-      hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy))
-  )
+  return countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY
 }
 
 export function getFreeModePrivacyDecision(

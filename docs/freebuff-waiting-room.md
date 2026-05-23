@@ -181,7 +181,7 @@ All endpoints authenticate via the standard `Authorization: Bearer <api-key>` or
 - Existing active+unexpired row, **different model** → reject with `model_locked` (HTTP 409); `active_instance_id` is **not** rotated so the other CLI stays valid. Client must DELETE the session before switching.
 - Existing active+expired row → reset to queued with fresh `queued_at` and the requested `model` (re-queue at back).
 
-Before any of those state transitions, the handler requires a resolved country and successful IPinfo/Spur privacy checks. Unsupported countries enter limited Freebuff access. In allowlisted countries, IPinfo privacy signals still receive full access when Spur returns clean context, fall back to limited access when Spur lookup fails, and hard-block only when Spur corroborates VPN/proxy/Tor/residential-proxy traffic. IPinfo lookup failures fail closed into limited access.
+Before any of those state transitions, the handler requires a resolved country and IPinfo/Spur privacy classification. Unsupported countries enter limited Freebuff access. In allowlisted countries, IPinfo privacy signals still receive full access when Spur returns clean context, and fall back to limited access when Spur reports suspicious context or lookup fails. IPinfo lookup failures fail closed into limited access. Cloudflare Tor country detection remains a hard block.
 
 Response shapes:
 
