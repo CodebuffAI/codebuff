@@ -14,7 +14,7 @@ import {
 } from '@codebuff/common/mcp/client'
 import {
   COMPOSIO_META_TOOL_NAMES,
-  type ComposioMetaToolName,
+  isComposioMetaToolName,
 } from '@codebuff/common/constants/composio'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
@@ -22,10 +22,7 @@ import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import {
-  executeComposioToolViaServer,
-  normalizeComposioInput,
-} from './composio'
+import { executeComposioToolViaServer } from './composio'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -740,13 +737,11 @@ async function handleToolCall({
           },
         },
       ]
-    } else if (
-      COMPOSIO_META_TOOL_NAMES.includes(toolName as ComposioMetaToolName)
-    ) {
+    } else if (isComposioMetaToolName(toolName)) {
       result = await executeComposioToolViaServer({
         apiKey,
-        toolName: toolName as ComposioMetaToolName,
-        input: normalizeComposioInput(input),
+        toolName,
+        input,
       })
     } else {
       throw new Error(

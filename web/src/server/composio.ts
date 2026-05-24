@@ -4,10 +4,7 @@ import { existsSync, readFileSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
-import {
-  COMPOSIO_API_KEY_ENV_VAR,
-  COMPOSIO_META_TOOL_NAMES,
-} from '@codebuff/common/constants/composio'
+import { COMPOSIO_API_KEY_ENV_VAR } from '@codebuff/common/constants/composio'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import * as schema from '@codebuff/internal/db/schema'
@@ -18,9 +15,9 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { JSONValue } from '@codebuff/common/types/json'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { CodebuffPgDatabase } from '@codebuff/internal/db/types'
+import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
 
 const COMPOSIO_HOME_ENV_PATH = path.join(homedir(), 'codebuff', '.env.local')
-const allowedToolNames = new Set<string>(COMPOSIO_META_TOOL_NAMES)
 
 type ComposioSession = Awaited<ReturnType<Composio['create']>>
 type ComposioClient = Composio
@@ -297,22 +294,11 @@ async function getSessionForUser(params: {
 export async function executeComposioTool(params: {
   db: CodebuffPgDatabase
   userId: string
-  toolName: string
+  toolName: ComposioMetaToolName
   input: Record<string, unknown>
   logger: Logger
   apiKey?: string
 }): Promise<ToolResultOutput[] | null> {
-  if (!allowedToolNames.has(params.toolName)) {
-    return [
-      {
-        type: 'json',
-        value: {
-          errorMessage: `Unsupported Composio tool: ${params.toolName}`,
-        },
-      },
-    ]
-  }
-
   const apiKey = params.apiKey ?? getComposioApiKey()
   if (!apiKey) return null
 

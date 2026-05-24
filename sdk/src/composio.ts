@@ -1,19 +1,10 @@
 import { WEBSITE_URL } from './constants'
 
 import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
-import type { JSONValue } from '@codebuff/common/types/json'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 
 type ComposioExecuteResponse = {
   output: ToolResultOutput[]
-}
-
-function toJsonValue(value: unknown): JSONValue {
-  try {
-    return JSON.parse(JSON.stringify(value ?? null)) as JSONValue
-  } catch {
-    return String(value) as JSONValue
-  }
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -62,6 +53,16 @@ export async function executeComposioToolViaServer(params: {
     }
 
     const body = (await response.json()) as ComposioExecuteResponse
+    if (!Array.isArray(body.output)) {
+      return [
+        {
+          type: 'json',
+          value: {
+            errorMessage: 'Invalid Composio execute response from server',
+          },
+        },
+      ]
+    }
     return body.output
   } catch (error) {
     return [
@@ -73,12 +74,4 @@ export async function executeComposioToolViaServer(params: {
       },
     ]
   }
-}
-
-export function normalizeComposioInput(
-  input: unknown,
-): Record<string, unknown> {
-  return input && typeof input === 'object'
-    ? (input as Record<string, unknown>)
-    : { value: toJsonValue(input) }
 }

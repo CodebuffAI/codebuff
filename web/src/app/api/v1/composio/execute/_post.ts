@@ -1,4 +1,5 @@
 import { getErrorObject } from '@codebuff/common/util/error'
+import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
@@ -20,7 +21,7 @@ type CheckComposioRateLimitFn = typeof checkComposioRateLimit
 type IsComposioConfiguredFn = typeof isComposioConfigured
 
 const composioExecuteBodySchema = z.object({
-  toolName: z.string().min(1),
+  toolName: z.enum(COMPOSIO_META_TOOL_NAMES),
   input: z.record(z.string(), z.unknown()).default({}),
 })
 

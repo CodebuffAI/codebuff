@@ -169,6 +169,34 @@ describe('/api/v1/composio', () => {
     expect(executeTool).not.toHaveBeenCalled()
   })
 
+  test('rejects unsupported Composio tool names before execution', async () => {
+    const executeTool = mock(async () => [
+      { type: 'json' as const, value: { ok: true } },
+    ])
+    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid-key' },
+      body: JSON.stringify({
+        toolName: 'COMPOSIO_REMOTE_WORKBENCH',
+        input: {},
+      }),
+    })
+
+    const response = await postComposioExecute({
+      req,
+      getUserInfoFromApiKey,
+      db: mockDb,
+      logger,
+      loggerWithContext,
+      executeTool,
+      checkRateLimit: mock(() => ({ limited: false as const })),
+      isConfigured: () => true,
+    })
+
+    expect(response.status).toBe(400)
+    expect(executeTool).not.toHaveBeenCalled()
+  })
+
   test('rejects unauthenticated Composio requests', async () => {
     const req = new NextRequest('http://localhost/api/v1/composio/execute', {
       method: 'POST',

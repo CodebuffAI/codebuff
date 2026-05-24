@@ -3,10 +3,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import { clientToolNames, toolParams } from '@codebuff/common/tools/list'
 
-import {
-  executeComposioToolViaServer,
-  normalizeComposioInput,
-} from '../composio'
+import { executeComposioToolViaServer } from '../composio'
 
 describe('Composio SDK tools', () => {
   const originalFetch = globalThis.fetch
@@ -64,7 +61,27 @@ describe('Composio SDK tools', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  test('normalizes non-object Composio inputs for server execution', () => {
-    expect(normalizeComposioInput('gmail')).toEqual({ value: 'gmail' })
+  test('returns a tool error when the server response is malformed', async () => {
+    globalThis.fetch = mock(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ) as unknown as typeof fetch
+
+    const output = await executeComposioToolViaServer({
+      apiKey: 'codebuff-api-key',
+      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      input: {
+        queries: ['find gmail tools'],
+        session: { generate_id: true },
+      },
+    })
+
+    expect(output).toEqual([
+      {
+        type: 'json',
+        value: {
+          errorMessage: 'Invalid Composio execute response from server',
+        },
+      },
+    ])
   })
 })
