@@ -1,5 +1,7 @@
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -29,4 +31,14 @@ mock.module = (moduleName, factory) => {
   jest.mock(moduleName, factory)
 }
 
-export { afterEach, beforeEach, describe, expect, it, test, mock }
+export {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  test,
+  mock,
+}

@@ -9,7 +9,24 @@ let createSession: ReturnType<typeof mock>
 let useSession: ReturnType<typeof mock>
 let execute: ReturnType<typeof mock>
 
+function setEnvDefault(key: string, value: string) {
+  process.env[key] ??= value
+}
+
 beforeAll(async () => {
+  setEnvDefault('CI', 'true')
+  setEnvDefault('NEXT_PUBLIC_CB_ENVIRONMENT', 'test')
+  setEnvDefault('NEXT_PUBLIC_CODEBUFF_APP_URL', 'https://codebuff.test')
+  setEnvDefault('NEXT_PUBLIC_SUPPORT_EMAIL', 'support@codebuff.test')
+  setEnvDefault('NEXT_PUBLIC_POSTHOG_API_KEY', 'test-posthog-key')
+  setEnvDefault('NEXT_PUBLIC_POSTHOG_HOST_URL', 'https://posthog.test')
+  setEnvDefault('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'pk_test')
+  setEnvDefault(
+    'NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL',
+    'https://stripe.test/portal',
+  )
+  setEnvDefault('NEXT_PUBLIC_WEB_PORT', '3000')
+
   mock.module('server-only', () => ({}))
   mock.module('@composio/core', () => ({
     Composio: class {
