@@ -108,6 +108,7 @@ const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 const shouldSkipAgentDirectory = (name: string): boolean =>
   name.startsWith('.') ||
   name === 'node_modules' ||
+  name === 'scripts' ||
   name === 'skills' ||
   name.startsWith('skills-')
 
@@ -117,28 +118,6 @@ const isLoadableAgentFileName = (fileName: string): boolean => {
     agentFileExtensions.has(extension) &&
     !fileName.endsWith('.d.ts') &&
     !/[./](test|spec)\.[cm]?[tj]sx?$/.test(fileName)
-  )
-}
-
-const looksLikeAgentDefinitionSource = (fullPath: string): boolean => {
-  let source: string
-  try {
-    source = fs.readFileSync(fullPath, 'utf8')
-  } catch {
-    return false
-  }
-
-  const exportsAgentDefinition =
-    /\bexport\s+default\b/.test(source) ||
-    /\bmodule\.exports\s*=/.test(source) ||
-    /\bexports\.default\s*=/.test(source)
-  if (!exportsAgentDefinition) {
-    return false
-  }
-
-  return (
-    /(?:^|[^\w$])id(?:[^\w$]|$)/m.test(source) ||
-    /(?:^|[^\w$])model(?:[^\w$]|$)/m.test(source)
   )
 }
 
@@ -153,10 +132,7 @@ const getAllAgentFiles = (dir: string): string[] => {
         files.push(...getAllAgentFiles(fullPath))
         continue
       }
-      const isAgentFile =
-        entry.isFile() &&
-        isLoadableAgentFileName(entry.name) &&
-        looksLikeAgentDefinitionSource(fullPath)
+      const isAgentFile = entry.isFile() && isLoadableAgentFileName(entry.name)
       if (isAgentFile) {
         files.push(fullPath)
       }

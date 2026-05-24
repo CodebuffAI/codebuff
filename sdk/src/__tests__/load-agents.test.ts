@@ -271,38 +271,6 @@ describe('loadLocalAgents', () => {
       expect(result['real-agent']).toBeDefined()
     })
 
-    test('skips non-agent-shaped JavaScript files without importing them', async () => {
-      mkdirSync(agentsDir, { recursive: true })
-      const markerFile = path.join(tempDir, 'import-side-effect')
-      writeAgentFile(
-        agentsDir,
-        'tapi-auth.cjs',
-        `
-          const { writeFileSync } = require('fs')
-          writeFileSync(${JSON.stringify(markerFile)}, 'imported')
-          console.log('Unrelated CLI help text')
-        `,
-      )
-      writeAgentFile(
-        agentsDir,
-        'real-agent.ts',
-        `
-          export default {
-            id: 'real-agent',
-            displayName: 'Real Agent',
-            model: '${MODEL_NAME}'
-          }
-        `,
-      )
-
-      const result: LoadedAgents = await loadLocalAgents({
-        agentsPath: agentsDir,
-      })
-
-      expect(result['real-agent']).toBeDefined()
-      expect(existsSync(markerFile)).toBe(false)
-    })
-
     test('loads valid agent definitions that use shorthand required fields', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(
