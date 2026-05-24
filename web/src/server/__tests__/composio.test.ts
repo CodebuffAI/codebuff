@@ -11,9 +11,6 @@ let getRawToolRouterSessionTools: ReturnType<typeof mock>
 
 beforeAll(async () => {
   mock.module('server-only', () => ({}))
-  mock.module('@codebuff/internal/env', () => ({
-    env: { COMPOSIO_API_KEY: 'test-composio-api-key' },
-  }))
   mock.module('@composio/core', () => ({
     Composio: class {
       tools = {
@@ -93,6 +90,7 @@ describe('getComposioToolsForUser', () => {
       db,
       userId: 'user-123',
       logger,
+      apiKey: 'test-composio-api-key',
     })
 
     expect(result).toEqual({
@@ -128,6 +126,7 @@ describe('getComposioToolsForUser', () => {
         db,
         userId: 'user-123',
         logger,
+        apiKey: 'test-composio-api-key',
       }),
     ).rejects.toThrow('Composio unavailable')
 

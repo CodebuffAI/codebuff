@@ -271,8 +271,9 @@ async function getSessionForUser(params: {
   db: CodebuffPgDatabase
   userId: string
   logger: Logger
+  apiKey?: string
 }): Promise<CachedComposioSession | null> {
-  const apiKey = getComposioApiKey()
+  const apiKey = params.apiKey ?? getComposioApiKey()
   if (!apiKey) return null
 
   try {
@@ -335,6 +336,7 @@ export async function getComposioToolsForUser(params: {
   db: CodebuffPgDatabase
   userId: string
   logger: Logger
+  apiKey?: string
 }): Promise<{ sessionId: string; tools: ComposioToolDefinition[] } | null> {
   const cached = await getSessionForUser(params)
   if (!cached) return null
@@ -351,6 +353,7 @@ export async function executeComposioTool(params: {
   sessionId: string
   toolName: string
   input: Record<string, unknown>
+  apiKey?: string
 }): Promise<ToolResultOutput[] | null> {
   if (!allowedToolNames.has(params.toolName)) {
     return [
@@ -363,7 +366,7 @@ export async function executeComposioTool(params: {
     ]
   }
 
-  const apiKey = getComposioApiKey()
+  const apiKey = params.apiKey ?? getComposioApiKey()
   if (!apiKey) return null
 
   const storedSession = await getStoredSessionById({
