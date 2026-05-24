@@ -2,8 +2,6 @@ const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
 const HOUR_MS = 60 * MINUTE_MS
 
-export type ComposioRateLimitAction = 'execute'
-
 export type ComposioRateLimitResult =
   | { limited: false }
   | { limited: true; retryAfterMs: number; windowName: string }
@@ -19,29 +17,20 @@ type WindowTracker = {
   windowStart: number
 }
 
-const RATE_WINDOWS_BY_ACTION: Record<ComposioRateLimitAction, RateWindow[]> = {
-  execute: [
-    { name: '1 minute', windowMs: MINUTE_MS, maxRequests: 120 },
-    { name: '1 hour', windowMs: HOUR_MS, maxRequests: 1_000 },
-  ],
-}
+const RATE_WINDOWS: RateWindow[] = [
+  { name: '1 minute', windowMs: MINUTE_MS, maxRequests: 120 },
+  { name: '1 hour', windowMs: HOUR_MS, maxRequests: 1_000 },
+]
 
 const userWindows = new Map<string, Map<string, WindowTracker>>()
 let lastCleanupTime = 0
 const CLEANUP_INTERVAL_MS = 5 * MINUTE_MS
 
-function getRateLimitKey(userId: string, action: ComposioRateLimitAction) {
-  return `${userId}:${action}`
-}
-
 function cleanupExpiredEntries(): void {
   const now = Date.now()
   for (const [key, windows] of userWindows) {
-    const action = key.split(':').at(-1) as ComposioRateLimitAction | undefined
     for (const [windowName, tracker] of windows) {
-      const matchingWindow =
-        action &&
-        RATE_WINDOWS_BY_ACTION[action]?.find((w) => w.name === windowName)
+      const matchingWindow = RATE_WINDOWS.find((w) => w.name === windowName)
       if (
         !matchingWindow ||
         now - tracker.windowStart >= matchingWindow.windowMs
@@ -57,7 +46,6 @@ function cleanupExpiredEntries(): void {
 
 export function checkComposioRateLimit(
   userId: string,
-  action: ComposioRateLimitAction,
 ): ComposioRateLimitResult {
   const now = Date.now()
   if (now - lastCleanupTime > CLEANUP_INTERVAL_MS) {
@@ -65,8 +53,7 @@ export function checkComposioRateLimit(
     lastCleanupTime = now
   }
 
-  const windowsForAction = RATE_WINDOWS_BY_ACTION[action]
-  const key = getRateLimitKey(userId, action)
+  const key = userId
   let windows = userWindows.get(key)
   if (!windows) {
     windows = new Map()
@@ -74,7 +61,7 @@ export function checkComposioRateLimit(
   }
 
   // First pass checks every window without mutating counters.
-  for (const rateWindow of windowsForAction) {
+  for (const rateWindow of RATE_WINDOWS) {
     let tracker = windows.get(rateWindow.name)
     if (tracker && now - tracker.windowStart >= rateWindow.windowMs) {
       windows.delete(rateWindow.name)
@@ -94,7 +81,7 @@ export function checkComposioRateLimit(
   }
 
   // Second pass increments only allowed requests.
-  for (const rateWindow of windowsForAction) {
+  for (const rateWindow of RATE_WINDOWS) {
     let tracker = windows.get(rateWindow.name)
     if (!tracker) {
       tracker = { count: 0, windowStart: now }

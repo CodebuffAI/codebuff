@@ -69,46 +69,6 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        sessionId: 'session-123',
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
-        input: { query: 'gmail' },
-      }),
-    })
-
-    const response = await postComposioExecute({
-      req,
-      getUserInfoFromApiKey,
-      db: mockDb,
-      logger,
-      loggerWithContext,
-      executeTool,
-      checkRateLimit,
-      isConfigured: () => true,
-    })
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      output: [{ type: 'json', value: { ok: true } }],
-    })
-    expect(executeTool).toHaveBeenCalledWith({
-      db: mockDb,
-      userId: 'user-123',
-      logger,
-      sessionId: 'session-123',
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
-      input: { query: 'gmail' },
-    })
-    expect(checkRateLimit).toHaveBeenCalledWith('user-123', 'execute')
-  })
-
-  test('executes a Composio tool without a client-provided session ID', async () => {
-    const executeTool = mock(async () => [
-      { type: 'json' as const, value: { ok: true } },
-    ])
-    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({
         toolName: 'COMPOSIO_SEARCH_TOOLS',
         input: {
           queries: ['find gmail tools'],
@@ -124,7 +84,7 @@ describe('/api/v1/composio', () => {
       logger,
       loggerWithContext,
       executeTool,
-      checkRateLimit: mock(() => ({ limited: false as const })),
+      checkRateLimit,
       isConfigured: () => true,
     })
 
@@ -139,35 +99,7 @@ describe('/api/v1/composio', () => {
         session: { generate_id: true },
       },
     })
-  })
-
-  test('returns 404 when a Composio session cannot be found for execute', async () => {
-    const executeTool = mock(async () => null)
-    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-      body: JSON.stringify({
-        sessionId: 'unknown-session',
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
-        input: {},
-      }),
-    })
-
-    const response = await postComposioExecute({
-      req,
-      getUserInfoFromApiKey,
-      db: mockDb,
-      logger,
-      loggerWithContext,
-      executeTool,
-      checkRateLimit: mock(() => ({ limited: false as const })),
-      isConfigured: () => true,
-    })
-
-    expect(response.status).toBe(404)
-    expect(await response.json()).toEqual({
-      error: 'Composio session not found',
-    })
+    expect(checkRateLimit).toHaveBeenCalledWith('user-123')
   })
 
   test('returns 503 when Composio execute is not configured', async () => {
@@ -178,7 +110,6 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        sessionId: 'session-123',
         toolName: 'COMPOSIO_SEARCH_TOOLS',
         input: {},
       }),
@@ -210,7 +141,6 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        sessionId: 'session-123',
         toolName: 'COMPOSIO_SEARCH_TOOLS',
         input: {},
       }),

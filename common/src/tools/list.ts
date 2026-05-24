@@ -7,6 +7,7 @@ import { applyPatchParams } from './params/tool/apply-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
+import { composioMetaToolParams } from './params/tool/composio'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
@@ -77,6 +78,7 @@ export const toolParams = {
   web_search: webSearchParams,
   write_file: writeFileParams,
   write_todos: writeTodosParams,
+  ...composioMetaToolParams,
 } satisfies {
   [K in ToolName]: $ToolParams<K>
 }
@@ -151,6 +153,22 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     toolName: z.literal('write_file'),
     input: FileChangeSchema,
   }),
+  z.object({
+    toolName: z.literal('COMPOSIO_MANAGE_CONNECTIONS'),
+    input: toolParams.COMPOSIO_MANAGE_CONNECTIONS.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('COMPOSIO_MULTI_EXECUTE_TOOL'),
+    input: toolParams.COMPOSIO_MULTI_EXECUTE_TOOL.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('COMPOSIO_SEARCH_TOOLS'),
+    input: toolParams.COMPOSIO_SEARCH_TOOLS.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('COMPOSIO_GET_TOOL_SCHEMAS'),
+    input: toolParams.COMPOSIO_GET_TOOL_SCHEMAS.inputSchema,
+  }),
 ])
 export const clientToolNames = clientToolCallSchema.def.options.map(
   (opt) => opt.shape.toolName.value,
@@ -163,4 +181,4 @@ export type ClientToolCall<T extends ClientToolName = ClientToolName> = Extract<
 > &
   Pick<ToolCallPart, 'toolCallId' | 'toolName' | 'input' | 'providerOptions'>
 
-export type PublishedClientToolName = ClientToolName & PublishedToolName
+export type PublishedClientToolName = Extract<ClientToolName, PublishedToolName>

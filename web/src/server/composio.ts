@@ -111,19 +111,6 @@ async function getStoredSessionByUser(params: {
   })
 }
 
-async function getStoredSessionById(params: {
-  db: CodebuffPgDatabase
-  userId: string
-  sessionId: string
-}) {
-  return params.db.query.composioSession.findFirst({
-    where: and(
-      eq(schema.composioSession.user_id, params.userId),
-      eq(schema.composioSession.session_id, params.sessionId),
-    ),
-  })
-}
-
 async function deleteStoredSession(params: {
   db: CodebuffPgDatabase
   userId: string
@@ -310,7 +297,6 @@ async function getSessionForUser(params: {
 export async function executeComposioTool(params: {
   db: CodebuffPgDatabase
   userId: string
-  sessionId?: string
   toolName: string
   input: Record<string, unknown>
   logger: Logger
@@ -330,37 +316,34 @@ export async function executeComposioTool(params: {
   const apiKey = params.apiKey ?? getComposioApiKey()
   if (!apiKey) return null
 
-  let cached: CachedComposioSession
-  if (params.sessionId) {
-    const storedSession = await getStoredSessionById({
-      db: params.db,
-      userId: params.userId,
-      sessionId: params.sessionId,
-    })
-    if (!storedSession) {
-      return null
-    }
-
-    cached = await rehydrateSession({
-      userId: params.userId,
-      sessionId: params.sessionId,
-      apiKey,
-    })
-  } else {
-    const userSession = await getSessionForUser({
-      db: params.db,
-      userId: params.userId,
-      logger: params.logger,
-      apiKey,
-    })
-    if (!userSession) return null
-    cached = userSession
-  }
+  const cached = await getSessionForUser({
+    db: params.db,
+    userId: params.userId,
+    logger: params.logger,
+    apiKey,
+  })
+  if (!cached) return null
 
   try {
-    const result = await cached.session.execute(params.toolName, params.input)
+    const input =
+      params.toolName === 'COMPOSIO_MULTI_EXECUTE_TOOL'
+        ? {
+            ...params.input,
+            sync_response_to_workbench: false,
+          }
+        : params.input
+    const result = await cached.session.execute(params.toolName, input)
     return [{ type: 'json', value: toJsonValue(result) }]
   } catch (error) {
+    params.logger.warn(
+      {
+        error: getErrorObject(error),
+        userId: params.userId,
+        sessionId: cached.sessionId,
+        toolName: params.toolName,
+      },
+      'Composio tool execution failed',
+    )
     return [
       {
         type: 'json',

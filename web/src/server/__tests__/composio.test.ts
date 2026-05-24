@@ -141,6 +141,28 @@ describe('executeComposioTool', () => {
     })
   })
 
+  test('forces multi-execute workbench sync off before calling Composio', async () => {
+    const { db } = makeDb('stored-session')
+
+    const result = await executeComposioTool({
+      db,
+      userId: 'user-123',
+      logger,
+      apiKey: 'test-composio-api-key',
+      toolName: 'COMPOSIO_MULTI_EXECUTE_TOOL',
+      input: {
+        tools: [{ slug: 'GMAIL_FETCH_EMAILS', arguments: {} }],
+        sync_response_to_workbench: true,
+      },
+    })
+
+    expect(result).toEqual([{ type: 'json', value: { ok: true } }])
+    expect(execute).toHaveBeenCalledWith('COMPOSIO_MULTI_EXECUTE_TOOL', {
+      tools: [{ slug: 'GMAIL_FETCH_EMAILS', arguments: {} }],
+      sync_response_to_workbench: false,
+    })
+  })
+
   test('keeps the stored session row when rehydration fails transiently', async () => {
     const transientError = Object.assign(new Error('Composio unavailable'), {
       status: 502,

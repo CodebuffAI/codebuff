@@ -12,13 +12,20 @@ import {
   listMCPTools,
   callMCPTool,
 } from '@codebuff/common/mcp/client'
+import {
+  COMPOSIO_META_TOOL_NAMES,
+  type ComposioMetaToolName,
+} from '@codebuff/common/constants/composio'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { getComposioMetaToolDefinitions } from './composio'
+import {
+  executeComposioToolViaServer,
+  normalizeComposioInput,
+} from './composio'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -38,16 +45,8 @@ import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type {
-  PublishedToolName,
-  ToolName,
-} from '@codebuff/common/tools/constants'
-import type {
-  ClientToolCall,
-  ClientToolName,
-  CodebuffToolOutput,
-  PublishedClientToolName,
-} from '@codebuff/common/tools/list'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type { PublishedClientToolName } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -73,6 +72,17 @@ const wrapContentForUserMessage = (
   }
   // Delegate to the shared utility which handles wrapping correctly
   return buildUserMessageContent(undefined, undefined, content)
+}
+
+type OverrideToolHandlers = {
+  [K in PublishedClientToolName]?: (
+    input: Record<string, unknown>,
+  ) => Promise<ToolResultOutput[]>
+} & {
+  // Include read_files separately, since it has a different signature.
+  read_files?: (input: {
+    filePaths: string[]
+  }) => Promise<Record<string, string | null>>
 }
 
 export type CodebuffClientOptions = {
@@ -108,18 +118,7 @@ export type CodebuffClientOptions = {
   /** Optional filter to classify files before reading (runs before gitignore check) */
   fileFilter?: FileFilter
 
-  overrideTools?: Partial<
-    {
-      [K in ClientToolName & PublishedToolName]: (
-        input: ClientToolCall<K>['input'],
-      ) => Promise<CodebuffToolOutput<K>>
-    } & {
-      // Include read_files separately, since it has a different signature.
-      read_files: (input: {
-        filePaths: string[]
-      }) => Promise<Record<string, string | null>>
-    }
-  >
+  overrideTools?: OverrideToolHandlers
   customToolDefinitions?: CustomToolDefinition[]
 
   fsSource?: Source<CodebuffFileSystem>
@@ -276,6 +275,10 @@ async function runOnce({
   }
   const traceSessionId = previousRun?.traceSessionId ?? crypto.randomUUID()
 
+  for (const toolName of COMPOSIO_META_TOOL_NAMES) {
+    delete sessionState.fileContext.customToolDefinitions[toolName]
+  }
+
   let resolve: (value: RunReturnType) => any = () => {}
   let _reject: (error: any) => any = () => {}
   const promise = new Promise<RunReturnType>((res, rej) => {
@@ -406,6 +409,7 @@ async function runOnce({
         cwd,
         fs,
         env,
+        apiKey,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -519,23 +523,6 @@ async function runOnce({
     return getCancelledRunState('Run cancelled by user.')
   }
 
-  const composioCustomToolDefinitions = getComposioMetaToolDefinitions({
-    apiKey,
-  })
-
-  activeCustomToolDefinitions = [
-    ...activeCustomToolDefinitions,
-    ...composioCustomToolDefinitions,
-  ]
-  sessionState = await applyOverridesToSessionState(cwd, sessionState, {
-    customToolDefinitions: activeCustomToolDefinitions,
-  })
-  initialMessageHistory = sessionState.mainAgentState.messageHistory
-
-  if (signal?.aborted) {
-    return getCancelledRunState('Run cancelled by user.')
-  }
-
   callMainPrompt({
     ...agentRuntimeImpl,
     promptId,
@@ -636,6 +623,7 @@ async function handleToolCall({
   cwd,
   fs,
   env,
+  apiKey,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -643,6 +631,7 @@ async function handleToolCall({
   cwd?: string
   fs: CodebuffFileSystem
   env?: Record<string, string>
+  apiKey: string
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -753,6 +742,14 @@ async function handleToolCall({
           },
         },
       ]
+    } else if (
+      COMPOSIO_META_TOOL_NAMES.includes(toolName as ComposioMetaToolName)
+    ) {
+      result = await executeComposioToolViaServer({
+        apiKey,
+        toolName: toolName as ComposioMetaToolName,
+        input: normalizeComposioInput(input),
+      })
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

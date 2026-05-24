@@ -4,6 +4,12 @@ import { handleApplyPatch } from './tool/apply-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
+import {
+  handleComposioGetToolSchemas,
+  handleComposioManageConnections,
+  handleComposioMultiExecute,
+  handleComposioSearchTools,
+} from './tool/composio'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
@@ -53,6 +59,10 @@ export const codebuffToolHandlers = {
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
+  COMPOSIO_MANAGE_CONNECTIONS: handleComposioManageConnections,
+  COMPOSIO_MULTI_EXECUTE_TOOL: handleComposioMultiExecute,
+  COMPOSIO_SEARCH_TOOLS: handleComposioSearchTools,
+  COMPOSIO_GET_TOOL_SCHEMAS: handleComposioGetToolSchemas,
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,

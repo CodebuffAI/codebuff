@@ -1,98 +1,12 @@
-import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
-import { z } from 'zod/v4'
-
 import { WEBSITE_URL } from './constants'
 
 import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
-import type { CustomToolDefinition } from './custom-tool'
 import type { JSONValue } from '@codebuff/common/types/json'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 
 type ComposioExecuteResponse = {
   output: ToolResultOutput[]
 }
-
-const sessionIdParam = z
-  .string()
-  .optional()
-  .describe('Session ID returned by COMPOSIO_SEARCH_TOOLS, when available.')
-
-const composioMetaToolSchemas = {
-  COMPOSIO_SEARCH_TOOLS: z
-    .object({
-      queries: z
-        .array(z.unknown())
-        .min(1)
-        .describe(
-          'Structured English search queries. Split independent app/API actions into separate queries.',
-        ),
-      session: z
-        .object({
-          generate_id: z.boolean().optional(),
-          id: z.string().optional(),
-        })
-        .catchall(z.unknown())
-        .describe(
-          'Use { generate_id: true } for a new workflow, or { id } to continue one.',
-        ),
-      model: z.string().optional().describe('Client LLM model name.'),
-    })
-    .catchall(z.unknown()),
-  COMPOSIO_GET_TOOL_SCHEMAS: z
-    .object({
-      tool_slugs: z
-        .array(z.string())
-        .min(1)
-        .describe('Composio tool slugs to retrieve schemas for.'),
-      include: z
-        .array(z.string())
-        .optional()
-        .describe('Schema fields to include, e.g. input_schema/output_schema.'),
-      session_id: sessionIdParam,
-    })
-    .catchall(z.unknown()),
-  COMPOSIO_MANAGE_CONNECTIONS: z
-    .object({
-      toolkits: z
-        .array(z.string())
-        .min(1)
-        .describe('Toolkit slugs to check or connect, such as gmail/github.'),
-      reinitiate_all: z
-        .boolean()
-        .optional()
-        .describe('Force reconnection even if active credentials exist.'),
-      session_id: sessionIdParam,
-    })
-    .catchall(z.unknown()),
-  COMPOSIO_MULTI_EXECUTE_TOOL: z
-    .object({
-      tools: z
-        .array(z.record(z.string(), z.unknown()))
-        .min(1)
-        .describe('Logically independent Composio tools to execute.'),
-      thought: z
-        .string()
-        .optional()
-        .describe('One concise sentence explaining the execution intent.'),
-      sync_response_to_workbench: z
-        .boolean()
-        .default(false)
-        .describe('Always use false. Codebuff disables Composio workbench.'),
-      session_id: sessionIdParam,
-    })
-    .catchall(z.unknown()),
-} satisfies Record<ComposioMetaToolName, z.ZodType>
-
-const composioMetaToolDescriptions = {
-  COMPOSIO_SEARCH_TOOLS:
-    'Discover relevant Composio tools across external apps. Use this first for requests involving services like Gmail, GitHub, Slack, Linear, Notion, Google Calendar, or Google Sheets.',
-  COMPOSIO_GET_TOOL_SCHEMAS:
-    'Retrieve complete input schemas for specific Composio tool slugs returned by COMPOSIO_SEARCH_TOOLS.',
-  COMPOSIO_MANAGE_CONNECTIONS:
-    'Check or initiate user authentication for external app toolkits. Use when search/execution indicates a toolkit is not connected.',
-  COMPOSIO_MULTI_EXECUTE_TOOL:
-    'Execute one or more discovered Composio app tools in the current workflow session. Do not use workbench offloading.',
-} satisfies Record<ComposioMetaToolName, string>
 
 function toJsonValue(value: unknown): JSONValue {
   try {
@@ -114,9 +28,9 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
-async function executeComposioToolViaServer(params: {
+export async function executeComposioToolViaServer(params: {
   apiKey: string
-  toolName: string
+  toolName: ComposioMetaToolName
   input: Record<string, unknown>
 }): Promise<ToolResultOutput[]> {
   try {
@@ -161,24 +75,10 @@ async function executeComposioToolViaServer(params: {
   }
 }
 
-export function getComposioMetaToolDefinitions(params: {
-  apiKey: string
-}): CustomToolDefinition[] {
-  return COMPOSIO_META_TOOL_NAMES.map((toolName) => ({
-    toolName,
-    inputSchema: composioMetaToolSchemas[toolName],
-    description: composioMetaToolDescriptions[toolName],
-    endsAgentStep: true,
-    exampleInputs: [],
-    execute: async (input: unknown) => {
-      return executeComposioToolViaServer({
-        apiKey: params.apiKey,
-        toolName,
-        input:
-          input && typeof input === 'object'
-            ? (input as Record<string, unknown>)
-            : { value: toJsonValue(input) },
-      })
-    },
-  }))
+export function normalizeComposioInput(
+  input: unknown,
+): Record<string, unknown> {
+  return input && typeof input === 'object'
+    ? (input as Record<string, unknown>)
+    : { value: toJsonValue(input) }
 }

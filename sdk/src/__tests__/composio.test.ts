@@ -1,27 +1,28 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
+import { clientToolNames, toolParams } from '@codebuff/common/tools/list'
 
-import { getComposioMetaToolDefinitions } from '../composio'
+import {
+  executeComposioToolViaServer,
+  normalizeComposioInput,
+} from '../composio'
 
-describe('getComposioMetaToolDefinitions', () => {
+describe('Composio SDK tools', () => {
   const originalFetch = globalThis.fetch
 
   afterEach(() => {
     globalThis.fetch = originalFetch
   })
 
-  test('returns static Composio meta tool definitions without discovery fetch', () => {
+  test('registers Composio meta tools as static client tools without discovery fetch', () => {
     const fetchMock = mock(async () => new Response('{}'))
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    const tools = getComposioMetaToolDefinitions({
-      apiKey: 'codebuff-api-key',
-    })
-
-    expect(tools.map((tool) => tool.toolName)).toEqual([
-      ...COMPOSIO_META_TOOL_NAMES,
-    ])
+    for (const toolName of COMPOSIO_META_TOOL_NAMES) {
+      expect(clientToolNames).toContain(toolName)
+      expect(toolParams[toolName].inputSchema).toBeDefined()
+    }
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -50,16 +51,20 @@ describe('getComposioMetaToolDefinitions', () => {
     )
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    const searchTool = getComposioMetaToolDefinitions({
+    const output = await executeComposioToolViaServer({
       apiKey: 'codebuff-api-key',
-    }).find((tool) => tool.toolName === 'COMPOSIO_SEARCH_TOOLS')
-
-    const output = await searchTool?.execute({
-      queries: ['find gmail tools'],
-      session: { generate_id: true },
+      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      input: {
+        queries: ['find gmail tools'],
+        session: { generate_id: true },
+      },
     })
 
     expect(output).toEqual([{ type: 'json', value: { ok: true } }])
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('normalizes non-object Composio inputs for server execution', () => {
+    expect(normalizeComposioInput('gmail')).toEqual({ value: 'gmail' })
   })
 })

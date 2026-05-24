@@ -20,7 +20,6 @@ type CheckComposioRateLimitFn = typeof checkComposioRateLimit
 type IsComposioConfiguredFn = typeof isComposioConfigured
 
 const composioExecuteBodySchema = z.object({
-  sessionId: z.string().min(1).optional(),
   toolName: z.string().min(1),
   input: z.record(z.string(), z.unknown()).default({}),
 })
@@ -53,7 +52,7 @@ export async function postComposioExecute(params: {
     )
   }
 
-  const rateLimit = checkRateLimit(userInfo.id, 'execute')
+  const rateLimit = checkRateLimit(userInfo.id)
   if (rateLimit.limited) {
     const retryAfterSeconds = Math.ceil(rateLimit.retryAfterMs / 1000)
     logger.warn(
@@ -104,8 +103,8 @@ export async function postComposioExecute(params: {
     })
     if (!output) {
       return NextResponse.json(
-        { error: 'Composio session not found' },
-        { status: 404 },
+        { error: 'Composio is not configured' },
+        { status: 503 },
       )
     }
 

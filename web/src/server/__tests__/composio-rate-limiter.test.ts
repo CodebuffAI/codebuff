@@ -12,7 +12,7 @@ describe('checkComposioRateLimit', () => {
 
   test('allows requests below the per-minute limit', () => {
     for (let i = 0; i < 120; i++) {
-      expect(checkComposioRateLimit('user-1', 'execute')).toEqual({
+      expect(checkComposioRateLimit('user-1')).toEqual({
         limited: false,
       })
     }
@@ -20,10 +20,10 @@ describe('checkComposioRateLimit', () => {
 
   test('limits execution after the per-minute limit', () => {
     for (let i = 0; i < 120; i++) {
-      checkComposioRateLimit('user-1', 'execute')
+      checkComposioRateLimit('user-1')
     }
 
-    const result = checkComposioRateLimit('user-1', 'execute')
+    const result = checkComposioRateLimit('user-1')
     expect(result.limited).toBe(true)
     if (result.limited) {
       expect(result.windowName).toBe('1 minute')
