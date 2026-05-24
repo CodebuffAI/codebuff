@@ -195,6 +195,42 @@ describe('free mode country access cache', () => {
     ).toBe(FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS)
   })
 
+  test('stores transient limited decisions when Scamalytics fails after hard IPinfo signals', async () => {
+    const cacheStore: FreeModeCountryAccessCacheStore = {
+      get: mock(async () => null),
+      set: mock(async () => {}),
+    }
+
+    const access = await getCachedFreeModeCountryAccess({
+      userId,
+      req: makeReq({
+        'cf-ipcountry': 'US',
+        'cf-connecting-ip': clientIp,
+      }),
+      options: {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        ipHashSecret,
+        lookupIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupSpurIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupScamalyticsIpRisk: async () => null,
+      },
+      cacheStore,
+      now,
+    })
+
+    expect(access.allowed).toBe(false)
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(cacheStore.set).toHaveBeenCalledWith({
+      userId,
+      access,
+      now,
+    })
+    expect(
+      expiresAtForCountryAccess(access, now).getTime() - now.getTime(),
+    ).toBe(FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS)
+  })
+
   test('stores allowed decisions when clean Spur context clears a hard IPinfo signal', async () => {
     const cacheStore: FreeModeCountryAccessCacheStore = {
       get: mock(async () => null),

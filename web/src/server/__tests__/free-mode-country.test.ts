@@ -443,6 +443,62 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
+  test('keeps Scamalytics outages limited instead of hard-blocked', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['res_proxy'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['proxy'],
+        }),
+        lookupScamalyticsIpRisk: async () => {
+          throw new Error('Scamalytics unavailable')
+        },
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(getFreeModePrivacyDecision(access)).toBe(
+      'scamalytics_failed_limited',
+    )
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('treats Scamalytics API errors as limited, not blocked', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupScamalyticsIpRisk: async () => null,
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(getFreeModeRiskScore(access)).toBe(75)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
   test('keeps IPinfo VPN/proxy detections in limited mode when Spur lookup fails', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
