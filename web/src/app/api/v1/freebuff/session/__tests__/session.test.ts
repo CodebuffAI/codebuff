@@ -506,8 +506,8 @@ describe('GET /api/v1/freebuff/session', () => {
           blockReason: 'anonymous_network',
           cfCountry: 'US',
           geoipCountry: null,
-          ipPrivacy: { signals: ['res_proxy'] },
-          spurIpPrivacy: { signals: ['res_proxy'] },
+          ipPrivacy: { signals: ['vpn'] },
+          spurIpPrivacy: { signals: ['proxy'] },
           spurStatus: 'suspicious',
           ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
           hasClientIp: true,
@@ -520,7 +520,7 @@ describe('GET /api/v1/freebuff/session', () => {
     expect(body.status).toBe('none')
     expect(body.accessTier).toBe('limited')
     expect(body.countryBlockReason).toBe('anonymous_network')
-    expect(body.ipPrivacySignals).toEqual(['res_proxy'])
+    expect(body.ipPrivacySignals).toEqual(['vpn'])
     expect(sessionDeps.rows.size).toBe(0)
   })
 

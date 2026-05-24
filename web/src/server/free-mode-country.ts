@@ -172,6 +172,12 @@ function hasTorPrivacySignal(
   return ipPrivacy?.signals.includes('tor') ?? false
 }
 
+function hasResidentialProxySignal(
+  ipPrivacy: FreeModeIpPrivacy | null | undefined,
+): boolean {
+  return ipPrivacy?.signals.includes('res_proxy') ?? false
+}
+
 function hasCorroboratedTorSignal(
   countryAccess: Partial<
     Pick<
@@ -184,6 +190,40 @@ function hasCorroboratedTorSignal(
     hasTorPrivacySignal(countryAccess.ipPrivacy) &&
     (hasTorPrivacySignal(countryAccess.spurIpPrivacy) ||
       hasTorPrivacySignal(countryAccess.scamalyticsIpPrivacy))
+  )
+}
+
+function hasCorroboratedResidentialProxySignal(
+  countryAccess: Partial<
+    Pick<
+      FreeModeCountryAccess,
+      | 'ipPrivacy'
+      | 'spurIpPrivacy'
+      | 'scamalyticsIpPrivacy'
+      | 'scamalyticsScore'
+    >
+  >,
+): boolean {
+  const ipinfoResidentialProxy = hasResidentialProxySignal(
+    countryAccess.ipPrivacy,
+  )
+  const spurResidentialProxy = hasResidentialProxySignal(
+    countryAccess.spurIpPrivacy,
+  )
+  const scamalyticsResidentialProxy = hasResidentialProxySignal(
+    countryAccess.scamalyticsIpPrivacy,
+  )
+  const scamalyticsCorroborates =
+    scamalyticsResidentialProxy ||
+    hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
+    (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_LIMITED_RISK_SCORE
+
+  return (
+    (ipinfoResidentialProxy && scamalyticsCorroborates) ||
+    (spurResidentialProxy && scamalyticsCorroborates) ||
+    (scamalyticsResidentialProxy &&
+      (hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) ||
+        hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy)))
   )
 }
 
@@ -280,6 +320,9 @@ export function getFreeModeRiskScore(
   if (hasCorroboratedTorSignal(countryAccess)) {
     score = Math.max(score, 95)
   }
+  if (hasCorroboratedResidentialProxySignal(countryAccess)) {
+    score = Math.max(score, 95)
+  }
 
   return Math.min(100, Math.max(0, Math.round(score)))
 }
@@ -299,7 +342,10 @@ export function shouldHardBlockFreeModeAccess(
 ): boolean {
   if (countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY) return true
   if (countryAccess.blockReason !== 'anonymous_network') return false
-  return hasCorroboratedTorSignal(countryAccess)
+  return (
+    hasCorroboratedTorSignal(countryAccess) ||
+    hasCorroboratedResidentialProxySignal(countryAccess)
+  )
 }
 
 export function getFreeModePrivacyDecision(

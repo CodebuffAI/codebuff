@@ -7,7 +7,7 @@
 - Runtime/OS env: pass typed snapshots instead of reading `process.env` throughout the codebase.
 - `IPINFO_TOKEN` is required; free-mode country gating uses it to check IPinfo privacy signals for VPN/proxy/Tor/relay/hosting traffic.
 - `SPUR_TOKEN` is required; VPN/proxy/Tor/residential-proxy privacy signals use Spur Context API corroboration.
-- `SCAMALYTICS_API_KEY` is required; when IPinfo reports privacy or hosting/service signals, free-mode gating also checks Scamalytics for a fraud score and proxy/Tor/VPN evidence. In allowlisted countries, full access requires both Spur and Scamalytics to return clean follow-up results. Provider failures, ambiguous results, VPN/proxy/residential-proxy signals, and hosting/datacenter signals fall back to limited access. Only Cloudflare Tor or Tor corroborated by another provider is blocked entirely by the IP-intelligence gate.
+- `SCAMALYTICS_API_KEY` is required; when IPinfo reports privacy or hosting/service signals, free-mode gating also checks Scamalytics for a fraud score and proxy/Tor/VPN evidence. In allowlisted countries, full access requires both Spur and Scamalytics to return clean follow-up results. Provider failures, ambiguous results, VPN/generic-proxy signals, and hosting/datacenter signals fall back to limited access. Residential proxy is blocked only when Scamalytics also reports residential/proxy evidence or a medium+ fraud score, as are Cloudflare Tor or Tor corroborated by another provider.
 - `CODEBUFF_FULL_TELEMETRY=true` or `CODEBUFF_FULL_TELEMETRY_IDS=user-id,email@example.com`
   disables client analytics sampling for targeted debugging. Use sparingly because it can send full CLI log payloads.
 
