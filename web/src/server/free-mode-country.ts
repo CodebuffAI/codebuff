@@ -150,7 +150,6 @@ const scamalyticsPrivacyCache = new Map<
 >()
 
 const SCAMALYTICS_DEFAULT_USER = 'codebuff'
-export const SCAMALYTICS_HIGH_RISK_SCORE = 75
 export const SCAMALYTICS_LIMITED_RISK_SCORE = 50
 
 const FREE_MODE_LIMITED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
@@ -173,22 +172,18 @@ function hasTorPrivacySignal(
   return ipPrivacy?.signals.includes('tor') ?? false
 }
 
-function hasStrongCorroboratedAbuse(
+function hasCorroboratedTorSignal(
   countryAccess: Partial<
     Pick<
       FreeModeCountryAccess,
-      | 'ipPrivacy'
-      | 'spurIpPrivacy'
-      | 'scamalyticsIpPrivacy'
-      | 'scamalyticsScore'
+      'ipPrivacy' | 'spurIpPrivacy' | 'scamalyticsIpPrivacy'
     >
   >,
 ): boolean {
   return (
-    hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
-    hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy) &&
-    (hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
-      (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_HIGH_RISK_SCORE)
+    hasTorPrivacySignal(countryAccess.ipPrivacy) &&
+    (hasTorPrivacySignal(countryAccess.spurIpPrivacy) ||
+      hasTorPrivacySignal(countryAccess.scamalyticsIpPrivacy))
   )
 }
 
@@ -282,7 +277,7 @@ export function getFreeModeRiskScore(
   if (typeof countryAccess.scamalyticsScore === 'number') {
     score = Math.max(score, countryAccess.scamalyticsScore)
   }
-  if (hasStrongCorroboratedAbuse(countryAccess)) {
+  if (hasCorroboratedTorSignal(countryAccess)) {
     score = Math.max(score, 95)
   }
 
@@ -304,14 +299,7 @@ export function shouldHardBlockFreeModeAccess(
 ): boolean {
   if (countryAccess.cfCountry === CLOUDFLARE_TOR_COUNTRY) return true
   if (countryAccess.blockReason !== 'anonymous_network') return false
-  if (
-    hasTorPrivacySignal(countryAccess.ipPrivacy) &&
-    (hasTorPrivacySignal(countryAccess.spurIpPrivacy) ||
-      hasTorPrivacySignal(countryAccess.scamalyticsIpPrivacy))
-  ) {
-    return true
-  }
-  return hasStrongCorroboratedAbuse(countryAccess)
+  return hasCorroboratedTorSignal(countryAccess)
 }
 
 export function getFreeModePrivacyDecision(
@@ -341,7 +329,7 @@ export function getFreeModePrivacyDecision(
     return 'ipinfo_failed_limited'
   }
   if (countryAccess.blockReason === 'anonymous_network') {
-    if (hasStrongCorroboratedAbuse(countryAccess)) {
+    if (shouldHardBlockFreeModeAccess(countryAccess)) {
       return 'corroborated_block'
     }
     if (countryAccess.spurStatus === 'failed') {

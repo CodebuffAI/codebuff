@@ -320,7 +320,7 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
-  test('hard-blocks high-confidence abuse when all providers corroborate hard signals', async () => {
+  test('keeps corroborated high-score VPN/proxy traffic limited', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -345,7 +345,40 @@ describe('free mode country access', () => {
 
     expect(access.allowed).toBe(false)
     expect(access.blockReason).toBe('anonymous_network')
-    expect(getFreeModeRiskScore(access)).toBe(95)
+    expect(getFreeModeRiskScore(access)).toBe(90)
+    expect(getFreeModePrivacyDecision(access)).toBe(
+      'scamalytics_suspicious_limited',
+    )
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('hard-blocks Tor when corroborated by another provider', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['tor'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: ['tor'],
+          score: 90,
+          risk: 'very high',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(getFreeModeRiskScore(access)).toBe(100)
+    expect(getFreeModePrivacyDecision(access)).toBe('corroborated_block')
     expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
   })
 
