@@ -121,7 +121,7 @@ async function getToolDefinitionsForSession(params: {
     }))
 }
 
-async function saveSession(params: {
+async function insertSessionIfAbsent(params: {
   db: CodebuffPgDatabase
   userId: string
   sessionId: string
@@ -132,12 +132,8 @@ async function saveSession(params: {
       user_id: params.userId,
       session_id: params.sessionId,
     })
-    .onConflictDoUpdate({
+    .onConflictDoNothing({
       target: schema.composioSession.user_id,
-      set: {
-        session_id: params.sessionId,
-        updated_at: new Date(),
-      },
     })
 }
 
@@ -182,14 +178,40 @@ async function createSessionForUser(params: {
   db: CodebuffPgDatabase
   userId: string
   apiKey: string
+  logger: Logger
 }): Promise<CachedComposioSession> {
   const composio = getComposioClient(params.apiKey)
   const session = await composio.create(params.userId)
-  await saveSession({
+  await insertSessionIfAbsent({
     db: params.db,
     userId: params.userId,
     sessionId: session.sessionId,
   })
+
+  const storedSession = await getStoredSessionByUser({
+    db: params.db,
+    userId: params.userId,
+  })
+  if (!storedSession) {
+    throw new Error('Failed to persist Composio session')
+  }
+
+  if (storedSession.session_id !== session.sessionId) {
+    params.logger.info(
+      {
+        userId: params.userId,
+        createdSessionId: session.sessionId,
+        storedSessionId: storedSession.session_id,
+      },
+      'Using existing persisted Composio session after concurrent creation',
+    )
+    return rehydrateSession({
+      userId: params.userId,
+      sessionId: storedSession.session_id,
+      apiKey: params.apiKey,
+      includeTools: true,
+    })
+  }
 
   const cachedSession: CachedComposioSession = {
     userId: params.userId,
@@ -322,6 +344,7 @@ async function getSessionForUser(params: {
       db: params.db,
       userId: params.userId,
       apiKey,
+      logger: params.logger,
     })
   } catch (error) {
     params.logger.error(

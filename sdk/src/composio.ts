@@ -185,13 +185,23 @@ export async function getComposioCustomToolDefinitions(params: {
       signal: discoverySignal.signal,
     })
   } catch (error) {
-    if (!params.signal?.aborted) {
-      cacheComposioTools(params.apiKey, [], COMPOSIO_DISCOVERY_FAILURE_CACHE_MS)
+    if (params.signal?.aborted) {
+      return []
+    }
+
+    if (discoverySignal.signal.aborted) {
       params.logger?.warn(
         { error: error instanceof Error ? error.message : String(error) },
-        'Failed to fetch Composio tools',
+        'Timed out fetching Composio tools',
       )
+      return []
     }
+
+    cacheComposioTools(params.apiKey, [], COMPOSIO_DISCOVERY_FAILURE_CACHE_MS)
+    params.logger?.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to fetch Composio tools',
+    )
     return []
   } finally {
     discoverySignal.cleanup()

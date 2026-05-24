@@ -45,19 +45,27 @@ describe('getComposioToolsForUser', () => {
     ])
   })
 
-  function makeDb(storedSessionId: string | null) {
-    const findFirst = mock(async () =>
-      storedSessionId
+  function makeDb(storedSessionIds: string | null | Array<string | null>) {
+    const storedSessionIdSequence = Array.isArray(storedSessionIds)
+      ? [...storedSessionIds]
+      : [storedSessionIds]
+    const findFirst = mock(async () => {
+      const storedSessionId =
+        storedSessionIdSequence.length > 1
+          ? storedSessionIdSequence.shift()
+          : storedSessionIdSequence[0]
+
+      return storedSessionId
         ? {
             user_id: 'user-123',
             session_id: storedSessionId,
             created_at: new Date(),
             updated_at: new Date(),
           }
-        : null,
-    )
-    const onConflictDoUpdate = mock(async () => undefined)
-    const values = mock(() => ({ onConflictDoUpdate }))
+        : null
+    })
+    const onConflictDoNothing = mock(async () => undefined)
+    const values = mock(() => ({ onConflictDoNothing }))
     const whereDelete = mock(async () => undefined)
 
     return {
@@ -71,7 +79,7 @@ describe('getComposioToolsForUser', () => {
         delete: mock(() => ({ where: whereDelete })),
       } as any,
       findFirst,
-      onConflictDoUpdate,
+      onConflictDoNothing,
       values,
       whereDelete,
     }
@@ -84,7 +92,10 @@ describe('getComposioToolsForUser', () => {
     useSession = mock(async () => {
       throw notFound
     })
-    const { db, whereDelete, values } = makeDb('stored-session')
+    const { db, whereDelete, values } = makeDb([
+      'stored-session',
+      'fresh-session',
+    ])
 
     const result = await getComposioToolsForUser({
       db,
@@ -110,6 +121,32 @@ describe('getComposioToolsForUser', () => {
       user_id: 'user-123',
       session_id: 'fresh-session',
     })
+  })
+
+  test('returns the persisted session when concurrent creation stores a different session', async () => {
+    createSession = mock(async () => ({ sessionId: 'losing-session' }))
+    useSession = mock(async () => ({ sessionId: 'winning-session' }))
+    const { db, values, onConflictDoNothing } = makeDb([
+      null,
+      'winning-session',
+    ])
+
+    const result = await getComposioToolsForUser({
+      db,
+      userId: 'user-123',
+      logger,
+      apiKey: 'test-composio-api-key',
+    })
+
+    expect(result?.sessionId).toBe('winning-session')
+    expect(createSession).toHaveBeenCalledWith('user-123')
+    expect(values).toHaveBeenCalledWith({
+      user_id: 'user-123',
+      session_id: 'losing-session',
+    })
+    expect(onConflictDoNothing).toHaveBeenCalledTimes(1)
+    expect(useSession).toHaveBeenCalledWith('winning-session')
+    expect(getRawToolRouterSessionTools).toHaveBeenCalledWith('winning-session')
   })
 
   test('keeps the stored session row when rehydration fails transiently', async () => {
