@@ -181,7 +181,7 @@ All endpoints authenticate via the standard `Authorization: Bearer <api-key>` or
 - Existing active+unexpired row, **different model** → reject with `model_locked` (HTTP 409); `active_instance_id` is **not** rotated so the other CLI stays valid. Client must DELETE the session before switching.
 - Existing active+expired row → reset to queued with fresh `queued_at` and the requested `model` (re-queue at back).
 
-Before any of those state transitions, the handler requires a resolved country and IPinfo/Spur privacy classification. Unsupported countries enter limited Freebuff access. In allowlisted countries, IPinfo privacy signals still receive full access when Spur returns clean context, and fall back to limited access when Spur reports suspicious context or lookup fails. IPinfo lookup failures fail closed into limited access. Cloudflare Tor country detection remains a hard block.
+Before any of those state transitions, the handler requires a resolved country and IPinfo privacy classification. Unsupported countries enter limited Freebuff access. In allowlisted countries, IPinfo privacy/hosting/service signals trigger paid follow-up checks with Spur and Scamalytics. Full access is restored only when both follow-up providers return clean context; suspicious or failed follow-up checks fall back to limited access. The server records a 0-100 privacy risk score for observability/cache rows; named/recent IPinfo anonymizer observations raise that score, while generic Scamalytics third-party proxy labels do not override a low top-level Scamalytics score by themselves. Cloudflare Tor country detection and strongly corroborated high-risk VPN/proxy/Tor abuse remain hard blocks.
 
 Response shapes:
 

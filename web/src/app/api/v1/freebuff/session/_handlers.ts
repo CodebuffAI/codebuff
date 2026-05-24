@@ -42,6 +42,7 @@ async function getCountryAccess(
       options: {
         ipinfoToken: env.IPINFO_TOKEN,
         spurToken: env.SPUR_TOKEN,
+        scamalyticsApiKey: env.SCAMALYTICS_API_KEY,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
         forceLimited:

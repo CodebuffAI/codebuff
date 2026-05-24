@@ -20,6 +20,12 @@ const NOT_CHECKED_SPUR_CONTEXT = {
   spurIpPrivacy: null,
   spurStatus: 'not_checked' as const,
 }
+const NOT_CHECKED_SCAMALYTICS_CONTEXT = {
+  scamalyticsIpPrivacy: null,
+  scamalyticsStatus: 'not_checked' as const,
+  scamalyticsScore: null,
+  scamalyticsRisk: null,
+}
 
 function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
@@ -37,6 +43,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       geoipCountry: null,
       ipPrivacy: cfCountry === 'T1' ? { signals: ['tor'] } : null,
       ...NOT_CHECKED_SPUR_CONTEXT,
+      ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
       hasClientIp,
       clientIpHash: hasClientIp ? 'test-ip-hash' : null,
     }
@@ -50,6 +57,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       geoipCountry: null,
       ipPrivacy: null,
       ...NOT_CHECKED_SPUR_CONTEXT,
+      ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
       hasClientIp,
       clientIpHash: hasClientIp ? 'test-ip-hash' : null,
     }
@@ -63,6 +71,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
       geoipCountry: null,
       ipPrivacy: null,
       ...NOT_CHECKED_SPUR_CONTEXT,
+      ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
       hasClientIp,
       clientIpHash: 'test-ip-hash',
     }
@@ -75,6 +84,7 @@ function testCountryAccess(req: NextRequest): FreeModeCountryAccess {
     geoipCountry: null,
     ipPrivacy: { signals: [] },
     ...NOT_CHECKED_SPUR_CONTEXT,
+    ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
     hasClientIp,
     clientIpHash: 'test-ip-hash',
   }
@@ -324,6 +334,7 @@ describe('POST /api/v1/freebuff/session', () => {
           ipPrivacy: { signals: ['vpn', 'hosting'] },
           spurIpPrivacy: { signals: ['vpn'] },
           spurStatus: 'suspicious',
+          ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -368,6 +379,10 @@ describe('POST /api/v1/freebuff/session', () => {
           ipPrivacy: { signals: ['hosting'] },
           spurIpPrivacy: { signals: [] },
           spurStatus: 'clean',
+          scamalyticsIpPrivacy: { signals: [] },
+          scamalyticsStatus: 'clean',
+          scamalyticsScore: 10,
+          scamalyticsRisk: 'low',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -451,6 +466,10 @@ describe('GET /api/v1/freebuff/session', () => {
           ipPrivacy: { signals: ['hosting'] },
           spurIpPrivacy: { signals: [] },
           spurStatus: 'clean',
+          scamalyticsIpPrivacy: { signals: [] },
+          scamalyticsStatus: 'clean',
+          scamalyticsScore: 10,
+          scamalyticsRisk: 'low',
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),
@@ -490,6 +509,7 @@ describe('GET /api/v1/freebuff/session', () => {
           ipPrivacy: { signals: ['res_proxy'] },
           spurIpPrivacy: { signals: ['res_proxy'] },
           spurStatus: 'suspicious',
+          ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
           hasClientIp: true,
           clientIpHash: 'test-ip-hash',
         }),

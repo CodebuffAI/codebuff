@@ -71,12 +71,20 @@ export type FreebuffSpurStatus =
   | 'suspicious'
   | 'failed'
 
+export type FreebuffScamalyticsStatus =
+  | 'not_checked'
+  | 'clean'
+  | 'suspicious'
+  | 'failed'
+
 export type FreebuffPrivacyDecision =
   | 'allowed_clean'
   | 'ipinfo_suspicious_spur_clean'
   | 'corroborated_block'
   | 'cloudflare_tor_block'
   | 'spur_failed_limited'
+  | 'scamalytics_failed_limited'
+  | 'scamalytics_suspicious_limited'
   | 'ipinfo_failed_limited'
   | 'limited_other'
 
@@ -87,6 +95,8 @@ export type FreebuffPrivacyProviderDecision =
   | 'ipinfo_failed'
   | 'ipinfo_only'
   | 'spur_failed'
+  | 'scamalytics_failed'
+  | 'scamalytics_only'
   | 'corroborated_soft'
   | 'corroborated_hard'
 

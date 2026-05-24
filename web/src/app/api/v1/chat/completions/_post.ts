@@ -105,6 +105,7 @@ import {
   getFreeModeAccessTier,
   getFreeModePrivacyDecision,
   getFreeModePrivacyProviderDecision,
+  getFreeModeRiskScore,
   shouldHardBlockFreeModeAccess,
 } from '@/server/free-mode-country'
 
@@ -347,6 +348,7 @@ export async function postChatCompletions(params: {
         fetch,
         ipinfoToken: env.IPINFO_TOKEN,
         spurToken: env.SPUR_TOKEN,
+        scamalyticsApiKey: env.SCAMALYTICS_API_KEY,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
         forceLimited:
@@ -358,6 +360,7 @@ export async function postChatCompletions(params: {
       const privacyDecision = getFreeModePrivacyDecision(countryAccess)
       const privacyProviderDecision =
         getFreeModePrivacyProviderDecision(countryAccess)
+      const privacyRiskScore = getFreeModeRiskScore(countryAccess)
 
       if (!countryAccess.allowed || sampleFreebuffSuccess) {
         logger.info(
@@ -369,6 +372,12 @@ export async function postChatCompletions(params: {
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
             spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
             spurStatus: countryAccess.spurStatus,
+            scamalyticsIpPrivacySignals:
+              countryAccess.scamalyticsIpPrivacy?.signals,
+            scamalyticsStatus: countryAccess.scamalyticsStatus,
+            scamalyticsScore: countryAccess.scamalyticsScore,
+            scamalyticsRisk: countryAccess.scamalyticsRisk,
+            privacyRiskScore,
             privacyDecision,
             privacyProviderDecision,
             privacyHardBlocked: hardBlocked,
@@ -395,6 +404,12 @@ export async function postChatCompletions(params: {
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
             spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
             spurStatus: countryAccess.spurStatus,
+            scamalyticsIpPrivacySignals:
+              countryAccess.scamalyticsIpPrivacy?.signals,
+            scamalyticsStatus: countryAccess.scamalyticsStatus,
+            scamalyticsScore: countryAccess.scamalyticsScore,
+            scamalyticsRisk: countryAccess.scamalyticsRisk,
+            privacyRiskScore,
             privacyDecision,
             privacyProviderDecision,
             privacyHardBlocked: hardBlocked,
@@ -421,7 +436,9 @@ export async function postChatCompletions(params: {
         privacyDecision,
         privacyProviderDecision,
         privacyHardBlocked: hardBlocked,
+        privacyRiskScore,
         spurStatus: countryAccess.spurStatus,
+        scamalyticsStatus: countryAccess.scamalyticsStatus,
       })
 
       if (!countryAccess.allowed) {
@@ -435,6 +452,12 @@ export async function postChatCompletions(params: {
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
             spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
             spurStatus: countryAccess.spurStatus,
+            scamalyticsIpPrivacySignals:
+              countryAccess.scamalyticsIpPrivacy?.signals,
+            scamalyticsStatus: countryAccess.scamalyticsStatus,
+            scamalyticsScore: countryAccess.scamalyticsScore,
+            scamalyticsRisk: countryAccess.scamalyticsRisk,
+            privacyRiskScore,
             privacyDecision,
             privacyProviderDecision,
             privacyHardBlocked: hardBlocked,
