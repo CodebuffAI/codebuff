@@ -15,15 +15,12 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { postComposioExecute as PostComposioExecute } from '../execute/_post'
-import type { postComposioTools as PostComposioTools } from '../tools/_post'
 
 let postComposioExecute: typeof PostComposioExecute
-let postComposioTools: typeof PostComposioTools
 
 beforeAll(async () => {
   mock.module('server-only', () => ({}))
   ;({ postComposioExecute } = await import('../execute/_post'))
-  ;({ postComposioTools } = await import('../tools/_post'))
 })
 
 describe('/api/v1/composio', () => {
@@ -63,82 +60,6 @@ describe('/api/v1/composio', () => {
     mock.restore()
   })
 
-  test('lists Composio tools for an authenticated user', async () => {
-    const getToolsForUser = mock(async () => ({
-      sessionId: 'session-123',
-      tools: [
-        {
-          toolName: 'COMPOSIO_SEARCH_TOOLS',
-          inputSchema: { type: 'object', properties: {} },
-          description: 'Search Composio tools',
-        },
-      ],
-    }))
-    const checkRateLimit = mock(() => ({ limited: false as const }))
-    const req = new NextRequest('http://localhost/api/v1/composio/tools', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-    })
-
-    const response = await postComposioTools({
-      req,
-      getUserInfoFromApiKey,
-      db: mockDb,
-      logger,
-      loggerWithContext,
-      getToolsForUser,
-      checkRateLimit,
-    })
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      sessionId: 'session-123',
-      tools: [
-        {
-          toolName: 'COMPOSIO_SEARCH_TOOLS',
-          inputSchema: { type: 'object', properties: {} },
-          description: 'Search Composio tools',
-        },
-      ],
-    })
-    expect(getToolsForUser).toHaveBeenCalledTimes(1)
-    expect(checkRateLimit).toHaveBeenCalledWith('user-123', 'tools')
-  })
-
-  test('rate limits Composio tool listing', async () => {
-    const getToolsForUser = mock(async () => ({
-      sessionId: 'session-123',
-      tools: [],
-    }))
-    const checkRateLimit = mock(() => ({
-      limited: true as const,
-      retryAfterMs: 12_500,
-      windowName: '1 minute',
-    }))
-    const req = new NextRequest('http://localhost/api/v1/composio/tools', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer valid-key' },
-    })
-
-    const response = await postComposioTools({
-      req,
-      getUserInfoFromApiKey,
-      db: mockDb,
-      logger,
-      loggerWithContext,
-      getToolsForUser,
-      checkRateLimit,
-    })
-
-    expect(response.status).toBe(429)
-    expect(response.headers.get('Retry-After')).toBe('13')
-    expect(await response.json()).toEqual({
-      error: 'Rate limited',
-      retryAfterSeconds: 13,
-    })
-    expect(getToolsForUser).not.toHaveBeenCalled()
-  })
-
   test('executes a Composio tool for an authenticated user', async () => {
     const executeTool = mock(async () => [
       { type: 'json' as const, value: { ok: true } },
@@ -172,11 +93,52 @@ describe('/api/v1/composio', () => {
     expect(executeTool).toHaveBeenCalledWith({
       db: mockDb,
       userId: 'user-123',
+      logger,
       sessionId: 'session-123',
       toolName: 'COMPOSIO_SEARCH_TOOLS',
       input: { query: 'gmail' },
     })
     expect(checkRateLimit).toHaveBeenCalledWith('user-123', 'execute')
+  })
+
+  test('executes a Composio tool without a client-provided session ID', async () => {
+    const executeTool = mock(async () => [
+      { type: 'json' as const, value: { ok: true } },
+    ])
+    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid-key' },
+      body: JSON.stringify({
+        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        input: {
+          queries: ['find gmail tools'],
+          session: { generate_id: true },
+        },
+      }),
+    })
+
+    const response = await postComposioExecute({
+      req,
+      getUserInfoFromApiKey,
+      db: mockDb,
+      logger,
+      loggerWithContext,
+      executeTool,
+      checkRateLimit: mock(() => ({ limited: false as const })),
+      isConfigured: () => true,
+    })
+
+    expect(response.status).toBe(200)
+    expect(executeTool).toHaveBeenCalledWith({
+      db: mockDb,
+      userId: 'user-123',
+      logger,
+      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      input: {
+        queries: ['find gmail tools'],
+        session: { generate_id: true },
+      },
+    })
   })
 
   test('returns 404 when a Composio session cannot be found for execute', async () => {
@@ -278,21 +240,19 @@ describe('/api/v1/composio', () => {
   })
 
   test('rejects unauthenticated Composio requests', async () => {
-    const req = new NextRequest('http://localhost/api/v1/composio/tools', {
+    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
       method: 'POST',
     })
 
-    const response = await postComposioTools({
+    const response = await postComposioExecute({
       req,
       getUserInfoFromApiKey,
       db: mockDb,
       logger,
       loggerWithContext,
-      getToolsForUser: mock(async () => ({
-        sessionId: 'session-123',
-        tools: [],
-      })),
+      executeTool: mock(async () => [{ type: 'json' as const, value: {} }]),
       checkRateLimit: mock(() => ({ limited: false as const })),
+      isConfigured: () => true,
     })
 
     expect(response.status).toBe(401)
@@ -301,32 +261,34 @@ describe('/api/v1/composio', () => {
     })
   })
 
-  test('rejects suspended users before rate limiting or tool lookup', async () => {
-    const getToolsForUser = mock(async () => ({
-      sessionId: 'session-123',
-      tools: [],
-    }))
+  test('rejects suspended users before rate limiting or tool execution', async () => {
+    const executeTool = mock(async () => [{ type: 'json' as const, value: {} }])
     const checkRateLimit = mock(() => ({ limited: false as const }))
-    const req = new NextRequest('http://localhost/api/v1/composio/tools', {
+    const req = new NextRequest('http://localhost/api/v1/composio/execute', {
       method: 'POST',
       headers: { Authorization: 'Bearer banned-key' },
+      body: JSON.stringify({
+        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        input: {},
+      }),
     })
 
-    const response = await postComposioTools({
+    const response = await postComposioExecute({
       req,
       getUserInfoFromApiKey,
       db: mockDb,
       logger,
       loggerWithContext,
-      getToolsForUser,
+      executeTool,
       checkRateLimit,
+      isConfigured: () => true,
     })
 
     expect(response.status).toBe(403)
     const body = await response.json()
     expect(body.error).toBe('account_suspended')
     expect(body.message).toContain('Your account has been suspended')
-    expect(getToolsForUser).not.toHaveBeenCalled()
+    expect(executeTool).not.toHaveBeenCalled()
     expect(checkRateLimit).not.toHaveBeenCalled()
   })
 })

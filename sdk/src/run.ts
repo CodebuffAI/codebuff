@@ -12,14 +12,13 @@ import {
   listMCPTools,
   callMCPTool,
 } from '@codebuff/common/mcp/client'
-import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { getComposioCustomToolDefinitions } from './composio'
+import { getComposioMetaToolDefinitions } from './composio'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -520,26 +519,18 @@ async function runOnce({
     return getCancelledRunState('Run cancelled by user.')
   }
 
-  const composioCustomToolDefinitions = await getComposioCustomToolDefinitions({
+  const composioCustomToolDefinitions = getComposioMetaToolDefinitions({
     apiKey,
-    logger,
-    signal,
   })
 
-  for (const toolName of COMPOSIO_META_TOOL_NAMES) {
-    delete sessionState.fileContext.customToolDefinitions[toolName]
-  }
-
-  if (composioCustomToolDefinitions.length > 0) {
-    activeCustomToolDefinitions = [
-      ...activeCustomToolDefinitions,
-      ...composioCustomToolDefinitions,
-    ]
-    sessionState = await applyOverridesToSessionState(cwd, sessionState, {
-      customToolDefinitions: activeCustomToolDefinitions,
-    })
-    initialMessageHistory = sessionState.mainAgentState.messageHistory
-  }
+  activeCustomToolDefinitions = [
+    ...activeCustomToolDefinitions,
+    ...composioCustomToolDefinitions,
+  ]
+  sessionState = await applyOverridesToSessionState(cwd, sessionState, {
+    customToolDefinitions: activeCustomToolDefinitions,
+  })
+  initialMessageHistory = sessionState.mainAgentState.messageHistory
 
   if (signal?.aborted) {
     return getCancelledRunState('Run cancelled by user.')

@@ -20,7 +20,7 @@ type CheckComposioRateLimitFn = typeof checkComposioRateLimit
 type IsComposioConfiguredFn = typeof isComposioConfigured
 
 const composioExecuteBodySchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   toolName: z.string().min(1),
   input: z.record(z.string(), z.unknown()).default({}),
 })
@@ -99,6 +99,7 @@ export async function postComposioExecute(params: {
     const output = await executeTool({
       db,
       userId: userInfo.id,
+      logger,
       ...parsed.data,
     })
     if (!output) {

@@ -2,7 +2,7 @@ const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
 const HOUR_MS = 60 * MINUTE_MS
 
-export type ComposioRateLimitAction = 'tools' | 'execute'
+export type ComposioRateLimitAction = 'execute'
 
 export type ComposioRateLimitResult =
   | { limited: false }
@@ -20,10 +20,6 @@ type WindowTracker = {
 }
 
 const RATE_WINDOWS_BY_ACTION: Record<ComposioRateLimitAction, RateWindow[]> = {
-  tools: [
-    { name: '1 minute', windowMs: MINUTE_MS, maxRequests: 30 },
-    { name: '1 hour', windowMs: HOUR_MS, maxRequests: 300 },
-  ],
   execute: [
     { name: '1 minute', windowMs: MINUTE_MS, maxRequests: 120 },
     { name: '1 hour', windowMs: HOUR_MS, maxRequests: 1_000 },

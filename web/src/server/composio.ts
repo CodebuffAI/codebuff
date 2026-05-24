@@ -11,7 +11,7 @@ import {
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import * as schema from '@codebuff/internal/db/schema'
-import { Composio, type Tool } from '@composio/core'
+import { Composio } from '@composio/core'
 import { and, eq } from 'drizzle-orm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -25,17 +25,10 @@ const allowedToolNames = new Set<string>(COMPOSIO_META_TOOL_NAMES)
 type ComposioSession = Awaited<ReturnType<Composio['create']>>
 type ComposioClient = Composio
 
-export type ComposioToolDefinition = {
-  toolName: string
-  inputSchema: Record<string, unknown>
-  description: string
-}
-
 type CachedComposioSession = {
   userId: string
   sessionId: string
   session: ComposioSession
-  tools: ComposioToolDefinition[]
 }
 
 function parseEnvFileValue(contents: string, key: string): string | undefined {
@@ -80,45 +73,11 @@ function toJsonValue(value: unknown): JSONValue {
   }
 }
 
-function normalizeInputSchema(schema: Tool['inputParameters']) {
-  if (schema && typeof schema === 'object') {
-    const jsonSchema = JSON.parse(JSON.stringify(schema)) as Record<
-      string,
-      unknown
-    >
-    delete jsonSchema['$schema']
-    return jsonSchema
-  }
-
-  return {
-    type: 'object',
-    properties: {},
-    additionalProperties: true,
-  } satisfies Record<string, unknown>
-}
-
 function getComposioClient(apiKey: string): ComposioClient {
   return new Composio({
     apiKey,
     host: 'codebuff',
   })
-}
-
-async function getToolDefinitionsForSession(params: {
-  composio: ComposioClient
-  sessionId: string
-}): Promise<ComposioToolDefinition[]> {
-  const rawTools = await params.composio.tools.getRawToolRouterSessionTools(
-    params.sessionId,
-  )
-
-  return rawTools
-    .filter((tool) => allowedToolNames.has(tool.slug))
-    .map((tool) => ({
-      toolName: tool.slug,
-      inputSchema: normalizeInputSchema(tool.inputParameters),
-      description: tool.description ?? `Execute ${tool.slug} with Composio.`,
-    }))
 }
 
 async function insertSessionIfAbsent(params: {
@@ -209,7 +168,6 @@ async function createSessionForUser(params: {
       userId: params.userId,
       sessionId: storedSession.session_id,
       apiKey: params.apiKey,
-      includeTools: true,
     })
   }
 
@@ -217,10 +175,6 @@ async function createSessionForUser(params: {
     userId: params.userId,
     sessionId: session.sessionId,
     session,
-    tools: await getToolDefinitionsForSession({
-      composio,
-      sessionId: session.sessionId,
-    }),
   }
   return cachedSession
 }
@@ -271,7 +225,6 @@ async function rehydrateSession(params: {
   userId: string
   sessionId: string
   apiKey: string
-  includeTools: boolean
 }): Promise<CachedComposioSession> {
   const composio = getComposioClient(params.apiKey)
   const session = await composio.use(params.sessionId)
@@ -279,12 +232,6 @@ async function rehydrateSession(params: {
     userId: params.userId,
     sessionId: params.sessionId,
     session,
-    tools: params.includeTools
-      ? await getToolDefinitionsForSession({
-          composio,
-          sessionId: params.sessionId,
-        })
-      : [],
   }
   return cachedSession
 }
@@ -313,7 +260,6 @@ async function getSessionForUser(params: {
           userId: params.userId,
           sessionId: storedSession.session_id,
           apiKey,
-          includeTools: true,
         })
       } catch (error) {
         if (!isInvalidStoredSessionError(error)) {
@@ -355,27 +301,13 @@ async function getSessionForUser(params: {
   }
 }
 
-export async function getComposioToolsForUser(params: {
-  db: CodebuffPgDatabase
-  userId: string
-  logger: Logger
-  apiKey?: string
-}): Promise<{ sessionId: string; tools: ComposioToolDefinition[] } | null> {
-  const cached = await getSessionForUser(params)
-  if (!cached) return null
-
-  return {
-    sessionId: cached.sessionId,
-    tools: cached.tools,
-  }
-}
-
 export async function executeComposioTool(params: {
   db: CodebuffPgDatabase
   userId: string
-  sessionId: string
+  sessionId?: string
   toolName: string
   input: Record<string, unknown>
+  logger: Logger
   apiKey?: string
 }): Promise<ToolResultOutput[] | null> {
   if (!allowedToolNames.has(params.toolName)) {
@@ -392,22 +324,34 @@ export async function executeComposioTool(params: {
   const apiKey = params.apiKey ?? getComposioApiKey()
   if (!apiKey) return null
 
-  const storedSession = await getStoredSessionById({
-    db: params.db,
-    userId: params.userId,
-    sessionId: params.sessionId,
-  })
-  if (!storedSession) {
-    return null
-  }
+  let cached: CachedComposioSession
+  if (params.sessionId) {
+    const storedSession = await getStoredSessionById({
+      db: params.db,
+      userId: params.userId,
+      sessionId: params.sessionId,
+    })
+    if (!storedSession) {
+      return null
+    }
 
-  try {
-    const cached = await rehydrateSession({
+    cached = await rehydrateSession({
       userId: params.userId,
       sessionId: params.sessionId,
       apiKey,
-      includeTools: false,
     })
+  } else {
+    const userSession = await getSessionForUser({
+      db: params.db,
+      userId: params.userId,
+      logger: params.logger,
+      apiKey,
+    })
+    if (!userSession) return null
+    cached = userSession
+  }
+
+  try {
     const result = await cached.session.execute(params.toolName, params.input)
     return [{ type: 'json', value: toJsonValue(result) }]
   } catch (error) {

@@ -1,30 +1,26 @@
 import { beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { getComposioToolsForUser as GetComposioToolsForUser } from '../composio'
+import type { executeComposioTool as ExecuteComposioTool } from '../composio'
 
-let getComposioToolsForUser: typeof GetComposioToolsForUser
+let executeComposioTool: typeof ExecuteComposioTool
 
 let createSession: ReturnType<typeof mock>
 let useSession: ReturnType<typeof mock>
-let getRawToolRouterSessionTools: ReturnType<typeof mock>
+let execute: ReturnType<typeof mock>
 
 beforeAll(async () => {
   mock.module('server-only', () => ({}))
   mock.module('@composio/core', () => ({
     Composio: class {
-      tools = {
-        getRawToolRouterSessionTools,
-      }
-
       create = createSession
       use = useSession
     },
   }))
-  ;({ getComposioToolsForUser } = await import('../composio'))
+  ;({ executeComposioTool } = await import('../composio'))
 })
 
-describe('getComposioToolsForUser', () => {
+describe('executeComposioTool', () => {
   let logger: Logger
 
   beforeEach(() => {
@@ -34,15 +30,9 @@ describe('getComposioToolsForUser', () => {
       info: mock(() => {}),
       debug: mock(() => {}),
     }
-    createSession = mock(async () => ({ sessionId: 'fresh-session' }))
-    useSession = mock(async () => ({ sessionId: 'stored-session' }))
-    getRawToolRouterSessionTools = mock(async () => [
-      {
-        slug: 'COMPOSIO_SEARCH_TOOLS',
-        inputParameters: { type: 'object', properties: {} },
-        description: 'Search tools',
-      },
-    ])
+    execute = mock(async () => ({ ok: true }))
+    createSession = mock(async () => ({ sessionId: 'fresh-session', execute }))
+    useSession = mock(async () => ({ sessionId: 'stored-session', execute }))
   })
 
   function makeDb(storedSessionIds: string | null | Array<string | null>) {
@@ -97,23 +87,16 @@ describe('getComposioToolsForUser', () => {
       'fresh-session',
     ])
 
-    const result = await getComposioToolsForUser({
+    const result = await executeComposioTool({
       db,
       userId: 'user-123',
       logger,
       apiKey: 'test-composio-api-key',
+      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      input: { queries: ['gmail'], session: { generate_id: true } },
     })
 
-    expect(result).toEqual({
-      sessionId: 'fresh-session',
-      tools: [
-        {
-          toolName: 'COMPOSIO_SEARCH_TOOLS',
-          inputSchema: { type: 'object', properties: {} },
-          description: 'Search tools',
-        },
-      ],
-    })
+    expect(result).toEqual([{ type: 'json', value: { ok: true } }])
     expect(useSession).toHaveBeenCalledWith('stored-session')
     expect(whereDelete).toHaveBeenCalledTimes(1)
     expect(createSession).toHaveBeenCalledWith('user-123')
@@ -124,21 +107,23 @@ describe('getComposioToolsForUser', () => {
   })
 
   test('returns the persisted session when concurrent creation stores a different session', async () => {
-    createSession = mock(async () => ({ sessionId: 'losing-session' }))
-    useSession = mock(async () => ({ sessionId: 'winning-session' }))
+    createSession = mock(async () => ({ sessionId: 'losing-session', execute }))
+    useSession = mock(async () => ({ sessionId: 'winning-session', execute }))
     const { db, values, onConflictDoNothing } = makeDb([
       null,
       'winning-session',
     ])
 
-    const result = await getComposioToolsForUser({
+    const result = await executeComposioTool({
       db,
       userId: 'user-123',
       logger,
       apiKey: 'test-composio-api-key',
+      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      input: { queries: ['gmail'], session: { generate_id: true } },
     })
 
-    expect(result?.sessionId).toBe('winning-session')
+    expect(result).toEqual([{ type: 'json', value: { ok: true } }])
     expect(createSession).toHaveBeenCalledWith('user-123')
     expect(values).toHaveBeenCalledWith({
       user_id: 'user-123',
@@ -146,7 +131,10 @@ describe('getComposioToolsForUser', () => {
     })
     expect(onConflictDoNothing).toHaveBeenCalledTimes(1)
     expect(useSession).toHaveBeenCalledWith('winning-session')
-    expect(getRawToolRouterSessionTools).toHaveBeenCalledWith('winning-session')
+    expect(execute).toHaveBeenCalledWith('COMPOSIO_SEARCH_TOOLS', {
+      queries: ['gmail'],
+      session: { generate_id: true },
+    })
   })
 
   test('keeps the stored session row when rehydration fails transiently', async () => {
@@ -159,11 +147,13 @@ describe('getComposioToolsForUser', () => {
     const { db, whereDelete } = makeDb('stored-session')
 
     await expect(
-      getComposioToolsForUser({
+      executeComposioTool({
         db,
         userId: 'user-123',
         logger,
         apiKey: 'test-composio-api-key',
+        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        input: { queries: ['gmail'], session: { generate_id: true } },
       }),
     ).rejects.toThrow('Composio unavailable')
 

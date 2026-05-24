@@ -1,66 +1,65 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 
-import { getComposioCustomToolDefinitions } from '../composio'
+import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 
-describe('getComposioCustomToolDefinitions', () => {
+import { getComposioMetaToolDefinitions } from '../composio'
+
+describe('getComposioMetaToolDefinitions', () => {
   const originalFetch = globalThis.fetch
 
   afterEach(() => {
     globalThis.fetch = originalFetch
   })
 
-  test('does not cache an empty tool list after discovery timeout', async () => {
-    const apiKey = `timeout-key-${Date.now()}`
-    const timeoutFetch = mock(
-      async (_url: string | URL | Request, init?: RequestInit) => {
-        const signal = init?.signal
-        return new Promise<Response>((_resolve, reject) => {
-          if (signal?.aborted) {
-            reject(new Error('aborted'))
-            return
-          }
+  test('returns static Composio meta tool definitions without discovery fetch', () => {
+    const fetchMock = mock(async () => new Response('{}'))
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
-          signal?.addEventListener(
-            'abort',
-            () => reject(new Error('aborted')),
-            { once: true },
-          )
+    const tools = getComposioMetaToolDefinitions({
+      apiKey: 'codebuff-api-key',
+    })
+
+    expect(tools.map((tool) => tool.toolName)).toEqual([
+      ...COMPOSIO_META_TOOL_NAMES,
+    ])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('executes a meta tool through the server execute endpoint', async () => {
+    const fetchMock = mock(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        expect(init?.method).toBe('POST')
+        expect(init?.headers).toEqual({
+          Authorization: 'Bearer codebuff-api-key',
+          'Content-Type': 'application/json',
         })
+        expect(JSON.parse(String(init?.body))).toEqual({
+          toolName: 'COMPOSIO_SEARCH_TOOLS',
+          input: {
+            queries: ['find gmail tools'],
+            session: { generate_id: true },
+          },
+        })
+        return new Response(
+          JSON.stringify({
+            output: [{ type: 'json', value: { ok: true } }],
+          }),
+          { status: 200 },
+        )
       },
     )
-    globalThis.fetch = timeoutFetch as unknown as typeof fetch
+    globalThis.fetch = fetchMock as unknown as typeof fetch
 
-    const timedOutTools = await getComposioCustomToolDefinitions({
-      apiKey,
-      logger: { warn: mock(() => {}) },
-    })
-    expect(timedOutTools).toEqual([])
-    expect(timeoutFetch).toHaveBeenCalledTimes(1)
+    const searchTool = getComposioMetaToolDefinitions({
+      apiKey: 'codebuff-api-key',
+    }).find((tool) => tool.toolName === 'COMPOSIO_SEARCH_TOOLS')
 
-    const successFetch = mock(async () => {
-      return new Response(
-        JSON.stringify({
-          sessionId: 'session-123',
-          tools: [
-            {
-              toolName: 'COMPOSIO_SEARCH_TOOLS',
-              inputSchema: { type: 'object', properties: {} },
-              description: 'Search tools',
-            },
-          ],
-        }),
-        { status: 200 },
-      )
-    })
-    globalThis.fetch = successFetch as unknown as typeof fetch
-
-    const tools = await getComposioCustomToolDefinitions({
-      apiKey,
-      logger: { warn: mock(() => {}) },
+    const output = await searchTool?.execute({
+      queries: ['find gmail tools'],
+      session: { generate_id: true },
     })
 
-    expect(successFetch).toHaveBeenCalledTimes(1)
-    expect(tools).toHaveLength(1)
-    expect(tools[0]?.toolName).toBe('COMPOSIO_SEARCH_TOOLS')
+    expect(output).toEqual([{ type: 'json', value: { ok: true } }])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

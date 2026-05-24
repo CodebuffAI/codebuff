@@ -1,10 +1,6 @@
-import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type { ToolName } from '@codebuff/common/tools/constants'
 import type { z } from 'zod/v4'
-
-export type CustomToolInputSchema<Args, Input> =
-  | z.ZodType<Args, Input>
-  | Record<string, unknown>
 
 export type CustomToolDefinition<
   N extends string = string,
@@ -14,7 +10,7 @@ export type CustomToolDefinition<
   Input extends any = any,
 > = {
   toolName: N
-  inputSchema: CustomToolInputSchema<Args, Input>
+  inputSchema: z.ZodType<Args, Input>
   description: string
   endsAgentStep: boolean
   exampleInputs: Input[]

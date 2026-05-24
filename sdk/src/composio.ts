@@ -1,32 +1,136 @@
+import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
+import { z } from 'zod/v4'
+
 import { WEBSITE_URL } from './constants'
 
+import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
 import type { CustomToolDefinition } from './custom-tool'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { JSONValue } from '@codebuff/common/types/json'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
-
-type ComposioToolsResponse = {
-  sessionId: string
-  tools: Array<{
-    toolName: string
-    inputSchema: Record<string, unknown>
-    description: string
-  }>
-}
 
 type ComposioExecuteResponse = {
   output: ToolResultOutput[]
 }
 
-const COMPOSIO_DISCOVERY_TIMEOUT_MS = 750
-const COMPOSIO_DISCOVERY_SUCCESS_CACHE_MS = 5 * 60 * 1000
-const COMPOSIO_DISCOVERY_FAILURE_CACHE_MS = 60 * 1000
-const COMPOSIO_DISCOVERY_CACHE_MAX_ENTRIES = 64
+const sessionIdParam = z
+  .string()
+  .optional()
+  .describe('Session ID returned by COMPOSIO_SEARCH_TOOLS, when available.')
 
-const composioToolDefinitionsCache = new Map<
-  string,
-  { expiresAt: number; tools: CustomToolDefinition[] }
->()
+const workflowStepParams = {
+  current_step: z
+    .string()
+    .optional()
+    .describe('Short enum-style label for the current workflow step.'),
+  current_step_metric: z
+    .string()
+    .optional()
+    .describe('Progress metric such as "3/10 emails" or "0/n messages".'),
+}
+
+const composioMetaToolSchemas = {
+  COMPOSIO_SEARCH_TOOLS: z
+    .object({
+      queries: z
+        .array(z.unknown())
+        .min(1)
+        .describe(
+          'Structured English search queries. Split independent app/API actions into separate queries.',
+        ),
+      session: z
+        .object({
+          generate_id: z.boolean().optional(),
+          id: z.string().optional(),
+        })
+        .catchall(z.unknown())
+        .describe(
+          'Use { generate_id: true } for a new workflow, or { id } to continue one.',
+        ),
+      model: z.string().optional().describe('Client LLM model name.'),
+    })
+    .catchall(z.unknown()),
+  COMPOSIO_GET_TOOL_SCHEMAS: z
+    .object({
+      tool_slugs: z
+        .array(z.string())
+        .min(1)
+        .describe('Composio tool slugs to retrieve schemas for.'),
+      include: z
+        .array(z.string())
+        .optional()
+        .describe('Schema fields to include, e.g. input_schema/output_schema.'),
+      session_id: sessionIdParam,
+    })
+    .catchall(z.unknown()),
+  COMPOSIO_MANAGE_CONNECTIONS: z
+    .object({
+      toolkits: z
+        .array(z.string())
+        .min(1)
+        .describe('Toolkit slugs to check or connect, such as gmail/github.'),
+      reinitiate_all: z
+        .boolean()
+        .optional()
+        .describe('Force reconnection even if active credentials exist.'),
+      session_id: sessionIdParam,
+    })
+    .catchall(z.unknown()),
+  COMPOSIO_MULTI_EXECUTE_TOOL: z
+    .object({
+      tools: z
+        .array(z.record(z.string(), z.unknown()))
+        .min(1)
+        .describe('Logically independent Composio tools to execute.'),
+      thought: z
+        .string()
+        .optional()
+        .describe('One concise sentence explaining the execution intent.'),
+      sync_response_to_workbench: z
+        .boolean()
+        .describe('Use true when the response may be large or reused later.'),
+      session_id: sessionIdParam,
+      ...workflowStepParams,
+    })
+    .catchall(z.unknown()),
+  COMPOSIO_REMOTE_WORKBENCH: z
+    .object({
+      code_to_execute: z
+        .string()
+        .describe('Python code to run in the persistent remote workbench.'),
+      thought: z
+        .string()
+        .optional()
+        .describe(
+          'One concise sentence describing why the workbench is needed.',
+        ),
+      session_id: sessionIdParam,
+      ...workflowStepParams,
+    })
+    .catchall(z.unknown()),
+  COMPOSIO_REMOTE_BASH_TOOL: z
+    .object({
+      command: z
+        .string()
+        .describe('Bash command to run in the remote sandbox.'),
+      session_id: sessionIdParam,
+    })
+    .catchall(z.unknown()),
+} satisfies Record<ComposioMetaToolName, z.ZodType>
+
+const composioMetaToolDescriptions = {
+  COMPOSIO_SEARCH_TOOLS:
+    'Discover relevant Composio tools across external apps. Use this first for requests involving services like Gmail, GitHub, Slack, Linear, Notion, Google Calendar, or Google Sheets.',
+  COMPOSIO_GET_TOOL_SCHEMAS:
+    'Retrieve complete input schemas for specific Composio tool slugs returned by COMPOSIO_SEARCH_TOOLS.',
+  COMPOSIO_MANAGE_CONNECTIONS:
+    'Check or initiate user authentication for external app toolkits. Use when search/execution indicates a toolkit is not connected.',
+  COMPOSIO_MULTI_EXECUTE_TOOL:
+    'Execute one or more discovered Composio app tools in the current workflow session.',
+  COMPOSIO_REMOTE_WORKBENCH:
+    'Run Python in a persistent Composio workbench for bulk app workflows, large responses, or data transformations.',
+  COMPOSIO_REMOTE_BASH_TOOL:
+    'Run bash commands in the Composio remote sandbox for simple file and data processing.',
+} satisfies Record<ComposioMetaToolName, string>
 
 function toJsonValue(value: unknown): JSONValue {
   try {
@@ -34,70 +138,6 @@ function toJsonValue(value: unknown): JSONValue {
   } catch {
     return String(value) as JSONValue
   }
-}
-
-function createTimeoutSignal(
-  parentSignal: AbortSignal | undefined,
-  timeoutMs: number,
-) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => {
-    controller.abort(new Error('Composio discovery timed out'))
-  }, timeoutMs)
-  const onAbort = () => controller.abort(parentSignal?.reason)
-
-  if (parentSignal?.aborted) {
-    onAbort()
-  } else {
-    parentSignal?.addEventListener('abort', onAbort, { once: true })
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      clearTimeout(timeout)
-      parentSignal?.removeEventListener('abort', onAbort)
-    },
-  }
-}
-
-function getCachedComposioTools(apiKey: string): CustomToolDefinition[] | null {
-  const cached = composioToolDefinitionsCache.get(apiKey)
-  if (!cached) return null
-  if (Date.now() >= cached.expiresAt) {
-    composioToolDefinitionsCache.delete(apiKey)
-    return null
-  }
-  return cached.tools
-}
-
-function pruneComposioToolsCache(now: number) {
-  for (const [apiKey, cached] of composioToolDefinitionsCache) {
-    if (now >= cached.expiresAt) {
-      composioToolDefinitionsCache.delete(apiKey)
-    }
-  }
-
-  while (
-    composioToolDefinitionsCache.size >= COMPOSIO_DISCOVERY_CACHE_MAX_ENTRIES
-  ) {
-    const oldest = composioToolDefinitionsCache.keys().next()
-    if (oldest.done) break
-    composioToolDefinitionsCache.delete(oldest.value)
-  }
-}
-
-function cacheComposioTools(
-  apiKey: string,
-  tools: CustomToolDefinition[],
-  ttlMs: number,
-) {
-  const now = Date.now()
-  pruneComposioToolsCache(now)
-  composioToolDefinitionsCache.set(apiKey, {
-    tools,
-    expiresAt: now + ttlMs,
-  })
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -114,7 +154,6 @@ async function readErrorMessage(response: Response): Promise<string> {
 
 async function executeComposioToolViaServer(params: {
   apiKey: string
-  sessionId: string
   toolName: string
   input: Record<string, unknown>
 }): Promise<ToolResultOutput[]> {
@@ -128,7 +167,6 @@ async function executeComposioToolViaServer(params: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId: params.sessionId,
           toolName: params.toolName,
           input: params.input,
         }),
@@ -161,95 +199,24 @@ async function executeComposioToolViaServer(params: {
   }
 }
 
-export async function getComposioCustomToolDefinitions(params: {
+export function getComposioMetaToolDefinitions(params: {
   apiKey: string
-  logger?: Pick<Logger, 'warn'>
-  signal?: AbortSignal
-}): Promise<CustomToolDefinition[]> {
-  const cachedTools = getCachedComposioTools(params.apiKey)
-  if (cachedTools) return cachedTools
-  if (params.signal?.aborted) return []
-
-  const discoverySignal = createTimeoutSignal(
-    params.signal,
-    COMPOSIO_DISCOVERY_TIMEOUT_MS,
-  )
-
-  let response: Response
-  try {
-    response = await fetch(new URL('/api/v1/composio/tools', WEBSITE_URL), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.apiKey}`,
-      },
-      signal: discoverySignal.signal,
-    })
-  } catch (error) {
-    if (params.signal?.aborted) {
-      return []
-    }
-
-    if (discoverySignal.signal.aborted) {
-      params.logger?.warn(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Timed out fetching Composio tools',
-      )
-      return []
-    }
-
-    cacheComposioTools(params.apiKey, [], COMPOSIO_DISCOVERY_FAILURE_CACHE_MS)
-    params.logger?.warn(
-      { error: error instanceof Error ? error.message : String(error) },
-      'Failed to fetch Composio tools',
-    )
-    return []
-  } finally {
-    discoverySignal.cleanup()
-  }
-
-  if (!response.ok) {
-    cacheComposioTools(params.apiKey, [], COMPOSIO_DISCOVERY_FAILURE_CACHE_MS)
-    if (response.status !== 503) {
-      params.logger?.warn(
-        { status: response.status, error: await readErrorMessage(response) },
-        'Failed to fetch Composio tools',
-      )
-    }
-    return []
-  }
-
-  try {
-    const body = (await response.json()) as ComposioToolsResponse
-    const tools = body.tools.map((tool) => ({
-      toolName: tool.toolName,
-      inputSchema: tool.inputSchema,
-      description: tool.description,
-      endsAgentStep: true,
-      exampleInputs: [],
-      execute: async (input: unknown) => {
-        return executeComposioToolViaServer({
-          apiKey: params.apiKey,
-          sessionId: body.sessionId,
-          toolName: tool.toolName,
-          input:
-            input && typeof input === 'object'
-              ? (input as Record<string, unknown>)
-              : { value: toJsonValue(input) },
-        })
-      },
-    }))
-    cacheComposioTools(
-      params.apiKey,
-      tools,
-      COMPOSIO_DISCOVERY_SUCCESS_CACHE_MS,
-    )
-    return tools
-  } catch (error) {
-    cacheComposioTools(params.apiKey, [], COMPOSIO_DISCOVERY_FAILURE_CACHE_MS)
-    params.logger?.warn(
-      { error: error instanceof Error ? error.message : String(error) },
-      'Failed to parse Composio tools response',
-    )
-    return []
-  }
+}): CustomToolDefinition[] {
+  return COMPOSIO_META_TOOL_NAMES.map((toolName) => ({
+    toolName,
+    inputSchema: composioMetaToolSchemas[toolName],
+    description: composioMetaToolDescriptions[toolName],
+    endsAgentStep: true,
+    exampleInputs: [],
+    execute: async (input: unknown) => {
+      return executeComposioToolViaServer({
+        apiKey: params.apiKey,
+        toolName,
+        input:
+          input && typeof input === 'object'
+            ? (input as Record<string, unknown>)
+            : { value: toJsonValue(input) },
+      })
+    },
+  }))
 }

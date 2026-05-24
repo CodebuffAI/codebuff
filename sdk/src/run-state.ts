@@ -112,16 +112,11 @@ function processCustomToolDefinitions(
 ): CustomToolDefinitions {
   return Object.fromEntries(
     customToolDefinitions.map((toolDefinition) => {
-      const isZodSchema =
-        typeof (toolDefinition.inputSchema as { safeParse?: unknown })
-          .safeParse === 'function'
-      // Convert Zod schemas to JSON Schema so they survive JSON serialization.
-      // Some adapters already provide JSON Schema directly.
-      const jsonSchema = isZodSchema
-        ? (z.toJSONSchema(toolDefinition.inputSchema as z.ZodType, {
-            io: 'input',
-          }) as Record<string, unknown>)
-        : { ...(toolDefinition.inputSchema as Record<string, unknown>) }
+      // Convert Zod schema to JSON Schema format so it survives JSON serialization
+      // The agent-runtime will wrap this with AI SDK's jsonSchema() helper
+      const jsonSchema = z.toJSONSchema(toolDefinition.inputSchema, {
+        io: 'input',
+      }) as Record<string, unknown>
       delete jsonSchema['$schema']
 
       return [
