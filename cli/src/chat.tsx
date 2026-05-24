@@ -177,7 +177,6 @@ export const Chat = ({
   const { ads, recordClick, recordImpression } = useGravityAd({
     enabled: IS_FREEBUFF || !hasSubscription,
     provider: 'gravity',
-    fallbackProvider: 'zeroclick',
   })
 
   // Set initial mode from CLI flag on mount

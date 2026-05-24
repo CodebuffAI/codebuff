@@ -92,17 +92,14 @@ export const useGravityAd = (options?: {
   /** Skip the "wait for first user message" gate. Used by the freebuff
    *  waiting room, which has no conversation but still needs ads. */
   forceStart?: boolean
-  /** Primary ad network to query. Defaults to Gravity. */
+  /** Ad network to request first. The server owns fallback ordering. */
   provider?: AdProvider
-  /** Backup ad network to try when the primary returns no fill or errors. */
-  fallbackProvider?: AdProvider
   /** Product surface requesting the ad. The server maps this to placements. */
   surface?: AdSurface
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
-  const fallbackProvider = options?.fallbackProvider
   const surface = options?.surface
   const [ads, setAds] = useState<AdResponse[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -305,61 +302,56 @@ export const useGravityAd = (options?: {
       }
     }
 
-    const providersToTry =
-      fallbackProvider && fallbackProvider !== provider
-        ? [provider, fallbackProvider]
-        : [provider]
+    try {
+      const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'User-Agent': getCliAdRequestUserAgent(),
+        },
+        body: JSON.stringify({
+          provider,
+          messages: adMessages,
+          sessionId: useChatStore.getState().chatSessionId,
+          device: getDeviceInfo(),
+          ...(surface ? { surface } : {}),
+          // Carbon requires a real browser-ish useragent for targeting/fraud
+          // detection. Gravity ignores it. We source one centrally so every
+          // provider that needs it sees the same value.
+          userAgent: getAdUserAgent(),
+        }),
+      })
 
-    for (const providerToTry of providersToTry) {
-      try {
-        const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-            'User-Agent': getCliAdRequestUserAgent(),
-          },
-          body: JSON.stringify({
-            provider: providerToTry,
-            messages: adMessages,
-            sessionId: useChatStore.getState().chatSessionId,
-            device: getDeviceInfo(),
-            ...(surface ? { surface } : {}),
-            // Carbon requires a real browser-ish useragent for targeting/fraud
-            // detection. Gravity ignores it. We source one centrally so every
-            // provider that needs it sees the same value.
-            userAgent: getAdUserAgent(),
-          }),
-        })
-
-        if (!response.ok) {
-          logger.warn(
-            {
-              provider: providerToTry,
-              status: response.status,
-              response: await response.json(),
-            },
-            '[ads] Web API returned error',
-          )
-          continue
+      if (!response.ok) {
+        let responseBody: unknown
+        try {
+          const contentType = response.headers.get('content-type') ?? ''
+          responseBody = contentType.includes('application/json')
+            ? await response.json()
+            : await response.text()
+        } catch {
+          responseBody = 'Unable to parse error response'
         }
-
-        const data = await response.json()
-
-        if (Array.isArray(data.ads) && data.ads.length > 0) {
-          return {
-            ads: (data.ads as AdResponse[]).map((ad) => ({
-              ...ad,
-              provider: data.provider ?? providerToTry,
-            })),
-          }
-        }
-      } catch (err) {
-        logger.error(
-          { err, provider: providerToTry },
-          '[ads] Failed to fetch ad',
+        logger.warn(
+          { provider, status: response.status, response: responseBody },
+          '[ads] Web API returned error',
         )
+        return null
       }
+
+      const data = await response.json()
+
+      if (Array.isArray(data.ads) && data.ads.length > 0) {
+        return {
+          ads: (data.ads as AdResponse[]).map((ad) => ({
+            ...ad,
+            provider: data.provider ?? provider,
+          })),
+        }
+      }
+    } catch (err) {
+      logger.error({ err, provider }, '[ads] Failed to fetch ad')
     }
 
     return null
@@ -434,7 +426,7 @@ export const useGravityAd = (options?: {
     return () => {
       clearInterval(id)
     }
-  }, [shouldStart, shouldHideAds, provider, fallbackProvider, surface])
+  }, [shouldStart, shouldHideAds, provider, surface])
 
   // Don't return ads when ads should be hidden
   const visible = shouldStart && !shouldHideAds

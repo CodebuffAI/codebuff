@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getErrorObject } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { NextResponse } from 'next/server'
@@ -59,6 +58,90 @@ export type AdsEnv = {
 
 function noAdsResponse(provider: AdProviderId) {
   return NextResponse.json({ ads: [], provider }, { status: 200 })
+}
+
+const providerFallbacks: Record<AdProviderId, AdProviderId[]> = {
+  gravity: ['gravity', 'zeroclick', 'carbon'],
+  zeroclick: ['zeroclick', 'carbon'],
+  carbon: ['carbon'],
+}
+
+function createConfiguredProvider(
+  providerId: AdProviderId,
+  serverEnv: AdsEnv,
+  logger: Logger,
+): AdProvider | null {
+  switch (providerId) {
+    case 'carbon':
+      if (!serverEnv.CARBON_ZONE_KEY) {
+        logger.warn('[ads] CARBON_ZONE_KEY not configured')
+        return null
+      }
+      return createCarbonProvider({ zoneKey: serverEnv.CARBON_ZONE_KEY })
+    case 'zeroclick':
+      if (!serverEnv.ZEROCLICK_API_KEY) {
+        logger.warn('[ads] ZEROCLICK_API_KEY not configured')
+        return null
+      }
+      return createZeroClickProvider({ apiKey: serverEnv.ZEROCLICK_API_KEY })
+    case 'gravity':
+      if (!serverEnv.GRAVITY_API_KEY) {
+        logger.warn('[ads] GRAVITY_API_KEY not configured')
+        return null
+      }
+      return createGravityProvider({ apiKey: serverEnv.GRAVITY_API_KEY })
+  }
+}
+
+async function persistAdImpressions(params: {
+  ads: NormalizedAd[]
+  providerId: AdProviderId
+  userId: string
+  logger: Logger
+}) {
+  const { ads, providerId, userId, logger } = params
+
+  try {
+    await Promise.all(
+      ads.map((ad) =>
+        db
+          .insert(schema.adImpression)
+          .values({
+            user_id: userId,
+            provider: providerId,
+            ad_text: ad.adText,
+            title: ad.title,
+            cta: ad.cta,
+            url: ad.url,
+            favicon: ad.favicon,
+            click_url: ad.clickUrl,
+            imp_url: ad.impUrl,
+            extra_pixels: ad.extraPixels ?? null,
+            payout: ad.payout != null ? String(ad.payout) : null,
+            credits_granted: 0,
+          })
+          .onConflictDoNothing(),
+      ),
+    )
+  } catch (dbError) {
+    logger.warn(
+      {
+        userId,
+        provider: providerId,
+        adCount: ads.length,
+        error:
+          dbError instanceof Error
+            ? { name: dbError.name, message: dbError.message }
+            : dbError,
+      },
+      '[ads] Failed to persist ad_impression rows, serving anyway',
+    )
+  }
+}
+
+function toClientAd(ad: NormalizedAd) {
+  const { payout: _p, extraPixels: _e, ...rest } = ad
+  return rest
 }
 
 export async function postAds(params: {
@@ -122,121 +205,67 @@ export async function postAds(params: {
     parsedBody.userAgent ?? req.headers.get('user-agent') ?? undefined
   const requestUserAgent = req.headers.get('user-agent') ?? undefined
 
-  // Pick a provider. If the requested one isn't configured, return no ad
-  // rather than failing — the client falls back to its cache / fallback UI.
-  let provider: AdProvider | null = null
-  if (providerId === 'carbon') {
-    if (!serverEnv.CARBON_ZONE_KEY) {
-      logger.warn('[ads] CARBON_ZONE_KEY not configured')
-      return noAdsResponse(providerId)
-    }
-    provider = createCarbonProvider({ zoneKey: serverEnv.CARBON_ZONE_KEY })
-  } else if (providerId === 'zeroclick') {
-    if (!serverEnv.ZEROCLICK_API_KEY) {
-      logger.warn('[ads] ZEROCLICK_API_KEY not configured')
-      return noAdsResponse(providerId)
-    }
-    provider = createZeroClickProvider({ apiKey: serverEnv.ZEROCLICK_API_KEY })
-  } else {
-    if (!serverEnv.GRAVITY_API_KEY) {
-      logger.warn('[ads] GRAVITY_API_KEY not configured')
-      return noAdsResponse(providerId)
-    }
-    provider = createGravityProvider({ apiKey: serverEnv.GRAVITY_API_KEY })
-  }
+  for (const providerToTry of providerFallbacks[providerId]) {
+    const provider = createConfiguredProvider(providerToTry, serverEnv, logger)
+    if (!provider) continue
 
-  try {
-    const result = await provider.fetchAd({
-      userId,
-      userEmail: userInfo.email ?? null,
-      sessionId: parsedBody.sessionId,
-      clientIp,
-      userAgent,
-      requestUserAgent,
-      device: parsedBody.device,
-      surface: parsedBody.surface,
-      messages: parsedBody.messages,
-      testMode: serverEnv.CB_ENVIRONMENT !== 'prod',
-      logger,
-      fetch,
-    })
-
-    if (!result) {
-      return noAdsResponse(provider.id)
-    }
-
-    // Persist served ads so the impression endpoint can validate + fire the
-    // correct pixels. Any DB failure is logged but doesn't block serving.
     try {
-      await Promise.all(
-        result.ads.map((ad) =>
-          db
-            .insert(schema.adImpression)
-            .values({
-              user_id: userId,
-              provider: provider.id,
-              ad_text: ad.adText,
-              title: ad.title,
-              cta: ad.cta,
-              url: ad.url,
-              favicon: ad.favicon,
-              click_url: ad.clickUrl,
-              imp_url: ad.impUrl,
-              extra_pixels: ad.extraPixels ?? null,
-              payout: ad.payout != null ? String(ad.payout) : null,
-              credits_granted: 0,
-            })
-            .onConflictDoNothing(),
-        ),
+      const result = await provider.fetchAd({
+        userId,
+        userEmail: userInfo.email ?? null,
+        sessionId: parsedBody.sessionId,
+        clientIp,
+        userAgent,
+        requestUserAgent,
+        device: parsedBody.device,
+        surface: parsedBody.surface,
+        messages: parsedBody.messages,
+        testMode: serverEnv.CB_ENVIRONMENT !== 'prod',
+        logger,
+        fetch,
+      })
+
+      if (!result) {
+        logger.debug(
+          { provider: provider.id },
+          '[ads] Provider returned no fill',
+        )
+        continue
+      }
+
+      await persistAdImpressions({
+        ads: result.ads,
+        providerId: provider.id,
+        userId,
+        logger,
+      })
+
+      logger.info(
+        { provider: provider.id, adCount: result.ads.length },
+        '[ads] Fetched ads',
       )
-    } catch (dbError) {
-      logger.warn(
+      return NextResponse.json({
+        ads: result.ads.map(toClientAd),
+        provider: provider.id,
+      })
+    } catch (error) {
+      logger.error(
         {
           userId,
           provider: provider.id,
-          adCount: result.ads.length,
           error:
-            dbError instanceof Error
-              ? { name: dbError.name, message: dbError.message }
-              : dbError,
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : error,
         },
-        '[ads] Failed to persist ad_impression rows, serving anyway',
+        '[ads] Failed to fetch ad',
       )
     }
-
-    // Strip server-only fields before sending to the CLI.
-    const toClient = (ad: NormalizedAd) => {
-      const { payout: _p, extraPixels: _e, ...rest } = ad
-      return rest
-    }
-
-    logger.info(
-      { provider: provider.id, adCount: result.ads.length },
-      '[ads] Fetched ads',
-    )
-    return NextResponse.json({
-      ads: result.ads.map(toClient),
-      provider: provider.id,
-    })
-  } catch (error) {
-    logger.error(
-      {
-        userId,
-        provider: providerId,
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message }
-            : error,
-      },
-      '[ads] Failed to fetch ad',
-    )
-    return NextResponse.json(
-      {
-        ads: [],
-        provider: providerId,
-        error: getErrorObject(error),
-      },
-      { status: 500 },
-    )
   }
+
+  logger.debug(
+    { requestedProvider: providerId },
+    '[ads] No configured provider returned an ad',
+  )
+  return noAdsResponse(providerId)
 }
