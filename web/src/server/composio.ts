@@ -163,6 +163,21 @@ async function getStoredSessionById(params: {
   })
 }
 
+async function deleteStoredSession(params: {
+  db: CodebuffPgDatabase
+  userId: string
+  sessionId: string
+}) {
+  await params.db
+    .delete(schema.composioSession)
+    .where(
+      and(
+        eq(schema.composioSession.user_id, params.userId),
+        eq(schema.composioSession.session_id, params.sessionId),
+      ),
+    )
+}
+
 async function createSessionForUser(params: {
   db: CodebuffPgDatabase
   userId: string
@@ -186,6 +201,48 @@ async function createSessionForUser(params: {
     }),
   }
   return cachedSession
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+
+  const candidates = [
+    'status',
+    'statusCode',
+    'code',
+    'responseStatus',
+    'httpStatus',
+  ]
+  for (const key of candidates) {
+    const value = (error as Record<string, unknown>)[key]
+    if (typeof value === 'number') return value
+    if (typeof value === 'string' && /^\d+$/.test(value)) {
+      return Number(value)
+    }
+  }
+
+  const response = (error as Record<string, unknown>)['response']
+  return getErrorStatus(response)
+}
+
+function isInvalidStoredSessionError(error: unknown): boolean {
+  const status = getErrorStatus(error)
+  if (status && [400, 401, 403, 404, 410].includes(status)) {
+    return true
+  }
+
+  if (!(error instanceof Error)) return false
+
+  const message = error.message.toLowerCase()
+  return (
+    message.includes('session') &&
+    (message.includes('not found') ||
+      message.includes('not exist') ||
+      message.includes('invalid') ||
+      message.includes('expired') ||
+      message.includes('unauthorized') ||
+      message.includes('forbidden'))
+  )
 }
 
 async function rehydrateSession(params: {
@@ -228,12 +285,32 @@ async function getSessionForUser(params: {
         { userId: params.userId },
         'Rehydrating Composio session from database',
       )
-      return rehydrateSession({
-        userId: params.userId,
-        sessionId: storedSession.session_id,
-        apiKey,
-        includeTools: true,
-      })
+      try {
+        return await rehydrateSession({
+          userId: params.userId,
+          sessionId: storedSession.session_id,
+          apiKey,
+          includeTools: true,
+        })
+      } catch (error) {
+        if (!isInvalidStoredSessionError(error)) {
+          throw error
+        }
+
+        params.logger.warn(
+          {
+            error: getErrorObject(error),
+            userId: params.userId,
+            sessionId: storedSession.session_id,
+          },
+          'Stored Composio session is invalid; replacing it',
+        )
+        await deleteStoredSession({
+          db: params.db,
+          userId: params.userId,
+          sessionId: storedSession.session_id,
+        })
+      }
     }
 
     params.logger.info(
