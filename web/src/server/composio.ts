@@ -80,6 +80,12 @@ function getComposioClient(apiKey: string): ComposioClient {
   })
 }
 
+const COMPOSIO_SESSION_CONFIG = {
+  workbench: {
+    enable: false,
+  },
+} as const
+
 async function insertSessionIfAbsent(params: {
   db: CodebuffPgDatabase
   userId: string
@@ -140,7 +146,7 @@ async function createSessionForUser(params: {
   logger: Logger
 }): Promise<CachedComposioSession> {
   const composio = getComposioClient(params.apiKey)
-  const session = await composio.create(params.userId)
+  const session = await composio.create(params.userId, COMPOSIO_SESSION_CONFIG)
   await insertSessionIfAbsent({
     db: params.db,
     userId: params.userId,

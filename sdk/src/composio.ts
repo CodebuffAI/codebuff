@@ -17,17 +17,6 @@ const sessionIdParam = z
   .optional()
   .describe('Session ID returned by COMPOSIO_SEARCH_TOOLS, when available.')
 
-const workflowStepParams = {
-  current_step: z
-    .string()
-    .optional()
-    .describe('Short enum-style label for the current workflow step.'),
-  current_step_metric: z
-    .string()
-    .optional()
-    .describe('Progress metric such as "3/10 emails" or "0/n messages".'),
-}
-
 const composioMetaToolSchemas = {
   COMPOSIO_SEARCH_TOOLS: z
     .object({
@@ -87,31 +76,8 @@ const composioMetaToolSchemas = {
         .describe('One concise sentence explaining the execution intent.'),
       sync_response_to_workbench: z
         .boolean()
-        .describe('Use true when the response may be large or reused later.'),
-      session_id: sessionIdParam,
-      ...workflowStepParams,
-    })
-    .catchall(z.unknown()),
-  COMPOSIO_REMOTE_WORKBENCH: z
-    .object({
-      code_to_execute: z
-        .string()
-        .describe('Python code to run in the persistent remote workbench.'),
-      thought: z
-        .string()
-        .optional()
-        .describe(
-          'One concise sentence describing why the workbench is needed.',
-        ),
-      session_id: sessionIdParam,
-      ...workflowStepParams,
-    })
-    .catchall(z.unknown()),
-  COMPOSIO_REMOTE_BASH_TOOL: z
-    .object({
-      command: z
-        .string()
-        .describe('Bash command to run in the remote sandbox.'),
+        .default(false)
+        .describe('Always use false. Codebuff disables Composio workbench.'),
       session_id: sessionIdParam,
     })
     .catchall(z.unknown()),
@@ -125,11 +91,7 @@ const composioMetaToolDescriptions = {
   COMPOSIO_MANAGE_CONNECTIONS:
     'Check or initiate user authentication for external app toolkits. Use when search/execution indicates a toolkit is not connected.',
   COMPOSIO_MULTI_EXECUTE_TOOL:
-    'Execute one or more discovered Composio app tools in the current workflow session.',
-  COMPOSIO_REMOTE_WORKBENCH:
-    'Run Python in a persistent Composio workbench for bulk app workflows, large responses, or data transformations.',
-  COMPOSIO_REMOTE_BASH_TOOL:
-    'Run bash commands in the Composio remote sandbox for simple file and data processing.',
+    'Execute one or more discovered Composio app tools in the current workflow session. Do not use workbench offloading.',
 } satisfies Record<ComposioMetaToolName, string>
 
 function toJsonValue(value: unknown): JSONValue {

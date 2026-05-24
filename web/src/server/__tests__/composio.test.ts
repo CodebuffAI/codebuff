@@ -99,7 +99,9 @@ describe('executeComposioTool', () => {
     expect(result).toEqual([{ type: 'json', value: { ok: true } }])
     expect(useSession).toHaveBeenCalledWith('stored-session')
     expect(whereDelete).toHaveBeenCalledTimes(1)
-    expect(createSession).toHaveBeenCalledWith('user-123')
+    expect(createSession).toHaveBeenCalledWith('user-123', {
+      workbench: { enable: false },
+    })
     expect(values).toHaveBeenCalledWith({
       user_id: 'user-123',
       session_id: 'fresh-session',
@@ -124,7 +126,9 @@ describe('executeComposioTool', () => {
     })
 
     expect(result).toEqual([{ type: 'json', value: { ok: true } }])
-    expect(createSession).toHaveBeenCalledWith('user-123')
+    expect(createSession).toHaveBeenCalledWith('user-123', {
+      workbench: { enable: false },
+    })
     expect(values).toHaveBeenCalledWith({
       user_id: 'user-123',
       session_id: 'losing-session',
