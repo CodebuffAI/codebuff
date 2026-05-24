@@ -17,11 +17,9 @@ const packageName = 'codebuff'
  * Terminal escape sequences to reset terminal state after the child process exits.
  * When the binary is SIGKILL'd, it can't clean up its own terminal state.
  * The wrapper (this process) survives and must reset these modes.
- *
- * Keep in sync with TERMINAL_RESET_SEQUENCES in cli/src/utils/renderer-cleanup.ts
  */
-const TERMINAL_RESET_SEQUENCES =
-  '\x1b[?1049l' + // Exit alternate screen buffer
+const EXIT_ALTERNATE_SCREEN_SEQUENCE = '\x1b[?1049l'
+const SAFE_TERMINAL_RESET_SEQUENCES =
   '\x1b[?1000l' + // Disable X10 mouse mode
   '\x1b[?1002l' + // Disable button event mouse mode
   '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
@@ -30,7 +28,12 @@ const TERMINAL_RESET_SEQUENCES =
   '\x1b[?2004l' + // Disable bracketed paste mode
   '\x1b[?25h' // Show cursor
 
-function resetTerminal() {
+const FULL_TERMINAL_RESET_SEQUENCES =
+  EXIT_ALTERNATE_SCREEN_SEQUENCE + SAFE_TERMINAL_RESET_SEQUENCES
+
+function resetTerminal(options = {}) {
+  const { exitAlternateScreen = false } = options
+
   try {
     if (process.stdin.isTTY && process.stdin.setRawMode) {
       process.stdin.setRawMode(false)
@@ -40,11 +43,35 @@ function resetTerminal() {
   }
   try {
     if (process.stdout.isTTY) {
-      process.stdout.write(TERMINAL_RESET_SEQUENCES)
+      // Exiting the alternate screen is only safe after an interactive child.
+      // Plain CLI paths like --help never enter it, and ?1049l can erase output.
+      process.stdout.write(
+        exitAlternateScreen
+          ? FULL_TERMINAL_RESET_SEQUENCES
+          : SAFE_TERMINAL_RESET_SEQUENCES,
+      )
     }
   } catch {
     // stdout may be closed
   }
+}
+
+function getUnsignedExitCode(code) {
+  return code != null && code < 0 ? (code >>> 0) : code
+}
+
+function isWindowsNativeCrashCode(code) {
+  const unsignedCode = getUnsignedExitCode(code)
+  return (
+    process.platform === 'win32' &&
+    (unsignedCode === 0xC000001D ||
+      unsignedCode === 0xC0000005 ||
+      unsignedCode === 0xC0000409)
+  )
+}
+
+function shouldExitAlternateScreen(code, signal) {
+  return Boolean(signal) || isWindowsNativeCrashCode(code)
 }
 
 function createConfig(packageName) {
@@ -485,7 +512,7 @@ async function checkForUpdates(runningProcess, exitListener) {
         }, 5000)
       })
 
-      resetTerminal()
+      resetTerminal({ exitAlternateScreen: true })
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
@@ -493,7 +520,9 @@ async function checkForUpdates(runningProcess, exitListener) {
       const newChild = spawnInstalledBinary({ detached: false })
 
       newChild.on('exit', (code, signal) => {
-        resetTerminal()
+        resetTerminal({
+          exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+        })
         printCrashDiagnostics(code, signal)
         process.exit(signal ? 1 : (code || 0))
       })
@@ -507,7 +536,7 @@ async function checkForUpdates(runningProcess, exitListener) {
 
 function printCrashDiagnostics(code, signal) {
   // Windows NTSTATUS codes (unsigned DWORD)
-  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
+  const unsignedCode = getUnsignedExitCode(code)
   const isIllegalInstruction =
     signal === 'SIGILL' ||
     (process.platform === 'win32' && unsignedCode === 0xC000001D)
@@ -625,7 +654,9 @@ async function main() {
   const child = spawnInstalledBinary()
 
   const exitListener = (code, signal) => {
-    resetTerminal()
+    resetTerminal({
+      exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+    })
     printCrashDiagnostics(code, signal)
     process.exit(signal ? 1 : (code || 0))
   }
