@@ -52,7 +52,9 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  *   - Any additional arguments for the tool
  * - Returns a promise that will be awaited
  */
-export const codebuffToolHandlers = {
+export const codebuffToolHandlers: {
+  [K in ToolName]: CodebuffToolHandlerFunction<K>
+} = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
@@ -92,6 +94,4 @@ export const codebuffToolHandlers = {
   web_search: handleWebSearch,
   write_file: handleWriteFile,
   write_todos: handleWriteTodos,
-} satisfies {
-  [K in ToolName]: CodebuffToolHandlerFunction<K>
 }

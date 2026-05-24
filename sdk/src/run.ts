@@ -75,9 +75,7 @@ const wrapContentForUserMessage = (
 }
 
 type OverrideToolHandlers = {
-  [K in PublishedClientToolName]?: (
-    input: Record<string, unknown>,
-  ) => Promise<ToolResultOutput[]>
+  [K in PublishedClientToolName]?: (input: any) => Promise<ToolResultOutput[]>
 } & {
   // Include read_files separately, since it has a different signature.
   read_files?: (input: {

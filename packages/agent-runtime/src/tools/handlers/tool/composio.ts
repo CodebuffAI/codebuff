@@ -2,8 +2,10 @@ import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-function makeComposioHandler<T extends ComposioMetaToolName>() {
-  return (async ({ toolCall, requestClientToolCall }) => {
+function makeComposioHandler<
+  T extends ComposioMetaToolName,
+>(): CodebuffToolHandlerFunction<T> {
+  return async ({ toolCall, requestClientToolCall }) => {
     if (!requestClientToolCall) {
       return {
         output: [
@@ -22,14 +24,14 @@ function makeComposioHandler<T extends ComposioMetaToolName>() {
         toolCall,
       )) as CodebuffToolOutput<T>,
     }
-  }) satisfies CodebuffToolHandlerFunction<T>
+  }
 }
 
-export const handleComposioManageConnections =
+export const handleComposioManageConnections: CodebuffToolHandlerFunction<'COMPOSIO_MANAGE_CONNECTIONS'> =
   makeComposioHandler<'COMPOSIO_MANAGE_CONNECTIONS'>()
-export const handleComposioMultiExecute =
+export const handleComposioMultiExecute: CodebuffToolHandlerFunction<'COMPOSIO_MULTI_EXECUTE_TOOL'> =
   makeComposioHandler<'COMPOSIO_MULTI_EXECUTE_TOOL'>()
-export const handleComposioSearchTools =
+export const handleComposioSearchTools: CodebuffToolHandlerFunction<'COMPOSIO_SEARCH_TOOLS'> =
   makeComposioHandler<'COMPOSIO_SEARCH_TOOLS'>()
-export const handleComposioGetToolSchemas =
+export const handleComposioGetToolSchemas: CodebuffToolHandlerFunction<'COMPOSIO_GET_TOOL_SCHEMAS'> =
   makeComposioHandler<'COMPOSIO_GET_TOOL_SCHEMAS'>()
