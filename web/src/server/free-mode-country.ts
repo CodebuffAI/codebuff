@@ -173,10 +173,32 @@ function hasTorPrivacySignal(
   return ipPrivacy?.signals.includes('tor') ?? false
 }
 
+function hasStrongCorroboratedAbuse(
+  countryAccess: Partial<
+    Pick<
+      FreeModeCountryAccess,
+      | 'ipPrivacy'
+      | 'spurIpPrivacy'
+      | 'scamalyticsIpPrivacy'
+      | 'scamalyticsScore'
+    >
+  >,
+): boolean {
+  return (
+    hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
+    hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy) &&
+    (hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
+      (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_HIGH_RISK_SCORE)
+  )
+}
+
 function maxPrivacySignalRisk(
   ipPrivacy: FreeModeIpPrivacy | null | undefined,
 ): number {
   let risk = 0
+  const hasHardSignal = ipPrivacy?.signals.some(
+    isFreebuffHardBlockedPrivacySignal,
+  )
   for (const signal of ipPrivacy?.signals ?? []) {
     if (signal === 'tor') risk = Math.max(risk, 100)
     else if (isFreebuffHardBlockedPrivacySignal(signal)) {
@@ -187,22 +209,17 @@ function maxPrivacySignalRisk(
       risk = Math.max(risk, 40)
     }
   }
-  if (
-    ipPrivacy?.providerName &&
-    ipPrivacy.signals.some(isFreebuffHardBlockedPrivacySignal)
-  ) {
+  if (ipPrivacy?.providerName && hasHardSignal) {
     risk = Math.max(risk, 80)
   }
   if (
+    hasHardSignal &&
     typeof ipPrivacy?.percentDaysSeen === 'number' &&
     ipPrivacy.percentDaysSeen >= 50
   ) {
     risk = Math.max(risk, 85)
   }
-  if (
-    ipPrivacy?.lastSeen &&
-    ipPrivacy.signals.some(isFreebuffHardBlockedPrivacySignal)
-  ) {
+  if (ipPrivacy?.lastSeen && hasHardSignal) {
     const lastSeenMs = Date.parse(ipPrivacy.lastSeen)
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
     if (Number.isFinite(lastSeenMs) && Date.now() - lastSeenMs <= sevenDaysMs) {
@@ -215,7 +232,6 @@ function maxPrivacySignalRisk(
 export function getFreeModeRiskScore(
   countryAccess: Pick<
     FreeModeCountryAccess,
-    | 'allowed'
     | 'blockReason'
     | 'cfCountry'
     | 'ipPrivacy'
@@ -266,12 +282,7 @@ export function getFreeModeRiskScore(
   if (typeof countryAccess.scamalyticsScore === 'number') {
     score = Math.max(score, countryAccess.scamalyticsScore)
   }
-  if (
-    hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
-    hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy) &&
-    (hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
-      (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_HIGH_RISK_SCORE)
-  ) {
+  if (hasStrongCorroboratedAbuse(countryAccess)) {
     score = Math.max(score, 95)
   }
 
@@ -300,12 +311,7 @@ export function shouldHardBlockFreeModeAccess(
   ) {
     return true
   }
-  return (
-    hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
-    hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy) &&
-    (hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
-      (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_HIGH_RISK_SCORE)
-  )
+  return hasStrongCorroboratedAbuse(countryAccess)
 }
 
 export function getFreeModePrivacyDecision(
@@ -335,12 +341,7 @@ export function getFreeModePrivacyDecision(
     return 'ipinfo_failed_limited'
   }
   if (countryAccess.blockReason === 'anonymous_network') {
-    if (
-      hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
-      hasHardBlockedPrivacySignal(countryAccess.spurIpPrivacy) &&
-      (hasHardBlockedPrivacySignal(countryAccess.scamalyticsIpPrivacy) ||
-        (countryAccess.scamalyticsScore ?? 0) >= SCAMALYTICS_HIGH_RISK_SCORE)
-    ) {
+    if (hasStrongCorroboratedAbuse(countryAccess)) {
       return 'corroborated_block'
     }
     if (countryAccess.spurStatus === 'failed') {
@@ -364,7 +365,6 @@ export function getFreeModePrivacyProviderDecision(
     | 'ipPrivacy'
     | 'spurIpPrivacy'
     | 'spurStatus'
-    | 'scamalyticsIpPrivacy'
     | 'scamalyticsStatus'
   >,
 ): FreebuffPrivacyProviderDecision {
