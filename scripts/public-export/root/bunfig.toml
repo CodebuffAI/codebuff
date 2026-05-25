@@ -1,0 +1,7 @@
+[install]
+linker = "hoisted"
+linkWorkspacePackages = true
+
+[test]
+exclude = ["**/*.integration.test.*", "freebuff/e2e/**"]
+preload = ["./sdk/test/setup-env.ts"]

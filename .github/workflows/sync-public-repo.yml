@@ -1,0 +1,56 @@
+name: Sync Public Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only; do not push to the public repo'
+        required: true
+        default: true
+        type: boolean
+      confirm_push:
+        description: 'Type sync-public to allow a non-dry-run push'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: sync-public-repo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Validate push confirmation
+        if: ${{ !inputs.dry_run && inputs.confirm_push != 'sync-public' }}
+        run: |
+          echo "Refusing to push: confirm_push must be sync-public when dry_run is false."
+          exit 1
+
+      - name: Export public snapshot
+        env:
+          PUBLIC_SYNC_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          PUBLIC_REPO: CodebuffAI/codebuff
+          PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.PUBLIC_REPO_PUSH_TOKEN }}
+          PUBLIC_BRANCH: main
+        run: scripts/sync-public-repo.sh
+
+      - name: Upload dry-run preview
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-export-preview
+          path: .context/public-export-preview/

@@ -1,0 +1,49 @@
+# Paths exported from freebuff-private to the public repository.
+#
+# Syntax:
+# - blank lines and # comments are ignored
+# - normal lines are included from private HEAD
+# - lines starting with ! are deleted from the export after inclusion
+
+.bun-version
+.codebuffignore
+.gitignore
+.prettierrc
+LICENSE
+NOTICE
+README.md
+README.zh-CN.md
+SECURITY.md
+WINDOWS.md
+bunfig.toml
+eslint.config.js
+tsconfig.base.json
+
+assets
+agents
+cli
+common
+freebuff
+packages/agent-runtime
+packages/code-map
+packages/llm-providers
+sdk
+scripts/tmux
+
+evals/buffbench
+evals/logger.ts
+evals/subagents/test-repo-utils.ts
+evals/tsconfig.json
+
+docs/agents-and-tools.md
+docs/testing.md
+
+!freebuff/web
+!agents/__tests__/data
+!evals/buffbench/main-nightly.ts
+!**/node_modules
+!**/.next
+!**/dist
+!**/*.tsbuildinfo
+!**/knowledge.md
+!**/*.knowledge.md

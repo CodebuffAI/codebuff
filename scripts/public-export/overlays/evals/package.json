@@ -1,0 +1,28 @@
+{
+  "name": "@codebuff/evals",
+  "version": "1.0.0",
+  "description": "Evaluation scripts for Codebuff (public buffbench subset)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "run-buffbench": "bun run buffbench/main.ts"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": "1.3.11"
+  },
+  "dependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "@codebuff/common": "workspace:*",
+    "@codebuff/sdk": "workspace:*",
+    "async": "^3.2.6",
+    "diff": "^8.0.2",
+    "p-limit": "^6.2.0",
+    "pino": "^9.6.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/async": "^3.2.24"
+  }
+}

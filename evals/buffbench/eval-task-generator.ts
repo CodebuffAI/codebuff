@@ -2,15 +2,15 @@ import type { CodebuffClient} from '@codebuff/sdk';
 import { type AgentDefinition } from '@codebuff/sdk'
 
 import { PLACEHOLDER } from '../../agents/types/secret-agent-definition'
-import fileExplorerDef from '../../agents-graveyard/file-explorer/file-explorer'
-import findAllReferencerDef from '../../agents-graveyard/file-explorer/find-all-referencer'
+import filePickerDef from '../../agents/file-explorer/file-picker'
+import codeSearcherDef from '../../agents/file-explorer/code-searcher'
 
 const evalTaskGeneratorAgentDef: AgentDefinition = {
   id: 'eval-task-generator',
   displayName: 'Eval Task Generator',
   model: 'openai/gpt-5',
   toolNames: ['spawn_agents', 'read_files', 'set_output'],
-  spawnableAgents: ['file-explorer', 'find-all-referencer'],
+  spawnableAgents: ['file-picker', 'code-searcher'],
   inputSchema: {
     prompt: {
       type: 'string',
@@ -62,7 +62,7 @@ ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}`,
 
   instructionsPrompt: `Your task:
 1. Analyze the git diff to understand what changed
-2. Spawn the file-explorer and find-all-referencer to explore the codebase and understand context.
+2. Spawn the file-picker and code-searcher to explore the codebase and understand context.
 3. Read as many files relevant to the changes as possible.
 4. Generate the output, including:
 - a short, descriptive task ID (2-3 hyphenated words like "fix-auth-bug" or "refactor-login-flow")
@@ -119,8 +119,8 @@ export async function generateEvalTask({
 
   const allAgentDefinitions = [
     evalTaskGeneratorAgentDef,
-    fileExplorerDef,
-    findAllReferencerDef,
+    filePickerDef,
+    codeSearcherDef,
     ...(agentDefinitions || []),
   ]
 
