@@ -1,6 +1,5 @@
 import { after, NextResponse } from 'next/server'
 
-import { runVlyFreebuffAgent } from '@/server/vly-harness/run-vly-freebuff-agent'
 import { vlyHarnessRunRequestSchema } from '@/server/vly-harness/types'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
@@ -33,13 +32,17 @@ export async function postVlyFreebuffHarnessRun(req: NextRequest) {
   const runId = parsed.data.runId ?? crypto.randomUUID()
 
   after(() => {
-    void runVlyFreebuffAgent({
-      request: { ...parsed.data, runId },
-      codebuffApiKey,
-      callbackSecret: process.env.FREEBUFF_TO_VLY_CALLBACK_SECRET,
-    }).catch((error) => {
-      console.error('[vly-freebuff-harness] run failed', error)
-    })
+    void import('@/server/vly-harness/run-vly-freebuff-agent')
+      .then(({ runVlyFreebuffAgent }) =>
+        runVlyFreebuffAgent({
+          request: { ...parsed.data, runId },
+          codebuffApiKey,
+          callbackSecret: process.env.FREEBUFF_TO_VLY_CALLBACK_SECRET,
+        }),
+      )
+      .catch((error) => {
+        console.error('[vly-freebuff-harness] run failed', error)
+      })
   })
 
   return NextResponse.json({ success: true, runId }, { status: 202 })

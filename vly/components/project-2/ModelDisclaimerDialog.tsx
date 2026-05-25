@@ -18,7 +18,7 @@ interface ModelDisclaimerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAcknowledge: () => void;
-  modelName: "Claude Code" | "Gemini CLI" | "Codex";
+  modelName: "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff";
 }
 
 export function ModelDisclaimerDialog({

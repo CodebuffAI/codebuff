@@ -129,15 +129,15 @@ export const create = mutation({
         project_role: "owner",
       });
 
-      // Use the default VLY agent for initial generation
+      // Use Freebuff for initial generation so new projects start on the
+      // agent_thread workflow instead of the legacy VLY agent cycle.
       await ctx.runMutation(
-        api.coding_agent.trigger.saveMessageAndStartWorkflow,
+        api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
         {
           projectSemanticIdentifier: assignedProject.semantic_identifier,
           message: args.initialDocumentContent,
-          ...(args.displayMessage && { displayMessage: args.displayMessage }),
           ...(args.images && { images: args.images }),
-          ...(args.agentMode && { agentMode: args.agentMode }),
+          agentType: "Freebuff",
           _skipRateLimitCheck: true, // Skip rate limit check - already checked above
         },
       );
