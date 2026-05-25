@@ -24,6 +24,7 @@ import type {
   FreebuffIpPrivacySignal,
   FreebuffPrivacyDecision,
   FreebuffPrivacyProviderDecision,
+  FreebuffScamalyticsStatus,
   FreebuffSpurStatus,
 } from '@codebuff/common/types/freebuff-session'
 
@@ -944,12 +945,21 @@ export const freeModeCountryAccessCache = pgTable(
       .array()
       .$type<FreebuffIpPrivacySignal[] | null>(),
     spur_status: text('spur_status').$type<FreebuffSpurStatus | null>(),
-    privacy_decision: text('privacy_decision').$type<
-      FreebuffPrivacyDecision | null
-    >(),
-    privacy_provider_decision: text('privacy_provider_decision').$type<
-      FreebuffPrivacyProviderDecision | null
-    >(),
+    scamalytics_ip_privacy_signals: text('scamalytics_ip_privacy_signals')
+      .array()
+      .$type<FreebuffIpPrivacySignal[] | null>(),
+    scamalytics_status: text(
+      'scamalytics_status',
+    ).$type<FreebuffScamalyticsStatus | null>(),
+    scamalytics_score: integer('scamalytics_score'),
+    scamalytics_risk: text('scamalytics_risk'),
+    risk_score: integer('risk_score'),
+    privacy_decision: text(
+      'privacy_decision',
+    ).$type<FreebuffPrivacyDecision | null>(),
+    privacy_provider_decision: text(
+      'privacy_provider_decision',
+    ).$type<FreebuffPrivacyProviderDecision | null>(),
     checked_at: timestamp('checked_at', {
       mode: 'date',
       withTimezone: true,

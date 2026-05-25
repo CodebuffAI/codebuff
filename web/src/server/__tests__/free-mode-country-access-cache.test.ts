@@ -38,6 +38,10 @@ function allowedAccess(): FreeModeCountryAccess {
     ipPrivacy: { signals: [] },
     spurIpPrivacy: null,
     spurStatus: 'not_checked',
+    scamalyticsIpPrivacy: null,
+    scamalyticsStatus: 'not_checked',
+    scamalyticsScore: null,
+    scamalyticsRisk: null,
     hasClientIp: true,
     clientIpHash,
   }
@@ -133,6 +137,11 @@ describe('free mode country access cache', () => {
         ipHashSecret,
         lookupIpPrivacy: async () => ({ signals: ['vpn'] }),
         lookupSpurIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: ['hosting'],
+          score: 60,
+          risk: 'medium',
+        }),
       },
       cacheStore,
       now,
@@ -146,9 +155,9 @@ describe('free mode country access cache', () => {
       access,
       now,
     })
-    expect(expiresAtForCountryAccess(access, now).getTime() - now.getTime()).toBe(
-      FREE_MODE_COUNTRY_CACHE_ANONYMOUS_NETWORK_TTL_MS,
-    )
+    expect(
+      expiresAtForCountryAccess(access, now).getTime() - now.getTime(),
+    ).toBe(FREE_MODE_COUNTRY_CACHE_ANONYMOUS_NETWORK_TTL_MS)
   })
 
   test('stores transient limited decisions when Spur fails after hard IPinfo signals', async () => {
@@ -181,9 +190,45 @@ describe('free mode country access cache', () => {
       access,
       now,
     })
-    expect(expiresAtForCountryAccess(access, now).getTime() - now.getTime()).toBe(
-      FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS,
-    )
+    expect(
+      expiresAtForCountryAccess(access, now).getTime() - now.getTime(),
+    ).toBe(FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS)
+  })
+
+  test('stores transient limited decisions when Scamalytics fails after hard IPinfo signals', async () => {
+    const cacheStore: FreeModeCountryAccessCacheStore = {
+      get: mock(async () => null),
+      set: mock(async () => {}),
+    }
+
+    const access = await getCachedFreeModeCountryAccess({
+      userId,
+      req: makeReq({
+        'cf-ipcountry': 'US',
+        'cf-connecting-ip': clientIp,
+      }),
+      options: {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        ipHashSecret,
+        lookupIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupSpurIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupScamalyticsIpRisk: async () => null,
+      },
+      cacheStore,
+      now,
+    })
+
+    expect(access.allowed).toBe(false)
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(cacheStore.set).toHaveBeenCalledWith({
+      userId,
+      access,
+      now,
+    })
+    expect(
+      expiresAtForCountryAccess(access, now).getTime() - now.getTime(),
+    ).toBe(FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS)
   })
 
   test('stores allowed decisions when clean Spur context clears a hard IPinfo signal', async () => {
@@ -204,6 +249,11 @@ describe('free mode country access cache', () => {
         ipHashSecret,
         lookupIpPrivacy: async () => ({ signals: ['vpn'] }),
         lookupSpurIpPrivacy: async () => ({ signals: [] }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 10,
+          risk: 'low',
+        }),
       },
       cacheStore,
       now,
@@ -224,6 +274,7 @@ describe('free mode country access cache', () => {
         country_block_reason: 'anonymous_network',
         ip_privacy_signals: ['vpn'],
         spur_status: null,
+        scamalytics_status: null,
       }),
     ).toBe(true)
     expect(
@@ -231,6 +282,7 @@ describe('free mode country access cache', () => {
         country_block_reason: 'anonymous_network',
         ip_privacy_signals: ['vpn'],
         spur_status: 'failed',
+        scamalytics_status: 'failed',
       }),
     ).toBe(false)
     expect(
@@ -238,6 +290,7 @@ describe('free mode country access cache', () => {
         country_block_reason: 'anonymous_network',
         ip_privacy_signals: ['hosting'],
         spur_status: null,
+        scamalytics_status: null,
       }),
     ).toBe(false)
   })

@@ -8,6 +8,7 @@ import {
   getFreeModeCountryAccess,
   getFreeModePrivacyDecision,
   getFreeModePrivacyProviderDecision,
+  getFreeModeRiskScore,
   hasHardBlockedPrivacySignal,
   hashClientIp,
   IPINFO_PRIVACY_CACHE_TTL_MS,
@@ -51,12 +52,15 @@ export function shouldCacheCountryAccess(
 export function shouldIgnoreCountryAccessCacheRow(
   row: Pick<
     typeof schema.freeModeCountryAccessCache.$inferSelect,
-    'country_block_reason' | 'ip_privacy_signals' | 'spur_status'
+    | 'country_block_reason'
+    | 'ip_privacy_signals'
+    | 'spur_status'
+    | 'scamalytics_status'
   >,
 ): boolean {
   return (
     row.country_block_reason === 'anonymous_network' &&
-    row.spur_status === null &&
+    (row.spur_status === null || row.scamalytics_status === null) &&
     hasHardBlockedPrivacySignal(
       row.ip_privacy_signals ? { signals: row.ip_privacy_signals } : null,
     )
@@ -78,7 +82,7 @@ export function expiresAtForCountryAccess(
     ttlMs = FREE_MODE_COUNTRY_CACHE_ALLOWED_TTL_MS
   } else if (
     access.blockReason === 'anonymous_network' &&
-    access.spurStatus === 'failed'
+    (access.spurStatus === 'failed' || access.scamalyticsStatus === 'failed')
   ) {
     ttlMs = FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS
   } else if (access.blockReason === 'anonymous_network') {
@@ -99,12 +103,21 @@ function countryAccessFromCacheRow(
     cfCountry: row.cf_country,
     geoipCountry: row.geoip_country,
     ipPrivacy: row.ip_privacy_signals
-      ? { signals: row.ip_privacy_signals }
+      ? {
+          signals: row.ip_privacy_signals,
+        }
       : null,
     spurIpPrivacy: row.spur_ip_privacy_signals
       ? { signals: row.spur_ip_privacy_signals }
       : null,
     spurStatus: row.spur_status ?? 'not_checked',
+    scamalyticsIpPrivacy: row.scamalytics_ip_privacy_signals
+      ? { signals: row.scamalytics_ip_privacy_signals }
+      : null,
+    scamalyticsStatus: row.scamalytics_status ?? 'not_checked',
+    scamalyticsScore: row.scamalytics_score,
+    scamalyticsRisk: row.scamalytics_risk,
+    riskScore: row.risk_score,
     hasClientIp: true,
     clientIpHash: row.client_ip_hash,
   }
@@ -137,6 +150,7 @@ export const dbFreeModeCountryAccessCacheStore: FreeModeCountryAccessCacheStore 
       const expiresAt = expiresAtForCountryAccess(access, now)
       const privacyDecision = getFreeModePrivacyDecision(access)
       const privacyProviderDecision = getFreeModePrivacyProviderDecision(access)
+      const riskScore = getFreeModeRiskScore(access)
       await db
         .insert(schema.freeModeCountryAccessCache)
         .values({
@@ -150,6 +164,12 @@ export const dbFreeModeCountryAccessCacheStore: FreeModeCountryAccessCacheStore 
           ip_privacy_signals: access.ipPrivacy?.signals ?? null,
           spur_ip_privacy_signals: access.spurIpPrivacy?.signals ?? null,
           spur_status: access.spurStatus,
+          scamalytics_ip_privacy_signals:
+            access.scamalyticsIpPrivacy?.signals ?? null,
+          scamalytics_status: access.scamalyticsStatus,
+          scamalytics_score: access.scamalyticsScore,
+          scamalytics_risk: access.scamalyticsRisk,
+          risk_score: riskScore,
           privacy_decision: privacyDecision,
           privacy_provider_decision: privacyProviderDecision,
           checked_at: now,
@@ -171,6 +191,12 @@ export const dbFreeModeCountryAccessCacheStore: FreeModeCountryAccessCacheStore 
             ip_privacy_signals: access.ipPrivacy?.signals ?? null,
             spur_ip_privacy_signals: access.spurIpPrivacy?.signals ?? null,
             spur_status: access.spurStatus,
+            scamalytics_ip_privacy_signals:
+              access.scamalyticsIpPrivacy?.signals ?? null,
+            scamalytics_status: access.scamalyticsStatus,
+            scamalytics_score: access.scamalyticsScore,
+            scamalytics_risk: access.scamalyticsRisk,
+            risk_score: riskScore,
             privacy_decision: privacyDecision,
             privacy_provider_decision: privacyProviderDecision,
             checked_at: now,

@@ -5,9 +5,12 @@ import {
   getFreeModePrivacyProviderDecision,
   getFreeModePrivacyDecision,
   getFreeModeCountryAccess,
+  getFreeModeRiskScore,
   shouldHardBlockFreeModeAccess,
   lookupIpinfoPrivacy,
+  lookupScamalyticsIpRisk,
   lookupSpurIpPrivacy,
+  privacySignalsFromScamalytics,
   privacySignalsFromSpur,
 } from '../free-mode-country'
 
@@ -160,6 +163,11 @@ describe('free mode country access', () => {
         lookupSpurIpPrivacy: async () => ({
           signals: [],
         }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 10,
+          risk: 'low',
+        }),
       },
     )
     expect(access.allowed).toBe(true)
@@ -168,13 +176,15 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['vpn'])
     expect(access.spurIpPrivacy?.signals).toEqual([])
     expect(access.spurStatus).toBe('clean')
+    expect(access.scamalyticsStatus).toBe('clean')
+    expect(access.scamalyticsScore).toBe(10)
     expect(getFreeModePrivacyDecision(access)).toBe(
       'ipinfo_suspicious_spur_clean',
     )
     expect(getFreeModePrivacyProviderDecision(access)).toBe('ipinfo_only')
   })
 
-  test('allows allowlisted countries when Spur does not corroborate IPinfo residential proxy detection', async () => {
+  test('allows allowlisted countries when follow-up providers clear IPinfo residential proxy detection', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -189,6 +199,11 @@ describe('free mode country access', () => {
         lookupSpurIpPrivacy: async () => ({
           signals: [],
         }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 10,
+          risk: 'low',
+        }),
       },
     )
     expect(access.allowed).toBe(true)
@@ -196,6 +211,8 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
     expect(access.spurIpPrivacy?.signals).toEqual([])
     expect(access.spurStatus).toBe('clean')
+    expect(getFreeModeRiskScore(access)).toBe(70)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
   test('allows allowlisted countries when Spur does not corroborate IPinfo hosting or service detection', async () => {
@@ -212,6 +229,11 @@ describe('free mode country access', () => {
         }),
         lookupSpurIpPrivacy: async () => ({
           signals: [],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 10,
+          risk: 'low',
         }),
       },
     )
@@ -242,9 +264,11 @@ describe('free mode country access', () => {
     expect(vpnAccess.allowed).toBe(false)
     expect(vpnAccess.spurStatus).toBe('suspicious')
     expect(shouldHardBlockFreeModeAccess(vpnAccess)).toBe(false)
-    expect(getFreeModePrivacyDecision(vpnAccess)).toBe('corroborated_block')
+    expect(getFreeModePrivacyDecision(vpnAccess)).toBe(
+      'scamalytics_failed_limited',
+    )
     expect(getFreeModePrivacyProviderDecision(vpnAccess)).toBe(
-      'corroborated_hard',
+      'scamalytics_failed',
     )
 
     const anonymousOnlyAccess = await getFreeModeCountryAccess(
@@ -265,6 +289,214 @@ describe('free mode country access', () => {
     )
     expect(anonymousOnlyAccess.allowed).toBe(false)
     expect(shouldHardBlockFreeModeAccess(anonymousOnlyAccess)).toBe(false)
+  })
+
+  test('keeps suspicious traffic limited when Scamalytics does not clear IPinfo signals', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: [],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: ['hosting'],
+          score: 80,
+          risk: 'high',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.spurStatus).toBe('clean')
+    expect(access.scamalyticsStatus).toBe('suspicious')
+    expect(getFreeModeRiskScore(access)).toBe(80)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('keeps corroborated high-score VPN/proxy traffic limited', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['proxy'],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: ['vpn'],
+          score: 90,
+          risk: 'very high',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(getFreeModeRiskScore(access)).toBe(90)
+    expect(getFreeModePrivacyDecision(access)).toBe(
+      'scamalytics_suspicious_limited',
+    )
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('hard-blocks Tor when corroborated by another provider', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['tor'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: ['tor'],
+          score: 90,
+          risk: 'very high',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(getFreeModeRiskScore(access)).toBe(100)
+    expect(getFreeModePrivacyDecision(access)).toBe('corroborated_block')
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
+  })
+
+  test('hard-blocks residential proxy when Scamalytics also corroborates it', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['res_proxy'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['proxy'],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 60,
+          risk: 'medium',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(getFreeModeRiskScore(access)).toBe(95)
+    expect(getFreeModePrivacyDecision(access)).toBe('corroborated_block')
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
+  })
+
+  test('keeps IPinfo and Spur residential proxy corroboration limited when Scamalytics is clean', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['res_proxy'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['proxy'],
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 20,
+          risk: 'low',
+        }),
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(getFreeModeRiskScore(access)).toBe(75)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('keeps Scamalytics outages limited instead of hard-blocked', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['res_proxy'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['proxy'],
+        }),
+        lookupScamalyticsIpRisk: async () => {
+          throw new Error('Scamalytics unavailable')
+        },
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(getFreeModePrivacyDecision(access)).toBe(
+      'scamalytics_failed_limited',
+    )
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('treats Scamalytics API errors as limited, not blocked', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupScamalyticsIpRisk: async () => null,
+      },
+    )
+
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(getFreeModeRiskScore(access)).toBe(75)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
   test('keeps IPinfo VPN/proxy detections in limited mode when Spur lookup fails', async () => {
@@ -338,6 +570,9 @@ describe('free mode country access', () => {
       requestedUrl = String(url)
       return Response.json({
         anonymous: {
+          name: 'ExampleVPN',
+          last_seen: '2026-05-23',
+          percent_days_seen: 63,
           is_proxy: false,
           is_relay: true,
           is_tor: true,
@@ -358,6 +593,9 @@ describe('free mode country access', () => {
     expect(requestedUrl).toContain('https://api.ipinfo.io/lookup/')
     expect(privacy).toEqual({
       signals: ['tor', 'relay', 'res_proxy', 'hosting', 'anonymous'],
+      providerName: 'ExampleVPN',
+      lastSeen: '2026-05-23',
+      percentDaysSeen: 63,
     })
   })
 
@@ -393,6 +631,9 @@ describe('free mode country access', () => {
 
     expect(privacy).toEqual({
       signals: ['anonymous'],
+      providerName: null,
+      lastSeen: null,
+      percentDaysSeen: null,
     })
   })
 
@@ -435,6 +676,69 @@ describe('free mode country access', () => {
     expect(privacy).toEqual({
       signals: ['vpn', 'tor', 'proxy'],
     })
+  })
+
+  test('parses Scamalytics fraud score and proxy signals', async () => {
+    let requestedUrl = ''
+    const fetch = async (url: string | URL | Request) => {
+      requestedUrl = String(url)
+      return Response.json({
+        scamalytics: {
+          status: 'ok',
+          scamalytics_score: 88,
+          scamalytics_risk: 'high',
+          scamalytics_proxy: {
+            is_vpn: true,
+            is_datacenter: true,
+            is_apple_icloud_private_relay: true,
+          },
+        },
+        external_datasources: {
+          ip2proxy: {
+            proxy_type: 'PUB',
+          },
+        },
+      })
+    }
+
+    const risk = await lookupScamalyticsIpRisk({
+      ip: '198.51.100.46',
+      apiKey: 'scamalytics-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(requestedUrl).toBe(
+      'https://api11.scamalytics.com/v3/codebuff/?key=scamalytics-token&ip=198.51.100.46',
+    )
+    expect(risk).toEqual({
+      signals: ['vpn', 'relay', 'hosting'],
+      score: 88,
+      risk: 'high',
+    })
+  })
+
+  test('parses Scamalytics datasource VPN/Tor types without treating generic proxy labels as hard evidence', () => {
+    expect(
+      privacySignalsFromScamalytics({
+        external_datasources: {
+          ip2proxy: { proxy_type: 'VPN' },
+          ip2proxy_lite: { proxy_type: 'PUB', usage_type: 'DCH' },
+          x4bnet: { is_tor: true },
+        },
+      }),
+    ).toEqual(['vpn', 'hosting', 'tor'])
+  })
+
+  test('parses top-level Scamalytics proxy evidence', () => {
+    expect(
+      privacySignalsFromScamalytics({
+        scamalytics: {
+          scamalytics_proxy: {
+            is_proxy: true,
+          },
+        },
+      }),
+    ).toEqual(['proxy'])
   })
 
   test('parses Tor from Spur tunnel operator context', () => {
@@ -539,6 +843,9 @@ describe('free mode country access', () => {
 
     expect(privacy).toEqual({
       signals: ['service', 'anonymous'],
+      providerName: 'Privacy Provider',
+      lastSeen: null,
+      percentDaysSeen: null,
     })
   })
 })
