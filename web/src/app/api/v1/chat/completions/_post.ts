@@ -116,7 +116,10 @@ import type {
 } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
-import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
+import {
+  checkConfiguredFreeModeRateLimit,
+  type RateLimitResult,
+} from './free-mode-rate-limiter'
 import { beginChatCompletionRequestMetrics } from './request-metrics'
 
 export const formatQuotaResetCountdown = (
@@ -157,7 +160,9 @@ export const formatQuotaResetCountdown = (
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
 export type EndUserSessionFn = typeof endUserSession
-export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
+export type CheckFreeModeRateLimitFn = (
+  userId: string,
+) => RateLimitResult | Promise<RateLimitResult>
 export type ResolveFreeModeCountryAccessFn = (
   userId: string,
   req: NextRequest,
@@ -165,6 +170,9 @@ export type ResolveFreeModeCountryAccessFn = (
 ) => Promise<FreeModeCountryAccess>
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
+
+const defaultCheckFreeModeRateLimit: CheckFreeModeRateLimitFn = (userId) =>
+  checkConfiguredFreeModeRateLimit(userId, { redisUrl: env.REDIS_URL })
 
 function sampleSuccessLogger(logger: Logger, sampled: boolean): Logger {
   if (sampled) return logger
@@ -673,7 +681,7 @@ export async function postChatCompletions(params: {
 
     // Rate limit free mode requests (after validation so invalid requests don't consume quota)
     if (isFreeModeRequest) {
-      const rateLimitResult = checkFreeModeRateLimit(userId)
+      const rateLimitResult = await checkFreeModeRateLimit(userId)
       if (rateLimitResult.limited) {
         const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
         const resetTime = new Date(

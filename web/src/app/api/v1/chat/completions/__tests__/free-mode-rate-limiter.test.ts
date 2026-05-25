@@ -1,7 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import {
+  checkConfiguredFreeModeRateLimit,
   checkFreeModeRateLimit,
+  checkRedisFreeModeRateLimit,
   FREE_MODE_RATE_LIMITS,
   resetFreeModeRateLimits,
 } from '../free-mode-rate-limiter'
@@ -218,7 +228,8 @@ describe('free-mode-rate-limiter', () => {
     it('returns correct retryAfterMs for the violated window', () => {
       makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_MINUTE)
       // makeRequests advanced time by (PER_MINUTE - 1) * (SECOND_MS + 1)
-      const elapsedInMakeRequests = (FREE_MODE_RATE_LIMITS.PER_MINUTE - 1) * (1 * SECOND_MS + 1)
+      const elapsedInMakeRequests =
+        (FREE_MODE_RATE_LIMITS.PER_MINUTE - 1) * (1 * SECOND_MS + 1)
 
       // Advance past the 1-second window, then a bit more
       const additionalAdvance = 2 * SECOND_MS
@@ -319,6 +330,71 @@ describe('free-mode-rate-limiter', () => {
 
       expect(checkFreeModeRateLimit('user-1').limited).toBe(false)
       expect(checkFreeModeRateLimit('user-2').limited).toBe(false)
+    })
+  })
+
+  describe('checkRedisFreeModeRateLimit', () => {
+    it('checks all windows in one Redis eval call', async () => {
+      const evalMock = mock(async () => [0])
+      const redis = { eval: evalMock }
+
+      const result = await checkRedisFreeModeRateLimit(
+        'user with spaces',
+        redis,
+      )
+
+      expect(result.limited).toBe(false)
+      expect(evalMock).toHaveBeenCalledTimes(1)
+
+      const callArgs = evalMock.mock.calls[0] as unknown as [
+        string,
+        number,
+        ...Array<string | number>,
+      ]
+      expect(callArgs[1]).toBe(5)
+      expect(callArgs.slice(2, 7)).toEqual([
+        'free-mode-rate-limit:v1:user%20with%20spaces:1000',
+        'free-mode-rate-limit:v1:user%20with%20spaces:60000',
+        'free-mode-rate-limit:v1:user%20with%20spaces:1800000',
+        'free-mode-rate-limit:v1:user%20with%20spaces:18000000',
+        'free-mode-rate-limit:v1:user%20with%20spaces:604800000',
+      ])
+      expect(callArgs[7]).toBe('5')
+      expect(callArgs.slice(8, 11)).toEqual([
+        '1 second',
+        1_000,
+        FREE_MODE_RATE_LIMITS.PER_SECOND,
+      ])
+    })
+
+    it('parses Redis limited responses', async () => {
+      const redis = {
+        eval: mock(async () => [1, '1 minute', 12_345]),
+      }
+
+      const result = await checkRedisFreeModeRateLimit('user-1', redis)
+
+      expect(result).toEqual({
+        limited: true,
+        windowName: '1 minute',
+        retryAfterMs: 12_345,
+      })
+    })
+  })
+
+  describe('checkConfiguredFreeModeRateLimit', () => {
+    it('falls back to the in-memory limiter when Redis is unavailable', async () => {
+      const redis = {
+        eval: mock(async () => {
+          throw new Error('Redis unavailable')
+        }),
+      }
+
+      const result = await checkConfiguredFreeModeRateLimit('user-1', {
+        redisClient: redis,
+      })
+
+      expect(result.limited).toBe(false)
     })
   })
 })

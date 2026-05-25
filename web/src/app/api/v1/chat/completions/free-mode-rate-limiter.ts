@@ -1,9 +1,13 @@
 /**
- * In-memory rate limiter for FREE mode requests.
+ * Rate limiter for FREE mode requests.
  *
  * Enforces multiple fixed-window limits per user to prevent abuse.
  * Each window is anchored to the user's first request in that window
  * and resets once the window duration elapses.
+ *
+ * Production can use a Redis-compatible store such as Render Key Value via
+ * `checkConfiguredFreeModeRateLimit`. The in-memory implementation remains
+ * the dev/test fallback.
  *
  * Adjust the constants below to tune the limits.
  */
@@ -40,12 +44,27 @@ interface WindowTracker {
   windowStart: number
 }
 
-export type RateLimitResult = {
-  limited: false
-} | {
-  limited: true
-  windowName: string
-  retryAfterMs: number
+interface RedisRateLimitClient {
+  eval(
+    script: string,
+    numKeys: number,
+    ...args: Array<string | number>
+  ): Promise<unknown>
+}
+
+export type RateLimitResult =
+  | {
+      limited: false
+    }
+  | {
+      limited: true
+      windowName: string
+      retryAfterMs: number
+    }
+
+export interface ConfiguredRateLimitOptions {
+  redisUrl?: string | null
+  redisClient?: RedisRateLimitClient
 }
 
 // ---------------------------------------------------------------------------
@@ -58,11 +77,31 @@ const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
 const RATE_WINDOWS: RateWindow[] = [
-  { name: '1 second',    windowMs: 1 * SECOND_MS,  maxRequests: FREE_MODE_RATE_LIMITS.PER_SECOND },
-  { name: '1 minute',    windowMs: 1 * MINUTE_MS,  maxRequests: FREE_MODE_RATE_LIMITS.PER_MINUTE },
-  { name: '30 minutes',  windowMs: 30 * MINUTE_MS, maxRequests: FREE_MODE_RATE_LIMITS.PER_30_MINUTES },
-  { name: '5 hours',     windowMs: 5 * HOUR_MS,    maxRequests: FREE_MODE_RATE_LIMITS.PER_5_HOURS },
-  { name: '7 days',      windowMs: 7 * DAY_MS,     maxRequests: FREE_MODE_RATE_LIMITS.PER_7_DAYS },
+  {
+    name: '1 second',
+    windowMs: 1 * SECOND_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_SECOND,
+  },
+  {
+    name: '1 minute',
+    windowMs: 1 * MINUTE_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_MINUTE,
+  },
+  {
+    name: '30 minutes',
+    windowMs: 30 * MINUTE_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_30_MINUTES,
+  },
+  {
+    name: '5 hours',
+    windowMs: 5 * HOUR_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_5_HOURS,
+  },
+  {
+    name: '7 days',
+    windowMs: 7 * DAY_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_7_DAYS,
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -74,6 +113,48 @@ const userWindows = new Map<string, Map<string, WindowTracker>>()
 
 let lastCleanupTime = 0
 const CLEANUP_INTERVAL_MS = 5 * MINUTE_MS
+
+// ---------------------------------------------------------------------------
+// Redis state
+// ---------------------------------------------------------------------------
+
+const REDIS_KEY_PREFIX = 'free-mode-rate-limit:v1'
+
+const REDIS_RATE_LIMIT_SCRIPT = `
+local window_count = tonumber(ARGV[1])
+
+for i = 1, window_count do
+  local argv_offset = 2 + ((i - 1) * 3)
+  local window_name = ARGV[argv_offset]
+  local window_ms = tonumber(ARGV[argv_offset + 1])
+  local max_requests = tonumber(ARGV[argv_offset + 2])
+  local current_count = tonumber(redis.call('GET', KEYS[i]) or '0')
+
+  if current_count >= max_requests then
+    local ttl = redis.call('PTTL', KEYS[i])
+    if ttl < 0 then
+      ttl = window_ms
+    end
+    return {1, window_name, ttl}
+  end
+end
+
+for i = 1, window_count do
+  local argv_offset = 2 + ((i - 1) * 3)
+  local window_ms = tonumber(ARGV[argv_offset + 1])
+  local count = redis.call('INCR', KEYS[i])
+  local ttl = redis.call('PTTL', KEYS[i])
+
+  if count == 1 or ttl < 0 then
+    redis.call('PEXPIRE', KEYS[i], window_ms)
+  end
+end
+
+return {0}
+`
+
+let redisClientPromise: Promise<RedisRateLimitClient> | null = null
+let redisClientUrl: string | null = null
 
 // ---------------------------------------------------------------------------
 // Cleanup
@@ -95,6 +176,112 @@ function cleanupExpiredEntries(): void {
     if (windows.size === 0) {
       userWindows.delete(userId)
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Redis helpers
+// ---------------------------------------------------------------------------
+
+async function createRedisClient(
+  redisUrl: string,
+): Promise<RedisRateLimitClient> {
+  const { default: Redis } = await import('ioredis')
+  const client = new Redis(redisUrl, {
+    enableOfflineQueue: false,
+    lazyConnect: true,
+    maxRetriesPerRequest: 1,
+  })
+
+  client.on('error', () => {
+    // The request path falls back to the in-memory limiter if Redis is down.
+  })
+
+  await client.connect()
+  return client
+}
+
+async function getRedisClient(redisUrl: string): Promise<RedisRateLimitClient> {
+  if (!redisClientPromise || redisClientUrl !== redisUrl) {
+    redisClientUrl = redisUrl
+    redisClientPromise = createRedisClient(redisUrl).catch((error) => {
+      if (redisClientUrl === redisUrl) {
+        redisClientPromise = null
+        redisClientUrl = null
+      }
+      throw error
+    })
+  }
+
+  return redisClientPromise
+}
+
+function resetRedisClientForUrl(redisUrl: string): void {
+  if (redisClientUrl === redisUrl) {
+    redisClientPromise = null
+    redisClientUrl = null
+  }
+}
+
+function getRedisKey(userId: string, rateWindow: RateWindow): string {
+  return `${REDIS_KEY_PREFIX}:${encodeURIComponent(userId)}:${rateWindow.windowMs}`
+}
+
+function parseRedisRateLimitResult(result: unknown): RateLimitResult {
+  if (!Array.isArray(result) || Number(result[0]) !== 1) {
+    return { limited: false }
+  }
+
+  return {
+    limited: true,
+    windowName: String(result[1]),
+    retryAfterMs: Math.max(0, Number(result[2]) || 0),
+  }
+}
+
+export async function checkRedisFreeModeRateLimit(
+  userId: string,
+  redis: RedisRateLimitClient,
+): Promise<RateLimitResult> {
+  const keys = RATE_WINDOWS.map((rateWindow) => getRedisKey(userId, rateWindow))
+  const args = RATE_WINDOWS.flatMap((rateWindow) => [
+    rateWindow.name,
+    rateWindow.windowMs,
+    rateWindow.maxRequests,
+  ])
+
+  const result = await redis.eval(
+    REDIS_RATE_LIMIT_SCRIPT,
+    keys.length,
+    ...keys,
+    String(RATE_WINDOWS.length),
+    ...args,
+  )
+
+  return parseRedisRateLimitResult(result)
+}
+
+export async function checkConfiguredFreeModeRateLimit(
+  userId: string,
+  options: ConfiguredRateLimitOptions = {},
+): Promise<RateLimitResult> {
+  try {
+    const redis = options.redisClient
+      ? options.redisClient
+      : options.redisUrl
+        ? await getRedisClient(options.redisUrl)
+        : null
+
+    if (!redis) {
+      return checkFreeModeRateLimit(userId)
+    }
+
+    return await checkRedisFreeModeRateLimit(userId, redis)
+  } catch {
+    if (options.redisUrl && !options.redisClient) {
+      resetRedisClientForUrl(options.redisUrl)
+    }
+    return checkFreeModeRateLimit(userId)
   }
 }
 

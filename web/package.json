@@ -72,6 +72,7 @@
     "dotenv": "^16.4.7",
     "framer-motion": "^11.13.3",
     "geoip-lite": "^2.0.0",
+    "ioredis": "^5.10.1",
     "lucide-react": "^0.487.0",
     "mermaid": "^11.8.1",
     "next": "15.5.16",
