@@ -4,7 +4,10 @@ import { existsSync, readFileSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
-import { COMPOSIO_API_KEY_ENV_VAR } from '@codebuff/common/constants/composio'
+import {
+  COMPOSIO_API_KEY_ENV_VAR,
+  getComposioUpstreamToolName,
+} from '@codebuff/common/constants/composio'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import * as schema from '@codebuff/internal/db/schema'
@@ -312,13 +315,14 @@ export async function executeComposioTool(params: {
 
   try {
     const input =
-      params.toolName === 'COMPOSIO_MULTI_EXECUTE_TOOL'
+      params.toolName === 'composio_multi_execute_tool'
         ? {
             ...params.input,
             sync_response_to_workbench: false,
           }
         : params.input
-    const result = await cached.session.execute(params.toolName, input)
+    const upstreamToolName = getComposioUpstreamToolName(params.toolName)
+    const result = await cached.session.execute(upstreamToolName, input)
     return [{ type: 'json', value: toJsonValue(result) }]
   } catch (error) {
     params.logger.warn(

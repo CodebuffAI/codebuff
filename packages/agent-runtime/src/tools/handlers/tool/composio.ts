@@ -27,11 +27,11 @@ function makeComposioHandler<
   }
 }
 
-export const handleComposioManageConnections: CodebuffToolHandlerFunction<'COMPOSIO_MANAGE_CONNECTIONS'> =
-  makeComposioHandler<'COMPOSIO_MANAGE_CONNECTIONS'>()
-export const handleComposioMultiExecute: CodebuffToolHandlerFunction<'COMPOSIO_MULTI_EXECUTE_TOOL'> =
-  makeComposioHandler<'COMPOSIO_MULTI_EXECUTE_TOOL'>()
-export const handleComposioSearchTools: CodebuffToolHandlerFunction<'COMPOSIO_SEARCH_TOOLS'> =
-  makeComposioHandler<'COMPOSIO_SEARCH_TOOLS'>()
-export const handleComposioGetToolSchemas: CodebuffToolHandlerFunction<'COMPOSIO_GET_TOOL_SCHEMAS'> =
-  makeComposioHandler<'COMPOSIO_GET_TOOL_SCHEMAS'>()
+export const handleComposioManageConnections: CodebuffToolHandlerFunction<'composio_manage_connections'> =
+  makeComposioHandler<'composio_manage_connections'>()
+export const handleComposioMultiExecute: CodebuffToolHandlerFunction<'composio_multi_execute_tool'> =
+  makeComposioHandler<'composio_multi_execute_tool'>()
+export const handleComposioSearchTools: CodebuffToolHandlerFunction<'composio_search_tools'> =
+  makeComposioHandler<'composio_search_tools'>()
+export const handleComposioGetToolSchemas: CodebuffToolHandlerFunction<'composio_get_tool_schemas'> =
+  makeComposioHandler<'composio_get_tool_schemas'>()

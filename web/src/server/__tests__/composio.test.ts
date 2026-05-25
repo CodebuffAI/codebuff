@@ -109,7 +109,7 @@ describe('executeComposioTool', () => {
       userId: 'user-123',
       logger,
       apiKey: 'test-composio-api-key',
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      toolName: 'composio_search_tools',
       input: { queries: ['gmail'], session: { generate_id: true } },
     })
 
@@ -138,7 +138,7 @@ describe('executeComposioTool', () => {
       userId: 'user-123',
       logger,
       apiKey: 'test-composio-api-key',
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      toolName: 'composio_search_tools',
       input: { queries: ['gmail'], session: { generate_id: true } },
     })
 
@@ -166,7 +166,7 @@ describe('executeComposioTool', () => {
       userId: 'user-123',
       logger,
       apiKey: 'test-composio-api-key',
-      toolName: 'COMPOSIO_MULTI_EXECUTE_TOOL',
+      toolName: 'composio_multi_execute_tool',
       input: {
         tools: [{ slug: 'GMAIL_FETCH_EMAILS', arguments: {} }],
         sync_response_to_workbench: true,
@@ -195,7 +195,7 @@ describe('executeComposioTool', () => {
         userId: 'user-123',
         logger,
         apiKey: 'test-composio-api-key',
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        toolName: 'composio_search_tools',
         input: { queries: ['gmail'], session: { generate_id: true } },
       }),
     ).rejects.toThrow('Composio unavailable')

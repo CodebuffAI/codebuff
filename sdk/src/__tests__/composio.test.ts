@@ -32,7 +32,7 @@ describe('Composio SDK tools', () => {
           'Content-Type': 'application/json',
         })
         expect(JSON.parse(String(init?.body))).toEqual({
-          toolName: 'COMPOSIO_SEARCH_TOOLS',
+          toolName: 'composio_search_tools',
           input: {
             queries: ['find gmail tools'],
             session: { generate_id: true },
@@ -50,7 +50,7 @@ describe('Composio SDK tools', () => {
 
     const output = await executeComposioToolViaServer({
       apiKey: 'codebuff-api-key',
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      toolName: 'composio_search_tools',
       input: {
         queries: ['find gmail tools'],
         session: { generate_id: true },
@@ -68,7 +68,7 @@ describe('Composio SDK tools', () => {
 
     const output = await executeComposioToolViaServer({
       apiKey: 'codebuff-api-key',
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      toolName: 'composio_search_tools',
       input: {
         queries: ['find gmail tools'],
         session: { generate_id: true },

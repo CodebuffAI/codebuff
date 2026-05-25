@@ -8,10 +8,10 @@ import type { $ToolParams } from '../../constants'
 const sessionIdParam = z
   .string()
   .optional()
-  .describe('Session ID returned by COMPOSIO_SEARCH_TOOLS, when available.')
+  .describe('Session ID returned by composio_search_tools, when available.')
 
 const composioMetaToolInputSchemas = {
-  COMPOSIO_SEARCH_TOOLS: z
+  composio_search_tools: z
     .object({
       queries: z
         .array(z.unknown())
@@ -31,7 +31,7 @@ const composioMetaToolInputSchemas = {
       model: z.string().optional().describe('Client LLM model name.'),
     })
     .catchall(z.unknown()),
-  COMPOSIO_GET_TOOL_SCHEMAS: z
+  composio_get_tool_schemas: z
     .object({
       tool_slugs: z
         .array(z.string())
@@ -44,7 +44,7 @@ const composioMetaToolInputSchemas = {
       session_id: sessionIdParam,
     })
     .catchall(z.unknown()),
-  COMPOSIO_MANAGE_CONNECTIONS: z
+  composio_manage_connections: z
     .object({
       toolkits: z
         .array(z.string())
@@ -57,7 +57,7 @@ const composioMetaToolInputSchemas = {
       session_id: sessionIdParam,
     })
     .catchall(z.unknown()),
-  COMPOSIO_MULTI_EXECUTE_TOOL: z
+  composio_multi_execute_tool: z
     .object({
       tools: z
         .array(z.record(z.string(), z.unknown()))
@@ -77,13 +77,13 @@ const composioMetaToolInputSchemas = {
 }
 
 const composioMetaToolDescriptions = {
-  COMPOSIO_SEARCH_TOOLS:
+  composio_search_tools:
     'Discover relevant Composio tools across external apps. Use this first for requests involving services like Gmail, GitHub, Slack, Linear, Notion, Google Calendar, or Google Sheets.',
-  COMPOSIO_GET_TOOL_SCHEMAS:
-    'Retrieve complete input schemas for specific Composio tool slugs returned by COMPOSIO_SEARCH_TOOLS.',
-  COMPOSIO_MANAGE_CONNECTIONS:
+  composio_get_tool_schemas:
+    'Retrieve complete input schemas for specific Composio tool slugs returned by composio_search_tools.',
+  composio_manage_connections:
     'Check or initiate user authentication for external app toolkits. Use when search/execution indicates a toolkit is not connected.',
-  COMPOSIO_MULTI_EXECUTE_TOOL:
+  composio_multi_execute_tool:
     'Execute one or more discovered Composio app tools in the current workflow session. Do not use workbench offloading.',
 }
 
@@ -98,32 +98,32 @@ const composioOutputSchema = jsonToolResultSchema(
 )
 
 export const composioMetaToolParams = {
-  COMPOSIO_MANAGE_CONNECTIONS: {
-    toolName: 'COMPOSIO_MANAGE_CONNECTIONS',
+  composio_manage_connections: {
+    toolName: 'composio_manage_connections',
     endsAgentStep: true,
-    description: composioMetaToolDescriptions.COMPOSIO_MANAGE_CONNECTIONS,
-    inputSchema: composioMetaToolInputSchemas.COMPOSIO_MANAGE_CONNECTIONS,
+    description: composioMetaToolDescriptions.composio_manage_connections,
+    inputSchema: composioMetaToolInputSchemas.composio_manage_connections,
     outputSchema: composioOutputSchema,
   },
-  COMPOSIO_MULTI_EXECUTE_TOOL: {
-    toolName: 'COMPOSIO_MULTI_EXECUTE_TOOL',
+  composio_multi_execute_tool: {
+    toolName: 'composio_multi_execute_tool',
     endsAgentStep: true,
-    description: composioMetaToolDescriptions.COMPOSIO_MULTI_EXECUTE_TOOL,
-    inputSchema: composioMetaToolInputSchemas.COMPOSIO_MULTI_EXECUTE_TOOL,
+    description: composioMetaToolDescriptions.composio_multi_execute_tool,
+    inputSchema: composioMetaToolInputSchemas.composio_multi_execute_tool,
     outputSchema: composioOutputSchema,
   },
-  COMPOSIO_SEARCH_TOOLS: {
-    toolName: 'COMPOSIO_SEARCH_TOOLS',
+  composio_search_tools: {
+    toolName: 'composio_search_tools',
     endsAgentStep: true,
-    description: composioMetaToolDescriptions.COMPOSIO_SEARCH_TOOLS,
-    inputSchema: composioMetaToolInputSchemas.COMPOSIO_SEARCH_TOOLS,
+    description: composioMetaToolDescriptions.composio_search_tools,
+    inputSchema: composioMetaToolInputSchemas.composio_search_tools,
     outputSchema: composioOutputSchema,
   },
-  COMPOSIO_GET_TOOL_SCHEMAS: {
-    toolName: 'COMPOSIO_GET_TOOL_SCHEMAS',
+  composio_get_tool_schemas: {
+    toolName: 'composio_get_tool_schemas',
     endsAgentStep: true,
-    description: composioMetaToolDescriptions.COMPOSIO_GET_TOOL_SCHEMAS,
-    inputSchema: composioMetaToolInputSchemas.COMPOSIO_GET_TOOL_SCHEMAS,
+    description: composioMetaToolDescriptions.composio_get_tool_schemas,
+    inputSchema: composioMetaToolInputSchemas.composio_get_tool_schemas,
     outputSchema: composioOutputSchema,
   },
 } satisfies {

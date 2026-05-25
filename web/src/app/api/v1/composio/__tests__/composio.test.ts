@@ -86,7 +86,7 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        toolName: 'composio_search_tools',
         input: {
           queries: ['find gmail tools'],
           session: { generate_id: true },
@@ -110,7 +110,7 @@ describe('/api/v1/composio', () => {
       db: mockDb,
       userId: 'user-123',
       logger,
-      toolName: 'COMPOSIO_SEARCH_TOOLS',
+      toolName: 'composio_search_tools',
       input: {
         queries: ['find gmail tools'],
         session: { generate_id: true },
@@ -127,7 +127,7 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        toolName: 'composio_search_tools',
         input: {},
       }),
     })
@@ -158,7 +158,7 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer valid-key' },
       body: JSON.stringify({
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        toolName: 'composio_search_tools',
         input: {},
       }),
     })
@@ -243,7 +243,7 @@ describe('/api/v1/composio', () => {
       method: 'POST',
       headers: { Authorization: 'Bearer banned-key' },
       body: JSON.stringify({
-        toolName: 'COMPOSIO_SEARCH_TOOLS',
+        toolName: 'composio_search_tools',
         input: {},
       }),
     })

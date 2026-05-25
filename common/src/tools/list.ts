@@ -154,20 +154,20 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: FileChangeSchema,
   }),
   z.object({
-    toolName: z.literal('COMPOSIO_MANAGE_CONNECTIONS'),
-    input: toolParams.COMPOSIO_MANAGE_CONNECTIONS.inputSchema,
+    toolName: z.literal('composio_manage_connections'),
+    input: toolParams.composio_manage_connections.inputSchema,
   }),
   z.object({
-    toolName: z.literal('COMPOSIO_MULTI_EXECUTE_TOOL'),
-    input: toolParams.COMPOSIO_MULTI_EXECUTE_TOOL.inputSchema,
+    toolName: z.literal('composio_multi_execute_tool'),
+    input: toolParams.composio_multi_execute_tool.inputSchema,
   }),
   z.object({
-    toolName: z.literal('COMPOSIO_SEARCH_TOOLS'),
-    input: toolParams.COMPOSIO_SEARCH_TOOLS.inputSchema,
+    toolName: z.literal('composio_search_tools'),
+    input: toolParams.composio_search_tools.inputSchema,
   }),
   z.object({
-    toolName: z.literal('COMPOSIO_GET_TOOL_SCHEMAS'),
-    input: toolParams.COMPOSIO_GET_TOOL_SCHEMAS.inputSchema,
+    toolName: z.literal('composio_get_tool_schemas'),
+    input: toolParams.composio_get_tool_schemas.inputSchema,
   }),
 ])
 export const clientToolNames = clientToolCallSchema.def.options.map(
