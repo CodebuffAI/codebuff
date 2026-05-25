@@ -42,6 +42,7 @@
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
     "@codebuff/sdk": "workspace:*",
+    "@composio/core": "^0.10.0",
     "@hookform/resolvers": "^3.9.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",

@@ -1,4 +1,5 @@
 import { buildArray } from '@codebuff/common/util/array'
+import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -16,6 +17,8 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+
+const ENABLE_COMPOSIO_TOOLS = false
 
 export function createBase2(
   mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
@@ -105,6 +108,7 @@ export function createBase2(
       'set_output',
       'list_directory',
       'glob',
+      ENABLE_COMPOSIO_TOOLS && COMPOSIO_META_TOOL_NAMES,
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -148,7 +152,8 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
-- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
+- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.${ENABLE_COMPOSIO_TOOLS ? `
+- **External apps:** When Composio tools are available and the user asks to work with connected apps or services like Gmail, Google Calendar, GitHub, Slack, Linear, or Notion, use them to search for the right app tools, help the user connect their account, and execute the requested action.` : ''}
 
 # Code Editing Mandates
 

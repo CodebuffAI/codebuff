@@ -4,6 +4,12 @@ import { handleApplyPatch } from './tool/apply-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
+import {
+  handleComposioGetToolSchemas,
+  handleComposioManageConnections,
+  handleComposioMultiExecute,
+  handleComposioSearchTools,
+} from './tool/composio'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
@@ -46,13 +52,19 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  *   - Any additional arguments for the tool
  * - Returns a promise that will be awaited
  */
-export const codebuffToolHandlers = {
+export const codebuffToolHandlers: {
+  [K in ToolName]: CodebuffToolHandlerFunction<K>
+} = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
+  composio_manage_connections: handleComposioManageConnections,
+  composio_multi_execute_tool: handleComposioMultiExecute,
+  composio_search_tools: handleComposioSearchTools,
+  composio_get_tool_schemas: handleComposioGetToolSchemas,
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
@@ -82,6 +94,4 @@ export const codebuffToolHandlers = {
   web_search: handleWebSearch,
   write_file: handleWriteFile,
   write_todos: handleWriteTodos,
-} satisfies {
-  [K in ToolName]: CodebuffToolHandlerFunction<K>
 }
