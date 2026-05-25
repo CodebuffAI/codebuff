@@ -13,6 +13,7 @@ import {
   getCliAuthCodeHashPrefix,
   getCliAuthCodeTokenIdentifier,
 } from '@/app/onboard/_helpers'
+import { getFreebuffServerAppUrl } from '@/lib/freebuff-server-env'
 import { logger } from '@/util/logger'
 
 import { getLoginUrlOrigin } from './_origin'
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
       '/login',
       getLoginUrlOrigin(
         req,
-        env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+        getFreebuffServerAppUrl(),
         'https://freebuff.com',
         env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod',
       ),
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
         forwardedHost: req.headers.get('x-forwarded-host'),
         forwardedProto: req.headers.get('x-forwarded-proto'),
         originHeader: req.headers.get('origin'),
-        configuredAppUrl: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+        configuredAppUrl: getFreebuffServerAppUrl(),
         environment: env.NEXT_PUBLIC_CB_ENVIRONMENT,
       },
       'Issued Freebuff CLI auth code token',

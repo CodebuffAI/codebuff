@@ -1,5 +1,3 @@
-import { env } from '@codebuff/common/env'
-
 import HomeClient from './home-client'
 
 import type { Metadata } from 'next'
@@ -7,7 +5,7 @@ import type { Metadata } from 'next'
 import { siteConfig } from '@/lib/constant'
 
 export async function generateMetadata(): Promise<Metadata> {
-  const canonicalUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const canonicalUrl = siteConfig.url()
   const title = 'Freebuff — the free coding agent'
   const description = siteConfig.description
 

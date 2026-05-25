@@ -27,8 +27,10 @@ Runs on port 3002 by default (to avoid conflicts with Codebuff web on 3000).
 
 ## Environment
 
-Same env vars as the main Codebuff web app. In production, deploy with:
-- `NEXT_PUBLIC_CODEBUFF_APP_URL=https://freebuff.com`
-- `NEXTAUTH_URL=https://freebuff.com`
+Same env vars as the main Codebuff web app, plus Freebuff-specific URL overrides. In production, deploy with:
+- `NEXT_PUBLIC_CODEBUFF_APP_URL=https://codebuff.com`
+- `NEXT_PUBLIC_FREEBUFF_APP_URL=https://freebuff.com`
+- `NEXTAUTH_FREEBUFF_URL=https://freebuff.com`
+- The Freebuff web app derives NextAuth's runtime URL from `NEXTAUTH_FREEBUFF_URL`, falling back to `NEXT_PUBLIC_FREEBUFF_APP_URL`.
 - Same DB credentials as Codebuff
 - Potentially a separate GitHub OAuth app for the freebuff.com callback URL
