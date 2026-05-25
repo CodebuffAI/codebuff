@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Help text function
+show_help() {
+    echo "Usage: $0 TEMPLATE_ID [--manav] [--victor] [--prod] [--all] [--pool SIZE]"
+    echo "Sets the CODESANDBOX_TEMPLATE_ID for specified environments"
+    echo ""
+    echo "Options:"
+    echo "  --manav    Set template ID for Manav's deployment"
+    echo "  --victor   Set template ID for Victor's deployment"
+    echo "  --prod     Set template ID for production"
+    echo "  --all      Set template ID for all environments"
+    echo "  --pool     Set pool size (default: 3)"
+    echo ""
+    echo "At least one environment flag (--manav, --victor, --prod, or --all) must be specified"
+    exit 1
+}
+
+# Check if template ID is provided
+if [ -z "$1" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    show_help
+fi
+
+TEMPLATE_ID=$1
+shift  # Remove template ID from arguments
+
+# Parse flags
+MANAV=false
+VICTOR=false
+PROD=false
+ALL=false
+POOL_SIZE=3  # Default pool size
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --manav)
+            MANAV=true
+            ;;
+        --victor)
+            VICTOR=true
+            ;;
+        --prod)
+            PROD=true
+            ;;
+        --all)
+            ALL=true
+            ;;
+        --pool)
+            if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
+                POOL_SIZE=$2
+                shift  # Consume the pool size argument
+            else
+                echo "Error: --pool requires a numeric value"
+                show_help
+            fi
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+    shift
+done
+
+# Check if at least one environment flag was provided
+if [ "$MANAV" = false ] && [ "$VICTOR" = false ] && [ "$PROD" = false ] && [ "$ALL" = false ]; then
+    echo "Error: At least one environment flag (--manav, --victor, --prod, or --all) must be specified"
+    show_help
+fi
+
+# If --all flag is provided, set all environments
+if [ "$ALL" = true ]; then
+    MANAV=true
+    VICTOR=true
+    PROD=true
+fi
+
+# Set template ID for each environment based on flags
+if [ "$MANAV" = true ]; then
+    echo "Setting template ID for Manav's deployment..."
+    npx convex env set CODESANDBOX_TEMPLATE_ID $TEMPLATE_ID --deployment-name oceanic-panther-809
+    echo "Flushing project pool and initializing new projects for Manav's deployment (pool size: $POOL_SIZE)..."
+    npx convex run codesandbox/createProject:flushProjectPoolAndInitializeNew "{\"newPoolSize\": $POOL_SIZE}" --deployment-name oceanic-panther-809
+fi
+
+if [ "$VICTOR" = true ]; then
+    echo "Setting template ID for Victor's deployment..."
+    npx convex env set CODESANDBOX_TEMPLATE_ID $TEMPLATE_ID --deployment-name dashing-badger-432
+    echo "Flushing project pool and initializing new projects for Victor's deployment (pool size: $POOL_SIZE)..."
+    npx convex run codesandbox/createProject:flushProjectPoolAndInitializeNew "{\"newPoolSize\": $POOL_SIZE}" --deployment-name dashing-badger-432
+fi
+
+if [ "$PROD" = true ]; then
+    echo "Setting template ID for production..."
+    npx convex env set CODESANDBOX_TEMPLATE_ID $TEMPLATE_ID --prod
+    echo "Flushing project pool and initializing new projects for production (pool size: $POOL_SIZE)..."
+    npx convex run codesandbox/createProject:flushProjectPoolAndInitializeNew "{\"newPoolSize\": $POOL_SIZE}" --prod
+fi

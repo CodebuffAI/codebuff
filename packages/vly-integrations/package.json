@@ -1,0 +1,60 @@
+{
+  "name": "@vly-ai/integrations",
+  "version": "0.6.6",
+  "description": "Access AI models, email services, and project thumbnail capture through vly.ai without managing multiple API keys or accounts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./project-thumbnail": {  
+      "types": "./dist/project-thumbnail/index.d.ts",
+      "import": "./dist/project-thumbnail/index.mjs",
+      "require": "./dist/project-thumbnail/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "prepublishOnly": "npm run build",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "vly",
+    "integrations",
+    "ai",
+    "email",
+    "project-thumbnail",
+    "screenshot",
+    "autumn"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "ai": "^5.0.0",
+    "@ai-sdk/openai-compatible": "^1.0.0",
+    "html2canvas": "^1.4.1",
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
