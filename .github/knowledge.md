@@ -25,8 +25,8 @@ GitHub API URLs are extracted as environment variables to avoid duplication:
 
 ```yaml
 env:
-  GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff
-  GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff
+  GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/freebuff-private
+  GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/freebuff-private
 ```
 
 This pattern:
