@@ -23,8 +23,9 @@ export function formatCodeSearchOutput(
     return 'Found 0 matches'
   }
   const lines = stdout.split('\n')
+  const knownFilePaths = collectMatchFilePaths(lines)
   const formatted: string[] = [
-    `Found ${options.matchCount ?? countFormattedMatches(lines)} matches`,
+    `Found ${options.matchCount ?? knownFilePaths.matchCount} matches`,
   ]
   let currentFile: string | null = null
 
@@ -43,9 +44,9 @@ export function formatCodeSearchOutput(
     // - Match lines: filename:line_number:content
     // - Context lines (with -A/-B/-C flags): filename-line_number-content
 
-    // Use regex to find the pattern: separator + digits + separator
-    // This handles filenames with hyphens/colons by matching the line number pattern
-    const parsedLine = parseRipgrepLine(line)
+    // Use known match file paths to disambiguate context lines, which use
+    // hyphens as separators and can otherwise conflict with hyphenated paths.
+    const parsedLine = parseRipgrepLine(line, knownFilePaths.filePaths)
 
     if (!parsedLine) {
       formatted.push(line)
@@ -76,13 +77,34 @@ export function formatCodeSearchOutput(
   return formatted.join('\n')
 }
 
-function parseRipgrepLine(line: string): {
+function parseRipgrepLine(
+  line: string,
+  knownFilePaths: string[] = [],
+): {
   filePath: string
   lineNumber: string
   content: string
   isContext: boolean
 } | null {
-  // Try match line pattern: filename:digits:content
+  const matchLine = parseRipgrepMatchLine(line)
+  if (matchLine) {
+    return matchLine
+  }
+
+  const contextLine = parseRipgrepContextLine(line, knownFilePaths)
+  if (contextLine) {
+    return contextLine
+  }
+
+  return null
+}
+
+function parseRipgrepMatchLine(line: string): {
+  filePath: string
+  lineNumber: string
+  content: string
+  isContext: false
+} | null {
   const matchLineMatch = line.match(/(.*?):(\d+):(.*)$/)
   if (matchLineMatch) {
     return {
@@ -93,23 +115,61 @@ function parseRipgrepLine(line: string): {
     }
   }
 
-  // Try context line pattern: filename-digits-content
-  const contextLineMatch = line.match(/(.*?)-(\d+)-(.*)$/)
-  if (contextLineMatch) {
+  return null
+}
+
+function parseRipgrepContextLine(
+  line: string,
+  knownFilePaths: string[],
+): {
+  filePath: string
+  lineNumber: string
+  content: string
+  isContext: true
+} | null {
+  for (const filePath of knownFilePaths) {
+    if (!line.startsWith(filePath + '-')) {
+      continue
+    }
+    const rest = line.slice(filePath.length + 1)
+    const lineNumberMatch = rest.match(/^(\d+)-(.*)$/)
+    if (!lineNumberMatch) {
+      continue
+    }
     return {
-      filePath: contextLineMatch[1],
-      lineNumber: contextLineMatch[2],
-      content: contextLineMatch[3],
+      filePath,
+      lineNumber: lineNumberMatch[1],
+      content: lineNumberMatch[2],
       isContext: true,
     }
   }
 
-  return null
+  const contextLineMatch = line.match(/(.*)-(\d+)-(.*)$/)
+  return contextLineMatch
+    ? {
+        filePath: contextLineMatch[1],
+        lineNumber: contextLineMatch[2],
+        content: contextLineMatch[3],
+        isContext: true,
+      }
+    : null
 }
 
-function countFormattedMatches(lines: string[]): number {
-  return lines.filter((line) => {
-    const parsedLine = parseRipgrepLine(line)
-    return parsedLine && !parsedLine.isContext
-  }).length
+function collectMatchFilePaths(lines: string[]): {
+  filePaths: string[]
+  matchCount: number
+} {
+  const filePaths = new Set<string>()
+  let matchCount = 0
+  for (const line of lines) {
+    const parsedLine = parseRipgrepMatchLine(line)
+    if (parsedLine) {
+      filePaths.add(parsedLine.filePath)
+      matchCount += 1
+    }
+  }
+  return {
+    filePaths: [...filePaths].sort((a, b) => b.length - a.length),
+    matchCount,
+  }
 }

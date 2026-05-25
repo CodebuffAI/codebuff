@@ -54,6 +54,37 @@ describe('formatCodeSearchOutput', () => {
     expect(output).toContain('Found 1 matches')
   })
 
+  it('keeps hyphenated file paths intact for context lines', () => {
+    const output = formatCodeSearchOutput(
+      [
+        'src/component-2-test.ts-9-const before = true',
+        'src/component-2-test.ts:10:const match = true',
+        'src/component-2-test.ts-11-const after = true',
+      ].join('\n'),
+    )
+
+    expect(output).toBe(
+      [
+        'Found 1 matches',
+        'src/component-2-test.ts:',
+        '  Line 9: const before = true',
+        '  Line 10: const match = true',
+        '  Line 11: const after = true',
+      ].join('\n'),
+    )
+  })
+
+  it('keeps hyphenated context content intact', () => {
+    const output = formatCodeSearchOutput(
+      [
+        'src/component-2-test.ts-9-const before = "alpha-123-beta"',
+        'src/component-2-test.ts:10:const match = true',
+      ].join('\n'),
+    )
+
+    expect(output).toContain('  Line 9: const before = "alpha-123-beta"')
+  })
+
   it('reports zero matches for empty output', () => {
     expect(formatCodeSearchOutput('')).toBe('Found 0 matches')
   })
