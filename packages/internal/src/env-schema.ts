@@ -30,6 +30,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
 
   // Web/Database variables
   DATABASE_URL: z.string().min(1),
+  REDIS_URL: z.string().min(1).optional(),
   CODEBUFF_GITHUB_ID: z.string().min(1),
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
   FREEBUFF_GITHUB_ID: z.string().min(1).optional(),
@@ -121,6 +122,7 @@ export const serverProcessEnv: ServerInput = {
 
   // Web/Database variables
   DATABASE_URL: process.env.DATABASE_URL,
+  REDIS_URL: process.env.REDIS_URL,
   CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
   FREEBUFF_GITHUB_ID: process.env.FREEBUFF_GITHUB_ID,

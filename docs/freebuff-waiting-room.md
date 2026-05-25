@@ -160,6 +160,7 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | `FIREWORKS_DEPLOYMENT_MAP`   | `web/src/llm-api/fireworks-config.ts`     | none for current freebuff models                                    | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback).                                                              |
 | `HEALTH_CACHE_TTL_MS`        | `fireworks-health.ts`                     | 25000                                                               | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit.                                                                         |
 | `FREEBUFF_SESSION_LENGTH_MS` | env                                       | 3_600_000                                                           | Session lifetime                                                                                                                                                            |
+| `REDIS_URL`                  | env                                       | unset                                                               | Optional Redis/Valkey-compatible URL for distributed free-mode rate-limit counters. On Render, use the Key Value internal URL. Falls back to per-pod memory when unset.     |
 | `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
 ### Premium Session Quota
@@ -260,7 +261,7 @@ Response: `{ "status": "ended" }`.
 
 ## Chat Completions Gate
 
-For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` calls `checkSessionAdmissible` after the per-user rate limiter and before the subscriber block-grant check.
+For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` calls `checkSessionAdmissible` before the per-user rate limiter so queued/waiting-room rejections do not consume quota. The rate limiter then runs before the subscriber block-grant check.
 
 ### Response codes
 
@@ -320,6 +321,7 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 
 - **`/api/v1/freebuff/session` routes** are stateless per pod; all state lives in Postgres. Any pod can serve any request.
 - **Chat completions gate** is a single `SELECT` per free-mode request. At high QPS this is the hottest path — the `user_id` PK lookup is O(1). If it ever becomes a problem, the obvious fix is to cache the session row for ~1s per pod.
+- **Free-mode rate limits** use Redis/Valkey when `REDIS_URL` is configured, with one atomic Lua script checking and incrementing every fixed window. Without `REDIS_URL`, limits are enforced per pod in memory for local development and tests.
 - **Admission loop** runs on every pod. Per-model advisory locks serialize admission _within_ each model while allowing different models to admit on different pods concurrently. At any given tick, exactly one pod actually admits for each model; the rest early-return on that model's lock.
 - **Fleet health probe** is cached per-pod (`HEALTH_CACHE_TTL_MS`, 25s). Each pod hits the Fireworks metrics endpoint at most ~2.4/min, staying under the 6 req/min account rate limit with a comfortable margin.
 
