@@ -10,6 +10,7 @@ import {
   buildActivityTimeline,
   isImplementorAgent,
   getImplementorDisplayName,
+  getImplementorPromptPreview,
   getImplementorIndex,
   groupConsecutiveBlocks,
   groupConsecutiveImplementors,
@@ -391,7 +392,8 @@ describe('shouldShowEditDiff', () => {
       input: {
         replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
       },
-      output: 'file: src/existing.ts\nmessage: String replace applied successfully.',
+      output:
+        'file: src/existing.ts\nmessage: String replace applied successfully.',
     }
 
     expect(shouldShowEditDiff(block)).toBe(true)
@@ -650,6 +652,27 @@ describe('getImplementorDisplayName', () => {
     expect(getImplementorDisplayName('editor-implementor-opus', 2)).toBe(
       'Opus #3',
     )
+  })
+})
+
+describe('getImplementorPromptPreview', () => {
+  test('prefers compact proposal strategy from params', () => {
+    expect(
+      getImplementorPromptPreview({
+        initialPrompt:
+          'Strategy: hidden\n\n## Task and current file context\n<user>leak</user>',
+        params: { proposalStrategy: 'Minimal safe patch' },
+      }),
+    ).toBe('Minimal safe patch')
+  })
+
+  test('falls back to the first prompt line without raw context', () => {
+    expect(
+      getImplementorPromptPreview({
+        initialPrompt:
+          'Strategy: Minimal safe patch\n\n## Task and current file context\n<tool>leak</tool>',
+      }),
+    ).toBe('Minimal safe patch')
   })
 })
 

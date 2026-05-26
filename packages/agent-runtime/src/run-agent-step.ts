@@ -97,6 +97,30 @@ async function additionalToolDefinitions(
   })
 }
 
+function canReuseParentTools(params: {
+  agentTemplate: AgentTemplate
+  parentTools: ToolSet | undefined
+}): boolean {
+  const { agentTemplate, parentTools } = params
+  if (!parentTools) {
+    return false
+  }
+
+  const parentToolNames = Object.keys(parentTools)
+  const childToolNames = agentTemplate.toolNames
+
+  // Only reuse the parent's tool schemas when they exactly match the child
+  // agent's declared tools. Reusing a superset is unsafe: the model sees tools
+  // that the child is not allowed to execute, and `toolChoice: "required"` can
+  // force flaky subagents (notably editor proposals/selectors) onto the wrong
+  // tool. Exact-match reuse preserves prompt-cache stability where it is
+  // actually valid without degrading scoped subagent tool contracts.
+  return (
+    parentToolNames.length === childToolNames.length &&
+    childToolNames.every((toolName) => toolName in parentTools)
+  )
+}
+
 export const runAgentStep = async (
   params: {
     userId: string | undefined
@@ -486,13 +510,19 @@ export const runAgentStep = async (
       call.toolName === 'task_completed' || call.toolName === 'end_turn',
   )
 
+  const hasSetOutput = toolCalls.some((call) => call.toolName === 'set_output')
+
   // If the response is only <think>...</think> tags with no other non-whitespace content,
   // the model was just thinking and should continue rather than end its turn.
   const responseWithoutThinkTags = fullResponse
     .replace(/<think>[\s\S]*?<\/think>/g, '')
     .replace(/<think>[\s\S]*$/, '')
     .trim()
+  // A response is "think only" when the model produced thinking tags and
+  // made NO tool calls at all. If any tool was called (even set_output),
+  // the model did real work and should not be asked to keep thinking.
   const isThinkOnly =
+    toolCalls.length === 0 &&
     hasNoToolResults &&
     responseWithoutThinkTags.length === 0 &&
     fullResponse.trim().length > 0
@@ -511,6 +541,21 @@ export const runAgentStep = async (
     // For other models, also end turn when there are no tool calls
     // Exception: if the response is only <think> tags, continue the turn
     shouldEndTurn = hasTaskCompleted || (hasNoToolResults && !isThinkOnly)
+  }
+
+  // For structured-output agents, once set_output successfully sets the
+  // agent's output, the turn should end regardless of other heuristics.
+  // This prevents reasoning models from getting stuck in think-only loops
+  // after already providing their structured answer.
+  // Only apply when the agent doesn't require explicit completion via
+  // task_completed, to preserve task_completed semantics.
+  if (
+    !requiresExplicitCompletion &&
+    agentTemplate.outputMode === 'structured_output' &&
+    hasSetOutput &&
+    agentState.output !== undefined
+  ) {
+    shouldEndTurn = true
   }
 
   agentState = {
@@ -697,7 +742,8 @@ export async function loopAgentSteps(
   let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
   // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
   const useParentTools =
-    agentTemplate.inheritParentSystemPrompt && parentTools !== undefined
+    agentTemplate.inheritParentSystemPrompt &&
+    canReuseParentTools({ agentTemplate, parentTools })
 
   // Initialize message history with user prompt and instructions on first iteration
   const instructionsPrompt = await getAgentPrompt({
@@ -750,8 +796,8 @@ export async function loopAgentSteps(
         agentTemplates: localAgentTemplates,
       })
 
-  const tools = useParentTools
-    ? parentTools
+  const tools: ToolSet = useParentTools
+    ? parentTools!
     : await getToolSet({
         toolNames: agentTemplate.toolNames,
         additionalToolDefinitions: async () => {

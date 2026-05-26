@@ -272,11 +272,12 @@ describe('Spawn Agents Permissions', () => {
     const createSpawnToolCall = (
       agentType: string,
       prompt = 'test prompt',
+      params?: Record<string, unknown>,
     ): CodebuffToolCall<'spawn_agents'> => ({
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id',
       input: {
-        agents: [{ agent_type: agentType, prompt }],
+        agents: [{ agent_type: agentType, prompt, params }],
       },
     })
 
@@ -343,6 +344,378 @@ describe('Spawn Agents Permissions', () => {
           process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
         }
       }
+    })
+
+    it('should preserve timeout reason when a proposal subagent returns after abort', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '5'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: { signal: AbortSignal; agentState: any }) =>
+          new Promise((resolve) => {
+            options.signal.addEventListener(
+              'abort',
+              () =>
+                resolve({
+                  agentState: options.agentState,
+                  output: {
+                    type: 'error',
+                    message: 'Run cancelled by user',
+                  },
+                }),
+              { once: true },
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall('editor-implementor-proposal-1')
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        expect(JSON.stringify(output)).toContain(
+          'editor-implementor-proposal-1 timed out',
+        )
+        expect(JSON.stringify(output)).not.toContain('Run cancelled by user')
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+      }
+    })
+
+    it('should recover captured editor proposal diffs when timeout fires after progress', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '5'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: { signal: AbortSignal; agentState: any }) =>
+          new Promise((_, reject) => {
+            options.agentState.messageHistory = [
+              {
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolName: 'propose_write_file',
+                    input: {
+                      path: 'src/a.ts',
+                      instructions: 'Add A',
+                      content: 'export const a = 1\n',
+                    },
+                  },
+                  {
+                    type: 'tool-call',
+                    toolName: 'propose_write_file',
+                    input: {
+                      path: 'src/b.ts',
+                      instructions: 'Add B',
+                      content: 'export const b = 2\n',
+                    },
+                  },
+                ],
+              },
+              {
+                role: 'tool',
+                toolName: 'propose_write_file',
+                content: [
+                  {
+                    type: 'json',
+                    value: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                      { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                    ],
+                  },
+                ],
+              },
+            ]
+            options.signal.addEventListener(
+              'abort',
+              () => reject(options.signal.reason ?? new Error('aborted')),
+              { once: true },
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall(
+          'editor-implementor-proposal-1',
+          'test prompt',
+          {
+            proposalBundleMode: true,
+            proposalContext: 'Implement multi-file changes in src/a.ts and src/b.ts.',
+          },
+        )
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        const serialized = JSON.stringify(output)
+        expect(serialized).not.toContain('Error spawning agent')
+        expect(serialized).toContain('recoveredFromTimeout')
+        expect(serialized).toContain('cleanProposal')
+        expect(serialized).toContain('@@ diff A')
+        expect(serialized).toContain('@@ diff B')
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+      }
+    })
+
+    it('should keep slow proposal subagents alive while they stream progress', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '30'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: {
+          signal: AbortSignal
+          agentState: any
+          onResponseChunk: (chunk: string) => void
+        }) =>
+          new Promise((resolve, reject) => {
+            let progressCount = 0
+            const interval = setInterval(() => {
+              progressCount++
+              options.onResponseChunk('still working')
+              if (progressCount === 6) {
+                clearInterval(interval)
+                resolve({
+                  agentState: {
+                    ...options.agentState,
+                    messageHistory: [assistantMessage('Mock agent response')],
+                  },
+                  output: {
+                    type: 'lastMessage',
+                    value: [assistantMessage('Mock agent response')],
+                  },
+                })
+              }
+            }, 10)
+
+            options.signal.addEventListener(
+              'abort',
+              () => {
+                clearInterval(interval)
+                reject(options.signal.reason ?? new Error('aborted'))
+              },
+              { once: true },
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall('editor-implementor-proposal-1')
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        expect(JSON.stringify(output)).toContain('Mock agent response')
+        expect(JSON.stringify(output)).not.toContain('timed out')
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+      }
+    })
+
+    it('should still enforce the proposal hard timeout despite continuous progress', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      const previousHardTimeout =
+        process.env.OPENBUFF_EDITOR_PROPOSAL_HARD_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '30'
+      process.env.OPENBUFF_EDITOR_PROPOSAL_HARD_TIMEOUT_MS = '55'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: {
+          signal: AbortSignal
+          onResponseChunk: (chunk: string) => void
+        }) =>
+          new Promise((_, reject) => {
+            const interval = setInterval(() => {
+              options.onResponseChunk('still working')
+            }, 10)
+
+            options.signal.addEventListener(
+              'abort',
+              () => {
+                clearInterval(interval)
+                reject(options.signal.reason ?? new Error('aborted'))
+              },
+              { once: true },
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall('editor-implementor-proposal-1')
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        const serialized = JSON.stringify(output)
+        expect(serialized).toContain('Error spawning agent')
+        expect(serialized).toContain('hard limit')
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+        if (previousHardTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_HARD_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_HARD_TIMEOUT_MS =
+            previousHardTimeout
+        }
+      }
+    })
+
+    it('should let proposal spawn params override the default editor proposal timeout', async () => {
+      const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '5'
+
+      mockLoopAgentSteps.mockImplementationOnce(
+        async (options: { signal: AbortSignal; agentState: any }) =>
+          new Promise((resolve, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => reject(options.signal.reason ?? new Error('aborted')),
+              { once: true },
+            )
+            setTimeout(
+              () =>
+                resolve({
+                  agentState: {
+                    ...options.agentState,
+                    messageHistory: [assistantMessage('Mock agent response')],
+                  },
+                  output: {
+                    type: 'lastMessage',
+                    value: [assistantMessage('Mock agent response')],
+                  },
+                }),
+              15,
+            )
+          }),
+      )
+
+      try {
+        const parentAgent = createMockAgent('parent', [
+          'editor-implementor-proposal-1',
+        ])
+        const childAgent = createMockAgent('editor-implementor-proposal-1')
+        const sessionState = getInitialSessionState(mockFileContext)
+        const toolCall = createSpawnToolCall(
+          'editor-implementor-proposal-1',
+          'test prompt',
+          { proposalTimeoutMs: 50 },
+        )
+
+        const { output } = await handleSpawnAgents({
+          ...handleSpawnAgentsBaseParams,
+          agentState: sessionState.mainAgentState,
+          agentTemplate: parentAgent,
+          localAgentTemplates: {
+            'editor-implementor-proposal-1': childAgent,
+          },
+          toolCall,
+        })
+
+        expect(JSON.stringify(output)).toContain('Mock agent response')
+        expect(JSON.stringify(output)).not.toContain('timed out')
+      } finally {
+        if (previousTimeout === undefined) {
+          delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
+        } else {
+          process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = previousTimeout
+        }
+      }
+    })
+
+    it('should report fulfilled subagent error outputs as spawn errors', async () => {
+      mockLoopAgentSteps.mockImplementationOnce(async (options: any) => ({
+        agentState: options.agentState,
+        output: {
+          type: 'error',
+          message: 'Run cancelled by user',
+        },
+      }))
+
+      const parentAgent = createMockAgent('parent', [
+        'editor-implementor-proposal-1',
+      ])
+      const childAgent = createMockAgent('editor-implementor-proposal-1')
+      const sessionState = getInitialSessionState(mockFileContext)
+      const toolCall = createSpawnToolCall('editor-implementor-proposal-1')
+
+      const { output } = await handleSpawnAgents({
+        ...handleSpawnAgentsBaseParams,
+        agentState: sessionState.mainAgentState,
+        agentTemplate: parentAgent,
+        localAgentTemplates: {
+          'editor-implementor-proposal-1': childAgent,
+        },
+        toolCall,
+      })
+
+      expect(JSON.stringify(output)).toContain('"errorMessage"')
+      expect(JSON.stringify(output)).toContain('Run cancelled by user')
     })
 
     it('should allow underscored agent_type when hyphenated agent is spawnable', async () => {

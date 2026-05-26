@@ -1,15 +1,15 @@
 {
-  "name": "codebuff",
+  "name": "openbuff",
   "version": "1.0.676",
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
-    "codebuff": "index.js",
+    "openbuff": "index.js",
     "cb": "index.js"
   },
   "scripts": {
     "postinstall": "node postinstall.js",
-    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const configDir = path.join(os.homedir(), '.config', 'manicode'); for (const name of (process.platform === 'win32' ? ['openbuff.exe', 'codebuff.exe'] : ['openbuff', 'codebuff'])) { try { fs.unlinkSync(path.join(configDir, name)) } catch (e) { /* ignore if file doesn't exist */ } }\""
   },
   "files": [
     "index.js",
@@ -34,9 +34,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CodebuffAI/codebuff.git"
+    "url": "https://github.com/nicholasgriffintn/openbuff.git"
   },
-  "homepage": "https://codebuff.com",
+  "homepage": "https://github.com/nicholasgriffintn/openbuff",
   "publishConfig": {
     "access": "public"
   }

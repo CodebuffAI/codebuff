@@ -96,6 +96,36 @@ export const getImplementorDisplayName = (
 }
 
 /**
+ * Get a compact prompt/strategy preview for implementor cards.
+ * Proposal agents can receive large hidden context in params; never render that
+ * raw context in the card subtitle.
+ */
+export const getImplementorPromptPreview = (
+  agentBlock: Pick<AgentContentBlock, 'initialPrompt' | 'params'>,
+): string => {
+  const proposalStrategy = agentBlock.params?.proposalStrategy
+  if (typeof proposalStrategy === 'string' && proposalStrategy.trim()) {
+    return truncateWithEllipsis(proposalStrategy.trim(), 180)
+  }
+
+  const initialPrompt = agentBlock.initialPrompt?.trim()
+  if (!initialPrompt) return ''
+
+  const firstLine =
+    initialPrompt
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) ?? ''
+
+  return truncateWithEllipsis(
+    firstLine
+      .replace(/^Retry Strategy:\s*/, 'Retry: ')
+      .replace(/^Strategy:\s*/, ''),
+    180,
+  )
+}
+
+/**
  * Get the index of an implementor agent among its siblings.
  * Returns the 0-based index among all implementor agents of the same type.
  */
@@ -379,7 +409,9 @@ function isSuccessfulEditMessage(message: unknown): boolean {
 
 function isErrorOutput(output: string): boolean {
   const trimmedOutput = output.trim()
-  return trimmedOutput.startsWith('Error:') || trimmedOutput.startsWith('Failed ')
+  return (
+    trimmedOutput.startsWith('Error:') || trimmedOutput.startsWith('Failed ')
+  )
 }
 
 /**

@@ -59,7 +59,7 @@ function createConfig(packageName) {
     binaryName,
     binaryPath: path.join(configDir, binaryName),
     metadataPath: path.join(configDir, 'codecane-metadata.json'),
-    tempDownloadDir: path.join(configDir, '.download-temp-staging'),
+    tempDownloadDir: path.join(configDir, '.download-temp'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
   }
@@ -100,7 +100,7 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
 
     const payload = JSON.stringify({
       api_key: posthogConfig.apiKey,
-      event: 'cli.update_codebuff_failed',
+      event: 'cli.update_codecane_failed',
       properties: {
         distinct_id: `anonymous-${CONFIG.homeDir}`,
         error: errorMessage,
@@ -291,7 +291,7 @@ async function downloadBinary(version) {
   }
 
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
   }/api/releases/download/${version}/${fileName}`
 
   // Ensure config directory exists
@@ -397,7 +397,7 @@ async function downloadBinary(version) {
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Codecane...')
+  console.log('Download complete! Starting Openbuff...')
 }
 
 async function ensureBinaryExists() {
@@ -537,7 +537,7 @@ function printCrashDiagnostics(code, signal) {
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
   console.error('Please report this issue at:')
-  console.error('  https://github.com/CodebuffAI/codebuff/issues')
+  console.error('  https://github.com/nicholasgriffintn/openbuff/issues')
   console.error('')
 }
 

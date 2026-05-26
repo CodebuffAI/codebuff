@@ -2,8 +2,8 @@
   "version": 1,
   "worktreeRoot": "/home/ben/Code/CLI/codebuff",
   "gitDir": "/home/ben/Code/CLI/codebuff/.git",
-  "indexMtimeMs": 1779444602537.8293,
-  "indexSize": 257996,
-  "map": "  scripts/: placeholder.test, analyze-buffbench-logs, analyze-edit-blocks, analyze-model-usage, analyze-subscriber-profitability, apply-credit-migration, ban-freebuff-bots, benchmark-providers, calculate-average-spend, calculate-dau\n  agents/: base2.test, basher.test, context-pruner.test, editor.test, file-picker.test, thinker.test, base-deep-evals, base-deep, base2-evals, base2-fast-no-validation\n  agents-graveyard/: agent-builder, ask, base-experimental, base-factory, base-lite-codex, base-lite-grok-4-fast, base-lite, base-max, base-prompts, base-quick\n  cli/: http, postinstall, http, postinstall, build-binary, prebuild-agents, release, smoke-binary\n  common/: agent-validation.test, dynamic-agent-template-schema.test, env-ci.test, env-process.test, free-agents.test, freebuff-models.test, handlesteps-parsing.test, user-state.test, actions, analytics-core\n  evals/: placeholder.test, agent-runner, analyze-task-scores, eval-task-generator, filter-supplemental-files, format-output, gen...",
-  "createdAt": "2026-05-22T10:43:50.856Z"
+  "indexMtimeMs": 1779756631346.7136,
+  "indexSize": 3989563,
+  "map": "",
+  "createdAt": "2026-05-26T07:12:23.343Z"
 }

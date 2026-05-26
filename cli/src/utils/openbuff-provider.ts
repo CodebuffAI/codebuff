@@ -2,11 +2,13 @@ import {
   OPENBUFF_PROVIDER_PRESETS,
   createProviderPresetConfig,
   describeLoadedProviderConfig,
+  formatModelCapabilitiesSummary,
   getMissingProviderEnvVars,
   loadProviderConfigSync,
   resolveConfiguredAgentModel,
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
+  resolveModelCapabilities,
   writeProviderConfigFile,
 } from '@codebuff/sdk'
 
@@ -41,19 +43,79 @@ const REASONING_EFFORTS = [
   'none',
 ] as const
 
-type ReasoningEffortInput = OpenbuffReasoningEffort | 'default' | undefined
+export type ReasoningEffortInput = OpenbuffReasoningEffort | 'default' | undefined
 
-type ModelRouteTarget =
+export type ModelRouteTarget =
   | { type: 'default' }
   | { type: 'mode'; mode: 'default' | 'lite' | 'max' | 'plan' }
   | { type: 'agent'; agentId: string }
   | { type: 'editor-proposal'; proposalNumber: number }
   | { type: 'editor-selector' }
 
+export type KnownModelOption = {
+  model: string
+  capabilitiesSummary?: string
+}
+
 function formatReasoningEffort(
   effort: OpenbuffReasoningEffort | undefined,
 ): string {
   return effort ? ` (reasoning: ${effort})` : ''
+}
+
+function getProviderIdForModel(
+  model: string,
+  loadedConfig = loadProviderConfigSync(),
+): string | undefined {
+  const prefix = model.split('/')[0]
+  if (prefix && loadedConfig.config.providers[prefix]) {
+    return prefix
+  }
+
+  for (const [providerId, provider] of Object.entries(
+    loadedConfig.config.providers,
+  )) {
+    if (Array.isArray(provider.models)) {
+      if (provider.models.some((providerModel) => providerModel === model)) {
+        return providerId
+      }
+      continue
+    }
+    if (
+      model in provider.models ||
+      Object.values(provider.models).some(
+        (providerModel) => providerModel === model,
+      )
+    ) {
+      return providerId
+    }
+  }
+
+  return undefined
+}
+
+function formatCapabilitiesForModel(
+  model: string,
+  loadedConfig = loadProviderConfigSync(),
+): string {
+  const providerId = getProviderIdForModel(model, loadedConfig)
+  if (!providerId) return ''
+
+  return formatModelCapabilitiesSummary(
+    resolveModelCapabilities({
+      providerId,
+      model,
+      loadedConfig,
+    }),
+  )
+}
+
+function formatCapabilitiesSuffix(
+  model: string,
+  loadedConfig = loadProviderConfigSync(),
+): string {
+  const summary = formatCapabilitiesForModel(model, loadedConfig)
+  return summary ? ` | ${summary}` : ''
 }
 
 function parseReasoningEffort(
@@ -96,7 +158,13 @@ function resolveReasoningEffortChoice(value: string): ReasoningEffortInput {
   return parseReasoningEffort(value)
 }
 
-function setRouteModel(
+function validateProposalNumber(n: number): void {
+  if (!Number.isInteger(n) || n < 1 || n > 5) {
+    throw new Error('Editor proposal number must be an integer between 1 and 5')
+  }
+}
+
+export function setRouteModel(
   config: ProviderConfigFileInput,
   target: ModelRouteTarget,
   model: string,
@@ -145,6 +213,8 @@ function setRouteModel(
   }
 
   if (target.type === 'editor-proposal') {
+    validateProposalNumber(target.proposalNumber)
+
     const proposalModels = [
       ...(config.editorMultiPrompt?.proposalModels ?? []),
     ]
@@ -217,6 +287,7 @@ function setRouteReasoningEffort(
       }
     }
   } else if (target.type === 'editor-proposal') {
+    validateProposalNumber(target.proposalNumber)
     const proposalReasoningEfforts = [
       ...(config.editorMultiPrompt?.proposalReasoningEfforts ?? []),
     ]
@@ -270,7 +341,7 @@ export function formatOpenbuffModelStatus(): string {
       loadedConfig,
     })
     lines.push(
-      `${mode.toLowerCase()}: ${agentId} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}`,
+      `${mode.toLowerCase()}: ${agentId} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}`,
     )
   }
 
@@ -285,7 +356,7 @@ export function formatOpenbuffModelStatus(): string {
           loadedConfig,
         })
         lines.push(
-          `proposal #${index + 1}: editor-implementor-proposal-${index + 1} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}`,
+          `proposal #${index + 1}: editor-implementor-proposal-${index + 1} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}`,
         )
       },
     )
@@ -296,7 +367,7 @@ export function formatOpenbuffModelStatus(): string {
       loadedConfig,
     })
     lines.push(
-      `selector: best-of-n-selector2 -> ${selectorRoute.model}${formatReasoningEffort(selectorRoute.reasoningEffort)}`,
+      `selector: best-of-n-selector2 -> ${selectorRoute.model}${formatReasoningEffort(selectorRoute.reasoningEffort)}${formatCapabilitiesSuffix(selectorRoute.model, loadedConfig)}`,
     )
     lines.push('')
   }
@@ -312,7 +383,7 @@ export function formatOpenbuffModelStatus(): string {
   return lines.join('\n')
 }
 
-function writeMergedConfig(config: ProviderConfigFileInput): string {
+export function writeMergedConfig(config: ProviderConfigFileInput): string {
   return writeProviderConfigFile({
     cwd: getProjectRoot(),
     config,
@@ -320,9 +391,9 @@ function writeMergedConfig(config: ProviderConfigFileInput): string {
   })
 }
 
-function getEditableConfig(): ProviderConfigFileInput {
+export function getEditableConfig(): ProviderConfigFileInput {
   const loadedConfig = loadProviderConfigSync()
-  return {
+  return structuredClone({
     providers: loadedConfig.config.providers,
     defaultModel: loadedConfig.config.defaultModel,
     defaultReasoningEffort: loadedConfig.config.defaultReasoningEffort,
@@ -331,36 +402,71 @@ function getEditableConfig(): ProviderConfigFileInput {
     agents: loadedConfig.config.agents,
     agentReasoningEfforts: loadedConfig.config.agentReasoningEfforts,
     editorMultiPrompt: loadedConfig.config.editorMultiPrompt,
-  }
+  })
 }
 
-function getKnownModels(): string[] {
+export function getKnownModelOptions(): KnownModelOption[] {
   const loadedConfig = loadProviderConfigSync()
-  const models: string[] = []
-  for (const [providerId, provider] of Object.entries(loadedConfig.config.providers)) {
-    if (Array.isArray(provider.models)) {
-      for (const model of provider.models) {
-        models.push(model.includes('/') ? model : `${providerId}/${model}`)
+  const models: KnownModelOption[] = []
+  for (const [providerId, provider] of Object.entries(
+    loadedConfig.config.providers,
+  )) {
+    const providerModels = provider.models
+    if (!providerModels || typeof providerModels !== 'object') {
+      continue
+    }
+
+    if (Array.isArray(providerModels)) {
+      for (const model of providerModels) {
+        if (typeof model !== 'string') continue
+        const routableModel = model.includes('/')
+          ? model
+          : `${providerId}/${model}`
+        models.push({
+          model: routableModel,
+          capabilitiesSummary: formatCapabilitiesForModel(
+            routableModel,
+            loadedConfig,
+          ),
+        })
       }
     } else {
-      for (const requestedModel of Object.keys(provider.models)) {
-        models.push(
-          requestedModel.includes('/')
-            ? requestedModel
-            : `${providerId}/${requestedModel}`,
-        )
+      for (const requestedModel of Object.keys(providerModels)) {
+        const routableModel = requestedModel.includes('/')
+          ? requestedModel
+          : `${providerId}/${requestedModel}`
+        models.push({
+          model: routableModel,
+          capabilitiesSummary: formatCapabilitiesForModel(
+            routableModel,
+            loadedConfig,
+          ),
+        })
       }
     }
   }
-  return Array.from(new Set(models)).sort()
+  return Array.from(
+    new Map(models.map((option) => [option.model, option])).values(),
+  ).sort((a, b) => a.model.localeCompare(b.model))
+}
+
+export function getKnownModels(): string[] {
+  return getKnownModelOptions().map((option) => option.model)
 }
 
 function formatModelChoices(): string {
-  const models = getKnownModels()
-  if (!models.length) {
+  const modelOptions = getKnownModelOptions()
+  if (!modelOptions.length) {
     return 'No provider models are configured yet. Run `/provider add` first.'
   }
-  return models.map((model, index) => `${index + 1}. ${model}`).join('\n')
+  return modelOptions
+    .map((option, index) => {
+      const summary = option.capabilitiesSummary
+        ? ` | ${option.capabilitiesSummary}`
+        : ''
+      return `${index + 1}. ${option.model}${summary}`
+    })
+    .join('\n')
 }
 
 function resolveModelChoice(input: string): string {
@@ -552,6 +658,50 @@ export function setupOpenbuffProviderFromArgs(args: string): string {
     .join('\n')
 }
 
+export function addCustomOpenbuffProvider(provider: {
+  id: string
+  baseURL: string
+  apiKeyEnv?: string
+  models: string[]
+}): string {
+  const id = provider.id.trim()
+  const baseURL = provider.baseURL.trim()
+  const apiKeyEnv = provider.apiKeyEnv?.trim()
+  const models = provider.models.map((model) => model.trim()).filter(Boolean)
+
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id)) {
+    throw new Error('Provider id must use letters, numbers, dashes, or underscores.')
+  }
+  if (!baseURL) {
+    throw new Error('Provider base URL is required.')
+  }
+  if (models.length === 0) {
+    throw new Error('Enter at least one model id.')
+  }
+
+  const config: ProviderConfigFileInput = {
+    providers: {
+      [id]: {
+        type: 'openai-compatible',
+        baseURL,
+        ...(apiKeyEnv ? { apiKeyEnv } : {}),
+        models,
+      },
+    },
+  }
+  const configPath = writeProviderConfigFile({
+    cwd: getProjectRoot(),
+    config,
+  })
+
+  return [
+    `Wrote ${configPath}`,
+    '',
+    `Custom provider '${id}' added.`,
+    'Run `/models configure` to route a mode or agent to it.',
+  ].join('\n')
+}
+
 function providerPresetMenu(): string {
   const presets = Object.values(OPENBUFF_PROVIDER_PRESETS)
   return [
@@ -689,31 +839,16 @@ export function handleOpenbuffProviderWizardInput(input: string): {
     return { done: false, message: 'Enter at least one model id.' }
   }
 
-  const config: ProviderConfigFileInput = {
-    providers: {
-      [providerWizardState.id]: {
-        type: 'openai-compatible',
-        baseURL: providerWizardState.baseURL,
-        ...(providerWizardState.apiKeyEnv
-          ? { apiKeyEnv: providerWizardState.apiKeyEnv }
-          : {}),
-        models,
-      },
-    },
-  }
-  providerWizardState = null
-  const configPath = writeProviderConfigFile({
-    cwd: getProjectRoot(),
-    config,
+  const configMessage = addCustomOpenbuffProvider({
+    id: providerWizardState.id,
+    baseURL: providerWizardState.baseURL,
+    apiKeyEnv: providerWizardState.apiKeyEnv,
+    models,
   })
+  providerWizardState = null
   return {
     done: true,
-    message: [
-      `Wrote ${configPath}`,
-      '',
-      'Custom provider added.',
-      'Run `/models configure` to route a mode or agent to it.',
-    ].join('\n'),
+    message: configMessage,
   }
 }
 

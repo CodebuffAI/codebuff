@@ -11,7 +11,7 @@ const zlib = require('zlib')
 const tar = require('tar')
 const { createReleaseHttpClient } = require('./http')
 
-const packageName = 'codebuff'
+const packageName = 'openbuff'
 
 /**
  * Terminal escape sequences to reset terminal state after the child process exits.
@@ -58,7 +58,7 @@ function createConfig(packageName) {
     configDir,
     binaryName,
     binaryPath: path.join(configDir, binaryName),
-    metadataPath: path.join(configDir, 'codebuff-metadata.json'),
+    metadataPath: path.join(configDir, 'openbuff-metadata.json'),
     tempDownloadDir: path.join(configDir, '.download-temp'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
@@ -100,7 +100,7 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
 
     const payload = JSON.stringify({
       api_key: posthogConfig.apiKey,
-      event: 'cli.update_codebuff_failed',
+      event: 'cli.update_openbuff_failed',
       properties: {
         distinct_id: `anonymous-${CONFIG.homeDir}`,
         error: errorMessage,
@@ -290,8 +290,9 @@ async function downloadBinary(version) {
   }
 
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
   }/api/releases/download/${version}/${fileName}`
+
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
@@ -417,7 +418,7 @@ async function downloadBinary(version) {
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Codebuff...')
+  console.log('Download complete! Starting Openbuff...')
 }
 
 async function ensureBinaryExists() {
@@ -442,7 +443,7 @@ async function ensureBinaryExists() {
     await downloadBinary(version)
   } catch (error) {
     term.clearLine()
-    console.error('❌ Failed to download codebuff:', error.message)
+    console.error('❌ Failed to download openbuff:', error.message)
     console.error('Please check your internet connection and try again')
     if (!getProxyUrl()) {
       console.error(
@@ -502,7 +503,7 @@ async function checkForUpdates(runningProcess, exitListener) {
       })
 
       newChild.on('error', (err) => {
-        console.error('Failed to start codebuff:', err.message)
+        console.error('Failed to start openbuff:', err.message)
         process.exit(1)
       })
 
@@ -557,7 +558,7 @@ function printCrashDiagnostics(code, signal) {
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
   console.error('Please report this issue at:')
-  console.error('  https://github.com/CodebuffAI/codebuff/issues')
+  console.error('  https://github.com/nicholasgriffintn/openbuff/issues')
   console.error('')
 }
 
@@ -577,7 +578,7 @@ async function main() {
   child.on('exit', exitListener)
 
   child.on('error', (err) => {
-    console.error('Failed to start codebuff:', err.message)
+    console.error('Failed to start openbuff:', err.message)
     process.exit(1)
   })
 

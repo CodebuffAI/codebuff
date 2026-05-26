@@ -195,7 +195,7 @@ export const handleSpawnAgents = (async (
         return {
           agentName,
           agentType,
-          value: output,
+          value: normalizeSpawnedAgentOutput(output),
         }
       } else {
         const agentTypeStr = agents[index].agent_type
@@ -253,3 +253,22 @@ export const handleSpawnAgents = (async (
 
   return { output: jsonToolResult(reports) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
+
+function normalizeSpawnedAgentOutput(output: any): any {
+  if (
+    output &&
+    typeof output === 'object' &&
+    !Array.isArray(output) &&
+    (output as Record<string, unknown>).type === 'error'
+  ) {
+    const message = (output as Record<string, unknown>).message
+    return {
+      errorMessage:
+        typeof message === 'string' && message.trim()
+          ? message
+          : 'Subagent failed before producing output',
+    }
+  }
+
+  return output
+}

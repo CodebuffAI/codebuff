@@ -453,6 +453,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ...sessionState.mainAgentState,
       agentId: 'child-agent',
       agentType: 'child-with-tools' as const,
+      parentId: 'parent-agent',
       messageHistory: [],
     }
 
@@ -463,7 +464,9 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       agentType: 'child-with-tools',
       agentState: childAgentState,
       parentSystemPrompt: parentSystemPrompt,
-      parentTools: parentTools as unknown as Parameters<typeof loopAgentSteps>[0]['parentTools'],
+      parentTools: parentTools as unknown as Parameters<
+        typeof loopAgentSteps
+      >[0]['parentTools'],
     })
 
     const childMessages = capturedMessages

@@ -1,6 +1,0 @@
-{
-  "last_turn_at": "2026-05-23T12:29:24.616Z",
-  "last_progress_at": "2026-05-23T12:29:24.616Z",
-  "turn_count": 1,
-  "last_agent_output": "Implemented the runtime-side fix, not another config tweak.\n\nWhat changed:\n- Fixed OpenAI-compatible"
-}

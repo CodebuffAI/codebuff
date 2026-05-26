@@ -1,8 +1,5 @@
 import { publisher } from '../../constants'
-import {
-  PLACEHOLDER,
-  type SecretAgentDefinition,
-} from '../../types/secret-agent-definition'
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export const createBestOfNSelector2 = (options: {
   model: 'sonnet' | 'opus' | 'gpt-5'
@@ -36,8 +33,8 @@ export const createBestOfNSelector2 = (options: {
     spawnerPrompt:
       'Analyzes multiple implementation proposals (as unified diffs) and selects the best one',
 
-    includeMessageHistory: true,
-    inheritParentSystemPrompt: true,
+    includeMessageHistory: false,
+    inheritParentSystemPrompt: false,
 
     toolNames: ['set_output'],
     spawnableAgents: [],
@@ -53,10 +50,18 @@ export const createBestOfNSelector2 = (options: {
               properties: {
                 id: { type: 'string' },
                 strategy: { type: 'string' },
-                content: { type: 'string', description: 'Unified diff of the proposed changes' },
+                content: {
+                  type: 'string',
+                  description: 'Unified diff of the proposed changes',
+                },
               },
               required: ['id', 'content'],
             },
+          },
+          requestContext: {
+            type: 'string',
+            description:
+              'Compact original user request and relevant context. Use this as the requirements source when comparing implementations.',
           },
         },
         required: ['implementations'],
@@ -88,12 +93,16 @@ export const createBestOfNSelector2 = (options: {
   
 ## Task Instructions
 
-You have been provided with multiple implementation proposals via params. Each implementation shows a UNIFIED DIFF of the proposed changes.
+You have been provided with multiple implementation proposals via params. Each implementation shows a UNIFIED DIFF of the proposed changes. The parent best-of-N workflow intentionally does not pass full conversation history to you, so rely on params.requestContext for the original user request and any relevant context.
 
 The implementations are available in the params.implementations array, where each has:
-- id: A unique identifier for the implementation (A, B, C, etc.)
+- id: A selector-local identifier for the implementation (for example candidate-1, candidate-2)
 - strategy: The strategy/approach used for this implementation
 - content: The unified diff showing what would change
+
+The original request/context is available in params.requestContext. If it is empty, infer requirements from the implementation diffs and strategies only; do not assume access to previous parent conversation history.
+
+The array order is intentionally arbitrary. Do not prefer earlier candidates or candidate-1; choose only by how well the diff satisfies the request.
 
 Your task is to:
 1. Analyze each implementation's diff carefully, compare them against the original user requirements
@@ -108,6 +117,8 @@ Evaluate each based on (in order of importance):
 - Minimal changes to existing code (fewer files changed, fewer lines changed)
 - Clarity and readability
 
+Some proposal content may end with a "Proposal status:" metadata note. Treat that note as workflow metadata, not source code. A proposal marked partial must not be treated as complete merely because it has useful edits. Prefer a clean complete alternative when one exists. If a partial proposal has the best approach, you may still select it, but the parent workflow will run a completion pass before applying it.
+
 ## Analyzing Non-Chosen Implementations
 
 After selecting the best implementation, look at each non-chosen implementation and identify any valuable aspects that could enhance the selected implementation. These might include:
@@ -120,23 +131,19 @@ After selecting the best implementation, look at each non-chosen implementation 
 
 Only include improvements that are genuinely valuable and compatible with the selected implementation. If a non-chosen implementation has no useful improvements to offer, don't include it.
 
-## User Request
+## User Request / Context
 
-For context, here is the original user request again:
-<user_message>
-${PLACEHOLDER.USER_INPUT_PROMPT}
-</user_message>
-
-Try to select an implementation that fulfills all the requirements in the user's request.
+Use params.requestContext as the source of the user's requirements. Select an implementation that fulfills all of those requirements.
 
 ## Response Format
 
-${isSonnet || isOpus
-        ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
+${
+  isSonnet || isOpus
+    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
 
-Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId, short reason, and suggestedImprovements array.`
-        : `Output a single tool call to set_output with the selected implementationId, reason, and suggestedImprovements. Do not write anything else.`
-      }`,
+Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId, short reason, and suggestedImprovements string.`
+    : `Output a single tool call to set_output with the selected implementationId, reason, and suggestedImprovements. Do not write anything else.`
+}`,
   }
 }
 

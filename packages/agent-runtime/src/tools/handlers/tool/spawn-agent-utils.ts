@@ -34,48 +34,175 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
 
-const DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS = 120_000
+const DEFAULT_EDITOR_PROPOSAL_IDLE_TIMEOUT_MS = 120_000
+const DEFAULT_EDITOR_PROPOSAL_HARD_TIMEOUT_MS = 15 * 60_000
+const EDITOR_PROPOSAL_COMPLETION_MARKER = 'PROPOSAL_BUNDLE_COMPLETE'
 
 function isEditorProposalAgent(agentId: string): boolean {
   return /^editor-implementor-proposal-\d+$/.test(agentId)
 }
 
-function getEditorProposalTimeoutMs(): number {
-  const raw = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
-  if (!raw) return DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS
+function getEditorProposalTimeoutConfig(spawnParams: unknown): {
+  firstProgressTimeoutMs: number | undefined
+  idleTimeoutMs: number | undefined
+  hardTimeoutMs: number | undefined
+} {
+  const idleTimeoutMs = getTimeoutMs({
+    raw:
+      getNumericSpawnParam(spawnParams, 'proposalIdleTimeoutMs') ??
+      process.env.OPENBUFF_EDITOR_PROPOSAL_IDLE_TIMEOUT_MS ??
+      getNumericSpawnParam(spawnParams, 'proposalTimeoutMs') ??
+      process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS,
+    defaultMs: DEFAULT_EDITOR_PROPOSAL_IDLE_TIMEOUT_MS,
+  })
+  if (!idleTimeoutMs || idleTimeoutMs <= 0) {
+    return {
+      firstProgressTimeoutMs: undefined,
+      idleTimeoutMs: undefined,
+      hardTimeoutMs: undefined,
+    }
+  }
+
+  const firstProgressTimeoutMs = getTimeoutMs({
+    raw:
+      getNumericSpawnParam(spawnParams, 'proposalFirstProgressTimeoutMs') ??
+      process.env.OPENBUFF_EDITOR_PROPOSAL_FIRST_PROGRESS_TIMEOUT_MS,
+    defaultMs:
+      idleTimeoutMs < 1_000
+        ? idleTimeoutMs
+        : Math.max(idleTimeoutMs * 2, 300_000),
+  })
+
+  const hardTimeoutMs = getTimeoutMs({
+    raw:
+      getNumericSpawnParam(spawnParams, 'proposalHardTimeoutMs') ??
+      process.env.OPENBUFF_EDITOR_PROPOSAL_HARD_TIMEOUT_MS,
+    defaultMs:
+      idleTimeoutMs < 1_000
+        ? idleTimeoutMs * 4
+        : Math.max(
+            DEFAULT_EDITOR_PROPOSAL_HARD_TIMEOUT_MS,
+            (firstProgressTimeoutMs ?? idleTimeoutMs) + idleTimeoutMs * 3,
+          ),
+  })
+
+  return {
+    firstProgressTimeoutMs,
+    idleTimeoutMs,
+    hardTimeoutMs,
+  }
+}
+
+function getTimeoutMs(params: {
+  raw: string | number | undefined
+  defaultMs: number
+}): number | undefined {
+  const { raw, defaultMs } = params
+  if (raw === undefined || raw === '') return defaultMs
 
   const parsed = Number(raw)
   if (!Number.isFinite(parsed) || parsed < 0) {
-    return DEFAULT_EDITOR_PROPOSAL_TIMEOUT_MS
+    return defaultMs
   }
-  return parsed
+  return parsed === 0 ? undefined : parsed
 }
 
-function createTimeoutSignal(params: {
+function getNumericSpawnParam(
+  spawnParams: unknown,
+  key: string,
+): string | number | undefined {
+  return spawnParams &&
+    typeof spawnParams === 'object' &&
+    key in spawnParams &&
+    (typeof (spawnParams as Record<string, unknown>)[key] === 'string' ||
+      typeof (spawnParams as Record<string, unknown>)[key] === 'number')
+    ? ((spawnParams as Record<string, string | number>)[key] as
+        | string
+        | number)
+    : undefined
+}
+
+function createProgressAwareTimeoutSignal(params: {
   parentSignal: AbortSignal
-  timeoutMs: number | undefined
-  timeoutMessage: string
+  firstProgressTimeoutMs: number | undefined
+  idleTimeoutMs: number | undefined
+  hardTimeoutMs: number | undefined
+  firstProgressTimeoutMessage: string
+  idleTimeoutMessage: string
+  hardTimeoutMessage: string
 }): {
   signal: AbortSignal
   didTimeout: () => boolean
+  getTimeoutMessage: () => string
+  recordProgress: () => void
   cleanup: () => void
 } {
-  const { parentSignal, timeoutMs, timeoutMessage } = params
-  if (!timeoutMs || timeoutMs <= 0) {
+  const {
+    parentSignal,
+    firstProgressTimeoutMs,
+    idleTimeoutMs,
+    hardTimeoutMs,
+    firstProgressTimeoutMessage,
+    idleTimeoutMessage,
+    hardTimeoutMessage,
+  } = params
+  if (
+    (!firstProgressTimeoutMs || firstProgressTimeoutMs <= 0) &&
+    (!idleTimeoutMs || idleTimeoutMs <= 0) &&
+    (!hardTimeoutMs || hardTimeoutMs <= 0)
+  ) {
     return {
       signal: parentSignal,
       didTimeout: () => false,
+      getTimeoutMessage: () => '',
+      recordProgress: () => {},
       cleanup: () => {},
     }
   }
 
   const controller = new AbortController()
   let timedOut = false
+  let timeoutMessage = ''
+  let sawProgress = false
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
+  let hardTimer: ReturnType<typeof setTimeout> | undefined
   const forwardAbort = () => controller.abort(parentSignal.reason)
-  const timer = setTimeout(() => {
+
+  const abortWithTimeout = (message: string) => {
+    if (controller.signal.aborted) return
     timedOut = true
-    controller.abort(new Error(timeoutMessage))
-  }, timeoutMs)
+    timeoutMessage = message
+    controller.abort(new Error(message))
+  }
+
+  const armIdleTimer = (timeoutMs: number | undefined, message: string) => {
+    if (!timeoutMs || timeoutMs <= 0 || controller.signal.aborted) return
+    if (idleTimer) clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => abortWithTimeout(message), timeoutMs)
+  }
+
+  armIdleTimer(firstProgressTimeoutMs, firstProgressTimeoutMessage)
+  if (hardTimeoutMs && hardTimeoutMs > 0) {
+    hardTimer = setTimeout(
+      () => abortWithTimeout(hardTimeoutMessage),
+      hardTimeoutMs,
+    )
+  }
+
+  const recordProgress = () => {
+    if (controller.signal.aborted || !idleTimeoutMs || idleTimeoutMs <= 0) {
+      return
+    }
+    sawProgress = true
+    armIdleTimer(idleTimeoutMs, idleTimeoutMessage)
+  }
+
+  const clearTimers = () => {
+    if (idleTimer) clearTimeout(idleTimer)
+    if (hardTimer) clearTimeout(hardTimer)
+    idleTimer = undefined
+    hardTimer = undefined
+  }
 
   if (parentSignal.aborted) {
     forwardAbort()
@@ -86,8 +213,12 @@ function createTimeoutSignal(params: {
   return {
     signal: controller.signal,
     didTimeout: () => timedOut,
+    getTimeoutMessage: () =>
+      timeoutMessage ||
+      (sawProgress ? idleTimeoutMessage : firstProgressTimeoutMessage),
+    recordProgress,
     cleanup: () => {
-      clearTimeout(timer)
+      clearTimers()
       parentSignal.removeEventListener('abort', forwardAbort)
     },
   }
@@ -422,17 +553,47 @@ export async function executeSubagent(
     prompt,
     spawnParams,
   } = withDefaults
-  const timeoutMs = isEditorProposalAgent(agentTemplate.id)
-    ? getEditorProposalTimeoutMs()
-    : undefined
-  const timeoutMessage = `Subagent ${agentTemplate.id} timed out after ${Math.round(
-    (timeoutMs ?? 0) / 1000,
-  )}s while generating an editor proposal. Set OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS=0 to disable this guard.`
-  const timeoutSignal = createTimeoutSignal({
-    parentSignal: withDefaults.signal,
-    timeoutMs,
-    timeoutMessage,
+  const isProposalAgent = isEditorProposalAgent(agentTemplate.id)
+  const timeoutConfig = isProposalAgent
+    ? getEditorProposalTimeoutConfig(spawnParams)
+    : {
+        firstProgressTimeoutMs: undefined,
+        idleTimeoutMs: undefined,
+        hardTimeoutMs: undefined,
+      }
+  const firstProgressTimeoutMessage = buildEditorProposalTimeoutMessage({
+    agentId: agentTemplate.id,
+    timeoutMs: timeoutConfig.firstProgressTimeoutMs,
+    reason: 'without producing progress',
   })
+  const idleTimeoutMessage = buildEditorProposalTimeoutMessage({
+    agentId: agentTemplate.id,
+    timeoutMs: timeoutConfig.idleTimeoutMs,
+    reason: 'without new progress',
+  })
+  const hardTimeoutMessage = buildEditorProposalTimeoutMessage({
+    agentId: agentTemplate.id,
+    timeoutMs: timeoutConfig.hardTimeoutMs,
+    reason: 'hard limit',
+  })
+  const timeoutSignal = createProgressAwareTimeoutSignal({
+    parentSignal: withDefaults.signal,
+    firstProgressTimeoutMs: timeoutConfig.firstProgressTimeoutMs,
+    idleTimeoutMs: timeoutConfig.idleTimeoutMs,
+    hardTimeoutMs: timeoutConfig.hardTimeoutMs,
+    firstProgressTimeoutMessage,
+    idleTimeoutMessage,
+    hardTimeoutMessage,
+  })
+  const recordProposalProgress = (chunk: string | PrintModeEvent) => {
+    if (isProposalAgent && isEditorProposalProgressChunk(chunk)) {
+      timeoutSignal.recordProgress()
+    }
+  }
+  const forwardResponseChunk = (chunk: string | PrintModeEvent) => {
+    recordProposalProgress(chunk)
+    onResponseChunk(chunk)
+  }
 
   const startEvent = {
     type: 'subagent_start' as const,
@@ -451,6 +612,7 @@ export async function executeSubagent(
     result = await loopAgentSteps({
       ...withDefaults,
       signal: timeoutSignal.signal,
+      onResponseChunk: forwardResponseChunk,
       // Don't propagate parent's image content to subagents.
       // If subagents need to see images, they get them through includeMessageHistory,
       // not by creating new image-containing messages for their prompts.
@@ -458,11 +620,39 @@ export async function executeSubagent(
       ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
       agentType: agentTemplate.id,
     })
+    if (timeoutSignal.didTimeout()) {
+      const timeoutMessage = timeoutSignal.getTimeoutMessage()
+      const recoveredResult = buildRecoveredEditorProposalTimeoutResult({
+        agentTemplate,
+        agentState: withDefaults.agentState,
+        spawnParams,
+        timeoutConfig,
+        timeoutMessage,
+      })
+      if (recoveredResult) {
+        result = recoveredResult
+      } else {
+        throw new Error(timeoutMessage)
+      }
+    }
   } catch (error) {
     if (timeoutSignal.didTimeout()) {
-      throw new Error(timeoutMessage)
+      const timeoutMessage = timeoutSignal.getTimeoutMessage()
+      const recoveredResult = buildRecoveredEditorProposalTimeoutResult({
+        agentTemplate,
+        agentState: withDefaults.agentState,
+        spawnParams,
+        timeoutConfig,
+        timeoutMessage,
+      })
+      if (recoveredResult) {
+        result = recoveredResult
+      } else {
+        throw new Error(timeoutMessage)
+      }
+    } else {
+      throw error
     }
-    throw error
   } finally {
     timeoutSignal.cleanup()
   }
@@ -483,4 +673,597 @@ export async function executeSubagent(
   }
 
   return result
+}
+
+function buildEditorProposalTimeoutMessage(params: {
+  agentId: string
+  timeoutMs: number | undefined
+  reason: string
+}): string {
+  const { agentId, timeoutMs, reason } = params
+  return `Subagent ${agentId} timed out after ${Math.round(
+    (timeoutMs ?? 0) / 1000,
+  )}s ${reason} while generating an editor proposal. Set OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS=0 to disable this guard.`
+}
+
+function isEditorProposalProgressChunk(
+  chunk: string | PrintModeEvent,
+): boolean {
+  if (typeof chunk === 'string') {
+    return chunk.trim().length > 0
+  }
+
+  if (chunk.type === 'text') {
+    return chunk.text.trim().length > 0
+  }
+  if (chunk.type === 'reasoning_delta') {
+    return chunk.text.trim().length > 0
+  }
+  if (chunk.type === 'tool_call') {
+    return true
+  }
+  if (chunk.type === 'tool_result') {
+    return Array.isArray(chunk.output) && chunk.output.length > 0
+  }
+  return false
+}
+
+function buildRecoveredEditorProposalTimeoutResult(params: {
+  agentTemplate: AgentTemplate
+  agentState: AgentState
+  spawnParams: unknown
+  timeoutConfig: {
+    firstProgressTimeoutMs: number | undefined
+    idleTimeoutMs: number | undefined
+    hardTimeoutMs: number | undefined
+  }
+  timeoutMessage: string
+}): Awaited<ReturnType<typeof loopAgentSteps>> | undefined {
+  const {
+    agentTemplate,
+    agentState,
+    spawnParams,
+    timeoutConfig,
+    timeoutMessage,
+  } = params
+  if (!isEditorProposalAgent(agentTemplate.id)) {
+    return undefined
+  }
+
+  const latestAttemptMessages = getMessagesSinceLastProposalRetry(
+    agentState.messageHistory,
+  )
+  const rawToolCalls = getProposalToolCallsFromMessages(latestAttemptMessages)
+  const rawToolResults = dedupeProposalToolResults(
+    getProposalToolResults(latestAttemptMessages),
+  )
+  const toolResults = filterIgnorableNoOpProposalFailures(
+    sanitizeRecoverableMixedProposalResults(rawToolResults),
+  )
+  const toolCalls = sanitizeProposalToolCallsForRecoverableFailures({
+    toolCalls: rawToolCalls,
+    rawToolResults,
+  })
+  const unifiedDiffs = toolResults
+    .filter(isSuccessfulProposalToolResult)
+    .map((result: any) => `--- ${result.file} ---\n${result.unifiedDiff}`)
+    .join('\n\n')
+
+  if (toolCalls.length === 0 && !unifiedDiffs) {
+    return undefined
+  }
+
+  return {
+    agentState,
+    output: {
+      type: 'structuredOutput',
+      value: {
+        toolCalls,
+        toolResults,
+        unifiedDiffs,
+        stopReason: inferRecoveredProposalStopReason({
+          latestAttemptMessages,
+          spawnParams,
+          toolCalls,
+          toolResults,
+          unifiedDiffs,
+        }),
+        proposalBudget: {
+          ...timeoutConfig,
+          recoveredFromTimeout: true,
+        },
+        timeoutMessage,
+        ...(toolCalls.length === 0 && !unifiedDiffs
+          ? { errorMessage: timeoutMessage }
+          : {}),
+      },
+    },
+  }
+}
+
+function inferRecoveredProposalStopReason(params: {
+  latestAttemptMessages: Message[]
+  spawnParams: unknown
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+  unifiedDiffs: string
+}): 'cleanProposal' | 'noCompletionSignal' | 'noProposal' {
+  const {
+    latestAttemptMessages,
+    spawnParams,
+    toolCalls,
+    toolResults,
+    unifiedDiffs,
+  } = params
+  if (toolCalls.length === 0 && !unifiedDiffs) return 'noProposal'
+  if (!shouldCollectProposalBundle(spawnParams)) return 'cleanProposal'
+  if (hasProposalCompletionSignal(latestAttemptMessages)) {
+    return 'cleanProposal'
+  }
+  return hasSufficientProposalCompletionEvidence({
+    spawnParams,
+    toolCalls,
+    toolResults,
+  })
+    ? 'cleanProposal'
+    : 'noCompletionSignal'
+}
+
+function shouldCollectProposalBundle(spawnParams: unknown): boolean {
+  if (!spawnParams || typeof spawnParams !== 'object') return false
+  const value = (spawnParams as Record<string, unknown>).proposalBundleMode
+  return value === true || value === 'true'
+}
+
+function hasSufficientProposalCompletionEvidence(params: {
+  spawnParams: unknown
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+}): boolean {
+  const proposedFileCount = getUniqueProposedFilePaths(params).length
+  if (proposedFileCount === 0) return false
+  return proposedFileCount >= getMinimumProposalFileCountForCompletion(
+    params.spawnParams,
+  )
+}
+
+function getMinimumProposalFileCountForCompletion(spawnParams: unknown): number {
+  const context = collectProposalSpawnParamText(spawnParams)
+  const explicitFilePathCount = countUniqueMatches(
+    context,
+    /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)\b/g,
+  )
+  const expectsMultipleFiles =
+    explicitFilePathCount > 1 ||
+    /\b(multi[- ]file|multiple files|cross[- ]file)\b/i.test(context)
+  return expectsMultipleFiles ? 2 : 1
+}
+
+function collectProposalSpawnParamText(spawnParams: unknown): string {
+  if (!spawnParams || typeof spawnParams !== 'object') return ''
+  const params = spawnParams as Record<string, unknown>
+  return [
+    params.proposalStrategy,
+    params.proposalContext,
+    params.previousFailure,
+    params.proposalRequirements,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join('\n')
+}
+
+function countUniqueMatches(text: string, pattern: RegExp): number {
+  return new Set(Array.from(text.matchAll(pattern), (match) => match[0])).size
+}
+
+function getUniqueProposedFilePaths(input: {
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+}): string[] {
+  const paths = new Set<string>()
+  for (const toolCall of input.toolCalls) {
+    const path = getProposalToolCallPath(toolCall)
+    if (path) paths.add(path)
+  }
+  for (const result of input.toolResults) {
+    const path = getProposalToolResultPath(result)
+    if (path) paths.add(path)
+  }
+  return [...paths]
+}
+
+function getProposalToolCallPath(toolCall: {
+  toolName: string
+  input: any
+}): string {
+  return typeof toolCall.input?.path === 'string' ? toolCall.input.path : ''
+}
+
+function getProposalToolResultPath(result: any): string {
+  if (!result || typeof result !== 'object') return ''
+  if (typeof result.file === 'string') return result.file
+  return typeof result.path === 'string' ? result.path : ''
+}
+
+function getMessagesSinceLastProposalRetry(messages: Message[]): Message[] {
+  const lastRetryIndex = messages.findLastIndex(
+    (message) =>
+      Array.isArray((message as any)?.tags) &&
+      (message as any).tags.includes('PROPOSAL_RETRY'),
+  )
+  return lastRetryIndex === -1 ? messages : messages.slice(lastRetryIndex + 1)
+}
+
+function hasProposalCompletionSignal(messages: Message[]): boolean {
+  return messages.some((message) =>
+    getMessageText(message).includes(EDITOR_PROPOSAL_COMPLETION_MARKER),
+  )
+}
+
+function getMessageText(message: any): string {
+  const content = message?.content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+
+  return content
+    .map((part: any) => {
+      if (typeof part === 'string') return part
+      if (part?.type === 'text' && typeof part.text === 'string') {
+        return part.text
+      }
+      if (part?.type === 'json') {
+        try {
+          return JSON.stringify(part.value)
+        } catch {
+          return ''
+        }
+      }
+      return ''
+    })
+    .join('\n')
+}
+
+function getProposalToolCallsFromMessages(
+  messages: Message[],
+): { toolName: string; input: any }[] {
+  const toolCalls: { toolName: string; input: any }[] = []
+  for (const message of messages) {
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+      continue
+    }
+    for (const part of message.content as any[]) {
+      if (part.type === 'tool-call') {
+        if (isProposalToolName(part.toolName)) {
+          toolCalls.push({
+            toolName: part.toolName,
+            input: part.input ?? part.args ?? {},
+          })
+        }
+      } else if (part.type === 'text' && typeof part.text === 'string') {
+        const matches = part.text.matchAll(
+          /<codebuff_tool_call>([\s\S]*?)<\/codebuff_tool_call>/g,
+        )
+        for (const match of matches) {
+          try {
+            const parsed = JSON.parse(match[1].trim())
+            const toolName = parsed.cb_tool_name
+            if (isProposalToolName(toolName)) {
+              const input = { ...parsed }
+              delete input.cb_tool_name
+              delete input.cb_easp
+              toolCalls.push({ toolName, input })
+            }
+          } catch {
+            // Ignore malformed proposal blocks during timeout recovery.
+          }
+        }
+      }
+    }
+  }
+  return dedupeProposalToolCalls(toolCalls)
+}
+
+function getProposalToolResults(messages: Message[]): any[] {
+  const results: any[] = []
+  for (const message of messages as any[]) {
+    if (
+      message.role !== 'tool' ||
+      !Array.isArray(message.content) ||
+      (message.toolName !== 'propose_str_replace' &&
+        message.toolName !== 'propose_write_file')
+    ) {
+      continue
+    }
+
+    results.push(...getProposalToolResultValues(message.content))
+  }
+  return results
+}
+
+function getProposalToolResultValues(toolResult: any): any[] {
+  if (!Array.isArray(toolResult)) return []
+  const results: any[] = []
+  for (const part of toolResult) {
+    if (part?.type === 'json' && 'value' in part) {
+      results.push(...flattenProposalToolResultValues(part.value))
+    }
+  }
+  return results
+}
+
+function flattenProposalToolResultValues(value: any): any[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(flattenProposalToolResultValues)
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    value.type === 'json' &&
+    'value' in value
+  ) {
+    return flattenProposalToolResultValues(value.value)
+  }
+  return value === undefined || value === null ? [] : [value]
+}
+
+function isSuccessfulProposalToolResult(result: any): boolean {
+  return Boolean(
+    result &&
+      typeof result === 'object' &&
+      'unifiedDiff' in result &&
+      typeof result.unifiedDiff === 'string' &&
+      result.unifiedDiff.trim().length > 0 &&
+      !getProposalResultFailureMessage(result),
+  )
+}
+
+function getProposalResultFailureMessage(result: any): string {
+  if (!result || typeof result !== 'object') return ''
+  if (
+    typeof result.errorMessage === 'string' &&
+    result.errorMessage.trim().length > 0
+  ) {
+    return result.errorMessage.trim()
+  }
+  if (typeof result.error === 'string' && result.error.trim().length > 0) {
+    return result.error.trim()
+  }
+  if (
+    typeof result.message === 'string' &&
+    /(?:old string[\s\S]*not found|was not found|no change to the file|skipping|found \d+ occurrences|failed|error|does not exist|same as the old content)/i.test(
+      result.message,
+    )
+  ) {
+    return result.message.trim()
+  }
+  return ''
+}
+
+function sanitizeRecoverableMixedProposalResults(results: any[]): any[] {
+  return results.map((result) =>
+    isRecoverableMixedProposalFailure(result)
+      ? {
+          ...result,
+          message:
+            'Proposed string replacement; unmatched replacement omitted from proposal.',
+        }
+      : result,
+  )
+}
+
+function isRecoverableMixedProposalFailure(result: any): boolean {
+  return Boolean(
+    result &&
+      typeof result === 'object' &&
+      typeof result.unifiedDiff === 'string' &&
+      result.unifiedDiff.trim().length > 0 &&
+      typeof result.message === 'string' &&
+      getFailedReplacementOldStrings(result.message).length > 0,
+  )
+}
+
+function sanitizeProposalToolCallsForRecoverableFailures(input: {
+  toolCalls: { toolName: string; input: any }[]
+  rawToolResults: any[]
+}): { toolName: string; input: any }[] {
+  const failedOldStringsByPath = getRecoverableFailedOldStringsByPath(
+    input.rawToolResults,
+  )
+  if (failedOldStringsByPath.size === 0) return input.toolCalls
+
+  return input.toolCalls
+    .map((toolCall) =>
+      sanitizeProposalToolCallForRecoverableFailures(
+        toolCall,
+        failedOldStringsByPath,
+      ),
+    )
+    .filter(
+      (
+        toolCall,
+      ): toolCall is {
+        toolName: string
+        input: any
+      } => Boolean(toolCall),
+    )
+}
+
+function sanitizeProposalToolCallForRecoverableFailures(
+  toolCall: { toolName: string; input: any },
+  failedOldStringsByPath: Map<string, Set<string>>,
+): { toolName: string; input: any } | undefined {
+  if (toolCall.toolName !== 'propose_str_replace') return toolCall
+
+  const path = getProposalToolCallPath(toolCall)
+  const failedOldStrings = failedOldStringsByPath.get(path)
+  if (!failedOldStrings || !Array.isArray(toolCall.input?.replacements)) {
+    return toolCall
+  }
+
+  const replacements = toolCall.input.replacements.filter(
+    (replacement: any) =>
+      !replacementMatchesFailedOldString(replacement, failedOldStrings),
+  )
+  if (replacements.length === 0) return undefined
+  if (replacements.length === toolCall.input.replacements.length) {
+    return toolCall
+  }
+
+  return {
+    ...toolCall,
+    input: {
+      ...toolCall.input,
+      replacements,
+    },
+  }
+}
+
+function getRecoverableFailedOldStringsByPath(
+  rawToolResults: any[],
+): Map<string, Set<string>> {
+  const byPath = new Map<string, Set<string>>()
+  for (const result of rawToolResults) {
+    if (!isRecoverableMixedProposalFailure(result)) continue
+
+    const path = getProposalToolResultPath(result)
+    if (!path) continue
+
+    const failedOldStrings = getFailedReplacementOldStrings(result.message)
+    if (failedOldStrings.length === 0) continue
+
+    const existing = byPath.get(path) ?? new Set<string>()
+    for (const oldString of failedOldStrings) {
+      existing.add(oldString)
+    }
+    byPath.set(path, existing)
+  }
+  return byPath
+}
+
+function replacementMatchesFailedOldString(
+  replacement: any,
+  failedOldStrings: Set<string>,
+): boolean {
+  const oldString = getReplacementOldString(replacement)
+  return Boolean(oldString && failedOldStrings.has(oldString))
+}
+
+function getReplacementOldString(replacement: any): string {
+  if (!replacement || typeof replacement !== 'object') return ''
+  if (typeof replacement.oldString === 'string') return replacement.oldString
+  return typeof replacement.old === 'string' ? replacement.old : ''
+}
+
+function getFailedReplacementOldStrings(message: string): string[] {
+  const failedOldStrings = new Set<string>()
+  const quotedPatterns = [
+    /old string\s+("(?:\\.|[^"\\])*")\s+was not found/gi,
+    /found \d+ occurrences of\s+("(?:\\.|[^"\\])*")/gi,
+  ]
+
+  for (const pattern of quotedPatterns) {
+    for (const match of message.matchAll(pattern)) {
+      const parsed = parseJsonQuotedString(match[1])
+      if (parsed) failedOldStrings.add(parsed)
+    }
+  }
+
+  return [...failedOldStrings]
+}
+
+function parseJsonQuotedString(value: string | undefined): string {
+  if (!value) return ''
+  try {
+    const parsed = JSON.parse(value)
+    return typeof parsed === 'string' ? parsed : ''
+  } catch {
+    return value.replace(/^"|"$/g, '')
+  }
+}
+
+function filterIgnorableNoOpProposalFailures(results: any[]): any[] {
+  const successfulPaths = new Set(
+    results
+      .filter(isSuccessfulProposalToolResult)
+      .map(getProposalToolResultPath)
+      .filter(Boolean),
+  )
+  if (successfulPaths.size === 0) return results
+
+  return results.filter(
+    (result) => !isIgnorableNoOpProposalFailure(result, successfulPaths),
+  )
+}
+
+function isIgnorableNoOpProposalFailure(
+  result: any,
+  successfulPaths: Set<string>,
+): boolean {
+  const failureMessage = getProposalResultFailureMessage(result)
+  if (
+    !/(?:no change to the file|same as the old content)/i.test(failureMessage)
+  ) {
+    return false
+  }
+
+  const path = getProposalToolResultPath(result)
+  return Boolean(path && successfulPaths.has(path))
+}
+
+function isProposalToolName(toolName: any): boolean {
+  return (
+    toolName === 'propose_str_replace' || toolName === 'propose_write_file'
+  )
+}
+
+function dedupeProposalToolResults(results: any[]): any[] {
+  const seen = new Set<string>()
+  const deduped: any[] = []
+  for (const result of results) {
+    const key = getProposalToolResultKey(result)
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
+    deduped.push(result)
+  }
+  return deduped
+}
+
+function getProposalToolResultKey(result: any): string {
+  if (!result || typeof result !== 'object') return ''
+  const file = typeof result.file === 'string' ? result.file : ''
+  const unifiedDiff =
+    typeof result.unifiedDiff === 'string' ? result.unifiedDiff : ''
+  const errorMessage =
+    typeof result.errorMessage === 'string' ? result.errorMessage : ''
+  const error = typeof result.error === 'string' ? result.error : ''
+  const message = typeof result.message === 'string' ? result.message : ''
+  if (!file && !unifiedDiff && !errorMessage && !error && !message) {
+    return ''
+  }
+  return [file, unifiedDiff, errorMessage, error, message].join('\0')
+}
+
+function dedupeProposalToolCalls(
+  toolCalls: { toolName: string; input: any }[],
+): { toolName: string; input: any }[] {
+  const seen = new Set<string>()
+  const deduped: { toolName: string; input: any }[] = []
+  for (const toolCall of toolCalls) {
+    const key = getProposalToolCallKey(toolCall)
+    if (key && seen.has(key)) continue
+    if (key) seen.add(key)
+    deduped.push(toolCall)
+  }
+  return deduped
+}
+
+function getProposalToolCallKey(toolCall: {
+  toolName: string
+  input: any
+}): string {
+  try {
+    return `${toolCall.toolName}\0${JSON.stringify(toolCall.input)}`
+  } catch {
+    return toolCall.toolName
+  }
 }

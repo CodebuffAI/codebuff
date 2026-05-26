@@ -167,8 +167,32 @@ export const extractSpawnAgentResultContent = (
   if (obj.errorMessage) {
     return { content: String(obj.errorMessage), hasError: true }
   }
+  if (obj.error) {
+    return { content: String(obj.error), hasError: true }
+  }
+  if (obj.type === 'error') {
+    return {
+      content:
+        typeof obj.message === 'string'
+          ? obj.message
+          : formatToolOutput([{ type: 'json', value: obj }]),
+      hasError: true,
+    }
+  }
   if ((obj.value as any)?.errorMessage) {
     return { content: String((obj.value as any).errorMessage), hasError: true }
+  }
+  if ((obj.value as any)?.error) {
+    return { content: String((obj.value as any).error), hasError: true }
+  }
+  if ((obj.value as any)?.type === 'error') {
+    return {
+      content:
+        typeof (obj.value as any).message === 'string'
+          ? (obj.value as any).message
+          : formatToolOutput([{ type: 'json', value: obj.value }]),
+      hasError: true,
+    }
   }
 
   // Handle lastMessage and allMessages output modes: { type: "lastMessage"|"allMessages", value: [Message array] }
@@ -191,6 +215,12 @@ export const extractSpawnAgentResultContent = (
       const valueObj = value as Record<string, unknown>
       if (typeof valueObj.message === 'string') {
         return { content: valueObj.message, hasError: false }
+      }
+      if (typeof valueObj.errorMessage === 'string') {
+        return { content: valueObj.errorMessage, hasError: true }
+      }
+      if (typeof valueObj.error === 'string') {
+        return { content: valueObj.error, hasError: true }
       }
       // Check for data.message pattern
       if (valueObj.data && typeof valueObj.data === 'object') {

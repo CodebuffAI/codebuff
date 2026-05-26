@@ -6,6 +6,8 @@ English | [简体中文](./README.zh-CN.md)
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
+> **Fork & compatibility note:** Openbuff is a fork of Codebuff focused on local-first, bring-your-own-key (BYOK) usage with user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
+
 <div align="center">
   <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
 </div>
@@ -104,7 +106,7 @@ export default {
 
 ## SDK: Run agents in production
 
-Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk) -- note this is different than the CLI codebuff package.
+Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk). The npm package name remains `@codebuff/sdk` for backward compatibility; it works with both Openbuff and Codebuff clients.
 
 ```bash
 npm install @codebuff/sdk
@@ -260,15 +262,11 @@ Some ways you can help:
 
 ### Resources
 
-**Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
+**Documentation**: See the [docs/](./docs) directory and [AGENTS.md](./AGENTS.md) for project docs.
 
-**Community**: [Discord](https://codebuff.com/discord)
-
-**Issues & Ideas**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+**Community & Support**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
 
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
-
-**Support**: [support@codebuff.com](mailto:support@codebuff.com)
 
 ## Star History
 

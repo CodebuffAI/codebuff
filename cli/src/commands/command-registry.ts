@@ -72,6 +72,8 @@ export type CommandResult = {
   openPublishMode?: boolean
   openChatHistory?: boolean
   openReviewScreen?: boolean
+  openModelRoutePicker?: boolean
+  openProviderPicker?: boolean
   preSelectAgents?: string[]
 } | void
 
@@ -395,14 +397,22 @@ const ALL_COMMANDS: CommandDefinition[] = [
       }
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+      return
     },
   }),
   defineCommandWithArgs({
     name: 'models',
     handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      if (trimmedArgs.match(/^(configure|wizard)$/)) {
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return { openModelRoutePicker: true }
+      }
+
       let message: string
       try {
-        message = args.trim()
+        message = trimmedArgs
           ? configureOpenbuffModelFromArgs(args)
           : formatOpenbuffModelStatus()
       } catch (error) {
@@ -413,24 +423,27 @@ const ALL_COMMANDS: CommandDefinition[] = [
         getUserMessage(params.inputValue.trim()),
         getSystemMessage(message),
       ])
-      if (args.trim().match(/^(configure|wizard)$/)) {
-        useChatStore.getState().setInputMode('openbuff:models')
-      }
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+      return
     },
   }),
   defineCommandWithArgs({
     name: 'provider',
     handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      if (trimmedArgs.match(/^(add|wizard)$/)) {
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return { openProviderPicker: true }
+      }
+
       let message: string
-      let startWizard = false
       let connectCodex = false
       try {
-        if (args.trim()) {
+        if (trimmedArgs) {
           const result = handleOpenbuffProviderCommand(args)
           message = result.message
-          startWizard = !!result.startWizard
           connectCodex = !!result.connectCodex
         } else {
           message = formatOpenbuffProviderStatus()
@@ -443,13 +456,12 @@ const ALL_COMMANDS: CommandDefinition[] = [
         getUserMessage(params.inputValue.trim()),
         getSystemMessage(message),
       ])
-      if (startWizard) {
-        useChatStore.getState().setInputMode('openbuff:provider')
-      } else if (connectCodex) {
+      if (connectCodex) {
         useChatStore.getState().setInputMode('connect:chatgpt')
       }
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+      return
     },
   }),
   defineCommand({

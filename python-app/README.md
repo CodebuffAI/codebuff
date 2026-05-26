@@ -1,10 +1,13 @@
-# Codebuff (only available with npm currently)
+# Openbuff (Python app companion)
 
-Codebuff is an AI-powered coding assistant.
+Openbuff is an AI-powered coding assistant that works with your own custom
+providers and local/BYOK setup. This directory contains the Python application
+companion.
 
 ## Installation
 
-For now, please install Codebuff via npm:
+The primary Openbuff CLI is distributed via npm (the `codebuff` package name is
+preserved for upstream compatibility):
 
 ```
 npm install -g codebuff
@@ -12,4 +15,6 @@ npm install -g codebuff
 
 ## Feedback
 
-We value your input! Please email your feedback to founders@codebuff.com. Thank you for your interest in Codebuff!
+We value your input! Please open a
+[GitHub Issue](https://github.com/nicholasgriffintn/openbuff/issues) or start a
+discussion in the repository. Thank you for your interest in Openbuff!

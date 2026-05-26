@@ -222,14 +222,17 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let toolNamesSentToProvider: string[] = []
     let maxOutputTokensSentToProvider: number | undefined
     let toolChoiceSentToProvider: unknown
+    let messagesSentToProvider: any[] = []
 
     agentRuntimeImpl.promptAiSdkStream = mock(async function* ({
       agentId,
       maxOutputTokens,
+      messages,
       toolChoice,
       tools,
     }) {
       routedAgentId = agentId
+      messagesSentToProvider = messages
       toolNamesSentToProvider = Object.keys(tools ?? {})
       maxOutputTokensSentToProvider = maxOutputTokens
       toolChoiceSentToProvider = toolChoice
@@ -242,6 +245,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       id: 'editor-implementor-proposal-2',
       displayName: 'Implementation Proposal 2',
       toolNames: ['propose_str_replace', 'propose_write_file'],
+      inheritParentSystemPrompt: true,
       handleSteps: function* () {
         yield 'STEP'
       },
@@ -262,13 +266,30 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates: {
         'editor-implementor-proposal-2': proposalTemplate,
       },
+      parentSystemPrompt: 'Parent prompt that mentions write_file.',
+      parentTools: {
+        write_file: {} as any,
+        str_replace: {} as any,
+        set_output: {} as any,
+      },
     })
 
     expect(routedAgentId).toBe('editor-implementor-proposal-2')
     expect(toolNamesSentToProvider).toContain('propose_str_replace')
     expect(toolNamesSentToProvider).toContain('propose_write_file')
+    expect(toolNamesSentToProvider).not.toContain('write_file')
+    expect(toolNamesSentToProvider).not.toContain('str_replace')
     expect(maxOutputTokensSentToProvider).toBe(32_000)
     expect(toolChoiceSentToProvider).toBe('required')
+
+    const instructionsText = messagesSentToProvider
+      .flatMap((message) => message.content ?? [])
+      .filter((part) => part?.type === 'text')
+      .map((part) => part.text)
+      .join('\n')
+    expect(instructionsText).toContain(
+      'only has access to the following tools: propose_str_replace, propose_write_file',
+    )
   })
 
   it('should demonstrate correct behavior when programmatic agent completes without STEP', async () => {

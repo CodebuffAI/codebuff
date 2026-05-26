@@ -1,10 +1,10 @@
-# Codebuff Community Code of Conduct
+# Openbuff Community Code of Conduct
 
 ## Our Pledge
 
 In the interest of fostering an open and welcoming environment, we as contributors and maintainers pledge to make participation in our project and our community, as much as possible, a harassment-free experience where everyone is treated with respect.
 
-Let's go Codebuff Community!!!
+Let's go Openbuff Community!!!
 
 ## Encouraged Behaviors
 
@@ -42,13 +42,15 @@ We agree to restrict the following behaviors in our community. Instances, threat
 
 Tensions can occur between community members even when they are trying their best to collaborate. Not every conflict represents a code of conduct violation, and this Code of Conduct reinforces encouraged behaviors and norms that can help avoid conflicts and minimize harm.
 
-When an incident does occur, it is important to report it promptly. To report a possible violation, contact the project team at support@codebuff.com.
+When an incident does occur, it is important to report it promptly. To report a possible violation, contact the Openbuff project maintainers through the fork's designated private moderation channel. If no private channel is listed yet, open a minimal GitHub issue asking maintainers to provide one; do not include sensitive personal details in public issues.
 
 Community Maintainers take reports of violations seriously and will make every effort to respond in a timely manner. They will investigate all reports of code of conduct violations. Community Maintainers will keep investigation and enforcement actions as transparent as possible while prioritizing safety and confidentiality.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public spaces. Examples of representing our community include using an official e-mail address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
+This Code of Conduct applies within all Openbuff community spaces, and also applies when an individual is officially representing the community in public spaces. Examples of representing our community include using an official e-mail address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
+
+Compatibility note: older docs, package names, and upstream references may still use Codebuff names while the Openbuff fork transition is in progress.
 
 ## Attribution
 

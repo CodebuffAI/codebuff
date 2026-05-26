@@ -16,11 +16,13 @@ import {
   PROVIDER_CONFIG_ENV_VAR,
   OPENBUFF_PROVIDER_PRESETS,
   createProviderPresetConfig,
+  formatModelCapabilitiesSummary,
   loadProviderConfigSync,
   providerConfigFileSchema,
   resolveConfiguredAgentModel,
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
+  resolveModelCapabilities,
   writeProviderConfigFile,
 } from '../provider-config'
 
@@ -71,6 +73,176 @@ describe('model-provider', () => {
       }
     })
 
+    test('parses provider capability metadata', () => {
+      const result = providerConfigFileSchema.safeParse({
+        providers: {
+          local: {
+            type: 'openai-compatible',
+            baseURL: 'http://127.0.0.1:11434/v1',
+            models: ['llama3.1'],
+            defaultCapabilities: {
+              context: { windowTokens: 128_000, outputTokens: 8_192 },
+              reasoning: {
+                supported: true,
+                efforts: ['low', 'medium', 'high'],
+                defaultEffort: 'medium',
+              },
+              tools: {
+                supported: true,
+                requiredToolChoice: false,
+                structuredOutputs: true,
+              },
+              promptCaching: { supported: true },
+              pricing: {
+                inputPerMillionTokens: 0.25,
+                outputPerMillionTokens: 1,
+              },
+              quality: { tier: 'balanced', score: 82 },
+            },
+            modelCapabilities: {
+              'llama3.1': {
+                context: { windowTokens: 64_000 },
+                quality: { label: 'local fast' },
+              },
+            },
+          },
+        },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        const provider = result.data.providers.local
+        expect(provider.defaultCapabilities?.context?.windowTokens).toBe(
+          128_000,
+        )
+        expect(provider.modelCapabilities?.['llama3.1']?.quality?.label).toBe(
+          'local fast',
+        )
+      }
+    })
+
+    test('normalizes legacy context and compatibility fields into capabilities', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          custom: {
+            type: 'openai-compatible',
+            baseURL: 'https://api.example.com/v1',
+            models: {
+              'custom/public-name': 'private-provider-model',
+            },
+            supportsStructuredOutputs: true,
+            compatibility: {
+              supportsTools: false,
+              supportsRequiredToolChoice: false,
+              stripCacheControl: false,
+            },
+            contextWindowTokens: 32_000,
+            modelContextWindowTokens: {
+              'private-provider-model': 64_000,
+            },
+          },
+        },
+      })
+
+      expect(
+        resolveModelCapabilities({
+          providerId: 'custom',
+          model: 'custom/public-name',
+          loadedConfig: { sourceFilePaths: [], config },
+        }),
+      ).toEqual({
+        context: { windowTokens: 64_000 },
+        tools: {
+          supported: false,
+          requiredToolChoice: false,
+          structuredOutputs: true,
+        },
+        promptCaching: { supported: true },
+      })
+    })
+
+    test('merges provider default capabilities before model overrides', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          custom: {
+            type: 'openai-compatible',
+            baseURL: 'https://api.example.com/v1',
+            models: {
+              'custom/public-name': 'private-provider-model',
+            },
+            contextWindowTokens: 32_000,
+            defaultCapabilities: {
+              context: { outputTokens: 4_096 },
+              tools: { structuredOutputs: true },
+              quality: { tier: 'balanced' },
+            },
+            modelCapabilities: {
+              'private-provider-model': {
+                context: { windowTokens: 96_000 },
+                pricing: {
+                  inputPerMillionTokens: 0.5,
+                  outputPerMillionTokens: 2,
+                },
+              },
+              'custom/public-name': {
+                reasoning: {
+                  supported: true,
+                  efforts: ['high'],
+                },
+                quality: { label: 'best public route' },
+              },
+            },
+          },
+        },
+      })
+
+      expect(
+        resolveModelCapabilities({
+          providerId: 'custom',
+          model: 'custom/public-name',
+          loadedConfig: { sourceFilePaths: [], config },
+        }),
+      ).toEqual({
+        context: { windowTokens: 96_000, outputTokens: 4_096 },
+        tools: {
+          supported: true,
+          requiredToolChoice: true,
+          structuredOutputs: true,
+        },
+        promptCaching: { supported: false },
+        pricing: {
+          inputPerMillionTokens: 0.5,
+          outputPerMillionTokens: 2,
+          currency: 'USD',
+        },
+        quality: { tier: 'balanced', label: 'best public route' },
+        reasoning: { supported: true, efforts: ['high'] },
+      })
+    })
+
+    test('formats concise model capability summaries', () => {
+      expect(
+        formatModelCapabilitiesSummary({
+          context: { windowTokens: 128_000, outputTokens: 8_192 },
+          reasoning: { supported: true, efforts: ['low', 'high'] },
+          tools: {
+            supported: true,
+            requiredToolChoice: false,
+            structuredOutputs: true,
+          },
+          promptCaching: { supported: true },
+          pricing: {
+            inputPerMillionTokens: 0.25,
+            outputPerMillionTokens: 1.5,
+            currency: 'USD',
+          },
+          quality: { tier: 'frontier' },
+        }),
+      ).toBe(
+        '128k ctx; 8.19k out; reasoning low/high; tools+no-required+structured; prompt-cache; $0.25/$1.5/M; quality frontier',
+      )
+    })
+
     test('resolves provider-prefixed model ids to provider model ids', () => {
       process.env.OPENCODE_GO_API_KEY = 'test-key'
 
@@ -110,8 +282,6 @@ describe('model-provider', () => {
       expect(resolved?.apiKey).toBe('test-key')
     })
 
-
-
     test('disables DeepSeek thinking mode for OpenAI-compatible tool loops', () => {
       const transformed = applyConfiguredProviderRequestCompatibility(
         {
@@ -140,6 +310,22 @@ describe('model-provider', () => {
 
       expect(transformed.tool_choice).toBeUndefined()
       expect(transformed.thinking).toBeUndefined()
+    })
+
+    test('does not downgrade required tool choice for proposal agents', () => {
+      const transformed = applyConfiguredProviderRequestCompatibility(
+        {
+          model: 'deepseek-v4-pro',
+          messages: [{ role: 'user', content: 'hello' }],
+          tool_choice: 'required',
+        },
+        {
+          providerModel: 'deepseek-v4-pro',
+          isProposalAgent: true,
+        },
+      )
+
+      expect(transformed.tool_choice).toBe('required')
     })
 
     test('downgrades required tool choice for providers that opt out', () => {
@@ -285,7 +471,9 @@ describe('model-provider', () => {
     })
 
     test('getModelForRequest returns a configured provider model', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const configPath = path.join(tempDir, 'openbuff.json')
       fs.writeFileSync(
         configPath,
@@ -312,7 +500,9 @@ describe('model-provider', () => {
     })
 
     test('discovers openbuff.json in an ancestor directory', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
       const childDir = path.join(tempDir, 'nested', 'child')
       fs.mkdirSync(childDir, { recursive: true })
       fs.writeFileSync(
@@ -339,7 +529,9 @@ describe('model-provider', () => {
     })
 
     test('getModelForRequest fails instead of using hosted backend fallback for unmatched models', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
       const configPath = path.join(tempDir, 'openbuff.json')
       fs.writeFileSync(
         configPath,
@@ -364,7 +556,9 @@ describe('model-provider', () => {
     })
 
     test('supports default and per-agent model overrides before provider routing', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
       const configPath = path.join(tempDir, 'openbuff.json')
       fs.writeFileSync(
         configPath,
@@ -385,18 +579,24 @@ describe('model-provider', () => {
       )
       process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
 
-      expect(resolveConfiguredAgentModel({
-        model: 'anthropic/claude-opus-4.7',
-        agentId: 'base2',
-      })).toBe('local/qwen-coder')
-      expect(resolveConfiguredAgentModel({
-        model: 'anthropic/claude-opus-4.7',
-        agentId: 'thinker',
-      })).toBe('local/deep-reasoner')
-      expect(resolveConfiguredAgentModel({
-        model: 'anthropic/claude-opus-4.7',
-        agentId: 'codebuff/agent-builder@1.2.3',
-      })).toBe('local/agent-builder')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'base2',
+        }),
+      ).toBe('local/qwen-coder')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'thinker',
+        }),
+      ).toBe('local/deep-reasoner')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'codebuff/agent-builder@1.2.3',
+        }),
+      ).toBe('local/agent-builder')
 
       const result = await getModelForRequest({
         apiKey: 'openbuff-local-mode',
@@ -468,7 +668,9 @@ describe('model-provider', () => {
     })
 
     test('getModelForRequest returns configured reasoning effort with the routed model', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
       const configPath = path.join(tempDir, 'openbuff.json')
       fs.writeFileSync(
         configPath,
@@ -505,22 +707,26 @@ describe('model-provider', () => {
       const opencodeConfig = createProviderPresetConfig('opencode-go')
 
       expect(OPENBUFF_PROVIDER_PRESETS['opencode-go'].label).toBe('OpenCode Go')
-      expect(resolveConfiguredAgentModel({
-        model: 'anthropic/claude-opus-4.7',
-        agentId: 'base2-lite',
-        loadedConfig: {
-          sourceFilePaths: [],
-          config: opencodeConfig,
-        },
-      })).toBe('opencode-go/deepseek-v4-flash')
-      expect(resolveConfiguredAgentModel({
-        model: 'anthropic/claude-opus-4.7',
-        agentId: 'base2-max',
-        loadedConfig: {
-          sourceFilePaths: [],
-          config: opencodeConfig,
-        },
-      })).toBe('opencode-go/glm-5.1')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'base2-lite',
+          loadedConfig: {
+            sourceFilePaths: [],
+            config: opencodeConfig,
+          },
+        }),
+      ).toBe('opencode-go/deepseek-v4-flash')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'base2-max',
+          loadedConfig: {
+            sourceFilePaths: [],
+            config: opencodeConfig,
+          },
+        }),
+      ).toBe('opencode-go/glm-5.1')
     })
 
     test('mode routing takes precedence over root agent overrides', () => {
@@ -649,6 +855,136 @@ describe('model-provider', () => {
       ).toBe('high')
     })
 
+    test('defaults editorMultiPrompt selector to last configured proposal model', () => {
+      const config = providerConfigFileSchema.parse({
+        editorMultiPrompt: {
+          proposalModels: [
+            { model: 'opencode-go/kimi-k2.6', reasoningEffort: 'low' },
+            { model: 'opencode-go/glm-5.1', reasoningEffort: 'minimal' },
+          ],
+        },
+        providers: {
+          'opencode-go': {
+            type: 'openai-compatible',
+            baseURL: 'https://opencode.ai/zen/go/v1',
+            apiKeyEnv: 'OPENCODE_GO_API_KEY',
+            models: ['kimi-k2.6', 'glm-5.1'],
+          },
+        },
+      })
+
+      const loadedConfig = { sourceFilePaths: [], config }
+
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'best-of-n-selector2',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/glm-5.1')
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'best-of-n-selector2',
+          loadedConfig,
+        }).reasoningEffort,
+      ).toBe('minimal')
+    })
+
+    test('explicit agent routes override editorMultiPrompt convenience routes', () => {
+      const config = providerConfigFileSchema.parse({
+        editorMultiPrompt: {
+          proposalModels: [
+            { model: 'opencode-go/kimi-k2.6', reasoningEffort: 'low' },
+            { model: 'opencode-go/glm-5.1', reasoningEffort: 'low' },
+            {
+              model: 'opencode-go/deepseek-v4-pro',
+              reasoningEffort: 'minimal',
+            },
+          ],
+          selectorModel: {
+            model: 'opencode-go/glm-5.1',
+            reasoningEffort: 'low',
+          },
+        },
+        agents: {
+          'editor-implementor-proposal-2': {
+            model: 'codex/gpt-5.5',
+            reasoningEffort: 'high',
+          },
+          editor_implementor_proposal_3: 'opencode-go/minimax-m2.7',
+          'best-of-n-selector2': {
+            model: 'codex/gpt-5.5',
+            reasoningEffort: 'medium',
+          },
+        },
+        providers: {
+          'opencode-go': {
+            type: 'openai-compatible',
+            baseURL: 'https://opencode.ai/zen/go/v1',
+            apiKeyEnv: 'OPENCODE_GO_API_KEY',
+            models: ['kimi-k2.6', 'glm-5.1', 'deepseek-v4-pro', 'minimax-m2.7'],
+          },
+          codex: {
+            type: 'chatgpt-oauth',
+            models: ['gpt-5.5'],
+          },
+        },
+      })
+
+      const loadedConfig = { sourceFilePaths: [], config }
+
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-1',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/kimi-k2.6')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-2',
+          loadedConfig,
+        }),
+      ).toBe('codex/gpt-5.5')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-3',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/minimax-m2.7')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-4',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/deepseek-v4-pro')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'best-of-n-selector2',
+          loadedConfig,
+        }),
+      ).toBe('codex/gpt-5.5')
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-2',
+          loadedConfig,
+        }).reasoningEffort,
+      ).toBe('high')
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'best-of-n-selector2',
+          loadedConfig,
+        }).reasoningEffort,
+      ).toBe('medium')
+    })
+
     test('supports Codex subscription as a configurable provider', () => {
       const codexConfig = createProviderPresetConfig('codex')
 
@@ -678,7 +1014,9 @@ describe('model-provider', () => {
     })
 
     test('explicit malformed provider config fails clearly', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const configPath = path.join(tempDir, 'openbuff.json')
       fs.writeFileSync(configPath, JSON.stringify({ provider: 'bad' }))
       process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
@@ -692,7 +1030,9 @@ describe('model-provider', () => {
     })
 
     test('writeProviderConfigFile merges with existing config instead of overwriting', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const cwd = tempDir
 
       // Write initial config with opencode-go
@@ -714,11 +1054,15 @@ describe('model-provider', () => {
       const mergedConfig = JSON.parse(fs.readFileSync(openaiPath, 'utf8'))
       expect(mergedConfig.providers['opencode-go']).toBeDefined()
       expect(mergedConfig.providers['openai']).toBeDefined()
-      expect(mergedConfig.providers['openai'].baseURL).toBe('https://api.openai.com/v1')
+      expect(mergedConfig.providers['openai'].baseURL).toBe(
+        'https://api.openai.com/v1',
+      )
     })
 
     test('writeProviderConfigFile force=true overwrites existing config', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const cwd = tempDir
 
       // Write initial config with opencode-go
@@ -742,7 +1086,9 @@ describe('model-provider', () => {
     })
 
     test('writeProviderConfigFile preserves existing modes and agents during merge', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const cwd = tempDir
 
       // Write custom config with specific modes and agents
@@ -784,13 +1130,12 @@ describe('model-provider', () => {
     })
 
     test('writeProviderConfigFile throws clear error for malformed existing config without force', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-provider-'))
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'codebuff-provider-'),
+      )
       const cwd = tempDir
 
-      fs.writeFileSync(
-        path.join(cwd, 'openbuff.json'),
-        '{ "provider": "bad" }',
-      )
+      fs.writeFileSync(path.join(cwd, 'openbuff.json'), '{ "provider": "bad" }')
 
       expect(() =>
         writeProviderConfigFile({

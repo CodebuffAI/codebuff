@@ -1,4 +1,4 @@
-## Codebuff for Windows dev setup
+## Openbuff for Windows dev setup
 
 Welcome!
 
@@ -21,14 +21,14 @@ Supposedly you can also use Window's Remote Desktop to access the machine instea
 
 ## Set-up guide:
 
-You shouldn't need this - but just in case you stop using Shadow.tech, or make a new account, here's a guide on how to get from a blank Windows install to a Codebuff install.
+You shouldn't need this - but just in case you stop using Shadow.tech, or make a new account, here's a guide on how to get from a blank Windows install to an Openbuff install.
 
 Surprisingly: most guides in fact recommend running everything in an Admin PowerShell, contra to advice to not use sudo on eg: Linux/macOS.
 
 - Install Choco: Open PowerShell as Admin, and run the command from https://chocolatey.org/install
 - Install NVM: Restart PowerShell (still as Admin) and run `choco install nvm -y`
 - Install Node: Restart PowerShell (still as Admin) and run `nvm install node`
-- Install Codebuff: Run `npm i -g codebuff`
+- Install Openbuff: Run `npm i -g openbuff`
 
 ---
 
@@ -40,13 +40,13 @@ Running into problems? Here are solutions to the most common Windows-specific is
 
 **Symptom**:
 ```powershell
-PS C:\> codebuff
+PS C:\> openbuff
 ❌ Failed to determine latest version
 Please check your internet connection and try again
 ```
 
 **Cause**:
-Codebuff checks GitHub for the latest release on first run. This fails when:
+Openbuff checks GitHub for the latest release on first run. This fails when:
 - Corporate firewall blocks `github.com`
 - Proxy settings not configured
 - Network connectivity issues
@@ -56,25 +56,25 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
 
 1. **Set the `HTTPS_PROXY` environment variable** (if behind corporate proxy):
 
-   Codebuff natively supports proxy environment variables. This is the recommended fix:
+   Openbuff natively supports proxy environment variables. This is the recommended fix:
 
    **PowerShell:**
    ```powershell
    $env:HTTPS_PROXY = "http://your-proxy-server:port"
-   codebuff
+   openbuff
    ```
 
    **CMD:**
    ```cmd
    set HTTPS_PROXY=http://your-proxy-server:port
-   codebuff
+   openbuff
    ```
 
    To make it permanent, add `HTTPS_PROXY` to your Windows System Environment Variables (Settings → System → Advanced → Environment Variables).
 
 2. **Verify network access**:
    ```powershell
-   curl https://registry.npmjs.org/codebuff/latest
+   curl https://registry.npmjs.org/openbuff/latest
    ```
    If this fails, you have a network/firewall issue.
 
@@ -83,15 +83,15 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
    npm config set proxy http://your-proxy-server:port
    npm config set https-proxy http://your-proxy-server:port
    ```
-   Note: This only helps with `npm install`. Codebuff's own downloads use `HTTPS_PROXY` instead.
+   Note: This only helps with `npm install`. Openbuff's own downloads use `HTTPS_PROXY` instead.
 
-4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `codebuff.com` in your firewall
+4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `github.com` in your firewall
 
 5. **Clear npm cache and reinstall**:
    ```powershell
    npm cache clean --force
-   npm uninstall -g codebuff
-   npm install -g codebuff
+   npm uninstall -g openbuff
+   npm install -g openbuff
    ```
 
 **Reference**: Issue [#294](https://github.com/CodebuffAI/codebuff/issues/294)
@@ -106,7 +106,7 @@ Bash is required but was not found on this Windows system.
 ```
 
 **Cause**:
-Codebuff requires bash for command execution. This error appears when:
+Openbuff requires bash for command execution. This error appears when:
 - Git for Windows is not installed
 - You're not running inside WSL
 - bash.exe is not in your PATH
@@ -115,16 +115,16 @@ Codebuff requires bash for command execution. This error appears when:
 
 1. **Install Git for Windows** (recommended):
    - Download from https://git-scm.com/download/win
-   - This installs `bash.exe` which Codebuff will automatically detect
+   - This installs `bash.exe` which Openbuff will automatically detect
    - Works in PowerShell, CMD, or Git Bash terminals
 
 2. **Use WSL (Windows Subsystem for Linux)**:
    - Provides full Linux environment with native bash
    - Install: `wsl --install` in PowerShell (Admin)
-   - Run codebuff inside WSL for best compatibility
+   - Run openbuff inside WSL for best compatibility
 
 3. **Set custom bash path** (advanced):
-   - If bash.exe is installed in a non-standard location:
+   - If bash.exe is installed in a non-standard location, set the implemented Windows override:
    ```powershell
    set CODEBUFF_GIT_BASH_PATH=C:\path\to\bash.exe
    ```
@@ -145,18 +145,20 @@ Complex git commands may have issues with Windows path handling or shell escapin
 
 1. **Ensure Git for Windows is installed**:
    - Download from https://git-scm.com/download/win
-   - Codebuff uses bash.exe from Git for Windows for command execution
+   - Openbuff uses bash.exe from Git for Windows for command execution
 
 2. **Use WSL for complex operations**:
    - Provides full Linux environment with native bash
    - Install: `wsl --install` in PowerShell (Admin)
-   - Run codebuff inside WSL for best compatibility
+   - Run openbuff inside WSL for best compatibility
 
 **Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
 
 ---
 
 ### Issue: Login Browser Window Fails to Open
+
+> **Note:** This applies to legacy cloud-mode login. Openbuff local/BYOK mode does not require cloud auth.
 
 **Symptom**:
 ```
@@ -168,12 +170,12 @@ TLCWeb > Unable to login. Please try again by typing "login" in the terminal.
 ```
 
 **Cause**:
-When running Codebuff in Git Bash (MINGW64), the `start` command is not available in PATH. The browser auto-open feature fails.
+When running Openbuff in Git Bash (MINGW64), the `start` command is not available in PATH. The browser auto-open feature fails.
 
 **Solutions**:
 
 1. **Manually open the login URL** (easiest):
-   - Codebuff displays the login URL after the error
+   - Openbuff displays the login URL after the error
    - Copy the full URL starting with `https://codebuff.com/login?auth_code=...`
    - Paste into your browser
    - Complete login in browser
@@ -187,9 +189,11 @@ When running Codebuff in Git Bash (MINGW64), the `start` command is not availabl
 3. **Clear cache if login still fails** (per issue #299):
    ```powershell
    npm cache clean --force
-   npm uninstall -g codebuff
-   npm install -g codebuff
+   npm uninstall -g openbuff
+   npm install -g openbuff
    ```
+
+> **Note:** Openbuff's local/BYOK mode (`openbuff.json` provider config) does not require browser login. This issue only applies when using the upstream Codebuff cloud authentication.
 
 **Reference**: Issue [#299](https://github.com/CodebuffAI/codebuff/issues/299)
 
@@ -201,10 +205,10 @@ When running Codebuff in Git Bash (MINGW64), the `start` command is not availabl
 This is **not an error** - it's an informational message indicating:
 - Your local binary needs to be downloaded/updated
 - "error" is a placeholder version (not a real error state)
-- Codebuff will automatically download the correct version
+- Openbuff will automatically download the correct version
 
 **What to do**:
-- Wait for the download to complete: "Download complete! Starting Codebuff..."
+- Wait for the download to complete: "Download complete! Starting Openbuff..."
 - If download fails, check your internet connection
 - If it persists, try the solutions in "Failed to determine latest version" above
 
@@ -218,7 +222,7 @@ If these solutions don't resolve your problem:
 
 1. **Search existing issues**: https://github.com/CodebuffAI/codebuff/issues
 2. **Open a new issue**: https://github.com/CodebuffAI/codebuff/issues/new
-3. **Join Discord community**: https://codebuff.com/discord
+3. **Join the community**: Participate via GitHub Discussions
 
 When reporting issues, please include:
 - Windows version: `winver` command

@@ -1,6 +1,0 @@
-{
-  "last_turn_at": "2026-05-23T12:48:40.827Z",
-  "last_progress_at": "2026-05-23T12:48:40.827Z",
-  "turn_count": 1,
-  "last_agent_output": "Fixed the proposal regression and rebuilt `openbuff`.\n\nWhat was wrong:\n- The last patch made proposa"
-}

@@ -35,8 +35,7 @@ freebuff
 
 ## Links
 
-- [Documentation](https://codebuff.com/docs)
-- [GitHub](https://github.com/CodebuffAI/codebuff)
-- [Website](https://codebuff.com)
+- [GitHub](https://github.com/CodebuffAI/codebuff) (upstream)
+- [Openbuff GitHub](https://github.com/nicholasgriffintn/openbuff)
 
-> Built on the [Codebuff](https://codebuff.com) platform.
+> Built on the [Codebuff](https://codebuff.com) platform (upstream). Openbuff adds custom-provider and BYOK support.

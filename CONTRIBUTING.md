@@ -1,6 +1,6 @@
-# Contributing to Codebuff
+# Contributing to Openbuff
 
-Hey there! 👋 Thanks for contributing to Codebuff. Bug fixes, features, and documentation improvements are welcome.
+Hey there! 👋 Thanks for contributing to Openbuff. Bug fixes, features, and documentation improvements are welcome.
 
 ## Getting Started
 
@@ -79,13 +79,13 @@ Notes / gotchas:
 
    # Terminal 2 - Start the CLI (requires web server to be running)
    bun run start-cli
-   # Expected: Welcome to Codebuff! + agent list
+   # Expected: Welcome to Openbuff! + agent list
    ```
 
    Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
 
-6. **Giving yourself credits**:
-   1. Log into Codebuff at [http://localhost:3000/login](http://localhost:3000/login)
+6. **Giving yourself credits** (only needed for hosted/cloud development; Openbuff local/BYOK provider mode does not require credits):
+   1. Log into the local web dashboard at [http://localhost:3000/login](http://localhost:3000/login)
 
    2. Then give yourself lots of credits. Be generous, you're the boss now!
 
@@ -132,7 +132,7 @@ In order to run the CLI from other directories, you need to first publish the ag
 
 ## Understanding the Codebase
 
-Codebuff is organized as a monorepo with these main packages:
+Openbuff is organized as a monorepo with these main packages:
 
 - **web/**: Next.js web application and dashboard
 - **cli/**: CLI application that users interact with
@@ -152,7 +152,7 @@ Not sure where to start? Here are some great ways to jump in:
 - **New here?** Look for issues labeled `good first issue` - they're perfect for getting familiar with the codebase
 - **Ready for more?** Check out `help wanted` issues where we could really use your expertise
 - **Have an idea?** Browse open issues or create a new one to discuss it
-- **Want to chat?** Join our [Discord](https://codebuff.com/discord) - the team loves discussing new ideas!
+- **Want to chat?** Open a [GitHub Issue](https://github.com/CodebuffAI/codebuff/issues) - the team loves discussing new ideas!
 
 ### Development Workflow
 
@@ -257,10 +257,10 @@ Improve `web/`: agent management, project templates, analytics.
 - **Using Infisical?** See the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for team secrets management
 - **Empty Agent Store in dev mode?** This is expected behavior - agents from `.agents/` directory need to be published to the database to appear in the marketplace
 
-**Questions?** Jump into our [Discord community](https://codebuff.com/discord) - we're friendly and always happy to help!
+**Questions?** Open a [GitHub Issue](https://github.com/CodebuffAI/codebuff/issues) - we're friendly and always happy to help!
 
 ## Resources
 
-- **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
-- **Community Discord**: [codebuff.com/discord](https://codebuff.com/discord)
+- **Documentation**: See the [docs/](./docs) directory and [AGENTS.md](./AGENTS.md)
+- **Community & Support**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
 - **Report issues**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)

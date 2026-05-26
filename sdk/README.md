@@ -1,6 +1,8 @@
 # @codebuff/sdk
 
-Official SDK for Codebuff - AI coding agent and framework
+SDK for the Openbuff fork and legacy Codebuff hosted API compatibility.
+
+Openbuff is a Codebuff fork focused on user-configured providers and local/BYOK workflows. The published package name (`@codebuff/sdk`), client class (`CodebuffClient`), hosted API key (`CODEBUFF_API_KEY`), and hosted base agent (`codebuff/base`) remain Codebuff-named compatibility surfaces while the fork transition is in progress.
 
 ## Installation
 
@@ -8,28 +10,44 @@ Official SDK for Codebuff - AI coding agent and framework
 npm install @codebuff/sdk
 ```
 
-## Prerequisites
+## Authentication
 
-- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/api-keys).
+Choose the mode you are using:
+
+### Hosted Codebuff API (legacy)
+
+To call agents on the hosted Codebuff cloud (e.g. `codebuff/base@0.0.16`), you need a Codebuff API key:
+
+- Create a Codebuff account and get your [Codebuff API key](https://www.codebuff.com/api-keys).
+- Set `CODEBUFF_API_KEY` in your environment or pass it to the constructor.
+
+```typescript
+const client = new CodebuffClient({
+  apiKey: process.env.CODEBUFF_API_KEY,
+  cwd: process.cwd(),
+})
+```
+
+### Local / BYOK mode (Openbuff)
+
+Openbuff's local/BYOK mode lets you bring your own LLM provider keys. In this mode **no Codebuff API key is needed**. Configure your own provider credentials with the Openbuff provider configuration used by your app/CLI.
 
 ## Usage
 
-### Basic Example
+### Basic Hosted Compatibility Example
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // You need to pass in your own API key here.
-    // Get one here: https://www.codebuff.com/api-keys
     apiKey: process.env.CODEBUFF_API_KEY,
     cwd: process.cwd(),
   })
 
   // First run
   const runState1 = await client.run({
-    // The agent id. Any agent on the store (https://codebuff.com/store)
+    // Hosted Codebuff agent id from the store (https://codebuff.com/store)
     agent: 'codebuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
@@ -65,8 +83,8 @@ import type { AgentDefinition } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key.
-    // Get it here: https://www.codebuff.com/profile?tab=api-keys
+    // Required only when routing through the legacy hosted Codebuff API.
+    // Openbuff local/BYOK provider usage should use provider configuration instead.
     apiKey: process.env.CODEBUFF_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
@@ -226,11 +244,11 @@ Files ending in `.d.ts` or `.test.ts` are excluded.
 
 ### `client.run(options)`
 
-Runs a Codebuff agent with the specified options.
+Runs an agent with the specified options.
 
 #### Parameters
 
-- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, or specify a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
+- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, a hosted Codebuff agent such as `'codebuff/base@0.0.16'`, or a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
 
 - **`prompt`** (string, required): The user prompt describing what you want the agent to do.
 
@@ -240,7 +258,7 @@ Runs a Codebuff agent with the specified options.
 
 - **`previousRun`** (object, optional): JSON state returned from a previous `run()` call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
 
-- **`projectFiles`** (object, optional): All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: `{ "src/index.ts": "console.log('hi')" }`. This helps Codebuff pick good source files for context. Note: This parameter was previously named `allFiles` but has been renamed for clarity.
+- **`projectFiles`** (object, optional): All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: `{ "src/index.ts": "console.log('hi')" }`. This helps the agent pick good source files for context. Note: This parameter was previously named `allFiles` but has been renamed for clarity.
 
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 

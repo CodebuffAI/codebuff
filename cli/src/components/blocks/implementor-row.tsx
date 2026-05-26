@@ -23,6 +23,7 @@ import {
   buildActivityTimeline,
   getImplementorDisplayName,
   getImplementorIndex,
+  getImplementorPromptPreview,
   getFileStatsFromBlocks,
   truncateWithEllipsis,
   type FileStats,
@@ -123,6 +124,7 @@ const ImplementorCard = memo(
       implementorIndex,
       agentBlock.params,
     )
+    const promptPreview = getImplementorPromptPreview(agentBlock)
 
     // Get file stats for compact view
     const fileStats = useMemo(
@@ -212,11 +214,11 @@ const ImplementorCard = memo(
           </text>
         </box>
 
-        {/* Prompt provided to this proposal */}
-        {agentBlock.initialPrompt && (
+        {/* Compact strategy preview; never render raw proposal context here. */}
+        {promptPreview && (
           <box style={{ marginTop: 1, width: '100%' }}>
             <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
-              {agentBlock.initialPrompt}
+              {promptPreview}
             </text>
           </box>
         )}

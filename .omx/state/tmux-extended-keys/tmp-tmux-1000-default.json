@@ -2,16 +2,10 @@
   "originalMode": "off",
   "holders": [
     {
-      "id": "29098-1779538705757-4d7e1f99f10838",
-      "pid": 29098,
+      "id": "106169-1779779543875-c89e9f7235367",
+      "pid": 106169,
       "platform": "linux",
-      "linuxStartTicks": 61120
-    },
-    {
-      "id": "80195-1779539679132-34f3b7f68103b",
-      "pid": 80195,
-      "platform": "linux",
-      "linuxStartTicks": 158449
+      "linuxStartTicks": 403701
     }
   ]
 }

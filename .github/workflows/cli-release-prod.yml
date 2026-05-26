@@ -82,7 +82,7 @@ jobs:
     needs: prepare-and-commit-prod
     uses: ./.github/workflows/cli-release-build.yml
     with:
-      binary-name: codebuff
+      binary-name: openbuff
       new-version: ${{ needs.prepare-and-commit-prod.outputs.new_version }}
       artifact-name: updated-package
       checkout-ref: ${{ inputs.checkout_ref || github.sha }}
@@ -114,23 +114,23 @@ jobs:
           name: Release v${{ needs.prepare-and-commit-prod.outputs.new_version }}
           prerelease: false
           body: |
-            ## Codebuff v${{ needs.prepare-and-commit-prod.outputs.new_version }}
+            ## Openbuff v${{ needs.prepare-and-commit-prod.outputs.new_version }}
 
             Binary releases for all supported platforms.
 
             ### Installation
             ```bash
-            npm install -g codebuff
+            npm install -g openbuff
             ```
 
             ### Platform Binaries
-            - `codebuff-linux-x64.tar.gz` - Linux x64
-            - `codebuff-linux-arm64.tar.gz` - Linux ARM64
-            - `codebuff-darwin-x64.tar.gz` - macOS Intel
-            - `codebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
-            - `codebuff-win32-x64.tar.gz` - Windows x64
+            - `openbuff-linux-x64.tar.gz` - Linux x64
+            - `openbuff-linux-arm64.tar.gz` - Linux ARM64
+            - `openbuff-darwin-x64.tar.gz` - macOS Intel
+            - `openbuff-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `openbuff-win32-x64.tar.gz` - Windows x64
           files: |
-            binaries/*/codebuff-*
+            binaries/*/openbuff-*
           repository: CodebuffAI/codebuff-community
           token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
 

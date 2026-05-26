@@ -1,6 +1,0 @@
-{
-  "last_turn_at": "2026-05-22T17:11:46.806Z",
-  "last_progress_at": "2026-05-22T17:11:46.806Z",
-  "turn_count": 1,
-  "last_agent_output": "Done.\n\nWhat changed:\n- Fixed the GPT/Codex “only `*thinking*` blocks” path by stopping the ChatGPT/C"
-}

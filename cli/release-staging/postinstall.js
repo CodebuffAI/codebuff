@@ -32,5 +32,5 @@ console.log('Example:');
 console.log('  $ cd ~/my-project');
 console.log('  $ codecane');
 console.log('\n');
-console.log('For more information, visit: https://codebuff.com/docs');
+console.log('For more information, visit: https://github.com/nicholasgriffintn/openbuff');
 console.log('\n');

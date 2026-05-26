@@ -1,6 +1,6 @@
 # Error Schema: Server Responses & Client Handling
 
-This document describes the error responses the Codebuff server sends, how the AI SDK transforms them, and how errors are ultimately displayed in the CLI.
+This document describes the error responses the Openbuff server sends (and the legacy upstream Codebuff responses they are compatible with), how the AI SDK transforms them, and how errors are ultimately displayed in the CLI.
 
 ## Server Error Responses
 
@@ -21,8 +21,8 @@ Used for:
 | 400    | `"Invalid JSON in request body"`                                                                          |
 | 400    | `"No runId found in request body"`                                                                        |
 | 401    | `"Unauthorized"`                                                                                          |
-| 401    | `"Invalid Codebuff API key"`                                                                              |
-| 402    | `"Out of credits. Please add credits at https://codebuff.com/usage. Your free credits reset in 3 hours."` |
+| 401    | `"Invalid Codebuff API key"` (legacy hosted compatibility — Openbuff uses user-configured provider keys)  |
+| 402    | `"Out of credits."` or legacy hosted compatibility text pointing to the upstream Codebuff usage page      |
 
 ### Typed errors (error code + message)
 
@@ -34,7 +34,7 @@ Used for errors that the client needs to identify programmatically:
 
 | Status | `error` code             | Example `message`                                                                                                                         |
 | ------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 403    | `account_suspended`      | `"Your account has been suspended. Please contact support@codebuff.com if you did not expect this."`                                      |
+| 403    | `account_suspended`      | `"Your account has been suspended."` or legacy hosted compatibility text that points to upstream Codebuff support                      |
 | 403    | `free_mode_unavailable`  | `"Free mode is not available in your country."` (Freebuff: `"Freebuff is not available in your country."`)                                |
 | 409    | `session_superseded`     | `"Another instance of freebuff has taken over this session. Only one instance per account is allowed."`                                   |
 | 409    | `session_model_mismatch` | `"This session is bound to <model>; restart freebuff to switch models."`                                                                  |
@@ -54,7 +54,7 @@ When the upstream LLM provider (OpenRouter, Fireworks, OpenAI, etc.) returns an 
 
 ## The AI SDK Transformation Problem
 
-The Codebuff backend is called through the AI SDK's `OpenAICompatibleChatLanguageModel`, which treats it as a standard OpenAI-compatible endpoint. When the server returns a non-2xx response, **the AI SDK wraps it** into an `APICallError`:
+The Openbuff-compatible backend (and legacy Codebuff backend) is called through the AI SDK's `OpenAICompatibleChatLanguageModel`, which treats it as a standard OpenAI-compatible endpoint. When the server returns a non-2xx response, **the AI SDK wraps it** into an `APICallError`:
 
 ```
 Server returns:   HTTP 403  { "error": "free_mode_unavailable", "message": "Free mode is not available in your country." }

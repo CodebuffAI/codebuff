@@ -108,11 +108,11 @@ jobs:
           body: |
             ## Codebuff v${{ needs.prepare-and-commit-legacy.outputs.new_version }}
 
-            Binary releases for all supported platforms.
+            Legacy binary releases for all supported platforms.
 
             ### Installation
             ```bash
-            npm install -g codebuff
+            npm install -g codebuff@legacy
             ```
 
             ### Platform Binaries

@@ -15,6 +15,11 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { ChoiceAdBanner } from './components/choice-ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { ModelRoutePicker } from './components/model-route-picker'
+import {
+  ProviderPickerScreen,
+  type ProviderPickerSelection,
+} from './components/provider-picker-screen'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -60,6 +65,11 @@ import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
 import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
+import {
+  addCustomOpenbuffProvider,
+  handleOpenbuffProviderCommand,
+  setupOpenbuffProviderFromArgs,
+} from './utils/openbuff-provider'
 
 import {
   type ChatKeyboardState,
@@ -127,6 +137,8 @@ export const Chat = ({
   freebuffSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
+  const [modelRoutePickerOpen, setModelRoutePickerOpen] = useState(false)
+  const [providerPickerOpen, setProviderPickerOpen] = useState(false)
 
   const { validate: validateAgents } = useAgentValidation()
 
@@ -697,6 +709,14 @@ export const Chat = ({
         useChatHistoryStore.getState().openChatHistory()
       }
 
+      if (result.openModelRoutePicker) {
+        setModelRoutePickerOpen(true)
+      }
+
+      if (result.openProviderPicker) {
+        setProviderPickerOpen(true)
+      }
+
       if (result.openReviewScreen) {
         useReviewStore.getState().openReviewScreen()
       }
@@ -1207,7 +1227,11 @@ export const Chat = ({
   useChatKeyboard({
     state: chatKeyboardState,
     handlers: chatKeyboardHandlers,
-    disabled: askUserState !== null || reviewMode,
+    disabled:
+      askUserState !== null ||
+      reviewMode ||
+      modelRoutePickerOpen ||
+      providerPickerOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1361,6 +1385,59 @@ export const Chat = ({
       reportActivity()
     }
   }, [])
+
+  const handleCloseModelRoutePicker = useCallback(() => {
+    setModelRoutePickerOpen(false)
+    setInputFocused(true)
+  }, [setInputFocused])
+
+  const handleProviderPickerSelect = useCallback(
+    (selection: ProviderPickerSelection) => {
+      setProviderPickerOpen(false)
+      setInputFocused(true)
+
+      if (selection.type === 'cancel') return
+
+      let message: string
+      try {
+        if (selection.type === 'preset') {
+          message = setupOpenbuffProviderFromArgs(selection.preset)
+        } else if (selection.type === 'connect-codex') {
+          const setupMessage = setupOpenbuffProviderFromArgs('codex')
+          const connectResult = handleOpenbuffProviderCommand('connect codex')
+          message = `${setupMessage}\n\n${connectResult.message}`
+          if (connectResult.connectCodex) {
+            setInputMode('connect:chatgpt')
+          }
+        } else {
+          message = addCustomOpenbuffProvider(selection.provider)
+        }
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+
+      setMessages((prev) => [...prev, getSystemMessage(message)])
+    },
+    [setInputFocused, setInputMode, setMessages],
+  )
+
+  // Model route picker is a full-screen overlay — skip rendering chat UI
+  // to avoid keyboard event conflicts.
+  if (modelRoutePickerOpen) {
+    return (
+      <ModelRoutePicker
+        onClose={handleCloseModelRoutePicker}
+        onConfigUpdated={() => {
+          // Keep picker open after a config write so the user can edit
+          // more routes. Status is shown inside the picker.
+        }}
+      />
+    )
+  }
+
+  if (providerPickerOpen) {
+    return <ProviderPickerScreen onSelect={handleProviderPickerSelect} />
+  }
 
   return (
     <box

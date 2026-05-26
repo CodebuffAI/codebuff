@@ -26,6 +26,17 @@ Bun loads (highest precedence last):
 - `.env.local` (Infisical-synced secrets, gitignored)
 - `.env.development.local` (worktree overrides like ports, gitignored)
 
+## Openbuff and Codebuff Environment Variables
+
+Document only environment variables that are implemented in code. During the fork transition, several `CODEBUFF_*` names remain the supported names for hosted compatibility or existing runtime behavior:
+
+- `OPENBUFF_LOCAL_MODE` controls local/BYOK mode. `CODEBUFF_LOCAL_MODE` is accepted as a compatibility alias.
+- `OPENBUFF_PROVIDER_CONFIG` points to provider configuration JSON. `CODEBUFF_PROVIDER_CONFIG` is accepted as a compatibility alias.
+- `CODEBUFF_API_KEY` is used for legacy/hosted Codebuff API authentication and live integration tests. Openbuff local/BYOK provider mode does not require a Codebuff API key.
+- `CODEBUFF_GIT_BASH_PATH` is the Windows bash path override used by the SDK terminal command helper.
+
+Do not document an `OPENBUFF_*` alias unless the code implements it.
+
 ## Releases
 
 Release scripts read `CODEBUFF_GITHUB_TOKEN`.

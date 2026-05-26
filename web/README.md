@@ -1,6 +1,6 @@
-# Codebuff Web App
+# Openbuff Web App
 
-Mainly used for logging in and managing Codebuff API quotas.
+Mainly used for logging in and managing Openbuff API quotas. Supports custom-provider configuration and BYOK (bring your own key) workflows.
 
 ## 🎉 Features
 

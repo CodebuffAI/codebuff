@@ -22,6 +22,8 @@ const envVarNameSchema = z
   )
 
 const modelMapSchema = z.record(z.string().min(1), z.string().min(1))
+const positiveIntSchema = z.number().int().positive()
+const nonNegativeNumberSchema = z.number().nonnegative()
 const providerModeNames = ['default', 'lite', 'max', 'plan'] as const
 type ProviderModeName = (typeof providerModeNames)[number]
 export const reasoningEffortSchema = z.enum([
@@ -56,11 +58,7 @@ const modeModelSchema = z
 const editorMultiPromptSchema = z
   .object({
     /** Models used by editor-multi-prompt proposal agents, in proposal order. */
-    proposalModels: z
-      .array(routableModelValueSchema)
-      .min(1)
-      .max(5)
-      .optional(),
+    proposalModels: z.array(routableModelValueSchema).min(1).max(5).optional(),
     /** Optional reasoning efforts for proposal agents, in proposal order. */
     proposalReasoningEfforts: z
       .array(optionalReasoningEffortSchema)
@@ -96,6 +94,56 @@ const providerCompatibilitySchema = z
   })
   .default(DEFAULT_PROVIDER_COMPATIBILITY)
 
+export const modelCapabilitiesSchema = z.object({
+  context: z
+    .object({
+      windowTokens: positiveIntSchema.optional(),
+      outputTokens: positiveIntSchema.optional(),
+    })
+    .optional(),
+  reasoning: z
+    .object({
+      supported: z.boolean().optional(),
+      efforts: z.array(reasoningEffortSchema).optional(),
+      defaultEffort: reasoningEffortSchema.optional(),
+    })
+    .optional(),
+  tools: z
+    .object({
+      supported: z.boolean().optional(),
+      requiredToolChoice: z.boolean().optional(),
+      structuredOutputs: z.boolean().optional(),
+    })
+    .optional(),
+  promptCaching: z
+    .object({
+      supported: z.boolean().optional(),
+      readTokens: z.boolean().optional(),
+      writeTokens: z.boolean().optional(),
+    })
+    .optional(),
+  pricing: z
+    .object({
+      inputPerMillionTokens: nonNegativeNumberSchema.optional(),
+      outputPerMillionTokens: nonNegativeNumberSchema.optional(),
+      cachedInputPerMillionTokens: nonNegativeNumberSchema.optional(),
+      currency: z.string().min(1).default('USD'),
+    })
+    .optional(),
+  quality: z
+    .object({
+      tier: z.enum(['economy', 'balanced', 'premium', 'frontier']).optional(),
+      score: z.number().min(0).max(100).optional(),
+      label: z.string().min(1).optional(),
+    })
+    .optional(),
+})
+
+const modelCapabilitiesByModelSchema = z.record(
+  z.string().min(1),
+  modelCapabilitiesSchema,
+)
+
 function isLocalHttpUrl(value: string): boolean {
   const url = new URL(value)
   return (
@@ -118,6 +166,16 @@ const openAICompatibleProviderSchema = z
     models: z.union([z.array(z.string().min(1)), modelMapSchema]),
     supportsStructuredOutputs: z.boolean().default(false),
     compatibility: providerCompatibilitySchema,
+    /** Default context window in tokens for all models in this provider. */
+    contextWindowTokens: positiveIntSchema.optional(),
+    /** Per-model context window overrides (model id -> tokens). */
+    modelContextWindowTokens: z
+      .record(z.string().min(1), positiveIntSchema)
+      .optional(),
+    /** Provider-level default capability metadata. */
+    defaultCapabilities: modelCapabilitiesSchema.optional(),
+    /** Per-model capability metadata keyed by requested or provider model id. */
+    modelCapabilities: modelCapabilitiesByModelSchema.optional(),
   })
   .refine(
     (provider) =>
@@ -135,13 +193,22 @@ const chatGptOAuthProviderSchema = z.object({
   type: z.literal('chatgpt-oauth'),
   models: z.union([z.array(z.string().min(1)), modelMapSchema]),
   compatibility: providerCompatibilitySchema,
+  /** Default context window in tokens for all models in this provider. */
+  contextWindowTokens: positiveIntSchema.optional(),
+  /** Per-model context window overrides (model id -> tokens). */
+  modelContextWindowTokens: z
+    .record(z.string().min(1), positiveIntSchema)
+    .optional(),
+  /** Provider-level default capability metadata. */
+  defaultCapabilities: modelCapabilitiesSchema.optional(),
+  /** Per-model capability metadata keyed by requested or provider model id. */
+  modelCapabilities: modelCapabilitiesByModelSchema.optional(),
 })
 
 const providerSchema = z.union([
   openAICompatibleProviderSchema,
   chatGptOAuthProviderSchema,
 ])
-
 
 function routableModelValueToModel(
   value: z.infer<typeof routableModelValueSchema> | undefined,
@@ -185,14 +252,28 @@ export const providerConfigFileSchema = z
   })
   .transform((config) => {
     const agents: Record<string, string> = {}
+    const explicitAgentReasoningEffortIds = new Set(
+      Object.keys(config.agentReasoningEfforts ?? {}),
+    )
     const agentReasoningEfforts: Record<string, OpenbuffReasoningEffort> = {
       ...(config.agentReasoningEfforts ?? {}),
     }
     for (const [agentId, value] of Object.entries(config.agents ?? {})) {
       agents[agentId] = routableModelValueToModel(value)!
       const effort = routableModelValueToReasoningEffort(value)
-      if (effort) agentReasoningEfforts[agentId] = effort
+      if (effort) {
+        agentReasoningEfforts[agentId] = effort
+        explicitAgentReasoningEffortIds.add(agentId)
+      }
     }
+    const hasExplicitAgentRoute = (agentId: string) =>
+      normalizeAgentIdCandidates(agentId).some(
+        (candidate) => candidate in agents,
+      )
+    const hasExplicitAgentReasoningEffort = (agentId: string) =>
+      normalizeAgentIdCandidates(agentId).some((candidate) =>
+        explicitAgentReasoningEffortIds.has(candidate),
+      )
 
     const modes: Partial<Record<ProviderModeName, string>> = {}
     for (const [mode, value] of Object.entries(config.modes ?? {})) {
@@ -211,8 +292,8 @@ export const providerConfigFileSchema = z
 
     const configuredProposalModels =
       config.editorMultiPrompt?.proposalModels ?? []
-    const proposalModels = configuredProposalModels.map((value) =>
-      routableModelValueToModel(value)!,
+    const proposalModels = configuredProposalModels.map(
+      (value) => routableModelValueToModel(value)!,
     )
     const proposalReasoningEfforts = configuredProposalModels.map(
       (value, index) =>
@@ -222,9 +303,17 @@ export const providerConfigFileSchema = z
     const editorMultiPromptAgents: Record<string, string> = {}
     proposalModels.forEach((model, index) => {
       const agentId = `editor-implementor-proposal-${index + 1}`
-      editorMultiPromptAgents[agentId] = model
+      if (!hasExplicitAgentRoute(agentId)) {
+        editorMultiPromptAgents[agentId] = model
+      }
       const effort = proposalReasoningEfforts[index]
-      if (effort) agentReasoningEfforts[agentId] = effort
+      if (
+        effort &&
+        !hasExplicitAgentRoute(agentId) &&
+        !hasExplicitAgentReasoningEffort(agentId)
+      ) {
+        agentReasoningEfforts[agentId] = effort
+      }
     })
     // editor-multi-prompt can receive more prompts than the user explicitly
     // configured. Without this, proposal #4/#5 silently fall back to the
@@ -236,23 +325,39 @@ export const providerConfigFileSchema = z
     if (lastConfiguredProposalModel) {
       for (let index = proposalModels.length; index < 5; index++) {
         const agentId = `editor-implementor-proposal-${index + 1}`
-        editorMultiPromptAgents[agentId] = lastConfiguredProposalModel
-        if (lastConfiguredProposalEffort) {
+        if (!hasExplicitAgentRoute(agentId)) {
+          editorMultiPromptAgents[agentId] = lastConfiguredProposalModel
+        }
+        if (
+          lastConfiguredProposalEffort &&
+          !hasExplicitAgentRoute(agentId) &&
+          !hasExplicitAgentReasoningEffort(agentId)
+        ) {
           agentReasoningEfforts[agentId] = lastConfiguredProposalEffort
         }
       }
     }
-    const selectorModel = routableModelValueToModel(
+    const configuredSelectorModel = routableModelValueToModel(
       config.editorMultiPrompt?.selectorModel,
     )
+    // If a user routes best-of-N proposals to local/OpenAI-compatible models
+    // but omits selectorModel, keep the whole feature on that accessible
+    // provider instead of silently falling back to the built-in cloud selector.
+    const selectorModel = configuredSelectorModel ?? lastConfiguredProposalModel
     const selectorReasoningEffort =
       routableModelValueToReasoningEffort(
         config.editorMultiPrompt?.selectorModel,
-      ) ?? config.editorMultiPrompt?.selectorReasoningEffort
-    if (selectorModel) {
+      ) ??
+      config.editorMultiPrompt?.selectorReasoningEffort ??
+      (configuredSelectorModel ? undefined : lastConfiguredProposalEffort)
+    if (selectorModel && !hasExplicitAgentRoute('best-of-n-selector2')) {
       editorMultiPromptAgents['best-of-n-selector2'] = selectorModel
     }
-    if (selectorReasoningEffort) {
+    if (
+      selectorReasoningEffort &&
+      !hasExplicitAgentRoute('best-of-n-selector2') &&
+      !hasExplicitAgentReasoningEffort('best-of-n-selector2')
+    ) {
       agentReasoningEfforts['best-of-n-selector2'] = selectorReasoningEffort
     }
 
@@ -271,8 +376,8 @@ export const providerConfigFileSchema = z
       modes,
       modeReasoningEfforts,
       agents: {
-        ...agents,
         ...editorMultiPromptAgents,
+        ...agents,
       },
       agentReasoningEfforts,
       ...(config.editorMultiPrompt && {
@@ -292,6 +397,8 @@ export type ProviderConfigFileInput = z.input<typeof providerConfigFileSchema>
 export type ProviderCompatibility =
   ProviderConfigFile['providers'][string]['compatibility']
 export type ProviderConfig = ProviderConfigFile['providers'][string]
+export type ModelCapabilities = z.infer<typeof modelCapabilitiesSchema>
+export type ModelCapabilitiesInput = z.input<typeof modelCapabilitiesSchema>
 export type OpenAICompatibleProviderConfig = Extract<
   ProviderConfig,
   { type: 'openai-compatible' }
@@ -472,6 +579,244 @@ function getModelMapping(
   return undefined
 }
 
+function mergeDefined<T extends object>(
+  base: T | undefined,
+  override: T | undefined,
+): T | undefined {
+  if (!base && !override) return undefined
+
+  const merged = { ...(base ?? {}) } as T
+  const mutableMerged = merged as Record<string, unknown>
+  for (const [key, value] of Object.entries(override ?? {})) {
+    if (value !== undefined) {
+      mutableMerged[key] = value
+    }
+  }
+  return merged
+}
+
+function mergeModelCapabilities(
+  ...capabilities: Array<ModelCapabilities | undefined>
+): ModelCapabilities {
+  const merged: ModelCapabilities = {}
+
+  for (const capability of capabilities) {
+    if (!capability) continue
+    merged.context = mergeDefined(merged.context, capability.context)
+    merged.reasoning = mergeDefined(merged.reasoning, capability.reasoning)
+    merged.tools = mergeDefined(merged.tools, capability.tools)
+    merged.promptCaching = mergeDefined(
+      merged.promptCaching,
+      capability.promptCaching,
+    )
+    merged.pricing = mergeDefined(merged.pricing, capability.pricing)
+    merged.quality = mergeDefined(merged.quality, capability.quality)
+  }
+
+  return merged
+}
+
+function compactCapability(capabilities: ModelCapabilities): ModelCapabilities {
+  return Object.fromEntries(
+    Object.entries(capabilities).filter(([, value]) => {
+      if (!value) return false
+      return Object.values(value).some((field) => field !== undefined)
+    }),
+  ) as ModelCapabilities
+}
+
+function capabilityModelKeyCandidates(params: {
+  providerId: string
+  model: string
+  provider: ProviderConfig
+}): string[] {
+  const { providerId, model, provider } = params
+  const modelWithoutProviderPrefix = model.startsWith(`${providerId}/`)
+    ? model.slice(providerId.length + 1)
+    : undefined
+  const providerModel = getModelMapping(providerId, model, provider)
+
+  return Array.from(
+    new Set(
+      [
+        providerModel,
+        providerModel ? `${providerId}/${providerModel}` : undefined,
+        modelWithoutProviderPrefix,
+        model,
+      ].filter((candidate): candidate is string => Boolean(candidate)),
+    ),
+  )
+}
+
+function getFirstModelValue<T>(
+  values: Record<string, T> | undefined,
+  candidates: string[],
+): T | undefined {
+  if (!values) return undefined
+  for (const candidate of candidates) {
+    if (candidate in values) {
+      return values[candidate]
+    }
+  }
+  return undefined
+}
+
+function getLegacyModelCapabilities(params: {
+  provider: ProviderConfig
+  candidates: string[]
+}): ModelCapabilities {
+  const { provider, candidates } = params
+  const compatibility = {
+    ...DEFAULT_PROVIDER_COMPATIBILITY,
+    ...(provider.compatibility ?? {}),
+  }
+  const modelContextWindowTokens = getFirstModelValue(
+    provider.modelContextWindowTokens,
+    candidates,
+  )
+  const windowTokens = modelContextWindowTokens ?? provider.contextWindowTokens
+
+  return compactCapability({
+    context: windowTokens ? { windowTokens } : undefined,
+    tools: {
+      supported: compatibility.supportsTools,
+      requiredToolChoice: compatibility.supportsRequiredToolChoice,
+      structuredOutputs:
+        provider.type === 'openai-compatible'
+          ? provider.supportsStructuredOutputs
+          : undefined,
+    },
+    promptCaching: {
+      supported: compatibility.stripCacheControl === false,
+    },
+  })
+}
+
+export function resolveModelCapabilities(params: {
+  providerId: string
+  model: string
+  loadedConfig?: LoadedProviderConfig
+}): ModelCapabilities {
+  const { providerId, model, loadedConfig = loadProviderConfigSync() } = params
+  const provider = loadedConfig.config.providers[providerId]
+  if (!provider) {
+    return {}
+  }
+
+  const candidates = capabilityModelKeyCandidates({
+    providerId,
+    model,
+    provider,
+  })
+  const modelCapabilityOverrides = candidates
+    .map((candidate) => provider.modelCapabilities?.[candidate])
+    .filter((capabilities): capabilities is ModelCapabilities =>
+      Boolean(capabilities),
+    )
+
+  return compactCapability(
+    mergeModelCapabilities(
+      getLegacyModelCapabilities({ provider, candidates }),
+      provider.defaultCapabilities,
+      ...modelCapabilityOverrides,
+    ),
+  )
+}
+
+function formatCompactNumber(value: number): string {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    return `${formatCompactNumber(tokens / 1_000_000)}M`
+  }
+  if (tokens >= 1_000) {
+    return `${formatCompactNumber(tokens / 1_000)}k`
+  }
+  return String(tokens)
+}
+
+function formatPrice(value: number): string {
+  return value < 1 ? value.toFixed(2) : formatCompactNumber(value)
+}
+
+export function formatModelCapabilitiesSummary(
+  capabilities: ModelCapabilities | undefined,
+): string {
+  if (!capabilities) return ''
+
+  const parts: string[] = []
+  if (capabilities.context?.windowTokens) {
+    parts.push(`${formatTokenCount(capabilities.context.windowTokens)} ctx`)
+  }
+  if (capabilities.context?.outputTokens) {
+    parts.push(`${formatTokenCount(capabilities.context.outputTokens)} out`)
+  }
+
+  const reasoning = capabilities.reasoning
+  if (reasoning?.supported === false) {
+    parts.push('no reasoning')
+  } else if (reasoning?.efforts?.length) {
+    parts.push(`reasoning ${reasoning.efforts.join('/')}`)
+  } else if (reasoning?.defaultEffort) {
+    parts.push(`reasoning ${reasoning.defaultEffort}`)
+  } else if (reasoning?.supported) {
+    parts.push('reasoning')
+  }
+
+  const tools = capabilities.tools
+  if (tools?.supported === false) {
+    parts.push('no tools')
+  } else if (
+    tools?.supported ||
+    tools?.requiredToolChoice !== undefined ||
+    tools?.structuredOutputs
+  ) {
+    const toolParts = ['tools']
+    if (tools.requiredToolChoice === true) toolParts.push('required')
+    if (tools.requiredToolChoice === false) toolParts.push('no-required')
+    if (tools.structuredOutputs) toolParts.push('structured')
+    parts.push(toolParts.join('+'))
+  }
+
+  const promptCaching = capabilities.promptCaching
+  if (promptCaching?.supported) {
+    parts.push('prompt-cache')
+  }
+
+  const pricing = capabilities.pricing
+  if (
+    pricing?.inputPerMillionTokens !== undefined ||
+    pricing?.outputPerMillionTokens !== undefined
+  ) {
+    const currency = pricing.currency ?? 'USD'
+    const prefix = currency === 'USD' ? '$' : `${currency} `
+    const input =
+      pricing.inputPerMillionTokens !== undefined
+        ? `${prefix}${formatPrice(pricing.inputPerMillionTokens)}`
+        : '?'
+    const output =
+      pricing.outputPerMillionTokens !== undefined
+        ? `${prefix}${formatPrice(pricing.outputPerMillionTokens)}`
+        : '?'
+    parts.push(`${input}/${output}/M`)
+  }
+
+  const quality = capabilities.quality
+  const qualityLabel =
+    quality?.label ??
+    quality?.tier ??
+    (quality?.score !== undefined ? `${quality.score}/100` : undefined)
+  if (qualityLabel) {
+    parts.push(`quality ${qualityLabel}`)
+  }
+
+  return parts.join('; ')
+}
+
 function normalizeAgentIdCandidates(agentId: string | undefined): string[] {
   if (!agentId) return []
 
@@ -496,7 +841,9 @@ const modeAgentIds: Record<ProviderMode, string[]> = {
   plan: ['base-plan', 'base2-plan'],
 }
 
-function resolveModeForAgentId(agentId: string | undefined): ProviderMode | undefined {
+function resolveModeForAgentId(
+  agentId: string | undefined,
+): ProviderMode | undefined {
   const candidates = normalizeAgentIdCandidates(agentId)
   for (const [mode, agentIds] of Object.entries(modeAgentIds)) {
     if (candidates.some((candidate) => agentIds.includes(candidate))) {
@@ -575,7 +922,11 @@ export function resolveConfiguredProviderModel(params: {
       provider.type === 'openai-compatible' && provider.apiKeyEnv
         ? env[provider.apiKeyEnv]
         : undefined
-    if (provider.type === 'openai-compatible' && provider.apiKeyEnv && !apiKey) {
+    if (
+      provider.type === 'openai-compatible' &&
+      provider.apiKeyEnv &&
+      !apiKey
+    ) {
       throw new Error(
         `Missing environment variable '${provider.apiKeyEnv}' required for configured provider '${providerId}' and model '${model}'.`,
       )
@@ -639,7 +990,8 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   'opencode-go': {
     id: 'opencode-go',
     label: 'OpenCode Go',
-    description: 'OpenCode Go subscription endpoint with GLM, Kimi, MiMo, Qwen, MiniMax, and DeepSeek coding models.',
+    description:
+      'OpenCode Go subscription endpoint with GLM, Kimi, MiMo, Qwen, MiniMax, and DeepSeek coding models.',
     envHelp: 'export OPENCODE_GO_API_KEY="your_opencode_go_key"',
     config: {
       defaultModel: 'opencode-go/kimi-k2.6',
@@ -678,7 +1030,8 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   openai: {
     id: 'openai',
     label: 'OpenAI API',
-    description: 'OpenAI Chat Completions-compatible route using GPT-5.5 for flagship coding and GPT-5.4 mini for lite mode.',
+    description:
+      'OpenAI Chat Completions-compatible route using GPT-5.5 for flagship coding and GPT-5.4 mini for lite mode.',
     envHelp: 'export OPENAI_API_KEY="your_openai_api_key"',
     config: {
       defaultModel: 'openai/gpt-5.5',
@@ -710,8 +1063,10 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   codex: {
     id: 'codex',
     label: 'Codex / ChatGPT subscription',
-    description: 'ChatGPT subscription OAuth provider. Route any mode or agent to it after /connect.',
-    envHelp: 'Run /connect to authorize your ChatGPT/Codex subscription, then route modes or agents to codex/<model>.',
+    description:
+      'ChatGPT subscription OAuth provider. Route any mode or agent to it after /connect.',
+    envHelp:
+      'Run /connect to authorize your ChatGPT/Codex subscription, then route modes or agents to codex/<model>.',
     config: {
       defaultModel: 'codex/gpt-5.5',
       modes: {
@@ -746,7 +1101,8 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   openrouter: {
     id: 'openrouter',
     label: 'OpenRouter',
-    description: 'OpenRouter with Claude Sonnet for primary work and GPT-4.1 mini for lite mode.',
+    description:
+      'OpenRouter with Claude Sonnet for primary work and GPT-4.1 mini for lite mode.',
     envHelp: 'export OPENROUTER_API_KEY="your_openrouter_api_key"',
     config: {
       defaultModel: 'openrouter/anthropic/claude-sonnet-4.5',
@@ -774,7 +1130,8 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   ollama: {
     id: 'ollama',
     label: 'Ollama local',
-    description: 'Local Ollama OpenAI-compatible endpoint. Edit model IDs to match what you pulled.',
+    description:
+      'Local Ollama OpenAI-compatible endpoint. Edit model IDs to match what you pulled.',
     envHelp: 'No API key needed for the default localhost Ollama endpoint.',
     config: {
       defaultModel: 'ollama/qwen2.5-coder:32b',
@@ -797,7 +1154,8 @@ export const OPENBUFF_PROVIDER_PRESETS = {
   glm: {
     id: 'glm',
     label: 'GLM/Z.ai coding plan',
-    description: 'GLM OpenAI-compatible endpoint. Adjust baseURL/model IDs for your coding plan.',
+    description:
+      'GLM OpenAI-compatible endpoint. Adjust baseURL/model IDs for your coding plan.',
     envHelp: 'export GLM_API_KEY="your_glm_or_zai_api_key"',
     config: {
       defaultModel: 'glm/glm-4.6',
@@ -823,7 +1181,10 @@ export const OPENBUFF_PROVIDER_PRESETS = {
 export function createProviderPresetConfig(
   presetId: keyof typeof OPENBUFF_PROVIDER_PRESETS | string,
 ): ProviderConfigFile {
-  const preset = OPENBUFF_PROVIDER_PRESETS[presetId as keyof typeof OPENBUFF_PROVIDER_PRESETS]
+  const preset =
+    OPENBUFF_PROVIDER_PRESETS[
+      presetId as keyof typeof OPENBUFF_PROVIDER_PRESETS
+    ]
   if (!preset) {
     throw new Error(`Unknown Openbuff provider preset '${presetId}'.`)
   }
@@ -849,7 +1210,9 @@ export function writeProviderConfigFile(params: {
 
   const parseResult = providerConfigFileSchema.safeParse(params.config)
   if (!parseResult.success) {
-    throw new Error(`Invalid Openbuff provider config: ${parseResult.error.message}`)
+    throw new Error(
+      `Invalid Openbuff provider config: ${parseResult.error.message}`,
+    )
   }
 
   const newConfig = parseResult.data
@@ -903,10 +1266,12 @@ export function writeProviderConfigFile(params: {
   return configPath
 }
 
-export function getMissingProviderEnvVars(params: {
-  loadedConfig?: LoadedProviderConfig
-  env?: NodeJS.ProcessEnv
-} = {}): string[] {
+export function getMissingProviderEnvVars(
+  params: {
+    loadedConfig?: LoadedProviderConfig
+    env?: NodeJS.ProcessEnv
+  } = {},
+): string[] {
   const loadedConfig = params.loadedConfig ?? loadProviderConfigSync()
   const env = params.env ?? process.env
   const missing = new Set<string>()
@@ -935,9 +1300,11 @@ export function describeLoadedProviderConfig(
   )
   lines.push(`Default model: ${loadedConfig.config.defaultModel ?? '(none)'}`)
   lines.push(
-    `Modes: ${Object.entries(loadedConfig.config.modes ?? {})
-      .map(([mode, model]) => `${mode}=${model}`)
-      .join(', ') || '(none)'}`,
+    `Modes: ${
+      Object.entries(loadedConfig.config.modes ?? {})
+        .map(([mode, model]) => `${mode}=${model}`)
+        .join(', ') || '(none)'
+    }`,
   )
   if (loadedConfig.config.editorMultiPrompt) {
     lines.push(

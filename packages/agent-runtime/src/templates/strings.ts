@@ -189,13 +189,17 @@ export async function getAgentPrompt<T extends StringField>(
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
+    const isInheritedSubagentPrompt =
+      agentTemplate.inheritParentSystemPrompt &&
+      agentState.parentId !== undefined
+
     // Add subagent tools message when using parent's tools for prompt caching
-    if (useParentTools) {
+    if (isInheritedSubagentPrompt) {
       addendum += `\n\nYou are a subagent that only has access to the following tools: ${toolNames.length > 0 ? toolNames.join(', ') : 'none'}. Previously referenced tools in the conversation may have only been available to the parent agent. Do not attempt to use any other tools besides these listed here. You will only get tool errors if you do.`
 
       // For subagents with inheritSystemPrompt, include full spawnable agents spec
       // since the parent's system prompt may not have these agents listed
-      if (spawnableAgents.length > 0) {
+      if (useParentTools && spawnableAgents.length > 0) {
         const spawnableAgentsSpec = await buildFullSpawnableAgentsSpec({
           ...params,
           spawnableAgents,

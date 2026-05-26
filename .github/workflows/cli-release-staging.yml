@@ -102,8 +102,8 @@ jobs:
 
           Captures the staged state for the CLI prerelease, including the version bump.
 
-          🤖 Generated with Codebuff
-          Co-Authored-By: Codebuff <noreply@codebuff.com>"
+          🤖 Generated with Openbuff
+          Co-Authored-By: Openbuff <noreply@openbuff.dev>"
 
       - name: Create and push staging tag
         run: |
@@ -184,7 +184,9 @@ jobs:
           body: |
             ## Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
 
-            **⚠️ This is a staging build intended for internal testing.**
+            **⚠️ This is a staging build intended for internal testing of Openbuff changes.**
+
+            Install the staging npm package as `codecane` to avoid collisions with the production `openbuff` package.
 
             ### Included Binaries
             - `codecane-linux-x64.tar.gz`

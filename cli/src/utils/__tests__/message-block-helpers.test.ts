@@ -241,6 +241,33 @@ describe('extractSpawnAgentResultContent', () => {
     })
   })
 
+  test('treats runtime error outputs as errors', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'error',
+      message: 'Run cancelled by user',
+    })
+
+    expect(result).toEqual({
+      content: 'Run cancelled by user',
+      hasError: true,
+    })
+  })
+
+  test('treats nested runtime error outputs as errors', () => {
+    const result = extractSpawnAgentResultContent({
+      agentType: 'editor-implementor-proposal-1',
+      value: {
+        type: 'error',
+        message: 'Subagent editor-implementor-proposal-1 timed out',
+      },
+    })
+
+    expect(result).toEqual({
+      content: 'Subagent editor-implementor-proposal-1 timed out',
+      hasError: true,
+    })
+  })
+
   test('extracts nested value string', () => {
     const result = extractSpawnAgentResultContent({
       type: 'lastMessage',
@@ -374,6 +401,18 @@ describe('extractSpawnAgentResultContent', () => {
     expect(result).toEqual({
       content: 'Structured output message',
       hasError: false,
+    })
+  })
+
+  test('treats structuredOutput error fields as errors', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: { errorMessage: 'No usable proposal edits' },
+    })
+
+    expect(result).toEqual({
+      content: 'No usable proposal edits',
+      hasError: true,
     })
   })
 

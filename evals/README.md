@@ -1,6 +1,6 @@
-# Codebuff Evals
+# Openbuff Evals (upstream-compatible with Codebuff)
 
-This directory contains the evaluation framework for testing and measuring Codebuff's coding capabilities, with a focus on the innovative **Git Commit Reimplementation Evaluation** system.
+This directory contains the evaluation framework for testing and measuring Openbuff's coding capabilities, with a focus on the innovative **Git Commit Reimplementation Evaluation** system.
 
 ## Overview
 
@@ -28,7 +28,7 @@ This methodology enables nuanced evaluation across multiple dimensions: an agent
 
 2. **Agent Runners** (`runners/`)
 
-   - **Codebuff Runner**: Integrates with local Codebuff installation
+   - **Openbuff/Codebuff Runner**: Integrates with local Openbuff (upstream-compatible with Codebuff) installation
    - **Claude Runner**: Integrates with Anthropic's Claude Code
    - **Runner Interface**: Common abstraction for all coding agents
 
@@ -57,7 +57,7 @@ This methodology enables nuanced evaluation across multiple dimensions: an agent
 sequenceDiagram
     participant Orchestrator as Eval Orchestrator
     participant PromptAgent as Prompting Agent
-    participant CodingAgent as Coding Agent (Codebuff/Claude)
+    participant CodingAgent as Coding Agent (Openbuff/Codebuff/Claude)
     participant Judge as AI Judge
     participant Repo as Test Repository
 
@@ -220,7 +220,7 @@ interface EvalCommit {
 ```typescript
 interface EvalRunJudged {
   eval_commit: EvalCommit // Original evaluation task
-  trace: CodebuffTrace[] // Conversation history
+  trace: OpenbuffTrace[] // Conversation history
   error?: string // Any execution errors
   gitDiff: string // Agent's actual changes
   durationMs: number // Execution time
@@ -242,9 +242,9 @@ interface EvalRunJudged {
 
 ## Supported Coding Agents
 
-### Codebuff Integration
+### Openbuff/Codebuff Integration
 
-- Uses the Codebuff SDK for local integration
+- Uses the SDK (`@codebuff/sdk`) for local integration
 - Supports custom agent types (base, base2, base-lite, etc.)
 
 ### Claude Code Integration
@@ -309,7 +309,7 @@ The `post-eval-analysis.ts` system provides:
 
 The `evals/git-evals/` directory contains several example evaluation files:
 
-- `eval-codebuff.json` - Codebuff project evaluations
+- `eval-codebuff.json` - Openbuff/Codebuff project evaluations
 - `eval-manifold.json` - Manifold prediction market evaluations
 - `eval-saleor.json` - Saleor e-commerce platform evaluations
 
