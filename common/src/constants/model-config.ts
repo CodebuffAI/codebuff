@@ -7,6 +7,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'google',
   'x-ai',
   'deepseek',
+  'mimo',
 ] as const
 
 export const costModes = [
@@ -70,6 +71,12 @@ export const deepseekModels = {
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
+export const mimoModels = {
+  mimoV25ProDirect: 'mimo-v2.5-pro',
+  mimoV25Pro: 'mimo/mimo-v2.5-pro',
+} as const
+export type MimoModel = (typeof mimoModels)[keyof typeof mimoModels]
+
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
@@ -100,6 +107,7 @@ export type FinetunedVertexModel =
 export const models = {
   ...openaiModels,
   ...deepseekModels,
+  ...mimoModels,
   ...openrouterModels,
   ...finetunedVertexModels,
 } as const
@@ -174,6 +182,7 @@ export const providerDomains = {
   anthropic: 'anthropic.com',
   openai: 'chatgpt.com',
   deepseek: 'deepseek.com',
+  mimo: 'xiaomi.com',
   xai: 'x.ai',
 } as const
 
@@ -184,6 +193,8 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
+  else if (Object.values(mimoModels).includes(modelName as MimoModel))
+    domain = providerDomains.mimo
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 

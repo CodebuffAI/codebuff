@@ -68,6 +68,12 @@ import {
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
 import {
+  handleMiMoNonStream,
+  handleMiMoStream,
+  isMiMoModel,
+  MiMoError,
+} from '@/llm-api/mimo'
+import {
   handleMoonshotNonStream,
   handleMoonshotStream,
   isMoonshotModel,
@@ -850,17 +856,25 @@ export async function postChatCompletions(params: {
           !useOpenCodeZen &&
           !useCanopyWave &&
           isDeepSeekModel(typedBody.model)
+        const useMiMo =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isMiMoModel(typedBody.model)
         const useFireworks =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           isFireworksModel(typedBody.model)
         const useOpenAIDirect =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           !useFireworks &&
           isOpenAIDirectModel(typedBody.model)
         const baseArgs = {
@@ -882,14 +896,16 @@ export async function postChatCompletions(params: {
                 ? await handleCanopyWaveStream(baseArgs)
                 : useDeepSeek
                   ? await handleDeepSeekStream(baseArgs)
-                  : useFireworks
-                    ? await handleFireworksStream(baseArgs)
-                    : useOpenAIDirect
-                      ? await handleOpenAIStream(baseArgs)
-                      : await handleOpenRouterStream({
-                          ...baseArgs,
-                          openrouterApiKey,
-                        })
+                  : useMiMo
+                    ? await handleMiMoStream(baseArgs)
+                    : useFireworks
+                      ? await handleFireworksStream(baseArgs)
+                      : useOpenAIDirect
+                        ? await handleOpenAIStream(baseArgs)
+                        : await handleOpenRouterStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
 
         trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -922,17 +938,25 @@ export async function postChatCompletions(params: {
           !useOpenCodeZen &&
           !useCanopyWave &&
           isDeepSeekModel(model)
+        const useMiMo =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isMiMoModel(model)
         const useFireworks =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           !useFireworks &&
           isOpenAIDirectModel(model)
 
@@ -955,14 +979,16 @@ export async function postChatCompletions(params: {
                 ? handleCanopyWaveNonStream(baseArgs)
                 : useDeepSeek
                   ? handleDeepSeekNonStream(baseArgs)
-                  : useFireworks
-                    ? handleFireworksNonStream(baseArgs)
-                    : shouldUseOpenAIEndpoint
-                      ? handleOpenAINonStream(baseArgs)
-                      : handleOpenRouterNonStream({
-                          ...baseArgs,
-                          openrouterApiKey,
-                        })
+                  : useMiMo
+                    ? handleMiMoNonStream(baseArgs)
+                    : useFireworks
+                      ? handleFireworksNonStream(baseArgs)
+                      : shouldUseOpenAIEndpoint
+                        ? handleOpenAINonStream(baseArgs)
+                        : handleOpenRouterNonStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
         const result = await nonStreamRequest
 
         trackSuccessEvent({
@@ -997,6 +1023,10 @@ export async function postChatCompletions(params: {
       if (error instanceof DeepSeekError) {
         deepseekError = error
       }
+      let mimoError: MiMoError | undefined
+      if (error instanceof MiMoError) {
+        mimoError = error
+      }
       let moonshotError: MoonshotError | undefined
       if (error instanceof MoonshotError) {
         moonshotError = error
@@ -1027,11 +1057,13 @@ export async function postChatCompletions(params: {
               ? 'CanopyWave'
               : deepseekError
                 ? 'DeepSeek'
-                : fireworksError
-                  ? 'Fireworks'
-                  : openaiError
-                    ? 'OpenAI'
-                    : 'OpenRouter'
+                : mimoError
+                  ? 'MiMo'
+                  : fireworksError
+                    ? 'Fireworks'
+                    : openaiError
+                      ? 'OpenAI'
+                      : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -1052,6 +1084,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            mimoError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1062,6 +1095,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            mimoError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1100,6 +1134,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof DeepSeekError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof MiMoError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {
