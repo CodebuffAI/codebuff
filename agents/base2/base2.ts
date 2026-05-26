@@ -197,7 +197,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     isFree &&
       `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes.`,
-    '- Spawn bashers sequentially if the second command depends on the the first.',
+    '- Spawn bashers sequentially if the second command depends on the first.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
     isMax &&
