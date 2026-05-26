@@ -82,37 +82,37 @@ export const saveMessageAndStartWorkflow = mutation({
         };
       }
 
-      const isPlatformAdmin = user.role === "god" || user.role === "admin";
-      const shouldBypassCodexBillingGate =
-        args.agentType === "Codex" && user.codex_auth_mode === "chatgpt";
-      const shouldBypassBillingGate =
-        isPlatformAdmin || shouldBypassCodexBillingGate;
-
-      if (!shouldBypassBillingGate) {
-        // Always enforce billing for CLI agents (regardless of feature flag)
-        const pauseStatus = await ctx.runQuery(
-          internal.deployment_queries.getUserPauseStatusInternal,
-          { userId: user._id },
-        );
-
-        if (pauseStatus) {
-          // Schedule an unpause attempt in the background
-          await ctx.scheduler.runAfter(
-            0,
-            internal.deployment_helpers.checkAndUnpauseUser,
-            { userId: user._id },
-          );
-
-          return {
-            success: false as const,
-            error: {
-              kind: "DEPLOYMENTS_PAUSED",
-              message:
-                "Your Convex deployments are paused. Please add more Convex credits to continue. If you just added credits, please try again in a few moments.",
-            },
-          };
-        }
-      }
+      // Billing / deployment-pause gate temporarily disabled per product request.
+      // To re-enable, uncomment the block below.
+      // const isPlatformAdmin = user.role === "god" || user.role === "admin";
+      // const shouldBypassCodexBillingGate =
+      //   args.agentType === "Codex" && user.codex_auth_mode === "chatgpt";
+      // const shouldBypassBillingGate =
+      //   isPlatformAdmin || shouldBypassCodexBillingGate;
+      //
+      // if (!shouldBypassBillingGate) {
+      //   const pauseStatus = await ctx.runQuery(
+      //     internal.deployment_queries.getUserPauseStatusInternal,
+      //     { userId: user._id },
+      //   );
+      //
+      //   if (pauseStatus) {
+      //     await ctx.scheduler.runAfter(
+      //       0,
+      //       internal.deployment_helpers.checkAndUnpauseUser,
+      //       { userId: user._id },
+      //     );
+      //
+      //     return {
+      //       success: false as const,
+      //       error: {
+      //         kind: "DEPLOYMENTS_PAUSED",
+      //         message:
+      //           "Your Convex deployments are paused. Please add more Convex credits to continue. If you just added credits, please try again in a few moments.",
+      //       },
+      //     };
+      //   }
+      // }
 
       // Get verified project access
       const project = await getVerifiedAccessProject(
@@ -139,19 +139,14 @@ export const saveMessageAndStartWorkflow = mutation({
         };
       }
 
-      // Check if project is terminated (e.g., due to GitHub sync conflicts)
       if (project.terminated) {
-        console.log("[CLIAgent] Project is terminated, blocking new message", {
+        console.log(
+          "[CLIAgent] Project was terminated; auto-recovering for new message",
+          { projectId: project._id },
+        );
+        await ctx.runMutation(internal.project.setStateProcessing, {
           projectId: project._id,
         });
-        return {
-          success: false as const,
-          error: {
-            kind: "PROJECT_TERMINATED",
-            message:
-              "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
-          },
-        };
       }
 
       // Get or create agent thread

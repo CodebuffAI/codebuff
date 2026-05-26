@@ -84,34 +84,64 @@ export async function executeFreebuff(
 
   const previousRunState = await readStoredRunState(ctx, args.threadId)
   const runId = crypto.randomUUID()
+  const harnessRunsUrl = `${harnessUrl}/api/v1/freebuff/harness/runs`
 
-  const response = await fetch(`${harnessUrl}/api/v1/freebuff/harness/runs`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${codebuffApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      runId,
-      prompt: userMessage,
-      previousRunState,
-      projectId: args.projectId,
-      threadId: args.threadId,
-      messageId: args.messageId,
-      callbacks: {
-        toolUrl: `${convexSiteUrl}/freebuff/tool`,
-        eventUrl: `${convexSiteUrl}/freebuff/events`,
-        bearerToken: callbackToken,
+  console.log(
+    `[Freebuff] POST ${harnessRunsUrl} (runId=${runId}, threadId=${args.threadId}, messageId=${args.messageId})`,
+  )
+
+  let response: Response
+  try {
+    response = await fetch(harnessRunsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${codebuffApiKey}`,
+        'Content-Type': 'application/json',
       },
-    }),
-  })
-
-  if (!response.ok) {
+      body: JSON.stringify({
+        runId,
+        prompt: userMessage,
+        previousRunState,
+        projectId: args.projectId,
+        threadId: args.threadId,
+        messageId: args.messageId,
+        callbacks: {
+          toolUrl: `${convexSiteUrl}/freebuff/tool`,
+          eventUrl: `${convexSiteUrl}/freebuff/events`,
+          bearerToken: callbackToken,
+        },
+      }),
+    })
+  } catch (err) {
+    const cause = (err as Error)?.cause
+    const message = (err as Error)?.message ?? String(err)
+    console.error(
+      `[Freebuff] Network error reaching harness at ${harnessRunsUrl}: ${message}`,
+      cause ?? '',
+    )
     return {
       success: false,
-      error: `Codebuff harness failed (${response.status}): ${await response.text()}`,
+      error:
+        `Could not reach the Freebuff harness at ${harnessRunsUrl}. ` +
+        `Ensure the codebuff backend is running and CODEBUFF_HARNESS_URL is correct. ` +
+        `(${message})`,
     }
   }
+
+  if (!response.ok) {
+    const body = await response.text()
+    console.error(
+      `[Freebuff] Harness returned ${response.status} from ${harnessRunsUrl}: ${body}`,
+    )
+    return {
+      success: false,
+      error: `Codebuff harness failed (${response.status}): ${body}`,
+    }
+  }
+
+  console.log(
+    `[Freebuff] Harness accepted runId=${runId} (status=${response.status})`,
+  )
 
   await ctx.runMutation(
     internal.coding_agent.cli_agent.agent_message.updateAgentMessageSessionId,

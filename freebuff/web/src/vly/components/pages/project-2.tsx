@@ -130,8 +130,7 @@ function ProjectWrapper({
   const { projectTheme, toggleProjectTheme } = useProjectPageTheme()
   const project = useQuery(api.project.getProjectData, { semanticIdentifier })
 
-  // Determine which chat UI to show based on active thread type
-  const useAgentChat = project?.active_agent_thread ? true : false
+  const useAgentChat = true
   const { customer, isLoading: isCustomerLoading } = useCustomer()
 
   // Starter upgrade popup for free tier users

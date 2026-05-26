@@ -64,9 +64,11 @@ export class VersioningService {
         }
 
         if (commitResult.hash === "no-changes") {
+          // No file changes to commit \u2014 not an error, just a no-op.
+          // First-message agent runs hit this before any tool has touched files.
           return {
-            success: false,
-            error: "Failed to create checkpoint commit",
+            success: true,
+            checkpointId: undefined,
           };
         }
 
