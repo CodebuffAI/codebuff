@@ -1,5 +1,5 @@
+import { createHash } from "crypto";
 import { Daytona, Sandbox } from "@daytonaio/sdk";
-import { DeploymentSource } from "freestyle-sandboxes";
 import path from "path";
 import {
   Codebase,
@@ -7,7 +7,8 @@ import {
   DevServerCodebase,
   EnvironmentVariableCodebase,
   EnvVars,
-  FreestyleDeployableCodebase,
+  VercelDeployableCodebase,
+  VercelDeploymentFile,
   PackageManagerCodebase,
   SandboxStats,
   SandboxStatsCodebase,
@@ -46,7 +47,7 @@ export class DaytonaCodebase
     VersionControlledCodebase,
     ExtendedGitOperations,
     EnvironmentVariableCodebase,
-    FreestyleDeployableCodebase,
+    VercelDeployableCodebase,
     DevServerCodebase,
     PackageManagerCodebase,
     SandboxStatsCodebase
@@ -89,7 +90,7 @@ export class DaytonaCodebase
         // No dependencies - uses tar which is always available
       },
       ensureVlyIntegrationsPackage: {
-        frequency: "once",
+        frequency: "always",
         execute: async () => await this.ensureVlyIntegrationsPackage(),
       },
       ensureVlyPluginInViteConfig: {
@@ -502,24 +503,69 @@ export class DaytonaCodebase
         return;
       }
 
-      console.log(
-        "[DaytonaCodebase] Checking whether @vly-ai/integrations is already configured",
-      );
-
       const packageJsonContents = await this.readFile("package.json").catch(
         () => "",
       );
+      const pm = this.getPackageManager();
+
       if (
         packageJsonContents &&
         packageJsonContents.includes('"@vly-ai/integrations"')
       ) {
-        console.log(
-          "[DaytonaCodebase] @vly-ai/integrations already present in package.json",
+        // check if it's the latest version
+        let installedVersion: string | undefined;
+        try {
+          const parsed = JSON.parse(packageJsonContents);
+          installedVersion =
+            parsed.dependencies?.["@vly-ai/integrations"] ||
+            parsed.devDependencies?.["@vly-ai/integrations"];
+        } catch {
+          // If package.json can't be parsed, fall through to install
+        }
+
+        if (installedVersion) {
+          let latestVersion: string | undefined;
+          try {
+            const registryResponse = await fetch(
+              "https://registry.npmjs.org/@vly-ai/integrations/latest",
+            );
+            if (registryResponse.ok) {
+              const registryData = (await registryResponse.json()) as {
+                version?: string;
+              };
+              latestVersion = registryData.version;
+            }
+          } catch {
+            console.warn(
+              "[DaytonaCodebase] Could not fetch latest version from npm registry",
+            );
+            return;
+          }
+
+          if (latestVersion && installedVersion === latestVersion) {
+            return;
+          }
+        }
+
+        const updateResult = await this.runCommand(
+          pm.add("@vly-ai/integrations@latest"),
+          60000,
         );
+
+        if (updateResult.exitCode === 0) {
+          console.log(
+            "[DaytonaCodebase] @vly-ai/integrations updated successfully",
+          );
+        } else {
+          console.warn(
+            "[DaytonaCodebase] Failed to update @vly-ai/integrations:",
+            updateResult.output,
+          );
+        }
         return;
       }
 
-      const pm = this.getPackageManager();
+      // Package not present — install it
       const installResult = await this.runCommand(
         pm.add("@vly-ai/integrations"),
         60000,
@@ -531,14 +577,13 @@ export class DaytonaCodebase
         );
       } else {
         console.warn(
-          "[DaytonaCodebase] Failed to install missing @vly-ai/integrations dependency:",
+          "[DaytonaCodebase] Failed to install @vly-ai/integrations:",
           installResult.output,
         );
       }
     } catch (error) {
-      // Non-critical failure - log but don't block initialization
-      console.warn(
-        "[DaytonaCodebase] Could not install @vly-ai/integrations (non-critical):",
+      console.error(
+        "[DaytonaCodebase] @vly-ai/integrations setup failed:",
         error,
       );
     }
@@ -1519,7 +1564,7 @@ if (!hasIntegration) {
     let backendEnv: Record<string, string> = {};
     try {
       const backendEnvResult = await this.runCommand(
-        this.packageManager.run("convex env list"),
+        `CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null) ${this.packageManager.run("convex env list")}`,
       );
 
       // Check if it's an authentication error
@@ -1617,16 +1662,13 @@ if (!hasIntegration) {
     }
   }
 
-  // FreestyleDeployableCodebase interface methods
-  async prepareForDeployment(): Promise<DeploymentSource & { kind: "files" }> {
+  // VercelDeployableCodebase interface methods
+  async prepareForDeployment(): Promise<VercelDeploymentFile[]> {
     if (!this.sandbox) {
       throw new Error("Cannot prepare for deployment: sandbox not initialized");
     }
 
-    // get all the file paths in the artifactDir
-
     const filePaths: string[] = [];
-
     const session = await this.sandbox;
 
     const artifactDirCandidates = [`${this.projectDir}/isolate`, "isolate"];
@@ -1670,25 +1712,19 @@ if (!hasIntegration) {
     );
 
     const artifactPrefix = `${artifactDir}/`;
-    const base64EncodedFiles = files.map(([filePath, content]) => {
+    return files.map(([filePath, content]) => {
       const normalizedFilePath = filePath.startsWith(artifactPrefix)
         ? filePath.slice(artifactPrefix.length)
         : filePath.replace("isolate/", "");
-      return [
-        normalizedFilePath,
-        {
-          content: Buffer.from(content).toString("base64"),
-          encoding: "base64",
-        },
-      ];
+      const buf = Buffer.from(content);
+      const sha = createHash("sha1").update(buf).digest("hex");
+      return {
+        file: normalizedFilePath,
+        sha,
+        size: buf.length,
+        content: buf,
+      };
     });
-
-    const preparedFiles = Object.fromEntries(base64EncodedFiles);
-
-    return {
-      kind: "files",
-      files: preparedFiles,
-    };
   }
 
   // DevServerCodebase interface methods

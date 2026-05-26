@@ -90,13 +90,14 @@ export async function generateJWTKeyPair(): Promise<{
 export async function getConvexEnvironmentVariables(
   deploymentName: string,
   deployKey: string,
+  deploymentUrl?: string,
 ): Promise<Record<string, string>> {
   try {
-    const deploymentUrl = `https://${deploymentName}.convex.cloud`;
+    const url = deploymentUrl ?? `https://${deploymentName}.convex.cloud`;
 
     const response = await axios.get<{
       environmentVariables: Record<string, string>;
-    }>(`${deploymentUrl}/api/v1/list_environment_variables`, {
+    }>(`${url}/api/v1/list_environment_variables`, {
       headers: {
         Authorization: `Convex ${deployKey}`,
       },
@@ -140,11 +141,11 @@ export async function setConvexEnvironmentVariables(
   deploymentName: string,
   deployKey: string,
   variables: Record<string, string>,
+  deploymentUrl?: string,
 ): Promise<void> {
   try {
-    const deploymentUrl = `https://${deploymentName}.convex.cloud`;
+    const url = deploymentUrl ?? `https://${deploymentName}.convex.cloud`;
 
-    // Convert variables object to the expected changes array format
     const changes = Object.entries(variables).map(([name, value]) => ({
       name,
       value,
@@ -152,7 +153,7 @@ export async function setConvexEnvironmentVariables(
 
     const requestBody = { changes };
     await axios.post(
-      `${deploymentUrl}/api/v1/update_environment_variables`,
+      `${url}/api/v1/update_environment_variables`,
       requestBody,
       {
         headers: {
@@ -184,14 +185,15 @@ export async function deleteConvexEnvironmentVariable(
   deploymentName: string,
   deployKey: string,
   variableName: string,
+  deploymentUrl?: string,
 ): Promise<void> {
   try {
-    const deploymentUrl = `https://${deploymentName}.convex.cloud`;
+    const url = deploymentUrl ?? `https://${deploymentName}.convex.cloud`;
 
     const changes = [{ name: variableName, value: null }];
 
     await axios.post(
-      `${deploymentUrl}/api/v1/update_environment_variables`,
+      `${url}/api/v1/update_environment_variables`,
       { changes },
       {
         headers: {

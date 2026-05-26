@@ -11,8 +11,8 @@ import {
   ConvexComputeIcon,
   ConvexDatabaseIcon,
   ConvexFileIcon,
-} from "@/components/billing/icons";
-import { VlyCoin } from "@/components/ui/vly-coin";
+} from "@/vly/components/billing/icons";
+import { VlyCoin } from "@/vly/components/ui/vly-coin";
 import type { Product } from "autumn-js";
 
 export interface ProductIconConfig {

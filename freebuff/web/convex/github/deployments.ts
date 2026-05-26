@@ -160,7 +160,7 @@ export const createGitHubDeploymentForProject = internalAction({
         ref: commitToDeploy.sha,
         environment: args.environment,
         description: args.description,
-        targetUrl: `https://${args.slug}.vly.site`, // Use slug for production URL
+        targetUrl: `https://${args.slug}.vly.dev`, // Use slug for production URL
       });
 
       const deployment = await createGitHubDeployment(
@@ -171,7 +171,7 @@ export const createGitHubDeploymentForProject = internalAction({
         args.environment,
         args.description,
         false,
-        `https://${args.slug}.vly.site`, // Use slug for production URL
+        `https://${args.slug}.vly.dev`, // Use slug for production URL
       );
 
       console.log(

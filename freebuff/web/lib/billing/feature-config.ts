@@ -14,8 +14,8 @@ import {
   Database,
   HardDrive,
 } from "lucide-react";
-import { formatBytes, formatCompute } from "@/lib/monitoring/monitoring-utils";
-import { formatCredits } from "@/autumn/helpers";
+import { formatBytes, formatCompute } from "@/vly/lib/monitoring/monitoring-utils";
+import { formatCredits } from "@/vly/autumn/helpers";
 // TEMPORARILY DISABLED: All pack imports commented out due to Autumn API 500 errors
 // on the /has_customers endpoint. Re-enable once Autumn resolves the issue.
 // import {
@@ -40,9 +40,9 @@ import { formatCredits } from "@/autumn/helpers";
 //   convexFileBWPackSmall,
 //   convexFileBWPackMedium,
 //   convexFileBWPackLarge,
-// } from "@/autumn.config";
+// } from "@/vly/autumn.config";
 
-// Use centralized formatCredits from autumn/pricing
+// Use centralized formatCredits from autumn/web/pricing
 // Alias for backwards compatibility within this file
 const formatLargeNumber = formatCredits;
 

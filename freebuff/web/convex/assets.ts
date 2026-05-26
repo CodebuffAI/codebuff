@@ -8,7 +8,7 @@ import { getVerifiedAccessProject } from "./project";
 import { getAuthUser } from "./users";
 import {
   Codebase,
-  isFreestyleDeployable,
+  isVercelDeployable,
 } from "../codebase-utils/codebase/Codebase";
 import { DaytonaCodebase } from "../codebase-utils/codebase/DaytonaCodebase";
 
@@ -38,8 +38,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MiB
 // Helper function to read/write assets metadata JSON outside codebase
 class AssetsManager {
   constructor(private codebase: Codebase) {
-    if (!isFreestyleDeployable(codebase)) {
-      throw new Error("Codebase does not support freestyle deployable");
+    if (!isVercelDeployable(codebase)) {
+      throw new Error("Codebase does not support deployment");
     }
   }
 

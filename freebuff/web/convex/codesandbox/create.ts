@@ -137,7 +137,7 @@ export const create = mutation({
           projectSemanticIdentifier: assignedProject.semantic_identifier,
           message: args.initialDocumentContent,
           ...(args.images && { images: args.images }),
-          agentType: "Freebuff",
+          agentType: "Freebuff" as any,
           _skipRateLimitCheck: true, // Skip rate limit check - already checked above
         },
       );

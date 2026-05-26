@@ -40,26 +40,28 @@ export const UpdateDeploymentSlugDialog = ({
   const updateSlug = useAction(api.deployment.updateDeploymentSlug);
 
   // Extract current slug from domain
-  const currentSlug = currentDomain.replace(".vly.site", "");
+  const currentSlug = currentDomain.replace(".vly.dev", "");
 
   // Pure validation function - returns validation result without side effects
   const validateSlug = (slug: string): { isValid: boolean; error: string } => {
-    const regex = /^[a-z][a-z0-9-]*$/;
     if (!slug) {
       return { isValid: true, error: "" };
     }
     if (slug === currentSlug) {
       return { isValid: false, error: "Slug is the same as current" };
     }
-    if (!regex.test(slug)) {
+    if (slug !== slug.toLowerCase()) {
+      return { isValid: false, error: "Must be lowercase" };
+    }
+    if (!/^[a-z][a-z0-9]*$/.test(slug)) {
       return {
         isValid: false,
         error:
-          "Invalid format. Start with letter, use lowercase letters, numbers, and hyphens only",
+          "Only lowercase letters and numbers allowed. Must start with a letter",
       };
     }
-    if (slug.length > 63) {
-      return { isValid: false, error: "Slug must be 63 characters or less" };
+    if (slug.length > 100) {
+      return { isValid: false, error: "Must be 100 characters or less" };
     }
     return { isValid: true, error: "" };
   };
@@ -72,7 +74,11 @@ export const UpdateDeploymentSlugDialog = ({
   });
 
   const handleSlugChange = (value: string) => {
-    const cleanedSlug = value.trim().toLowerCase();
+    // Strip everything except lowercase letters and numbers
+    const cleanedSlug = value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
     setNewSlug(cleanedSlug);
 
     // Validate and set error message
@@ -127,53 +133,45 @@ export const UpdateDeploymentSlugDialog = ({
           className={`flex items-center gap-1 ${className}`}
         >
           <Edit className="h-4 w-4" />
-          Edit Slug
+          Edit Domain
         </Button>
       </DialogTrigger>
       <DialogContentNoOverlay>
         <DialogHeader>
-          <DialogTitle>Update Deployment Slug</DialogTitle>
+          <DialogTitle>Update Domain</DialogTitle>
           <DialogDescription>
-            Change your deployment slug to update the domain. Custom domains
-            will automatically work with the new slug.
+            Change your domain name. Custom domains will automatically work with
+            the new one.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Current Domain */}
-          <div>
-            <Label className="text-sm font-medium">Current Domain</Label>
-            <div className="mt-1 rounded-md bg-gray-100 px-3 py-2 font-mono text-sm">
-              {currentDomain}
-            </div>
-          </div>
-
-          {/* New Slug Input */}
+          {/* New Domain Input */}
           <div>
             <Label htmlFor="newSlug" className="text-sm font-medium">
-              New Slug
+              New Domain
             </Label>
             <div className="mt-1 flex items-center overflow-hidden rounded-md border border-gray-200 bg-white">
               <Input
                 id="newSlug"
-                placeholder="e.g., my-app-v2"
+                placeholder="e.g., myappv2"
                 value={newSlug}
                 onChange={(e) => handleSlugChange(e.target.value)}
                 disabled={isUpdating}
                 className="flex-1 border-0 shadow-none focus:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="px-3 font-mono text-sm text-gray-500">
-                .vly.site
+                .vly.dev
               </div>
             </div>
             {slugError && (
               <p className="mt-1 text-xs text-red-500">{slugError}</p>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              Lowercase letters, numbers, and hyphens. Must start with a letter.
+              Lowercase letters and numbers only. Must start with a letter.
             </p>
 
-            {/* Slug Availability */}
+            {/* Availability */}
             {newSlug && validation.isValid && newSlug !== currentSlug && (
               <div className="mt-2">
                 {checkAvailability === null && (
@@ -184,27 +182,17 @@ export const UpdateDeploymentSlugDialog = ({
                 )}
                 {checkAvailability === true && (
                   <div className="text-sm font-medium text-green-600">
-                    ✓ Slug is available
+                    ✓ Domain is available
                   </div>
                 )}
                 {checkAvailability === false && (
                   <div className="text-sm font-medium text-red-600">
-                    ✗ Slug is already taken
+                    ✗ Domain is already taken
                   </div>
                 )}
               </div>
             )}
           </div>
-
-          {/* New Domain Preview */}
-          {newSlug && isSlugValid && (
-            <div>
-              <Label className="text-sm font-medium">New Domain</Label>
-              <div className="mt-1 rounded-md bg-blue-50 px-3 py-2 font-mono text-sm text-blue-900">
-                {newSlug}.vly.site
-              </div>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
@@ -230,7 +218,7 @@ export const UpdateDeploymentSlugDialog = ({
                 Updating...
               </div>
             ) : (
-              "Update Slug"
+              "Update Domain"
             )}
           </Button>
         </DialogFooter>

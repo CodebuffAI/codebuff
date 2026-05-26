@@ -69,15 +69,20 @@ export interface CostBreakdown {
 }
 
 /**
- * Calculate compute GB-hours from memory and execution time
+ * Calculate compute GB-hours from aggregated memory, execution time, and count.
+ * Uses average memory per execution × total execution time to avoid
+ * over-counting when both values are pre-summed across multiple executions.
  */
 export function calculateComputeGBHours(
   memoryMb: number,
   executionTimeMs: number,
+  executionCount?: number,
 ): number {
-  // Convert MB to GB and ms to hours
-  const memoryGB = memoryMb / 1024;
-  const executionHours = executionTimeMs / (1000 * 60 * 60);
+  if (memoryMb <= 0 || executionTimeMs <= 0) return 0;
+  const avgMemoryMb =
+    executionCount && executionCount > 0 ? memoryMb / executionCount : memoryMb;
+  const memoryGB = avgMemoryMb / 1024;
+  const executionHours = executionTimeMs / 3_600_000;
   return memoryGB * executionHours;
 }
 
@@ -87,10 +92,10 @@ export function calculateComputeGBHours(
 export function calculateCosts(metrics: UsageMetrics): CostBreakdown {
   const pricing = CONVEX_PRICING.PROFESSIONAL.OVERAGE;
 
-  // 1. Compute cost (GB-hours)
   const computeGBHours = calculateComputeGBHours(
     metrics.actionMemoryUsedMb,
     metrics.executionTimeMs,
+    metrics.executionCount,
   );
   const computeCost = computeGBHours * pricing.COMPUTE_PER_GB_HOUR;
 

@@ -1,7 +1,6 @@
 import {
   mutation,
   query,
-  internalAction,
   internalQuery,
   internalMutation,
 } from "./_generated/server";
@@ -67,7 +66,10 @@ export const getUiPresets = query({
     if (identity) {
       // Only fetch user if we need to check god status
       // Use direct DB query instead of runQuery for better performance
-      const user = await getAuthUser(ctx);
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
       isGod = user?.role === "god";
     }
 
@@ -362,8 +364,9 @@ export const getUiPresetSearchData = internalQuery({
   },
 });
 
-// Internal action for AI agent tool - search UI presets by keyword with regex + threshold scoring
-export const searchUiPresetsInternal = internalAction({
+// Internal query for AI agent tool - search UI presets using search index + regex scoring.
+// Replaces the old internalAction that did a full table scan with in-memory cache.
+export const searchUiPresetsInternal = internalQuery({
   args: {
     searchQuery: v.string(),
     category: v.optional(v.union(v.literal("theme"), v.literal("component"))),
@@ -376,39 +379,58 @@ export const searchUiPresetsInternal = internalAction({
       .split(/\s+/)
       .filter((t) => t.length > 2);
 
-    const presets = (await loadSearchPresets(ctx)).filter(
-      (preset) => !args.category || preset.category === args.category,
-    );
+    if (searchTerms.length === 0) return [];
 
-    // Score using REGEX + THRESHOLD for accurate word boundary matching
-    const scoredPresets = presets.map((preset) => {
+    // Use search index on description, filtered by category if provided
+    const searchResults = await ctx.db
+      .query("ui_preset")
+      .withSearchIndex("search_presets", (q) => {
+        const base = q.search("description", args.searchQuery);
+        return args.category ? base.eq("category", args.category) : base;
+      })
+      .take(32);
+
+    // Also fetch by category index to catch title/tag/keyword matches the search index misses
+    const categoryResults = args.category
+      ? await ctx.db
+          .query("ui_preset")
+          .withIndex("by_category", (q) => q.eq("category", args.category!))
+          .collect()
+      : await ctx.db.query("ui_preset").collect();
+
+    // Merge and deduplicate
+    const seenIds = new Set(searchResults.map((r) => r._id.toString()));
+    const allPresets = [...searchResults];
+    for (const r of categoryResults) {
+      if (!seenIds.has(r._id.toString())) {
+        allPresets.push(r);
+      }
+    }
+
+    // Score using regex for accurate matching across all fields
+    const scoredPresets = allPresets.map((preset) => {
       let score = 0;
+      const titleLower = preset.title.toLowerCase();
+      const descriptionLower = preset.description.toLowerCase();
+      const tagsLower = (preset.tags ?? []).map((t) => t.toLowerCase());
+      const keywordsLower = (preset.keywords ?? []).map((k) => k.toLowerCase());
 
       for (const term of searchTerms) {
-        // Escape special regex characters in search term
         const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        // Use word boundary regex for accurate matching
-        // Matches "card" but not "discard", "button" but not "buttons" issue
         const exactRegex = new RegExp(`\\b${escapedTerm}\\b`, "i");
         const partialRegex = new RegExp(escapedTerm, "i");
 
-        // Keywords: exact match = 15pts, partial = 10pts
-        if (preset.keywordsLower.some((kw) => exactRegex.test(kw))) score += 15;
-        else if (preset.keywordsLower.some((kw) => partialRegex.test(kw)))
-          score += 10;
+        if (keywordsLower.some((kw) => exactRegex.test(kw))) score += 15;
+        else if (keywordsLower.some((kw) => partialRegex.test(kw))) score += 10;
 
-        // Title: exact match = 15pts, partial = 10pts
-        if (exactRegex.test(preset.titleLower)) score += 15;
-        else if (partialRegex.test(preset.titleLower)) score += 10;
+        if (exactRegex.test(titleLower)) score += 15;
+        else if (partialRegex.test(titleLower)) score += 10;
 
-        // Tags: exact match = 15pts, partial = 10pts (equal to keywords)
-        if (preset.tagsLower.some((tag) => exactRegex.test(tag))) score += 15;
-        else if (preset.tagsLower.some((tag) => partialRegex.test(tag)))
-          score += 10;
+        if (tagsLower.some((tag) => exactRegex.test(tag))) score += 15;
+        else if (tagsLower.some((tag) => partialRegex.test(tag))) score += 10;
 
-        // Description: exact match = 8pts, partial = 5pts
-        if (exactRegex.test(preset.descriptionLower)) score += 8;
-        else if (partialRegex.test(preset.descriptionLower)) score += 5;
+        if (exactRegex.test(descriptionLower)) score += 8;
+        else if (partialRegex.test(descriptionLower)) score += 5;
       }
       return { preset, score };
     });

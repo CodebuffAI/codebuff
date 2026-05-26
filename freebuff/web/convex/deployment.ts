@@ -75,15 +75,16 @@ export const createDeployment = mutation({
       throw new ConvexError("Project not found");
     }
 
+    const slug = args.slug.toLowerCase();
+
     const deploymentId = await ctx.db.insert("deployments", {
       project: args.projectId,
-      deploymentDomain: `${args.slug}.vly.site`,
+      deploymentDomain: `${slug}.vly.dev`,
       state: "deploying",
     });
 
-    // set the subdomain slug in the DB
     await ctx.db.patch(args.projectId, {
-      prod_deployment_slug: args.slug,
+      prod_deployment_slug: slug,
     });
 
     await ctx.scheduler.runAfter(
@@ -91,7 +92,7 @@ export const createDeployment = mutation({
       internal.codesandbox.export.deployOnFreestyle,
       {
         projectId: args.projectId,
-        slug: args.slug,
+        slug: slug,
         deploymentId,
       },
     );
@@ -250,21 +251,26 @@ export const cancelStalePendingDeployments = internalMutation({
 });
 
 function isValidSlug(slug: string): boolean {
-  const slugRegex = /^[a-z][a-z0-9-]*$/;
-  return slugRegex.test(slug) && slug.length <= 63;
+  if (slug.length > 100) return false;
+  if (slug !== slug.toLowerCase()) return false;
+  // Only allow lowercase letters and numbers — no dots, underscores, or hyphens
+  // to ensure valid single-level subdomains (slug.vly.dev)
+  return /^[a-z][a-z0-9]*$/.test(slug);
 }
 
-// Unmap domain from Freestyle
-async function unmapDomainFromFreestyle(
+async function removeDomainFromVercel(
+  vercelProjectId: string,
   domain: string,
 ): Promise<{ status: number; text: string }> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
   const response = await fetch(
-    `https://api.freestyle.sh/domains/v1/mappings/${encodeURIComponent(domain.toLowerCase())}`,
+    `https://api.vercel.com/v10/projects/${vercelProjectId}/domains/${encodeURIComponent(domain.toLowerCase())}?teamId=${teamId}`,
     {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${process.env.FREESTYLE_API_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${vercelToken}`,
       },
     },
   );
@@ -273,20 +279,22 @@ async function unmapDomainFromFreestyle(
   return { status: response.status, text };
 }
 
-// Remap domain to new Freestyle deployment
-async function remapDomainToFreestyle(
+async function addDomainToVercel(
+  vercelProjectId: string,
   domain: string,
-  deploymentId: string,
 ): Promise<{ status: number; text: string }> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
   const response = await fetch(
-    `https://api.freestyle.sh/domains/v1/mappings/${encodeURIComponent(domain.toLowerCase())}`,
+    `https://api.vercel.com/v10/projects/${vercelProjectId}/domains?teamId=${teamId}`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.FREESTYLE_API_KEY}`,
+        Authorization: `Bearer ${vercelToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ deploymentId }),
+      body: JSON.stringify({ name: domain }),
     },
   );
 
@@ -338,23 +346,56 @@ export const deleteDeployment = action({
       );
     }
     const deploymentDomain =
-      deployment.deploymentDomain || `${projectDeploymentSlug}.vly.site`;
+      deployment.deploymentDomain || `${projectDeploymentSlug}.vly.dev`;
     console.log("deploymentDomain", deploymentDomain);
-    // Call Freestyle to unmap domain
+    // Remove domain from Vercel project
     if (deploymentDomain) {
-      console.log(
-        `[DEBUG] Unmapping domain ${deploymentDomain} from Freestyle`,
-      );
-      const unmapResult = await unmapDomainFromFreestyle(deploymentDomain);
-      console.log(`[DEBUG] Unmap result status: ${unmapResult.status}`);
+      const vercelToken = process.env.VERCEL_API_TOKEN;
+      const teamId = process.env.VERCEL_TEAM_ID;
 
-      if (unmapResult.status !== 200 && unmapResult.status !== 404) {
-        console.error(
-          `[DEBUG] Failed to unmap domain. Status: ${unmapResult.status}, Response: ${unmapResult.text}`,
+      let vercelProjectId = deployment.freestyleDeploymentId || null;
+
+      // Verify stored ID is valid, fall back to slug lookup
+      if (vercelProjectId) {
+        const checkResponse = await fetch(
+          `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectId)}?teamId=${teamId}`,
+          { headers: { Authorization: `Bearer ${vercelToken}` } },
         );
-        throw new ConvexError(
-          `Failed to unmap domain from Freestyle: ${unmapResult.text || "Unknown error"}`,
+        if (!checkResponse.ok) {
+          vercelProjectId = null;
+        }
+      }
+
+      if (!vercelProjectId) {
+        const slugFromDomain = deploymentDomain.replace(".vly.dev", "");
+        const lookupResponse = await fetch(
+          `https://api.vercel.com/v9/projects/${encodeURIComponent(slugFromDomain)}?teamId=${teamId}`,
+          { headers: { Authorization: `Bearer ${vercelToken}` } },
         );
+        if (lookupResponse.ok) {
+          const projectData = await lookupResponse.json();
+          vercelProjectId = projectData.id;
+        }
+      }
+
+      if (vercelProjectId) {
+        console.log(`[DEBUG] Removing domain ${deploymentDomain} from Vercel`);
+        const unmapResult = await removeDomainFromVercel(
+          vercelProjectId,
+          deploymentDomain,
+        );
+        console.log(
+          `[DEBUG] Vercel domain removal status: ${unmapResult.status}`,
+        );
+
+        if (![200, 204, 404].includes(unmapResult.status)) {
+          console.error(
+            `[DEBUG] Failed to remove domain. Status: ${unmapResult.status}, Response: ${unmapResult.text}`,
+          );
+          throw new ConvexError(
+            `Failed to remove domain from Vercel: ${unmapResult.text || "Unknown error"}`,
+          );
+        }
       }
     }
 
@@ -387,7 +428,7 @@ export const updateDeploymentSlug = action({
     // Validate new slug format
     if (!isValidSlug(args.newSlug)) {
       throw new ConvexError(
-        "Invalid slug format. Must start with letter, contain only lowercase letters, numbers, and hyphens",
+        "Invalid slug format. Only lowercase letters and numbers allowed",
       );
     }
 
@@ -433,48 +474,97 @@ export const updateDeploymentSlug = action({
     if (deployment.deploymentDomain) {
       oldSlug = deployment.deploymentDomain;
     } else {
-      oldSlug = `${projectDeploymentSlug}.vly.site`;
+      oldSlug = `${projectDeploymentSlug}.vly.dev`;
     }
     console.log("oldSlug", oldSlug);
-    const newDeploymentDomain = `${args.newSlug}.vly.site`;
+    const newDeploymentDomain = `${args.newSlug}.vly.dev`;
 
-    if (deployment.freestyleDeploymentId && oldSlug) {
-      // STEP 1: Unmap the old domain from Freestyle
-      console.log(`[DEBUG] Unmapping old domain ${oldSlug} from Freestyle`);
-      const unmapResult = await unmapDomainFromFreestyle(oldSlug);
-      console.log(`[DEBUG] Unmap result status: ${unmapResult.status}`);
+    {
+      const vercelToken = process.env.VERCEL_API_TOKEN;
+      const teamId = process.env.VERCEL_TEAM_ID;
 
-      if (unmapResult.status !== 200 && unmapResult.status !== 404) {
-        console.error(
-          `[DEBUG] Failed to unmap old domain. Status: ${unmapResult.status}, Response: ${unmapResult.text}`,
+      // Resolve Vercel project ID: try stored ID, fall back to slug lookup
+      let vercelProjectId = deployment.freestyleDeploymentId || null;
+
+      if (vercelProjectId) {
+        const checkResponse = await fetch(
+          `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectId)}?teamId=${teamId}`,
+          { headers: { Authorization: `Bearer ${vercelToken}` } },
         );
-        throw new ConvexError(
-          `Failed to unmap old domain from Freestyle: ${unmapResult.text || "Unknown error"}`,
-        );
+        if (!checkResponse.ok) {
+          console.log(
+            `[DEBUG] Stored ID ${vercelProjectId} not found on Vercel, looking up by slug`,
+          );
+          vercelProjectId = null;
+        }
       }
 
-      // STEP 2: Map the new domain to Freestyle
-      console.log(
-        `[DEBUG] Remapping domain to ${newDeploymentDomain} for deployment ${deployment.freestyleDeploymentId}`,
-      );
-      const remapResult = await remapDomainToFreestyle(
-        newDeploymentDomain,
-        deployment.freestyleDeploymentId,
-      );
-      console.log(`[DEBUG] Remap result status: ${remapResult.status}`);
-
-      if (remapResult.status !== 200) {
-        console.error(
-          `[DEBUG] Failed to remap domain. Status: ${remapResult.status}, Response: ${remapResult.text}`,
+      if (!vercelProjectId && oldSlug) {
+        const slugFromDomain = oldSlug.replace(".vly.dev", "");
+        const lookupResponse = await fetch(
+          `https://api.vercel.com/v9/projects/${encodeURIComponent(slugFromDomain)}?teamId=${teamId}`,
+          { headers: { Authorization: `Bearer ${vercelToken}` } },
         );
-        throw new ConvexError(
-          `Failed to remap domain on Freestyle: ${remapResult.text || "Unknown error"}`,
-        );
+        if (lookupResponse.ok) {
+          const projectData = await lookupResponse.json();
+          vercelProjectId = projectData.id;
+          console.log(
+            `[DEBUG] Found Vercel project by slug ${slugFromDomain}: ${vercelProjectId}`,
+          );
+        }
       }
-    } else if (!deployment.freestyleDeploymentId) {
-      console.log(
-        `[DEBUG] No Freestyle deployment ID, skipping domain mapping`,
-      );
+
+      if (vercelProjectId && oldSlug) {
+        // STEP 1: Remove the old domain from Vercel
+        console.log(`[DEBUG] Removing old domain ${oldSlug} from Vercel`);
+        const unmapResult = await removeDomainFromVercel(
+          vercelProjectId,
+          oldSlug,
+        );
+        console.log(
+          `[DEBUG] Vercel domain removal status: ${unmapResult.status}`,
+        );
+
+        if (![200, 204, 404].includes(unmapResult.status)) {
+          console.error(
+            `[DEBUG] Failed to remove old domain. Status: ${unmapResult.status}, Response: ${unmapResult.text}`,
+          );
+          throw new ConvexError(
+            `Failed to remove old domain from Vercel: ${unmapResult.text || "Unknown error"}`,
+          );
+        }
+
+        // STEP 2: Add the new domain to Vercel
+        console.log(
+          `[DEBUG] Adding domain ${newDeploymentDomain} to Vercel project ${vercelProjectId}`,
+        );
+        const remapResult = await addDomainToVercel(
+          vercelProjectId,
+          newDeploymentDomain,
+        );
+        console.log(`[DEBUG] Vercel domain add status: ${remapResult.status}`);
+
+        if (
+          !remapResult.status.toString().startsWith("2") &&
+          remapResult.status !== 409
+        ) {
+          console.error(
+            `[DEBUG] Failed to add domain. Status: ${remapResult.status}, Response: ${remapResult.text}`,
+          );
+          throw new ConvexError(
+            `Failed to add domain on Vercel: ${remapResult.text || "Unknown error"}`,
+          );
+        }
+
+        // Update stored ID so future operations don't need the lookup
+        await ctx.runMutation(internal.deployment.update, {
+          deploymentId: args.deploymentId,
+          state: deployment.state,
+          freestyleDeploymentId: vercelProjectId,
+        });
+      } else {
+        console.log(`[DEBUG] No Vercel project found, skipping domain mapping`);
+      }
     }
 
     // Update deployment domain in database

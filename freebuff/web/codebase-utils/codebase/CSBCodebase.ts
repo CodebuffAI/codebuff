@@ -1,7 +1,6 @@
 "use node";
 
 import { CodeSandbox, Sandbox, SandboxClient } from "@codesandbox/sdk";
-import { DeploymentSource } from "freestyle-sandboxes";
 import path from "path";
 import { filterTerminalOuptut } from "../../lib/utils";
 import { openSandboxWithRetry } from "../instanceManager";
@@ -11,7 +10,8 @@ import {
   DevServerCodebase,
   EnvironmentVariableCodebase,
   EnvVars,
-  FreestyleDeployableCodebase,
+  VercelDeployableCodebase,
+  VercelDeploymentFile,
   PackageManagerCodebase,
   SandboxStats,
   SandboxStatsCodebase,
@@ -30,7 +30,7 @@ export class CSBCodebase
     VersionControlledCodebase,
     ExtendedGitOperations,
     EnvironmentVariableCodebase,
-    FreestyleDeployableCodebase,
+    VercelDeployableCodebase,
     DevServerCodebase,
     PackageManagerCodebase,
     SandboxStatsCodebase
@@ -626,7 +626,7 @@ export class CSBCodebase
     let backendEnv: Record<string, string> = {};
     try {
       const backendEnvResult = await this.runCommand(
-        this.packageManager.run("convex env list"),
+        `CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null) ${this.packageManager.run("convex env list")}`,
       );
 
       // Check if it's an authentication error
@@ -724,15 +724,13 @@ export class CSBCodebase
     }
   }
 
-  async prepareForDeployment(): Promise<DeploymentSource & { kind: "files" }> {
+  async prepareForDeployment(): Promise<VercelDeploymentFile[]> {
     if (!this.sandbox) {
       throw new Error("Cannot prepare for deployment: sandbox not initialized");
     }
 
-    // get all the file paths in the artifactDir
-
+    const { createHash } = await import("crypto");
     const filePaths: string[] = [];
-
     const session = await this.getSession();
 
     const artifactDirCandidates = [`${this.projectDir}/isolate`, "isolate"];
@@ -776,35 +774,19 @@ export class CSBCodebase
     );
 
     const artifactPrefix = `${artifactDir}/`;
-    const base64EncodedFiles = files.map(([filePath, content]) => {
+    return files.map(([filePath, content]) => {
       const normalizedFilePath = filePath.startsWith(artifactPrefix)
         ? filePath.slice(artifactPrefix.length)
         : filePath.replace("isolate/", "");
-      return [
-        normalizedFilePath,
-        {
-          content: Buffer.from(content).toString("base64"),
-          encoding: "base64",
-        },
-      ];
+      const buf = Buffer.from(content);
+      const sha = createHash("sha1").update(buf).digest("hex");
+      return {
+        file: normalizedFilePath,
+        sha,
+        size: buf.length,
+        content: buf,
+      };
     });
-
-    const preparedFiles: Record<
-      string,
-      { content: string; encoding: "base64" }
-    > = Object.fromEntries(base64EncodedFiles);
-
-    console.log("writing deployment-source.json");
-    await this.session?.fs.writeTextFile(
-      "deployment-source.json",
-      JSON.stringify(preparedFiles),
-    );
-    console.log("deployment-source.json written");
-
-    return {
-      kind: "files",
-      files: preparedFiles,
-    };
   }
 
   async commit(message: string, allowEmpty: boolean = false): Promise<Commit> {

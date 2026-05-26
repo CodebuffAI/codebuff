@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { api } from '@/convex/_generated/api'
-import { Id } from '@/convex/_generated/dataModel'
-import { usePaginatedQuery, useQuery, useMutation } from 'convex/react'
-import { motion } from 'framer-motion'
-import { ArrowLeft, Loader, MessageCircle } from 'lucide-react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Loader, MessageCircle } from "lucide-react";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useState,
   useRef,
@@ -15,101 +15,102 @@ import {
   useEffect,
   startTransition,
   useMemo,
-} from 'react'
-import { useCustomer } from 'autumn-js/react'
-import { checkProjectWorkspaceQuota } from '@/vly/lib/billing/workspace-quota-utils'
-import type { AutumnCustomer } from '@/vly/lib/billing/types'
-import type { SandboxSize } from '@/vly/lib/sandbox-specs'
+} from "react";
+import { useCustomer } from "autumn-js/react";
+import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
+import type { AutumnCustomer } from "@/vly/lib/billing/types";
+import type { SandboxSize } from "@/vly/lib/sandbox-specs";
 
 // Core components that are always needed
-import { TopBar } from '../project-2/TopBar'
-import { ChatShell } from '../project-2/ChatShell'
-import { AgentChatShell } from '../project-2/agent-chat'
-import { useIsMobile } from '@/vly/hooks/use-mobile'
-import { MarkdownWithSuggest } from '../project-2/MarkdownWithSuggest'
-import { ChatStorageProvider } from '@/vly/contexts/ChatStorageContext'
-import { useProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
+import { TopBar } from "../project-2/TopBar";
+import { ChatShell } from "../project-2/ChatShell";
+import { AgentChatShell } from "../project-2/agent-chat";
+import { useIsMobile } from "@/vly/hooks/use-mobile";
+import { MarkdownWithSuggest } from "../project-2/MarkdownWithSuggest";
+import { ChatStorageProvider } from "@/vly/contexts/ChatStorageContext";
+import { useProjectPageTheme } from "@/vly/hooks/useProjectPageTheme";
+import { useIsPlatformAdmin } from "@/vly/hooks/useIsPlatformAdmin";
 import {
   ProjectStatusDialog,
   ProjectStatus,
-} from '../project-2/ProjectStatusDialog'
-import { PausedDeploymentBanner } from '@/vly/components/common/paused-deployment-banner'
-import {
-  FeatureGate,
-  UpgradePrompt,
-} from '@/vly/components/billing/FeatureGate'
+} from "../project-2/ProjectStatusDialog";
+import { FeatureGate, UpgradePrompt } from "@/vly/components/billing/FeatureGate";
 import {
   StarterUpgradePopup,
   useStarterUpgradePopup,
-} from '@/vly/components/project-2/StarterUpgradePopup'
-import { GravityAdSlot } from '@/vly/components/project-2/agent-chat/GravityAdSlot'
+} from "@/vly/components/project-2/StarterUpgradePopup";
+import { GravityAdSlot } from "@/vly/components/project-2/agent-chat/GravityAdSlot";
 
 // Lazy load heavy components that may not be immediately visible
 const CenterContent = lazy(() =>
-  import('../project-2/CenterContent').then((m) => ({
+  import("../project-2/CenterContent").then((m) => ({
     default: m.CenterContent,
   })),
-)
+);
 const LeftSidebar = lazy(() =>
-  import('../project-2/LeftSidebar').then((m) => ({ default: m.LeftSidebar })),
-)
+  import("../project-2/LeftSidebar").then((m) => ({ default: m.LeftSidebar })),
+);
 const SyncStatusBanner = lazy(() =>
-  import('../project-2/SyncStatusBanner').then((m) => ({
+  import("../project-2/SyncStatusBanner").then((m) => ({
     default: m.SyncStatusBanner,
   })),
-)
+);
 const DeploymentDialog = lazy(() =>
-  import('../project-2/deployment/DeploymentDialog').then((m) => ({
+  import("../project-2/deployment/DeploymentDialog").then((m) => ({
     default: m.DeploymentDialog,
   })),
-)
-const DatabaseView = lazy(() => import('../project-2/DatabaseView'))
+);
+const DatabaseView = lazy(() => import("../project-2/DatabaseView"));
 const WorkspaceInsufficientPlanModal = lazy(() =>
-  import('../project-2/WorkspaceInsufficientPlanModal').then((m) => ({
+  import("../project-2/WorkspaceInsufficientPlanModal").then((m) => ({
     default: m.WorkspaceInsufficientPlanModal,
   })),
-)
+);
 
 export type ActiveView =
-  | 'default'
-  | 'database'
-  | 'backend management'
-  | 'editor'
-  | 'keys'
-  | 'versions'
-  | 'integrations'
-  | 'ui components'
-  | 'assets'
-  | 'specification'
-  | 'app & support'
-  | 'github'
-  | 'monitoring'
-  | 'hire developers'
-  | 'daytona fs'
+  | "default"
+  | "database"
+  | "backend management"
+  | "editor"
+  | "keys"
+  | "versions"
+  | "integrations"
+  | "ui components"
+  | "assets"
+  | "specification"
+  | "app & support"
+  | "github"
+  | "monitoring"
+  | "hire developers"
+  | "daytona fs";
 
 // Direct import for lightweight components
 
 // Lazy load heavier components
-const EnvVarsView = lazy(() => import('../project-2/EnvVarsView'))
-const GitCommitsView = lazy(() => import('../project-2/GitCommitsView'))
-const IntegrationsView = lazy(() => import('../project-2/IntegrationsView'))
-const UiIntegrationView = lazy(() => import('../project-2/UiIntegrationView'))
-const AssetsView = lazy(() => import('../project-2/AssetsView'))
-const GitHubSyncView = lazy(() => import('../project-2/GitHubSyncView'))
-const EditorView = lazy(() => import('../project-2/EditorView'))
-const AppAndSupportView = lazy(() => import('../project-2/AppAndSupportView'))
-const BackendManagement = lazy(() => import('../project-2/BackendManagement'))
-const Monitoring = lazy(() => import('../project-2/Monitoring'))
-const HireDevelopersView = lazy(() => import('../project-2/HireDevelopersView'))
-const DaytonaFSDashboard = lazy(() => import('../project-2/DaytonaFSDashboard'))
+const EnvVarsView = lazy(() => import("../project-2/EnvVarsView"));
+const GitCommitsView = lazy(() => import("../project-2/GitCommitsView"));
+const IntegrationsView = lazy(() => import("../project-2/IntegrationsView"));
+const UiIntegrationView = lazy(() => import("../project-2/UiIntegrationView"));
+const AssetsView = lazy(() => import("../project-2/AssetsView"));
+const GitHubSyncView = lazy(() => import("../project-2/GitHubSyncView"));
+const EditorView = lazy(() => import("../project-2/EditorView"));
+const AppAndSupportView = lazy(() => import("../project-2/AppAndSupportView"));
+const BackendManagement = lazy(() => import("../project-2/BackendManagement"));
+const Monitoring = lazy(() => import("../project-2/Monitoring"));
+const HireDevelopersView = lazy(
+  () => import("../project-2/HireDevelopersView"),
+);
+const DaytonaFSDashboard = lazy(
+  () => import("../project-2/DaytonaFSDashboard"),
+);
 
 export function Project2({
   shouldShowPublicModel = false,
 }: {
-  shouldShowPublicModel?: boolean
+  shouldShowPublicModel?: boolean;
 }) {
-  const params = useParams()
-  const semanticIdentifier = typeof params.id === 'string' ? params.id : ''
+  const params = useParams();
+  const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
   // Use a wrapper component to handle the Convex query with error boundaries
   return (
@@ -117,32 +118,52 @@ export function Project2({
       semanticIdentifier={semanticIdentifier}
       shouldShowPublicModel={shouldShowPublicModel}
     />
-  )
+  );
+}
+
+function ProjectPausedBanner({ projectId }: { projectId?: Id<"project"> }) {
+  const userPause = useQuery(api.deployment_queries.getCurrentUserPauseStatus);
+  const projectPause = useQuery(
+    api.deployment_queries.getProjectPauseStatus,
+    projectId ? { projectId } : "skip",
+  );
+
+  if (!userPause && !projectPause) return null;
+
+  return (
+    <div className="mx-4 mt-1.5 rounded-lg border border-red-300 bg-red-50 p-1.5 dark:border-red-700/50 dark:bg-red-950/30">
+      <p className="text-[10px] leading-tight text-red-800 dark:text-red-200">
+        Your project is paused due to usage limits.
+      </p>
+    </div>
+  );
 }
 
 function ProjectWrapper({
   semanticIdentifier,
   shouldShowPublicModel = false,
 }: {
-  semanticIdentifier: string
-  shouldShowPublicModel?: boolean
+  semanticIdentifier: string;
+  shouldShowPublicModel?: boolean;
 }) {
-  const { projectTheme, toggleProjectTheme } = useProjectPageTheme()
-  const project = useQuery(api.project.getProjectData, { semanticIdentifier })
+  const { projectTheme, toggleProjectTheme } = useProjectPageTheme();
+  const project = useQuery(api.project.getProjectData, { semanticIdentifier });
 
-  const useAgentChat = true
-  const { customer, isLoading: isCustomerLoading } = useCustomer()
+  // Determine which chat UI to show based on active thread type
+  const useAgentChat = project?.active_agent_thread ? true : false;
+  const { customer, isLoading: isCustomerLoading } = useCustomer();
+  const { isPlatformAdmin, isLoading: isAdminLoading } = useIsPlatformAdmin();
 
   // Starter upgrade popup for free tier users
   const { showPopup: showStarterPopup, setShowPopup: setShowStarterPopup } =
-    useStarterUpgradePopup()
-  const searchParams = useSearchParams()
-  const router = useRouter()
+    useStarterUpgradePopup();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Check migration status (for UI updates) - non-blocking
   const migrationRecord = useQuery(api.convex_instance.lookup, {
     semanticIdentifier: semanticIdentifier || undefined,
-  })
+  });
 
   // OLD CHAT QUERIES - Only run when old chat is active to avoid conflicts
   // Fix InvalidCursor error: Only query when project has loaded to ensure stable threadId parameter
@@ -155,9 +176,9 @@ function ProjectWrapper({
     api.project.listThreadMessages,
     !useAgentChat && project?.active_thread
       ? { semanticIdentifier, threadId: project.active_thread }
-      : 'skip',
+      : "skip",
     { initialNumItems: 10 },
-  )
+  );
 
   // PERFORMANCE FIX: Filter deactivated messages client-side
   // The server no longer filters to avoid scanning thousands of documents
@@ -165,48 +186,50 @@ function ProjectWrapper({
   // React 19 compiler auto-memoizes this, so no useMemo needed
   const filteredThreadMessages = threadMessages.filter(
     (msg) => msg.deactivated !== true,
-  )
+  );
 
   // OLD CHAT STREAMED MESSAGES - Only query when old chat is active
   const streamedMessages = useQuery(
     api.project.getStreamedMessages,
-    !useAgentChat ? { semanticIdentifier } : 'skip',
-  )
+    !useAgentChat ? { semanticIdentifier } : "skip",
+  );
 
   // PERFORMANCE FIX: Filter deactivated streamed messages client-side
   // (unlikely to have deactivated streaming messages, but added for consistency)
   // React 19 compiler auto-memoizes this, so no useMemo needed
   const filteredStreamedMessages = (streamedMessages || []).filter(
     (msg) => msg.deactivated !== true,
-  )
+  );
 
   const entryPoints = useQuery(
     api.project.getEntryPoints,
-    semanticIdentifier ? { semanticIdentifier } : 'skip',
-  )
+    semanticIdentifier ? { semanticIdentifier } : "skip",
+  );
 
   const syncStatus = useQuery(
     api.github.repositories.getProjectSyncStatus,
-    project ? { projectId: project._id } : 'skip',
-  )
+    project ? { projectId: project._id } : "skip",
+  );
 
   // Only show loading if project is loading
   // entryPoints and streamedMessages can load independently
-  const isLoading = project === undefined
+  const isLoading = project === undefined;
 
   // Determine project status (non-blocking)
-  const [projectStatus, setProjectStatus] = useState<ProjectStatus | null>(null)
-  const [allowProjectCalled, setAllowProjectCalled] = useState(false)
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus | null>(
+    null,
+  );
+  const [allowProjectCalled, setAllowProjectCalled] = useState(false);
 
   useEffect(() => {
     // Only check migration status after project has loaded
-    if (project === undefined) return
+    if (project === undefined) return;
 
     // Check if project exists
     if (project === null) {
       // Async to avoid setState-in-effect warning
-      setTimeout(() => setProjectStatus('not-found'), 0)
-      return
+      setTimeout(() => setProjectStatus("not-found"), 0);
+      return;
     }
 
     // Call allow_project endpoint to trigger migration/env restoration
@@ -217,239 +240,239 @@ function ProjectWrapper({
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_CONVEX_SITE_URL}/allow_project?projectId=${semanticIdentifier}`,
             {
-              method: 'GET',
+              method: "GET",
               headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
               },
-              credentials: 'include',
+              credentials: "include",
             },
-          )
+          );
 
           if (response.ok) {
-            const data = await response.json()
-            console.log('allow_project response:', data)
+            const data = await response.json();
+            console.log("allow_project response:", data);
           } else {
-            console.error('allow_project failed:', response.status)
+            console.error("allow_project failed:", response.status);
           }
         } catch (error) {
-          console.error('Error calling allow_project:', error)
+          console.error("Error calling allow_project:", error);
         }
-      }
+      };
 
-      checkProjectAccess()
+      checkProjectAccess();
       // Defer state update to avoid cascading renders
-      setTimeout(() => setAllowProjectCalled(true), 0)
+      setTimeout(() => setAllowProjectCalled(true), 0);
     }
 
     // Check if migration is needed (only when migration check has completed)
     if (migrationRecord === undefined) {
       // Still loading migration status, don't block
-      return
+      return;
     }
 
     if (migrationRecord === null) {
       // Migration is needed - defer to avoid cascading renders
-      setTimeout(() => setProjectStatus('migrating'), 0)
-      return
+      setTimeout(() => setProjectStatus("migrating"), 0);
+      return;
     }
 
     // Project is accessible and migrated - defer to avoid cascading renders
-    setTimeout(() => setProjectStatus(null), 0)
-  }, [project, migrationRecord, semanticIdentifier, allowProjectCalled])
+    setTimeout(() => setProjectStatus(null), 0);
+  }, [project, migrationRecord, semanticIdentifier, allowProjectCalled]);
 
   // Auto-refresh when migration completes
   useEffect(() => {
-    if (projectStatus === 'migrating' && migrationRecord) {
+    if (projectStatus === "migrating" && migrationRecord) {
       // Migration completed, clear the status to show the project (async to avoid setState-in-effect)
-      setTimeout(() => setProjectStatus(null), 0)
+      setTimeout(() => setProjectStatus(null), 0);
     }
-  }, [migrationRecord, projectStatus])
+  }, [migrationRecord, projectStatus]);
 
   // Derive the initial active entry point from entryPoints
   // Use empty array fallback to handle undefined entryPoints
-  const entryPointsArray = useMemo(() => entryPoints ?? [], [entryPoints])
+  const entryPointsArray = useMemo(() => entryPoints ?? [], [entryPoints]);
   const firstEntryPointId =
-    entryPointsArray.length > 0 ? entryPointsArray[0]._id : null
+    entryPointsArray.length > 0 ? entryPointsArray[0]._id : null;
   const [activeEntryPoint, setActiveEntryPoint] =
-    useState<Id<'entry_point'> | null>(firstEntryPointId)
+    useState<Id<"entry_point"> | null>(firstEntryPointId);
   // Initialize activeView from URL params or default
   const getInitialView = (): ActiveView => {
-    const viewParam = searchParams.get('view')
+    const viewParam = searchParams.get("view");
     if (
       viewParam &&
       [
-        'default',
-        'database',
-        'backend management',
-        'editor',
-        'keys',
-        'versions',
-        'integrations',
-        'ui components',
-        'assets',
-        'specification',
-        'app & support',
-        'github',
-        'monitoring',
-        'hire developers',
-        'daytona fs',
+        "default",
+        "database",
+        "backend management",
+        "editor",
+        "keys",
+        "versions",
+        "integrations",
+        "ui components",
+        "assets",
+        "specification",
+        "app & support",
+        "github",
+        "monitoring",
+        "hire developers",
+        "daytona fs",
       ].includes(viewParam)
     ) {
-      return viewParam as ActiveView
+      return viewParam as ActiveView;
     }
-    return 'default'
-  }
+    return "default";
+  };
 
-  const [activeView, setActiveView] = useState<ActiveView>(getInitialView)
+  const [activeView, setActiveView] = useState<ActiveView>(getInitialView);
 
   // Track previous view param to avoid unnecessary updates
-  const prevViewParamRef = useRef<string | null>(null)
+  const prevViewParamRef = useRef<string | null>(null);
 
   // Update activeView when URL params change
   useEffect(() => {
-    const viewParam = searchParams.get('view')
+    const viewParam = searchParams.get("view");
 
     // Only update if view param actually changed
     if (viewParam === prevViewParamRef.current) {
-      return
+      return;
     }
-    prevViewParamRef.current = viewParam
+    prevViewParamRef.current = viewParam;
 
     if (
       viewParam &&
       [
-        'default',
-        'database',
-        'backend management',
-        'editor',
-        'keys',
-        'versions',
-        'integrations',
-        'ui components',
-        'assets',
-        'specification',
-        'app & support',
-        'github',
-        'monitoring',
-        'hire developers',
-        'daytona fs',
+        "default",
+        "database",
+        "backend management",
+        "editor",
+        "keys",
+        "versions",
+        "integrations",
+        "ui components",
+        "assets",
+        "specification",
+        "app & support",
+        "github",
+        "monitoring",
+        "hire developers",
+        "daytona fs",
       ].includes(viewParam)
     ) {
       startTransition(() => {
-        setActiveView(viewParam as ActiveView)
-      })
+        setActiveView(viewParam as ActiveView);
+      });
     } else if (!viewParam) {
       startTransition(() => {
-        setActiveView('default')
-      })
+        setActiveView("default");
+      });
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   // Track previous page param to avoid unnecessary updates
-  const prevPageParamRef = useRef<string | null>(null)
+  const prevPageParamRef = useRef<string | null>(null);
 
   // Handle activeEntryPoint from URL params
   useEffect(() => {
-    const pageParam = searchParams.get('page')
+    const pageParam = searchParams.get("page");
 
     // Only update if page param actually changed
     if (pageParam === prevPageParamRef.current) {
-      return
+      return;
     }
-    prevPageParamRef.current = pageParam
+    prevPageParamRef.current = pageParam;
 
     if (pageParam && entryPointsArray.length > 0) {
-      const entryPoint = entryPointsArray.find((ep) => ep._id === pageParam)
+      const entryPoint = entryPointsArray.find((ep) => ep._id === pageParam);
       if (entryPoint) {
         startTransition(() => {
-          setActiveEntryPoint(entryPoint._id)
-        })
-        return
+          setActiveEntryPoint(entryPoint._id);
+        });
+        return;
       }
     }
 
     if (!pageParam && entryPointsArray.length > 0) {
       // If no page param is specified, use the first entry point
       startTransition(() => {
-        setActiveEntryPoint(entryPointsArray[0]._id)
-      })
+        setActiveEntryPoint(entryPointsArray[0]._id);
+      });
     }
-  }, [searchParams, entryPointsArray, setActiveEntryPoint])
+  }, [searchParams, entryPointsArray, setActiveEntryPoint]);
 
   const [pageIdSelectedForEdit, setPageIdSelectedForEdit] =
-    useState<Id<'entry_point'> | null>(null)
-  const [expandedPageNodeId] = useState<Id<'entry_point'> | null>(null)
+    useState<Id<"entry_point"> | null>(null);
+  const [expandedPageNodeId] = useState<Id<"entry_point"> | null>(null);
 
-  const [isSelectingElement, setIsSelectingElement] = useState(false)
-  const [currentPageUrl, setCurrentPageUrl] = useState<string>('')
+  const [isSelectingElement, setIsSelectingElement] = useState(false);
+  const [currentPageUrl, setCurrentPageUrl] = useState<string>("");
   const [showDeploymentDialog, setShowDeploymentDialog] = useState(
     shouldShowPublicModel,
-  )
-  const [isChatVisible, setIsChatVisible] = useState(true)
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false)
-  const isMobile = useIsMobile()
+  );
+  const [isChatVisible, setIsChatVisible] = useState(true);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const isMobile = useIsMobile();
 
   // Mutation to send messages from sidebar
   const sendMessage = useMutation(
     api.coding_agent.trigger.saveMessageAndStartWorkflow,
-  )
+  );
 
   // Callback to send messages from sidebar to chat
   const handleSendMessageFromSidebar = (message: string) => {
     const pageContext =
       currentPageUrl ||
-      (typeof window !== 'undefined' ? window.location.href : '')
+      (typeof window !== "undefined" ? window.location.href : "");
     sendMessage({
       projectSemanticIdentifier: semanticIdentifier,
       message,
-      agentMode: 'POWERFUL',
+      agentMode: "POWERFUL",
       images: [],
       tempPageContext: pageContext,
-    })
-  }
+    });
+  };
 
   // LIFT lastNavSource ref up
-  const lastNavSource = useRef<'parent' | 'iframe'>('parent')
+  const lastNavSource = useRef<"parent" | "iframe">("parent");
 
   // Update URL when activeView changes
   const updateActiveView = (view: ActiveView) => {
-    const newSearchParams = new URLSearchParams(searchParams.toString())
-    if (view === 'default') {
-      newSearchParams.delete('view')
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+    if (view === "default") {
+      newSearchParams.delete("view");
     } else {
-      newSearchParams.set('view', view)
+      newSearchParams.set("view", view);
     }
 
     const newUrl = newSearchParams.toString()
       ? `${window.location.pathname}?${newSearchParams.toString()}`
-      : window.location.pathname
+      : window.location.pathname;
 
-    router.replace(newUrl)
-    setActiveView(view)
-  }
+    router.replace(newUrl);
+    setActiveView(view);
+  };
 
   // Update URL when activeEntryPoint changes
-  const updateActiveEntryPoint = (entryPointId: Id<'entry_point'>) => {
-    const newSearchParams = new URLSearchParams(searchParams.toString())
+  const updateActiveEntryPoint = (entryPointId: Id<"entry_point">) => {
+    const newSearchParams = new URLSearchParams(searchParams.toString());
 
     // For the default view, include the page parameter
-    if (activeView === 'default') {
-      newSearchParams.set('page', entryPointId)
+    if (activeView === "default") {
+      newSearchParams.set("page", entryPointId);
     }
 
     const newUrl = newSearchParams.toString()
       ? `${window.location.pathname}?${newSearchParams.toString()}`
-      : window.location.pathname
+      : window.location.pathname;
 
-    router.replace(newUrl)
-    setActiveEntryPoint(entryPointId)
-  }
+    router.replace(newUrl);
+    setActiveEntryPoint(entryPointId);
+  };
 
   // When navigation comes from the parent UI (sidebar)
-  const handleSidebarClick = (entryPointId: Id<'entry_point'>) => {
-    lastNavSource.current = 'parent'
-    updateActiveEntryPoint(entryPointId)
-  }
+  const handleSidebarClick = (entryPointId: Id<"entry_point">) => {
+    lastNavSource.current = "parent";
+    updateActiveEntryPoint(entryPointId);
+  };
 
   // If entryPoints change and activeEntryPoint is not in the list, update it
   useEffect(() => {
@@ -459,34 +482,34 @@ function ProjectWrapper({
         !entryPointsArray.some((ep) => ep._id === activeEntryPoint))
     ) {
       // Async to avoid setState-in-effect warning
-      setTimeout(() => setActiveEntryPoint(entryPointsArray[0]._id), 0)
+      setTimeout(() => setActiveEntryPoint(entryPointsArray[0]._id), 0);
     }
-  }, [entryPointsArray, activeEntryPoint])
+  }, [entryPointsArray, activeEntryPoint]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const nextUrl = window.location.href
+    if (typeof window !== "undefined") {
+      const nextUrl = window.location.href;
       const timeoutId = window.setTimeout(() => {
-        setCurrentPageUrl(nextUrl)
-      }, 0)
+        setCurrentPageUrl(nextUrl);
+      }, 0);
 
       return () => {
-        window.clearTimeout(timeoutId)
-      }
+        window.clearTimeout(timeoutId);
+      };
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   // Listen for navigateToChat events from UI presets
   useEffect(() => {
     const handleNavigateToChat = () => {
-      setActiveView('default')
-    }
+      setActiveView("default");
+    };
 
-    window.addEventListener('navigateToChat', handleNavigateToChat)
+    window.addEventListener("navigateToChat", handleNavigateToChat);
     return () => {
-      window.removeEventListener('navigateToChat', handleNavigateToChat)
-    }
-  }, [])
+      window.removeEventListener("navigateToChat", handleNavigateToChat);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -503,7 +526,7 @@ function ProjectWrapper({
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1.5, ease: [0, 0, 0.2, 1] as const }}
-            style={{ willChange: 'transform, opacity' }}
+            style={{ willChange: "transform, opacity" }}
           >
             {/* Safeguard the <img> tag */}
             {project && (
@@ -516,7 +539,7 @@ function ProjectWrapper({
           </motion.div>
         </main>
       </div>
-    )
+    );
   }
 
   // This should not happen given our checks above, but TypeScript guard
@@ -532,27 +555,32 @@ function ProjectWrapper({
           semanticIdentifier={semanticIdentifier}
         />
       </>
-    )
+    );
   }
 
   // Check workspace quota using Autumn's check function
-  const workspaceSize = (project.sandbox_size || 'small') as SandboxSize
+  const workspaceSize = (project.sandbox_size || "small") as SandboxSize;
   const quotaCheck = checkProjectWorkspaceQuota(
     project,
     customer as AutumnCustomer | null | undefined,
-  )
+  );
 
   // Handler for workspace downgrade from blocking modal
   const handleWorkspaceDowngrade = async () => {
     // This will be handled by the WorkspaceInsufficientPlanModal component
     // which will trigger migration through the existing migration flow
     // For now, we'll need to redirect to monitoring page or trigger migration
-    window.location.href = `/web/project/${semanticIdentifier}?view=monitoring`
-  }
+    window.location.href = `/project/${semanticIdentifier}?view=monitoring`;
+  };
 
   // If workspace is blocked, show blocking modal instead of project
   // Don't block while customer data is still loading from Autumn
-  if (!quotaCheck.allowed && !isCustomerLoading) {
+  if (
+    !quotaCheck.allowed &&
+    !isCustomerLoading &&
+    !isAdminLoading &&
+    !isPlatformAdmin
+  ) {
     return (
       <>
         <div className="flex min-h-screen flex-col bg-background font-sans">
@@ -561,14 +589,14 @@ function ProjectWrapper({
         <Suspense fallback={<div />}>
           <WorkspaceInsufficientPlanModal
             open={true}
-            projectName={project.name || 'Untitled Project'}
+            projectName={project.name || "Untitled Project"}
             currentWorkspaceSize={workspaceSize}
             customer={customer as AutumnCustomer | null | undefined}
             onDowngrade={handleWorkspaceDowngrade}
           />
         </Suspense>
       </>
-    )
+    );
   }
 
   return (
@@ -596,7 +624,7 @@ function ProjectWrapper({
           <div
             className="absolute inset-0"
             style={{
-              background: 'var(--project-page-overlay)',
+              background: "var(--project-page-overlay)",
             }}
           />
           {/* Subtle dark-mode ambient color to avoid flat slabs */}
@@ -604,7 +632,7 @@ function ProjectWrapper({
             className="absolute inset-0 hidden dark:block"
             style={{
               background:
-                'radial-gradient(circle at 12% 16%, rgba(135,168,118,0.11) 0%, rgba(31,32,32,0) 34%), radial-gradient(circle at 80% 12%, rgba(191,153,101,0.09) 0%, rgba(31,32,32,0) 30%)',
+                "radial-gradient(circle at 12% 16%, rgba(135,168,118,0.11) 0%, rgba(31,32,32,0) 34%), radial-gradient(circle at 80% 12%, rgba(191,153,101,0.09) 0%, rgba(31,32,32,0) 30%)",
             }}
           />
         </div>
@@ -617,11 +645,6 @@ function ProjectWrapper({
             projectTheme={projectTheme}
             onToggleProjectTheme={toggleProjectTheme}
           />
-        </div>
-
-        {/* Paused Deployment Banner */}
-        <div className="fixed left-0 right-0 top-[60px] z-40 px-4">
-          <PausedDeploymentBanner />
         </div>
 
         {/* Sync Status Banner */}
@@ -640,7 +663,7 @@ function ProjectWrapper({
             {/* Sidebar */}
             <motion.div
               className="fixed bottom-0 left-0 top-[36px] z-40 transform-gpu lg:hidden"
-              style={{ zIndex: 45, willChange: 'transform' }}
+              style={{ zIndex: 45, willChange: "transform" }}
               initial={{ x: -250, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -250, opacity: 0 }}
@@ -656,15 +679,15 @@ function ProjectWrapper({
                 <LeftSidebar
                   activeView={activeView}
                   setActiveView={(view) => {
-                    updateActiveView(view)
-                    setIsSidebarVisible(false) // Close sidebar when item is selected on mobile
+                    updateActiveView(view);
+                    setIsSidebarVisible(false); // Close sidebar when item is selected on mobile
                   }}
                   project={project}
                   entryPoints={entryPointsArray}
                   activeEntryPoint={activeEntryPoint}
                   setActiveEntryPoint={(id) => {
-                    handleSidebarClick(id)
-                    setIsSidebarVisible(false) // Close sidebar when item is selected on mobile
+                    handleSidebarClick(id);
+                    setIsSidebarVisible(false); // Close sidebar when item is selected on mobile
                   }}
                   syncStatus={syncStatus}
                   onSendMessage={handleSendMessageFromSidebar}
@@ -684,7 +707,7 @@ function ProjectWrapper({
             delay: 0.2,
             ease: [0, 0, 0.2, 1] as const,
           }}
-          style={{ willChange: 'transform' }}
+          style={{ willChange: "transform" }}
         >
           <Suspense
             fallback={
@@ -705,11 +728,11 @@ function ProjectWrapper({
           </Suspense>
         </motion.div>
 
-        {activeView === 'default' || activeView === 'specification' ? (
+        {activeView === "default" || activeView === "specification" ? (
           <>
             {/* Fixed Right Chat Bar - Hidden on mobile when isChatVisible is false */}
             <div
-              className={`fixed right-0 top-[36px] w-full min-w-[320px] max-w-[500px] transition-transform duration-300 dark:border-l dark:border-[#343434] dark:bg-[#1f2020] dark:shadow-[-14px_0_30px_-18px_rgba(0,0,0,0.95)] lg:w-[500px] ${isMobile && !isChatVisible ? 'translate-x-full' : ''} ${isMobile ? 'bottom-[52px] z-30' : 'bottom-0 z-20'}`}
+              className={`fixed right-0 top-[36px] w-full min-w-[320px] max-w-[500px] transition-transform duration-300 dark:border-l dark:border-[#343434] dark:bg-[#1f2020] dark:shadow-[-14px_0_30px_-18px_rgba(0,0,0,0.95)] lg:w-[500px] ${isMobile && !isChatVisible ? "translate-x-full" : ""} ${isMobile ? "bottom-[52px] z-30" : "bottom-0 z-20"}`}
             >
               <ChatStorageProvider
                 projectSemanticIdentifier={semanticIdentifier}
@@ -736,7 +759,7 @@ function ProjectWrapper({
                         project={project}
                         threadMessages={filteredThreadMessages}
                         messagesStatus={
-                          messagesStatus === 'LoadingFirstPage'
+                          messagesStatus === "LoadingFirstPage"
                             ? undefined
                             : messagesStatus
                         }
@@ -762,7 +785,7 @@ function ProjectWrapper({
             <div
               className="pointer-events-none fixed left-0 right-0 top-[16px] z-10"
               style={{
-                height: '20px',
+                height: "20px",
               }}
             />
 
@@ -773,34 +796,34 @@ function ProjectWrapper({
                   onClick={() => setIsChatVisible(!isChatVisible)}
                   className="flex w-full items-center justify-center gap-2 py-3 text-center font-medium text-zinc-700 transition-all duration-300 hover:bg-[#e7e7e7] dark:text-zinc-100 dark:hover:bg-[#4a4a4a]"
                   style={{
-                    fontSize: '14px',
-                    fontWeight: '500',
+                    fontSize: "14px",
+                    fontWeight: "500",
                   }}
                 >
                   <MessageCircle className="h-4 w-4" />
-                  {isChatVisible ? 'Hide Chat' : 'Show Chat'}
+                  {isChatVisible ? "Hide Chat" : "Show Chat"}
                 </button>
               </div>
             )}
 
             {/* Center Content - Full page scroll with proper spacing */}
             <div
-              className={`relative z-10 overflow-y-auto pt-8 transition-all duration-300 ${isMobile ? 'ml-0 mr-0' : 'ml-0 mr-[320px] lg:ml-[204px] lg:mr-[504px]'} ${isMobile ? 'h-[calc(100vh-52px)] pb-[52px]' : 'h-screen'}`}
+              className={`relative z-10 overflow-y-auto pt-8 transition-all duration-300 ${isMobile ? "ml-0 mr-0" : "ml-0 mr-[320px] lg:ml-[204px] lg:mr-[504px]"} ${isMobile ? "h-[calc(100vh-52px)] pb-[52px]" : "h-screen"}`}
             >
-              <Suspense fallback={<div />}>
+              {/* <Suspense fallback={<div />}>
                 <div className="mx-4 mb-0 mt-2 rounded-lg border-2 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 p-1.5 shadow-lg dark:border-[#5f5f5f] dark:from-[#282828] dark:to-[#242424]">
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <p className="text-[10px] leading-tight text-green-800 dark:text-zinc-100">
                         Congrats on being an early user! Claim 50% off paid
-                        plans (ending in 24 hours).{' '}
+                        plans (ending in 24 hours).{" "}
                         <a
-                          href="/web/dashboard"
+                          href="/dashboard/billing"
                           className="font-semibold text-green-900 underline hover:text-green-700 dark:text-zinc-100 dark:hover:text-zinc-200"
                         >
                           Lock in a tier here
-                        </a>{' '}
-                        and{' '}
+                        </a>{" "}
+                        and{" "}
                         <a
                           href="https://discord.gg/2gSmB9DxJW"
                           target="_blank"
@@ -814,13 +837,13 @@ function ProjectWrapper({
                     </div>
                   </div>
                 </div>
-              </Suspense>
+              </Suspense> */}
 
               <Suspense fallback={<div />}>
                 <>
                   {project &&
-                    (activeView === 'default' ||
-                      activeView === 'specification') && (
+                    (activeView === "default" ||
+                      activeView === "specification") && (
                       <div className="mx-4 mb-2 mt-4">
                         <GravityAdSlot
                           messages={[]}
@@ -831,7 +854,7 @@ function ProjectWrapper({
                         />
                       </div>
                     )}
-                  {activeView === 'default' ? (
+                  {activeView === "default" ? (
                     <CenterContent
                       project={project}
                       activeEntryPoint={entryPointsArray.find(
@@ -842,7 +865,7 @@ function ProjectWrapper({
                       onCurrentPageChange={setCurrentPageUrl}
                       syncStatus={syncStatus}
                     />
-                  ) : activeView === 'specification' ? (
+                  ) : activeView === "specification" ? (
                     <div>
                       <div className="mb-1 ml-4 mt-4 flex items-center justify-between">
                         <div className="justify-start text-sm font-semibold leading-none text-stone-500 dark:text-zinc-400">
@@ -852,7 +875,7 @@ function ProjectWrapper({
                       <div className="mx-4 mb-8 mt-2 w-auto rounded-lg bg-white/60 pb-8 pl-12 pr-8 pt-12 text-sm outline outline-1 outline-offset-[-1px] outline-gray-300/80 dark:bg-[#282828]/90 dark:outline-[#575757]">
                         <MarkdownWithSuggest
                           projectSemanticIdentifier={semanticIdentifier}
-                          text={project.spec || ''}
+                          text={project.spec || ""}
                         />
                       </div>
                     </div>
@@ -863,23 +886,23 @@ function ProjectWrapper({
           </>
         ) : (
           <div
-            className={`relative z-10 ${isMobile ? 'ml-0' : 'ml-[200px]'}`}
+            className={`relative z-10 ${isMobile ? "ml-0" : "ml-[200px]"}`}
             style={{
-              marginTop: '36px',
-              height: 'calc(100vh - 36px)',
+              marginTop: "36px",
+              height: "calc(100vh - 36px)",
             }}
           >
             <div
               className="pointer-events-none fixed left-0 right-0 top-[16px] z-10"
               style={{
-                height: '20px',
+                height: "20px",
               }}
             />
 
             <div className="z-10 h-full w-full overflow-y-auto bg-white p-4 pl-8 dark:bg-[#282828]">
               {/* Back arrow button */}
               <Link
-                href={`/web/project/${semanticIdentifier}`}
+                href={`/project/${semanticIdentifier}`}
                 className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-[#575757] dark:bg-[#3c3c3c] dark:text-zinc-100 dark:hover:bg-[#4a4a4a] dark:hover:text-zinc-100"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -893,10 +916,10 @@ function ProjectWrapper({
                   </div>
                 }
               >
-                {activeView === 'database' && (
+                {activeView === "database" && (
                   <DatabaseView project={project} />
                 )}
-                {activeView === 'editor' && (
+                {activeView === "editor" && (
                   <FeatureGate
                     featureId="project_code_editor"
                     fallback={
@@ -909,33 +932,33 @@ function ProjectWrapper({
                     <EditorView projectId={project._id} />
                   </FeatureGate>
                 )}
-                {activeView === 'keys' && <EnvVarsView project={project} />}
-                {activeView === 'versions' && (
+                {activeView === "keys" && <EnvVarsView project={project} />}
+                {activeView === "versions" && (
                   <GitCommitsView project={project} />
                 )}
-                {activeView === 'integrations' && (
+                {activeView === "integrations" && (
                   <IntegrationsView semanticIdentifier={semanticIdentifier} />
                 )}
-                {activeView === 'ui components' && (
+                {activeView === "ui components" && (
                   <UiIntegrationView semanticIdentifier={semanticIdentifier} />
                 )}
-                {activeView === 'assets' && (
+                {activeView === "assets" && (
                   <AssetsView semanticIdentifier={semanticIdentifier} />
                 )}
-                {activeView === 'github' && (
+                {activeView === "github" && (
                   <GitHubSyncView projectId={project._id} />
                 )}
-                {activeView === 'app & support' && (
+                {activeView === "app & support" && (
                   <AppAndSupportView project={project} />
                 )}
-                {activeView === 'backend management' && (
+                {activeView === "backend management" && (
                   <BackendManagement project={project} />
                 )}
-                {activeView === 'monitoring' && (
+                {activeView === "monitoring" && (
                   <Monitoring project={project} />
                 )}
-                {activeView === 'hire developers' && <HireDevelopersView />}
-                {activeView === 'daytona fs' && (
+                {activeView === "hire developers" && <HireDevelopersView />}
+                {activeView === "daytona fs" && (
                   <DaytonaFSDashboard projectId={project._id} />
                 )}
               </Suspense>
@@ -956,5 +979,5 @@ function ProjectWrapper({
         onOpenChange={setShowStarterPopup}
       />
     </>
-  )
+  );
 }

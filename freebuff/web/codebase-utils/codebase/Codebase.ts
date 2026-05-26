@@ -1,4 +1,3 @@
-import { DeploymentSource } from "freestyle-sandboxes";
 import type { PackageManager } from "../packageManager";
 import { ExtendedGitOperations } from "./ExtendedGitOperations";
 
@@ -24,14 +23,15 @@ export interface EnvironmentVariableCodebase {
   setEnvVars(envVars: EnvVars): Promise<void>;
 }
 
-export interface FreestyleDeployableCodebase {
-  /**
-   * @returns a Freestyle DeploymentSource
-   * IMPORTANT: encode all files in base64
-   */
-  prepareForDeployment(
-    rootDir?: string,
-  ): Promise<DeploymentSource & { kind: "files" }>;
+export type VercelDeploymentFile = {
+  file: string;
+  sha: string;
+  size: number;
+  content: Buffer;
+};
+
+export interface VercelDeployableCodebase {
+  prepareForDeployment(rootDir?: string): Promise<VercelDeploymentFile[]>;
 }
 
 export interface DevServerCodebase {
@@ -145,9 +145,9 @@ export function hasEnvironmentVariables(
   return "getEnvVars" in codebase && "setEnvVars" in codebase;
 }
 
-export function isFreestyleDeployable(
+export function isVercelDeployable(
   codebase: Codebase,
-): codebase is Codebase & FreestyleDeployableCodebase {
+): codebase is Codebase & VercelDeployableCodebase {
   return "prepareForDeployment" in codebase;
 }
 

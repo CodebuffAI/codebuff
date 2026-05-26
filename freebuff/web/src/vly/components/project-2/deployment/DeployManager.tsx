@@ -19,7 +19,7 @@ import { DeleteDeploymentButton } from "./DeleteDeploymentButton";
 import { UpdateDeploymentSlugDialog } from "./UpdateDeploymentSlugDialog";
 import { useCustomer } from "autumn-js/react";
 import { getActivePlan } from "@/vly/lib/billing";
-import { freePlan } from "@/vly/autumn.config";
+import { freePlan } from "@/autumn.config";
 
 export const DeployManager = ({
   projectId,
@@ -79,9 +79,11 @@ const FirstDeploymentView = ({
   };
 
   const validateSlug = (input: string) => {
-    // Only allow alphanumeric characters and dashes
-    return input.replace(/[^a-zA-Z0-9-]/g, "");
+    return input.toLowerCase().replace(/[^a-z0-9]/g, ""); // only lowercase letters and numbers
   };
+
+  // Check if slug is valid for deployment (must start with a letter)
+  const isSlugFormatValid = slug.length > 0 && /^[a-z]/.test(slug);
 
   const checkIfDomainValid = async (domain: string) => {
     if (!slug.trim()) {
@@ -122,7 +124,7 @@ const FirstDeploymentView = ({
 
       <div className="flex items-center">
         <Input
-          placeholder="my-app"
+          placeholder="myapp"
           className="rounded-r-none border-neutral-200 bg-slate-100 text-right font-mono text-sm"
           disabled={isDeploying}
           value={slug}
@@ -135,21 +137,26 @@ const FirstDeploymentView = ({
           }}
         />
         <div className="flex h-9 items-center rounded-r-md pl-2 pr-1 font-mono text-sm">
-          .vly.site
+          .vly.dev
         </div>
       </div>
       <div>
-        {slug && isSlugAvailable === null && (
+        {slug && !isSlugFormatValid && (
+          <span className="text-sm font-bold text-red-500">
+            Must start with a letter
+          </span>
+        )}
+        {slug && isSlugFormatValid && isSlugAvailable === null && (
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader className="h-2 w-2 animate-spin" /> Checking...
           </span>
         )}
-        {slug && isSlugAvailable === false && (
+        {slug && isSlugFormatValid && isSlugAvailable === false && (
           <span className="text-sm font-bold text-red-500">
             Domain not available
           </span>
         )}
-        {slug && isSlugAvailable === true && (
+        {slug && isSlugFormatValid && isSlugAvailable === true && (
           <span className="text-sm font-bold text-green-500">
             Domain available
           </span>
@@ -170,7 +177,12 @@ const FirstDeploymentView = ({
           </Button>
         )}
         <Button
-          disabled={!isSlugAvailable || !slug.trim() || isDeploying}
+          disabled={
+            !isSlugAvailable ||
+            !isSlugFormatValid ||
+            !slug.trim() ||
+            isDeploying
+          }
           onClick={handleDeploy}
           variant="default"
         >
@@ -346,7 +358,7 @@ const DeploymentManager = ({
                 <div className="flex items-center gap-2">
                   {[
                     ...(activeProjectDomains ?? []),
-                    { domain: `${prodSlug}.vly.site`, _id: "vly-site" },
+                    { domain: `${prodSlug}.vly.dev`, _id: "vly-site" },
                   ].map((domain) => (
                     <a
                       href={`https://${domain.domain}`}
@@ -442,7 +454,7 @@ const DeploymentManager = ({
       {hasActiveDeployment && communityPost && (
         <button
           onClick={() =>
-            window.open(`/web/community/project/${communityPost._id}`, "_blank")
+            window.open(`/community/project/${communityPost._id}`, "_blank")
           }
           className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
         >

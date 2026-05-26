@@ -1,6 +1,6 @@
 "use node";
 
-import { internal } from "!/_generated/api";
+import { api, internal } from "!/_generated/api";
 import { action } from "!/_generated/server";
 import { createConvexDeployment, createDeployKey } from "!/convex_management";
 import { v } from "convex/values";
@@ -69,6 +69,7 @@ export const getConvexDeploymentNameAndAdminKey = action({
   ): Promise<{
     deploymentName: string;
     adminKey: string;
+    deploymentUrl: string;
   }> => {
     const project = await ctx.runQuery(internal.project.getProject, {
       projectId: args.projectId,
@@ -78,6 +79,48 @@ export const getConvexDeploymentNameAndAdminKey = action({
       throw new Error("Project not found");
     }
 
+    // Check if this is a self-hosted project first
+    const selfHostedConnection = await ctx.runQuery(
+      internal.convex_oauth.connections.getConnectionByProjectId,
+      { projectId: args.projectId },
+    );
+
+    if (selfHostedConnection) {
+      const encryptedKey =
+        args.type === "dev"
+          ? selfHostedConnection.dev_deploy_key
+          : selfHostedConnection.prod_deploy_key;
+
+      if (!encryptedKey) {
+        throw new Error(
+          `No ${args.type} deploy key found for self-hosted project`,
+        );
+      }
+
+      const adminKey = await ctx.runAction(
+        api.convex_oauth.crypto.decryptToken,
+        { encrypted: encryptedKey },
+      );
+
+      const deploymentName = (
+        args.type === "dev"
+          ? selfHostedConnection.dev_deployment_name
+          : selfHostedConnection.prod_deployment_name
+      ) as string;
+      const deploymentUrl =
+        args.type === "dev"
+          ? selfHostedConnection.dev_deployment_url
+          : selfHostedConnection.prod_deployment_url;
+
+      return {
+        deploymentName,
+        adminKey,
+        deploymentUrl:
+          deploymentUrl ?? `https://${deploymentName}.convex.cloud`,
+      };
+    }
+
+    // VLY-managed project path
     const convexInstance = await ctx.runQuery(internal.convex_instance.get, {
       projectId: args.projectId,
     });
@@ -93,7 +136,6 @@ export const getConvexDeploymentNameAndAdminKey = action({
     if (args.type === "dev") {
       deploymentName = convexInstance.devDeploymentName;
     } else {
-      // prod
       if (convexInstance.prodDeploymentName) {
         deploymentName = convexInstance.prodDeploymentName;
       } else {
@@ -120,7 +162,6 @@ export const getConvexDeploymentNameAndAdminKey = action({
       );
     }
 
-    // Check if a deploy key already exists in the sandbox, create if not
     const codebase = await initializeCodebase(
       project.sandbox_id,
       project.packageManager,
@@ -134,24 +175,19 @@ export const getConvexDeploymentNameAndAdminKey = action({
 
     let adminKey: string;
     if (existingKey && keyResult.exitCode === 0) {
-      // Reuse existing key
-      console.log(
-        `Reusing existing ${args.type} deploy key for deployment ${deploymentName}`,
-      );
       adminKey = existingKey;
     } else {
-      // No existing key found, create a new one
-      console.log(
-        `Creating new ${args.type} deploy key for deployment ${deploymentName}`,
-      );
       adminKey = await createDeployKey(deploymentName);
 
-      // Store the key in the sandbox for future use
       await codebase.runCommand(
         `mkdir -p $HOME/.vly-convex && echo "${adminKey}" > $HOME/.vly-convex/${keyFileName}`,
       );
     }
 
-    return { deploymentName, adminKey };
+    return {
+      deploymentName,
+      adminKey,
+      deploymentUrl: `https://${deploymentName}.convex.cloud`,
+    };
   },
 });

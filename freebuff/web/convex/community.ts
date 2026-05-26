@@ -7,7 +7,6 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { getAuthUser } from "./users";
 
 // Helper function to get the screenshot URL for a post
 // Prefers fresh URL from storage ID, falls back to stored URL
@@ -48,7 +47,10 @@ export const publishProject = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -68,7 +70,7 @@ export const publishProject = mutation({
     }
 
     // Use the deployed URL (not the dev URL)
-    const deployedUrl = `https://${project.prod_deployment_slug}.vly.site`;
+    const deployedUrl = `https://${project.prod_deployment_slug}.vly.dev`;
 
     // Get screenshot URL if available (screenshot_r2_url is already a public URL)
     let screenshotUrl: string | undefined;
@@ -181,7 +183,10 @@ export const getFeaturedPosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedPosts = await Promise.all(
@@ -291,7 +296,10 @@ export const getExplorePosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedPosts = await Promise.all(
@@ -395,7 +403,10 @@ export const getTrendingPosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedPosts = await Promise.all(
@@ -492,7 +503,10 @@ export const getPost = query({
     let isOwner = false;
 
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
 
       if (currentUser) {
         isOwner = currentUser._id === post.userId;
@@ -580,7 +594,10 @@ export const searchPosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedPosts = await Promise.all(
@@ -651,7 +668,10 @@ export const likePost = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -713,7 +733,10 @@ export const unlikePost = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -777,7 +800,10 @@ export const addComment = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -834,7 +860,10 @@ export const getComments = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedComments = await Promise.all(
@@ -884,7 +913,10 @@ export const likeComment = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -941,7 +973,10 @@ export const followUser = mutation({
       throw new Error("Not authenticated");
     }
 
-    const currentUser = await getAuthUser(ctx);
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -1030,7 +1065,10 @@ export const unfollowUser = mutation({
       throw new Error("Not authenticated");
     }
 
-    const currentUser = await getAuthUser(ctx);
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -1093,7 +1131,10 @@ export const getCurrentUserId = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     return user?._id ?? null;
   },
@@ -1139,7 +1180,10 @@ export const getUserProfile = query({
     let isOwnProfile = false;
 
     if (identity) {
-      const currentUser = await getAuthUser(ctx);
+      const currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
 
       if (currentUser) {
         isOwnProfile = currentUser._id === args.userId;
@@ -1222,7 +1266,10 @@ export const getUserPosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     // Check if viewing own profile
@@ -1292,7 +1339,10 @@ export const updateProfile = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -1487,7 +1537,10 @@ export const recordView = mutation({
     let userId = null;
 
     if (identity) {
-      const user = await getAuthUser(ctx);
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
       userId = user?._id;
     }
 
@@ -1542,7 +1595,10 @@ export const getUnpublishedProjects = query({
       return [];
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       return [];
@@ -1568,7 +1624,7 @@ export const getUnpublishedProjects = query({
         // Use deployed URL if available, otherwise dev URL for preview
         const hasDeployment = !!project.prod_deployment_slug;
         const deployedUrl = hasDeployment
-          ? `https://${project.prod_deployment_slug}.vly.site`
+          ? `https://${project.prod_deployment_slug}.vly.dev`
           : undefined;
 
         return {
@@ -1626,7 +1682,10 @@ export const deletePost = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -1793,7 +1852,10 @@ export const updatePost = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -1856,7 +1918,10 @@ export const updatePostScreenshot = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -1908,7 +1973,10 @@ export const makePostPrivate = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -1950,7 +2018,10 @@ export const makePostPublic = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");
@@ -2026,7 +2097,10 @@ export const getRelatedPosts = query({
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
     if (identity) {
-      currentUser = await getAuthUser(ctx);
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+        .unique();
     }
 
     const enrichedPosts = await Promise.all(
@@ -2093,7 +2167,10 @@ export const updateCommunityBadgeTier = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await getAuthUser(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+      .unique();
 
     if (!user) {
       throw new Error("User not found");

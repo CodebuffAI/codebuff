@@ -352,6 +352,7 @@ export const checkAllConvexResources = internalAction({
 export const unpauseUserDeployments = internalAction({
   args: {
     userId: v.id("users"),
+    force: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<any> => {
     console.log(`Attempting to unpause deployments for user ${args.userId}`);
@@ -373,7 +374,7 @@ export const unpauseUserDeployments = internalAction({
       };
     }
 
-    if (!pauseRecord.autoUnpauseEnabled) {
+    if (!args.force && !pauseRecord.autoUnpauseEnabled) {
       console.log(
         `User ${args.userId} was manually paused, skipping auto-unpause`,
       );
@@ -384,33 +385,34 @@ export const unpauseUserDeployments = internalAction({
       };
     }
 
-    // Check all Convex resources to ensure none are depleted
-    console.log(`Checking all Convex resources for user ${args.userId}`);
+    if (!args.force) {
+      console.log(`Checking all Convex resources for user ${args.userId}`);
 
-    const resourceCheck = await ctx.runAction(
-      internal.deployment_management.checkAllConvexResources,
-      { userId: args.userId },
-    );
-
-    if (!resourceCheck.allAvailable) {
-      const depletedList = resourceCheck.depletedResources
-        .map((r: any) => r.featureId)
-        .join(", ");
-
-      console.log(
-        `Cannot unpause user ${args.userId}: resources still depleted: ${depletedList}`,
+      const resourceCheck = await ctx.runAction(
+        internal.deployment_management.checkAllConvexResources,
+        { userId: args.userId },
       );
 
-      return {
-        success: false,
-        message: `Cannot unpause: ${depletedList} still depleted`,
-        unpaused: false,
-        depletedResources: resourceCheck.depletedResources,
-      };
+      if (!resourceCheck.allAvailable) {
+        const depletedList = resourceCheck.depletedResources
+          .map((r: any) => r.featureId)
+          .join(", ");
+
+        console.log(
+          `Cannot unpause user ${args.userId}: resources still depleted: ${depletedList}`,
+        );
+
+        return {
+          success: false,
+          message: `Cannot unpause: ${depletedList} still depleted`,
+          unpaused: false,
+          depletedResources: resourceCheck.depletedResources,
+        };
+      }
     }
 
     console.log(
-      `All Convex resources are available for user ${args.userId}, proceeding with unpause`,
+      `${args.force ? "[Force] " : ""}All checks passed for user ${args.userId}, proceeding with unpause`,
     );
 
     // Mark the pause record as inactive
@@ -485,7 +487,6 @@ export const checkAndUnpausePausedUsers = internalAction({
   handler: async (ctx): Promise<any> => {
     console.log("[Cron] Checking paused users for resource replenishment...");
 
-    // Get all active paused users with auto-unpause enabled
     const pausedUsers = await ctx.runQuery(
       internal.deployment_queries.getPausedUsers,
     );
@@ -498,6 +499,18 @@ export const checkAndUnpausePausedUsers = internalAction({
       `[Cron] Found ${autoUnpausableUsers.length} auto-unpausable paused users`,
     );
 
+    if (autoUnpausableUsers.length === 0) {
+      return {
+        totalChecked: 0,
+        unpausedCount: 0,
+        stillPausedCount: 0,
+        errorCount: 0,
+        results: [],
+      };
+    }
+
+    // Process in parallel batches to avoid timeout
+    const BATCH_SIZE = 5;
     const results: Array<{
       userId: Id<"users">;
       pauseReason: string;
@@ -508,119 +521,104 @@ export const checkAndUnpausePausedUsers = internalAction({
       message: string;
     }> = [];
 
-    // Check each paused user
-    for (const pausedUser of autoUnpausableUsers) {
-      const featureId = mapPauseReasonToFeatureId(pausedUser.pauseReason);
+    for (let i = 0; i < autoUnpausableUsers.length; i += BATCH_SIZE) {
+      const batch = autoUnpausableUsers.slice(i, i + BATCH_SIZE);
 
-      try {
-        // Get user's Clerk ID for Autumn billing check
-        const user = await ctx.runQuery(internal.users.get, {
-          userId: pausedUser.userId,
-        });
+      const batchResults = await Promise.all(
+        batch.map(async (pausedUser: any) => {
+          const featureId = mapPauseReasonToFeatureId(pausedUser.pauseReason);
 
-        if (!user?.clerk_id) {
-          console.error(
-            `[Cron] User ${pausedUser.userId} not found or missing Clerk ID, skipping`,
-          );
-          results.push({
-            userId: pausedUser.userId,
-            pauseReason: pausedUser.pauseReason,
-            resourceChecked: featureId,
-            resourceAvailable: false,
-            unpauseAttempted: false,
-            unpauseSuccess: false,
-            message: "User not found or missing Clerk ID",
-          });
-          continue;
-        }
-
-        // Check if the resource is now available using Autumn
-        const checkResult = await ctx.runAction(internal.autumn.checkInternal, {
-          featureId,
-          clerkId: user.clerk_id,
-        });
-
-        const { data, error } = checkResult;
-
-        if (error) {
-          const errorMessage =
-            typeof error === "string" ? error : error.message;
-          console.error(
-            `[Cron] Error checking ${featureId} for user ${pausedUser.userId}:`,
-            errorMessage,
-          );
-          results.push({
-            userId: pausedUser.userId,
-            pauseReason: pausedUser.pauseReason,
-            resourceChecked: featureId,
-            resourceAvailable: false,
-            unpauseAttempted: false,
-            unpauseSuccess: false,
-            message: `Error checking resource: ${errorMessage}`,
-          });
-          continue;
-        }
-
-        const resourceAvailable = data?.allowed === true;
-
-        if (resourceAvailable) {
-          console.log(
-            `[Cron] Resource ${featureId} is available for user ${pausedUser.userId}, unpausing...`,
-          );
-
-          // Unpause the user's deployments
-          const unpauseResult = await ctx.runAction(
-            internal.deployment_management.unpauseUserDeployments,
-            {
+          try {
+            const user = await ctx.runQuery(internal.users.get, {
               userId: pausedUser.userId,
-            },
-          );
+            });
 
-          results.push({
-            userId: pausedUser.userId,
-            pauseReason: pausedUser.pauseReason,
-            resourceChecked: featureId,
-            resourceAvailable: true,
-            unpauseAttempted: true,
-            unpauseSuccess: unpauseResult.success,
-            message: unpauseResult.message,
-          });
+            if (!user?.clerk_id) {
+              return {
+                userId: pausedUser.userId,
+                pauseReason: pausedUser.pauseReason,
+                resourceChecked: featureId,
+                resourceAvailable: false,
+                unpauseAttempted: false,
+                unpauseSuccess: false,
+                message: "User not found or missing Clerk ID",
+              };
+            }
 
-          console.log(
-            `[Cron] Unpause result for user ${pausedUser.userId}:`,
-            unpauseResult.message,
-          );
-        } else {
-          console.log(
-            `[Cron] Resource ${featureId} still depleted for user ${pausedUser.userId}`,
-          );
-          results.push({
-            userId: pausedUser.userId,
-            pauseReason: pausedUser.pauseReason,
-            resourceChecked: featureId,
-            resourceAvailable: false,
-            unpauseAttempted: false,
-            unpauseSuccess: false,
-            message: `Resource ${featureId} still depleted`,
-          });
-        }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        console.error(
-          `[Cron] Unexpected error processing user ${pausedUser.userId}:`,
-          errorMessage,
-        );
-        results.push({
-          userId: pausedUser.userId,
-          pauseReason: pausedUser.pauseReason,
-          resourceChecked: featureId,
-          resourceAvailable: false,
-          unpauseAttempted: false,
-          unpauseSuccess: false,
-          message: `Unexpected error: ${errorMessage}`,
-        });
-      }
+            const checkResult = await ctx.runAction(
+              internal.autumn.checkInternal,
+              { featureId, clerkId: user.clerk_id },
+            );
+
+            const { data, error } = checkResult;
+
+            if (error) {
+              const errorMessage =
+                typeof error === "string" ? error : error.message;
+              return {
+                userId: pausedUser.userId,
+                pauseReason: pausedUser.pauseReason,
+                resourceChecked: featureId,
+                resourceAvailable: false,
+                unpauseAttempted: false,
+                unpauseSuccess: false,
+                message: `Error checking resource: ${errorMessage}`,
+              };
+            }
+
+            const resourceAvailable = data?.allowed === true;
+
+            if (resourceAvailable) {
+              console.log(
+                `[Cron] Resource ${featureId} is available for user ${pausedUser.userId}, unpausing...`,
+              );
+
+              const unpauseResult = await ctx.runAction(
+                internal.deployment_management.unpauseUserDeployments,
+                { userId: pausedUser.userId },
+              );
+
+              return {
+                userId: pausedUser.userId,
+                pauseReason: pausedUser.pauseReason,
+                resourceChecked: featureId,
+                resourceAvailable: true,
+                unpauseAttempted: true,
+                unpauseSuccess: unpauseResult.success,
+                message: unpauseResult.message,
+              };
+            }
+
+            return {
+              userId: pausedUser.userId,
+              pauseReason: pausedUser.pauseReason,
+              resourceChecked: featureId,
+              resourceAvailable: false,
+              unpauseAttempted: false,
+              unpauseSuccess: false,
+              message: `Resource ${featureId} still depleted`,
+            };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            console.error(
+              `[Cron] Unexpected error processing user ${pausedUser.userId}:`,
+              errorMessage,
+            );
+            return {
+              userId: pausedUser.userId,
+              pauseReason: pausedUser.pauseReason,
+              resourceChecked: featureId,
+              resourceAvailable: false,
+              unpauseAttempted: false,
+              unpauseSuccess: false,
+              message: `Unexpected error: ${errorMessage}`,
+            };
+          }
+        }),
+      );
+
+      results.push(...batchResults);
     }
 
     const unpausedCount = results.filter((r) => r.unpauseSuccess).length;

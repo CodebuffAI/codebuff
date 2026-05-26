@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { SelfHostedDeployment } from "../lib/self_hosted_deployment";
 
 /**
  * Management API helpers for Convex migration
@@ -250,10 +251,15 @@ export const createDeployKeyForDeployment = internalAction({
 
       console.log("[Management API] Deploy key created successfully");
 
+      const deploymentUrl = await SelfHostedDeployment.resolveUrl(
+        args.deploymentName,
+        args.accessToken,
+      );
+
       return {
         deployKey,
         deploymentName: args.deploymentName,
-        deploymentUrl: `https://${args.deploymentName}.convex.cloud`,
+        deploymentUrl,
       };
     } catch (error) {
       console.error("[Management API] Failed to create deploy key:", error);
@@ -309,9 +315,16 @@ export const createDevDeployment = internalAction({
 
       console.log("[Management API] Dev deployment created:", deploymentName);
 
+      const deploymentUrl =
+        deployment.deploymentUrl ??
+        (await SelfHostedDeployment.resolveUrl(
+          deploymentName,
+          args.accessToken,
+        ));
+
       return {
         deploymentName,
-        deploymentUrl: `https://${deploymentName}.convex.cloud`,
+        deploymentUrl,
       };
     } catch (error) {
       console.error("[Management API] Failed to create dev deployment:", error);
@@ -367,9 +380,16 @@ export const createProdDeployment = internalAction({
 
       console.log("[Management API] Prod deployment created:", deploymentName);
 
+      const deploymentUrl =
+        deployment.deploymentUrl ??
+        (await SelfHostedDeployment.resolveUrl(
+          deploymentName,
+          args.accessToken,
+        ));
+
       return {
         deploymentName,
-        deploymentUrl: `https://${deploymentName}.convex.cloud`,
+        deploymentUrl,
       };
     } catch (error) {
       console.error(
@@ -665,13 +685,11 @@ export const setupUserConvexProject = internalAction({
         project_slug: projectSlug,
         team_slug: null,
         dev_deployment_name: devDeployment.name,
-        dev_deployment_url: `https://${devDeployment.name}.convex.cloud`,
+        dev_deployment_url: devKeyResult.deploymentUrl,
         dev_deploy_key: devKeyResult.deployKey,
         dev_deploy_key_name: `vly-${args.vlyProjectId}-dev`,
         prod_deployment_name: prodDeployment?.name || null,
-        prod_deployment_url: prodDeployment
-          ? `https://${prodDeployment.name}.convex.cloud`
-          : null,
+        prod_deployment_url: prodKeyResult?.deploymentUrl || null,
         prod_deploy_key: prodKeyResult?.deployKey || null,
         prod_deploy_key_name: prodKeyResult
           ? `vly-${args.vlyProjectId}-prod`

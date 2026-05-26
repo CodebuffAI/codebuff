@@ -518,40 +518,21 @@ export const getAllIntegrations = internalQuery({
     searchQuery: v.optional(v.string()), // Optional search query to filter integrations
   },
   handler: async (ctx, args) => {
-    // OPTIMIZATION: Use pagination to get ALL integrations without arbitrary limits
-    // This is memory-efficient and ensures we never miss valid integration options
-    let publicIntegrations = [];
-    let continueCursor: string | null = null;
-    let isDone = false;
+    let publicIntegrations;
 
     if (args.searchQuery) {
-      // Use search index with pagination to find ALL relevant integrations
-      // Typically returns 10-100 results depending on query specificity
-      while (!isDone) {
-        const result = await ctx.db
-          .query("integration")
-          .withSearchIndex("search_all", (q) =>
-            q.search("search_text", args.searchQuery!).eq("public", true),
-          )
-          .paginate({ numItems: 100, cursor: continueCursor });
-
-        publicIntegrations.push(...result.page);
-        isDone = result.isDone;
-        continueCursor = result.continueCursor;
-      }
+      const result = await ctx.db
+        .query("integration")
+        .withSearchIndex("search_all", (q) =>
+          q.search("search_text", args.searchQuery!).eq("public", true),
+        )
+        .paginate({ numItems: 3, cursor: null });
+      publicIntegrations = result.page;
     } else {
-      // No search query: paginate through ALL public integrations
-      // This ensures comprehensive results as the integration library grows
-      while (!isDone) {
-        const result = await ctx.db
-          .query("integration")
-          .withIndex("by_public", (q) => q.eq("public", true))
-          .paginate({ numItems: 100, cursor: continueCursor });
-
-        publicIntegrations.push(...result.page);
-        isDone = result.isDone;
-        continueCursor = result.continueCursor;
-      }
+      publicIntegrations = await ctx.db
+        .query("integration")
+        .withIndex("by_public", (q) => q.eq("public", true))
+        .take(3);
     }
 
     // Get all integrationIds already in the project

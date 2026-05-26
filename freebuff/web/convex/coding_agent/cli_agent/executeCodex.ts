@@ -68,23 +68,34 @@ export async function executeCodex(
     }
   }
 
-  // Get image URLs if images are provided and append them to the user message
+  // Download images to temp files so the CLI agent can read them visually
   let userMessageWithImages = args.userMessage;
   if (args.images && args.images.length > 0) {
-    const imageUrls: string[] = [];
-    for (const imageId of args.images) {
-      const imageUrl = await ctx.storage.getUrl(imageId);
+    const downloadedPaths: string[] = [];
+    for (let i = 0; i < args.images.length; i++) {
+      const imageUrl = await ctx.storage.getUrl(args.images[i]);
       if (imageUrl) {
-        imageUrls.push(imageUrl);
+        const tempPath = `/tmp/vly-user-image-${i + 1}.png`;
+        try {
+          await codebase.runCommand(
+            `curl -sL ${escapeShellArg(imageUrl)} -o ${escapeShellArg(tempPath)}`,
+            15000,
+          );
+          downloadedPaths.push(tempPath);
+        } catch {
+          // If download fails, skip this image
+        }
       }
     }
 
-    // Append image URLs to the user message
-    if (imageUrls.length > 0) {
-      const imageReferences = imageUrls
-        .map((url, idx) => `[Image ${idx + 1}: ${url}]`)
+    if (downloadedPaths.length > 0) {
+      const imageReferences = downloadedPaths
+        .map(
+          (path, idx) =>
+            `Image ${idx + 1}: ${path} (read this image file to view it)`,
+        )
         .join("\n");
-      userMessageWithImages = `${args.userMessage}\n\nUser has uploaded ${imageUrls.length} image(s):\n${imageReferences}`;
+      userMessageWithImages = `${args.userMessage}\n\nThe user has attached ${downloadedPaths.length} image(s). Read these image files to see what the user is referring to:\n${imageReferences}`;
     }
   }
 
@@ -393,7 +404,7 @@ export async function executeCodex(
               output_tokens: outputTokens,
               other: undefined,
             },
-            modelUsed: undefined,
+            modelUsed: parsed.model || "codex",
           },
         ),
       );

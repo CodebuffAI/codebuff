@@ -6,12 +6,9 @@ import {
 import { createNewThread } from "!/thread";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { getVerifiedAccessProject } from "../project";
 import { agentModeValidator } from "../utils/registry_validators";
 import { contextLengthValidator } from "./config/contextLengthPresets";
-import { getAuthUser } from "../users";
-import { checkUserRateLimit } from "./rateLimiter";
-import { checkContentModeration } from "../content_moderation";
+import { runTriggerGates } from "./shared/triggerGates";
 import type { AgentMode } from "../utils/registry_validators";
 
 const FRONTEND_AGENT_MODES = [
@@ -92,70 +89,23 @@ export const saveMessageAndStartWorkflow = mutation({
     }),
   ),
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
-    if (!user) {
-      throw new Error("User not found");
-    }
-    const executingUserIsPlatformAdmin =
-      user.role === "god" || user.role === "admin";
+    const gates = await runTriggerGates({
+      ctx,
+      message: args.message,
+      projectSemanticIdentifier: args.projectSemanticIdentifier,
+      projectId: args.projectId,
+      skipRateLimitCheck: args._skipRateLimitCheck,
+    });
 
-    // Check rate limits before processing message (unless this is an internal call)
-    if (!args._skipRateLimitCheck) {
-      const rateLimitResult = await checkUserRateLimit(ctx, user._id);
-      if (!rateLimitResult.success) {
-        return rateLimitResult;
-      }
-    } else {
-      console.log(
-        `[RateLimit] Skipping rate limit check for internal call (user ${user._id})`,
-      );
+    if (!gates.ok) {
+      return { success: false as const, error: gates.error };
     }
 
-    // Content moderation check
-    const moderation = checkContentModeration(args.message);
-    if (moderation.blocked) {
-      return {
-        success: false as const,
-        error: {
-          kind: "CONTENT_MODERATION",
-          message: moderation.message,
-        },
-      };
-    }
-
-    // Check if user is paused
-    if (!executingUserIsPlatformAdmin) {
-      const pauseStatus = await ctx.runQuery(
-        internal.deployment_queries.getUserPauseStatusInternal,
-        { userId: user._id },
-      );
-
-      if (pauseStatus) {
-        console.log(
-          `User ${user._id} is paused (reason: ${pauseStatus.pauseReason}), blocking message sending`,
-        );
-
-        // Schedule an unpause attempt in the background
-        // This will check if they have credits and unpause if possible
-        await ctx.scheduler.runAfter(
-          0,
-          internal.deployment_helpers.checkAndUnpauseUser,
-          { userId: user._id },
-        );
-
-        return {
-          success: false as const,
-          error: {
-            kind: "DEPLOYMENTS_PAUSED",
-            message:
-              "Your Convex deployments are paused. Please add more Convex credits to continue. If you just added credits, please try again in a few moments.",
-          },
-        };
-      }
-    }
-
-    // Note: Credit check happens in primaryAgenticCycle (an action) since mutations cannot make HTTP calls
-    // The cycle will check credits ONCE at the start (when cycleCount === 0)
+    const {
+      user,
+      project,
+      isPlatformAdmin: executingUserIsPlatformAdmin,
+    } = gates;
 
     // Validate agent mode - only allow frontend-selectable modes
     if (
@@ -169,19 +119,6 @@ export const saveMessageAndStartWorkflow = mutation({
       );
     }
     const normalizedAgentMode = normalizeAgentMode(args.agentMode);
-
-    const project = await getVerifiedAccessProject(
-      ctx,
-      user._id,
-      args.projectSemanticIdentifier
-        ? args.projectSemanticIdentifier
-        : undefined,
-      args.projectId ? args.projectId : undefined,
-    );
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
 
     let threadId = project.active_thread;
     let isFirstMessage = false;
@@ -311,6 +248,7 @@ export const saveMessageAndStartWorkflow = mutation({
 
     await ctx.runMutation(internal.admin_usage.bumpUserAgentInvocation, {
       userId: user._id,
+      source: "v2",
     });
 
     return { success: true as const };

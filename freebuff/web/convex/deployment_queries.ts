@@ -299,3 +299,25 @@ export const getProjectPauseStatusInternal = internalQuery({
     return pauseRecord
   },
 })
+
+/**
+ * Get pause status for a project (public, authenticated)
+ */
+export const getProjectPauseStatus = query({
+  args: {
+    projectId: v.id('project'),
+  },
+  handler: async (ctx, args): Promise<Doc<'paused_projects'> | null> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    const pauseRecord = await ctx.db
+      .query('paused_projects')
+      .withIndex('by_project_and_active', (q) =>
+        q.eq('projectId', args.projectId).eq('active', true),
+      )
+      .first()
+
+    return pauseRecord
+  },
+})

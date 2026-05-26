@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import { useSession } from "next-auth/react";
+import { useSession } from 'next-auth/react'
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -26,23 +26,25 @@ const CreateProjectModal = lazy(
   () => import("@/vly/components/CreateProjectModal"),
 );
 import { Loader, AlertTriangle, Plus, Sparkles } from "lucide-react";
-import { PausedDeploymentBanner } from "@/vly/components/common/paused-deployment-banner";
+import { useCustomer } from "autumn-js/react";
 import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
 import type { AutumnCustomer } from "@/vly/lib/billing/types";
 import { PageLayout } from "@/vly/components/test-landing/PageLayout";
 
 export default function Dashboard() {
-  const { data: session } = useSession();
-  const user = session?.user;
+  const { data: session } = useSession()
+  const userName = session?.user?.name ?? ''
+  const userImage = session?.user?.image ?? undefined
+  const userBio = ''
   const projects = useQuery(api.project.getUserProjects);
   const router = useRouter();
-  const customer = null as AutumnCustomer | null;
+  const { customer } = useCustomer();
   const [deleteProjectId, setDeleteProjectId] = useState<Id<"project"> | null>(
     null,
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileName, setProfileName] = useState(user?.name || "");
+  const [profileName, setProfileName] = useState(userName);
   const [profileBio, setProfileBio] = useState("");
   const [sortBy, setSortBy] = useState<"lastViewed" | "alphabetical">(
     "lastViewed",
@@ -132,17 +134,17 @@ export default function Dashboard() {
 
   // Update profile name when user data changes
   useEffect(() => {
-    if (user?.name) {
+    if (userName) {
       // Check if user has a previously saved custom name in localStorage
       const savedName = localStorage.getItem("userProfileName");
       if (savedName && savedName.trim() !== "") {
         // Use a microtask to avoid synchronous setState in effect
         queueMicrotask(() => setProfileName(savedName));
       } else {
-        queueMicrotask(() => setProfileName(user.name ?? ""));
+        queueMicrotask(() => setProfileName(userName));
       }
     }
-  }, [user?.name]);
+  }, [userName]);
 
   // Update profile bio when user data changes
   useEffect(() => {
@@ -152,11 +154,9 @@ export default function Dashboard() {
       // Use a microtask to avoid synchronous setState in effect
       queueMicrotask(() => setProfileBio(savedBio));
     } else {
-      queueMicrotask(() =>
-        setProfileBio((({} as any) as any)?.bio || ""),
-      );
+      queueMicrotask(() => setProfileBio(userBio));
     }
-  }, [user?.name, ({} as any)]);
+  }, [userBio]);
 
   // Prevent scroll when search changes
   useEffect(() => {
@@ -175,21 +175,20 @@ export default function Dashboard() {
       contentClassName="pt-[16vh]"
     >
       <div className="w-full space-y-8 px-4 md:px-20">
-        <PausedDeploymentBanner />
         {/* Profile and Featured Sites Section - Commented out for now */}
         {/* <div className="flex flex-col items-start justify-start gap-8 self-stretch lg:flex-row">
             Profile Card
             <div className="flex w-full flex-col items-start justify-start gap-7 lg:w-1/3">
               <div className="flex flex-col items-center justify-start gap-3 self-stretch">
                 <Avatar
-                  src={user?.image}
-                  alt={user?.name || "Profile"}
+	                    src={userImage}
+	                    alt={userName || "Profile"}
                   size="xl"
                   className="h-28 w-28"
                 />
                 <div className="flex flex-col items-center justify-start self-stretch">
                   <div className="justify-start text-center font-['PP_Cirka'] text-3xl font-normal leading-tight text-black">
-                    {profileName || user?.name || "User"}
+                    {profileName || user?.fullName || "User"}
                   </div>
                   <div
                     onClick={() => setIsEditingProfile(true)}
@@ -688,7 +687,7 @@ export default function Dashboard() {
                               );
                             });
                             router.push(
-                              `/web/project/${project.semantic_identifier}`,
+                              `/project/${project.semantic_identifier}`,
                             );
                           }}
                           disabled={loadingProjectId === project._id}
@@ -907,11 +906,11 @@ export default function Dashboard() {
               <div className="flex flex-col items-center justify-start gap-7 self-stretch">
                 <Avatar className="h-36 w-36">
                   <AvatarImage
-                    src={user?.image ?? undefined}
-                    alt={user?.name || "Profile"}
+	                    src={userImage}
+	                    alt={userName || "Profile"}
                   />
                   <AvatarFallback>
-                    {user?.name?.charAt(0) || "U"}
+	                    {userName?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -948,10 +947,10 @@ export default function Dashboard() {
                 if (
                   profileName &&
                   profileName.trim() !== "" &&
-                  profileName !== user?.name
+	                  profileName !== userName
                 ) {
                   localStorage.setItem("userProfileName", profileName.trim());
-                } else if (profileName === user?.name) {
+	                } else if (profileName === userName) {
                   // If user reverted to original name, remove from localStorage
                   localStorage.removeItem("userProfileName");
                 }
@@ -959,10 +958,10 @@ export default function Dashboard() {
                 if (
                   profileBio &&
                   profileBio.trim() !== "" &&
-                  profileBio !== (({} as any) as any)?.bio
+	                  profileBio !== userBio
                 ) {
                   localStorage.setItem("userProfileBio", profileBio.trim());
-                } else if (profileBio === (({} as any) as any)?.bio) {
+	                } else if (profileBio === userBio) {
                   // If user reverted to original bio, remove from localStorage
                   localStorage.removeItem("userProfileBio");
                 }

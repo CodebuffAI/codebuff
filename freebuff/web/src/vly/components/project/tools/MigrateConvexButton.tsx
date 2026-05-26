@@ -38,18 +38,13 @@ export const MigrateConvexButton = ({
     api.convex_migration.status.getMigrationStatus,
     { projectId },
   );
+  const isSelfHosted = useQuery(
+    api.convex_oauth.connections.isProjectSelfHosted,
+    { projectId },
+  );
 
-  // Show migration progress if migration is in progress
-  if (
-    migrationStatus &&
-    migrationStatus.status !== "completed" &&
-    migrationStatus.status !== "failed"
-  ) {
-    return <MigrationProgress migration={migrationStatus} />;
-  }
-
-  // Show completed state if migration is done
-  if (migrationStatus && migrationStatus.status === "completed") {
+  // Hide button entirely if project is already self-hosted
+  if (isSelfHosted) {
     return (
       <Button
         variant="outline"
@@ -61,6 +56,15 @@ export const MigrateConvexButton = ({
         <span>Migration Completed</span>
       </Button>
     );
+  }
+
+  // Show migration progress if migration is in progress
+  if (
+    migrationStatus &&
+    migrationStatus.status !== "completed" &&
+    migrationStatus.status !== "failed"
+  ) {
+    return <MigrationProgress migration={migrationStatus} />;
   }
 
   const handleMigrate = async () => {

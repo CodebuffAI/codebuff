@@ -8,11 +8,6 @@ import {
 } from "!/_generated/server";
 import { getAuthUser } from "!/users";
 import { v } from "convex/values";
-import {
-  FreestyleSandboxes,
-  HandleVerifyWildcardError,
-  HandleVerifyWildcardResponse,
-} from "freestyle-sandboxes";
 import { getRootDomain } from "../lib/utils";
 import {
   requireFeatureAccess,
@@ -45,10 +40,10 @@ const DNS_RECORD_TYPES = {
 } as const;
 
 const DNS_CONFIG = {
-  A_RECORD_IP: "35.235.84.134",
+  A_RECORD_IP: "76.76.21.21",
   CNAME_TARGETS: [
-    "cname.vly-dns.com.",
-    "cname.vly-dns.com",
+    "cname.vercel-dns.com.",
+    "cname.vercel-dns.com",
   ] as readonly string[],
 } as const;
 
@@ -67,7 +62,7 @@ export const create = internalMutation({
     const domainId = await ctx.db.insert("domain", {
       domain: args.domain.toLowerCase(),
       ownership_verified: false,
-      wildcard_cert_generated: false,
+      wildcard_cert_generated: true,
       pointing_verified: false,
       owner: user._id,
       rootDomain: getRootDomain(args.domain),
@@ -109,26 +104,41 @@ export const setVerificationCode = internalMutation({
 async function initializeDomainVerification(
   ctx: any,
   domainId: any,
-  rootDomain: string,
-  freestyle: FreestyleSandboxes,
+  domain: string,
+  vercelProjectId: string,
 ): Promise<void> {
-  const ownershipProvedDomains = await freestyle.listDomains();
-  const isAlreadyVerified = ownershipProvedDomains.some(
-    (d: { domain: string }) => d.domain === rootDomain,
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  const response = await fetch(
+    `https://api.vercel.com/v10/projects/${vercelProjectId}/domains?teamId=${teamId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: domain }),
+    },
   );
 
-  if (isAlreadyVerified) {
+  const data = await response.json();
+
+  if (data.verified) {
     await ctx.runMutation(internal.domains.setDomainState, {
       domainId,
       ownershipVerified: true,
     });
-  } else {
-    const result = await freestyle.createDomainVerificationRequest(rootDomain);
-
-    await ctx.runMutation(internal.domains.setVerificationCode, {
-      domainId,
-      verificationCode: result.verificationCode,
-    });
+  } else if (data.verification) {
+    const txtRecord = data.verification.find(
+      (v: { type: string }) => v.type === "TXT",
+    );
+    if (txtRecord) {
+      await ctx.runMutation(internal.domains.setVerificationCode, {
+        domainId,
+        verificationCode: txtRecord.value,
+      });
+    }
   }
 }
 
@@ -172,12 +182,21 @@ export const registerDomainAndGetVerificationCode = action({
       projectId: args.projectId,
     });
 
-    const freestyle = new FreestyleSandboxes({
-      apiKey: process.env.FREESTYLE_API_KEY!,
-    });
+    // Get the Vercel project ID from the latest active deployment
+    const latestDeployment = await ctx.runQuery(
+      api.deployment.getLatestActiveDeployment,
+      { projectId: args.projectId },
+    );
+    const vercelProjectId = latestDeployment?.freestyleDeploymentId;
 
-    const rootDomain = getRootDomain(args.domain);
-    await initializeDomainVerification(ctx, domainId, rootDomain, freestyle);
+    if (vercelProjectId) {
+      await initializeDomainVerification(
+        ctx,
+        domainId,
+        args.domain,
+        vercelProjectId,
+      );
+    }
 
     await ctx.runAction(api.domains.verifyAll, { domain: args.domain });
   },
@@ -228,17 +247,47 @@ export const checkVerification = action({
       throw new Error("Domain not found");
     }
 
-    const freestyle = new FreestyleSandboxes({
-      apiKey: process.env.FREESTYLE_API_KEY!,
-    });
+    const projectId = await ctx.runQuery(
+      internal.domains.getProjectIdFromDomain,
+      { domainId: domainDetails._id },
+    );
+
+    if (!projectId) {
+      return { success: false, message: "Domain not linked to a project" };
+    }
+
+    const latestDeployment = await ctx.runQuery(
+      api.deployment.getLatestActiveDeployment,
+      { projectId },
+    );
+
+    const vercelProjectId = latestDeployment?.freestyleDeploymentId;
+
+    if (!vercelProjectId) {
+      return { success: false, message: "No Vercel project found" };
+    }
+
+    const vercelToken = process.env.VERCEL_API_TOKEN;
+    const teamId = process.env.VERCEL_TEAM_ID;
 
     try {
-      const result = await freestyle.verifyDomain(getRootDomain(args.domain));
-      if ("domain" in result) {
+      const response = await fetch(
+        `https://api.vercel.com/v10/projects/${vercelProjectId}/domains/${encodeURIComponent(args.domain)}/verify?teamId=${teamId}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${vercelToken}` },
+        },
+      );
+
+      const data = await response.json();
+
+      if (data.verified) {
         return { success: true };
       } else {
-        console.error("Domain verification returned error", result.message);
-        return { success: false, message: result.message };
+        return {
+          success: false,
+          message: "Domain not yet verified. Please check your DNS records.",
+        };
       }
     } catch (err) {
       console.error("Failed to verify domain");
@@ -252,33 +301,11 @@ export const generateCert = action({
     domain: v.string(),
   },
   handler: async (
-    ctx,
-    args,
+    _ctx,
+    _args,
   ): Promise<{ success: true } | { success: false; message: string }> => {
-    const freestyle = new FreestyleSandboxes({
-      apiKey: process.env.FREESTYLE_API_KEY!,
-    });
-
-    const rootDomain = getRootDomain(args.domain);
-
-    console.log("rootDomain", rootDomain);
-
-    const result = (await freestyle.provisionWildcard(rootDomain)) as
-      | HandleVerifyWildcardResponse
-      | HandleVerifyWildcardError;
-
-    console.log("cert result", result);
-
-    if ("message" in result) {
-      return {
-        success: false,
-        message: result.message,
-      };
-    } else {
-      return {
-        success: true,
-      };
-    }
+    // Vercel auto-provisions SSL certificates — no manual cert generation needed
+    return { success: true };
   },
 });
 
@@ -313,6 +340,53 @@ function checkDnsRecords(domain: string, dnsAnswers: DnsAnswer[]): boolean {
         DNS_CONFIG.CNAME_TARGETS.includes(answer.data) &&
         answer.type === DNS_RECORD_TYPES.CNAME,
     );
+  }
+}
+
+async function getVercelDomainConfigErrors(
+  vercelProjectId: string,
+  domain: string,
+): Promise<string | null> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  try {
+    const response = await fetch(
+      `https://api.vercel.com/v10/projects/${vercelProjectId}/domains/${encodeURIComponent(domain)}?teamId=${teamId}`,
+      { headers: { Authorization: `Bearer ${vercelToken}` } },
+    );
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    if (!data.misconfigured) return null;
+
+    // Vercel returns conflicts and required records in the config response
+    // Build a user-friendly message
+    const parts: string[] = [];
+
+    if (data.conflicts && data.conflicts.length > 0) {
+      const conflictList = data.conflicts
+        .map(
+          (c: { type: string; name: string; value: string }) =>
+            `${c.type} record "${c.name}" → ${c.value}`,
+        )
+        .join(", ");
+      parts.push(`Remove conflicting DNS records: ${conflictList}`);
+    }
+
+    if (data.intended) {
+      parts.push(
+        `Set ${data.intended.type} record for "${data.intended.name || "@"}" → ${data.intended.value}`,
+      );
+    }
+
+    return parts.length > 0
+      ? parts.join(". ") + "."
+      : "Domain is misconfigured. Check your DNS settings in your domain provider.";
+  } catch {
+    return null;
   }
 }
 
@@ -387,54 +461,93 @@ export const deleteDomain = action({
 
       // Check if domain is verified
       const isFullyVerified =
-        domainDetails.ownership_verified &&
-        domainDetails.wildcard_cert_generated &&
-        domainDetails.pointing_verified;
+        domainDetails.ownership_verified && domainDetails.pointing_verified;
 
-      // If verified, unmap from Freestyle first
+      // If verified, remove from Vercel first
       if (isFullyVerified) {
         console.log(
-          `[DEBUG] Unmapping verified domain ${args.domain} from Freestyle`,
+          `[DEBUG] Removing verified domain ${args.domain} from Vercel`,
         );
 
         try {
-          const response = await fetch(
-            `https://api.freestyle.sh/domains/v1/mappings/${encodeURIComponent(args.domain.toLowerCase())}`,
-            {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${process.env.FREESTYLE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-            },
+          const projectId = await ctx.runQuery(
+            internal.domains.getProjectIdFromDomain,
+            { domainId: domainDetails._id },
           );
 
-          const text = await response.text();
-          console.log(`[DEBUG] Unmap result status: ${response.status}`);
+          if (projectId) {
+            const vercelToken = process.env.VERCEL_API_TOKEN;
+            const teamId = process.env.VERCEL_TEAM_ID;
 
-          // Allow 200 or 404 (already unmapped)
-          if (response.status !== 200 && response.status !== 404) {
-            console.error(
-              `[DEBUG] Failed to unmap domain. Status: ${response.status}, Response: ${text}`,
+            const latestDeployment = await ctx.runQuery(
+              api.deployment.getLatestActiveDeployment,
+              { projectId },
             );
-            return {
-              success: false,
-              message: `Failed to unmap domain from Freestyle: ${text || "Unknown error"}`,
-            };
+
+            let vercelProjectId =
+              latestDeployment?.freestyleDeploymentId || null;
+
+            // Verify stored ID, fall back to slug lookup
+            if (vercelProjectId) {
+              const checkResponse = await fetch(
+                `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectId)}?teamId=${teamId}`,
+                { headers: { Authorization: `Bearer ${vercelToken}` } },
+              );
+              if (!checkResponse.ok) vercelProjectId = null;
+            }
+
+            if (!vercelProjectId) {
+              const project: any = await ctx.runQuery(
+                internal.project.getProject,
+                { projectId },
+              );
+              if (project?.prod_deployment_slug) {
+                const lookupResponse = await fetch(
+                  `https://api.vercel.com/v9/projects/${encodeURIComponent(project.prod_deployment_slug)}?teamId=${teamId}`,
+                  { headers: { Authorization: `Bearer ${vercelToken}` } },
+                );
+                if (lookupResponse.ok) {
+                  const data = await lookupResponse.json();
+                  vercelProjectId = data.id;
+                }
+              }
+            }
+
+            if (vercelProjectId) {
+              const response = await fetch(
+                `https://api.vercel.com/v10/projects/${vercelProjectId}/domains/${encodeURIComponent(args.domain.toLowerCase())}?teamId=${teamId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${vercelToken}`,
+                  },
+                },
+              );
+
+              console.log(
+                `[DEBUG] Vercel domain removal status: ${response.status}`,
+              );
+
+              if (!response.ok && response.status !== 404) {
+                const text = await response.text();
+                console.error(
+                  `[DEBUG] Failed to remove domain. Status: ${response.status}, Response: ${text}`,
+                );
+                return {
+                  success: false,
+                  message: `Failed to remove domain from Vercel: ${text || "Unknown error"}`,
+                };
+              }
+            }
           }
         } catch (error) {
-          console.error("Failed to call Freestyle API:", error);
+          console.error("Failed to call Vercel API:", error);
           return {
             success: false,
-            message: "Failed to unmap domain from Freestyle",
+            message: "Failed to remove domain from Vercel",
           };
         }
       }
-
-      // TODO: Clean up any external records (DNS, Freestyle, etc.)
-      // - Remove DNS verification records
-      // - Cancel any pending verification requests
-      // - Clean up any partial certificate generation
 
       // Delete from database
       await ctx.runMutation(internal.domains.removeDomain, {
@@ -472,66 +585,103 @@ export const removeDomain = internalMutation({
     await ctx.db.delete(args.domainId);
   },
 });
-async function callFreestyleDomainApi(
-  domain: string,
-  deploymentId: string,
-): Promise<{ status: number; text: string }> {
-  const response = await fetch(
-    `https://api.freestyle.sh/domains/v1/mappings/${encodeURIComponent(domain.toLowerCase())}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.FREESTYLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ deploymentId }),
-    },
-  );
-
-  const text = await response.text();
-  return { status: response.status, text };
-}
-
 export const pointDomainToDeployment = action({
   args: {
     domain: v.string(),
     freestyleDeploymentId: v.string(),
   },
   handler: async (ctx, args): Promise<SuccessOrError> => {
-    // Feature access is enforced client-side via useFeatureAccess hook.
-    // Server-side autumn.check() was incorrectly blocking paying users
-    // due to Autumn API sync issues, so the hard gate was removed here.
-
     console.log(
       "[DEBUG] Pointing domain",
       args.domain,
-      "to deployment",
+      "to Vercel project",
       args.freestyleDeploymentId,
     );
 
     try {
-      const result = await callFreestyleDomainApi(
-        args.domain,
-        args.freestyleDeploymentId,
+      const vercelToken = process.env.VERCEL_API_TOKEN;
+      const teamId = process.env.VERCEL_TEAM_ID;
+
+      // Resolve Vercel project ID: verify stored ID, fall back to slug lookup
+      let vercelProjectId: string | null = args.freestyleDeploymentId;
+
+      const checkResponse = await fetch(
+        `https://api.vercel.com/v9/projects/${encodeURIComponent(vercelProjectId)}?teamId=${teamId}`,
+        { headers: { Authorization: `Bearer ${vercelToken}` } },
       );
 
-      console.log("[DEBUG] Freestyle API response status:", result.status);
+      if (!checkResponse.ok) {
+        console.log(
+          `[DEBUG] Stored ID ${vercelProjectId} not found on Vercel, looking up by domain`,
+        );
+        vercelProjectId = null;
 
-      if (result.status === 200) {
-        console.log("[DEBUG] Successfully pointed domain to deployment");
+        // Find project slug from domain table → project → prod_deployment_slug
+        const domainDetails = await ctx.runQuery(api.domains.getDomainDetails, {
+          domain: args.domain,
+        });
+        if (domainDetails) {
+          const projectId = await ctx.runQuery(
+            internal.domains.getProjectIdFromDomain,
+            { domainId: domainDetails._id },
+          );
+          if (projectId) {
+            const project: any = await ctx.runQuery(
+              internal.project.getProject,
+              { projectId },
+            );
+            if (project?.prod_deployment_slug) {
+              const lookupResponse = await fetch(
+                `https://api.vercel.com/v9/projects/${encodeURIComponent(project.prod_deployment_slug)}?teamId=${teamId}`,
+                { headers: { Authorization: `Bearer ${vercelToken}` } },
+              );
+              if (lookupResponse.ok) {
+                const projectData = await lookupResponse.json();
+                vercelProjectId = projectData.id;
+                console.log(
+                  `[DEBUG] Found Vercel project by slug ${project.prod_deployment_slug}: ${vercelProjectId}`,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      if (!vercelProjectId) {
+        return {
+          success: false,
+          message: "Could not find Vercel project for this deployment",
+        };
+      }
+
+      const response = await fetch(
+        `https://api.vercel.com/v10/projects/${vercelProjectId}/domains?teamId=${teamId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${vercelToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: args.domain }),
+        },
+      );
+
+      if (response.ok || response.status === 409) {
+        console.log("[DEBUG] Successfully pointed domain to Vercel project");
         return { success: true };
       }
 
+      const text = await response.text();
       console.error(
         "[DEBUG] Failed to point domain. Status:",
-        result.status,
+        response.status,
         "Response:",
-        result.text,
+        text,
       );
 
       return {
         success: false,
-        message: result.text || "Failed to point domain to deployment",
+        message: text || "Failed to point domain to deployment",
       };
     } catch (error) {
       console.error("[DEBUG] Error in pointDomainToDeployment:", error);
@@ -550,23 +700,6 @@ async function verifyOwnership(
   domainId: any,
 ): Promise<boolean> {
   try {
-    const freestyle = new FreestyleSandboxes({
-      apiKey: process.env.FREESTYLE_API_KEY!,
-    });
-
-    const registeredDomains = await freestyle.listDomains();
-    const isAlreadyRegistered = registeredDomains.some(
-      (d: { domain: string }) => d.domain === domain,
-    );
-
-    if (isAlreadyRegistered) {
-      await ctx.runMutation(internal.domains.setDomainState, {
-        domainId,
-        ownershipVerified: true,
-      });
-      return true;
-    }
-
     const verificationResult = await ctx.runAction(
       api.domains.checkVerification,
       { domain },
@@ -589,28 +722,15 @@ async function verifyOwnership(
 
 async function generateWildcardCert(
   ctx: any,
-  domain: string,
+  _domain: string,
   domainId: any,
 ): Promise<boolean> {
-  try {
-    console.debug("Generating wildcard cert for", domain);
-    const result = await ctx.runAction(api.domains.generateCert, { domain });
-
-    console.debug("Wildcard cert generation result:", result);
-
-    if (result.success) {
-      await ctx.runMutation(internal.domains.setDomainState, {
-        domainId,
-        wildcardCertGenerated: true,
-      });
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    console.error("Wildcard cert generation failed:", error);
-    return false;
-  }
+  // Vercel auto-provisions SSL — always mark as generated
+  await ctx.runMutation(internal.domains.setDomainState, {
+    domainId,
+    wildcardCertGenerated: true,
+  });
+  return true;
 }
 
 async function verifyDnsPointing(
@@ -671,7 +791,7 @@ async function pointToLatestDeployment(
 
   await ctx.runAction(api.domains.pointDomainToDeployment, {
     domain,
-    freestyleDeploymentId: latestDeployment.freestyleDeploymentId,
+    freestyleDeploymentId: latestDeployment.freestyleDeploymentId, // now stores Vercel project ID
   });
 
   console.log("Successfully pointed domain to deployment");
@@ -695,31 +815,10 @@ export const verifyAll = action({
         };
       }
 
-      const matchingRootDomain = await ctx.runQuery(
-        internal.domains.listAllWithRoot,
-        {
-          rootDomain: getRootDomain(args.domain),
-        },
-      );
-
-      /**
-       * Wildcard certs are generated for the root domain and used for all
-       * subdomains. So, if any other domain with the same root domain has a
-       * wildcard cert generated, we can skip re-generating it.
-       */
-      if (matchingRootDomain.some((d: any) => d.wildcard_cert_generated)) {
-        domainDetails.wildcard_cert_generated = true;
-        await ctx.runMutation(internal.domains.setDomainState, {
-          domainId: domainDetails._id,
-          wildcardCertGenerated: true,
-        });
-      }
-
       // Check if all verifications are already complete
+      // Vercel handles SSL automatically, so wildcard_cert is always true
       const isAlreadyVerified =
-        domainDetails.ownership_verified &&
-        domainDetails.wildcard_cert_generated &&
-        domainDetails.pointing_verified;
+        domainDetails.ownership_verified && domainDetails.pointing_verified;
 
       if (isAlreadyVerified) {
         console.log(
@@ -754,9 +853,35 @@ export const verifyAll = action({
           .filter(([_step, success]) => !success)
           .map(([step]) => step);
 
+        // Try to get specific DNS config errors from Vercel
+        let configError: string | null = null;
+        try {
+          const projectId = await ctx.runQuery(
+            internal.domains.getProjectIdFromDomain,
+            { domainId: domainDetails._id },
+          );
+          if (projectId) {
+            const latestDeployment = await ctx.runQuery(
+              api.deployment.getLatestActiveDeployment,
+              { projectId },
+            );
+            const vercelProjId = latestDeployment?.freestyleDeploymentId;
+            if (vercelProjId) {
+              configError = await getVercelDomainConfigErrors(
+                vercelProjId,
+                args.domain,
+              );
+            }
+          }
+        } catch {
+          // Best-effort — fall back to generic message
+        }
+
         return {
           success: false,
-          message: `Verification failed for: ${failedSteps.join(", ")}`,
+          message:
+            configError ||
+            `Verification failed for: ${failedSteps.join(", ")}. Check your DNS records.`,
         };
       }
 

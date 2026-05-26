@@ -894,7 +894,19 @@ export default defineSchema(
       userId: v.id('users'),
       agentInvocations: v.number(),
       lastInvocationAt: v.number(),
-    }).index('by_user', ['userId']),
+      v2Runs: v.optional(v.number()),
+      cliRuns: v.optional(v.number()),
+    })
+      .index('by_user', ['userId'])
+      .index('by_invocations', ['agentInvocations']),
+
+    model_usage_stats: defineTable({
+      agentType: v.string(),
+      model: v.string(),
+      total: v.number(),
+      recentDay: v.number(),
+      recentDayDate: v.string(),
+    }).index('by_agent_model', ['agentType', 'model']),
 
     // tickets table
     tickets: defineTable({
@@ -1178,7 +1190,11 @@ export default defineSchema(
       .index('by_category', ['category'])
       .index('by_public', ['public'])
       .index('by_category_and_public', ['category', 'public'])
-      .index('by_last_updated', ['last_updated']),
+      .index('by_last_updated', ['last_updated'])
+      .searchIndex('search_presets', {
+        searchField: 'description',
+        filterFields: ['category'],
+      }),
 
     // Junction table for project-preset associations
     project_ui_preset: defineTable({

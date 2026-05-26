@@ -106,6 +106,7 @@ const _TIER_TO_PLAN: Record<TierName, any> = {
 interface CreditOverlayProps {
   onUpgradeClick?: () => void
   showUpgradeButton?: boolean
+  reason?: string
 }
 
 export function CreditOverlay({

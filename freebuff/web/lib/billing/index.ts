@@ -1,6 +1,6 @@
 /**
  * Billing module - Centralized exports
- * Clean import path: import { ... } from '@/lib/billing'
+ * Clean import path: import { ... } from '@/vly/lib/billing'
  *
  * SOURCE OF TRUTH:
  * - Data: @/autumn/constants
@@ -45,7 +45,7 @@ export {
 
   // Platform costs
   PLATFORM_CREDIT_COSTS,
-} from "@/autumn/constants";
+} from "@/vly/autumn/constants";
 
 // ============================================================================
 // Functions from autumn/helpers.ts
@@ -96,7 +96,7 @@ export {
 
   // Platform costs
   calculatePlatformCost,
-} from "@/autumn/helpers";
+} from "@/vly/autumn/helpers";
 
 // ============================================================================
 // Feature configuration, metadata, and pack configurations

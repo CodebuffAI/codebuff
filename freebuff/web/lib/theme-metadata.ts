@@ -1,4 +1,4 @@
-import type { ThemeName } from "@/lib/theme-prompts";
+import type { ThemeName } from "@/vly/lib/theme-prompts";
 
 export type ThemePreviewStyle =
   | "minimal"

@@ -496,7 +496,7 @@ export function AdminQuickMenu({
                                 <>
                                   <span className="text-zinc-400">•</span>
                                   <Link
-                                    href={`/web/project/${deploymentDetails.project.semantic_identifier}`}
+                                    href={`/project/${deploymentDetails.project.semantic_identifier}`}
                                     target="_blank"
                                     className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
                                   >
@@ -651,6 +651,28 @@ export function AdminQuickMenu({
                                 Convex Deployments
                               </h3>
                               <div className="space-y-3">
+                                {/* Self-Hosted Status */}
+                                <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-2.5">
+                                  <span className="text-xs font-medium text-zinc-600">
+                                    Self Hosted
+                                  </span>
+                                  <Badge
+                                    variant={
+                                      deploymentDetails?.isSelfHosted
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                    className={
+                                      deploymentDetails?.isSelfHosted
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : ""
+                                    }
+                                  >
+                                    {deploymentDetails?.isSelfHosted
+                                      ? "True"
+                                      : "False"}
+                                  </Badge>
+                                </div>
                                 {/* Dev Deployment */}
                                 <div className="rounded-lg border border-zinc-200 bg-white p-4 transition-shadow hover:shadow-md">
                                   <div className="mb-3 flex items-center justify-between">

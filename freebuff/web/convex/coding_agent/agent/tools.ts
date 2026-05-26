@@ -579,7 +579,7 @@ const searchUiPresetsHandler: ToolHandler<
   const maxResults = Math.min(args.max_results ?? 3, 5);
 
   try {
-    const results = await sharedContext.ctx.runAction(
+    const results = await sharedContext.ctx.runQuery(
       internal.uiPresets.searchUiPresetsInternal,
       {
         searchQuery: args.query,

@@ -20,11 +20,6 @@ import { preloadFont } from "@/vly/lib/googleFonts";
 import ThemeConfirmationModal from "../ThemeConfirmationModal";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler";
-import {
-  useContentModeration,
-  ModerationCategory,
-} from "@/vly/hooks/useContentModeration";
-import ContentModerationWarning from "@/vly/components/ContentModerationWarning";
 
 // Typing animation for placeholder
 const TypingAnimation = memo(() => {
@@ -113,15 +108,8 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isThemeConfirmationOpen, setIsThemeConfirmationOpen] = useState(false);
-  const [isModerationWarningOpen, setIsModerationWarningOpen] = useState(false);
-  const [flaggedCategories, setFlaggedCategories] = useState<
-    ModerationCategory[]
-  >([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Content moderation hook
-  const { checkContent, reset: resetModeration } = useContentModeration();
 
   // Use shared storage hook
   const {
@@ -244,7 +232,6 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
               toast.success(`Project created with ${effectiveTheme} theme!`);
             }
             clearAllStorage();
-            resetModeration();
             onSuccess?.();
           },
           onProjectLimit,
@@ -268,13 +255,11 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
       createProject,
       router,
       clearAllStorage,
-      resetModeration,
       onProjectLimit,
       onSuccess,
     ],
   );
 
-  // Create project with current state (includes moderation check)
   const createProjectWithCurrentState = useCallback(
     async (themeToUse?: string) => {
       if (!userInput.trim() || !user) return;
@@ -283,28 +268,9 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
         return;
       }
 
-      // Check content moderation before creating project
-      setIsLoading(true);
-      try {
-        const moderationResult = await checkContent(userInput);
-
-        if (moderationResult.flagged) {
-          // Content was flagged - block project creation
-          setFlaggedCategories(moderationResult.categories);
-          setIsModerationWarningOpen(true);
-          setIsLoading(false);
-          return;
-        }
-
-        // Content passed moderation - proceed with creation
-        await executeProjectCreation(themeToUse);
-      } catch (error) {
-        console.error("Error during content check:", error);
-        // On moderation error, proceed with creation (fail open)
-        await executeProjectCreation(themeToUse);
-      }
+      await executeProjectCreation(themeToUse);
     },
-    [userInput, user, retryAt, checkContent, executeProjectCreation],
+    [userInput, user, retryAt, executeProjectCreation],
   );
 
   const handlePaste = useCallback(
@@ -410,12 +376,6 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
     setIsThemeConfirmationOpen(false);
     proceedToCreateOrSignIn("none");
   }, [proceedToCreateOrSignIn, updateSelectedTheme]);
-
-  // Handle closing moderation warning
-  const handleModerationWarningClose = useCallback(() => {
-    setIsModerationWarningOpen(false);
-    setFlaggedCategories([]);
-  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -633,13 +593,6 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
         onClose={() => setIsThemeConfirmationOpen(false)}
         onSelectTheme={handleThemeSelect}
         onSkip={handleSkipTheme}
-      />
-
-      {/* Content Moderation Warning - No bypass allowed */}
-      <ContentModerationWarning
-        isOpen={isModerationWarningOpen}
-        onClose={handleModerationWarningClose}
-        categories={flaggedCategories}
       />
     </>
   );

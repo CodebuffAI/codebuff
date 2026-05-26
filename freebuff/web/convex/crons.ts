@@ -9,10 +9,10 @@ crons.interval(
   internal.pool_management.replenishPoolIfEmpty,
 );
 
-// GitHub token rotation - run every 30 minutes to keep tokens fresh
+// GitHub token rotation - run every 60 minutes to keep tokens fresh
 crons.interval(
   "rotate expiring github tokens",
-  { minutes: 30 },
+  { minutes: 60 },
   internal.github.tokens.rotation.scheduleTokenRotation,
 );
 
@@ -30,12 +30,11 @@ crons.interval(
   internal.tickets_email.processPendingEmails,
 );
 
-// Check and unpause users with replenished resource limits - run daily at 2 AM UTC
-crons.daily(
+// Check and unpause users with replenished resource limits - run every 24 hours
+crons.interval(
   "check and unpause users with replenished credits",
-  { hourUTC: 2, minuteUTC: 0 },
+  { hours: 24 },
   internal.deployment_management.checkAndUnpausePausedUsers,
-  {},
 );
 
 export default crons;

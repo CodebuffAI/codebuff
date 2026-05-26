@@ -62,8 +62,57 @@ function serializeThreadMessageForClientList(message: Doc<"messages">) {
   return full;
 }
 
+/**
+ * Lightweight serializer for list subscriptions — strips heavy fields
+ * (thinking, object, result, error_check, tool_call, token_usage, etc.)
+ * to cut per-message payload from ~250KB to ~10-20KB.
+ * Frontend lazy-loads heavy fields via getMessageExecutionDetails on expand.
+ */
+function serializeThreadMessageLight(message: Doc<"messages">) {
+  return {
+    _id: message._id,
+    _creationTime: message._creationTime,
+    project_id: message.project_id,
+    thread_id: message.thread_id,
+    role: message.role,
+    content: message.content,
+    date: message.date,
+    streaming: message.streaming,
+    isFastReturn: message.isFastReturn,
+    images: message.images,
+    core_message: message.role === "user" ? message.core_message : undefined,
+    fast_return_preview: message.fast_return_preview,
+    model_semantic_name: message.model_semantic_name,
+    commit_hash: message.commit_hash,
+    deactivated: message.deactivated,
+    suggestions: message.suggestions,
+    message_state: message.message_state,
+    integration_references: message.integration_references,
+    has_thinking: !!message.thinking,
+    has_execution_details: !!(
+      message.tool_call?.trim() ||
+      message.error_check?.trim() ||
+      message.result?.trim() ||
+      (message.object?.trim() &&
+        message.object !== "[]" &&
+        message.object !== "{}")
+    ),
+    has_usage: !!(
+      message.token_usage ||
+      message.usage_breakdown ||
+      (message.credits_deducted !== undefined &&
+        message.credits_deducted > 0) ||
+      message.total_cost_usd
+    ),
+  };
+}
+
 type ThreadMessageForClient = ReturnType<
   typeof serializeThreadMessageForClientList
+>;
+
+type ThreadMessageForClientLight = ReturnType<
+  typeof serializeThreadMessageLight
 >;
 
 // Internal cacheable version - accepts userId to avoid JWT lookup on every call
@@ -170,7 +219,7 @@ export const getThreadMessages = query({
       .order("desc")
       .take(60);
 
-    return messages.map(serializeThreadMessageForClientList);
+    return messages.map(serializeThreadMessageLight);
   },
 });
 
@@ -240,7 +289,7 @@ export const listThreadMessages = query({
 
       return {
         ...page,
-        page: page.page.map(serializeThreadMessageForClientList),
+        page: page.page.map(serializeThreadMessageLight),
       };
     } catch (error: any) {
       // Handle invalid cursor errors gracefully by returning empty results
@@ -253,6 +302,35 @@ export const listThreadMessages = query({
       }
       throw error;
     }
+  },
+});
+
+// Lazy-loaded heavy fields for a single message.
+// Called by frontend when user expands thinking/execution details/usage.
+export const getMessageExecutionDetails = query({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) return null;
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) return null;
+
+    return {
+      _id: message._id,
+      thinking: message.thinking,
+      object: message.object,
+      result: message.result,
+      error_check: message.error_check,
+      tool_call: message.tool_call,
+      file_apply_results: message.file_apply_results,
+      token_usage: message.token_usage,
+      credits_deducted: message.credits_deducted,
+      total_cost_usd: message.total_cost_usd,
+      usage_breakdown: message.usage_breakdown,
+    };
   },
 });
 
@@ -323,7 +401,7 @@ export const getStreamedMessages = query({
   args: {
     semanticIdentifier: v.string(),
   },
-  handler: async (ctx, args): Promise<ThreadMessageForClient[]> => {
+  handler: async (ctx, args): Promise<ThreadMessageForClientLight[]> => {
     const user = await getAuthUser(ctx);
     if (!user) {
       return [];
@@ -350,7 +428,7 @@ export const getStreamedMessages = query({
         activeThread: projectData.active_thread,
       },
     );
-    return messages.map(serializeThreadMessageForClientList);
+    return messages.map(serializeThreadMessageLight);
   },
 });
 

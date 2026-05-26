@@ -14,6 +14,8 @@ import type * as admin from "../admin.js";
 import type * as adminReferralDashboard from "../adminReferralDashboard.js";
 import type * as admin_stats from "../admin_stats.js";
 import type * as admin_usage from "../admin_usage.js";
+import type * as admin_usage_backfill from "../admin_usage_backfill.js";
+import type * as admin_usage_backfill_actions from "../admin_usage_backfill_actions.js";
 import type * as aggregates_admin_aggregates from "../aggregates/admin_aggregates.js";
 import type * as assets from "../assets.js";
 import type * as autumn from "../autumn.js";
@@ -87,6 +89,7 @@ import type * as coding_agent_models_standard_model from "../coding_agent/models
 import type * as coding_agent_models_ultra_cheap_model from "../coding_agent/models/ultra_cheap_model.js";
 import type * as coding_agent_rateLimiter from "../coding_agent/rateLimiter.js";
 import type * as coding_agent_shared_base_knowledge from "../coding_agent/shared/base_knowledge.js";
+import type * as coding_agent_shared_triggerGates from "../coding_agent/shared/triggerGates.js";
 import type * as coding_agent_terminationThrottle from "../coding_agent/terminationThrottle.js";
 import type * as coding_agent_trigger from "../coding_agent/trigger.js";
 import type * as community from "../community.js";
@@ -159,6 +162,7 @@ import type * as integrations_research_agent from "../integrations/research_agen
 import type * as invites from "../invites.js";
 import type * as lib_convex_pricing from "../lib/convex_pricing.js";
 import type * as lib_featureAccessControl from "../lib/featureAccessControl.js";
+import type * as lib_self_hosted_deployment from "../lib/self_hosted_deployment.js";
 import type * as lib_tierLimits from "../lib/tierLimits.js";
 import type * as localEnvFix from "../localEnvFix.js";
 import type * as memory from "../memory.js";
@@ -217,6 +221,8 @@ declare const fullApi: ApiFromModules<{
   adminReferralDashboard: typeof adminReferralDashboard;
   admin_stats: typeof admin_stats;
   admin_usage: typeof admin_usage;
+  admin_usage_backfill: typeof admin_usage_backfill;
+  admin_usage_backfill_actions: typeof admin_usage_backfill_actions;
   "aggregates/admin_aggregates": typeof aggregates_admin_aggregates;
   assets: typeof assets;
   autumn: typeof autumn;
@@ -290,6 +296,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/models/ultra_cheap_model": typeof coding_agent_models_ultra_cheap_model;
   "coding_agent/rateLimiter": typeof coding_agent_rateLimiter;
   "coding_agent/shared/base_knowledge": typeof coding_agent_shared_base_knowledge;
+  "coding_agent/shared/triggerGates": typeof coding_agent_shared_triggerGates;
   "coding_agent/terminationThrottle": typeof coding_agent_terminationThrottle;
   "coding_agent/trigger": typeof coding_agent_trigger;
   community: typeof community;
@@ -362,6 +369,7 @@ declare const fullApi: ApiFromModules<{
   invites: typeof invites;
   "lib/convex_pricing": typeof lib_convex_pricing;
   "lib/featureAccessControl": typeof lib_featureAccessControl;
+  "lib/self_hosted_deployment": typeof lib_self_hosted_deployment;
   "lib/tierLimits": typeof lib_tierLimits;
   localEnvFix: typeof localEnvFix;
   memory: typeof memory;

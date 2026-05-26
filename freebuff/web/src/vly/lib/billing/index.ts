@@ -3,8 +3,8 @@
  * Clean import path: import { ... } from '@/vly/lib/billing'
  *
  * SOURCE OF TRUTH:
- * - Data: @/autumn/constants
- * - Functions: @/autumn/helpers
+ * - Data: @/vly/autumn/constants
+ * - Functions: @/vly/autumn/helpers
  */
 
 // ============================================================================

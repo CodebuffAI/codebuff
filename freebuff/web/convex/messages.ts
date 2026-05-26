@@ -843,6 +843,57 @@ export const updateMessageState = internalMutation({
   },
 });
 
+export const setCheckingErrorsAndInvalidate = internalMutation({
+  args: {
+    messageId: v.id("messages"),
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      message_state: {
+        status: "checking_errors",
+        message: "Running type check",
+        color: "yellow",
+        timestamp: Date.now(),
+      },
+    });
+
+    const unresolvedRuntime = await ctx.db
+      .query("runtime_error")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "unresolved"),
+          q.and(
+            q.eq(q.field("status"), undefined),
+            q.eq(q.field("resolved"), undefined),
+          ),
+        ),
+      )
+      .collect();
+    for (const error of unresolvedRuntime) {
+      await ctx.db.patch(error._id, { resolved: true, status: "invalidated" });
+    }
+
+    const unresolvedBuild = await ctx.db
+      .query("build_error")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "unresolved"),
+          q.and(
+            q.eq(q.field("status"), undefined),
+            q.eq(q.field("resolved"), undefined),
+          ),
+        ),
+      )
+      .collect();
+    for (const error of unresolvedBuild) {
+      await ctx.db.patch(error._id, { resolved: true, status: "invalidated" });
+    }
+  },
+});
+
 export const insertAssistantMessage = internalMutation({
   args: {
     projectId: v.id("project"),

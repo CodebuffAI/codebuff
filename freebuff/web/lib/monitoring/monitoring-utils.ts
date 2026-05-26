@@ -1,4 +1,4 @@
-import type { SandboxSize } from "@/lib/sandbox-specs";
+import type { SandboxSize } from "@/vly/lib/sandbox-specs";
 import type { SandboxMetricsHistory } from "./monitoring-types";
 
 export const formatBytes = (bytes: number) => {

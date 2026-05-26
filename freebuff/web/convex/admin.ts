@@ -411,11 +411,12 @@ export const unpauseUserDeployments = action({
     }
 
     try {
-      // Call internal action to unpause all user deployments
+      // Call internal action to unpause all user deployments (force bypasses manual pause check)
       const result = await ctx.runAction(
         internal.deployment_management.unpauseUserDeployments,
         {
           userId: args.userId,
+          force: true,
         },
       );
 
@@ -965,17 +966,55 @@ export const getBatchDeploymentPauseStatuses = action({
       .map((lookup) => lookup.deploymentName);
 
     // Batch fetch pause statuses for all found projects in parallel
+    // Check both paused_projects (manual/project-level pause) and
+    // paused_users (auto-pause when usage limits exceeded)
     const pauseStatusLookups = await Promise.all(
       foundProjects.map(async (lookup) => {
         try {
-          const pauseStatus = await ctx.runQuery(
+          // Check project-level pause
+          const projectPauseStatus = await ctx.runQuery(
             internal.deployment_queries.getProjectPauseStatusInternal,
             { projectId: lookup.project!._id },
           );
+
+          if (projectPauseStatus?.active) {
+            return {
+              deploymentName: lookup.deploymentName,
+              projectId: lookup.project!._id,
+              paused: true,
+            };
+          }
+
+          // Check user-level pause (auto-pause writes to paused_users, not paused_projects)
+          const ownerInfo = await ctx.runQuery(
+            internal.project.getProjectOwner,
+            { projectId: lookup.project!._id },
+          );
+
+          if (ownerInfo && ownerInfo.type === "user" && ownerInfo.user) {
+            const ownerUser = await ctx.runQuery(
+              internal.users.getUserByClerkId,
+              { clerkId: ownerInfo.user.clerk_id },
+            );
+            if (ownerUser) {
+              const userPauseStatus = await ctx.runQuery(
+                internal.deployment_queries.getUserPauseStatusInternal,
+                { userId: ownerUser._id },
+              );
+              if (userPauseStatus?.active) {
+                return {
+                  deploymentName: lookup.deploymentName,
+                  projectId: lookup.project!._id,
+                  paused: true,
+                };
+              }
+            }
+          }
+
           return {
             deploymentName: lookup.deploymentName,
             projectId: lookup.project!._id,
-            paused: !!pauseStatus?.active,
+            paused: false,
           };
         } catch (error) {
           console.error(
@@ -1068,6 +1107,14 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
       return null;
     }
 
+    // Check if project is self-hosted
+    const selfHostedConnection = await ctx.db
+      .query("convex_connections")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("is_active"), true))
+      .first();
+    const isSelfHosted = !!selfHostedConnection;
+
     // Get the convex instance for this project
     const convexInstance = await ctx.db
       .query("project_convex_instance")
@@ -1077,6 +1124,7 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
     if (!convexInstance) {
       return {
         hasConvex: false,
+        isSelfHosted,
         project: {
           name: project.name || project.semantic_identifier,
           sandbox_id: project.sandbox_id,
@@ -1088,6 +1136,7 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
 
     return {
       hasConvex: true,
+      isSelfHosted,
       project: {
         name: project.name || project.semantic_identifier,
         sandbox_id: project.sandbox_id,
@@ -1116,6 +1165,7 @@ export const getProjectDeploymentDetails = query({
     args,
   ): Promise<{
     hasConvex: boolean;
+    isSelfHosted: boolean;
     project: {
       name: string;
       sandbox_id: string | null | undefined;

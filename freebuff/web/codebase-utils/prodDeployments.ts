@@ -1,6 +1,5 @@
 import { configureUsageLogging, createDeployKey } from "!/convex_management";
 import axios, { isAxiosError } from "axios";
-import { DeploymentSource } from "freestyle-sandboxes";
 import { ActionCtx } from "../convex/_generated/server";
 import { Failure, Result, Success } from "../lib/utils";
 import { injectBranding } from "./branding/branding-injector";
@@ -9,7 +8,8 @@ import {
   DevServerCodebase,
   EnvironmentVariableCodebase,
   EnvVars,
-  FreestyleDeployableCodebase,
+  VercelDeployableCodebase,
+  VercelDeploymentFile,
   PackageManagerCodebase,
 } from "./codebase/Codebase";
 
@@ -275,10 +275,12 @@ export async function setEnvVarsOnDeployment(
   deploymentName: string,
   deployKey: string,
   envVars: Record<string, string>,
+  deploymentUrl?: string,
 ) {
+  const baseUrl = deploymentUrl ?? `https://${deploymentName}.convex.cloud`;
   try {
     await axios.post(
-      `https://${deploymentName}.convex.cloud/api/update_environment_variables`,
+      `${baseUrl}/api/v1/update_environment_variables`,
       {
         changes: Object.entries(envVars).map(([key, value]) => ({
           name: key,
@@ -316,10 +318,193 @@ export class DeploymentError extends Error {
   }
 }
 
+async function uploadFilesToVercel(
+  files: VercelDeploymentFile[],
+): Promise<void> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  await Promise.all(
+    files.map(async (file) => {
+      const response = await fetch(
+        `https://api.vercel.com/v2/files?teamId=${teamId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${vercelToken}`,
+            "Content-Type": "application/octet-stream",
+            "Content-Length": String(file.size),
+            "x-vercel-digest": file.sha,
+          },
+          body: new Uint8Array(file.content),
+        },
+      );
+
+      if (!response.ok && response.status !== 409) {
+        const text = await response.text();
+        throw new Error(
+          `Failed to upload file ${file.file}: ${response.status} ${text}`,
+        );
+      }
+    }),
+  );
+}
+
+async function getOrCreateVercelProject(
+  slug: string,
+  existingVercelProjectId?: string,
+): Promise<string> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  // 1. If we have an existing Vercel project ID from a previous deployment, verify it still exists
+  if (existingVercelProjectId) {
+    const checkResponse = await fetch(
+      `https://api.vercel.com/v9/projects/${encodeURIComponent(existingVercelProjectId)}?teamId=${teamId}`,
+      {
+        headers: { Authorization: `Bearer ${vercelToken}` },
+      },
+    );
+
+    if (checkResponse.ok) {
+      console.log(
+        `[Vercel] Reusing existing Vercel project by ID: ${existingVercelProjectId}`,
+      );
+      return existingVercelProjectId;
+    }
+    console.log(
+      `[Vercel] Stored project ID ${existingVercelProjectId} not found on Vercel, falling back to slug lookup`,
+    );
+  }
+
+  // 2. Try to find project by slug
+  const getResponse = await fetch(
+    `https://api.vercel.com/v9/projects/${encodeURIComponent(slug)}?teamId=${teamId}`,
+    {
+      headers: { Authorization: `Bearer ${vercelToken}` },
+    },
+  );
+
+  if (getResponse.ok) {
+    const project = await getResponse.json();
+    console.log(
+      `[Vercel] Found existing Vercel project by slug ${slug}: ${project.id}`,
+    );
+    return project.id;
+  }
+
+  // 3. Create new project only if no existing one was found
+  console.log(
+    `[Vercel] No existing project found, creating new Vercel project: ${slug}`,
+  );
+  const createResponse = await fetch(
+    `https://api.vercel.com/v10/projects?teamId=${teamId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: slug,
+        framework: null,
+        buildCommand: "",
+        outputDirectory: ".",
+      }),
+    },
+  );
+
+  if (!createResponse.ok) {
+    const text = await createResponse.text();
+    throw new Error(
+      `Failed to create Vercel project: ${createResponse.status} ${text}`,
+    );
+  }
+
+  const created = await createResponse.json();
+  return created.id;
+}
+
+async function createVercelDeployment(
+  slug: string,
+  vercelProjectId: string,
+  files: VercelDeploymentFile[],
+): Promise<{ id: string; url: string; readyState: string }> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  const response = await fetch(
+    `https://api.vercel.com/v13/deployments?teamId=${teamId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: slug,
+        target: "production",
+        project: vercelProjectId,
+        files: files.map((f) => ({
+          file: f.file,
+          sha: f.sha,
+          size: f.size,
+        })),
+        projectSettings: {
+          framework: null,
+          buildCommand: "",
+          outputDirectory: ".",
+        },
+        routes: [
+          { handle: "filesystem" },
+          { src: "/(.*)", dest: "/index.html" },
+        ],
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new DeploymentError(`Vercel deployment failed: ${response.status}`, {
+      buildLog: text,
+    });
+  }
+
+  return await response.json();
+}
+
+async function assignVercelDomain(
+  vercelProjectId: string,
+  domain: string,
+): Promise<void> {
+  const vercelToken = process.env.VERCEL_API_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+
+  const response = await fetch(
+    `https://api.vercel.com/v10/projects/${vercelProjectId}/domains?teamId=${teamId}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: domain }),
+    },
+  );
+
+  // 409 means domain already assigned — that's fine for subsequent deploys
+  if (!response.ok && response.status !== 409) {
+    const text = await response.text();
+    console.error(
+      `Failed to assign domain ${domain}: ${response.status} ${text}`,
+    );
+  }
+}
+
 export async function deployCodebaseProd(
   slug: string,
   codebase: EnvironmentVariableCodebase &
-    FreestyleDeployableCodebase &
+    VercelDeployableCodebase &
     DevServerCodebase &
     PackageManagerCodebase &
     Codebase,
@@ -327,7 +512,8 @@ export async function deployCodebaseProd(
   ctx: ActionCtx,
   setLog: (log: string) => Promise<void>,
   skipBranding: boolean,
-  prodCredentials?: { name: string; key: string },
+  prodCredentials?: { name: string; key: string; url?: string },
+  existingVercelProjectId?: string,
 ): Promise<
   Result<
     { deploymentId: string; projectId: string; domains: string[] },
@@ -347,12 +533,17 @@ export async function deployCodebaseProd(
   }
 
   // Use provided credentials (self-hosted) or fetch from VLY
-  const { key: convexProdDeployKey, name: prodDeploymentName } = prodCredentials
+  const {
+    key: convexProdDeployKey,
+    name: prodDeploymentName,
+    url: prodDeploymentUrl,
+  } = prodCredentials
     ? {
         key: prodCredentials.key as `prod:${string}|${string}`,
         name: prodCredentials.name,
+        url: prodCredentials.url,
       }
-    : await getConvexProdDeployKey(codebase);
+    : { ...(await getConvexProdDeployKey(codebase)), url: undefined };
 
   const strippedProdDeployKey = convexProdDeployKey.split(":")[1];
 
@@ -372,12 +563,12 @@ export async function deployCodebaseProd(
     prodDeploymentName,
     strippedProdDeployKey,
     envVars.backend,
+    prodDeploymentUrl,
   );
 
   try {
     await setLog("Running build...");
 
-    // Use the correct package manager for this codebase
     const pm = codebase.getPackageManager();
 
     await codebase.runCommandThrow(
@@ -385,33 +576,13 @@ export async function deployCodebaseProd(
       120_000,
     );
 
-    // Inject Vly branding into dist/index.html (skip for paid users with no_vlyai_branding feature)
     if (!skipBranding) {
       try {
-        // 1. Read dist/index.html from the sandbox
         const html = await codebase.readFile("dist/index.html");
-
-        // 2. Apply centralized branding injection logic
         const updatedHtml = injectBranding(html);
-
-        // 3. Write the updated HTML back to dist/index.html
         await codebase.writeFile("dist/index.html", updatedHtml);
       } catch (err) {
         console.error("Branding injection failed:", err);
-        if (err instanceof Error) {
-          console.error("Error message:", err.message);
-          if ((err as any).stack) {
-            console.error("Stack:", (err as any).stack);
-          }
-        }
-        const anyErr = err as any;
-        if (anyErr && anyErr.stdout) {
-          console.error("[branding-inject] stdout:\n" + anyErr.stdout);
-        }
-        if (anyErr && anyErr.stderr) {
-          console.error("[branding-inject] stderr:\n" + anyErr.stderr);
-        }
-        // Optionally: rethrow or continue
       }
     } else {
       console.log(
@@ -430,59 +601,16 @@ export async function deployCodebaseProd(
       }
       throw error;
     }
-    // Stage deployment artifacts inside projectDir (`codebase/isolate`) so we
-    // don't depend on write permissions in the parent directory.
+
+    // Stage only dist/ into isolate — Vercel serves static files directly, no server entrypoint needed
     await codebase.runCommandThrow(
-      "mkdir -p isolate && find isolate -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -R dist isolate",
+      "mkdir -p isolate && find isolate -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -R dist/* isolate",
       20_000,
     );
-    await codebase.runCommandThrow("cp package.json isolate");
-    await codebase.runCommandThrow("cp main.ts isolate");
-
-    // Copy the appropriate lockfile based on package manager
-    const lockfileName = codebase.getLockfileName();
-
-    // Check if lockfile exists using direct command (we're already in projectDir)
-    const checkResult = await codebase.runCommand(
-      `test -f ${lockfileName} && echo "exists" || echo "not found"`,
-    );
-    const lockfileExists = checkResult.output.trim() === "exists";
-
-    if (lockfileExists) {
-      await codebase.runCommandThrow(`cp ${lockfileName} isolate`);
-    } else {
-      console.warn(
-        `[deployCodebaseProd] Warning: Expected lockfile '${lockfileName}' not found. Checking for alternative lockfiles...`,
-      );
-
-      // Check for alternative lockfile (pnpm-lock.yaml if we expected bun.lock, or vice versa)
-      const alternativeLockfile =
-        lockfileName === "bun.lock" ? "pnpm-lock.yaml" : "bun.lock";
-      const altCheckResult = await codebase.runCommand(
-        `test -f ${alternativeLockfile} && echo "exists" || echo "not found"`,
-      );
-      const alternativeExists = altCheckResult.output.trim() === "exists";
-
-      if (alternativeExists) {
-        console.warn(
-          `[deployCodebaseProd] Found alternative lockfile '${alternativeLockfile}'. This indicates a package manager mismatch.`,
-        );
-        await codebase.runCommandThrow(`cp ${alternativeLockfile} isolate`);
-      } else {
-        throw new Error(
-          `No lockfile found (checked ${lockfileName} and ${alternativeLockfile}). Cannot proceed with deployment.`,
-        );
-      }
-    }
   } catch (error) {
     if (error instanceof Error) {
-      // Check if this is a cancellation error and propagate it directly
       if (error.message === "Deployment cancelled by user") {
-        return Failure(
-          new DeploymentError(error.message, {
-            buildLog: "",
-          }),
-        );
+        return Failure(new DeploymentError(error.message, { buildLog: "" }));
       }
       console.error("Error running build:", error.message);
       return Failure(
@@ -491,18 +619,18 @@ export async function deployCodebaseProd(
         }),
       );
     }
-
     throw error;
   }
 
-  const deploymentSource =
-    (await codebase.prepareForDeployment()) satisfies DeploymentSource;
-
-  console.log(Object.keys(deploymentSource.files));
+  const deploymentFiles = await codebase.prepareForDeployment();
+  console.log(
+    "Files to deploy:",
+    deploymentFiles.map((f) => f.file),
+  );
 
   try {
     try {
-      await setLog("Deploying artifacts...");
+      await setLog("Uploading files to Vercel...");
     } catch (error) {
       if (
         error instanceof Error &&
@@ -513,87 +641,61 @@ export async function deployCodebaseProd(
       throw error;
     }
 
-    // Using the HTTP api instead of SDK because SDK causes bundle size to be too large
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1000 * 60 * 10); // 10 minutes
+    // Step 1: Get or create Vercel project (reuse existing if available)
+    const vercelProjectId = await getOrCreateVercelProject(
+      slug,
+      existingVercelProjectId,
+    );
 
-    const requestBody = {
-      source: deploymentSource,
-      config: {
-        domains: [`${slug}.vly.site`],
-        entrypoint: "main.ts",
-        envVars: {
-          ...envVars.frontend,
-        },
-      },
-    };
+    // Step 2: Upload all files
+    await uploadFilesToVercel(deploymentFiles);
 
-    const requestBodySize = JSON.stringify(requestBody).length;
-
-    console.log("requestBodySize: " + requestBodySize);
-
-    let fetchResponse: Response;
     try {
-      fetchResponse = await fetch(
-        "https://api.freestyle.sh/web/v1/deployment",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "Bearer RknaoLCFjJyV3qo8c1j2mo-9dn2c9DvpCB5x29GvjNp1jpPe7nRAXw8WihTHx3edqK5",
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        },
-      );
-    } finally {
-      clearTimeout(timeout);
+      await setLog("Creating Vercel deployment...");
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Deployment cancelled by user"
+      ) {
+        return Failure(new DeploymentError(error.message, { buildLog: "" }));
+      }
+      throw error;
     }
 
-    console.log("status:", fetchResponse.status);
+    // Step 3: Create deployment
+    const vercelDeployment = await createVercelDeployment(
+      slug,
+      vercelProjectId,
+      deploymentFiles,
+    );
 
-    let data: any;
-    try {
-      data = await fetchResponse.json();
-    } catch (e) {
-      throw new DeploymentError("Failed to parse deployment response", {
-        buildLog: `Invalid JSON response: ${e}`,
-      });
-    }
+    console.log("Vercel deployment created:", vercelDeployment.id);
 
-    if ("message" in data) {
-      console.log("result.data:", JSON.stringify(data, null, 2));
-      return Failure(
-        new DeploymentError("Failed to deploy codebase", {
-          buildLog: data.message,
-        }),
-      );
-    }
+    await assignVercelDomain(vercelProjectId, `${slug}.vly.dev`);
 
-    return Success(data);
+    return Success({
+      deploymentId: vercelDeployment.id,
+      projectId: vercelProjectId,
+      domains: [`${slug}.vly.dev`],
+    });
   } catch (error) {
-    // Check if this is a cancellation error and propagate it
     if (
       error instanceof Error &&
       error.message === "Deployment cancelled by user"
     ) {
-      return Failure(
-        new DeploymentError(error.message, {
-          buildLog: "",
-        }),
-      );
+      return Failure(new DeploymentError(error.message, { buildLog: "" }));
     }
 
-    console.log("Error deploying codebase:", JSON.stringify(error, null, 2));
-    // fetch does not have isAxiosError, so just print error
+    if (error instanceof DeploymentError) {
+      return Failure(error);
+    }
+
+    console.error("Error deploying to Vercel:", error);
     if (
       error instanceof Error &&
       (error.name === "AbortError" || error.message.includes("aborted"))
     ) {
       console.error("Deployment error: request timed out or aborted");
-    } else {
-      console.error("Unexpected error:", error);
     }
     throw error;
   }

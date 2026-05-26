@@ -3,9 +3,9 @@
  * Includes sandbox feature ID mapping and quota checking
  */
 
-import type { SandboxSize } from "@/lib/sandbox-specs";
-import type { AutumnCustomer } from "@/autumn/constants";
-import { sandboxSmall, sandboxMedium, sandboxLarge } from "@/autumn.config";
+import type { SandboxSize } from "@/vly/lib/sandbox-specs";
+import type { AutumnCustomer } from "@/vly/autumn/constants";
+import { sandboxSmall, sandboxMedium, sandboxLarge } from "@/vly/autumn.config";
 
 // ============================================================================
 // Sandbox Feature ID Mapping
@@ -47,24 +47,13 @@ export function checkSandboxQuota(
   currentUsage: number,
   limit: number | "inf",
 ): SandboxQuotaCheck {
-  // "inf" means unlimited
-  if (limit === "inf") {
-    return {
-      allowed: true,
-      current: currentUsage,
-      limit: "inf",
-    };
-  }
-
-  const allowed = currentUsage < limit;
+  void size;
+  void limit;
 
   return {
-    allowed,
+    allowed: true,
     current: currentUsage,
-    limit,
-    reason: allowed
-      ? undefined
-      : `You've reached your ${capitalize(size)} sandbox limit (${limit}). Upgrade your plan to create more.`,
+    limit: "inf",
   };
 }
 
@@ -110,72 +99,15 @@ export function checkProjectWorkspaceQuota(
   project: ProjectForQuotaCheck,
   customer: AutumnCustomer | null | undefined,
 ): ProjectWorkspaceQuotaCheck {
+  void customer;
+
   const projectSize = project.sandbox_size ?? "small";
 
-  // Small workspaces are always allowed (unlimited for all plans)
-  if (projectSize === "small") {
-    return {
-      allowed: true,
-      projectSize: "small",
-      hasFeature: true,
-    };
-  }
-
-  // If no customer data, block medium/large workspaces
-  if (!customer?.features) {
-    return {
-      allowed: false,
-      projectSize,
-      hasFeature: false,
-      reason:
-        "No active plan found. Please upgrade your plan or downgrade this workspace to Small.",
-    };
-  }
-
-  const featureId = getSandboxFeatureId(projectSize);
-  const feature = customer.features[
-    featureId as keyof typeof customer.features
-  ] as { included_usage?: number | "inf"; unlimited?: boolean } | undefined;
-
-  // Check if feature exists in plan
-  if (!feature) {
-    return {
-      allowed: false,
-      projectSize,
-      hasFeature: false,
-      reason: `${capitalize(projectSize)} workspaces are not included in your plan. Please upgrade your plan or downgrade this workspace.`,
-    };
-  }
-
-  // Check if feature is unlimited
-  if (feature.unlimited || feature.included_usage === "inf") {
-    return {
-      allowed: true,
-      projectSize,
-      hasFeature: true,
-      limit: "inf",
-    };
-  }
-
-  // Check if feature has quota limit of 0 (not in plan)
-  const limit = feature.included_usage ?? 0;
-  if (limit === 0) {
-    return {
-      allowed: false,
-      projectSize,
-      hasFeature: false,
-      limit: 0,
-      reason: `${capitalize(projectSize)} workspaces are not included in your plan. Please upgrade your plan or downgrade this workspace.`,
-    };
-  }
-
-  // If we have a numeric limit, we assume the project is already counted in usage
-  // So we allow it (blocking would only happen if plan is downgraded)
   return {
     allowed: true,
     projectSize,
     hasFeature: true,
-    limit,
+    limit: "inf",
   };
 }
 
@@ -230,61 +162,13 @@ export function getTierQuotaInfo(
   size: SandboxSize,
   customer: AutumnCustomer | null | undefined,
 ): AvailableTier {
-  // Small is always available (unlimited for all plans)
-  if (size === "small") {
-    return {
-      size: "small",
-      hasQuota: true,
-      currentUsage: 0,
-      limit: "inf",
-    };
-  }
-
-  // If no customer data, only small is available
-  if (!customer?.features) {
-    return {
-      size,
-      hasQuota: false,
-      currentUsage: 0,
-      limit: 0,
-    };
-  }
-
-  const featureId = getSandboxFeatureId(size);
-  const feature = customer.features[
-    featureId as keyof typeof customer.features
-  ] as
-    | { included_usage?: number | "inf"; unlimited?: boolean; usage?: number }
-    | undefined;
-
-  // No feature = no quota
-  if (!feature) {
-    return {
-      size,
-      hasQuota: false,
-      currentUsage: 0,
-      limit: 0,
-    };
-  }
-
-  // Unlimited or "inf" = has quota
-  if (feature.unlimited || feature.included_usage === "inf") {
-    return {
-      size,
-      hasQuota: true,
-      currentUsage: feature.usage ?? 0,
-      limit: "inf",
-    };
-  }
-
-  const limit = feature.included_usage ?? 0;
-  const currentUsage = feature.usage ?? 0;
+  void customer;
 
   return {
     size,
-    hasQuota: limit > 0,
-    currentUsage,
-    limit,
+    hasQuota: true,
+    currentUsage: 0,
+    limit: "inf",
   };
 }
 
@@ -319,11 +203,4 @@ export function isDowngrade(
   targetSize: SandboxSize,
 ): boolean {
   return compareTierSize(targetSize, currentSize) < 0;
-}
-
-/**
- * Capitalizes first letter of a string
- */
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }

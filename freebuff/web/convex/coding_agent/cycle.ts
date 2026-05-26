@@ -12,6 +12,7 @@ import { typedV } from "convex-helpers/validators";
 import { handler_getSharedContext, SharedContext } from "./context/assembly";
 import { createTerminationQueryThrottler } from "./terminationThrottle";
 import { v } from "convex/values";
+import { checkCredits } from "../../lib/autumn-api";
 import { runAgentIteration } from "./agent/runtime_v2";
 import { maybeCompactThreadHistory } from "./agent/process/prompt_assembly_v2";
 import { AllToolCalls, dispatchToolCall, toolHandlers } from "./agent/tools";
@@ -73,6 +74,9 @@ async function isProjectTerminated(
   ctx: ActionCtx,
   sharedContext: SharedContext,
 ) {
+  if (sharedContext.checkTerminatedThrottled) {
+    return sharedContext.checkTerminatedThrottled(ctx);
+  }
   return await ctx.runQuery(internal.thread.checkIfProjectTerminated, {
     projectId: sharedContext.project._id,
   });
@@ -239,14 +243,21 @@ async function runTypeCheckForWrites(
     };
   }
 
-  await ctx.runMutation(internal.messages.updateMessageState, {
-    messageId: sharedContext.assistantMessageId,
-    status: "checking_errors",
-    message: "Running type check",
-  });
-
   if (!hasPackageManager(sharedContext.codebase)) {
     throw new Error("Codebase does not support package manager");
+  }
+
+  // Single mutation: set checking_errors state + invalidate runtime/build errors
+  try {
+    await ctx.runMutation(internal.messages.setCheckingErrorsAndInvalidate, {
+      messageId: sharedContext.assistantMessageId,
+      projectId: sharedContext.projectId,
+    });
+  } catch (error) {
+    console.warn(
+      "[Cycle] Failed to set checking state / invalidate errors:",
+      error,
+    );
   }
 
   const hasBackendChanges = changedFiles.some((filePath) =>
@@ -262,22 +273,6 @@ async function runTypeCheckForWrites(
     30_000,
   );
 
-  try {
-    await ctx.runMutation(internal.runtime_errors.invalidateAllRuntimeErrors, {
-      projectId: sharedContext.projectId,
-    });
-  } catch (error) {
-    console.warn("[Cycle] Failed to invalidate runtime errors:", error);
-  }
-
-  try {
-    await ctx.runMutation(internal.build_errors.invalidateAllBuildErrors, {
-      projectId: sharedContext.projectId,
-    });
-  } catch (error) {
-    console.warn("[Cycle] Failed to invalidate build errors:", error);
-  }
-
   if (typeCheckResult.exitCode === 0) {
     return {
       passed: true,
@@ -288,12 +283,6 @@ async function runTypeCheckForWrites(
   if (sharedContext.model === "CHEAP" || sharedContext.model === "EFFICIENT") {
     sharedContext.model = "PRECISE";
   }
-
-  await ctx.runMutation(internal.messages.updateMessageState, {
-    messageId: sharedContext.assistantMessageId,
-    status: "type_errors",
-    message: "Type checking found errors",
-  });
 
   return {
     passed: false,
@@ -382,11 +371,10 @@ async function finalizeSuccessfulTurn(
   });
 }
 
-async function finalizeIntermediateStep(
-  ctx: ActionCtx,
-  sharedContext: SharedContext,
-  stepArtifacts: StepArtifacts,
-) {
+function getIntermediateStepStatus(stepArtifacts: StepArtifacts): {
+  status: "type_errors" | "error" | "complete";
+  message: string;
+} {
   const hasTypecheckFailure =
     !!stepArtifacts.latestTypecheckResult &&
     !stepArtifacts.latestTypecheckResult.startsWith("✅");
@@ -395,27 +383,46 @@ async function finalizeIntermediateStep(
   );
 
   if (hasTypecheckFailure) {
-    await ctx.runMutation(internal.messages.updateMessageState, {
-      messageId: sharedContext.assistantMessageId,
-      status: "type_errors",
-      message: "Type checking found errors",
-    });
-    return;
+    return { status: "type_errors", message: "Type checking found errors" };
   }
-
   if (hasFileApplyFailures) {
-    await ctx.runMutation(internal.messages.updateMessageState, {
-      messageId: sharedContext.assistantMessageId,
-      status: "error",
-      message: "Some file changes failed to apply",
-    });
-    return;
+    return { status: "error", message: "Some file changes failed to apply" };
   }
-
-  await ctx.runMutation(internal.messages.updateMessageState, {
-    messageId: sharedContext.assistantMessageId,
+  return {
     status: "complete",
     message: stepArtifacts.toolCalls.length ? "Step completed" : "Completed",
+  };
+}
+
+async function refreshArtifactsAndFinalizeStep(
+  ctx: ActionCtx,
+  sharedContext: SharedContext,
+  stepArtifacts: StepArtifacts,
+) {
+  const { status, message } = getIntermediateStepStatus(stepArtifacts);
+
+  await ctx.runMutation(internal.messages.updateMessageContentAndState, {
+    messageId: sharedContext.assistantMessageId,
+    content: stepArtifacts.latestAssistantText,
+    coreMessage: buildAssistantPromptTranscript(stepArtifacts),
+    ...(stepArtifacts.toolCalls.length > 0
+      ? { object: JSON.stringify(stepArtifacts.toolCalls) }
+      : {}),
+    ...(stepArtifacts.toolResultSections.length > 0
+      ? { result: stepArtifacts.toolResultSections.join("\n\n") }
+      : {}),
+    ...(stepArtifacts.latestTypecheckResult
+      ? {
+          errorCheck: truncateTypecheckOutput(
+            stepArtifacts.latestTypecheckResult,
+          ),
+        }
+      : {}),
+    ...(stepArtifacts.fileApplyResults.length > 0
+      ? { fileApplyResults: stepArtifacts.fileApplyResults }
+      : {}),
+    status,
+    statusMessage: message,
   });
 }
 
@@ -467,7 +474,66 @@ export const primaryAgenticCycle = internalAction({
     const executingUserIsPlatformAdmin =
       args.executingUserIsPlatformAdmin === true;
 
-    void executingUserIsPlatformAdmin;
+    if (!args.cycleCount || args.cycleCount === 0) {
+      if (executingUserIsPlatformAdmin) {
+        console.log(
+          `[CreditCheck] Skipping owner credit check for admin sender on project ${args.project._id}`,
+        );
+      } else {
+        try {
+          const projectOwner = await ctx.runQuery(
+            internal.project.getProjectOwner,
+            {
+              projectId: args.project._id,
+            },
+          );
+
+          if (projectOwner) {
+            let clerkId: string | undefined;
+
+            if (projectOwner.type === "organization") {
+              clerkId = projectOwner.organization_id;
+            } else if (projectOwner.type === "user") {
+              clerkId = projectOwner.user.clerk_id;
+            }
+
+            if (clerkId) {
+              const customerId = args.project.organization_id || clerkId;
+              const creditData = await checkCredits(customerId);
+
+              if (!creditData.allowed) {
+                const balance = creditData.balances?.[0]?.balance || 0;
+                await ctx.runMutation(internal.project.setStateDone, {
+                  projectId: args.project._id,
+                });
+
+                const assistantMessageId = await ctx.runMutation(
+                  internal.messages.insertEmptyAssistantMessage,
+                  {
+                    projectId: args.project._id,
+                  },
+                );
+
+                await ctx.runMutation(
+                  internal.messages.updateMessageContentAndState,
+                  {
+                    messageId: assistantMessageId,
+                    content: `You have run out of credits (${balance} remaining). Please upgrade your plan to continue using the AI agent.`,
+                    streaming: false,
+                    status: "error",
+                    statusMessage: "Insufficient credits",
+                  },
+                );
+
+                return;
+              }
+            }
+          }
+        } catch (creditError) {
+          console.error("[CreditCheck] Failed to check credits:", creditError);
+        }
+      }
+    }
 
     let sharedContext: SharedContext;
     try {
@@ -483,7 +549,7 @@ export const primaryAgenticCycle = internalAction({
         args.project,
         assistantMessageId,
         args.agentMode,
-        { executingUserIsPlatformAdmin },
+        { executingUserIsPlatformAdmin, contextLength: args.contextLength },
       );
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
@@ -600,12 +666,6 @@ export const primaryAgenticCycle = internalAction({
         if (agentResult.toolCalls?.length) {
           currentStepArtifacts.toolCalls.push(...agentResult.toolCalls);
 
-          await ctx.runMutation(internal.messages.updateMessageState, {
-            messageId: sharedContext.assistantMessageId,
-            status: "processing_tools",
-            message: `Processing ${agentResult.toolCalls.length} tool calls`,
-          });
-
           const rawToolResults: string[] = [];
           for (const toolCall of agentResult.toolCalls) {
             if (
@@ -695,12 +755,6 @@ export const primaryAgenticCycle = internalAction({
           }
         }
 
-        await refreshAssistantArtifacts(
-          ctx,
-          sharedContext,
-          currentStepArtifacts,
-        );
-
         const hasToolCalls = !!agentResult.toolCalls?.length;
         const hasFileApplyFailures = feedback.fileApplyResults.some(
           (result) => !result.success,
@@ -714,7 +768,8 @@ export const primaryAgenticCycle = internalAction({
         }
 
         if (hasToolCalls || hasFileApplyFailures || typecheckFailed) {
-          await finalizeIntermediateStep(
+          // Single mutation: content + artifacts + state
+          await refreshArtifactsAndFinalizeStep(
             ctx,
             sharedContext,
             currentStepArtifacts,
@@ -731,18 +786,39 @@ export const primaryAgenticCycle = internalAction({
           continue;
         }
 
+        await refreshAssistantArtifacts(
+          ctx,
+          sharedContext,
+          currentStepArtifacts,
+        );
         await finalizeSuccessfulTurn(ctx, sharedContext, runAccumulator);
         return;
       }
     } catch (error: any) {
       console.error("[Cycle] Error in primaryAgenticCycle:", error);
 
-      await refreshAssistantArtifacts(ctx, sharedContext, currentStepArtifacts);
-
-      await ctx.runMutation(internal.messages.updateMessageState, {
+      await ctx.runMutation(internal.messages.updateMessageContentAndState, {
         messageId: sharedContext.assistantMessageId,
+        content: currentStepArtifacts.latestAssistantText,
+        coreMessage: buildAssistantPromptTranscript(currentStepArtifacts),
+        ...(currentStepArtifacts.toolCalls.length > 0
+          ? { object: JSON.stringify(currentStepArtifacts.toolCalls) }
+          : {}),
+        ...(currentStepArtifacts.toolResultSections.length > 0
+          ? { result: currentStepArtifacts.toolResultSections.join("\n\n") }
+          : {}),
+        ...(currentStepArtifacts.latestTypecheckResult
+          ? {
+              errorCheck: truncateTypecheckOutput(
+                currentStepArtifacts.latestTypecheckResult,
+              ),
+            }
+          : {}),
+        ...(currentStepArtifacts.fileApplyResults.length > 0
+          ? { fileApplyResults: currentStepArtifacts.fileApplyResults }
+          : {}),
         status: "error",
-        message: `Agent cycle error: ${error.message}`,
+        statusMessage: `Agent cycle error: ${error.message}`,
       });
     } finally {
       await ctx.runMutation(internal.project.setStateDone, {

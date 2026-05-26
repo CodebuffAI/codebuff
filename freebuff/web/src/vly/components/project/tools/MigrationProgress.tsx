@@ -116,7 +116,7 @@ export function MigrationProgress({ migration }: MigrationProgressProps) {
 
   return (
     <div
-      className={`rounded-lg border p-6 ${
+      className={`max-w-sm rounded-md border px-3 py-2 ${
         isFailed
           ? "border-red-200 bg-red-50"
           : migration.status === "completed"
@@ -124,43 +124,40 @@ export function MigrationProgress({ migration }: MigrationProgressProps) {
             : "border-blue-200 bg-blue-50"
       }`}
     >
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             {getStatusIcon(migration.status)}
             <div>
-              <h3 className="font-semibold text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 {migration.status === "completed"
                   ? "Migration Complete"
                   : migration.status === "failed"
                     ? "Migration Failed"
                     : "Migrating to Your Convex"}
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs text-gray-600">
                 {getStatusMessage(migration.status, migration)}
               </p>
             </div>
           </div>
 
-          {/* Cancel button (only show during active migration) */}
           {isInProgress && migration.status !== "initiated" && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCancel}
-              className="text-red-600 hover:bg-red-100"
+              className="h-7 px-2 text-xs text-red-600 hover:bg-red-100"
             >
               Cancel
             </Button>
           )}
         </div>
 
-        {/* Progress bar */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Progress
             value={migration.progress_percentage}
-            className="h-2"
+            className="h-1.5"
             indicatorClassName={getProgressColor(migration.status)}
           />
           <div className="flex justify-between text-xs text-gray-600">
@@ -171,37 +168,6 @@ export function MigrationProgress({ migration }: MigrationProgressProps) {
           </div>
         </div>
 
-        {/* Stats (if available) */}
-        {(migration.tables_exported || migration.total_documents_exported) && (
-          <div className="grid grid-cols-2 gap-4 rounded-md bg-white/50 p-3 text-sm">
-            {migration.tables_exported && (
-              <div>
-                <p className="text-gray-500">Tables</p>
-                <p className="font-medium">
-                  {migration.tables_exported.length}
-                </p>
-              </div>
-            )}
-            {migration.total_documents_exported && (
-              <div>
-                <p className="text-gray-500">Documents Exported</p>
-                <p className="font-medium">
-                  {migration.total_documents_exported.toLocaleString()}
-                </p>
-              </div>
-            )}
-            {migration.total_documents_imported && (
-              <div>
-                <p className="text-gray-500">Documents Imported</p>
-                <p className="font-medium">
-                  {migration.total_documents_imported.toLocaleString()}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Timeline info */}
         <div className="text-xs text-gray-500">
           <p>Started: {new Date(migration.started_at).toLocaleTimeString()}</p>
           {migration.completed_at && (
@@ -216,19 +182,17 @@ export function MigrationProgress({ migration }: MigrationProgressProps) {
           )}
         </div>
 
-        {/* Help text for in-progress migrations */}
         {isInProgress && (
           <p className="text-xs text-gray-500">
-            ⏳ Please don't close this tab. The migration may take several
+            ⏳ Please don&apos;t close this tab. The migration may take several
             minutes depending on the size of your data.
           </p>
         )}
 
-        {/* Error details (if failed) */}
         {isFailed && migration.error_message && (
-          <div className="rounded-md bg-red-100 p-3">
-            <p className="text-sm font-medium text-red-900">Error Details:</p>
-            <p className="mt-1 text-xs text-red-700">
+          <div className="rounded bg-red-100 p-2">
+            <p className="text-xs font-medium text-red-900">Error:</p>
+            <p className="mt-0.5 text-xs text-red-700">
               {migration.error_message}
             </p>
           </div>

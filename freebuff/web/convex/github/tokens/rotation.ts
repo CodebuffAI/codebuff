@@ -446,11 +446,11 @@ export const scheduleTokenRotation = internalAction({
   }> => {
     console.log("Starting scheduled token rotation...");
 
-    // Get tokens expiring in the next hour with full connection data
+    // Get tokens expiring in the next 45 minutes with full connection data
     const expiringConnections = await ctx.runQuery(
       internal.github.tokens.queries.getExpiringTokensWithRefreshTokens,
       {
-        withinMinutes: 60,
+        withinMinutes: 45,
       },
     );
 

@@ -1,7 +1,7 @@
-import { api } from '@/convex/_generated/api'
-import { Id } from '@/convex/_generated/dataModel'
-import { FunctionReturnType } from 'convex/server'
-import { getImageUrl } from '@/vly/lib/image-utils'
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { FunctionReturnType } from "convex/server";
+import { getImageUrl } from "@/vly/lib/image-utils";
 import {
   Undo,
   Code,
@@ -11,20 +11,20 @@ import {
   CheckCircle,
   X,
   Download,
-} from 'lucide-react'
-import React from 'react'
-import { ThinkingState } from './ThinkingState'
+} from "lucide-react";
+import React from "react";
+import { ThinkingState } from "./ThinkingState";
 import {
   ToolComponentSelector,
   LegacyToolComponentSelector,
-} from './ToolComponentSelector'
-import { AllToolCalls } from '@/convex/coding_agent/agent/tools'
+} from "./ToolComponentSelector";
+import { AllToolCalls } from "@/convex/coding_agent/agent/tools";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/vly/components/ui/accordion'
+} from "@/vly/components/ui/accordion";
 import {
   Dialog,
   DialogClose,
@@ -33,20 +33,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/vly/components/ui/dialog'
-import { Button } from '@/vly/components/ui/button'
-import { FileEdit, MessagePart, parseAIOutput } from '@/vly/lib/partial-parser'
+} from "@/vly/components/ui/dialog";
+import { Button } from "@/vly/components/ui/button";
+import { FileEdit, MessagePart, parseAIOutput } from "@/vly/lib/partial-parser";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/vly/components/ui/collapsible'
+} from "@/vly/components/ui/collapsible";
 // Lazy load syntax highlighter to reduce bundle size
-import dynamic from 'next/dynamic'
+import dynamic from "next/dynamic";
 
 // Dynamic import with loading fallback
 const CodeHighlighter = dynamic(
-  () => import('./CodeHighlighter').then((mod) => mod.CodeHighlighter),
+  () => import("./CodeHighlighter").then((mod) => mod.CodeHighlighter),
   {
     loading: () => (
       <div className="animate-pulse rounded bg-gray-100 p-4">
@@ -55,55 +55,59 @@ const CodeHighlighter = dynamic(
       </div>
     ),
   },
-)
-import { CustomMarkdown } from './CustomMarkdown'
-import { useQuery } from 'convex/react'
-import { MessageState } from './MessageState'
+);
+import { CustomMarkdown } from "./CustomMarkdown";
+import { useQuery } from "convex/react";
+import { MessageState } from "./MessageState";
 import {
   Package,
   ImageIcon as ImageIconLucide,
   FileText,
   File,
-} from 'lucide-react'
-import { useAssetsCache } from '@/vly/hooks/useAssetsCache'
-import { EnvVarEditor } from './EnvVarsDialog'
-import { useAction } from 'convex/react'
-import { CreditOverlay } from './CreditOverlay'
-import { toast } from 'sonner'
+} from "lucide-react";
+import { useAssetsCache } from "@/vly/hooks/useAssetsCache";
+import { EnvVarEditor } from "./EnvVarsDialog";
+import { useAction } from "convex/react";
+import { CreditOverlay } from "./CreditOverlay";
+import { toast } from "sonner";
 
-type Message = FunctionReturnType<typeof api.project.getThreadMessages>[number]
+type Message = FunctionReturnType<typeof api.project.getThreadMessages>[number];
+
+type ExecutionDetails = FunctionReturnType<
+  typeof api.project.getMessageExecutionDetails
+>;
 
 /** User rows may include core_message; assistant rows omit it from the API — widen for display. */
-type MessageWithOptionalCore = Message & { core_message?: string }
+type MessageWithOptionalCore = Message & { core_message?: string };
 
 interface ChatMessageProps {
-  message: Message
-  onRollback?: () => Promise<void>
-  shouldShowLoadingState: boolean
-  onSendMessage?: (message: string) => void
-  projectSemanticIdentifier?: string
+  message: Message;
+  onRollback?: () => Promise<void>;
+  shouldShowLoadingState: boolean;
+  onSendMessage?: (message: string) => void;
+  projectSemanticIdentifier?: string;
 }
 
 const UserMessageContent: React.FC<{
-  message: Message
-  projectSemanticIdentifier?: string
+  message: Message;
+  projectSemanticIdentifier?: string;
 }> = ({ message, projectSemanticIdentifier }) => {
-  let selectionBadge = null
-  const m = message as MessageWithOptionalCore
-  let content = m.core_message || m.content || ''
-  if (content && content.startsWith('Selected node:')) {
-    const firstLineEnd = content.indexOf('\n')
+  let selectionBadge = null;
+  const m = message as MessageWithOptionalCore;
+  let content = m.core_message || m.content || "";
+  if (content && content.startsWith("Selected node:")) {
+    const firstLineEnd = content.indexOf("\n");
     const firstLine =
-      firstLineEnd !== -1 ? content.slice(0, firstLineEnd) : content
-    content = firstLineEnd !== -1 ? content.slice(firstLineEnd + 1) : ''
+      firstLineEnd !== -1 ? content.slice(0, firstLineEnd) : content;
+    content = firstLineEnd !== -1 ? content.slice(firstLineEnd + 1) : "";
     const badgeText = firstLine
-      .replace('Selected node: ', '')
-      .replace(/\(selector: ([^)]+)\)/, (m, sel) => `· ${sel}`)
+      .replace("Selected node: ", "")
+      .replace(/\(selector: ([^)]+)\)/, (m, sel) => `· ${sel}`);
     selectionBadge = (
       <div
         className="mb-1 inline-flex items-center gap-1 truncate rounded border border-[#A37FBC]/30 bg-[#A37FBC]/10 px-2 py-0.5 text-xs font-medium text-[#A37FBC] shadow-sm dark:border-[#575757] dark:bg-[#282828] dark:text-zinc-100"
         style={{ maxWidth: 200 }}
-        title={firstLine.replace('Selected node: ', '')}
+        title={firstLine.replace("Selected node: ", "")}
       >
         <svg
           width="12"
@@ -157,7 +161,7 @@ const UserMessageContent: React.FC<{
         </svg>
         {badgeText}
       </div>
-    )
+    );
   }
 
   return (
@@ -182,16 +186,16 @@ const UserMessageContent: React.FC<{
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 const FastReturnPreviewMessage: React.FC<{
-  text: string
-  projectSemanticIdentifier?: string
+  text: string;
+  projectSemanticIdentifier?: string;
 }> = ({ text, projectSemanticIdentifier }) => {
-  const trimmedText = text.trim()
+  const trimmedText = text.trim();
   if (!trimmedText) {
-    return null
+    return null;
   }
 
   return (
@@ -203,31 +207,31 @@ const FastReturnPreviewMessage: React.FC<{
         />
       </div>
     </div>
-  )
-}
+  );
+};
 
-const MessageImage: React.FC<{ storageId: Id<'_storage'> }> = ({
+const MessageImage: React.FC<{ storageId: Id<"_storage"> }> = ({
   storageId,
 }) => {
-  const imageUrl = getImageUrl(storageId)
+  const imageUrl = getImageUrl(storageId);
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.style.display = 'none'
-      a.href = url
-      a.download = `message-image-${storageId}.png`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = `message-image-${storageId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
-      console.error('Download failed:', error)
+      console.error("Download failed:", error);
     }
-  }
+  };
 
   return (
     <Dialog>
@@ -271,11 +275,11 @@ const MessageImage: React.FC<{ storageId: Id<'_storage'> }> = ({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
 const FilePart: React.FC<{ file: FileEdit }> = ({ file }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [isExpanded, setIsExpanded] = React.useState(false);
 
   return (
     <div className="rounded-lg border border-gray-300/60 bg-white/60 text-sm">
@@ -296,9 +300,9 @@ const FilePart: React.FC<{ file: FileEdit }> = ({ file }) => {
               <CodeHighlighter
                 language="typescript"
                 customStyle={{
-                  padding: '0.25rem 0.5rem',
+                  padding: "0.25rem 0.5rem",
                   margin: 0,
-                  background: 'transparent',
+                  background: "transparent",
                 }}
               >
                 {file.content}
@@ -308,68 +312,68 @@ const FilePart: React.FC<{ file: FileEdit }> = ({ file }) => {
         </CollapsibleContent>
       </Collapsible>
     </div>
-  )
-}
+  );
+};
 
 // Component to parse and render enhanced mention markers
 const MentionText: React.FC<{
-  text: string
-  projectSemanticIdentifier?: string
+  text: string;
+  projectSemanticIdentifier?: string;
 }> = ({ text, projectSemanticIdentifier }) => {
   // Get assets and integrations data
-  const { assets } = useAssetsCache(projectSemanticIdentifier || '')
+  const { assets } = useAssetsCache(projectSemanticIdentifier || "");
   const integrations = useQuery(
     api.integrations.getProjectIntegrations,
     projectSemanticIdentifier
       ? { semanticIdentifier: projectSemanticIdentifier }
-      : 'skip',
-  )
+      : "skip",
+  );
 
   // Parse enhanced mention markers @[id:name:type]
   const parseMentions = (text: string) => {
-    const parts = text.split(/(@\[[^\]]+\])/g)
+    const parts = text.split(/(@\[[^\]]+\])/g);
 
     return parts.map((part, index) => {
-      const mentionMatch = part.match(/^@\[([^:]+):([^:]+):([^:]+)\]$/)
+      const mentionMatch = part.match(/^@\[([^:]+):([^:]+):([^:]+)\]$/);
       if (mentionMatch) {
-        const [, mentionId, mentionName, mentionType] = mentionMatch
+        const [, mentionId, mentionName, mentionType] = mentionMatch;
 
-        if (mentionType === 'asset') {
-          const asset = assets.find((a) => a.id === mentionId)
+        if (mentionType === "asset") {
+          const asset = assets.find((a) => a.id === mentionId);
           if (asset) {
-            const Icon = getFileIcon(asset.fileType)
-            const iconColor = getFileIconColor(asset.fileType)
+            const Icon = getFileIcon(asset.fileType);
+            const iconColor = getFileIconColor(asset.fileType);
 
             return (
               <span
                 key={index}
                 className="mx-0.5 inline-flex cursor-pointer items-center gap-0.5 rounded bg-blue-100 px-1 py-px align-middle text-xs text-blue-900 transition-colors hover:bg-blue-200"
-                title={`Asset: ${asset.fileName}${asset.description ? ` - ${asset.description}` : ''}`}
+                title={`Asset: ${asset.fileName}${asset.description ? ` - ${asset.description}` : ""}`}
                 onClick={() => {
-                  console.log('Clicked asset:', asset)
+                  console.log("Clicked asset:", asset);
                 }}
               >
                 <Icon size={10} className={iconColor} />
                 <span className="font-medium">@{mentionName}</span>
               </span>
-            )
+            );
           }
-        } else if (mentionType === 'integration') {
-          const integration = integrations?.find((i) => i._id === mentionId)
+        } else if (mentionType === "integration") {
+          const integration = integrations?.find((i) => i._id === mentionId);
           if (integration) {
             return (
               <span
                 key={index}
                 className="mx-0.5 inline-flex cursor-pointer items-center gap-0.5 rounded bg-purple-100 px-1 py-px align-middle text-xs text-purple-900 transition-colors hover:bg-purple-200"
-                title={`Integration: ${integration.title}${integration.description ? ` - ${integration.description}` : ''}`}
+                title={`Integration: ${integration.title}${integration.description ? ` - ${integration.description}` : ""}`}
                 onClick={() => {
-                  console.log('Clicked integration:', integration)
+                  console.log("Clicked integration:", integration);
                 }}
               >
                 <Package size={10} className="text-purple-500" />
                 <span className="font-medium">@{mentionName}</span>
               </span>
-            )
+            );
           }
         }
 
@@ -378,42 +382,42 @@ const MentionText: React.FC<{
           <span key={index} className="text-gray-500">
             @{mentionName}
           </span>
-        )
+        );
       }
 
-      return <span key={index}>{part}</span>
-    })
-  }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   return (
     <div className="my-1 text-xs leading-normal text-zinc-800">
       {parseMentions(text)}
     </div>
-  )
-}
+  );
+};
 
 // Helper function to get file icon based on type
 function getFileIcon(fileType: string) {
-  if (fileType.startsWith('image/')) return ImageIconLucide
-  if (fileType === 'application/pdf') return FileText
-  if (fileType.startsWith('text/')) return FileText
-  return File
+  if (fileType.startsWith("image/")) return ImageIconLucide;
+  if (fileType === "application/pdf") return FileText;
+  if (fileType.startsWith("text/")) return FileText;
+  return File;
 }
 
 function getFileIconColor(fileType: string) {
-  if (fileType.startsWith('image/')) return 'text-blue-500'
-  if (fileType === 'application/pdf') return 'text-red-500'
-  if (fileType.startsWith('text/')) return 'text-gray-500'
-  return 'text-gray-500'
+  if (fileType.startsWith("image/")) return "text-blue-500";
+  if (fileType === "application/pdf") return "text-red-500";
+  if (fileType.startsWith("text/")) return "text-gray-500";
+  return "text-gray-500";
 }
 
 const TextPart: React.FC<{
-  text: string
-  projectSemanticIdentifier?: string
-  isUserMessage?: boolean
+  text: string;
+  projectSemanticIdentifier?: string;
+  isUserMessage?: boolean;
 }> = ({ text, projectSemanticIdentifier }) => {
   // Check if text contains enhanced mention markers
-  const hasMentions = /@\[[^\]]+\]/.test(text)
+  const hasMentions = /@\[[^\]]+\]/.test(text);
 
   if (hasMentions && projectSemanticIdentifier) {
     return (
@@ -421,26 +425,26 @@ const TextPart: React.FC<{
         text={text}
         projectSemanticIdentifier={projectSemanticIdentifier}
       />
-    )
+    );
   }
 
   return (
     <div className="my-1 text-xs leading-normal text-zinc-800">
       <CustomMarkdown text={text} />
     </div>
-  )
-}
+  );
+};
 
 const MessageParts: React.FC<{
-  messageParts: MessagePart[]
-  projectSemanticIdentifier?: string
-  isUserMessage?: boolean
-  onRollback?: () => Promise<void>
+  messageParts: MessagePart[];
+  projectSemanticIdentifier?: string;
+  isUserMessage?: boolean;
+  onRollback?: () => Promise<void>;
 }> = ({ messageParts, projectSemanticIdentifier, isUserMessage }) => {
   return (
     <div className="flex flex-col gap-2">
       {messageParts.map((part, idx) => {
-        if (part.type === 'text') {
+        if (part.type === "text") {
           return (
             <div key={`text-${idx}-${part.data.slice(0, 16)}`}>
               <TextPart
@@ -449,129 +453,128 @@ const MessageParts: React.FC<{
                 isUserMessage={isUserMessage}
               />
             </div>
-          )
+          );
         }
-        if (part.type === 'file') {
+        if (part.type === "file") {
           return (
             <FilePart key={`file-${idx}-${part.data.path}`} file={part.data} />
-          )
+          );
         }
-        return null
+        return null;
       })}
     </div>
-  )
-}
+  );
+};
 
 // Helper function to format credits in thousands (10k, 100k, 1M)
 const formatCreditsDisplay = (credits: number): string => {
   if (credits < 1000) {
-    return `${credits} credits`
+    return `${credits} credits`;
   } else if (credits < 1000000) {
-    const k = credits / 1000
+    const k = credits / 1000;
     return k >= 100
       ? `${Math.round(k)}k credits`
-      : `${k.toFixed(1).replace(/\.0$/, '')}k credits`
+      : `${k.toFixed(1).replace(/\.0$/, "")}k credits`;
   } else {
-    const m = credits / 1000000
-    return `${m.toFixed(1).replace(/\.0$/, '')}M credits`
+    const m = credits / 1000000;
+    return `${m.toFixed(1).replace(/\.0$/, "")}M credits`;
   }
-}
+};
 
 const formatCompactNumber = (value: number): string => {
   if (value < 1000) {
-    return `${value}`
+    return `${value}`;
   }
   if (value < 1000000) {
-    const k = value / 1000
+    const k = value / 1000;
     return k >= 100
       ? `${Math.round(k)}k`
-      : `${k.toFixed(1).replace(/\.0$/, '')}k`
+      : `${k.toFixed(1).replace(/\.0$/, "")}k`;
   }
-  const m = value / 1000000
-  return `${m.toFixed(1).replace(/\.0$/, '')}M`
-}
+  const m = value / 1000000;
+  return `${m.toFixed(1).replace(/\.0$/, "")}M`;
+};
 
 const formatTokenUsageDisplay = (
   usage:
     | {
-        input_tokens?: number
-        cached_input_tokens?: number
-        output_tokens?: number
-        reasoning_tokens?: number
+        input_tokens?: number;
+        cached_input_tokens?: number;
+        output_tokens?: number;
+        reasoning_tokens?: number;
       }
     | undefined,
 ): string | null => {
   if (!usage) {
-    return null
+    return null;
   }
 
-  const parts: string[] = []
-  const totalInputTokens = usage.input_tokens ?? 0
-  const cachedInputTokens = usage.cached_input_tokens ?? 0
-  const uncachedInputTokens = Math.max(totalInputTokens - cachedInputTokens, 0)
+  const parts: string[] = [];
+  const totalInputTokens = usage.input_tokens ?? 0;
+  const cachedInputTokens = usage.cached_input_tokens ?? 0;
+  const uncachedInputTokens = Math.max(totalInputTokens - cachedInputTokens, 0);
 
   if (cachedInputTokens > 0) {
-    parts.push(`${formatCompactNumber(cachedInputTokens)} cached`)
+    parts.push(`${formatCompactNumber(cachedInputTokens)} cached`);
   }
   if (uncachedInputTokens > 0) {
-    parts.push(`${formatCompactNumber(uncachedInputTokens)} uncached`)
+    parts.push(`${formatCompactNumber(uncachedInputTokens)} uncached`);
   }
   if ((usage.output_tokens ?? 0) > 0) {
-    parts.push(`${formatCompactNumber(usage.output_tokens ?? 0)} out`)
+    parts.push(`${formatCompactNumber(usage.output_tokens ?? 0)} out`);
   }
   if ((usage.reasoning_tokens ?? 0) > 0) {
-    parts.push(`${formatCompactNumber(usage.reasoning_tokens ?? 0)} reasoning`)
+    parts.push(`${formatCompactNumber(usage.reasoning_tokens ?? 0)} reasoning`);
   }
 
-  return parts.length > 0 ? parts.join(' · ') : null
-}
+  return parts.length > 0 ? parts.join(" · ") : null;
+};
 
 const formatUsdDisplay = (costUsd: number | undefined): string | null => {
   if (costUsd === undefined || costUsd <= 0) {
-    return null
+    return null;
   }
 
   if (costUsd >= 1) {
-    return `$${costUsd.toFixed(2)}`
+    return `$${costUsd.toFixed(2)}`;
   }
   if (costUsd >= 0.1) {
-    return `$${costUsd.toFixed(3)}`
+    return `$${costUsd.toFixed(3)}`;
   }
   if (costUsd >= 0.01) {
-    return `$${costUsd.toFixed(4)}`
+    return `$${costUsd.toFixed(4)}`;
   }
   if (costUsd >= 0.001) {
-    return `$${costUsd.toFixed(5)}`
+    return `$${costUsd.toFixed(5)}`;
   }
 
-  return `$${costUsd.toExponential(2)}`
-}
+  return `$${costUsd.toExponential(2)}`;
+};
 
 type MessageUsageSummary = {
-  input_tokens?: number
-  cached_input_tokens?: number
-  output_tokens?: number
-  reasoning_tokens?: number
-}
+  input_tokens?: number;
+  cached_input_tokens?: number;
+  output_tokens?: number;
+  reasoning_tokens?: number;
+};
 
-const getMessageUsageSummary = (
-  message: Message,
-): MessageUsageSummary | undefined => {
-  const usageBreakdown = (message as any).usage_breakdown as
-    | MessageUsageSummary
-    | undefined
+const getMessageUsageSummary = (message: {
+  usage_breakdown?: MessageUsageSummary;
+  token_usage?: Array<{ input_tokens?: number; output_tokens?: number }>;
+}): MessageUsageSummary | undefined => {
+  const usageBreakdown = message.usage_breakdown;
 
   if (usageBreakdown) {
-    return usageBreakdown
+    return usageBreakdown;
   }
 
-  const legacyTokenUsage = ((message as any).token_usage ?? []) as Array<{
-    input_tokens?: number
-    output_tokens?: number
-  }>
+  const legacyTokenUsage = (message.token_usage ?? []) as Array<{
+    input_tokens?: number;
+    output_tokens?: number;
+  }>;
 
   if (!legacyTokenUsage.length) {
-    return undefined
+    return undefined;
   }
 
   return legacyTokenUsage.reduce<MessageUsageSummary>(
@@ -587,50 +590,50 @@ const getMessageUsageSummary = (
       output_tokens: 0,
       reasoning_tokens: 0,
     },
-  )
-}
+  );
+};
 
 const hasMeaningfulJsonPayload = (
   value: string | undefined | null,
 ): boolean => {
   if (!value) {
-    return false
+    return false;
   }
 
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed) {
-    return false
+    return false;
   }
 
-  if (trimmed === '[]' || trimmed === '{}' || trimmed === '""') {
-    return false
+  if (trimmed === "[]" || trimmed === "{}" || trimmed === '""') {
+    return false;
   }
 
   try {
-    const parsed = JSON.parse(trimmed)
+    const parsed = JSON.parse(trimmed);
     if (Array.isArray(parsed)) {
-      return parsed.length > 0
+      return parsed.length > 0;
     }
-    if (parsed && typeof parsed === 'object') {
-      return Object.keys(parsed).length > 0
+    if (parsed && typeof parsed === "object") {
+      return Object.keys(parsed).length > 0;
     }
-    if (typeof parsed === 'string') {
-      return parsed.trim().length > 0
+    if (typeof parsed === "string") {
+      return parsed.trim().length > 0;
     }
-    return parsed !== null && parsed !== undefined
+    return parsed !== null && parsed !== undefined;
   } catch {
-    return true
+    return true;
   }
-}
+};
 
 const hasMeaningfulText = (value: string | undefined | null): boolean =>
-  !!value?.trim()
+  !!value?.trim();
 
 const MessageStateDisplay: React.FC<{
-  status: string
-  message?: string
-  color?: string
-  timestamp?: number
+  status: string;
+  message?: string;
+  color?: string;
+  timestamp?: number;
 }> = ({ status, message, color, timestamp }) => (
   <div className="mt-2">
     <MessageState
@@ -641,17 +644,17 @@ const MessageStateDisplay: React.FC<{
       subtle={true}
     />
   </div>
-)
+);
 
 // Integration Setup Panel Component
 const IntegrationSetupPanel: React.FC<{
   integration: FunctionReturnType<
     typeof api.integrations.getIntegrationsByIds
-  >[number]
-  editedEnvVars: Record<string, string>
-  isEnvSaving: boolean
-  onEnvVarChange: (key: string, value: string) => void
-  onEnvVarSave: () => void
+  >[number];
+  editedEnvVars: Record<string, string>;
+  isEnvSaving: boolean;
+  onEnvVarChange: (key: string, value: string) => void;
+  onEnvVarSave: () => void;
 }> = ({
   integration,
   editedEnvVars,
@@ -689,11 +692,11 @@ const IntegrationSetupPanel: React.FC<{
           {(() => {
             const envVarKeys = integration.env_variables.map(
               (env: { id: string; description: string }) => env.id,
-            )
+            );
             const allEnvVarsSet = envVarKeys.every(
               (key: string) =>
-                editedEnvVars[key] && editedEnvVars[key].trim() !== '',
-            )
+                editedEnvVars[key] && editedEnvVars[key].trim() !== "",
+            );
 
             return (
               <>
@@ -710,7 +713,7 @@ const IntegrationSetupPanel: React.FC<{
                     integration.env_variables.map(
                       (env: { id: string; description: string }) => [
                         env.id,
-                        env.description || '',
+                        env.description || "",
                       ],
                     ),
                   )}
@@ -719,20 +722,20 @@ const IntegrationSetupPanel: React.FC<{
                   onSave={onEnvVarSave}
                 />
               </>
-            )
+            );
           })()}
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 const AssistantMessageContent: React.FC<{
-  message: Message
-  shouldShowLoadingState: boolean
-  onSendMessage?: (message: string) => void
-  projectSemanticIdentifier?: string
-  onRollback?: () => Promise<void>
+  message: Message;
+  shouldShowLoadingState: boolean;
+  onSendMessage?: (message: string) => void;
+  projectSemanticIdentifier?: string;
+  onRollback?: () => Promise<void>;
 }> = ({
   message,
   shouldShowLoadingState,
@@ -740,48 +743,48 @@ const AssistantMessageContent: React.FC<{
   onRollback,
 }) => {
   // Move all hooks here, outside of any conditionals
-  const messageContent = (message.content as string) || ''
+  const messageContent = (message.content as string) || "";
   const messageParts = React.useMemo(
     () => parseAIOutput(messageContent),
     [messageContent],
-  )
+  );
 
   // Query all integrations attached to message (batch query to avoid N+1 problem)
-  const integrationIds = message.integration_references || []
+  const integrationIds = message.integration_references || [];
   const integrations = useQuery(
     api.integrations.getIntegrationsByIds,
-    integrationIds.length > 0 ? { integrationIds } : 'skip',
-  )
+    integrationIds.length > 0 ? { integrationIds } : "skip",
+  );
 
   // Env vars state for all integrations (keyed by integration ID)
   const [editedEnvVars, setEditedEnvVars] = React.useState<
     Record<string, string>
-  >({})
-  const [isEnvSaving, setIsEnvSaving] = React.useState(false)
-  const getEnvVars = useAction(api.codesandbox.envVars.getEnvVars)
-  const setEnvVars = useAction(api.codesandbox.envVars.setEnvVars)
+  >({});
+  const [isEnvSaving, setIsEnvSaving] = React.useState(false);
+  const getEnvVars = useAction(api.codesandbox.envVars.getEnvVars);
+  const setEnvVars = useAction(api.codesandbox.envVars.setEnvVars);
 
   // Load env vars when integrations are available
   React.useEffect(() => {
     if (integrationIds.length > 0 && projectSemanticIdentifier) {
       getEnvVars({ semanticIdentifier: projectSemanticIdentifier }).then(
         (vars) => {
-          setEditedEnvVars(vars.backend)
+          setEditedEnvVars(vars.backend);
         },
-      )
+      );
     }
-  }, [integrationIds.length, projectSemanticIdentifier, getEnvVars])
+  }, [integrationIds.length, projectSemanticIdentifier, getEnvVars]);
 
   const handleEnvVarChange = (key: string, value: string) => {
     setEditedEnvVars((prev) => ({
       ...prev,
       [key]: value,
-    }))
-  }
+    }));
+  };
 
   const handleEnvVarSave = async () => {
-    if (!projectSemanticIdentifier) return
-    setIsEnvSaving(true)
+    if (!projectSemanticIdentifier) return;
+    setIsEnvSaving(true);
     try {
       await setEnvVars({
         semanticIdentifier: projectSemanticIdentifier,
@@ -789,53 +792,62 @@ const AssistantMessageContent: React.FC<{
           frontend: {},
           backend: editedEnvVars,
         },
-      })
-      toast.success('API keys saved successfully')
+      });
+      toast.success("API keys saved successfully");
     } catch {
-      toast.error('Failed to save API keys')
+      toast.error("Failed to save API keys");
     } finally {
-      setIsEnvSaving(false)
+      setIsEnvSaving(false);
     }
-  }
+  };
 
-  const hasExecutionDetails = Boolean(
-    hasMeaningfulText(message.tool_call) ||
-    hasMeaningfulJsonPayload(message.object) ||
-    hasMeaningfulText(message.error_check) ||
-    hasMeaningfulText(message.result),
-  )
+  const hasExecutionDetails = !!(message as any).has_execution_details;
+  const hasThinking = !!(message as any).has_thinking;
+  const hasUsage = !!(message as any).has_usage;
+
   const isActiveState = [
-    'streaming',
-    'thinking',
-    'processing_tools',
-    'checking_errors',
-  ].includes(message.message_state?.status ?? '')
-  const tokenUsageDisplay = formatTokenUsageDisplay(
-    getMessageUsageSummary(message),
-  )
-  const totalCostDisplay = formatUsdDisplay(
-    (message as any).total_cost_usd as number | undefined,
-  )
-  const [showExecutionDetails, setShowExecutionDetails] =
-    React.useState(isActiveState)
-  const [showThinking, setShowThinking] = React.useState(false)
-  const thinkingPreview = React.useMemo(() => {
-    const flatThinking = (message.thinking ?? '').replace(/\s+/g, ' ').trim()
-    if (!flatThinking) {
-      return ''
-    }
+    "streaming",
+    "thinking",
+    "processing_tools",
+    "checking_errors",
+  ].includes(message.message_state?.status ?? "");
 
+  const [showExecutionDetails, setShowExecutionDetails] =
+    React.useState(isActiveState);
+  const [showThinking, setShowThinking] = React.useState(false);
+
+  // Lazy-load heavy fields only when user expands thinking, execution details, or has usage
+  const shouldLoadDetails =
+    showThinking || showExecutionDetails || hasUsage || isActiveState;
+  const details = useQuery(
+    api.project.getMessageExecutionDetails,
+    shouldLoadDetails && (hasThinking || hasExecutionDetails || hasUsage)
+      ? { messageId: message._id }
+      : "skip",
+  );
+
+  const tokenUsageDisplay = details
+    ? formatTokenUsageDisplay(getMessageUsageSummary(details as any))
+    : null;
+  const totalCostDisplay = details
+    ? formatUsdDisplay(details.total_cost_usd as number | undefined)
+    : null;
+
+  const thinkingPreview = React.useMemo(() => {
+    if (!hasThinking || !details?.thinking) return "";
+    const flatThinking = details.thinking.replace(/\s+/g, " ").trim();
+    if (!flatThinking) return "";
     return flatThinking.length > 90
       ? `${flatThinking.slice(0, 90)}...`
-      : flatThinking
-  }, [message.thinking])
+      : flatThinking;
+  }, [hasThinking, details?.thinking]);
 
   React.useEffect(() => {
-    setShowExecutionDetails(isActiveState)
-  }, [isActiveState, message._id])
+    setShowExecutionDetails(isActiveState);
+  }, [isActiveState, message._id]);
 
   if (shouldShowLoadingState) {
-    return <ThinkingState />
+    return <ThinkingState />;
   }
 
   return (
@@ -845,17 +857,19 @@ const AssistantMessageContent: React.FC<{
           MODEL: {message.model_semantic_name}
         </div>
       )}
-      {message.thinking && (
+      {hasThinking && (
         <Collapsible open={showThinking} onOpenChange={setShowThinking}>
           <CollapsibleTrigger className="group mt-0.5 inline-flex max-w-full items-center gap-1.5 text-[10px] text-zinc-400 transition-colors hover:text-zinc-500">
             <span className="max-w-[240px] truncate bg-gradient-to-r from-zinc-500 via-zinc-400 to-transparent bg-clip-text text-transparent">
-              {thinkingPreview || 'Thinking'}
+              {thinkingPreview || "Thinking"}
             </span>
             <ChevronsUpDown className="h-3 w-3 opacity-50 transition-opacity group-hover:opacity-80" />
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-1 border-l border-zinc-200/80 pl-2.5 text-[11px] leading-relaxed text-zinc-500">
-              <div className="whitespace-pre-wrap">{message.thinking}</div>
+              <div className="whitespace-pre-wrap">
+                {details?.thinking ?? ""}
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -887,223 +901,233 @@ const AssistantMessageContent: React.FC<{
             <ChevronsUpDown className="h-3 w-3" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 pb-2">
-            <div className="space-y-1">
-              {message.object &&
-                (() => {
-                  try {
-                    const parsedObject = JSON.parse(message.object!)
+            {!details ? (
+              <div className="flex items-center gap-2 py-2 text-xs text-zinc-400">
+                <Loader className="h-3 w-3 animate-spin" />
+                Loading details...
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {details.object &&
+                  (() => {
+                    try {
+                      const parsedObject = JSON.parse(details.object!);
 
-                    // Handle new array format
-                    if (Array.isArray(parsedObject)) {
-                      // If array is empty, don't show anything since processing states are handled elsewhere
-                      if (parsedObject.length === 0) {
-                        return null
-                      }
+                      if (Array.isArray(parsedObject)) {
+                        if (parsedObject.length === 0) {
+                          return null;
+                        }
 
-                      return parsedObject.map(
-                        (toolCall: AllToolCalls[0], index: number) => {
-                          // Handle case where toolCall has toolName but might be missing input/args
-                          if (
-                            toolCall.toolName &&
-                            (!toolCall.input ||
-                              Object.keys(toolCall.input || {}).length === 0)
-                          ) {
-                            return (
-                              <div
-                                key={index}
-                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Loader className="h-3 w-3 animate-spin" />
-                                  <div className="font-medium text-zinc-800">
-                                    Tool: {toolCall.toolName}
-                                  </div>
-                                </div>
-                                <div className="mt-1 text-xs text-zinc-600">
-                                  Writing...
-                                </div>
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <Accordion
-                              key={index}
-                              type="single"
-                              collapsible
-                              className="w-full"
-                            >
-                              <AccordionItem value={`tool-${index}`}>
-                                <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                                  <Code className="h-3 w-3" />
-                                  Tool: {toolCall.toolName}
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                  <ToolComponentSelector
-                                    toolCall={toolCall}
-                                    isProcessing={
-                                      !message.result &&
-                                      !!shouldShowLoadingState
-                                    }
-                                    toolOutputs={[]}
-                                    result={message.result}
-                                    messageId={message._id}
-                                  />
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
-                          )
-                        },
-                      )
-                    }
-
-                    // Handle single tool call object (not in array)
-                    if (
-                      parsedObject &&
-                      typeof parsedObject === 'object' &&
-                      'toolName' in parsedObject
-                    ) {
-                      const toolCall = parsedObject as AllToolCalls[0]
-                      return (
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="tool-0">
-                            <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                              <Code className="h-3 w-3" />
-                              Tool: {toolCall.toolName}
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <ToolComponentSelector
-                                toolCall={toolCall}
-                                isProcessing={
-                                  !message.result && !!shouldShowLoadingState
-                                }
-                                toolOutputs={[]}
-                                result={message.result}
-                                messageId={message._id}
-                              />
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      )
-                    }
-
-                    // Handle old format for backward compatibility
-                    if (message.tool_call) {
-                      return (
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="item-1">
-                            <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                              <Code className="h-3 w-3" />
-                              Tool: {message.tool_call}
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <LegacyToolComponentSelector
-                                toolName={message.tool_call!}
-                                toolArgs={message.object!}
-                                isProcessing={false}
-                                toolOutputs={[]}
-                                result={message.result}
-                                messageId={message._id}
-                              />
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      )
-                    }
-                  } catch {
-                    // If parsing fails, fall back to old format if tool_call exists
-                    if (message.tool_call) {
-                      return (
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="item-1">
-                            <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                              <Code className="h-3 w-3" />
-                              Tool: {message.tool_call}
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <LegacyToolComponentSelector
-                                toolName={message.tool_call!}
-                                toolArgs={message.object || '{}'}
-                                isProcessing={false}
-                                toolOutputs={[]}
-                                result={message.result}
-                                messageId={message._id}
-                              />
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      )
-                    }
-                  }
-                  return null
-                })()}
-              {message.error_check && (
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="error-check">
-                    <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-yellow-600 hover:no-underline">
-                      <TriangleAlert className="h-3 w-3" />
-                      Error Check
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="mt-2 overflow-x-auto rounded-md border border-yellow-200 bg-yellow-50 text-xs">
-                        <CodeHighlighter
-                          language="json"
-                          customStyle={{
-                            padding: '0.5rem',
-                            margin: 0,
-                            background: 'transparent',
-                          }}
-                        >
-                          {message.error_check}
-                        </CodeHighlighter>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
-
-              {/* Standard result display */}
-              {message.result && (
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="result">
-                    <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-green-600 hover:no-underline">
-                      <CheckCircle className="h-3 w-3" />
-                      Result
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="mt-2 overflow-x-auto rounded-md border border-green-200 bg-green-50 p-2 text-xs">
-                        {(() => {
-                          try {
-                            const parsed = JSON.parse(message.result)
-                            // Check if it's an array of strings
+                        return parsedObject.map(
+                          (toolCall: AllToolCalls[0], index: number) => {
                             if (
-                              Array.isArray(parsed) &&
-                              parsed.every((item) => typeof item === 'string')
+                              toolCall.toolName &&
+                              (!toolCall.input ||
+                                Object.keys(toolCall.input || {}).length === 0)
                             ) {
                               return (
-                                <ul className="list-disc space-y-1 pl-5">
-                                  {parsed.map((item, index) => (
-                                    <li key={index}>{item}</li>
-                                  ))}
-                                </ul>
-                              )
+                                <div
+                                  key={index}
+                                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Loader className="h-3 w-3 animate-spin" />
+                                    <div className="font-medium text-zinc-800">
+                                      Tool: {toolCall.toolName}
+                                    </div>
+                                  </div>
+                                  <div className="mt-1 text-xs text-zinc-600">
+                                    Writing...
+                                  </div>
+                                </div>
+                              );
                             }
-                          } catch {
-                            // If parsing fails, fall through to raw text display
-                          }
-                          // Display as raw text
-                          return (
-                            <div className="whitespace-pre-wrap">
-                              {message.result}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
-            </div>
+
+                            return (
+                              <Accordion
+                                key={index}
+                                type="single"
+                                collapsible
+                                className="w-full"
+                              >
+                                <AccordionItem value={`tool-${index}`}>
+                                  <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
+                                    <Code className="h-3 w-3" />
+                                    Tool: {toolCall.toolName}
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <ToolComponentSelector
+                                      toolCall={toolCall}
+                                      isProcessing={
+                                        !details.result &&
+                                        !!shouldShowLoadingState
+                                      }
+                                      toolOutputs={[]}
+                                      result={details.result}
+                                      messageId={message._id}
+                                    />
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            );
+                          },
+                        );
+                      }
+
+                      if (
+                        parsedObject &&
+                        typeof parsedObject === "object" &&
+                        "toolName" in parsedObject
+                      ) {
+                        const toolCall = parsedObject as AllToolCalls[0];
+                        return (
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
+                          >
+                            <AccordionItem value="tool-0">
+                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
+                                <Code className="h-3 w-3" />
+                                Tool: {toolCall.toolName}
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <ToolComponentSelector
+                                  toolCall={toolCall}
+                                  isProcessing={
+                                    !details.result && !!shouldShowLoadingState
+                                  }
+                                  toolOutputs={[]}
+                                  result={details.result}
+                                  messageId={message._id}
+                                />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        );
+                      }
+
+                      if (details.tool_call) {
+                        return (
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
+                          >
+                            <AccordionItem value="item-1">
+                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
+                                <Code className="h-3 w-3" />
+                                Tool: {details.tool_call}
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <LegacyToolComponentSelector
+                                  toolName={details.tool_call!}
+                                  toolArgs={details.object!}
+                                  isProcessing={false}
+                                  toolOutputs={[]}
+                                  result={details.result}
+                                  messageId={message._id}
+                                />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        );
+                      }
+                    } catch {
+                      if (details.tool_call) {
+                        return (
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
+                          >
+                            <AccordionItem value="item-1">
+                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
+                                <Code className="h-3 w-3" />
+                                Tool: {details.tool_call}
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <LegacyToolComponentSelector
+                                  toolName={details.tool_call!}
+                                  toolArgs={details.object || "{}"}
+                                  isProcessing={false}
+                                  toolOutputs={[]}
+                                  result={details.result}
+                                  messageId={message._id}
+                                />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+                {details.error_check && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="error-check">
+                      <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-yellow-600 hover:no-underline">
+                        <TriangleAlert className="h-3 w-3" />
+                        Error Check
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="mt-2 overflow-x-auto rounded-md border border-yellow-200 bg-yellow-50 text-xs">
+                          <CodeHighlighter
+                            language="json"
+                            customStyle={{
+                              padding: "0.5rem",
+                              margin: 0,
+                              background: "transparent",
+                            }}
+                          >
+                            {details.error_check}
+                          </CodeHighlighter>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+
+                {details.result && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="result">
+                      <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-green-600 hover:no-underline">
+                        <CheckCircle className="h-3 w-3" />
+                        Result
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="mt-2 overflow-x-auto rounded-md border border-green-200 bg-green-50 p-2 text-xs">
+                          {(() => {
+                            try {
+                              const parsed = JSON.parse(details.result!);
+                              if (
+                                Array.isArray(parsed) &&
+                                parsed.every((item) => typeof item === "string")
+                              ) {
+                                return (
+                                  <ul className="list-disc space-y-1 pl-5">
+                                    {parsed.map((item, index) => (
+                                      <li key={index}>{item}</li>
+                                    ))}
+                                  </ul>
+                                );
+                              }
+                            } catch {
+                              // fall through to raw text
+                            }
+                            return (
+                              <div className="whitespace-pre-wrap">
+                                {details.result}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+              </div>
+            )}
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -1118,11 +1142,11 @@ const AssistantMessageContent: React.FC<{
             timestamp={message.message_state.timestamp}
           />
           {/* Show CreditOverlay when status is insufficient_credits */}
-          {message.message_state.status === 'insufficient_credits' && (
+          {message.message_state.status === "insufficient_credits" && (
             <div className="mt-3">
               <CreditOverlay
                 onUpgradeClick={() => {
-                  window.open('/web/dashboard', '_blank')
+                  window.open("/dashboard/billing", "_blank");
                 }}
               />
             </div>
@@ -1143,24 +1167,24 @@ const AssistantMessageContent: React.FC<{
       ))}
 
       {/* Credits usage display - show actual deducted credits */}
-      {(tokenUsageDisplay ||
-        totalCostDisplay ||
-        ((message as any).credits_deducted !== undefined &&
-          (message as any).credits_deducted > 0)) && (
-        <div className="mt-2 flex flex-wrap gap-2 font-mono text-[10px] text-zinc-400">
-          {tokenUsageDisplay && <span>{tokenUsageDisplay}</span>}
-          {totalCostDisplay && <span>{totalCostDisplay}</span>}
-          {(message as any).credits_deducted !== undefined &&
-            (message as any).credits_deducted > 0 && (
-              <span>
-                {formatCreditsDisplay((message as any).credits_deducted)}
-              </span>
-            )}
-        </div>
-      )}
+      {hasUsage &&
+        details &&
+        (tokenUsageDisplay ||
+          totalCostDisplay ||
+          (details.credits_deducted !== undefined &&
+            details.credits_deducted > 0)) && (
+          <div className="mt-2 flex flex-wrap gap-2 font-mono text-[10px] text-zinc-400">
+            {tokenUsageDisplay && <span>{tokenUsageDisplay}</span>}
+            {totalCostDisplay && <span>{totalCostDisplay}</span>}
+            {details.credits_deducted !== undefined &&
+              details.credits_deducted > 0 && (
+                <span>{formatCreditsDisplay(details.credits_deducted)}</span>
+              )}
+          </div>
+        )}
     </div>
-  )
-}
+  );
+};
 
 const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   message,
@@ -1169,19 +1193,20 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   onSendMessage,
   projectSemanticIdentifier,
 }) => {
-  const [isRevertDialogOpen, setIsRevertDialogOpen] = React.useState(false)
-  const isUserMessage = message.role === 'user'
+  const [isRevertDialogOpen, setIsRevertDialogOpen] = React.useState(false);
+  const isUserMessage = message.role === "user";
 
   if (isUserMessage) {
     const hasCheckpoint =
       message.commit_hash &&
-      message.commit_hash !== 'creating' &&
-      message.commit_hash !== 'failed'
+      message.commit_hash !== "creating" &&
+      message.commit_hash !== "failed";
     const fastReturnPreview =
-      ((message as any).fast_return_preview as string | undefined)?.trim() ?? ''
+      ((message as any).fast_return_preview as string | undefined)?.trim() ??
+      "";
 
     // Only show undo button if message has commit_hash (feature was added after some messages were created)
-    const shouldShowUndo = onRollback && message.commit_hash
+    const shouldShowUndo = onRollback && message.commit_hash;
 
     return (
       <div className="mb-6 w-full">
@@ -1212,8 +1237,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                           </div>
                           <div className="text-xs">
                             {hasCheckpoint
-                              ? 'All code changes, file edits, and modifications made after this checkpoint will be undone.'
-                              : 'This message and all messages after it will be removed from the chat.'}
+                              ? "All code changes, file edits, and modifications made after this checkpoint will be undone."
+                              : "This message and all messages after it will be removed from the chat."}
                           </div>
                         </div>
                       </div>
@@ -1242,15 +1267,15 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                   <Button
                     variant="destructive"
                     onClick={async (e) => {
-                      const button = e.currentTarget
-                      button.disabled = true
-                      button.textContent = 'Restoring...'
+                      const button = e.currentTarget;
+                      button.disabled = true;
+                      button.textContent = "Restoring...";
                       try {
-                        await onRollback()
-                        setIsRevertDialogOpen(false)
+                        await onRollback();
+                        setIsRevertDialogOpen(false);
                       } finally {
-                        button.disabled = false
-                        button.textContent = 'Restore'
+                        button.disabled = false;
+                        button.textContent = "Restore";
                       }
                     }}
                   >
@@ -1274,7 +1299,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
           />
         )}
       </div>
-    )
+    );
   }
 
   return (
@@ -1289,7 +1314,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
         />
       </div>
     </div>
-  )
-}
+  );
+};
 
-export const ChatMessage = ChatMessageComponent
+export const ChatMessage = ChatMessageComponent;

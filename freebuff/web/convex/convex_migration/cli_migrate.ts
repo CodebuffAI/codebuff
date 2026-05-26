@@ -327,52 +327,6 @@ export const startCLIMigration = internalAction({
         }
       }
 
-      // Step 5b: Set environment variables on user's Convex (transferred from VLY)
-      // This includes JWT keys (so users stay logged in), integration keys, and custom vars
-      console.log(
-        "[CLI Migration] Step 5b: Setting env vars on user's Convex...",
-      );
-
-      try {
-        // Set dev env vars on user's dev deployment
-        if (Object.keys(vlyDevEnvVars).length > 0 && decryptedDevDeployKey) {
-          await setConvexEnvironmentVariables(
-            connection.dev_deployment_name,
-            decryptedDevDeployKey,
-            vlyDevEnvVars,
-          );
-          console.log(
-            "[CLI Migration] Set",
-            Object.keys(vlyDevEnvVars).length,
-            "env vars on user's dev deployment",
-          );
-        }
-
-        // Set prod env vars on user's prod deployment if exists
-        if (
-          Object.keys(vlyProdEnvVars).length > 0 &&
-          decryptedProdDeployKey &&
-          connection.prod_deployment_name
-        ) {
-          await setConvexEnvironmentVariables(
-            connection.prod_deployment_name,
-            decryptedProdDeployKey,
-            vlyProdEnvVars,
-          );
-          console.log(
-            "[CLI Migration] Set",
-            Object.keys(vlyProdEnvVars).length,
-            "env vars on user's prod deployment",
-          );
-        }
-      } catch (envSetError) {
-        console.error(
-          "[CLI Migration] Warning: Failed to set env vars on user's Convex:",
-          envSetError,
-        );
-        // Don't fail migration, env vars can be set manually if needed
-      }
-
       // Step 6: Update environment variables in the sandbox
       console.log("[CLI Migration] Step 6: Updating environment variables...");
       await ctx.runMutation(
@@ -435,6 +389,51 @@ export const startCLIMigration = internalAction({
           );
           // Don't fail migration for dev server restart issues
         }
+      }
+
+      // Step 10: Transfer env vars to self-hosted deployment
+      console.log(
+        "[CLI Migration] Step 10: Setting env vars on self-hosted deployment...",
+      );
+      await ctx.runMutation(
+        internal.convex_migration.status.updateMigrationStatus,
+        {
+          migrationId,
+          status: "updating_credentials",
+          progress_percentage: 95,
+        },
+      );
+
+      if (Object.keys(vlyDevEnvVars).length > 0 && decryptedDevDeployKey) {
+        await setConvexEnvironmentVariables(
+          connection.dev_deployment_name,
+          decryptedDevDeployKey,
+          vlyDevEnvVars,
+          connection.dev_deployment_url,
+        );
+        console.log(
+          "[CLI Migration] Set",
+          Object.keys(vlyDevEnvVars).length,
+          "env vars on dev deployment",
+        );
+      }
+
+      if (
+        Object.keys(vlyProdEnvVars).length > 0 &&
+        decryptedProdDeployKey &&
+        connection.prod_deployment_name
+      ) {
+        await setConvexEnvironmentVariables(
+          connection.prod_deployment_name,
+          decryptedProdDeployKey,
+          vlyProdEnvVars,
+          connection.prod_deployment_url,
+        );
+        console.log(
+          "[CLI Migration] Set",
+          Object.keys(vlyProdEnvVars).length,
+          "env vars on prod deployment",
+        );
       }
 
       // Mark migration as completed

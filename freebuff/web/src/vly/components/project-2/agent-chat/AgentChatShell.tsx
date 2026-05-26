@@ -10,9 +10,11 @@ import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { toast } from "sonner";
-import { formatRetryTime } from "@/vly/lib/rateLimitHelpers";
+import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
 import { AgentThreadList } from "./AgentThreadList";
 import { ChatInput } from "../ChatInput";
+import { CreditOverlay } from "../CreditOverlay";
+import { useCreditCheck } from "@/vly/hooks/useCreditCheck";
 import {
   ChevronLeft,
   X,
@@ -32,7 +34,24 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/vly/components/ui/collapsible";
-// Dialog/Card imports removed: model picker dialog has been deleted in this build.
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/vly/components/ui/dialog";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/vly/components/ui/card";
+import {
+  ModelDisclaimerDialog,
+  hasAcknowledgedDisclaimer,
+} from "../ModelDisclaimerDialog";
+import { BuildErrors } from "@/vly/components/project-2/BuildErrors";
 
 // Compact, subtle runtime errors component for agent chat
 const CompactRuntimeErrors: React.FC<{
@@ -151,7 +170,7 @@ export function AgentChatShell({
   isSelectingElement: externalIsSelectingElement,
   setIsSelectingElement: externalSetIsSelectingElement,
 }: AgentChatShellProps) {
-  const vlyAgentDisplayName = "Freebuff Agent";
+  const vlyAgentDisplayName = "vly agent 2.0";
   // All hooks must be called unconditionally before any early returns
   const chatMessagesRef = useRef<AgentChatMessagesRef>(null);
   const [showThreadList, setShowThreadList] = useState(false);
@@ -165,6 +184,22 @@ export function AgentChatShell({
       : internalIsSelectingElement;
   const setIsSelectingElement =
     externalSetIsSelectingElement || setInternalIsSelectingElement;
+
+  // Credit + pause checking for agent gating
+  const {
+    canUseAgent,
+    isLoading: creditCheckLoading,
+    isPlatformAdmin,
+  } = useCreditCheck();
+  const isSelfHosted = useQuery(
+    api.convex_oauth.connections.isProjectSelfHosted,
+    project ? { projectId: project._id } : "skip",
+  );
+  const pauseRecord = useQuery(
+    api.deployment_queries.getCurrentUserPauseStatus,
+  );
+  const isConvexPaused =
+    !isPlatformAdmin && pauseRecord !== null && pauseRecord !== undefined;
 
   // Use persistent chat storage for selectedNodeInfo
   const { selectedNodeInfo, updateSelectedNodeInfo } = useChatStorageContext();
@@ -184,6 +219,7 @@ export function AgentChatShell({
   const createNewAgentThread = useMutation(
     api.coding_agent.cli_agent.agent_thread.createNewAgentThread,
   );
+  const createNewThread = useMutation(api.thread.createNewThreadMain);
 
   // Send message mutation
   const sendMessage = useMutation(
@@ -285,8 +321,12 @@ export function AgentChatShell({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
 
-  // Codex device-auth state (kept for legacy threads in DB; new threads no
-  // longer use Codex but UI still reads these fields).
+  // State for model selection dialog
+  const [showModelDialog, setShowModelDialog] = useState(false);
+  const [showDisclaimerDialog, setShowDisclaimerDialog] = useState(false);
+  const [pendingModelSelection, setPendingModelSelection] = useState<
+    "Claude Code" | "Codex" | "Gemini CLI" | null
+  >(null);
   const [isStartingCodexAuth, setIsStartingCodexAuth] = useState(false);
   const [codexAuthUrl, setCodexAuthUrl] = useState<string | null>(null);
   const [codexOneTimeCode, setCodexOneTimeCode] = useState<string | null>(null);
@@ -322,8 +362,8 @@ export function AgentChatShell({
         return false;
       }
 
-      const agentType = "Freebuff" as const;
-      void activeThread;
+      // Get the agent type from the active thread, default to Codex if no thread
+      const agentType = activeThread?.agent_type || "Codex";
 
       // Capture selected node info before clearing it
       const currentSelectedNode = selectedNodeInfoRef.current;
@@ -348,36 +388,14 @@ export function AgentChatShell({
           projectSemanticIdentifier,
           message: fullMessage,
           images: images.length > 0 ? images : undefined,
-          agentType,
+          agentType: agentType as "Claude Code" | "Codex" | "Gemini CLI",
         });
 
-        // Check if rate limited
-        if (result && !result.success && result.error?.kind === "RateLimited") {
-          const retryAfterMs: number =
-            "retryAfter" in result.error
-              ? Number((result.error as { retryAfter?: number }).retryAfter ?? 0)
-              : 0;
-          const timeString = formatRetryTime(retryAfterMs);
-          toast.error(
-            `Rate limit exceeded. Please wait ${timeString} before sending another message.`,
-            { duration: 5000 },
-          );
+        if (result && !result.success && result.error) {
+          handleAgentSendError(result.error);
           return false;
         }
 
-        // Check if content moderation blocked
-        if (
-          result &&
-          !result.success &&
-          result.error?.kind === "CONTENT_MODERATION"
-        ) {
-          toast.error(result.error.message || "This content is not allowed.", {
-            duration: 6000,
-          });
-          return false;
-        }
-
-        // Scroll to bottom after sending message
         if (result?.success) {
           setTimeout(() => {
             chatMessagesRef.current?.scrollToBottom();
@@ -399,6 +417,14 @@ export function AgentChatShell({
       activeThread,
       updateSelectedNodeInfo,
     ],
+  );
+
+  // Wrapper for BuildErrors (expects (message: string) => Promise<unknown>)
+  const sendAutomatedAgentMessage = useCallback(
+    async (message: string) => {
+      return handleSendMessage(message, []);
+    },
+    [handleSendMessage],
   );
 
   // Listen for vly-toolbar-select events from the codesandbox iframe
@@ -452,27 +478,78 @@ export function AgentChatShell({
     [project, setActiveAgentThread, setActiveThread, onSelectOldThread],
   );
 
-  const handleCreateNewThread = useCallback(async () => {
-    if (!projectSemanticIdentifier || !project || isProcessing) return;
-    try {
-      await createNewAgentThread({
-        projectSemanticIdentifier,
-        agentType: "Freebuff",
-      });
-      setShowThreadList(false);
-    } catch {
-      toast.error("Failed to create new thread");
-    }
-  }, [
-    projectSemanticIdentifier,
-    project,
-    isProcessing,
-    createNewAgentThread,
-  ]);
+  // Handle creating new thread - show model selection dialog
+  const handleCreateNewThread = useCallback(() => {
+    // Allow opening dialog even if project is loading (we'll disable create button if needed)
+    // But we need projectSemanticIdentifier at minimum
+    if (!projectSemanticIdentifier) return;
+    setShowModelDialog(true);
+  }, [projectSemanticIdentifier]);
 
-  // Legacy: createThreadAfterAcknowledgment, handleSelectModelAndCreateThread,
-  // handleDisclaimerAcknowledged removed. Thread creation is now done inline in
-  // handleCreateNewThread above (Freebuff is the only supported agent).
+  // Actually create the thread (called after disclaimer acknowledgment)
+  const createThreadAfterAcknowledgment = useCallback(
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+      if (!project || isProcessing) return;
+
+      try {
+        if (agentType === "VLY Agent") {
+          await createNewThread({
+            projectSemanticIdentifier,
+          });
+        } else {
+          await createNewAgentThread({
+            projectSemanticIdentifier,
+            agentType,
+          });
+        }
+
+        // createNewAgentThread already sets active_agent_thread on the project
+        setShowModelDialog(false);
+        setShowThreadList(false);
+      } catch {
+        toast.error("Failed to create new thread");
+      }
+    },
+    [
+      project,
+      isProcessing,
+      createNewAgentThread,
+      createNewThread,
+      projectSemanticIdentifier,
+    ],
+  );
+
+  // Handle model selection and check disclaimer first
+  const handleSelectModelAndCreateThread = useCallback(
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+      if (!project || isProcessing) return;
+
+      // Check if user needs to acknowledge disclaimer for these models
+      if (
+        (agentType === "Claude Code" ||
+          agentType === "Codex" ||
+          agentType === "Gemini CLI") &&
+        !hasAcknowledgedDisclaimer()
+      ) {
+        // Show disclaimer dialog
+        setPendingModelSelection(agentType);
+        setShowDisclaimerDialog(true);
+        return;
+      }
+
+      // User has already acknowledged, proceed with thread creation
+      await createThreadAfterAcknowledgment(agentType);
+    },
+    [project, isProcessing, createThreadAfterAcknowledgment],
+  );
+
+  // Handle disclaimer acknowledgment
+  const handleDisclaimerAcknowledged = useCallback(() => {
+    if (pendingModelSelection) {
+      createThreadAfterAcknowledgment(pendingModelSelection);
+      setPendingModelSelection(null);
+    }
+  }, [pendingModelSelection, createThreadAfterAcknowledgment]);
 
   // Handle canceling a message
   const handleCancelMessage = useCallback(
@@ -639,6 +716,173 @@ export function AgentChatShell({
 
   return (
     <>
+      {/* Model Disclaimer Dialog */}
+      {pendingModelSelection && (
+        <ModelDisclaimerDialog
+          open={showDisclaimerDialog}
+          onOpenChange={(open) => {
+            setShowDisclaimerDialog(open);
+            if (!open) {
+              // Clear pending selection if dialog is closed without acknowledgment
+              setPendingModelSelection(null);
+            }
+          }}
+          onAcknowledge={handleDisclaimerAcknowledged}
+          modelName={pendingModelSelection}
+        />
+      )}
+
+      {/* Model Selection Dialog - Always rendered, even when project is loading */}
+      <Dialog
+        open={showModelDialog}
+        onOpenChange={(open) => {
+          setShowModelDialog(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg">Start New Thread</DialogTitle>
+            <DialogDescription className="text-sm">
+              This will create a new thread with the selected agent. Your
+              current conversation will be preserved in its own thread.
+            </DialogDescription>
+          </DialogHeader>
+          {isProcessing && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <Loader className="h-3.5 w-3.5 animate-spin" />
+              <span>Please wait for the current message to complete...</span>
+            </div>
+          )}
+          <div className="space-y-2 py-2">
+            <Card
+              onClick={() => {
+                if (!isProcessing && project) {
+                  handleSelectModelAndCreateThread("Claude Code");
+                }
+              }}
+              className={`transition-all ${
+                isProcessing || !project
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
+              }`}
+            >
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Claude_AI_symbol.svg"
+                    alt="Claude Code"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">
+                    Claude Code
+                  </CardTitle>
+                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                    Limited-time
+                  </span>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  Most expensive, but best for fixing bugs.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card
+              onClick={() => {
+                if (!isProcessing && project) {
+                  handleSelectModelAndCreateThread("Codex");
+                }
+              }}
+              className={`transition-all ${
+                isProcessing || !project
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
+              }`}
+            >
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://www.svgrepo.com/show/306500/openai.svg"
+                    alt="Codex"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">Codex</CardTitle>
+                  <div className="ml-auto flex items-center gap-1">
+                    <span className="rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                      Limited-time
+                    </span>
+                    <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                      Recommended
+                    </span>
+                  </div>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  Cheapest, best for intelligent features.
+                </CardDescription>
+                <div className="mt-1 text-[10px] font-medium text-blue-700">
+                  Includes ChatGPT subscription device login option.
+                </div>
+              </CardHeader>
+            </Card>
+
+            <Card className="cursor-not-allowed opacity-50 transition-all">
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://google.gallerycdn.vsassets.io/extensions/google/gemini-cli-vscode-ide-companion/0.20.0/1765572429008/Microsoft.VisualStudio.Services.Icons.Default"
+                    alt="Gemini CLI"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">
+                    Gemini CLI
+                  </CardTitle>
+                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                    Unavailable
+                  </span>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  gemini is currently under maintence.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card
+              onClick={() => {
+                if (!isProcessing && project) {
+                  handleSelectModelAndCreateThread("VLY Agent");
+                }
+              }}
+              className={`transition-all ${
+                isProcessing || !project
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
+              }`}
+            >
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/favicon.svg"
+                    alt={vlyAgentDisplayName}
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <span>{vlyAgentDisplayName}</span>
+                      <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                        New
+                      </span>
+                    </span>
+                  </CardTitle>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  {vlyAgentDisplayName} default workflow.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Early return if project is not loaded - AFTER dialog */}
       {!project ? (
         <div className="flex h-full items-center justify-center">
           <div className="text-center text-zinc-500">Loading project...</div>
@@ -823,6 +1067,14 @@ export function AgentChatShell({
                   )}
                 </div>
               </div>
+
+              {/* Build Errors - shown at top of chat */}
+              {project && (
+                <BuildErrors
+                  project={project}
+                  sendMessage={sendAutomatedAgentMessage}
+                />
+              )}
 
               {showCodexDeviceBanner && (
                 <div className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-2">
@@ -1224,31 +1476,50 @@ export function AgentChatShell({
                 </div>
               )}
 
-              {/* Chat Input - Compact mode for agent chat */}
-              <div className="flex-shrink-0 border-t bg-white">
-                <ChatInput
-                  isProcessing={isProcessing}
-                  handleSendMessage={handleSendMessage}
-                  projectSemanticIdentifier={projectSemanticIdentifier}
-                  terminateThread={handleTerminateThread}
-                  isSelectingElement={isSelectingElement}
-                  setIsSelectingElement={setIsSelectingElement}
-                  projectId={project?._id}
-                  onOpenDivergenceDialog={() => {}}
-                  queuedMessages={[]}
-                  onRemoveQueuedMessage={() => {}}
-                  externalSelectedNodeInfo={selectedNodeInfo}
-                  onSelectedNodeInfoChange={updateSelectedNodeInfo}
-                  onUserInputChange={() => {}}
-                  selectedAgentMode="POWERFUL"
-                  onAgentModeChange={undefined}
-                  onSwitchAgent={handleCreateNewThread}
-                  syncStatus={undefined}
-                  activeEntryPointId={undefined}
-                  restoreMessage={messageToRestore}
-                  compactMode={true}
-                />
-              </div>
+              {/* Chat Input gating:
+                 - Not self-hosted + (Convex paused OR no agent credits) → CreditOverlay
+                 - Self-hosted + no agent credits → CreditOverlay
+                 - Otherwise → show ChatInput */}
+              {(isSelfHosted === false && isConvexPaused) ||
+              (!canUseAgent && !creditCheckLoading) ? (
+                <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
+                  <CreditOverlay
+                    onUpgradeClick={() => {
+                      window.open("/dashboard/billing", "_blank");
+                    }}
+                    reason={
+                      isSelfHosted === false && isConvexPaused
+                        ? "convex_paused"
+                        : "no_agent_credits"
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="flex-shrink-0 border-t bg-white">
+                  <ChatInput
+                    isProcessing={isProcessing}
+                    handleSendMessage={handleSendMessage}
+                    projectSemanticIdentifier={projectSemanticIdentifier}
+                    terminateThread={handleTerminateThread}
+                    isSelectingElement={isSelectingElement}
+                    setIsSelectingElement={setIsSelectingElement}
+                    projectId={project?._id}
+                    onOpenDivergenceDialog={() => {}}
+                    queuedMessages={[]}
+                    onRemoveQueuedMessage={() => {}}
+                    externalSelectedNodeInfo={selectedNodeInfo}
+                    onSelectedNodeInfoChange={updateSelectedNodeInfo}
+                    onUserInputChange={() => {}}
+                    selectedAgentMode="POWERFUL"
+                    onAgentModeChange={undefined}
+                    onSwitchAgent={handleCreateNewThread}
+                    syncStatus={undefined}
+                    activeEntryPointId={undefined}
+                    restoreMessage={messageToRestore}
+                    compactMode={true}
+                  />
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

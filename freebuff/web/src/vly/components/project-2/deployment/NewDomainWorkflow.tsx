@@ -241,7 +241,7 @@ const NewDomainPage = ({
 };
 
 type DNSRecord = {
-  type: "TXT" | "CNAME" | "NS" | "A";
+  type: "TXT" | "CNAME" | "A";
   name: string;
   value: string;
   success: boolean;
@@ -267,7 +267,7 @@ const SetRecordsPage = ({
           {
             type: "A",
             name: "@",
-            value: "35.235.84.134",
+            value: "76.76.21.21",
             success: domainDetails?.pointing_verified ?? false,
           },
         ];
@@ -276,7 +276,7 @@ const SetRecordsPage = ({
           {
             type: "CNAME",
             name: getSubdomain(domain),
-            value: "cname.vly-dns.com.",
+            value: "cname.vercel-dns.com.",
             success: domainDetails?.pointing_verified ?? false,
           },
         ];
@@ -318,7 +318,7 @@ const SetRecordsPage = ({
     if (result.success) {
       onComplete();
     } else {
-      // setGenerateError(result.message);
+      setGenerateError(result.message);
       startCooldown();
     }
     setIsGenerating(false);
@@ -344,18 +344,12 @@ const SetRecordsPage = ({
       <div className="w-full">
         <DNSRecordTable
           records={[
-            {
-              type: "NS",
-              name: "_acme-challenge",
-              value: "dns.freestyle.sh",
-              success: domainDetails?.wildcard_cert_generated ?? false,
-            },
             ...getPointingRecords(domain),
             ...(domainDetails?.ownershipVerificationCode
               ? [
                   {
-                    type: "TXT",
-                    name: "_freestyle_custom_hostname",
+                    type: "TXT" as const,
+                    name: `_vercel.${getRootDomain(domain)}`,
                     value: domainDetails.ownershipVerificationCode,
                     success: domainDetails?.ownership_verified ?? false,
                   },

@@ -10,7 +10,7 @@
 import type { LucideIcon } from "lucide-react";
 import { FEATURE_CONFIG } from "./feature-config";
 import type { CustomerFeature, BooleanFeature } from "./types";
-import type { AutumnCustomer } from "@/autumn/constants";
+import type { AutumnCustomer } from "@/vly/autumn/constants";
 
 // ============================================================================
 // Customer Data Extraction

@@ -2,7 +2,7 @@
 
 export function injectBranding(html: string): string {
   const injectFunctionBody = `
-    if (!force && !window.location.hostname.endsWith('.vly.site')) return;
+    if (!force && !window.location.hostname.endsWith('.vly.dev')) return;
     if (document.getElementById('vly-branding')) return;
 
     // Load Geist font if not already loaded

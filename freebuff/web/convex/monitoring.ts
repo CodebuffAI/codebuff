@@ -85,11 +85,10 @@ async function retryWithBackoff<T>(
 }
 
 function isAxiomMissingDatasetError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const message = error.message.toLowerCase();
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
   return (
     message.includes("unable to find dataset") ||
     message.includes("dataset not found")
@@ -1010,18 +1009,6 @@ export const getSandboxMetricsHistory = action({
         endTime: endTime.toISOString(),
       };
     } catch (error) {
-      console.error("[SandboxMetricsHistory] Error fetching metrics:", error);
-
-      // Check for authentication errors
-      if (
-        error instanceof Error &&
-        (error.message.includes("401") || error.message.includes("403"))
-      ) {
-        throw new Error(
-          "Authentication error with Axiom. Please check your API token configuration.",
-        );
-      }
-
       if (isAxiomMissingDatasetError(error)) {
         console.warn(
           "[SandboxMetricsHistory] Dataset 'sandbox-user-usage' not found; returning empty time series.",
@@ -1032,6 +1019,18 @@ export const getSandboxMetricsHistory = action({
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
         };
+      }
+
+      console.error("[SandboxMetricsHistory] Error fetching metrics:", error);
+
+      // Check for authentication errors
+      if (
+        error instanceof Error &&
+        (error.message.includes("401") || error.message.includes("403"))
+      ) {
+        throw new Error(
+          "Authentication error with Axiom. Please check your API token configuration.",
+        );
       }
 
       throw new Error(
@@ -2004,6 +2003,7 @@ export const getCostDashboard = action({
           | where todatetime(aggregated_at) >= datetime('${startTime.toISOString()}')
           | where todatetime(aggregated_at) <= datetime('${now.toISOString()}')
           | where event_type == "usage_summary"
+          | extend _computeGBH = iff(todouble(execution_count) > 0, todouble(action_memory_used_mb) / todouble(execution_count) * todouble(execution_time_ms) / 1024.0 / 3600000.0, 0.0)
           | summarize
               totalExec = sum(todouble(execution_count)),
               totalTime = sum(todouble(execution_time_ms)),
@@ -2011,7 +2011,7 @@ export const getCostDashboard = action({
               totalDbWrite = sum(todouble(db_write_bytes)),
               totalFileRead = sum(todouble(file_storage_read_bytes)),
               totalFileWrite = sum(todouble(file_storage_write_bytes)),
-              totalComputeGBHours = sum(todouble(action_memory_used_mb) * todouble(execution_time_ms) / 1024.0 / 3600000.0)
+              totalComputeGBHours = sum(_computeGBH)
         `;
 
         topCostFunctionsApl = `
@@ -2019,6 +2019,7 @@ export const getCostDashboard = action({
           | where todatetime(aggregated_at) >= datetime('${startTime.toISOString()}')
           | where todatetime(aggregated_at) <= datetime('${now.toISOString()}')
           | where event_type == "usage_summary"
+          | extend _computeGBH = iff(todouble(execution_count) > 0, todouble(action_memory_used_mb) / todouble(execution_count) * todouble(execution_time_ms) / 1024.0 / 3600000.0, 0.0)
           | summarize
               execCount = sum(todouble(execution_count)),
               totalTime = sum(todouble(execution_time_ms)),
@@ -2026,7 +2027,7 @@ export const getCostDashboard = action({
               totalDbWrite = sum(todouble(db_write_bytes)),
               totalFileRead = sum(todouble(file_storage_read_bytes)),
               totalFileWrite = sum(todouble(file_storage_write_bytes)),
-              totalComputeGBHours = sum(todouble(action_memory_used_mb) * todouble(execution_time_ms) / 1024.0 / 3600000.0)
+              totalComputeGBHours = sum(_computeGBH)
               by deployment_name
           | order by execCount desc
           | limit 10

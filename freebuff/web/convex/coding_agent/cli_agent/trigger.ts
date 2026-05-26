@@ -2,12 +2,9 @@ import { internalAction, mutation } from "!/_generated/server";
 import { v } from "convex/values";
 import { Id } from "!/_generated/dataModel";
 import { internal } from "../../_generated/api";
-import { getVerifiedAccessProject } from "../../project";
-import { getAuthUser } from "../../users";
-import { checkUserRateLimit } from "../rateLimiter";
 import { createAgentThread } from "./agent_thread";
 import { workflow } from "./workflow";
-import { checkContentModeration } from "../../content_moderation";
+import { runTriggerGates } from "../shared/triggerGates";
 
 const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
 
@@ -22,7 +19,6 @@ export const saveMessageAndStartWorkflow = mutation({
       v.literal("Claude Code"),
       v.literal("Gemini CLI"),
       v.literal("Codex"),
-      v.literal("Freebuff"),
     ),
     _skipRateLimitCheck: v.optional(v.boolean()), // Internal use only
   },
@@ -39,19 +35,6 @@ export const saveMessageAndStartWorkflow = mutation({
   ),
   handler: async (ctx, args) => {
     try {
-      // Get authenticated user
-      const user = await getAuthUser(ctx);
-      if (!user) {
-        console.error("[CLIAgent] User not found");
-        return {
-          success: false as const,
-          error: {
-            kind: "AUTH_ERROR",
-            message: "User not found",
-          },
-        };
-      }
-
       if (args.agentType === "Gemini CLI") {
         return {
           success: false as const,
@@ -62,91 +45,34 @@ export const saveMessageAndStartWorkflow = mutation({
         };
       }
 
-      // Check rate limits (unless this is an internal call)
-      if (!args._skipRateLimitCheck) {
-        const rateLimitResult = await checkUserRateLimit(ctx, user._id);
-        if (!rateLimitResult.success) {
-          return rateLimitResult;
-        }
-      }
-
-      // Content moderation check
-      const moderation = checkContentModeration(args.message);
-      if (moderation.blocked) {
-        return {
-          success: false as const,
-          error: {
-            kind: "CONTENT_MODERATION",
-            message: moderation.message,
-          },
-        };
-      }
-
-      // Billing / deployment-pause gate temporarily disabled per product request.
-      // To re-enable, uncomment the block below.
-      // const isPlatformAdmin = user.role === "god" || user.role === "admin";
-      // const shouldBypassCodexBillingGate =
-      //   args.agentType === "Codex" && user.codex_auth_mode === "chatgpt";
-      // const shouldBypassBillingGate =
-      //   isPlatformAdmin || shouldBypassCodexBillingGate;
-      //
-      // if (!shouldBypassBillingGate) {
-      //   const pauseStatus = await ctx.runQuery(
-      //     internal.deployment_queries.getUserPauseStatusInternal,
-      //     { userId: user._id },
-      //   );
-      //
-      //   if (pauseStatus) {
-      //     await ctx.scheduler.runAfter(
-      //       0,
-      //       internal.deployment_helpers.checkAndUnpauseUser,
-      //       { userId: user._id },
-      //     );
-      //
-      //     return {
-      //       success: false as const,
-      //       error: {
-      //         kind: "DEPLOYMENTS_PAUSED",
-      //         message:
-      //           "Your Convex deployments are paused. Please add more Convex credits to continue. If you just added credits, please try again in a few moments.",
-      //       },
-      //     };
-      //   }
-      // }
-
-      // Get verified project access
-      const project = await getVerifiedAccessProject(
+      const gates = await runTriggerGates({
         ctx,
-        user._id,
-        args.projectSemanticIdentifier
-          ? args.projectSemanticIdentifier
-          : undefined,
-        args.projectId ? args.projectId : undefined,
-      );
+        message: args.message,
+        projectSemanticIdentifier: args.projectSemanticIdentifier,
+        projectId: args.projectId,
+        skipRateLimitCheck: args._skipRateLimitCheck,
+        agentType: args.agentType,
+      });
 
-      if (!project) {
-        console.error("[CLIAgent] Project not found", {
-          projectSemanticIdentifier: args.projectSemanticIdentifier,
-          projectId: args.projectId,
-          userId: user._id,
-        });
-        return {
-          success: false as const,
-          error: {
-            kind: "PROJECT_NOT_FOUND",
-            message: "Project not found or access denied",
-          },
-        };
+      if (!gates.ok) {
+        return { success: false as const, error: gates.error };
       }
 
+      const { user, project } = gates;
+
+      // Check if project is terminated (e.g., due to GitHub sync conflicts)
       if (project.terminated) {
-        console.log(
-          "[CLIAgent] Project was terminated; auto-recovering for new message",
-          { projectId: project._id },
-        );
-        await ctx.runMutation(internal.project.setStateProcessing, {
+        console.log("[CLIAgent] Project is terminated, blocking new message", {
           projectId: project._id,
         });
+        return {
+          success: false as const,
+          error: {
+            kind: "PROJECT_TERMINATED",
+            message:
+              "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
+          },
+        };
       }
 
       // Get or create agent thread
@@ -302,6 +228,11 @@ export const saveMessageAndStartWorkflow = mutation({
       await ctx.db.patch(project._id, {
         terminated: false,
         state: "processing",
+      });
+
+      await ctx.runMutation(internal.admin_usage.bumpUserAgentInvocation, {
+        userId: user._id,
+        source: "cli",
       });
 
       return { success: true as const };

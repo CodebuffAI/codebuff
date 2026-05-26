@@ -295,8 +295,7 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                       const isEmptyAssistantMessage =
                         message.role === "assistant" &&
                         !message.content &&
-                        !message.tool_call &&
-                        !message.object;
+                        !(message as any).has_execution_details;
 
                       // Find the LAST empty assistant message index
                       const lastEmptyAssistantIndex =
@@ -304,8 +303,7 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                           (msg) =>
                             msg.role === "assistant" &&
                             !msg.content &&
-                            !msg.tool_call &&
-                            !msg.object,
+                            !(msg as any).has_execution_details,
                         );
 
                       // Only show loading state for THE last empty assistant message when processing

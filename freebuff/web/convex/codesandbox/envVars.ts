@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { hasEnvironmentVariables } from "../../codebase-utils/codebase/Codebase";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { getVerifiedAccessProject } from "../project";
 import { getAuthUser } from "../users";
@@ -47,32 +47,47 @@ export const getEnvVars = action({
     // which can fail due to authentication issues
     let backendEnv: Record<string, string> = {};
     try {
-      const convexInstance = await ctx.runQuery(internal.convex_instance.get, {
-        projectId: project._id,
-      });
+      const selfHostedConnection = await ctx.runQuery(
+        internal.convex_oauth.connections.getConnectionByProjectId,
+        { projectId: project._id },
+      );
 
-      if (convexInstance) {
-        // Create a deployment-specific key for accessing environment variables
-        const deployKey = await createDeployKey(
-          convexInstance.devDeploymentName,
-          `env-vars-read-${Date.now()}`,
+      if (selfHostedConnection?.dev_deploy_key) {
+        const deployKey = await ctx.runAction(
+          api.convex_oauth.crypto.decryptToken,
+          { encrypted: selfHostedConnection.dev_deploy_key },
         );
         backendEnv = await getConvexEnvironmentVariables(
-          convexInstance.devDeploymentName,
+          selfHostedConnection.dev_deployment_name!,
           deployKey,
+          selfHostedConnection.dev_deployment_url,
         );
       } else {
-        console.warn(
-          "Convex instance not found for project, using codebase backend env vars",
+        const convexInstance = await ctx.runQuery(
+          internal.convex_instance.get,
+          { projectId: project._id },
         );
-        backendEnv = codebaseEnvVars.backend;
+        if (convexInstance) {
+          const deployKey = await createDeployKey(
+            convexInstance.devDeploymentName,
+            `env-vars-read-${Date.now()}`,
+          );
+          backendEnv = await getConvexEnvironmentVariables(
+            convexInstance.devDeploymentName,
+            deployKey,
+          );
+        } else {
+          console.warn(
+            "No deployment info found for project, using codebase backend env vars",
+          );
+          backendEnv = codebaseEnvVars.backend;
+        }
       }
     } catch (error) {
       console.error(
         "Failed to get backend env vars via Management API:",
         error,
       );
-      // Fall back to codebase backend env vars (may be empty)
       backendEnv = codebaseEnvVars.backend;
     }
 
@@ -136,30 +151,42 @@ export const setEnvVars = action({
         frontendSet = true;
       }
 
-      // Set backend vars using Management API (auth via CONVEX_ADMIN_KEY)
+      // Set backend vars using Management API
       if (Object.keys(args.envVars.backend).length > 0) {
-        // Get the Convex deployment name for this project
-        const convexInstance = await ctx.runQuery(
-          internal.convex_instance.get,
+        const selfHostedConnection = await ctx.runQuery(
+          internal.convex_oauth.connections.getConnectionByProjectId,
           { projectId: project._id },
         );
 
-        if (!convexInstance) {
-          throw new Error("Convex instance not found for this project");
+        if (selfHostedConnection?.dev_deploy_key) {
+          const deployKey = await ctx.runAction(
+            api.convex_oauth.crypto.decryptToken,
+            { encrypted: selfHostedConnection.dev_deploy_key },
+          );
+          await setConvexEnvironmentVariables(
+            selfHostedConnection.dev_deployment_name!,
+            deployKey,
+            args.envVars.backend,
+            selfHostedConnection.dev_deployment_url,
+          );
+        } else {
+          const convexInstance = await ctx.runQuery(
+            internal.convex_instance.get,
+            { projectId: project._id },
+          );
+          if (!convexInstance) {
+            throw new Error("Convex instance not found for this project");
+          }
+          const deployKey = await createDeployKey(
+            convexInstance.devDeploymentName,
+            `env-vars-write-${Date.now()}`,
+          );
+          await setConvexEnvironmentVariables(
+            convexInstance.devDeploymentName,
+            deployKey,
+            args.envVars.backend,
+          );
         }
-
-        // Create a deployment-specific key for setting environment variables
-        const deployKey = await createDeployKey(
-          convexInstance.devDeploymentName,
-          `env-vars-write-${Date.now()}`,
-        );
-
-        // Use API to set backend environment variables
-        await setConvexEnvironmentVariables(
-          convexInstance.devDeploymentName,
-          deployKey,
-          args.envVars.backend,
-        );
         backendSet = true;
       }
 
@@ -222,24 +249,40 @@ export const deleteEnvVar = action({
         `[ -f .env.local ] && sed -i '/^${args.key}=/d' .env.local || true`,
       );
     } else {
-      const convexInstance = await ctx.runQuery(internal.convex_instance.get, {
-        projectId: project._id,
-      });
+      const selfHostedConnection = await ctx.runQuery(
+        internal.convex_oauth.connections.getConnectionByProjectId,
+        { projectId: project._id },
+      );
 
-      if (!convexInstance) {
-        throw new Error("Convex instance not found for this project");
+      if (selfHostedConnection?.dev_deploy_key) {
+        const deployKey = await ctx.runAction(
+          api.convex_oauth.crypto.decryptToken,
+          { encrypted: selfHostedConnection.dev_deploy_key },
+        );
+        await deleteConvexEnvironmentVariable(
+          selfHostedConnection.dev_deployment_name!,
+          deployKey,
+          args.key,
+          selfHostedConnection.dev_deployment_url,
+        );
+      } else {
+        const convexInstance = await ctx.runQuery(
+          internal.convex_instance.get,
+          { projectId: project._id },
+        );
+        if (!convexInstance) {
+          throw new Error("Convex instance not found for this project");
+        }
+        const deployKey = await createDeployKey(
+          convexInstance.devDeploymentName,
+          `env-vars-delete-${Date.now()}`,
+        );
+        await deleteConvexEnvironmentVariable(
+          convexInstance.devDeploymentName,
+          deployKey,
+          args.key,
+        );
       }
-
-      const deployKey = await createDeployKey(
-        convexInstance.devDeploymentName,
-        `env-vars-delete-${Date.now()}`,
-      );
-
-      await deleteConvexEnvironmentVariable(
-        convexInstance.devDeploymentName,
-        deployKey,
-        args.key,
-      );
     }
 
     return {

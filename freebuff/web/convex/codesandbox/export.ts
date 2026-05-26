@@ -8,7 +8,7 @@ import { ConvexError } from "convex/values";
 import {
   hasDevServer,
   hasEnvironmentVariables,
-  isFreestyleDeployable,
+  isVercelDeployable,
 } from "../../codebase-utils/codebase/Codebase";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { configProxy } from "../../codebase-utils/instanceManager";
@@ -256,8 +256,73 @@ export const migrateDaytonaWorkspace = action({
     const oldSize =
       (project.sandbox_size as "small" | "medium" | "large") ?? "small";
 
-    void oldSize;
-    void newSize;
+    // SECURITY: Validate user has access to target sandbox size
+    if (oldSize !== newSize) {
+      const { autumn } = await import("../autumn");
+      const { sandboxSmall, sandboxMedium, sandboxLarge } = await import(
+        "../../autumn.config"
+      );
+
+      // Map size to feature ID
+      const targetFeatureId =
+        newSize === "small"
+          ? sandboxSmall.id
+          : newSize === "medium"
+            ? sandboxMedium.id
+            : sandboxLarge.id;
+
+      // Check if user has access to this sandbox size using Autumn
+      const { data, error } = await autumn.check(ctx, {
+        featureId: targetFeatureId,
+      });
+
+      if (error || !data || !data.allowed) {
+        const planRequired =
+          newSize === "medium" ? "Hobby" : newSize === "large" ? "Pro" : "Free";
+        throw new ConvexError({
+          message: `Access denied: ${newSize.charAt(0).toUpperCase() + newSize.slice(1)} sandboxes require ${planRequired} plan or higher. Please upgrade your billing plan first.`,
+          code: "SANDBOX_ACCESS_DENIED",
+          targetSize: newSize,
+          requiredPlan: planRequired,
+        });
+      }
+    }
+
+    // Track usage change in Autumn if size changed
+    if (oldSize !== newSize) {
+      const { autumn } = await import("../autumn");
+      const { sandboxSmall, sandboxMedium, sandboxLarge } = await import(
+        "../../autumn.config"
+      );
+
+      // Map old size to feature ID
+      const oldFeatureId =
+        oldSize === "small"
+          ? sandboxSmall.id
+          : oldSize === "medium"
+            ? sandboxMedium.id
+            : sandboxLarge.id;
+
+      // Map new size to feature ID
+      const newFeatureId =
+        newSize === "small"
+          ? sandboxSmall.id
+          : newSize === "medium"
+            ? sandboxMedium.id
+            : sandboxLarge.id;
+
+      // Decrement old size
+      await autumn.track(ctx, {
+        featureId: oldFeatureId,
+        value: -1,
+      });
+
+      // Increment new size
+      await autumn.track(ctx, {
+        featureId: newFeatureId,
+        value: 1,
+      });
+    }
 
     // Update project with new workspace ID, template ID, and sandbox size
     await ctx.runMutation(internal.project.csbDaytonaMigrationUpdate, {
@@ -529,8 +594,8 @@ export const deployOnFreestyle = internalAction({
         // Use the commit hash from preparation if available, otherwise let GitHub deployment use the latest
         const deploymentDescription =
           preparationResult?.success && preparationResult?.tagName
-            ? `Production deployment ${preparationResult.tagName} to ${args.slug}.vly.site`
-            : `Production deployment to ${args.slug}.vly.site`;
+            ? `Production deployment ${preparationResult.tagName} to ${args.slug}.vly.dev`
+            : `Production deployment to ${args.slug}.vly.dev`;
 
         const githubDeploymentResult = await ctx.runAction(
           internal.github.deployments.createGitHubDeploymentForProject,
@@ -595,10 +660,7 @@ export const deployOnFreestyle = internalAction({
       // Check for cancellation before getting env vars
       await checkCancellation();
 
-      if (
-        !hasEnvironmentVariables(codebase) ||
-        !isFreestyleDeployable(codebase)
-      ) {
+      if (!hasEnvironmentVariables(codebase) || !isVercelDeployable(codebase)) {
         throw new Error("Codebase does not support deployment");
       }
       const envVars = await codebase.getEnvVars();
@@ -650,22 +712,102 @@ export const deployOnFreestyle = internalAction({
       }
 
       // Check if this is a self-hosted project
-      let prodCredentials: { name: string; key: string } | undefined;
+      let prodCredentials:
+        | { name: string; key: string; url?: string }
+        | undefined;
       const connection = await ctx.runQuery(
         internal.convex_oauth.connections.getConnectionByProjectId,
         { projectId: args.projectId },
       );
-      if (connection?.prod_deployment_name && connection?.prod_deploy_key) {
-        const decryptedKey = await ctx.runAction(
-          api.convex_oauth.crypto.decryptToken,
-          { encrypted: connection.prod_deploy_key },
-        );
-        prodCredentials = {
-          name: connection.prod_deployment_name,
-          key: decryptedKey,
-        };
+      if (connection) {
+        if (connection.prod_deployment_name && connection.prod_deploy_key) {
+          const decryptedKey = await ctx.runAction(
+            api.convex_oauth.crypto.decryptToken,
+            { encrypted: connection.prod_deploy_key },
+          );
+          prodCredentials = {
+            name: connection.prod_deployment_name,
+            key: decryptedKey,
+            url: connection.prod_deployment_url,
+          };
+          console.log(
+            `[Deploy] Using self-hosted prod deployment: ${connection.prod_deployment_name}, url: ${connection.prod_deployment_url}`,
+          );
+        } else if (connection.convex_project_id && connection.access_token) {
+          // Self-hosted but no prod deployment yet — create one
+          console.log(
+            `[Deploy] Self-hosted project has no prod deployment, creating one...`,
+          );
+          try {
+            const accessToken = await ctx.runAction(
+              api.convex_oauth.crypto.decryptToken,
+              { encrypted: connection.access_token },
+            );
+
+            const prodResult: any = await ctx.runAction(
+              internal.convex_migration.management_api.createProdDeployment,
+              {
+                accessToken,
+                projectId: connection.convex_project_id,
+              },
+            );
+
+            const prodKeyResult: any = await ctx.runAction(
+              internal.convex_migration.management_api
+                .createDeployKeyForDeployment,
+              {
+                accessToken,
+                deploymentName: prodResult.deploymentName,
+              },
+            );
+
+            // Encrypt the prod deploy key before storing
+            const encryptedProdKey = await ctx.runAction(
+              api.convex_oauth.crypto.encryptToken,
+              { plaintext: prodKeyResult.deployKey },
+            );
+
+            // Store prod deployment info back in convex_connections
+            await ctx.runMutation(
+              internal.convex_oauth.connections.updateConnectionProdDeployment,
+              {
+                connectionId: connection._id,
+                prod_deployment_name: prodResult.deploymentName,
+                prod_deployment_url: prodResult.deploymentUrl,
+                prod_deploy_key: encryptedProdKey,
+                prod_deploy_key_name: `vly-${args.projectId}-prod`,
+              },
+            );
+
+            prodCredentials = {
+              name: prodResult.deploymentName,
+              key: prodKeyResult.deployKey,
+              url: prodResult.deploymentUrl,
+            };
+
+            console.log(
+              `[Deploy] Created self-hosted prod deployment: ${prodResult.deploymentName}, url: ${prodResult.deploymentUrl}`,
+            );
+          } catch (prodCreateError) {
+            console.error(
+              "[Deploy] Failed to create self-hosted prod deployment:",
+              prodCreateError,
+            );
+          }
+        }
+      }
+
+      // Fetch the previous active deployment's Vercel project ID to reuse it
+      const previousActiveDeployments = await ctx.runQuery(
+        internal.deployment._getActiveDeploymentsByProject,
+        { projectId: args.projectId },
+      );
+      const existingVercelProjectId =
+        previousActiveDeployments?.[0]?.freestyleDeploymentId ?? undefined;
+
+      if (existingVercelProjectId) {
         console.log(
-          `[Deploy] Using self-hosted prod deployment: ${connection.prod_deployment_name}`,
+          `[Deploy] Found existing Vercel project ID from previous deployment: ${existingVercelProjectId}`,
         );
       }
 
@@ -695,6 +837,7 @@ export const deployOnFreestyle = internalAction({
         },
         skipBranding,
         prodCredentials,
+        existingVercelProjectId,
       );
 
       console.log("[DEBUG] deployCodebaseProd result:", result);
@@ -781,13 +924,14 @@ export const deployOnFreestyle = internalAction({
         },
       );
 
-      // Promote the deployment before custom-domain mapping so .vly.site is live
-      // even when Freestyle rejects a custom domain.
+      const deploymentDomain = result.domains?.[0] || `${args.slug}.vly.dev`;
+
+      // Promote the deployment before custom-domain mapping
       await ctx.runMutation(internal.deployment.update, {
         deploymentId: args.deploymentId,
         state: "active",
-        deploymentDomain: `${args.slug}.vly.site`,
-        freestyleDeploymentId: result.deploymentId,
+        deploymentDomain: deploymentDomain,
+        freestyleDeploymentId: result.projectId, // stores Vercel project ID
       });
       console.log(
         "[DEBUG] Deployment state updated to active before domain mapping",
@@ -822,44 +966,20 @@ export const deployOnFreestyle = internalAction({
 
         console.log("[DEBUG] Mapping", activeProjectDomains.length, "domains");
 
-        // Helper to map a single domain with certificate retry
-        const mapDomainWithRetry = async (domain: string) => {
+        const mapDomain = async (domain: string) => {
           const mapArgs = {
             domain,
-            freestyleDeploymentId: result.deploymentId,
+            freestyleDeploymentId: result.projectId, // Vercel project ID
           };
-          let mappingResult = await ctx.runAction(
+          const mappingResult = await ctx.runAction(
             api.domains.pointDomainToDeployment,
             mapArgs,
           );
-
-          // Retry with cert regeneration if certificate error
-          if (
-            !mappingResult.success &&
-            mappingResult.message?.toLowerCase().includes("certificate")
-          ) {
-            console.log("[DEBUG] Regenerating cert for", domain);
-            try {
-              const certResult = await ctx.runAction(api.domains.generateCert, {
-                domain,
-              });
-              if (certResult.success) {
-                mappingResult = await ctx.runAction(
-                  api.domains.pointDomainToDeployment,
-                  mapArgs,
-                );
-              }
-            } catch (e) {
-              console.error("[DEBUG] Cert regeneration failed for", domain, e);
-            }
-          }
           return { domain, ...mappingResult };
         };
 
         const domainMappingResults = await Promise.allSettled(
-          activeProjectDomains.map((d: Doc<"domain">) =>
-            mapDomainWithRetry(d.domain),
-          ),
+          activeProjectDomains.map((d: Doc<"domain">) => mapDomain(d.domain)),
         );
 
         const failedMappings = domainMappingResults.flatMap(
@@ -938,7 +1058,7 @@ export const deployOnFreestyle = internalAction({
               deploymentId: args.deploymentId,
               githubDeploymentId: githubDeploymentId,
               state: "success",
-              targetUrl: `https://${args.slug}.vly.site`,
+              targetUrl: `https://${deploymentDomain}`,
               description: githubSuccessDescription,
             },
           );
@@ -958,14 +1078,14 @@ export const deployOnFreestyle = internalAction({
           // Also update the repository homepage URL to point to production
           try {
             console.log(
-              `[DEBUG] Updating repository homepage to ${args.slug}.vly.site`,
+              `[DEBUG] Updating repository homepage to ${deploymentDomain}`,
             );
 
             const homepageUpdateResult = await ctx.runAction(
               internal.github.deployments.updateRepositoryHomepageAction,
               {
                 projectId: args.projectId,
-                productionUrl: `https://${args.slug}.vly.site`,
+                productionUrl: `https://${deploymentDomain}`,
               },
             );
 
@@ -1005,7 +1125,7 @@ export const deployOnFreestyle = internalAction({
                 deploymentId: args.deploymentId,
                 githubDeploymentId: deployment.github_deployment_id,
                 state: "success",
-                targetUrl: `https://${args.slug}.vly.site`,
+                targetUrl: `https://${deploymentDomain}`,
                 description: githubSuccessDescription,
               },
             );
@@ -1025,14 +1145,14 @@ export const deployOnFreestyle = internalAction({
             // Also update the repository homepage URL to point to production
             try {
               console.log(
-                `[DEBUG] Updating repository homepage to ${args.slug}.vly.site`,
+                `[DEBUG] Updating repository homepage to ${deploymentDomain}`,
               );
 
               const homepageUpdateResult = await ctx.runAction(
                 internal.github.deployments.updateRepositoryHomepageAction,
                 {
                   projectId: args.projectId,
-                  productionUrl: `https://${args.slug}.vly.site`,
+                  productionUrl: `https://${deploymentDomain}`,
                 },
               );
 

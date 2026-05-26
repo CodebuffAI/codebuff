@@ -18,11 +18,12 @@ export function BackendLogs({
   const [deploymentDetails, setDeploymentDetails] = useState<{
     deploymentName: string;
     adminKey: string;
+    deploymentUrl: string;
   }>();
 
   const [authenticated, setAuthenticated] = useState(false);
 
-  const deploymentUrl = `https://${deploymentDetails?.deploymentName}.convex.cloud`;
+  const deploymentUrl = deploymentDetails?.deploymentUrl;
 
   const getConvexDeploymentNameAndAdminKey = useAction(
     api.database.convex.getConvexDeploymentNameAndAdminKey,
@@ -36,6 +37,7 @@ export function BackendLogs({
       let deploymentDetails: {
         deploymentName: string;
         adminKey: string;
+        deploymentUrl: string;
       };
 
       if (deploymentType === "dev") {
@@ -109,7 +111,7 @@ export function BackendLogs({
             "h-screen min-h-0 w-full min-w-0 flex-grow border-0",
             !authenticated && "hidden",
           )}
-          src={"https://web/dashboard-embedded.convex.dev/logs"}
+          src={"https://dashboard-embedded.convex.dev/logs"}
         />
       )}
     </div>

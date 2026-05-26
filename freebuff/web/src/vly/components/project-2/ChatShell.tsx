@@ -1,50 +1,47 @@
-'use client'
+"use client";
 
-import { AgentMode } from '!/utils/registry_validators'
-import { ContextLength } from './ContextLengthSelector'
-import { DEFAULT_CONTEXT_LENGTH } from '@/vly/lib/coding-agent/contextLengthPresets'
-import { ChatInput } from '@/vly/components/project-2/ChatInput'
-import { MessageSuggestions } from '@/vly/components/project-2/MessageSuggestions'
-import { RuntimeErrors } from '@/vly/components/project-2/RuntimeErrors'
-import { AgentThreadList } from './agent-chat/AgentThreadList'
-import { BuildErrors } from '@/vly/components/project-2/BuildErrors'
-import DivergenceResolutionDialog from '@/vly/components/project-2/DivergenceResolutionDialog'
-import { useMessageQueue } from '@/vly/hooks/useMessageQueue'
-import { useChatStorageContext } from '@/vly/contexts/ChatStorageContext'
-import { useCreditCheck } from '@/vly/hooks/useCreditCheck'
-import { CreditOverlay } from './CreditOverlay'
-import { PausedDeploymentOverlay } from './PausedDeploymentOverlay'
+import { AgentMode } from "!/utils/registry_validators";
+import { ContextLength } from "./ContextLengthSelector";
+import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPresets";
+import { ChatInput } from "@/vly/components/project-2/ChatInput";
+import { MessageSuggestions } from "@/vly/components/project-2/MessageSuggestions";
+import { RuntimeErrors } from "@/vly/components/project-2/RuntimeErrors";
+import { AgentThreadList } from "./agent-chat/AgentThreadList";
+import { BuildErrors } from "@/vly/components/project-2/BuildErrors";
+import DivergenceResolutionDialog from "@/vly/components/project-2/DivergenceResolutionDialog";
+import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
+import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
+import { useCreditCheck } from "@/vly/hooks/useCreditCheck";
+import { CreditOverlay } from "./CreditOverlay";
 import {
   ModelDisclaimerDialog,
   hasAcknowledgedDisclaimer,
-} from './ModelDisclaimerDialog'
-import { toast } from 'sonner'
-import {
-  checkRateLimitAndNotify,
-  formatRetryTime,
-} from '@/vly/lib/rateLimitHelpers'
+} from "./ModelDisclaimerDialog";
+import { toast } from "sonner";
+import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
+import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
 
-import { api } from '@/convex/_generated/api'
-import { Id } from '@/convex/_generated/dataModel'
-import { insertAtTop, useAction, useMutation, useQuery } from 'convex/react'
-import { useRateLimit } from '@convex-dev/rate-limiter/react'
-import { FunctionReturnType } from 'convex/server'
-import { X, ChevronLeft, Pencil, Loader } from 'lucide-react'
-import { Input } from '@/vly/components/ui/input'
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { insertAtTop, useAction, useMutation, useQuery } from "convex/react";
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+import { FunctionReturnType } from "convex/server";
+import { X, ChevronLeft, Pencil, Loader } from "lucide-react";
+import { Input } from "@/vly/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/vly/components/ui/dialog'
+} from "@/vly/components/ui/dialog";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/vly/components/ui/card'
-import { getImageUrl } from '@/vly/lib/image-utils'
+} from "@/vly/components/ui/card";
+import { getImageUrl } from "@/vly/lib/image-utils";
 import {
   useCallback,
   useEffect,
@@ -53,71 +50,71 @@ import {
   useMemo,
   lazy,
   Suspense,
-} from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+} from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Lazy load heavy message components
 const ChatMessages = lazy(() =>
-  import('./ChatMessages').then((m) => ({ default: m.ChatMessages })),
-)
+  import("./ChatMessages").then((m) => ({ default: m.ChatMessages })),
+);
 
 // Import skeleton directly (not lazy loaded)
-import { ChatSkeleton } from './ChatSkeleton'
-import { ChatMessagesRef } from './ChatMessages'
+import { ChatSkeleton } from "./ChatSkeleton";
+import { ChatMessagesRef } from "./ChatMessages";
 
 // Valid agent modes that can be selected from the UI
 const VALID_AGENT_MODES: AgentMode[] = [
-  'POWERFUL',
-  'EFFICIENT',
-  'PRECISE',
-  'CHEAP',
-  'STANDARD',
-  'OPUS',
-  'PLANNING',
-  'EXPENSIVE',
-  'ULTRA_CHEAP',
-]
+  "POWERFUL",
+  "EFFICIENT",
+  "PRECISE",
+  "CHEAP",
+  "STANDARD",
+  "OPUS",
+  "PLANNING",
+  "EXPENSIVE",
+  "ULTRA_CHEAP",
+];
 
 function normalizeSelectedAgentMode(mode: AgentMode): AgentMode {
   switch (mode) {
-    case 'EXPENSIVE':
-      return 'POWERFUL'
-    case 'ULTRA_CHEAP':
-      return 'CHEAP'
-    case 'MINIMAX':
-      return 'STANDARD'
+    case "EXPENSIVE":
+      return "POWERFUL";
+    case "ULTRA_CHEAP":
+      return "CHEAP";
+    case "MINIMAX":
+      return "STANDARD";
     default:
-      return mode
+      return mode;
   }
 }
 
 interface ChatShellProps {
-  project: FunctionReturnType<typeof api.project.getProjectData>
-  threadMessages: FunctionReturnType<typeof api.project.getThreadMessages>
-  streamedMessages: FunctionReturnType<typeof api.project.getStreamedMessages>
-  pageIdSelectedForEdit: Id<'entry_point'> | null
-  onPageSelectedForEdit: (pageId: Id<'entry_point'> | null) => void
-  expandedPageNodeId: Id<'entry_point'> | null
-  projectSemanticIdentifier: string
-  activeEntryPointId?: Id<'entry_point'> | null
+  project: FunctionReturnType<typeof api.project.getProjectData>;
+  threadMessages: FunctionReturnType<typeof api.project.getThreadMessages>;
+  streamedMessages: FunctionReturnType<typeof api.project.getStreamedMessages>;
+  pageIdSelectedForEdit: Id<"entry_point"> | null;
+  onPageSelectedForEdit: (pageId: Id<"entry_point"> | null) => void;
+  expandedPageNodeId: Id<"entry_point"> | null;
+  projectSemanticIdentifier: string;
+  activeEntryPointId?: Id<"entry_point"> | null;
   createNewThreadFromEntryPoint: (args: {
-    projectSemanticIdentifier: string
-    entryPointId: Id<'entry_point'>
-  }) => Promise<any>
-  isSelectingElement: boolean
-  setIsSelectingElement: (v: boolean) => void
-  currentPageUrl?: string
+    projectSemanticIdentifier: string;
+    entryPointId: Id<"entry_point">;
+  }) => Promise<any>;
+  isSelectingElement: boolean;
+  setIsSelectingElement: (v: boolean) => void;
+  currentPageUrl?: string;
   messagesStatus?:
-    | 'LoadingFirstPage'
-    | 'CanLoadMore'
-    | 'LoadingMore'
-    | 'Exhausted'
-    | undefined
-  loadMoreThreadMessages?: (n: number) => void
+    | "LoadingFirstPage"
+    | "CanLoadMore"
+    | "LoadingMore"
+    | "Exhausted"
+    | undefined;
+  loadMoreThreadMessages?: (n: number) => void;
   syncStatus?: FunctionReturnType<
     typeof api.github.repositories.getProjectSyncStatus
-  >
-  onSwitchToNewAgent?: () => void
+  >;
+  onSwitchToNewAgent?: () => void;
 }
 
 export function ChatShell({
@@ -134,75 +131,81 @@ export function ChatShell({
   activeEntryPointId,
 }: ChatShellProps) {
   const [selectedAgentMode, setSelectedAgentMode] = useState<AgentMode>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const saved = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('agentMode='))
+        .split("; ")
+        .find((row) => row.startsWith("agentMode="));
       if (saved) {
-        const mode = saved.split('=')[1] as AgentMode
-        const normalizedMode = normalizeSelectedAgentMode(mode)
+        const mode = saved.split("=")[1] as AgentMode;
+        const normalizedMode = normalizeSelectedAgentMode(mode);
         if (
           VALID_AGENT_MODES.includes(mode) ||
           VALID_AGENT_MODES.includes(normalizedMode)
         ) {
-          return normalizedMode
+          return normalizedMode;
         }
       }
     }
     // Default to Claude Sonnet 4.6 for VLY agent when creating a new thread
-    return 'POWERFUL'
-  })
+    return "POWERFUL";
+  });
   const [selectedContextLength, setSelectedContextLength] =
     useState<ContextLength>(() => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         const saved = document.cookie
-          .split('; ')
-          .find((row) => row.startsWith('contextLength='))
+          .split("; ")
+          .find((row) => row.startsWith("contextLength="));
         if (saved) {
-          const length = saved.split('=')[1] as ContextLength
-          if (['small', 'medium', 'long'].includes(length)) {
-            return length
+          const length = saved.split("=")[1] as ContextLength;
+          if (["small", "medium", "long"].includes(length)) {
+            return length;
           }
         }
       }
-      return DEFAULT_CONTEXT_LENGTH
-    })
-  const [showDivergenceDialog, setShowDivergenceDialog] = useState(false)
-  const [showThreadList, setShowThreadList] = useState(false)
-  const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [editingTitle, setEditingTitle] = useState('')
-  const [showModelDialog, setShowModelDialog] = useState(false)
-  const [showDisclaimerDialog, setShowDisclaimerDialog] = useState(false)
+      return DEFAULT_CONTEXT_LENGTH;
+    });
+  const [showDivergenceDialog, setShowDivergenceDialog] = useState(false);
+  const [showThreadList, setShowThreadList] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [showModelDialog, setShowModelDialog] = useState(false);
+  const [showDisclaimerDialog, setShowDisclaimerDialog] = useState(false);
   const [pendingModelSelection, setPendingModelSelection] = useState<
-    'Claude Code' | 'Codex' | 'Gemini CLI' | null
-  >(null)
+    "Claude Code" | "Codex" | "Gemini CLI" | null
+  >(null);
 
   // Check rate limit status proactively
   const { status } = useRateLimit(api.coding_agent.rateLimiter.getRateLimit, {
     getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime,
-  })
-  const retryAt = status?.retryAt
+  });
+  const retryAt = status?.retryAt;
 
   // Credit checking
   const {
     canUseAgent,
     isLoading: creditCheckLoading,
     isPlatformAdmin,
-  } = useCreditCheck()
+  } = useCreditCheck();
 
-  // Pause status checking
-  const pauseRecord = useQuery(api.deployment_queries.getCurrentUserPauseStatus)
-  const isPaused =
-    !isPlatformAdmin && pauseRecord !== null && pauseRecord !== undefined
+  // Pause + self-hosted checking
+  const pauseRecord = useQuery(
+    api.deployment_queries.getCurrentUserPauseStatus,
+  );
+  const isConvexPaused =
+    !isPlatformAdmin && pauseRecord !== null && pauseRecord !== undefined;
+  const isSelfHosted = useQuery(
+    api.convex_oauth.connections.isProjectSelfHosted,
+    project ? { projectId: project._id } : "skip",
+  );
 
   // Log when credit checking component mounts
   useEffect(() => {
-    console.log('🏗️ ChatShell: Credit checking system initialized', {
+    console.log("🏗️ ChatShell: Credit checking system initialized", {
       projectId: project?._id,
       projectSemanticIdentifier,
       timestamp: new Date().toISOString(),
-    })
-  }, [project?._id, projectSemanticIdentifier])
+    });
+  }, [project?._id, projectSemanticIdentifier]);
 
   // Use persistent chat storage for selectedNodeInfo and uploaded images
   const {
@@ -210,48 +213,48 @@ export function ChatShell({
     updateSelectedNodeInfo,
     uploadedImages,
     removeImage,
-  } = useChatStorageContext()
+  } = useChatStorageContext();
 
   // Track whether user has input to hide suggestions
-  const [hasUserInput, setHasUserInput] = useState(false)
-  const [divergenceInfo, setDivergenceInfo] = useState<any>(null)
+  const [hasUserInput, setHasUserInput] = useState(false);
+  const [divergenceInfo, setDivergenceInfo] = useState<any>(null);
 
-  const selectedAgentModeRef = useRef(selectedAgentMode)
-  selectedAgentModeRef.current = selectedAgentMode
+  const selectedAgentModeRef = useRef(selectedAgentMode);
+  selectedAgentModeRef.current = selectedAgentMode;
 
-  const selectedContextLengthRef = useRef(selectedContextLength)
-  selectedContextLengthRef.current = selectedContextLength
+  const selectedContextLengthRef = useRef(selectedContextLength);
+  selectedContextLengthRef.current = selectedContextLength;
 
   // Save agent mode to cookie whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.cookie = `agentMode=${selectedAgentMode}; path=/; max-age=31536000` // 1 year
+    if (typeof window !== "undefined") {
+      document.cookie = `agentMode=${selectedAgentMode}; path=/; max-age=31536000`; // 1 year
     }
-  }, [selectedAgentMode])
+  }, [selectedAgentMode]);
 
   // Save context length to cookie whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.cookie = `contextLength=${selectedContextLength}; path=/; max-age=31536000` // 1 year
+    if (typeof window !== "undefined") {
+      document.cookie = `contextLength=${selectedContextLength}; path=/; max-age=31536000`; // 1 year
     }
-  }, [selectedContextLength])
+  }, [selectedContextLength]);
 
-  const chatMessagesRef = useRef<ChatMessagesRef>(null)
+  const chatMessagesRef = useRef<ChatMessagesRef>(null);
 
   const sendMessage = useMutation(
     api.coding_agent.trigger.saveMessageAndStartWorkflow,
   ).withOptimisticUpdate((localStore, args) => {
-    const { projectSemanticIdentifier, message, images } = args
+    const { projectSemanticIdentifier, message, images } = args;
 
     // Guard check: only proceed if we have the semantic identifier
-    if (!projectSemanticIdentifier || !project?.active_thread) return
+    if (!projectSemanticIdentifier || !project?.active_thread) return;
 
-    const now = Date.now() - 100
+    const now = Date.now() - 100;
     const newMessage = {
       _id: crypto.randomUUID() as any,
       _creationTime: now,
       date: now,
-      role: 'user' as const,
+      role: "user" as const,
       content: message,
       images: images || [],
       project_id: project._id,
@@ -265,7 +268,7 @@ export function ChatShell({
       error_check: undefined,
       result: undefined,
       commit_hash: undefined,
-    }
+    };
 
     insertAtTop({
       paginatedQuery: api.project.listThreadMessages,
@@ -275,25 +278,25 @@ export function ChatShell({
       },
       localQueryStore: localStore,
       item: newMessage,
-    })
-  })
+    });
+  });
 
-  const revertToCommit = useAction(api.codesandbox.versionControl.revert)
-  const setActiveThread = useMutation(api.project.setActiveThread)
-  const setActiveAgentThread = useMutation(api.project.setActiveAgentThread)
-  const terminateThread = useAction(api.thread.terminateThread)
+  const revertToCommit = useAction(api.codesandbox.versionControl.revert);
+  const setActiveThread = useMutation(api.project.setActiveThread);
+  const setActiveAgentThread = useMutation(api.project.setActiveAgentThread);
+  const terminateThread = useAction(api.thread.terminateThread);
   // Thread creation mutation available for future use
-  void useMutation
+  void useMutation;
   const createNewAgentThread = useMutation(
     api.coding_agent.cli_agent.agent_thread.createNewAgentThread,
-  )
-  const createNewThread = useMutation(api.thread.createNewThreadMain)
+  );
+  const createNewThread = useMutation(api.thread.createNewThreadMain);
 
   // Handler for opening divergence dialog
   const handleOpenDivergenceDialog = useCallback(() => {
     if (
-      syncStatus?.sync_status === 'conflict' ||
-      syncStatus?.sync_status === 'error'
+      syncStatus?.sync_status === "conflict" ||
+      syncStatus?.sync_status === "error"
     ) {
       // Set divergence info if available, or create a basic one
       setDivergenceInfo({
@@ -302,10 +305,10 @@ export function ChatShell({
         remoteCommits: 0,
         divergenceType: syncStatus.sync_status,
         canFastForward: false,
-      })
-      setShowDivergenceDialog(true)
+      });
+      setShowDivergenceDialog(true);
     }
-  }, [syncStatus])
+  }, [syncStatus]);
 
   const projectThreads =
     useQuery(
@@ -314,46 +317,46 @@ export function ChatShell({
         ? {
             projectId: project._id,
           }
-        : 'skip',
-    ) ?? []
+        : "skip",
+    ) ?? [];
 
   // Get active old thread data (for title editing)
   const activeThread = projectThreads.find(
     (t) => t._id === project?.active_thread,
-  )
+  );
 
   // Update thread title mutation
-  const updateThreadTitle = useMutation(api.thread.updateThreadTitle)
+  const updateThreadTitle = useMutation(api.thread.updateThreadTitle);
 
   // Store frequently changing values in refs to avoid recreating the callback
-  const selectedNodeInfoRef = useRef(selectedNodeInfo)
-  const currentPageUrlRef = useRef(currentPageUrl)
-  const revertToCommitRef = useRef(revertToCommit)
-  const projectSemanticIdentifierRef = useRef(projectSemanticIdentifier)
+  const selectedNodeInfoRef = useRef(selectedNodeInfo);
+  const currentPageUrlRef = useRef(currentPageUrl);
+  const revertToCommitRef = useRef(revertToCommit);
+  const projectSemanticIdentifierRef = useRef(projectSemanticIdentifier);
 
   // Update refs directly in render
-  selectedNodeInfoRef.current = selectedNodeInfo
-  currentPageUrlRef.current = currentPageUrl
-  revertToCommitRef.current = revertToCommit
-  projectSemanticIdentifierRef.current = projectSemanticIdentifier
+  selectedNodeInfoRef.current = selectedNodeInfo;
+  currentPageUrlRef.current = currentPageUrl;
+  revertToCommitRef.current = revertToCommit;
+  projectSemanticIdentifierRef.current = projectSemanticIdentifier;
 
   const resolveCurrentPageContext = useCallback(() => {
     if (currentPageUrlRef.current && currentPageUrlRef.current.trim()) {
-      return currentPageUrlRef.current
+      return currentPageUrlRef.current;
     }
 
-    if (typeof window !== 'undefined' && window.location?.href) {
-      return window.location.href
+    if (typeof window !== "undefined" && window.location?.href) {
+      return window.location.href;
     }
 
-    return undefined
-  }, [])
+    return undefined;
+  }, []);
 
-  const isProcessing = project?.state === 'processing'
+  const isProcessing = project?.state === "processing";
 
   // Initialize message queue
   const messageQueue = useMessageQueue({
-    onProcessMessage: async (message: string, images: Id<'_storage'>[]) => {
+    onProcessMessage: async (message: string, images: Id<"_storage">[]) => {
       // Use refs to avoid recreating callback when these values change
       try {
         const result = await sendMessage({
@@ -363,84 +366,64 @@ export function ChatShell({
           contextLength: selectedContextLengthRef.current,
           images,
           tempPageContext: resolveCurrentPageContext(),
-        })
+        });
 
-        // Check if rate limited
-        if (result && !result.success && result.error?.kind === 'RateLimited') {
-          const retryAfterMs =
-            'retryAfter' in result.error ? result.error.retryAfter || 0 : 0
-          const timeString = formatRetryTime(retryAfterMs)
-          toast.error(
-            `Rate limit exceeded. Please wait ${timeString} before sending another message.`,
-            { duration: 5000 },
-          )
-          return
-        }
-
-        // Check if content moderation blocked
-        if (
-          result &&
-          !result.success &&
-          result.error?.kind === 'CONTENT_MODERATION'
-        ) {
-          toast.error(result.error.message || 'This content is not allowed.', {
-            duration: 6000,
-          })
-          return
+        if (result && !result.success && result.error) {
+          handleAgentSendError(result.error);
+          return;
         }
       } catch (error: any) {
         // Handle other errors
-        console.error('Error sending message from queue:', error)
-        toast.error('Failed to send message. Please try again.')
+        console.error("Error sending message from queue:", error);
+        toast.error("Failed to send message. Please try again.");
       }
     },
     isProcessing,
-  })
+  });
 
   const handleSendMessageWithNode = useCallback(
-    async (message: string, images: Id<'_storage'>[]) => {
+    async (message: string, images: Id<"_storage">[]) => {
       if (
         !message.trim() &&
         images.length === 0 &&
         !selectedNodeInfoRef.current?.image
       )
-        return false
+        return false;
 
       // Check if we're rate limited (use hook's status for proactive check)
-      if (!checkRateLimitAndNotify(retryAt, 'sending another message')) {
-        return false
+      if (!checkRateLimitAndNotify(retryAt, "sending another message")) {
+        return false;
       }
 
       // Capture selected node info before clearing it
-      const currentSelectedNode = selectedNodeInfoRef.current
-      let fullMessage = message
+      const currentSelectedNode = selectedNodeInfoRef.current;
+      let fullMessage = message;
 
       // If we have a selected node, include its context in the message
       if (currentSelectedNode) {
         const nodeDescription =
           currentSelectedNode.reactHierarchyFormatted &&
           currentSelectedNode.reactHierarchyFormatted !==
-            'No React components found for this element.'
-            ? `${currentSelectedNode.reactHierarchyFormatted.split(':')[1]?.split('child of')[0]?.trim() || currentSelectedNode.selector} (selector: ${currentSelectedNode.selector})`
-            : currentSelectedNode.selector
+            "No React components found for this element."
+            ? `${currentSelectedNode.reactHierarchyFormatted.split(":")[1]?.split("child of")[0]?.trim() || currentSelectedNode.selector} (selector: ${currentSelectedNode.selector})`
+            : currentSelectedNode.selector;
 
         fullMessage = `Selected node: ${nodeDescription}
-${message}`
+${message}`;
 
-        updateSelectedNodeInfo(null)
+        updateSelectedNodeInfo(null);
       } else {
       }
 
       // If AI is currently processing, add to queue instead of sending immediately
       if (isProcessing) {
-        messageQueue.addToQueue(fullMessage, images)
+        messageQueue.addToQueue(fullMessage, images);
         // Scroll to bottom after adding to queue
         setTimeout(() => {
-          chatMessagesRef.current?.scrollToBottom()
-        }, 100)
-        return true
+          chatMessagesRef.current?.scrollToBottom();
+        }, 100);
+        return true;
       } else {
-        // Send message directly using the existing sendMessage with optimistic update
         try {
           const result = await sendMessage({
             projectSemanticIdentifier: projectSemanticIdentifierRef.current,
@@ -449,53 +432,26 @@ ${message}`
             contextLength: selectedContextLengthRef.current,
             images,
             tempPageContext: resolveCurrentPageContext(),
-          })
+          });
 
-          // Check if rate limited
-          if (
-            result &&
-            !result.success &&
-            result.error?.kind === 'RateLimited'
-          ) {
-            const retryAfterMs =
-              'retryAfter' in result.error ? result.error.retryAfter || 0 : 0
-            const timeString = formatRetryTime(retryAfterMs)
-            toast.error(
-              `Rate limit exceeded. Please wait ${timeString} before sending another message.`,
-              { duration: 5000 },
-            )
-            return false
+          if (result && !result.success && result.error) {
+            handleAgentSendError(result.error);
+            return false;
           }
 
-          // Check if content moderation blocked
-          if (
-            result &&
-            !result.success &&
-            result.error?.kind === 'CONTENT_MODERATION'
-          ) {
-            toast.error(
-              result.error.message || 'This content is not allowed.',
-              {
-                duration: 6000,
-              },
-            )
-            return false
-          }
-
-          // Scroll to bottom after sending message
           if (result?.success) {
             setTimeout(() => {
-              chatMessagesRef.current?.scrollToBottom()
-            }, 100)
-            return true
+              chatMessagesRef.current?.scrollToBottom();
+            }, 100);
+            return true;
           }
 
-          return false
+          return false;
         } catch (error: any) {
           // Handle other errors
-          console.error('Error sending message:', error)
-          toast.error('Failed to send message. Please try again.')
-          return false
+          console.error("Error sending message:", error);
+          toast.error("Failed to send message. Please try again.");
+          return false;
         }
       }
     },
@@ -507,7 +463,7 @@ ${message}`
       sendMessage,
       updateSelectedNodeInfo,
     ],
-  )
+  );
 
   const sendAutomatedAgentMessage = useCallback(
     async (message: string) => {
@@ -517,136 +473,140 @@ ${message}`
         agentMode: selectedAgentModeRef.current,
         contextLength: selectedContextLengthRef.current,
         tempPageContext: resolveCurrentPageContext(),
-      })
+      });
     },
     [resolveCurrentPageContext, sendMessage],
-  )
+  );
 
   // Memoize send message callback to prevent recreation
   const sendMessageCallback = useCallback(
     (msg: string) => handleSendMessageWithNode(msg, []),
     [handleSendMessageWithNode],
-  )
+  );
 
   // Listen for vly-toolbar-select events from the codesandbox iframe
   useEffect(() => {
     function handleToolbarSelect(event: MessageEvent) {
-      if (event.data && event.data.type === 'vly-toolbar-select') {
+      if (event.data && event.data.type === "vly-toolbar-select") {
         updateSelectedNodeInfo({
           selector: event.data.selector,
           reactHierarchyFormatted: event.data.reactHierarchyFormatted,
           image: event.data.image,
-        })
-        setIsSelectingElement(false) // End selection mode
+        });
+        setIsSelectingElement(false); // End selection mode
       }
     }
 
     // Listen for integration tool messages
     function handleChatMessage(event: CustomEvent) {
       if (event.detail && event.detail.message) {
-        handleSendMessageWithNode(event.detail.message, [])
+        handleSendMessageWithNode(event.detail.message, []);
       }
     }
 
-    window.addEventListener('message', handleToolbarSelect)
+    window.addEventListener("message", handleToolbarSelect);
     window.addEventListener(
-      'sendChatMessage',
+      "sendChatMessage",
       handleChatMessage as EventListener,
-    )
+    );
 
     return () => {
-      window.removeEventListener('message', handleToolbarSelect)
+      window.removeEventListener("message", handleToolbarSelect);
       window.removeEventListener(
-        'sendChatMessage',
+        "sendChatMessage",
         handleChatMessage as EventListener,
-      )
-    }
-  }, [handleSendMessageWithNode, setIsSelectingElement, updateSelectedNodeInfo])
+      );
+    };
+  }, [
+    handleSendMessageWithNode,
+    setIsSelectingElement,
+    updateSelectedNodeInfo,
+  ]);
 
   // Calculate if suggestions should be shown
   const shouldShowSuggestions = useMemo(() => {
     // Never show suggestions during processing
     if (!threadMessages || threadMessages.length === 0 || isProcessing) {
-      return false
+      return false;
     }
 
     // Hide suggestions if user has any input
     if (hasUserInput) {
-      return false
+      return false;
     }
 
-    const sortedMessages = [...threadMessages].sort((a, b) => b.date - a.date)
+    const sortedMessages = [...threadMessages].sort((a, b) => b.date - a.date);
 
     // Find the last assistant message with valid suggestions that is complete (not streaming)
     const lastAssistantMessage = sortedMessages.find(
       (msg) =>
-        msg.role === 'assistant' &&
+        msg.role === "assistant" &&
         !msg.streaming && // Message must not be streaming
-        (!msg.message_state || msg.message_state.status === 'complete') && // Message must be complete
+        (!msg.message_state || msg.message_state.status === "complete") && // Message must be complete
         msg.suggestions &&
         msg.suggestions.length > 0 &&
         msg.suggestions.some((s) => s && s.trim().length > 0),
-    )
+    );
 
     // Only show if we have a valid message with suggestions and it's not processing
     const hasValidSuggestions =
       lastAssistantMessage &&
       lastAssistantMessage.suggestions &&
-      lastAssistantMessage.suggestions.some((s) => s && s.trim().length > 0)
+      lastAssistantMessage.suggestions.some((s) => s && s.trim().length > 0);
 
     return (
       hasValidSuggestions &&
       !isProcessing &&
       !showDivergenceDialog &&
-      syncStatus?.sync_status !== 'conflict' &&
-      syncStatus?.sync_status !== 'error'
-    )
+      syncStatus?.sync_status !== "conflict" &&
+      syncStatus?.sync_status !== "error"
+    );
   }, [
     threadMessages,
     isProcessing,
     showDivergenceDialog,
     syncStatus,
     hasUserInput,
-  ])
+  ]);
 
   // Scroll to bottom when suggestions appear
   useEffect(() => {
     if (shouldShowSuggestions) {
       setTimeout(() => {
-        chatMessagesRef.current?.scrollToBottom()
-      }, 150) // Small delay to ensure suggestions are rendered
+        chatMessagesRef.current?.scrollToBottom();
+      }, 150); // Small delay to ensure suggestions are rendered
     }
-  }, [shouldShowSuggestions])
+  }, [shouldShowSuggestions]);
 
   // Handler for creating a new thread - show model selection dialog
   const handleCreateNewThread = useCallback(() => {
-    if (!projectSemanticIdentifier) return
-    setShowModelDialog(true)
-  }, [projectSemanticIdentifier])
+    if (!projectSemanticIdentifier) return;
+    setShowModelDialog(true);
+  }, [projectSemanticIdentifier]);
 
   // Actually create the thread (called after disclaimer acknowledgment)
   const createThreadAfterAcknowledgment = useCallback(
-    async (agentType: 'Claude Code' | 'Codex' | 'Gemini CLI' | 'VLY Agent') => {
-      if (!project || isProcessing) return
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+      if (!project || isProcessing) return;
 
       try {
-        if (agentType === 'VLY Agent') {
+        if (agentType === "VLY Agent") {
           await createNewThread({
             projectSemanticIdentifier,
-          })
+          });
         } else {
           // Create agent thread
           await createNewAgentThread({
             projectSemanticIdentifier,
             agentType,
-          })
+          });
         }
 
         // createNewAgentThread already sets active_agent_thread on the project
-        setShowModelDialog(false)
-        setShowThreadList(false)
+        setShowModelDialog(false);
+        setShowThreadList(false);
       } catch {
-        toast.error('Failed to create new thread')
+        toast.error("Failed to create new thread");
       }
     },
     [
@@ -656,66 +616,66 @@ ${message}`
       createNewThread,
       projectSemanticIdentifier,
     ],
-  )
+  );
 
   // Handle model selection and check disclaimer first
   const handleSelectModelAndCreateThread = useCallback(
-    async (agentType: 'Claude Code' | 'Codex' | 'Gemini CLI' | 'VLY Agent') => {
-      if (!project || isProcessing) return
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+      if (!project || isProcessing) return;
 
       // Check if user needs to acknowledge disclaimer for these models
       if (
-        (agentType === 'Claude Code' ||
-          agentType === 'Codex' ||
-          agentType === 'Gemini CLI') &&
+        (agentType === "Claude Code" ||
+          agentType === "Codex" ||
+          agentType === "Gemini CLI") &&
         !hasAcknowledgedDisclaimer()
       ) {
         // Show disclaimer dialog
-        setPendingModelSelection(agentType)
-        setShowDisclaimerDialog(true)
-        return
+        setPendingModelSelection(agentType);
+        setShowDisclaimerDialog(true);
+        return;
       }
 
       // User has already acknowledged, proceed with thread creation
-      await createThreadAfterAcknowledgment(agentType)
+      await createThreadAfterAcknowledgment(agentType);
     },
     [project, isProcessing, createThreadAfterAcknowledgment],
-  )
+  );
 
   // Handle disclaimer acknowledgment
   const handleDisclaimerAcknowledged = useCallback(() => {
     if (pendingModelSelection) {
-      createThreadAfterAcknowledgment(pendingModelSelection)
-      setPendingModelSelection(null)
+      createThreadAfterAcknowledgment(pendingModelSelection);
+      setPendingModelSelection(null);
     }
-  }, [pendingModelSelection, createThreadAfterAcknowledgment])
+  }, [pendingModelSelection, createThreadAfterAcknowledgment]);
 
   // Handle setting active thread (both old and new types)
   const handleSetActiveThread = useCallback(
     (
-      threadId: Id<'agent_thread'> | Id<'thread'>,
-      threadType: 'agent_thread' | 'thread',
+      threadId: Id<"agent_thread"> | Id<"thread">,
+      threadType: "agent_thread" | "thread",
     ) => {
       if (project) {
-        if (threadType === 'thread') {
+        if (threadType === "thread") {
           // Old thread - set as active
           setActiveThread({
             projectId: project._id,
-            threadId: threadId as Id<'thread'>,
-          })
-          setShowThreadList(false)
+            threadId: threadId as Id<"thread">,
+          });
+          setShowThreadList(false);
         } else {
           // New agent thread - set as active to switch to new chat UI
           setActiveAgentThread({
             projectId: project._id,
-            threadId: threadId as Id<'agent_thread'>,
-          })
-          setShowThreadList(false)
+            threadId: threadId as Id<"agent_thread">,
+          });
+          setShowThreadList(false);
         }
       }
     },
     [project, setActiveThread, setActiveAgentThread],
-  )
+  );
 
   return (
     <>
@@ -724,10 +684,10 @@ ${message}`
         <ModelDisclaimerDialog
           open={showDisclaimerDialog}
           onOpenChange={(open) => {
-            setShowDisclaimerDialog(open)
+            setShowDisclaimerDialog(open);
             if (!open) {
               // Clear pending selection if dialog is closed without acknowledgment
-              setPendingModelSelection(null)
+              setPendingModelSelection(null);
             }
           }}
           onAcknowledge={handleDisclaimerAcknowledged}
@@ -739,7 +699,7 @@ ${message}`
       <Dialog
         open={showModelDialog}
         onOpenChange={(open) => {
-          setShowModelDialog(open)
+          setShowModelDialog(open);
         }}
       >
         <DialogContent className="sm:max-w-md">
@@ -760,13 +720,13 @@ ${message}`
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread('Claude Code')
+                  handleSelectModelAndCreateThread("Claude Code");
                 }
               }}
               className={`transition-all ${
                 isProcessing || !project
-                  ? 'cursor-not-allowed opacity-50'
-                  : 'cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]'
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
               }`}
             >
               <CardHeader className="px-4 py-3 pb-2">
@@ -792,13 +752,13 @@ ${message}`
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread('Codex')
+                  handleSelectModelAndCreateThread("Codex");
                 }
               }}
               className={`transition-all ${
                 isProcessing || !project
-                  ? 'cursor-not-allowed opacity-50'
-                  : 'cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]'
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
               }`}
             >
               <CardHeader className="px-4 py-3 pb-2">
@@ -851,13 +811,13 @@ ${message}`
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread('VLY Agent')
+                  handleSelectModelAndCreateThread("VLY Agent");
                 }
               }}
               className={`transition-all ${
                 isProcessing || !project
-                  ? 'cursor-not-allowed opacity-50'
-                  : 'cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]'
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
               }`}
             >
               <CardHeader className="px-4 py-3 pb-2">
@@ -897,7 +857,7 @@ ${message}`
               duration: 0.4,
               ease: [0, 0, 0.2, 1] as const,
             }}
-            style={{ willChange: 'transform' }}
+            style={{ willChange: "transform" }}
           >
             <AgentThreadList
               projectSemanticIdentifier={projectSemanticIdentifier}
@@ -918,16 +878,16 @@ ${message}`
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 400, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0, 0, 0.2, 1] as const }}
-            style={{ willChange: 'transform' }}
+            style={{ willChange: "transform" }}
           >
             {/* Header with back button and thread title */}
             <div className="group flex-shrink-0 border-b bg-white px-4 py-2.5 dark:border-[#3a3a3a] dark:bg-[#232323]">
               <div className="flex items-center gap-2">
                 <button
                   onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setShowThreadList(true)
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowThreadList(true);
                   }}
                   type="button"
                   className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-zinc-100"
@@ -945,24 +905,24 @@ ${message}`
                             await updateThreadTitle({
                               semanticIdentifier: projectSemanticIdentifier,
                               threadId: activeThread._id,
-                              title: editingTitle || '',
-                            })
+                              title: editingTitle || "",
+                            });
                           }
-                          setIsEditingTitle(false)
+                          setIsEditingTitle(false);
                         }}
                         onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === "Enter") {
                             if (activeThread._id) {
                               await updateThreadTitle({
                                 semanticIdentifier: projectSemanticIdentifier,
                                 threadId: activeThread._id,
-                                title: editingTitle || '',
-                              })
+                                title: editingTitle || "",
+                              });
                             }
-                            setIsEditingTitle(false)
-                          } else if (e.key === 'Escape') {
-                            setIsEditingTitle(false)
-                            setEditingTitle('')
+                            setIsEditingTitle(false);
+                          } else if (e.key === "Escape") {
+                            setIsEditingTitle(false);
+                            setEditingTitle("");
                           }
                         }}
                         className="h-6 flex-1 text-xs"
@@ -971,7 +931,7 @@ ${message}`
                     ) : (
                       <>
                         <span className="flex-1 text-xs font-medium text-zinc-900">
-                          {activeThread.title || 'Untitled Thread'}
+                          {activeThread.title || "Untitled Thread"}
                         </span>
                         <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-700">
                           vly agent 2.0
@@ -982,9 +942,9 @@ ${message}`
                         <button
                           onClick={() => {
                             setEditingTitle(
-                              activeThread.title || 'Untitled Thread',
-                            )
-                            setIsEditingTitle(true)
+                              activeThread.title || "Untitled Thread",
+                            );
+                            setIsEditingTitle(true);
                           }}
                           className="flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100"
                           title="Edit title"
@@ -1008,10 +968,10 @@ ${message}`
                 projectSemanticIdentifier={projectSemanticIdentifier}
                 onSendMessage={sendMessageCallback}
                 revertToCommit={async (args) => {
-                  await revertToCommitRef.current(args)
+                  await revertToCommitRef.current(args);
                 }}
                 messagesStatus={
-                  messagesStatus === 'LoadingFirstPage'
+                  messagesStatus === "LoadingFirstPage"
                     ? undefined
                     : messagesStatus
                 }
@@ -1092,10 +1052,10 @@ ${message}`
                     {selectedNodeInfo.image ? (
                       <div
                         style={{
-                          display: 'flex',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          background: 'var(--project-selected-node-bg)',
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          background: "var(--project-selected-node-bg)",
                           borderRadius: 8,
                           padding: 6,
                         }}
@@ -1106,11 +1066,11 @@ ${message}`
                           style={{
                             maxWidth: 200,
                             maxHeight: 120,
-                            width: 'auto',
-                            height: 'auto',
-                            display: 'block',
+                            width: "auto",
+                            height: "auto",
+                            display: "block",
                             borderRadius: 6,
-                            background: 'var(--project-selected-node-image-bg)',
+                            background: "var(--project-selected-node-image-bg)",
                           }}
                         />
                       </div>
@@ -1118,16 +1078,16 @@ ${message}`
                       <span className="truncate">
                         {selectedNodeInfo.reactHierarchyFormatted &&
                         selectedNodeInfo.reactHierarchyFormatted !==
-                          'No React components found for this element.'
-                          ? `Selected node: ${selectedNodeInfo.reactHierarchyFormatted.split(':')[1]?.split('child of')[0]?.trim() || selectedNodeInfo.selector} (selector: ${selectedNodeInfo.selector})`
+                          "No React components found for this element."
+                          ? `Selected node: ${selectedNodeInfo.reactHierarchyFormatted.split(":")[1]?.split("child of")[0]?.trim() || selectedNodeInfo.selector} (selector: ${selectedNodeInfo.selector})`
                           : `Selected node: ${selectedNodeInfo.selector}`}
                       </span>
                     )}
                     <button
                       className="ml-auto text-[#A37FBC] hover:text-[#A37FBC]/70 dark:text-zinc-200 dark:hover:text-zinc-100"
                       onClick={() => {
-                        updateSelectedNodeInfo(null)
-                        setIsSelectingElement(false)
+                        updateSelectedNodeInfo(null);
+                        setIsSelectingElement(false);
                       }}
                       title="Clear selection"
                       type="button"
@@ -1143,36 +1103,36 @@ ${message}`
             {(() => {
               // Don't render suggestions if processing
               if (isProcessing) {
-                return null
+                return null;
               }
 
               const sortedMessages = [...threadMessages].sort(
                 (a, b) => b.date - a.date,
-              )
+              );
 
               // Find the MOST RECENT assistant message with valid suggestions that is complete (not streaming)
               // Only show suggestions from the absolute latest completed message
               const lastAssistantMessage = sortedMessages.find(
                 (msg) =>
-                  msg.role === 'assistant' &&
+                  msg.role === "assistant" &&
                   !msg.streaming && // Message must not be streaming
                   (!msg.message_state ||
-                    msg.message_state.status === 'complete') && // Message must be complete
+                    msg.message_state.status === "complete") && // Message must be complete
                   msg.suggestions &&
                   msg.suggestions.length > 0 &&
                   msg.suggestions.some((s) => s && s.trim().length > 0),
-              )
+              );
 
               // Filter out empty suggestions
               const validSuggestions =
                 lastAssistantMessage?.suggestions?.filter(
                   (s) => s && s.trim().length > 0,
-                ) || []
+                ) || [];
 
               // Only show if we have valid suggestions and not processing
               // The backend already clears old suggestions when a new message starts
               if (validSuggestions.length === 0 || isProcessing) {
-                return null
+                return null;
               }
 
               return (
@@ -1180,13 +1140,13 @@ ${message}`
                   suggestions={validSuggestions}
                   onSuggestionClick={(suggestion) => {
                     // send the suggestion as a new user message
-                    handleSendMessageWithNode(suggestion, [])
+                    handleSendMessageWithNode(suggestion, []);
                   }}
                   isVisible={
                     !!shouldShowSuggestions && validSuggestions.length > 0
                   }
                 />
-              )
+              );
             })()}
 
             {project && (
@@ -1209,24 +1169,27 @@ ${message}`
           threshold={100000}
           onUpgradeClick={() => {
             // Navigate to billing page or trigger upgrade flow
-            window.open("/web/dashboard", "_blank");
+            window.open("/dashboard/billing", "_blank");
           }}
         />
       )} */}
 
-            {/* Paused deployment overlay - highest priority, replaces input when billing enforcement enabled and deployments paused */}
-            {isPaused ? (
-              <div className="mx-4 mb-4 mt-2">
-                <PausedDeploymentOverlay pauseRecord={pauseRecord} />
-              </div>
-            ) : !canUseAgent && !creditCheckLoading ? (
-              /* Credit overlay - replaces input when credits are exhausted */
+            {/* Chat Input gating:
+               - Not self-hosted + (Convex paused OR no agent credits) → CreditOverlay
+               - Self-hosted + no agent credits → CreditOverlay
+               - Otherwise → show ChatInput */}
+            {(isSelfHosted === false && isConvexPaused) ||
+            (!canUseAgent && !creditCheckLoading) ? (
               <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
                 <CreditOverlay
                   onUpgradeClick={() => {
-                    // Navigate to billing page or trigger upgrade flow
-                    window.open('/web/dashboard', '_blank')
+                    window.open("/dashboard/billing", "_blank");
                   }}
+                  reason={
+                    isSelfHosted === false && isConvexPaused
+                      ? "convex_paused"
+                      : "no_agent_credits"
+                  }
                 />
               </div>
             ) : (
@@ -1261,8 +1224,8 @@ ${message}`
                 isOpen={showDivergenceDialog}
                 onClose={() => setShowDivergenceDialog(false)}
                 onResolved={() => {
-                  setShowDivergenceDialog(false)
-                  setDivergenceInfo(null)
+                  setShowDivergenceDialog(false);
+                  setDivergenceInfo(null);
                 }}
                 divergenceInfo={divergenceInfo}
               />
@@ -1271,15 +1234,15 @@ ${message}`
         )}
       </AnimatePresence>
     </>
-  )
+  );
 }
 
 // Simple component to display uploaded images in ChatShell
 const UploadedImagePreview: React.FC<{
-  storageId: Id<'_storage'>
-  onRemove: () => void
+  storageId: Id<"_storage">;
+  onRemove: () => void;
 }> = ({ storageId, onRemove }) => {
-  const imageUrl = getImageUrl(storageId)
+  const imageUrl = getImageUrl(storageId);
 
   return (
     <div className="group relative">
@@ -1298,5 +1261,5 @@ const UploadedImagePreview: React.FC<{
         <X className="h-3 w-3" />
       </button>
     </div>
-  )
-}
+  );
+};

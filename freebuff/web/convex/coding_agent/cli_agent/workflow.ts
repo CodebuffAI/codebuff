@@ -44,7 +44,7 @@ export const getAgentContextData = internalQuery({
 });
 
 // Initialize workflow manager
-export const workflow = new WorkflowManager(components.workflow, {
+export const workflow = new WorkflowManager(components.workflow as any, {
   workpoolOptions: {
     maxParallelism: 10,
     retryActionsByDefault: true,
@@ -89,9 +89,11 @@ export const cliAgentWorkflow = workflow.define({
       });
       const executingUserIsPlatformAdmin =
         executingUser?.role === "god" || executingUser?.role === "admin";
+
       const shouldBypassCreditCheck =
         executingUserIsPlatformAdmin ||
-          ((args.agentType === "Codex" || args.agentType === "Freebuff") &&
+        args.agentType === "Freebuff" ||
+        (args.agentType === "Codex" &&
           executingUser?.codex_auth_mode === "chatgpt");
 
       if (!shouldBypassCreditCheck) {
@@ -125,19 +127,18 @@ export const cliAgentWorkflow = workflow.define({
         },
       );
 
-      // If the project is still flagged as terminated by the time the workflow
-      // starts (e.g. a previous run set it and recovery flows in
-      // VersioningService/syncExecutorService never cleared it), auto-recover
-      // and continue rather than aborting. The user has already submitted a
-      // fresh message and expects it to run.
+      // Check if project is terminated (e.g., due to GitHub sync conflicts)
+      // This check ensures we respect termination even if it happens during workflow execution
       if (project.terminated) {
         console.log(
-          "[CLIAgentWorkflow] Project flagged terminated; auto-recovering",
+          "[CLIAgentWorkflow] Project is terminated, aborting workflow",
           { projectId: args.projectId },
         );
-        await ctx.runMutation(internal.project.setStateProcessing, {
-          projectId: args.projectId,
-        });
+        return {
+          success: false,
+          error:
+            "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
+        };
       }
 
       // Execute the agent command in the Daytona environment
@@ -179,30 +180,20 @@ export const handleWorkflowComplete = internalMutation({
       messageId: Id<"agent_message">;
       projectId: Id<"project">;
       userId?: Id<"users">;
-          agentType?: "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff";
+      agentType?: "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff";
     };
 
     try {
-      const freebuffAccepted =
-        agentType === "Freebuff" &&
-        result.kind === "success" &&
-        (result.returnValue as { success?: boolean } | undefined)?.success ===
-          true;
-
       // Reset thread processing state
-      if (!freebuffAccepted) {
-        await ctx.db.patch(threadId, {
-          isProcessing: false,
-          last_edited_timestamp: Date.now(),
-        });
-      }
+      await ctx.db.patch(threadId, {
+        isProcessing: false,
+        last_edited_timestamp: Date.now(),
+      });
 
       // Clear workflow ID from thread
-      if (!freebuffAccepted) {
-        await ctx.db.patch(threadId, {
-          workflow_id: undefined,
-        });
-      }
+      await ctx.db.patch(threadId, {
+        workflow_id: undefined,
+      });
 
       // Update message state based on result
       if (result.kind === "success") {
@@ -212,15 +203,13 @@ export const handleWorkflowComplete = internalMutation({
           sessionId?: string;
         };
         if (returnValue?.success) {
-          if (agentType !== "Freebuff") {
-            await ctx.db.patch(messageId, {
-              state: "Completed",
-              isStreaming: false,
-            });
-          }
+          await ctx.db.patch(messageId, {
+            state: "Completed",
+            isStreaming: false,
+          });
 
           // Update thread with new session ID if we got one
-          if (returnValue.sessionId && agentType !== "Freebuff") {
+          if (returnValue.sessionId) {
             await ctx.db.patch(threadId, {
               active_session_id: returnValue.sessionId,
             });
@@ -262,7 +251,8 @@ export const handleWorkflowComplete = internalMutation({
           shouldBypassTimeoutBilling =
             executingUser?.role === "god" ||
             executingUser?.role === "admin" ||
-            ((agentType === "Codex" || agentType === "Freebuff") &&
+            agentType === "Freebuff" ||
+            (agentType === "Codex" &&
               executingUser?.codex_auth_mode === "chatgpt");
         }
 
@@ -294,10 +284,6 @@ export const handleWorkflowComplete = internalMutation({
       // Reset project state if needed
       const project = await ctx.db.get(projectId);
       if (project && project.state === "processing") {
-        if (freebuffAccepted) {
-          return;
-        }
-
         // Check if there are any other processing threads
         const processingThreads = await ctx.db
           .query("agent_thread")

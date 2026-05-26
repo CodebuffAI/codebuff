@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
+import { getAuthUser } from "../users";
 
 /**
  * Store a new Convex OAuth connection (internal only)
@@ -81,6 +82,25 @@ export const storeConnection = internalMutation({
   },
 });
 
+export const updateConnectionProdDeployment = internalMutation({
+  args: {
+    connectionId: v.id("convex_connections"),
+    prod_deployment_name: v.string(),
+    prod_deployment_url: v.string(),
+    prod_deploy_key: v.string(),
+    prod_deploy_key_name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      prod_deployment_name: args.prod_deployment_name,
+      prod_deployment_url: args.prod_deployment_url,
+      prod_deploy_key: args.prod_deploy_key,
+      prod_deploy_key_name: args.prod_deploy_key_name,
+      updated_at: Date.now(),
+    });
+  },
+});
+
 /**
  * Get connection by ID with decrypted tokens (internal only - for migration/API use)
  */
@@ -119,5 +139,23 @@ export const getConnectionByProjectId = internalQuery({
       .first();
 
     return connection;
+  },
+});
+
+export const isProjectSelfHosted = query({
+  args: {
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) return false;
+
+    const connection = await ctx.db
+      .query("convex_connections")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("is_active"), true))
+      .first();
+
+    return !!connection;
   },
 });
