@@ -1,6 +1,13 @@
 import { resolve } from 'path'
+import dotenv from 'dotenv'
 
-const FREEBUFF_PORT = 3002
+dotenv.config({
+  path: resolve(import.meta.dirname, '../../.env.local'),
+  override: false,
+})
+
+const FREEBUFF_PORT =
+  process.env.PORT || process.env.NEXT_PUBLIC_WEB_PORT || '3002'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -22,6 +29,13 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      'autumn-js/react': resolve(
+        import.meta.dirname,
+        'src/vly/lib/autumn-disabled-react.tsx',
+      ),
+    }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },

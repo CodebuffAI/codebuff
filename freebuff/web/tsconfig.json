@@ -8,6 +8,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "noImplicitReturns": false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -22,6 +23,35 @@
       }
     ],
     "paths": {
+      "!/*": ["./convex/*"],
+      "autumn-js/react": ["./src/vly/lib/autumn-disabled-react.tsx"],
+      "@/convex/*": ["./convex/*"],
+      "@/lib/PostHogProvider": ["./src/lib/PostHogProvider.tsx"],
+      "@/lib/SessionProvider": ["./src/lib/SessionProvider.tsx"],
+      "@/lib/cli-auth-code-shape": ["./src/lib/cli-auth-code-shape.ts"],
+      "@/lib/constant": ["./src/lib/constant.ts"],
+      "@/lib/fonts": ["./src/lib/fonts.ts"],
+      "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],
+      "@/components/background-beams": [
+        "./src/components/background-beams.tsx"
+      ],
+      "@/components/copy-button": ["./src/components/copy-button.tsx"],
+      "@/components/footer": ["./src/components/footer.tsx"],
+      "@/components/hero-grid": ["./src/components/hero-grid.tsx"],
+      "@/components/icons": ["./src/components/icons.tsx"],
+      "@/components/login/*": ["./src/components/login/*"],
+      "@/components/referrer-tracker": [
+        "./src/components/referrer-tracker.tsx"
+      ],
+      "@/components/sign-in/*": ["./src/components/sign-in/*"],
+      "@/components/theme-provider": ["./src/components/theme-provider.tsx"],
+      "@/lib/*": ["./lib/*"],
+      "@/autumn/*": ["./autumn/*"],
+      "@/autumn.config": ["./autumn.config.ts"],
+      "@/config/*": ["./config/*"],
+      "@/components/*": ["./src/vly/components/*"],
+      "@/vly/config/*": ["./config/*"],
+      "@/vly/codebase-utils/*": ["./codebase-utils/*"],
       "@/*": ["./src/*"],
       "drizzle-orm": ["../../packages/internal/node_modules/drizzle-orm"],
       "drizzle-orm/*": ["../../packages/internal/node_modules/drizzle-orm/*"]
