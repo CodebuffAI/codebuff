@@ -454,7 +454,7 @@ const DeploymentManager = ({
       {hasActiveDeployment && communityPost && (
         <button
           onClick={() =>
-            window.open(`/community/project/${communityPost._id}`, "_blank")
+            window.open(`/web/community/project/${communityPost._id}`, "_blank")
           }
           className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
         >

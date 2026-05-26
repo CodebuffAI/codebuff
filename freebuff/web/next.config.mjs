@@ -93,6 +93,56 @@ const nextConfig = {
         destination: 'https://go.trybeluga.ai/:hash',
         permanent: false,
       },
+      {
+        source: '/project/:path*',
+        destination: '/web/project/:path*',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/:path*',
+        destination: '/web/dashboard/:path*',
+        permanent: false,
+      },
+      {
+        source: '/community/:path*',
+        destination: '/web/community/:path*',
+        permanent: false,
+      },
+      {
+        source: '/admin/:path*',
+        destination: '/web/admin/:path*',
+        permanent: false,
+      },
+      {
+        source: '/earn/:path*',
+        destination: '/web/earn/:path*',
+        permanent: false,
+      },
+      {
+        source: '/pricing',
+        destination: '/web/pricing',
+        permanent: false,
+      },
+      {
+        source: '/contact',
+        destination: '/web/contact',
+        permanent: false,
+      },
+      {
+        source: '/referrals',
+        destination: '/web/referrals',
+        permanent: false,
+      },
+      {
+        source: '/devtools',
+        destination: '/web/devtools',
+        permanent: false,
+      },
+      {
+        source: '/invite/:path*',
+        destination: '/web/invite/:path*',
+        permanent: false,
+      },
     ]
   },
   async rewrites() {

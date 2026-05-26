@@ -1146,7 +1146,7 @@ const AssistantMessageContent: React.FC<{
             <div className="mt-3">
               <CreditOverlay
                 onUpgradeClick={() => {
-                  window.open("/dashboard/billing", "_blank");
+                  window.open("/web/dashboard", "_blank");
                 }}
               />
             </div>

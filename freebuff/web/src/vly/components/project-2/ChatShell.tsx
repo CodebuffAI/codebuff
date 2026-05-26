@@ -1169,7 +1169,7 @@ ${message}`;
           threshold={100000}
           onUpgradeClick={() => {
             // Navigate to billing page or trigger upgrade flow
-            window.open("/dashboard/billing", "_blank");
+            window.open("/web/dashboard", "_blank");
           }}
         />
       )} */}
@@ -1183,7 +1183,7 @@ ${message}`;
               <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
                 <CreditOverlay
                   onUpgradeClick={() => {
-                    window.open("/dashboard/billing", "_blank");
+                    window.open("/web/dashboard", "_blank");
                   }}
                   reason={
                     isSelfHosted === false && isConvexPaused

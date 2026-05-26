@@ -496,7 +496,7 @@ export function AdminQuickMenu({
                                 <>
                                   <span className="text-zinc-400">•</span>
                                   <Link
-                                    href={`/project/${deploymentDetails.project.semantic_identifier}`}
+                                    href={`/web/project/${deploymentDetails.project.semantic_identifier}`}
                                     target="_blank"
                                     className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
                                   >

@@ -687,7 +687,7 @@ export default function Dashboard() {
                               );
                             });
                             router.push(
-                              `/project/${project.semantic_identifier}`,
+                              `/web/project/${project.semantic_identifier}`,
                             );
                           }}
                           disabled={loadingProjectId === project._id}

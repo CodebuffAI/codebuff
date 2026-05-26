@@ -570,7 +570,7 @@ function ProjectWrapper({
     // This will be handled by the WorkspaceInsufficientPlanModal component
     // which will trigger migration through the existing migration flow
     // For now, we'll need to redirect to monitoring page or trigger migration
-    window.location.href = `/project/${semanticIdentifier}?view=monitoring`;
+    window.location.href = `/web/project/${semanticIdentifier}?view=monitoring`;
   };
 
   // If workspace is blocked, show blocking modal instead of project
@@ -818,7 +818,7 @@ function ProjectWrapper({
                         Congrats on being an early user! Claim 50% off paid
                         plans (ending in 24 hours).{" "}
                         <a
-                          href="/dashboard/billing"
+                          href="/web/dashboard"
                           className="font-semibold text-green-900 underline hover:text-green-700 dark:text-zinc-100 dark:hover:text-zinc-200"
                         >
                           Lock in a tier here
@@ -902,7 +902,7 @@ function ProjectWrapper({
             <div className="z-10 h-full w-full overflow-y-auto bg-white p-4 pl-8 dark:bg-[#282828]">
               {/* Back arrow button */}
               <Link
-                href={`/project/${semanticIdentifier}`}
+                href={`/web/project/${semanticIdentifier}`}
                 className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-[#575757] dark:bg-[#3c3c3c] dark:text-zinc-100 dark:hover:bg-[#4a4a4a] dark:hover:text-zinc-100"
               >
                 <ArrowLeft className="h-4 w-4" />

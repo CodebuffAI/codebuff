@@ -27,23 +27,23 @@ interface AdminNavItem {
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
-    href: "/admin",
+    href: "/web/admin",
     label: "Overview",
     icon: Shield,
     matchExact: true,
   },
   {
-    href: "/admin/referrals",
+    href: "/web/admin/referrals",
     label: "Referrals",
     icon: TrendingUp,
   },
   {
-    href: "/admin/email-blasts",
+    href: "/web/admin/email-blasts",
     label: "Email Blasts",
     icon: Mail,
   },
   {
-    href: "/admin/resource-usage",
+    href: "/web/admin/resource-usage",
     label: "Platform Usage",
     icon: BarChart3,
   },
