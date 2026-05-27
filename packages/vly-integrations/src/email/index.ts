@@ -18,7 +18,7 @@ export class VlyEmail extends VlyClient {
 
     const payload = {
       to: Array.isArray(email.to) ? email.to : [email.to],
-      from: email.from || 'noreply@project.vly.sh',
+      from: email.from || 'noreply@project.freebuff.dev',
       subject: email.subject,
       html: email.html,
       text: email.text,
@@ -54,7 +54,7 @@ export class VlyEmail extends VlyClient {
     const payload = {
       emails: emails.map(email => ({
         to: Array.isArray(email.to) ? email.to : [email.to],
-        from: email.from || 'noreply@vly.io',
+        from: email.from || 'noreply@freebuff.com',
         subject: email.subject,
         html: email.html,
         text: email.text,

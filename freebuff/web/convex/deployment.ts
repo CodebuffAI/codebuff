@@ -79,7 +79,7 @@ export const createDeployment = mutation({
 
     const deploymentId = await ctx.db.insert("deployments", {
       project: args.projectId,
-      deploymentDomain: `${slug}.vly.dev`,
+      deploymentDomain: `${slug}.freebuff.app`,
       state: "deploying",
     });
 
@@ -254,7 +254,7 @@ function isValidSlug(slug: string): boolean {
   if (slug.length > 100) return false;
   if (slug !== slug.toLowerCase()) return false;
   // Only allow lowercase letters and numbers — no dots, underscores, or hyphens
-  // to ensure valid single-level subdomains (slug.vly.dev)
+  // to ensure valid single-level subdomains (slug.freebuff.app)
   return /^[a-z][a-z0-9]*$/.test(slug);
 }
 
@@ -346,7 +346,7 @@ export const deleteDeployment = action({
       );
     }
     const deploymentDomain =
-      deployment.deploymentDomain || `${projectDeploymentSlug}.vly.dev`;
+      deployment.deploymentDomain || `${projectDeploymentSlug}.freebuff.app`;
     console.log("deploymentDomain", deploymentDomain);
     // Remove domain from Vercel project
     if (deploymentDomain) {
@@ -367,7 +367,7 @@ export const deleteDeployment = action({
       }
 
       if (!vercelProjectId) {
-        const slugFromDomain = deploymentDomain.replace(".vly.dev", "");
+        const slugFromDomain = deploymentDomain.replace(".freebuff.app", "");
         const lookupResponse = await fetch(
           `https://api.vercel.com/v9/projects/${encodeURIComponent(slugFromDomain)}?teamId=${teamId}`,
           { headers: { Authorization: `Bearer ${vercelToken}` } },
@@ -474,10 +474,10 @@ export const updateDeploymentSlug = action({
     if (deployment.deploymentDomain) {
       oldSlug = deployment.deploymentDomain;
     } else {
-      oldSlug = `${projectDeploymentSlug}.vly.dev`;
+      oldSlug = `${projectDeploymentSlug}.freebuff.app`;
     }
     console.log("oldSlug", oldSlug);
-    const newDeploymentDomain = `${args.newSlug}.vly.dev`;
+    const newDeploymentDomain = `${args.newSlug}.freebuff.app`;
 
     {
       const vercelToken = process.env.VERCEL_API_TOKEN;
@@ -500,7 +500,7 @@ export const updateDeploymentSlug = action({
       }
 
       if (!vercelProjectId && oldSlug) {
-        const slugFromDomain = oldSlug.replace(".vly.dev", "");
+        const slugFromDomain = oldSlug.replace(".freebuff.app", "");
         const lookupResponse = await fetch(
           `https://api.vercel.com/v9/projects/${encodeURIComponent(slugFromDomain)}?teamId=${teamId}`,
           { headers: { Authorization: `Bearer ${vercelToken}` } },

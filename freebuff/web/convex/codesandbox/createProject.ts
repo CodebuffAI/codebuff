@@ -37,7 +37,7 @@ export const assignProxy = internalAction({
       target: args.target,
     });
 
-    const previewUrl = `https://${args.slug}.vly.sh`;
+    const previewUrl = `https://${args.slug}.freebuff.dev`;
     // @ts-ignore
     await ctx.runMutation(internal.project.setPrettyPreviewUrl, {
       projectId: args.projectId,

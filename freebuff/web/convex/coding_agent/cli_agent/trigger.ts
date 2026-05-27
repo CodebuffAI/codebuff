@@ -19,6 +19,7 @@ export const saveMessageAndStartWorkflow = mutation({
       v.literal("Claude Code"),
       v.literal("Gemini CLI"),
       v.literal("Codex"),
+      v.literal("Freebuff"),
     ),
     _skipRateLimitCheck: v.optional(v.boolean()), // Internal use only
   },

@@ -307,8 +307,8 @@ export function CenterContent({
     if (iframe && baseUrl && currentPath) {
       // Refresh the current page the user is viewing, not the original URL
       const currentUrl = new URL(currentPath, baseUrl);
-      // Skip _refresh for vly.sh (pretty preview) - it breaks styles. Only use for dev preview URLs.
-      if (!baseUrl.includes("vly.sh")) {
+      // Skip _refresh for freebuff.dev (pretty preview) - it breaks styles. Only use for dev preview URLs.
+      if (!baseUrl.includes("freebuff.dev")) {
         currentUrl.searchParams.set("_refresh", Date.now().toString());
       }
       iframe.src = currentUrl.toString();
@@ -321,8 +321,8 @@ export function CenterContent({
     semanticIdentifier: project?.semantic_identifier,
     onSuccess: () => {
       // Force refresh the iframe content after successful connection (dev preview only).
-      // Skip for vly.sh - any programmatic reload breaks styles (initial load works, reload doesn't).
-      if (project?.pretty_preview_url?.includes("vly.sh")) return;
+      // Skip for freebuff.dev - any programmatic reload breaks styles (initial load works, reload doesn't).
+      if (project?.pretty_preview_url?.includes("freebuff.dev")) return;
       setTimeout(() => {
         handleRefresh();
       }, 1000); // Small delay to ensure connection is fully established

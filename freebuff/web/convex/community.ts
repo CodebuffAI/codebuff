@@ -70,7 +70,7 @@ export const publishProject = mutation({
     }
 
     // Use the deployed URL (not the dev URL)
-    const deployedUrl = `https://${project.prod_deployment_slug}.vly.dev`;
+    const deployedUrl = `https://${project.prod_deployment_slug}.freebuff.app`;
 
     // Get screenshot URL if available (screenshot_r2_url is already a public URL)
     let screenshotUrl: string | undefined;
@@ -1624,7 +1624,7 @@ export const getUnpublishedProjects = query({
         // Use deployed URL if available, otherwise dev URL for preview
         const hasDeployment = !!project.prod_deployment_slug;
         const deployedUrl = hasDeployment
-          ? `https://${project.prod_deployment_slug}.vly.dev`
+          ? `https://${project.prod_deployment_slug}.freebuff.app`
           : undefined;
 
         return {

@@ -130,8 +130,8 @@ export const shouldUpdateScreenshot = query({
     const project = await ctx.db.get(args.projectId);
     if (!project) return false;
 
-    // Check if 5 or more commits since last screenshot
+    // Check if 1 or more commits since last screenshot
     const commitCount = project.commits_since_screenshot ?? 0;
-    return commitCount >= 5;
+    return commitCount >= 1;
   },
 });

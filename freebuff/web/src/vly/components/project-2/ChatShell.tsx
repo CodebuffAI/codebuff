@@ -290,7 +290,6 @@ export function ChatShell({
   const createNewAgentThread = useMutation(
     api.coding_agent.cli_agent.agent_thread.createNewAgentThread,
   );
-  const createNewThread = useMutation(api.thread.createNewThreadMain);
 
   // Handler for opening divergence dialog
   const handleOpenDivergenceDialog = useCallback(() => {
@@ -586,21 +585,14 @@ ${message}`;
 
   // Actually create the thread (called after disclaimer acknowledgment)
   const createThreadAfterAcknowledgment = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff") => {
       if (!project || isProcessing) return;
 
       try {
-        if (agentType === "Freebuff Agent") {
-          await createNewThread({
-            projectSemanticIdentifier,
-          });
-        } else {
-          // Create agent thread
-          await createNewAgentThread({
-            projectSemanticIdentifier,
-            agentType,
-          });
-        }
+       await createNewAgentThread({
+          projectSemanticIdentifier,
+          agentType,
+        });
 
         // createNewAgentThread already sets active_agent_thread on the project
         setShowModelDialog(false);
@@ -613,14 +605,13 @@ ${message}`;
       project,
       isProcessing,
       createNewAgentThread,
-      createNewThread,
       projectSemanticIdentifier,
     ],
   );
 
   // Handle model selection and check disclaimer first
   const handleSelectModelAndCreateThread = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff") => {
       if (!project || isProcessing) return;
 
       // Check if user needs to acknowledge disclaimer for these models
@@ -720,98 +711,7 @@ ${message}`;
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread("Claude Code");
-                }
-              }}
-              className={`transition-all ${
-                isProcessing || !project
-                  ? "cursor-not-allowed opacity-50"
-                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
-              }`}
-            >
-              <CardHeader className="px-4 py-3 pb-2">
-                <div className="flex items-center gap-2">
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Claude_AI_symbol.svg"
-                    alt="Claude Code"
-                    className="h-5 w-5 object-contain"
-                  />
-                  <CardTitle className="text-sm font-medium">
-                    Claude Code
-                  </CardTitle>
-                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
-                    Limited-time
-                  </span>
-                </div>
-                <CardDescription className="mt-1 text-xs">
-                  Most expensive, but best for fixing bugs.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card
-              onClick={() => {
-                if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread("Codex");
-                }
-              }}
-              className={`transition-all ${
-                isProcessing || !project
-                  ? "cursor-not-allowed opacity-50"
-                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
-              }`}
-            >
-              <CardHeader className="px-4 py-3 pb-2">
-                <div className="flex items-center gap-2">
-                  <img
-                    src="https://www.svgrepo.com/show/306500/openai.svg"
-                    alt="Codex"
-                    className="h-5 w-5 object-contain"
-                  />
-                  <CardTitle className="text-sm font-medium">Codex</CardTitle>
-                  <div className="ml-auto flex items-center gap-1">
-                    <span className="rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
-                      Limited-time
-                    </span>
-                    <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
-                      Recommended
-                    </span>
-                  </div>
-                </div>
-                <CardDescription className="mt-1 text-xs">
-                  Cheapest, best for intelligent features.
-                </CardDescription>
-                <div className="mt-1 text-[10px] font-medium text-blue-700">
-                  Includes ChatGPT subscription device login option.
-                </div>
-              </CardHeader>
-            </Card>
-
-            <Card className="cursor-not-allowed opacity-50 transition-all">
-              <CardHeader className="px-4 py-3 pb-2">
-                <div className="flex items-center gap-2">
-                  <img
-                    src="https://google.gallerycdn.vsassets.io/extensions/google/gemini-cli-vscode-ide-companion/0.20.0/1765572429008/Microsoft.VisualStudio.Services.Icons.Default"
-                    alt="Gemini CLI"
-                    className="h-5 w-5 object-contain"
-                  />
-                  <CardTitle className="text-sm font-medium">
-                    Gemini CLI
-                  </CardTitle>
-                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
-                    Unavailable
-                  </span>
-                </div>
-                <CardDescription className="mt-1 text-xs">
-                  gemini is currently under maintence.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card
-              onClick={() => {
-                if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread("Freebuff Agent");
+                  handleSelectModelAndCreateThread("Freebuff");
                 }
               }}
               className={`transition-all ${
@@ -835,9 +735,73 @@ ${message}`;
                       </span>
                     </span>
                   </CardTitle>
+                  <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                    Recommended
+                  </span>
                 </div>
                 <CardDescription className="mt-1 text-xs">
                   freebuff agent 2.0 default workflow.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="cursor-not-allowed opacity-50 transition-all">
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/b/b0/Claude_AI_symbol.svg"
+                    alt="Claude Code"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">
+                    Claude Code
+                  </CardTitle>
+                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                    Unavailable
+                  </span>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  Claude Code is currently unavailable.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="cursor-not-allowed opacity-50 transition-all">
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://www.svgrepo.com/show/306500/openai.svg"
+                    alt="Codex"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">Codex</CardTitle>
+                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                    Unavailable
+                  </span>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  Codex is currently unavailable.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="cursor-not-allowed opacity-50 transition-all">
+              <CardHeader className="px-4 py-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <img
+                    src="https://google.gallerycdn.vsassets.io/extensions/google/gemini-cli-vscode-ide-companion/0.20.0/1765572429008/Microsoft.VisualStudio.Services.Icons.Default"
+                    alt="Gemini CLI"
+                    className="h-5 w-5 object-contain"
+                  />
+                  <CardTitle className="text-sm font-medium">
+                    Gemini CLI
+                  </CardTitle>
+                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
+                    Unavailable
+                  </span>
+                </div>
+                <CardDescription className="mt-1 text-xs">
+                  gemini is currently under maintence.
                 </CardDescription>
               </CardHeader>
             </Card>

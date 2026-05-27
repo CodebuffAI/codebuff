@@ -671,12 +671,12 @@ export async function deployCodebaseProd(
 
     console.log("Vercel deployment created:", vercelDeployment.id);
 
-    await assignVercelDomain(vercelProjectId, `${slug}.vly.dev`);
+    await assignVercelDomain(vercelProjectId, `${slug}.freebuff.app`);
 
     return Success({
       deploymentId: vercelDeployment.id,
       projectId: vercelProjectId,
-      domains: [`${slug}.vly.dev`],
+      domains: [`${slug}.freebuff.app`],
     });
   } catch (error) {
     if (
