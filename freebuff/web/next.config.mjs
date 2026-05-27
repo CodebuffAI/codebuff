@@ -8,6 +8,10 @@ dotenv.config({
 
 const FREEBUFF_PORT =
   process.env.PORT || process.env.NEXT_PUBLIC_WEB_PORT || '3002'
+const autumnShimPath = resolve(
+  import.meta.dirname,
+  'src/vly/lib/autumn-disabled-react.tsx',
+)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -28,13 +32,28 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: [
+    'pino',
+    'thread-stream',
+    'pino-pretty',
+    '@codebuff/code-map',
+    '@codebuff/code-map/parse',
+    '@codebuff/code-map/languages',
+  ],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    serverComponentsHmrCache: true,
+  },
+  turbopack: {
+    root: resolve(import.meta.dirname, '../../'),
+    resolveAlias: {
+      'autumn-js/react': autumnShimPath,
+    },
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      'autumn-js/react': resolve(
-        import.meta.dirname,
-        'src/vly/lib/autumn-disabled-react.tsx',
-      ),
+      'autumn-js/react': autumnShimPath,
     }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(

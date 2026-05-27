@@ -63,10 +63,23 @@ The script will:
 - start Freebuff/Vly on `http://localhost:3000`
 - start `convex dev` from `freebuff/web`
 
+By default this keeps startup light and lets Next compile routes on demand. To
+compile the common Vly routes up front for easier click-through testing, use:
+
+```bash
+bun dev:vly:e2e -- --prewarm
+```
+
 Pass `--no-db` if Docker/Postgres is already running:
 
 ```bash
 bun dev:vly:e2e -- --no-db
+```
+
+You can also prewarm routes against an already-running app:
+
+```bash
+bun dev:vly:prewarm
 ```
 
 If you already started Cloudflare tunnels yourself, pass them through the
