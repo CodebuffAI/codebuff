@@ -431,7 +431,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
         <div className="animate-fadeInSlideLeft absolute right-[60px] top-[20vh] hidden flex-col gap-2 pt-4 md:flex">
           <button
             type="button"
-            className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#A37FBC] ring-offset-2" : ""}`}
+            className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
             onClick={() => setIsThemePickerOpen(true)}
             onMouseEnter={() => setHoverTheme(true)}
             onMouseLeave={() => setHoverTheme(false)}
@@ -447,7 +447,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
               style={{ objectFit: "contain" }}
             />
             {selectedTheme && (
-              <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#A37FBC]"></div>
+              <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
             )}
             {hoverTheme && (
               <div
@@ -491,7 +491,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
           >
             <button
               type="button"
-              className="relative flex hidden h-10 w-10 items-center justify-center rounded-full bg-[#A37FBC] p-0 text-white transition-transform hover:scale-110 active:scale-95 md:flex"
+              className="relative flex hidden h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] p-0 text-white transition-transform hover:scale-110 active:scale-95 md:flex"
               onClick={handleStartProject}
               disabled={isLoading || !userInput.trim()}
               style={{
@@ -523,7 +523,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
         <div className="animate-fadeInSlideUp relative z-10 mb-4 ml-auto flex max-w-fit gap-2 py-2 pr-[12vw] md:hidden">
           <button
             type="button"
-            className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#A37FBC] ring-offset-2" : ""}`}
+            className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
             onClick={() => setIsThemePickerOpen(true)}
           >
             <Image
@@ -537,7 +537,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
               style={{ objectFit: "contain" }}
             />
             {selectedTheme && (
-              <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#A37FBC]"></div>
+              <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
             )}
           </button>
           <button
@@ -558,7 +558,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
           </button>
           <button
             type="button"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#A37FBC] p-0 text-white transition-transform hover:scale-110 active:scale-95"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] p-0 text-white transition-transform hover:scale-110 active:scale-95"
             onClick={handleStartProject}
             disabled={isLoading || !userInput.trim()}
             style={{

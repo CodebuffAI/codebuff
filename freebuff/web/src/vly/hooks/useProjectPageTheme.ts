@@ -1,88 +1,52 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 
-const PROJECT_THEME_STORAGE_KEY = "vly-project-page-theme";
+const LEGACY_PROJECT_THEME_STORAGE_KEYS = [
+  "freebuff-web-vly-project-page-theme",
+  "vly-project-page-theme",
+];
 
-export type ProjectPageTheme = "light" | "dark";
+export type ProjectPageTheme = "dark";
 
-function getStoredProjectTheme(): ProjectPageTheme {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-
-  try {
-    const storedTheme = window.localStorage.getItem(PROJECT_THEME_STORAGE_KEY);
-    if (storedTheme === "light" || storedTheme === "dark") {
-      return storedTheme;
-    }
-  } catch {
-    // no-op: localStorage can be unavailable in private contexts
-  }
-
-  return "light";
-}
-
+// Freebuff Web is dark-only. We keep this hook around to preserve the
+// existing call sites in the project page while removing the toggle and
+// stale localStorage values from the original Vly experience.
 export function useProjectPageTheme() {
-  const { theme, setTheme } = useTheme();
-  const previousGlobalThemeRef = useRef<string | null>(null);
-
-  const [projectTheme, setProjectTheme] = useState<ProjectPageTheme>(
-    getStoredProjectTheme,
-  );
-
-  useEffect(() => {
-    if (previousGlobalThemeRef.current) {
-      return;
-    }
-
-    if (theme) {
-      previousGlobalThemeRef.current = theme;
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      previousGlobalThemeRef.current =
-        window.localStorage.getItem("theme") ?? "light";
-    }
-  }, [theme]);
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
 
-    html.setAttribute("data-project-theme", projectTheme);
-    body.setAttribute("data-project-theme", projectTheme);
+    html.setAttribute("data-project-theme", "dark");
+    body.setAttribute("data-project-theme", "dark");
+    html.classList.add("dark");
 
     try {
-      window.localStorage.setItem(PROJECT_THEME_STORAGE_KEY, projectTheme);
+      for (const key of LEGACY_PROJECT_THEME_STORAGE_KEYS) {
+        window.localStorage.removeItem(key);
+      }
     } catch {
       // no-op: localStorage can be unavailable in private contexts
     }
 
-    setTheme(projectTheme);
-  }, [projectTheme, setTheme]);
+    setTheme("dark");
 
-  useEffect(() => {
     return () => {
-      const html = document.documentElement;
-      const body = document.body;
-
       html.removeAttribute("data-project-theme");
       body.removeAttribute("data-project-theme");
-
-      setTheme(previousGlobalThemeRef.current ?? "light");
     };
   }, [setTheme]);
 
   const toggleProjectTheme = useCallback(() => {
-    setProjectTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
+    // No-op: dark mode is enforced for Freebuff Web.
   }, []);
 
   return {
-    projectTheme,
-    isProjectDark: projectTheme === "dark",
+    projectTheme: "dark" as const,
+    isProjectDark: true,
     toggleProjectTheme,
   };
 }

@@ -117,12 +117,12 @@ export const MigrateConvexButton = ({
             <AlertDialogDescription>
               <div className="space-y-3">
                 <p>
-                  This will migrate your data from VLY's Convex to your own
+                  This will migrate your data from Freebuff's Convex to your own
                   Convex project. Here's what will happen:
                 </p>
                 <ul className="list-disc space-y-1 pl-5 text-sm">
                   <li>
-                    You'll authorize VLY to access your Convex account via OAuth
+                    You'll authorize Freebuff to access your Convex account via OAuth
                   </li>
                   <li>
                     A new Convex project will be created automatically for you
@@ -136,7 +136,7 @@ export const MigrateConvexButton = ({
                     deployment
                   </li>
                   <li>
-                    VLY's Convex deployment will be paused (archived) by default
+                    Freebuff's Convex deployment will be paused (archived) by default
                   </li>
                 </ul>
                 <p className="font-medium text-amber-600">

@@ -3,9 +3,9 @@ import DashboardBilling from "@/vly/components/pages/DashboardBilling";
 import { createPageMetadata } from "@/vly/lib/site-metadata";
 
 export const metadata = createPageMetadata({
-  title: "Pricing | vly.ai",
+  title: "Pricing | Freebuff Web",
   description:
-    "Compare vly.ai plans for building and shipping production-ready web apps.",
+    "Compare Freebuff Web plans for building and shipping production-ready web apps.",
   path: "/web/pricing",
 });
 

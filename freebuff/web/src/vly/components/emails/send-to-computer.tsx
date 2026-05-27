@@ -19,7 +19,7 @@ export const SendToComputerEmail: React.FC<
       computer here:
     </p>
 
-    <a href="https://vly.ai/login">Access Your Account</a>
+    <a href="https://freebuff.com/login">Access Your Account</a>
 
     <p>If you didn't request this email, you can safely ignore it.</p>
   </div>
@@ -132,7 +132,7 @@ export const TicketReplyEmail: React.FC<Readonly<TicketReplyEmailProps>> = ({
         }}
       >
         <p style={{ margin: "0" }}>
-          This is an automated message from vly.ai support system. Please do not
+          This is an automated message from Freebuff Web support system. Please do not
           reply to this email.
         </p>
       </div>
@@ -183,7 +183,7 @@ export const BountySubmissionResultEmail: React.FC<
     <p>
       <a href="https://discord.gg/2gSmB9DxJW">Join Discord</a> to contact the
       founders. View your bounties at{" "}
-      <a href="https://vly.ai/earn">vly.ai/earn</a>.
+      <a href="https://freebuff.com/earn">Freebuff Web/earn</a>.
     </p>
   </div>
 );

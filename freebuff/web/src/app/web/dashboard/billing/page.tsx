@@ -3,9 +3,9 @@ import { createPageMetadata } from "@/vly/lib/site-metadata";
 import { Suspense } from "react";
 
 export const metadata = createPageMetadata({
-  title: "Pricing | vly.ai",
+  title: "Pricing | Freebuff Web",
   description:
-    "Compare vly.ai plans for building and shipping production-ready web apps.",
+    "Compare Freebuff Web plans for building and shipping production-ready web apps.",
   path: "/web/pricing",
   noIndex: true,
 });

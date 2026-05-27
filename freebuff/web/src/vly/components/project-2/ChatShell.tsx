@@ -146,7 +146,7 @@ export function ChatShell({
         }
       }
     }
-    // Default to Claude Sonnet 4.6 for VLY agent when creating a new thread
+    // Default to Claude Sonnet 4.6 for Freebuff agent when creating a new thread
     return "POWERFUL";
   });
   const [selectedContextLength, setSelectedContextLength] =
@@ -586,11 +586,11 @@ ${message}`;
 
   // Actually create the thread (called after disclaimer acknowledgment)
   const createThreadAfterAcknowledgment = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
       if (!project || isProcessing) return;
 
       try {
-        if (agentType === "VLY Agent") {
+        if (agentType === "Freebuff Agent") {
           await createNewThread({
             projectSemanticIdentifier,
           });
@@ -620,7 +620,7 @@ ${message}`;
 
   // Handle model selection and check disclaimer first
   const handleSelectModelAndCreateThread = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
       if (!project || isProcessing) return;
 
       // Check if user needs to acknowledge disclaimer for these models
@@ -811,7 +811,7 @@ ${message}`;
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread("VLY Agent");
+                  handleSelectModelAndCreateThread("Freebuff Agent");
                 }
               }}
               className={`transition-all ${
@@ -823,21 +823,21 @@ ${message}`;
               <CardHeader className="px-4 py-3 pb-2">
                 <div className="flex items-center gap-2">
                   <img
-                    src="/favicon.svg"
-                    alt="vly agent 2.0"
+                    src="/freebuff-logo.svg"
+                    alt="freebuff agent 2.0"
                     className="h-5 w-5 object-contain"
                   />
                   <CardTitle className="text-sm font-medium">
                     <span className="flex items-center gap-2">
-                      <span>vly agent 2.0</span>
-                      <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                      <span>freebuff agent 2.0</span>
+                      <span className="rounded-full border border-[#7CFF3F]/30 bg-[#7CFF3F]/15 px-1.5 py-0 text-[10px] font-medium text-[#7CFF3F]">
                         New
                       </span>
                     </span>
                   </CardTitle>
                 </div>
                 <CardDescription className="mt-1 text-xs">
-                  vly agent 2.0 default workflow.
+                  freebuff agent 2.0 default workflow.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -934,9 +934,9 @@ ${message}`;
                           {activeThread.title || "Untitled Thread"}
                         </span>
                         <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-700">
-                          vly agent 2.0
+                          freebuff agent 2.0
                         </span>
-                        <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                        <span className="rounded-full border border-[#7CFF3F]/30 bg-[#7CFF3F]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#7CFF3F]">
                           New
                         </span>
                         <button
@@ -997,7 +997,7 @@ ${message}`;
 
                 {/* Selected node preview */}
                 {selectedNodeInfo && (
-                  <div className="inline-flex items-center gap-2 rounded border border-[#A37FBC]/30 bg-[#A37FBC]/10 px-3 py-1 text-xs font-medium text-[#A37FBC] shadow-sm dark:border-[#575757] dark:bg-[#282828] dark:text-zinc-100">
+                  <div className="inline-flex items-center gap-2 rounded border border-[#7CFF3F]/30 bg-[#7CFF3F]/10 px-3 py-1 text-xs font-medium text-[#7CFF3F] shadow-sm dark:border-[#575757] dark:bg-[#282828] dark:text-zinc-100">
                     {/* Bullseye/target icon on the left */}
                     <svg
                       width="16"
@@ -1084,7 +1084,7 @@ ${message}`;
                       </span>
                     )}
                     <button
-                      className="ml-auto text-[#A37FBC] hover:text-[#A37FBC]/70 dark:text-zinc-200 dark:hover:text-zinc-100"
+                      className="ml-auto text-[#7CFF3F] hover:text-[#7CFF3F]/70 dark:text-zinc-200 dark:hover:text-zinc-100"
                       onClick={() => {
                         updateSelectedNodeInfo(null);
                         setIsSelectingElement(false);
@@ -1249,12 +1249,12 @@ const UploadedImagePreview: React.FC<{
       <img
         src={imageUrl}
         alt="Uploaded"
-        className="h-16 w-16 rounded-lg border border-[#A37FBC]/20 object-cover shadow-sm dark:border-[#575757]"
+        className="h-16 w-16 rounded-lg border border-[#7CFF3F]/20 object-cover shadow-sm dark:border-[#575757]"
         draggable={false}
       />
       <button
         onClick={onRemove}
-        className="absolute -right-2 -top-2 hidden h-5 w-5 items-center justify-center rounded-full bg-[#A37FBC] text-white shadow-sm hover:bg-[#A37FBC]/80 group-hover:flex dark:bg-[#4a4a4a] dark:hover:bg-[#5a5a5a]"
+        className="absolute -right-2 -top-2 hidden h-5 w-5 items-center justify-center rounded-full bg-[#7CFF3F] text-white shadow-sm hover:bg-[#7CFF3F]/80 group-hover:flex dark:bg-[#4a4a4a] dark:hover:bg-[#5a5a5a]"
         title="Remove image"
         type="button"
       >

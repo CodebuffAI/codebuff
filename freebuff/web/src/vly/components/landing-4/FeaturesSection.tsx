@@ -78,7 +78,7 @@ export default function FeaturesSection() {
           >
             <h2 className="font-serif text-3xl font-normal leading-normal text-black">
               A revolutionary new way to{" "}
-              <span className="text-[#A37FBC]">craft websites</span> on the
+              <span className="text-[#7CFF3F]">craft websites</span> on the
               Internet
             </h2>
             <div className="mx-auto w-full">
@@ -133,7 +133,7 @@ export default function FeaturesSection() {
 function DiscoverMoreButton() {
   return (
     <div className="group relative flex items-center justify-end">
-      <div className="cursor-pointer select-none justify-start font-['Geist'] text-lg font-semibold leading-tight text-[#8A8A8A] transition-colors duration-200 hover:text-[#A37FBC]">
+      <div className="cursor-pointer select-none justify-start font-['Geist'] text-lg font-semibold leading-tight text-[#8A8A8A] transition-colors duration-200 hover:text-[#7CFF3F]">
         Read our manifesto
         <div className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-xs text-white opacity-0 shadow transition-opacity duration-200 group-hover:opacity-100">
           Coming Soon

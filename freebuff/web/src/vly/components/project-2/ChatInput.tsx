@@ -85,7 +85,7 @@ interface ChatInputProps {
   // Agent mode selection
   selectedAgentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
-  // Context length selection (VLY agent only)
+  // Context length selection (Freebuff agent only)
   selectedContextLength?: ContextLength;
   onContextLengthChange?: (length: ContextLength) => void;
   // Switch agent callback - opens model selection to create new thread

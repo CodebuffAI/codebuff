@@ -14,11 +14,11 @@ export function ContactPage() {
           <span
             className="cursor-pointer text-blue-500 hover:underline"
             onClick={() => {
-              navigator.clipboard.writeText("victor@vly.ai");
+              navigator.clipboard.writeText("team@freebuff.com");
               toast.success("Email copied to clipboard!");
             }}
           >
-            victor@vly.ai (click to copy)
+            team@freebuff.com (click to copy)
           </span>
         </div>
         <div className="text-xl">

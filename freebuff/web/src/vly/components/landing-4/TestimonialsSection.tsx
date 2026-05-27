@@ -31,21 +31,21 @@ export default function TestimonialsSection() {
       name: "Siddarth Girdhar",
       title: "CEO of Pivot Robotics",
       quote:
-        "Vly.ai helps us rapidly iterate web software at a fraction of the cost and time.",
+        "Freebuff Web helps us rapidly iterate web software at a fraction of the cost and time.",
       profileImage: "/Siddarth_Girdhar.jpeg",
       companyImage: "/Pivot_Robotics.png",
       description:
-        "Pivot Robotics, an 8-figure YC startup, saved over $20,000 in web development costs using vly.ai",
+        "Pivot Robotics, an 8-figure YC startup, saved over $20,000 in web development costs using Freebuff Web",
     },
     {
       name: "Eshani Patel",
       title: "Caltech Student",
       quote:
-        "Someone just used vly.ai to win Caltech's Hacktech, one of the most prestigious hackathons in the world",
+        "Someone just used Freebuff Web to win Caltech's Hacktech, one of the most prestigious hackathons in the world",
       profileImage: "/Placeholder.svg",
       companyImage: "/HackTech_Caltech.png",
       description:
-        "The winning software was shipped completely on vly.ai in under 36 hours.",
+        "The winning software was shipped completely on Freebuff Web in under 36 hours.",
     },
   ];
 
@@ -84,7 +84,7 @@ export default function TestimonialsSection() {
             variants={itemVariants}
           >
             <h2 className="font-serif text-3xl font-normal leading-normal text-black">
-              What <span className="text-[#A37FBC]">others</span> are saying
+              What <span className="text-[#7CFF3F]">others</span> are saying
             </h2>
             <div className="flex w-full items-start justify-between">
               <p className="text-lg font-normal leading-tight text-zinc-500">
@@ -142,8 +142,8 @@ export default function TestimonialsSection() {
                       className="object-cover"
                     />
                   </div>
-                  <div className="flex w-full items-center justify-center rounded-[5px] bg-[#A37FBC]/10 p-2 outline outline-1 outline-offset-[-1px] outline-[#A37FBC] sm:p-2.5">
-                    <p className="text-center text-sm font-normal leading-relaxed text-[#A37FBC] md:text-base">
+                  <div className="flex w-full items-center justify-center rounded-[5px] bg-[#7CFF3F]/10 p-2 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F] sm:p-2.5">
+                    <p className="text-center text-sm font-normal leading-relaxed text-[#7CFF3F] md:text-base">
                       {testimonial.description}
                     </p>
                   </div>

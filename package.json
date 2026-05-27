@@ -26,6 +26,7 @@
     "dev:vly": "bun --cwd freebuff/web dev",
     "dev:vly:frontend": "bun --cwd freebuff/web dev",
     "dev:vly:backend": "bun --cwd freebuff/web convex dev",
+    "dev:vly:e2e": "bun scripts/start-vly-e2e-dev.ts",
     "build:vly": "bun --cwd freebuff/web build",
     "start-studio": "bun --cwd packages/internal db:studio",
     "down": "bun scripts/stop-services.ts",

@@ -85,7 +85,7 @@ export default function ThemeConfirmationModal({
           title={
             <>
               Wait! Do you want to add a{" "}
-              <span className="text-[#A37FBC]">Style</span>?
+              <span className="text-[#7CFF3F]">Style</span>?
             </>
           }
           subtitle="Select a visual theme to enhance your project"

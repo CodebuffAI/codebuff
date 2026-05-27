@@ -179,7 +179,7 @@ export default function DashboardPreferencesPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Email Preferences</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Control promotional emails from vly.
+              Control promotional emails from Freebuff Web.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">

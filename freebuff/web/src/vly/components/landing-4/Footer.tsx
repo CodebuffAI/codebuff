@@ -82,8 +82,8 @@ export default function Footer() {
         <motion.img
           className="relative mt-4 h-12 w-12"
           style={{ willChange: "transform" }}
-          src="/logo.svg"
-          alt="Logo"
+          src="/freebuff-logo.svg"
+          alt="Freebuff Web logo"
           variants={itemVariants}
           whileHover={{
             scale: 1.1,
@@ -94,14 +94,14 @@ export default function Footer() {
         <motion.div className="text-center" variants={itemVariants}>
           <motion.span
             className="font-serif text-2xl font-normal text-zinc-800"
-            whileHover={{ color: "#A37FBC" }}
+            whileHover={{ color: "#7CFF3F" }}
             transition={{ duration: 0.2 }}
           >
             You type. We{" "}
           </motion.span>
           <motion.span
             className="font-serif text-2xl font-normal italic text-zinc-800"
-            whileHover={{ color: "#A37FBC" }}
+            whileHover={{ color: "#7CFF3F" }}
             transition={{ duration: 0.2 }}
           >
             ship.
@@ -130,7 +130,7 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: index * 0.1 }}
               whileHover={{
-                color: "#A37FBC",
+                color: "#7CFF3F",
                 y: -2,
                 scale: 1.05,
                 transition: { duration: 0.2 },
@@ -198,12 +198,12 @@ export default function Footer() {
           className="font-['Geist'] text-base font-normal text-zinc-800"
           variants={itemVariants}
           whileHover={{
-            color: "#A37FBC",
+            color: "#7CFF3F",
             scale: 1.02,
             transition: { duration: 0.2 },
           }}
         >
-          © 2025 vly.ai. All rights reserved.
+          © {new Date().getFullYear()} Freebuff Web. All rights reserved.
         </motion.div>
       </motion.div>
     </motion.footer>

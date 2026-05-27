@@ -13,16 +13,12 @@ import {
 export interface FooterProps {
   logoSrc?: string;
   logoAlt?: string;
-  backgroundImageSrc?: string;
-  cloudImageSrc?: string;
   className?: string;
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  logoSrc = "/logo.svg",
-  logoAlt = "vly.ai",
-  backgroundImageSrc = "/landing/below_clouds.jpeg",
-  cloudImageSrc = "clouds.png",
+  logoSrc = "/freebuff-logo.svg",
+  logoAlt = "Freebuff Web",
   className = "",
 }) => {
   const router = useRouter();
@@ -33,46 +29,19 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer
-      className={`relative w-full overflow-hidden bg-[#CBCFDA] text-center ${className}`}
+      className={`relative w-full overflow-hidden border-t border-border/60 bg-background text-center text-foreground ${className}`}
     >
-      {/* Background Image Container */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 top-0 z-0 overflow-hidden">
-        {/* Background Image - Static, no parallax */}
-        <div
-          className="absolute left-0 right-0 top-0 h-full min-h-[600px] bg-cover bg-center"
-          style={{
-            backgroundImage: `url("${backgroundImageSrc}")`,
-          }}
-        />
-        {/* Cloud Image Overlay */}
-        <div
-          className="absolute left-0 right-0 top-0 h-full bg-contain bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url("${cloudImageSrc}")`,
-          }}
-        />
-      </div>
-
-      {/* Top Gradient Overlay - transitions from white content background to footer background */}
       <div
-        className="pointer-events-none absolute left-0 right-0 top-0 z-[1] h-[250px]"
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[420px]"
         style={{
           background:
-            "linear-gradient(to bottom, #F7F7F3 0%, #F7F7F3 10%, rgba(247, 247, 243, 0.9) 30%, rgba(247, 247, 243, 0.5) 60%, rgba(247, 247, 243, 0.2) 85%, transparent 100%)",
-        }}
-      />
-
-      {/* Bottom Gradient Overlay - transitions from footer background to overscroll color */}
-      <div
-        className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] h-[150px]"
-        style={{
-          background:
-            "linear-gradient(to bottom, transparent 0%, rgba(203, 207, 218, 0.3) 30%, rgba(203, 207, 218, 0.7) 70%, #CBCFDA 100%)",
+            "radial-gradient(ellipse 70% 55% at 50% 110%, rgba(124, 255, 63, 0.10), transparent 60%), radial-gradient(ellipse 55% 35% at 50% 90%, rgba(18, 73, 33, 0.45), transparent 70%)",
         }}
       />
 
       {/* Footer Content */}
-      <div className="relative z-10 px-8 py-24">
+      <div className="relative z-10 px-8 py-20">
         <div className="mx-auto max-w-[1280px]">
           {/* Logo */}
           <div className="mb-8">
@@ -88,52 +57,52 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
 
           {/* Tagline */}
-          <p className="mb-8 text-lg text-[#1a1a1a]">
+          <p className="mb-8 text-lg text-foreground/85">
             <span className="font-serif">You type. We </span>
-            <span className="font-serif italic">ship.</span>
+            <span className="font-serif italic text-primary">ship.</span>
           </p>
 
           {/* Navigation Links */}
           <div className="mb-8 flex flex-wrap justify-center gap-6">
             <Link
               href="/web/dashboard"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               My Projects
             </Link>
             <Link
               href="/web/community"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Community
             </Link>
             <Link
               href="/web/earn"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Earn
             </Link>
             <button
               onClick={handleOpenDiscord}
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Discord
             </button>
             <Link
               href="/web/pricing"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Pricing
             </Link>
             <Link
               href="/web/privacy"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Privacy
             </Link>
             <Link
               href="/web/terms"
-              className="text-sm font-medium text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Terms
             </Link>
@@ -143,7 +112,7 @@ export const Footer: React.FC<FooterProps> = ({
           <div className="mb-8 flex justify-center gap-4">
             <SignedOut>
               <SignInButton mode="modal" asChild>
-                <button className="rounded-xl bg-white/30 px-5 py-2.5 text-sm font-semibold text-[#1a1a1a] outline outline-1 outline-white/50 backdrop-blur-lg transition-all hover:bg-white/40">
+                <button className="rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground backdrop-blur-lg transition-all hover:border-primary/50 hover:text-primary">
                   Get Started
                 </button>
               </SignInButton>
@@ -151,14 +120,14 @@ export const Footer: React.FC<FooterProps> = ({
             <SignedIn>
               <button
                 onClick={() => router.push("/web/dashboard")}
-                className="rounded-xl bg-white/30 px-5 py-2.5 text-sm font-semibold text-[#1a1a1a] outline outline-1 outline-white/50 backdrop-blur-lg transition-all hover:bg-white/40"
+                className="rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground backdrop-blur-lg transition-all hover:border-primary/50 hover:text-primary"
               >
                 My Projects
               </button>
             </SignedIn>
             <button
               onClick={handleOpenDiscord}
-              className="rounded-xl bg-white/30 px-5 py-2.5 text-sm font-semibold text-[#1a1a1a] outline outline-1 outline-white/50 backdrop-blur-lg transition-all hover:bg-white/40"
+              className="rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground backdrop-blur-lg transition-all hover:border-primary/50 hover:text-primary"
             >
               Join Discord
             </button>
@@ -167,10 +136,10 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Social Links */}
           <div className="mb-8 flex justify-center gap-6">
             <a
-              href="https://x.com/vly_ai"
+              href="https://x.com/freebuffdev"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-foreground/70 transition-colors hover:text-primary"
               aria-label="X (Twitter)"
             >
               <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -178,10 +147,10 @@ export const Footer: React.FC<FooterProps> = ({
               </svg>
             </a>
             <a
-              href="https://www.linkedin.com/company/vly-ai/"
+              href="https://www.linkedin.com/company/freebuff/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-foreground/70 transition-colors hover:text-primary"
               aria-label="LinkedIn"
             >
               <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -192,7 +161,7 @@ export const Footer: React.FC<FooterProps> = ({
               href="https://discord.gg/2gSmB9DxJW"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] transition-colors hover:text-black"
+              className="text-foreground/70 transition-colors hover:text-primary"
               aria-label="Discord"
             >
               <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -202,9 +171,9 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
 
           {/* Copyright */}
-          <div className="">
-            <p className="text-sm text-[rgba(26,26,26,0.6)]">
-              © {new Date().getFullYear()} vly.ai. All rights reserved.
+          <div>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Freebuff Web. All rights reserved.
             </p>
           </div>
         </div>

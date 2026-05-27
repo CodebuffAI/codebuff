@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
 
-export const SITE_URL = "https://vly.ai";
-export const SITE_NAME = "vly.ai";
-export const SITE_DISPLAY_NAME = "VLY AI";
+export const SITE_URL = "https://freebuff.com";
+export const SITE_NAME = "Freebuff Web";
+export const SITE_DISPLAY_NAME = "Freebuff Web";
 export const DEFAULT_TITLE =
-  "vly.ai | AI App Builder for Production-Ready Web Apps";
+  "Freebuff Web | AI App Builder for Production-Ready Web Apps";
 export const DEFAULT_DESCRIPTION =
-  "Build production-ready web apps with AI, a managed backend, realtime data, integrations, and coding agents.";
-export const HOME_TITLE = "vly.ai | We Just Killed Bolt, Replit & Base44";
+  "Build production-ready web apps with Freebuff: AI coding agents, a managed backend, realtime data, and integrations — all in your browser.";
+export const HOME_TITLE =
+  "Freebuff Web | Build production-ready web apps with AI";
 export const HOME_DESCRIPTION =
-  "We just killed Bolt, Replit, and Base44. vly.ai is 7x cheaper and better for AI with a custom realtime architecture, backend visualizations, 1000+ integrations, and advanced coding agents.";
-export const DEFAULT_OG_IMAGE_PATH = "/landing/landmarks.jpeg";
-export const BRAND_LOGO_URL = `${SITE_URL}/logos/falcon_clear_bg.png`;
-export const BRAND_ICON_URL = `${SITE_URL}/logos/falcon_logo_favicon.png`;
+  "Freebuff Web ships full-stack web apps with AI coding agents, a managed backend, realtime data, and 1000+ integrations.";
+export const DEFAULT_OG_IMAGE_PATH = "/freebuff-icon.svg";
+export const BRAND_LOGO_URL = `${SITE_URL}/freebuff-logo.svg`;
+export const BRAND_ICON_URL = `${SITE_URL}/freebuff-icon.svg`;
 
 type PageMetadataOptions = {
   title: string;
@@ -59,7 +60,7 @@ export function createPageMetadata({
       title,
       description,
       images: [imageUrl],
-      creator: "@vlyai",
+      creator: "@freebuffdev",
     },
     robots: noIndex
       ? {
@@ -82,7 +83,7 @@ export const brandStructuredData = {
       name: SITE_NAME,
       alternateName: SITE_DISPLAY_NAME,
       url: SITE_URL,
-      email: "team@vly.ai",
+      email: "team@freebuff.com",
       logo: {
         "@type": "ImageObject",
         url: BRAND_LOGO_URL,

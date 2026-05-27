@@ -70,7 +70,7 @@ export function ModelDisclaimerDialog({
             <p className="font-medium">Important:</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>
-                vly.ai did not create these models (Claude Code, Gemini CLI,
+                Freebuff Web did not create these models (Claude Code, Gemini CLI,
                 Codex)
               </li>
               <li>We do not control their output or any mistakes they make</li>
@@ -88,7 +88,7 @@ export function ModelDisclaimerDialog({
               htmlFor="disclaimer-checkbox"
               className="cursor-pointer text-sm leading-relaxed text-zinc-700"
             >
-              I understand that vly.ai is not responsible for the output of
+              I understand that Freebuff Web is not responsible for the output of
               these models
             </label>
           </div>

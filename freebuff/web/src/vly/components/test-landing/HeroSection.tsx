@@ -37,8 +37,8 @@ export interface HeroSectionProps {
 export const HeroSection: React.FC<HeroSectionProps> = ({
   "data-id": dataId,
   // Header-related props are available but rendered by a separate Header component
-  logoSrc: _logoSrc = "/logo.svg",
-  logoAlt: _logoAlt = "vly.ai",
+  logoSrc: _logoSrc = "/freebuff-logo.svg",
+  logoAlt: _logoAlt = "Freebuff Web",
   headerLinks: _headerLinks = [
     {
       label: "Dashboard",
@@ -115,84 +115,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     };
   }, []);
 
+  // Silence unused-prop warnings for image assets the dark redesign no longer renders
+  void backgroundImageSrc;
+  void cloudImageSrc;
+  void isMobile;
+
   return (
     <section
       data-id={dataId}
-      className={`relative w-full overflow-hidden bg-[#F7F7F3] px-4 pt-24 text-center sm:px-8 sm:pt-32 md:px-16 lg:px-24 ${className}`}
+      className={`relative w-full overflow-hidden bg-background px-4 pt-24 text-center sm:px-8 sm:pt-32 md:px-16 lg:px-24 ${className}`}
     >
-      {/* Mobile Background - Non-parallax with integrated fades */}
-      {isMobile && (
-        <div className="pointer-events-none absolute left-0 right-0 top-0 z-0 h-[737px] max-h-[737px] overflow-hidden">
-          {/* Background Image with integrated fade gradients */}
-          <div
-            className="absolute inset-0 bg-center bg-no-repeat opacity-80"
-            style={{
-              backgroundImage: `url("${backgroundImageSrc}")`,
-              backgroundSize: "cover",
-              backgroundPosition: "center top",
-            }}
-          />
-          {/* Fade overlays applied on top of the image */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `
-                linear-gradient(to bottom, 
-                  #CBCFDA 0%, 
-                  rgba(203, 207, 218, 0.7) 10%, 
-                  transparent 30%, 
-                  transparent 70%, 
-                  rgba(247, 247, 243, 0.7) 90%, 
-                  #F7F7F3 100%
-                )
-              `,
-            }}
-          />
-        </div>
-      )}
-
-      {/* Desktop Background - With parallax and mask */}
-      {!isMobile && (
-        <>
-          <div
-            className="pointer-events-none absolute left-0 right-0 top-0 z-0 h-[737px] max-h-[737px] overflow-hidden"
-            style={{
-              maskImage:
-                "linear-gradient(to bottom, transparent 0%, black 120px, black 400px, transparent 650px)",
-              WebkitMaskImage:
-                "linear-gradient(to bottom, transparent 0%, black 120px, black 400px, transparent 650px)",
-            }}
-          >
-            {/* Background Image with Parallax */}
-            <div
-              className="absolute -top-[220px] left-0 right-0 h-[1200px] bg-center bg-no-repeat opacity-80 transition-transform duration-0"
-              style={{
-                backgroundImage: `url("${backgroundImageSrc}")`,
-                backgroundSize: "100% auto",
-                transform: `translateY(${scrollY * 0.5}px)`,
-              }}
-            />
-          </div>
-
-          {/* Top Gradient Overlay - transitions from page background to hero */}
-          <div
-            className="pointer-events-none absolute left-0 right-0 top-0 z-[1] h-[200px]"
-            style={{
-              background:
-                "linear-gradient(to bottom, #CBCFDA 0%, #CBCFDA 20%, rgba(203, 207, 218, 0.8) 50%, rgba(203, 207, 218, 0.3) 80%, transparent 100%)",
-            }}
-          />
-
-          {/* Bottom Gradient Overlay - transitions hero to content background */}
-          <div
-            className="pointer-events-none absolute left-0 right-0 top-[500px] z-10 h-[400px]"
-            style={{
-              background:
-                "linear-gradient(to bottom, transparent 0%, #F7F7F3 60%, #F7F7F3 100%)",
-            }}
-          />
-        </>
-      )}
+      {/* Subtle ambient glow behind the hero — soft acid-green halo at the top
+       * to give the dark surface depth without a hard banner image. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[700px]"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(124, 255, 63, 0.10), transparent 60%), radial-gradient(ellipse 80% 40% at 50% 30%, rgba(124, 255, 63, 0.04), transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[700px] opacity-[0.06]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.4) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage:
+            "radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent 70%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent 70%)",
+        }}
+      />
 
       {/* Main Content */}
       <div className="relative z-10 mx-auto max-w-[896px] px-4 sm:px-8 md:px-16 lg:px-48">
@@ -202,7 +157,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             text={badgeText}
             baseDelay={0.05}
             letterDelay={0.01}
-            className="text-sm text-[rgba(26,26,26,0.85)]"
+            className="text-sm text-foreground/80"
           />
 
           <img
@@ -218,17 +173,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             text="Combinator"
             baseDelay={0.18}
             letterDelay={0.01}
-            className="text-sm text-[rgba(26,26,26,0.85)]"
+            className="text-sm text-foreground/80"
           />
         </div>
 
         {/* Headline */}
-        <h1 className="-mb-4 text-3xl font-normal leading-tight tracking-tight text-[#1a1a1a] sm:text-4xl sm:leading-[61.6px] sm:tracking-[-1.68px] md:text-5xl lg:text-[56px]">
+        <h1 className="-mb-4 text-3xl font-normal leading-tight tracking-tight text-foreground sm:text-4xl sm:leading-[61.6px] sm:tracking-[-1.68px] md:text-5xl lg:text-[56px]">
           <AnimatedText
             text={headline}
             baseDelay={0.3}
             letterDelay={0.015}
-            className="text-3xl font-normal leading-tight tracking-tight text-[#1a1a1a] sm:text-4xl sm:leading-[61.6px] sm:tracking-[-1.68px] md:text-5xl lg:text-[56px]"
+            className="text-3xl font-normal leading-tight tracking-tight text-foreground sm:text-4xl sm:leading-[61.6px] sm:tracking-[-1.68px] md:text-5xl lg:text-[56px]"
           />
         </h1>
 
@@ -281,17 +236,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Description with NEW Badge */}
         <div className="mx-auto -mt-4 flex flex-col items-center justify-center gap-3 sm:-mt-6 sm:flex-row">
           <span
-            className="animate-letter-fade-in whitespace-nowrap rounded-full bg-[#1a1a1a] px-3 py-1 text-xs font-medium text-white opacity-0"
+            className="animate-letter-fade-in whitespace-nowrap rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground opacity-0"
             style={{ animationDelay: "0.68s" }}
           >
             NEW
           </span>
-          <p className="text-center text-sm leading-relaxed text-[rgba(26,26,26,0.7)] sm:whitespace-nowrap sm:text-left sm:text-base sm:leading-[27px] md:text-lg">
+          <p className="text-center text-sm leading-relaxed text-muted-foreground sm:whitespace-nowrap sm:text-left sm:text-base sm:leading-[27px] md:text-lg">
             <AnimatedText
               text={subheadline}
               baseDelay={0.72}
               letterDelay={0.005}
-              className="text-sm leading-relaxed text-[rgba(26,26,26,0.7)] sm:text-base sm:leading-[27px] md:text-lg"
+              className="text-sm leading-relaxed text-muted-foreground sm:text-base sm:leading-[27px] md:text-lg"
             />
           </p>
         </div>
@@ -303,23 +258,23 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           className="flex animate-letter-fade-in flex-col items-center opacity-0"
           style={{ animationDelay: "1.0s" }}
         >
-          <span className="text-3xl font-bold text-emerald-600 sm:text-4xl">
+          <span className="text-3xl font-semibold text-primary sm:text-4xl">
             7x
           </span>
-          <span className="text-xs text-[rgba(26,26,26,0.6)]">cheaper</span>
+          <span className="text-xs text-muted-foreground">cheaper</span>
         </div>
         <div
           className="flex animate-letter-fade-in flex-col items-center opacity-0"
           style={{ animationDelay: "1.05s" }}
         >
-          <span className="text-3xl font-bold text-[#1a1a1a] sm:text-4xl">
+          <span className="text-3xl font-semibold text-foreground sm:text-4xl">
             <CountUp
               end={userCount || 0}
               formatter={(value) => value.toLocaleString()}
             />
             +
           </span>
-          <span className="text-xs text-[rgba(26,26,26,0.6)]">
+          <span className="text-xs text-muted-foreground">
             users trusted
           </span>
         </div>
@@ -327,14 +282,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           className="flex animate-letter-fade-in flex-col items-center opacity-0"
           style={{ animationDelay: "1.1s" }}
         >
-          <span className="text-3xl font-bold text-[#1a1a1a] sm:text-4xl">
+          <span className="text-3xl font-semibold text-foreground sm:text-4xl">
             <CountUp
               end={projectCount || 0}
               formatter={(value) => value.toLocaleString()}
             />
             +
           </span>
-          <span className="text-xs text-[rgba(26,26,26,0.6)]">
+          <span className="text-xs text-muted-foreground">
             websites powered
           </span>
         </div>
@@ -359,14 +314,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       <ScrollFadeIn className="relative z-10 mx-auto mt-20 flex max-w-[560px] flex-col items-center justify-center gap-8 px-3 sm:px-4 md:flex-row md:items-start md:gap-3 md:px-2">
         <div className="relative flex flex-1 flex-col items-center">
           <Image
-            src="/logo.svg"
-            alt="vly.ai"
+            src="/freebuff-logo.svg"
+            alt="Freebuff Web"
             width={80}
             height={24}
             className="mb-2 h-4 w-auto object-contain"
           />
-          <p className="mb-2 text-[10px] text-[rgba(26,26,26,0.6)]">
-            Verified <strong>vly.ai</strong> review — avg: 4.8 stars
+          <p className="mb-2 text-[10px] text-muted-foreground">
+            Verified <strong className="text-foreground/85">Freebuff Web</strong> review — avg: 4.8 stars
           </p>
           <ReviewReplicaCard
             avatarText="V"
@@ -378,19 +333,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             color="green"
             fullStars={5}
             partialStar={0}
-            body="Vly is one of the best web app builders out there right now. I've tried many different web app builders but, vly is the one only I've stuck too because how good it was at creating. Love it!! 10/10"
+            body="Freebuff Web is one of the best web app builders out there right now. I've tried many different web app builders but Freebuff Web is the only one I've stuck with because of how good it is at creating. Love it!! 10/10"
             className="mx-auto h-auto w-full max-w-[260px]"
           />
           <a
-            href="https://www.trustpilot.com/review/vly.ai"
+            href="https://www.trustpilot.com/review/freebuff.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 text-[10px] text-[rgba(26,26,26,0.7)] transition-colors hover:text-[rgba(26,26,26,0.9)]"
+            className="mt-2 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Read more reviews →
           </a>
         </div>
-        <div className="h-px w-full bg-[rgba(26,26,26,0.2)] md:mx-1 md:h-72 md:w-px" />
+        <div className="h-px w-full bg-border md:mx-1 md:h-72 md:w-px" />
         <div className="relative flex flex-1 flex-col items-center">
           <Image
             src="/competitors/boltnew.png"
@@ -399,8 +354,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             height={24}
             className="mb-2 h-4 w-auto object-contain"
           />
-          <p className="mb-2 text-[10px] text-[rgba(26,26,26,0.6)]">
-            Verified <strong>Bolt.new</strong> review — avg: 1.4 stars
+          <p className="mb-2 text-[10px] text-muted-foreground">
+            Verified <strong className="text-foreground/85">Bolt.new</strong> review — avg: 1.4 stars
           </p>
           <ReviewReplicaCard
             avatarText="AS"
@@ -421,7 +376,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             href="https://www.trustpilot.com/review/bolt.new?stars=1"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 text-[10px] text-[rgba(26,26,26,0.7)] transition-colors hover:text-[rgba(26,26,26,0.9)]"
+            className="mt-2 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Read more reviews →
           </a>
@@ -446,18 +401,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       {/* Features Section */}
       <div className="relative z-10 mx-auto mb-20 mt-16 max-w-[700px] px-4">
         <ScrollFadeIn>
-          <h2 className="mb-10 text-center text-2xl font-medium tracking-tight text-[#1a1a1a]">
-            Why teams choose vly.ai
+          <h2 className="mb-10 text-center text-2xl font-medium tracking-tight text-foreground">
+            Why teams choose Freebuff Web
           </h2>
         </ScrollFadeIn>
 
         {/* Feature 1 - Image Right */}
         <ScrollFadeIn className="mb-10 flex flex-col items-center gap-8 md:flex-row">
           <div className="flex-1 text-center md:text-left">
-            <h3 className="mb-2 text-lg font-medium tracking-tight text-[#1a1a1a]">
+            <h3 className="mb-2 text-lg font-medium tracking-tight text-foreground">
               7x cheaper & better for AI with our custom realtime architecture
             </h3>
-            <p className="text-sm leading-relaxed text-[rgba(26,26,26,0.7)]">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               We implement a realtime-first stack that prioritizes AI
               compatibility to deliver superior performance
             </p>
@@ -466,7 +421,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-[rgba(26,26,26,0.1)] bg-white p-4 shadow-md">
               {/* Bar Graph Visual */}
               <div className="flex h-full items-end justify-center gap-6">
-                {/* vly.ai bar */}
+                {/* Freebuff Web bar */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex h-[20px] w-16 items-end justify-center rounded-t-lg bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-sm">
                     <span className="mb-1 text-[10px] font-bold text-white">
@@ -474,9 +429,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Image src="/logo.svg" alt="vly.ai" width={16} height={5} />
+                    <Image src="/freebuff-logo.svg" alt="Freebuff Web" width={16} height={5} />
                     <span className="text-xs font-medium text-[#1a1a1a]">
-                      vly.ai
+                      Freebuff Web
                     </span>
                   </div>
                 </div>
@@ -503,10 +458,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Feature 2 - Image Left */}
         <ScrollFadeIn className="mb-10 flex flex-col items-center gap-8 md:flex-row-reverse">
           <div className="flex-1 text-center md:text-left">
-            <h3 className="mb-2 text-lg font-medium tracking-tight text-[#1a1a1a]">
+            <h3 className="mb-2 text-lg font-medium tracking-tight text-foreground">
               Visualize your backend
             </h3>
-            <p className="text-sm leading-relaxed text-[rgba(26,26,26,0.7)]">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               We generate in-depth visualizations and explanations that unlock
               the black box of AI generated software.
             </p>
@@ -636,10 +591,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Feature 3 - Image Right - Integrations */}
         <ScrollFadeIn className="mb-10 flex flex-col items-center gap-8 md:flex-row">
           <div className="flex-1 text-center md:text-left">
-            <h3 className="mb-2 text-lg font-medium tracking-tight text-[#1a1a1a]">
+            <h3 className="mb-2 text-lg font-medium tracking-tight text-foreground">
               Access thousands of integrations
             </h3>
-            <p className="text-sm leading-relaxed text-[rgba(26,26,26,0.7)]">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               Our integration library contains thousands of custom integrations
               to plug into any provider
             </p>
@@ -718,16 +673,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Feature 4 - Image Left - Caltech Hackathon */}
         <ScrollFadeIn className="mb-10 flex flex-col items-center gap-8 md:flex-row-reverse">
           <div className="flex-1 text-center md:text-left">
-            <h3 className="mb-2 text-lg font-medium tracking-tight text-[#1a1a1a]">
-              Caltech&apos;s Hackathon won with vly.ai
+            <h3 className="mb-2 text-lg font-medium tracking-tight text-foreground">
+              Caltech&apos;s Hackathon won with Freebuff Web
             </h3>
-            <p className="text-sm leading-relaxed text-[rgba(26,26,26,0.7)]">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               The winning software in the most prestigious hackathon in the
-              world was shipped in just 36 hours on vly.ai
+              world was shipped in just 36 hours on Freebuff Web
             </p>
           </div>
           <div className="relative w-full max-w-[320px] flex-shrink-0 md:w-[320px]">
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-[rgba(26,26,26,0.1)] bg-white shadow-md">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/30">
               <Image
                 src="/HackTech_Caltech.png"
                 alt="Hackathon Winner"
@@ -741,19 +696,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Feature 5 - Image Right - Pivot Robotics */}
         <ScrollFadeIn className="flex flex-col items-center gap-8 md:flex-row">
           <div className="flex-1 text-center md:text-left">
-            <h3 className="mb-2 text-lg font-medium tracking-tight text-[#1a1a1a]">
-              Pivot Robotics (YC W24) used vly.ai to save $20,000+
+            <h3 className="mb-2 text-lg font-medium tracking-tight text-foreground">
+              Pivot Robotics (YC W24) used Freebuff Web to save $20,000+
             </h3>
-            <p className="mb-3 text-sm italic leading-relaxed text-[rgba(26,26,26,0.7)]">
-              &ldquo;vly.ai helps us rapidly iterate web software at a fraction
+            <p className="mb-3 text-sm italic leading-relaxed text-muted-foreground">
+              &ldquo;Freebuff Web helps us rapidly iterate web software at a fraction
               of the cost and time&rdquo;
             </p>
-            <p className="text-xs text-[rgba(26,26,26,0.6)]">
+            <p className="text-xs text-muted-foreground/80">
               — Siddarth Girdhar, CEO of Pivot Robotics (YC W24)
             </p>
           </div>
           <div className="relative w-full max-w-[320px] flex-shrink-0 md:w-[320px]">
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-[rgba(26,26,26,0.1)] bg-white shadow-md">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/30">
               <Image
                 src="/Pivot_Robotics.png"
                 alt="Pivot Robotics"
@@ -763,37 +718,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </div>
           </div>
         </ScrollFadeIn>
-      </div>
-
-      {/* Floating Clouds with Parallax */}
-      <div className="pointer-events-none absolute inset-0 z-[5]">
-        {/* Left Cloud - moves left when scrolling */}
-        <div
-          className="absolute -left-[100px] top-[220px] transition-transform duration-0"
-          style={{
-            transform: `translateX(${-scrollY * 0.3}px)`,
-          }}
-        >
-          <img
-            src={cloudImageSrc}
-            alt=""
-            className="h-[200px] w-[400px] object-contain opacity-40"
-          />
-        </div>
-
-        {/* Right Cloud - moves right when scrolling */}
-        <div
-          className="absolute -right-[50px] top-[280px] transition-transform duration-0"
-          style={{
-            transform: `translateX(${scrollY * 0.3}px)`,
-          }}
-        >
-          <img
-            src={cloudImageSrc}
-            alt=""
-            className="h-[200px] w-[400px] object-contain opacity-40"
-          />
-        </div>
       </div>
     </section>
   );

@@ -40,7 +40,7 @@ export const FeatureComparison: React.FC = () => {
   return (
     <div className="relative z-10 mx-auto mt-16 max-w-[800px] px-4">
       <h3 className="mb-8 text-center text-xl font-semibold text-gray-900">
-        Why builders choose vly.ai
+        Why builders choose Freebuff Web
       </h3>
 
       {/* Table Container with outer border */}
@@ -48,9 +48,9 @@ export const FeatureComparison: React.FC = () => {
         {/* Header Row */}
         <div className="grid grid-cols-2 border-b-2 border-gray-300 bg-gray-50">
           <div className="flex items-center gap-2 border-r border-gray-300 px-4 py-3">
-            <img src="/logo.svg" alt="vly.ai" className="h-5 w-5" />
+            <img src="/freebuff-logo.svg" alt="Freebuff Web" className="h-5 w-5" />
             <span className="text-base font-semibold text-gray-900">
-              vly.ai
+              Freebuff Web
             </span>
           </div>
           <div className="flex items-center gap-2 px-4 py-3">
@@ -66,7 +66,7 @@ export const FeatureComparison: React.FC = () => {
             key={index}
             className={`grid grid-cols-2 ${index < vlyFeatures.length - 1 ? "border-b border-gray-300" : ""}`}
           >
-            {/* Vly.ai Feature */}
+            {/* Freebuff Web Feature */}
             <div className="flex items-center gap-3 border-r border-gray-300 px-4 py-3 text-left">
               <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-green-500">
                 <Check className="h-3 w-3 text-white" strokeWidth={3} />

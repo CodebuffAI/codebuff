@@ -19,11 +19,11 @@ const getServerSnapshot = () => false;
 // Style constants
 const styles = {
   navLink:
-    "cursor-pointer font-['Geist'] text-base font-normal leading-none transition-colors hover:scale-105 hover:text-[#A37FBC] active:scale-95",
+    "cursor-pointer font-['Geist'] text-base font-normal leading-none transition-colors hover:scale-105 hover:text-[#7CFF3F] active:scale-95",
   navLinkActive: "text-black",
   navLinkInactive: "text-zinc-500",
   mobileLink:
-    "w-full px-4 py-2 text-left font-['Geist'] transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC]",
+    "w-full px-4 py-2 text-left font-['Geist'] transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F]",
   mobileLinkActive: "font-medium text-black",
   mobileLinkInactive: "text-zinc-800",
 } as const;
@@ -148,7 +148,7 @@ export default function Navigation({
           aria-label="Go to homepage"
         >
           <Image
-            src="/logo.svg"
+            src="/freebuff-logo.svg"
             alt="Logo"
             width={48}
             height={48}
@@ -193,17 +193,17 @@ export default function Navigation({
               aria-expanded={menuOpen}
             >
               {menuOpen ? (
-                <span className="block h-0.5 w-6 translate-y-0.5 rotate-45 bg-[#A37FBC] transition-all duration-200" />
+                <span className="block h-0.5 w-6 translate-y-0.5 rotate-45 bg-[#7CFF3F] transition-all duration-200" />
               ) : (
-                <span className="mb-1 block h-0.5 w-6 bg-[#A37FBC] transition-all duration-200" />
+                <span className="mb-1 block h-0.5 w-6 bg-[#7CFF3F] transition-all duration-200" />
               )}
               {menuOpen ? (
-                <span className="block h-0.5 w-6 -translate-y-0.5 -rotate-45 bg-[#A37FBC] transition-all duration-200" />
+                <span className="block h-0.5 w-6 -translate-y-0.5 -rotate-45 bg-[#7CFF3F] transition-all duration-200" />
               ) : (
-                <span className="mb-1 block h-0.5 w-6 bg-[#A37FBC] transition-all duration-200" />
+                <span className="mb-1 block h-0.5 w-6 bg-[#7CFF3F] transition-all duration-200" />
               )}
               {!menuOpen && (
-                <span className="block h-0.5 w-6 bg-[#A37FBC] transition-all duration-200" />
+                <span className="block h-0.5 w-6 bg-[#7CFF3F] transition-all duration-200" />
               )}
             </button>
             <UserAuthButton mounted={mounted} />

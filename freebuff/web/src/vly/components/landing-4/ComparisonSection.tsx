@@ -30,7 +30,7 @@ export default function ComparisonSection() {
         <div className="flex flex-col items-start justify-start gap-7">
           <div className="flex w-full animate-fade-in-up flex-col items-start justify-start gap-3.5 [animation-delay:100ms]">
             <h2 className="font-serif text-3xl font-normal leading-normal text-black">
-              Compared to <span className="text-[#A37FBC]">other</span>{" "}
+              Compared to <span className="text-[#7CFF3F]">other</span>{" "}
               platforms...
             </h2>
             <div className="mx-auto w-full">
@@ -51,20 +51,20 @@ export default function ComparisonSection() {
           <div className="flex w-full flex-col items-start justify-center gap-10">
             <div className="flex w-full flex-col items-center justify-center gap-4">
               <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
-                {/* vly.ai Column */}
+                {/* Freebuff Web Column */}
                 <div className="flex animate-fade-in-up flex-col items-start justify-start gap-3.5 rounded-[10px] bg-zinc-100 p-5 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-transform duration-200 [animation-delay:200ms] hover:scale-[1.02]">
                   <div className="flex w-full items-center justify-between">
                     <div className="flex flex-col items-start justify-start">
                       <div className="flex items-center gap-2">
                         <Image
-                          src="/logo.svg"
+                          src="/freebuff-logo.svg"
                           alt="vly"
                           width={24}
                           height={24}
                           className="h-6 w-6"
                         />
                         <h3 className="text-lg font-bold leading-7 text-black">
-                          vly.ai
+                          Freebuff Web
                         </h3>
                       </div>
                     </div>
@@ -132,7 +132,7 @@ export default function ComparisonSection() {
 function ComparisonButton({ children }: { children: React.ReactNode }) {
   return (
     <div className="group relative flex items-center justify-end">
-      <div className="cursor-pointer select-none justify-start font-['Geist'] text-lg font-semibold leading-tight text-[#8A8A8A] transition-colors duration-200 hover:text-[#A37FBC]">
+      <div className="cursor-pointer select-none justify-start font-['Geist'] text-lg font-semibold leading-tight text-[#8A8A8A] transition-colors duration-200 hover:text-[#7CFF3F]">
         {children}
         <div className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-black px-2 py-1 text-xs text-white opacity-0 shadow transition-opacity duration-200 group-hover:opacity-100">
           Coming Soon

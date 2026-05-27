@@ -3,9 +3,9 @@ import EarnDashboard from "@/vly/components/earn/EarnDashboard";
 import { createPageMetadata } from "@/vly/lib/site-metadata";
 
 export const metadata = createPageMetadata({
-  title: "Earn | vly.ai",
+  title: "Earn | Freebuff Web",
   description:
-    "Earn credits and rewards as an early vly.ai user through referrals and bounties.",
+    "Earn credits and rewards as an early Freebuff Web user through referrals and bounties.",
   path: "/web/earn",
 });
 

@@ -127,7 +127,7 @@ export const ReviewScoreStrip: React.FC<ReviewScoreStripProps> = ({
   <div className={`inline-flex items-center gap-2 ${className}`}>
     <StarRating {...starRatingProps} />
     <span
-      className="leading-none tracking-[-0.02em] text-[#1a1a1a]"
+      className="leading-none tracking-[-0.02em] text-foreground/85"
       style={{ fontSize: textSize, fontWeight: textWeight }}
     >
       {rating}
@@ -151,10 +151,10 @@ export const ReviewReplicaCard: React.FC<ReviewReplicaCardProps> = ({
   ...starRatingProps
 }) => (
   <article
-    className={`w-full rounded-sm border border-[#E5E7EB] bg-white p-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${className}`}
+    className={`w-full rounded-xl border border-border bg-card p-4 text-left shadow-lg shadow-black/20 ${className}`}
   >
-    <div className="mb-2.5 flex items-start justify-between gap-1.5 sm:gap-2">
-      <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+    <div className="mb-3 flex items-start justify-between gap-1.5 sm:gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <div
           className="flex shrink-0 items-center justify-center rounded-full font-semibold"
           style={{
@@ -169,15 +169,15 @@ export const ReviewReplicaCard: React.FC<ReviewReplicaCardProps> = ({
           {avatarText}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-medium leading-[1.2] text-[#202124]">
+          <p className="truncate text-[15px] font-medium leading-[1.2] text-foreground">
             {reviewerName}
           </p>
-          <p className="text-[12px] leading-[1.25] text-[#5f6368]">
+          <p className="text-[12px] leading-[1.25] text-muted-foreground">
             {reviewerMeta}
           </p>
         </div>
       </div>
-      <p className="shrink-0 pt-0.5 text-[12px] leading-none text-[#5f6368]">
+      <p className="shrink-0 pt-0.5 text-[12px] leading-none text-muted-foreground">
         {reviewDate}
       </p>
     </div>
@@ -185,10 +185,10 @@ export const ReviewReplicaCard: React.FC<ReviewReplicaCardProps> = ({
     <StarRating {...starRatingProps} starSize={13} className="mb-3" />
 
     {title ? (
-      <p className="mb-2.5 text-[14px] leading-[1.35] text-[#202124]">
+      <p className="mb-2.5 text-[14px] font-medium leading-[1.35] text-foreground">
         {title}
       </p>
     ) : null}
-    <p className="text-[14px] leading-[1.4] text-[#202124]">{body}</p>
+    <p className="text-[13px] leading-[1.55] text-foreground/85">{body}</p>
   </article>
 );

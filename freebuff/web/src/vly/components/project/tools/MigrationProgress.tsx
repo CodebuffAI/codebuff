@@ -66,7 +66,7 @@ function getStatusMessage(
     case "exporting":
       return migration.tables_exported
         ? `Exporting data... (${migration.tables_exported.length} tables, ${migration.total_documents_exported || 0} documents)`
-        : "Exporting data from VLY Convex...";
+        : "Exporting data from Freebuff Convex...";
     case "importing":
       return migration.total_documents_imported
         ? `Importing data... (${migration.total_documents_imported} documents imported)`

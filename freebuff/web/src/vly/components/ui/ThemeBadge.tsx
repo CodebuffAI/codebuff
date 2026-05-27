@@ -45,9 +45,9 @@ const getThemeBadgeStyles = (theme: string): ThemeBadgeStyles => {
 
   // Default fallback styles
   const defaultStyles: ThemeBadgeStyles = {
-    borderColor: "#A37FBC",
+    borderColor: "#7CFF3F",
     backgroundColor: "rgba(163, 127, 188, 0.1)",
-    textColor: "#A37FBC",
+    textColor: "#7CFF3F",
     borderStyle: "border",
     shadowStyle: "",
     icon: "⚡",

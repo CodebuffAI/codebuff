@@ -274,7 +274,7 @@ const InputArea = memo(
                     e.stopPropagation();
                     removeImage(index);
                   }}
-                  className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#A37FBC] bg-white text-xs font-bold text-[#A37FBC] transition-colors hover:bg-[#A37FBC]/20 sm:-right-2 sm:-top-2 sm:h-6 sm:w-6"
+                  className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#7CFF3F] bg-white text-xs font-bold text-[#7CFF3F] transition-colors hover:bg-[#7CFF3F]/20 sm:-right-2 sm:-top-2 sm:h-6 sm:w-6"
                   title="Delete image"
                 >
                   ×
@@ -287,7 +287,7 @@ const InputArea = memo(
           {/* Floating arrow - positioned relative to text input */}
           {userInput === "" && (
             <div className="animate-fadeInSlideRight absolute -left-8 top-0 z-20 hidden items-center gap-2 md:flex">
-              <div className="animate-arrowFloat -mt-0.5 text-lg text-[#A37FBC]">
+              <div className="animate-arrowFloat -mt-0.5 text-lg text-[#7CFF3F]">
                 →
               </div>
             </div>
@@ -325,7 +325,7 @@ const InputArea = memo(
             {displayedSuggestions.map((suggestion, index) => (
               <div
                 key={index}
-                className="group relative flex flex-shrink-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-[90px] border-2 border-dashed border-zinc-300 px-3 py-1.5 transition-all hover:border-[#A37FBC] hover:bg-gray-100 sm:gap-2.5 sm:px-4 sm:py-2"
+                className="group relative flex flex-shrink-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-[90px] border-2 border-dashed border-zinc-300 px-3 py-1.5 transition-all hover:border-[#7CFF3F] hover:bg-gray-100 sm:gap-2.5 sm:px-4 sm:py-2"
                 onClick={(e) => setSuggestion(suggestion.prompt, e)}
               >
                 <div className="relative h-5 w-5 overflow-hidden sm:h-6 sm:w-6">
@@ -343,7 +343,7 @@ const InputArea = memo(
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
-                      className="text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC]"
+                      className="text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F]"
                     />
                     <line
                       x1="2"
@@ -353,11 +353,11 @@ const InputArea = memo(
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
-                      className="text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC]"
+                      className="text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F]"
                     />
                   </svg>
                 </div>
-                <div className="justify-center text-center font-['Geist'] text-xs font-normal leading-normal text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC] sm:text-sm">
+                <div className="justify-center text-center font-['Geist'] text-xs font-normal leading-normal text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F] sm:text-sm">
                   {suggestion.label}
                 </div>
               </div>
@@ -738,8 +738,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
   return (
     <div
       id="hero"
-      className="relative -mt-[3vh] min-h-[90vh] px-0 pb-2 pt-[12vh] sm:min-h-[100vh] sm:pt-[15vh] md:mt-0 md:pt-[17vh]"
-      style={{ backgroundColor: "#D3C1E5" }}
+      className="relative -mt-[3vh] min-h-[90vh] bg-background px-0 pb-2 pt-[12vh] sm:min-h-[100vh] sm:pt-[15vh] md:mt-0 md:pt-[17vh]"
     >
       <HeroBackground />
       <div className="relative z-10 mx-auto flex w-[90%] flex-col items-center justify-center md:w-[66%]">
@@ -790,7 +789,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
             <div className="animate-fadeInSlideLeft absolute right-[60px] top-[20vh] hidden flex-col gap-2 pt-4 md:flex">
               <button
                 type="button"
-                className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#A37FBC] ring-offset-2" : ""}`}
+                className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
                 onClick={() => setIsThemePickerOpen(true)}
                 onMouseEnter={() => setHoverTheme(true)}
                 onMouseLeave={() => setHoverTheme(false)}
@@ -802,7 +801,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
                   loading="lazy"
                 />
                 {selectedTheme && (
-                  <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#A37FBC]"></div>
+                  <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
                 )}
                 {hoverTheme && (
                   <div
@@ -842,7 +841,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
               >
                 <button
                   type="button"
-                  className="relative flex hidden h-10 w-10 items-center justify-center rounded-full bg-[#A37FBC] p-0 text-white transition-transform hover:scale-110 active:scale-95 md:flex"
+                  className="relative flex hidden h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] p-0 text-white transition-transform hover:scale-110 active:scale-95 md:flex"
                   onClick={handleStartProject}
                   disabled={isLoading || !userInput.trim()}
                   style={{
@@ -876,7 +875,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
             <div className="animate-fadeInSlideUp relative z-10 mb-4 ml-auto flex max-w-fit gap-2 py-2 pr-[12vw] md:hidden">
               <button
                 type="button"
-                className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#A37FBC] ring-offset-2" : ""}`}
+                className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
                 onClick={() => setIsThemePickerOpen(true)}
               >
                 <img
@@ -886,7 +885,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
                   loading="lazy"
                 />
                 {selectedTheme && (
-                  <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#A37FBC]"></div>
+                  <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
                 )}
               </button>
               <button
@@ -903,7 +902,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
               </button>
               <button
                 type="button"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#A37FBC] p-0 text-white transition-transform hover:scale-110 active:scale-95"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] p-0 text-white transition-transform hover:scale-110 active:scale-95"
                 onClick={handleStartProject}
                 disabled={isLoading || !userInput.trim()}
                 style={{

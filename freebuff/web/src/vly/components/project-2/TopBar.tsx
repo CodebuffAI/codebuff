@@ -10,8 +10,6 @@ import {
   Loader2,
   Phone,
   Gift,
-  Moon,
-  Sun,
 } from 'lucide-react'
 import { FunctionReturnType } from 'convex/server'
 import { api } from '@/convex/_generated/api'
@@ -34,13 +32,13 @@ import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
 export function TopBar({
   project,
   onMobileSidebarToggle,
-  projectTheme,
-  onToggleProjectTheme,
 }: {
   project: FunctionReturnType<typeof api.project.getProjectData>
   onMobileSidebarToggle?: () => void
-  projectTheme: ProjectPageTheme
-  onToggleProjectTheme: () => void
+  // Kept for backward compatibility with existing call sites; dark mode is
+  // enforced for Freebuff Web so these props are no longer used.
+  projectTheme?: ProjectPageTheme
+  onToggleProjectTheme?: () => void
 }) {
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
   const [founderContactOpen, setFounderContactOpen] = useState(false)
@@ -93,7 +91,7 @@ export function TopBar({
         projectId: project._id,
         title:
           project.name || project.semantic_identifier || 'Untitled Project',
-        description: 'A project built with Vly',
+        description: 'A project built with Freebuff',
         tags: [],
       })
 
@@ -152,7 +150,7 @@ export function TopBar({
   return (
     <>
       <div
-        className="h-10 w-full overflow-hidden bg-slate-50 dark:bg-[linear-gradient(180deg,#1f2020_0%,#242424_100%)] dark:shadow-[inset_0_-1px_0_rgba(62,62,62,0.78)]"
+        className="h-10 w-full overflow-hidden bg-[linear-gradient(180deg,#0a0a0b_0%,#121214_100%)] shadow-[inset_0_-1px_0_rgba(124,255,63,0.18)]"
         style={{ contain: 'layout style paint', isolation: 'isolate' }}
       >
         <div className="relative flex h-full w-full items-center justify-between px-2">
@@ -167,49 +165,45 @@ export function TopBar({
             {onMobileSidebarToggle && (
               <button
                 onClick={onMobileSidebarToggle}
-                className="flex h-8 w-8 items-center justify-center rounded border border-[#d8d8d8] bg-[#f1f1f1] transition-colors hover:bg-[#e8e8e8] dark:border-[#575757] dark:bg-[#3c3c3c] dark:hover:bg-[#4a4a4a] lg:hidden"
+                className="flex h-8 w-8 items-center justify-center rounded border border-[#3a3a3a] bg-[#1a1a1c] transition-colors hover:bg-[#23232a] lg:hidden"
                 aria-label="Toggle sidebar"
               >
-                <Menu className="h-4 w-4 text-zinc-800 dark:text-zinc-100" />
+                <Menu className="h-4 w-4 text-zinc-100" />
               </button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 rounded border border-[#d8d8d8] bg-[#f1f1f1] px-2 py-1 transition-colors hover:bg-[#e8e8e8] dark:border-[#575757] dark:bg-[#3c3c3c] dark:hover:bg-[#4a4a4a]">
+                <button className="flex items-center gap-1 rounded border border-[#3a3a3a] bg-[#1a1a1c] px-2 py-1 transition-colors hover:bg-[#23232a]">
                   <img
-                    src={
-                      projectTheme === 'dark'
-                        ? '/logos/faclon_logo_rounded_white.png'
-                        : '/logo.svg'
-                    }
-                    alt="Logo"
-                    className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
+                    src="/freebuff-logo.svg"
+                    alt="Freebuff Web logo"
+                    className="h-5 w-5 flex-shrink-0 object-contain"
                   />
-                  <ChevronDown className="h-3 w-3 text-zinc-800 dark:text-zinc-100" />
+                  <ChevronDown className="h-3 w-3 text-zinc-100" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-48 rounded-lg border border-white/20 bg-white shadow-lg backdrop-blur-2xl dark:border-[#575757] dark:bg-[#282828]">
+              <DropdownMenuContent className="w-48 rounded-lg border border-[#3a3a3a] bg-[#121214] shadow-lg backdrop-blur-2xl">
                 <DropdownMenuItem
-                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                   onClick={() => (window.location.href = '/web')}
                 >
                   Home
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                   onClick={() => (window.location.href = '/web/dashboard')}
                 >
                   My Projects
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                   onClick={() => (window.location.href = '/web/community')}
                 >
                   Community
                 </DropdownMenuItem>
                 {currentUserId && (
                   <DropdownMenuItem
-                    className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                    className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                     onClick={() =>
                       (window.location.href = `/web/community/profile/${currentUserId}`)
                     }
@@ -218,13 +212,13 @@ export function TopBar({
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                   onClick={() => (window.location.href = '/web/dashboard')}
                 >
                   Billing
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-800 transition-colors duration-200 hover:bg-[#F5EFFF] hover:text-[#A37FBC] focus:bg-[#F5EFFF] focus:text-[#A37FBC] data-[highlighted]:bg-[#F5EFFF] data-[highlighted]:text-[#A37FBC] dark:text-zinc-100 dark:hover:bg-[#3c3c3c] dark:hover:text-zinc-100 dark:focus:bg-[#3c3c3c] dark:focus:text-zinc-100 dark:data-[highlighted]:bg-[#3c3c3c] dark:data-[highlighted]:text-zinc-100"
+                  className="w-full px-4 py-2 text-left font-['Geist'] text-zinc-100 transition-colors duration-200 hover:bg-[#1f2a1c] hover:text-[#7CFF3F] focus:bg-[#1f2a1c] focus:text-[#7CFF3F] data-[highlighted]:bg-[#1f2a1c] data-[highlighted]:text-[#7CFF3F]"
                   onClick={() =>
                     (window.location.href = '/web/dashboard/preferences')
                   }
@@ -241,37 +235,10 @@ export function TopBar({
             className="flex items-center gap-1.5 md:gap-2"
             style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
           >
-            <motion.button
-              className="flex h-8 w-8 transform-gpu items-center justify-center rounded border border-slate-300 bg-slate-100 text-zinc-800 outline outline-1 outline-offset-[-1px] outline-neutral-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-slate-200 dark:border-[#575757] dark:bg-[#3c3c3c] dark:text-zinc-100 dark:outline-[#575757] dark:hover:bg-[#4a4a4a]"
-              variants={buttonVariants}
-              initial="hidden"
-              animate="visible"
-              custom={0}
-              onClick={onToggleProjectTheme}
-              title={
-                projectTheme === 'dark'
-                  ? 'Switch to light mode'
-                  : 'Switch to dark mode'
-              }
-              aria-label={
-                projectTheme === 'dark'
-                  ? 'Switch to light mode'
-                  : 'Switch to dark mode'
-              }
-            >
-              <div className="flex h-4 w-4 items-center justify-center">
-                {projectTheme === 'dark' ? (
-                  <Sun className="h-3 w-3 text-zinc-100" />
-                ) : (
-                  <Moon className="h-3 w-3 text-zinc-800" />
-                )}
-              </div>
-            </motion.button>
-
             {/* Founder Contact button - only shows for Priority plan or above */}
             {hasPhoneSupport && (
               <motion.button
-                className="flex transform-gpu items-center justify-center gap-1 rounded bg-gradient-to-r from-amber-50 to-orange-50 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-amber-300 transition-all duration-200 hover:-translate-y-[1px] hover:from-amber-100 hover:to-orange-100 dark:from-amber-500/20 dark:to-orange-500/20 dark:outline-amber-600/60 dark:hover:from-amber-500/30 dark:hover:to-orange-500/30"
+                className="flex transform-gpu items-center justify-center gap-1 rounded bg-gradient-to-r from-amber-500/15 to-orange-500/15 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-amber-600/60 transition-all duration-200 hover:-translate-y-[1px] hover:from-amber-500/25 hover:to-orange-500/25"
                 variants={buttonVariants}
                 initial="hidden"
                 animate="visible"
@@ -279,9 +246,9 @@ export function TopBar({
                 onClick={() => setFounderContactOpen(true)}
               >
                 <div className="flex h-4 w-4 items-center justify-center">
-                  <Phone className="h-3 w-3 text-amber-700 dark:text-amber-300" />
+                  <Phone className="h-3 w-3 text-amber-300" />
                 </div>
-                <div className="hidden text-xs font-medium leading-none text-amber-700 dark:text-amber-300 sm:block">
+                <div className="hidden text-xs font-medium leading-none text-amber-300 sm:block">
                   Contact Founder
                 </div>
               </motion.button>
@@ -290,7 +257,7 @@ export function TopBar({
             {/* Listing button - only shows after successful deployment AND published to community */}
             {showListingButton && (
               <motion.button
-                className="flex transform-gpu items-center justify-center gap-1 rounded bg-emerald-50 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-emerald-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-emerald-100 dark:bg-emerald-500/20 dark:outline-emerald-600/60 dark:hover:bg-emerald-500/30"
+                className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#7CFF3F]/15 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]/50 transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#7CFF3F]/25"
                 variants={buttonVariants}
                 initial="hidden"
                 animate="visible"
@@ -298,9 +265,9 @@ export function TopBar({
                 onClick={handleViewListing}
               >
                 <div className="flex h-4 w-4 items-center justify-center">
-                  <Eye className="h-3 w-3 text-emerald-700 dark:text-emerald-300" />
+                  <Eye className="h-3 w-3 text-[#7CFF3F]" />
                 </div>
-                <div className="hidden text-xs font-medium leading-none text-emerald-700 dark:text-emerald-300 sm:block">
+                <div className="hidden text-xs font-medium leading-none text-[#7CFF3F] sm:block">
                   Listing
                 </div>
               </motion.button>
@@ -308,23 +275,23 @@ export function TopBar({
 
             <InviteDialog projectId={project._id} className="glass-morphism">
               <motion.button
-                className="flex transform-gpu items-center justify-center gap-1 rounded bg-slate-100 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-neutral-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-slate-200 dark:bg-[#3c3c3c] dark:outline-[#575757] dark:hover:bg-[#4a4a4a]"
+                className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#1a1a1c] px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-[#3a3a3a] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#23232a]"
                 variants={buttonVariants}
                 initial="hidden"
                 animate="visible"
                 custom={3}
               >
                 <div className="flex h-4 w-4 items-center justify-center">
-                  <Users className="h-3 w-3 text-zinc-800 dark:text-zinc-100" />
+                  <Users className="h-3 w-3 text-zinc-100" />
                 </div>
-                <div className="hidden text-xs font-normal leading-none text-zinc-800 dark:text-zinc-100 sm:block">
+                <div className="hidden text-xs font-normal leading-none text-zinc-100 sm:block">
                   Add Collaborators
                 </div>
               </motion.button>
             </InviteDialog>
 
             <motion.button
-              className="flex transform-gpu items-center justify-center gap-1 rounded bg-emerald-50 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-emerald-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-emerald-100 dark:bg-emerald-500/20 dark:outline-emerald-600/60 dark:hover:bg-emerald-500/30"
+              className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#7CFF3F]/15 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]/50 transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#7CFF3F]/25"
               variants={buttonVariants}
               initial="hidden"
               animate="visible"
@@ -332,15 +299,15 @@ export function TopBar({
               onClick={handleOpenEarn}
             >
               <div className="flex h-4 w-4 items-center justify-center">
-                <Gift className="h-3 w-3 text-emerald-700 dark:text-emerald-300" />
+                <Gift className="h-3 w-3 text-[#7CFF3F]" />
               </div>
-              <div className="hidden text-xs font-medium leading-none text-emerald-700 dark:text-emerald-300 sm:block">
+              <div className="hidden text-xs font-medium leading-none text-[#7CFF3F] sm:block">
                 Earn Credits
               </div>
             </motion.button>
 
             <motion.button
-              className="flex transform-gpu items-center justify-center gap-1 rounded bg-slate-100 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-neutral-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-slate-200 dark:bg-[#3c3c3c] dark:outline-[#575757] dark:hover:bg-[#4a4a4a]"
+              className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#1a1a1c] px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-[#3a3a3a] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#23232a]"
               variants={buttonVariants}
               initial="hidden"
               animate="visible"
@@ -348,15 +315,15 @@ export function TopBar({
               onClick={handleUpgradeClick}
             >
               <div className="flex h-4 w-4 items-center justify-center">
-                <Crown className="h-3 w-3 text-zinc-800 dark:text-zinc-100" />
+                <Crown className="h-3 w-3 text-zinc-100" />
               </div>
-              <div className="hidden text-xs font-normal leading-none text-zinc-800 dark:text-zinc-100 sm:block">
+              <div className="hidden text-xs font-normal leading-none text-zinc-100 sm:block">
                 Pricing
               </div>
             </motion.button>
 
             <motion.button
-              className="flex transform-gpu items-center justify-center gap-1 rounded bg-slate-100 px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-neutral-200 transition-all duration-200 hover:-translate-y-[1px] hover:bg-slate-200 dark:bg-[#3c3c3c] dark:outline-[#575757] dark:hover:bg-[#4a4a4a]"
+              className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#1a1a1c] px-1.5 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-[#3a3a3a] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#23232a]"
               variants={buttonVariants}
               initial="hidden"
               animate="visible"
@@ -368,15 +335,15 @@ export function TopBar({
               }}
             >
               <div className="flex h-4 w-4 items-center justify-center">
-                <Eye className="h-3 w-3 text-zinc-800 dark:text-zinc-100" />
+                <Eye className="h-3 w-3 text-zinc-100" />
               </div>
-              <div className="hidden text-xs font-normal leading-none text-zinc-800 dark:text-zinc-100 sm:block">
+              <div className="hidden text-xs font-normal leading-none text-zinc-100 sm:block">
                 Preview Site
               </div>
             </motion.button>
 
             <motion.button
-              className="flex transform-gpu items-center justify-center gap-1 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-2 py-1 text-xs shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:from-violet-400 hover:to-fuchsia-400 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex transform-gpu items-center justify-center gap-1 rounded bg-[#7CFF3F] px-2 py-1 text-xs shadow-[0_0_18px_-2px_rgba(124,255,63,0.6)] transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#9bff64] hover:shadow-[0_0_22px_-2px_rgba(124,255,63,0.8)] disabled:cursor-not-allowed disabled:opacity-50"
               variants={buttonVariants}
               initial="hidden"
               animate="visible"
@@ -386,12 +353,12 @@ export function TopBar({
             >
               <div className="flex h-4 w-4 items-center justify-center">
                 {isPublishing ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-white" />
+                  <Loader2 className="h-3 w-3 animate-spin text-black" />
                 ) : (
-                  <Rocket className="h-3 w-3 text-white" />
+                  <Rocket className="h-3 w-3 text-black" />
                 )}
               </div>
-              <div className="hidden text-xs font-medium leading-none text-white sm:block">
+              <div className="hidden text-xs font-semibold leading-none text-black sm:block">
                 {isPublishing ? 'Publishing...' : 'Publish'}
               </div>
             </motion.button>

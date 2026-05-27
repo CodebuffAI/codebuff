@@ -77,7 +77,7 @@ export default function ExploreFeed() {
                 Explore Projects
               </h1>
               <p className="mt-1 text-gray-500">
-                Discover amazing projects built by the Vly community
+                Discover amazing projects built by the Freebuff community
               </p>
             </div>
             <Button

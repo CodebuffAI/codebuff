@@ -170,7 +170,7 @@ export function TierBenefits({ tierId, className }: TierBenefitsProps) {
                 />
               </svg>
             }
-            title="Remove vly.ai Branding"
+            title="Remove Freebuff Web Branding"
             description="White-label your projects"
             isIncluded={currentTier.features.no_vlyai_branding}
           />

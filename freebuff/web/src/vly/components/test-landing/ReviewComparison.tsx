@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
-// All VLY testimonial images
+// All Freebuff testimonial images
 const VLY_TESTIMONIALS = [
   "/reviews/vly_testimonial.png",
   "/reviews/vly_testimonial_2.png",
@@ -236,32 +236,32 @@ export const ReviewComparison: React.FC = () => {
                     <div className="w-[1px] flex-1 bg-[#e8eaed]" />
                   </div>
 
-                  {/* VLY Side (Right) */}
+                  {/* Freebuff Side (Right) */}
                   <div className="flex flex-1 flex-col">
-                    {/* VLY Header */}
+                    {/* Freebuff Header */}
                     <div className="mb-3 flex items-center gap-2">
                       <div className="relative h-6 w-6">
                         <Image
-                          src="/logo.svg"
-                          alt="vly.ai"
+                          src="/freebuff-logo.svg"
+                          alt="Freebuff Web"
                           width={24}
                           height={24}
                           className="h-6 w-6 object-contain"
                         />
                       </div>
                       <span className="text-xs font-semibold text-[rgba(26,26,26,0.85)]">
-                        vly.ai
+                        Freebuff Web
                       </span>
                       <span className="text-xs font-medium text-[rgba(26,26,26,0.5)]">
                         review
                       </span>
                     </div>
 
-                    {/* VLY Review Card - Google Docs Style */}
+                    {/* Freebuff Review Card - Google Docs Style */}
                     <div className="overflow-hidden rounded-[3px] border border-[#dadce0] bg-white p-1 shadow-[0_1px_2px_0_rgba(60,64,67,0.08)]">
                       <Image
                         src={competitor.vlyReview}
-                        alt="vly.ai review"
+                        alt="Freebuff Web review"
                         width={350}
                         height={400}
                         className="h-auto w-full object-contain"
@@ -291,7 +291,7 @@ export const ReviewComparison: React.FC = () => {
           {/* Bottom CTA - Google Docs Style */}
           <div className="mt-14 text-center">
             <a
-              href="https://www.trustpilot.com/review/vly.ai"
+              href="https://www.trustpilot.com/review/freebuff.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-[3px] border border-[#dadce0] bg-[#ffffff] px-4 py-2 font-['Google_Sans',system-ui,sans-serif] text-[13px] font-medium text-[#1a73e8] transition-all duration-200 hover:border-[#c7c7c7] hover:bg-[#f8f9fa]"
@@ -314,7 +314,7 @@ export const ReviewComparison: React.FC = () => {
           </div>
         </div>
 
-        {/* VLY Testimonials Gallery - Google Docs Style */}
+        {/* Freebuff Testimonials Gallery - Google Docs Style */}
         <div className="mx-auto mt-20 max-w-[900px] px-8">
           {/* Gallery Header - Google Docs Style */}
           <div className="mb-8 text-center">
@@ -329,7 +329,7 @@ export const ReviewComparison: React.FC = () => {
               What our users are saying
             </h3>
             <p className="font-['Roboto',system-ui,sans-serif] text-[13px] leading-[20px] text-[#5f6368]">
-              Click any review to expand • Real testimonials from the vly.ai
+              Click any review to expand • Real testimonials from the Freebuff Web
               community
             </p>
           </div>
@@ -348,7 +348,7 @@ export const ReviewComparison: React.FC = () => {
                 <div className="relative">
                   <Image
                     src={testimonial}
-                    alt={`vly.ai testimonial ${index + 1}`}
+                    alt={`Freebuff Web testimonial ${index + 1}`}
                     width={450}
                     height={350}
                     className="block h-auto w-full"
@@ -382,7 +382,7 @@ export const ReviewComparison: React.FC = () => {
           {/* Gallery CTA - Google Docs Style */}
           <div className="mt-10 text-center">
             <a
-              href="https://www.trustpilot.com/review/vly.ai"
+              href="https://www.trustpilot.com/review/freebuff.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-[3px] border border-[#dadce0] bg-[#f8f9fa] px-4 py-2 font-['Google_Sans',system-ui,sans-serif] text-[13px] font-medium text-[#3c4043] transition-all duration-200 hover:border-[#c7c7c7] hover:bg-[#f1f3f4] hover:shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]"
@@ -474,20 +474,20 @@ export const ReviewComparisonCompact: React.FC = () => {
         </p>
       </div>
 
-      {/* vly.ai vs Bolt.new comparison */}
+      {/* Freebuff Web vs Bolt.new comparison */}
       <div className="flex items-start gap-3">
-        {/* vly.ai review */}
+        {/* Freebuff Web review */}
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-1.5">
             <Image
-              src="/logo.svg"
-              alt="vly.ai"
+              src="/freebuff-logo.svg"
+              alt="Freebuff Web"
               width={14}
               height={14}
               className="h-3.5 w-3.5"
             />
             <span className="text-[10px] font-medium text-foreground">
-              Verified vly.ai review
+              Verified Freebuff Web review
             </span>
           </div>
           <div
@@ -496,14 +496,14 @@ export const ReviewComparisonCompact: React.FC = () => {
           >
             <Image
               src="/reviews/vly_review_1.png"
-              alt="vly.ai review"
+              alt="Freebuff Web review"
               width={200}
               height={150}
               className="h-auto w-full object-contain"
             />
           </div>
           <a
-            href="https://www.trustpilot.com/review/vly.ai"
+            href="https://www.trustpilot.com/review/freebuff.com"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 inline-block text-[10px] text-muted-foreground hover:text-foreground"

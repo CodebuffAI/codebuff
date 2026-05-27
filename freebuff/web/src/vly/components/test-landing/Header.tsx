@@ -41,8 +41,8 @@ export interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  logoSrc = '/logo.svg',
-  logoAlt = 'vly.ai',
+  logoSrc = '/freebuff-logo.svg',
+  logoAlt = 'Freebuff Web',
   className = '',
   showHome = false,
 }) => {
@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
       label: 'Earn',
       href: '/web/earn',
       badge: (
-        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+        <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
           new
         </span>
       ),
@@ -126,13 +126,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   const renderNavItem = (item: HeaderLink, index: number) => {
     const active = isActive(item.href)
-    const baseClass = `relative z-10 flex items-center justify-center rounded-full transition-all cursor-pointer ${
-      active ? 'bg-black/10 font-medium' : 'hover:bg-black/5 font-normal'
-    } ${
-      isScrolled
-        ? 'px-2.5 py-1 text-xs text-[#1a1a1a]'
-        : 'px-3 py-1.5 text-sm text-[#1a1a1a]'
-    }`
+    const baseClass = `relative z-10 flex items-center justify-center rounded-full transition-all cursor-pointer text-foreground/85 hover:text-foreground ${
+      active ? 'bg-foreground/10 font-medium text-foreground' : 'hover:bg-foreground/5 font-normal'
+    } ${isScrolled ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'}`
 
     if (item.onClick) {
       return (
@@ -215,13 +211,13 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div className="flex flex-col gap-1.5">
             <span
-              className={`block h-0.5 w-6 bg-[#1a1a1a] transition-all duration-300 ${isMobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}
+              className={`block h-0.5 w-6 bg-foreground transition-all duration-300 ${isMobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}
             />
             <span
-              className={`block h-0.5 w-6 bg-[#1a1a1a] transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}
+              className={`block h-0.5 w-6 bg-foreground transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}
             />
             <span
-              className={`block h-0.5 w-6 bg-[#1a1a1a] transition-all duration-300 ${isMobileMenuOpen ? '-translate-y-2 -rotate-45' : ''}`}
+              className={`block h-0.5 w-6 bg-foreground transition-all duration-300 ${isMobileMenuOpen ? '-translate-y-2 -rotate-45' : ''}`}
             />
           </div>
         </button>
@@ -231,7 +227,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             className={`flex items-center rounded-full border transition-all duration-500 ${
               isScrolled
-                ? 'gap-1 border-white/60 bg-white/50 px-2 py-0.5 shadow-lg shadow-black/[0.03] backdrop-blur-xl'
+                ? 'gap-1 border-border/60 bg-card/70 px-2 py-0.5 shadow-lg shadow-black/30 backdrop-blur-xl'
                 : 'gap-3 border-transparent bg-transparent px-4 py-1 shadow-none backdrop-blur-0'
             }`}
           >
@@ -256,10 +252,10 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      className="z-[10001] w-56 rounded-lg border border-gray-200 bg-white p-0 shadow-lg"
+                      className="z-[10001] w-56 rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-xl shadow-black/40"
                       align="end"
                     >
-                      <div className="border-b border-gray-100 p-4">
+                      <div className="border-b border-border p-4">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={userImage} alt={userName} />
@@ -268,10 +264,10 @@ export const Header: React.FC<HeaderProps> = ({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-gray-900">
+                            <p className="truncate text-sm font-medium text-foreground">
                               {userName}
                             </p>
-                            <p className="truncate text-sm text-gray-500">
+                            <p className="truncate text-sm text-muted-foreground">
                               {userEmail}
                             </p>
                           </div>
@@ -279,14 +275,14 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <div className="py-1">
                         <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() => router.push('/web/dashboard')}
                         >
                           My Projects
                         </DropdownMenuItem>
                         {currentUserId ? (
                           <DropdownMenuItem
-                            className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                            className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                             onClick={() =>
                               router.push(
                                 `/web/community/profile/${currentUserId}`,
@@ -297,7 +293,7 @@ export const Header: React.FC<HeaderProps> = ({
                           </DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() =>
                             router.push('/web/dashboard/preferences')
                           }
@@ -305,13 +301,13 @@ export const Header: React.FC<HeaderProps> = ({
                           Manage account
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() => router.push('/web/dashboard')}
                         >
                           Dashboard
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() =>
                             router.push('/web/dashboard/preferences')
                           }
@@ -320,7 +316,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900"
+                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() => signOut({ callbackUrl: '/' })}
                         >
                           Sign out
@@ -332,10 +328,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <SignedOut>
                   <SignInButton mode="modal" asChild>
                     <button
-                      className={`relative z-10 flex items-center justify-center rounded-full bg-[#1a1a1a] transition-all hover:bg-black ${
+                      className={`relative z-10 flex items-center justify-center rounded-full bg-primary font-medium text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)] ${
                         isScrolled
-                          ? 'px-3 py-1 text-xs font-normal text-white'
-                          : 'px-4 py-2 text-sm font-normal text-white'
+                          ? 'px-3 py-1 text-xs'
+                          : 'px-4 py-2 text-sm'
                       }`}
                     >
                       Sign In
@@ -345,7 +341,7 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             ) : (
               <div
-                className={`animate-pulse rounded-full bg-gray-200 ${
+                className={`animate-pulse rounded-full bg-muted ${
                   isScrolled ? 'h-7 w-7' : 'h-9 w-9'
                 }`}
               />
@@ -364,13 +360,13 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Menu Panel */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-[280px] bg-white shadow-xl transition-transform duration-300 md:hidden ${
+        className={`fixed right-0 top-0 z-50 h-full w-[280px] border-l border-border bg-card text-foreground shadow-2xl shadow-black/50 transition-transform duration-300 md:hidden ${
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
           {/* Mobile Menu Header */}
-          <div className="flex items-center justify-between border-b p-4">
+          <div className="flex items-center justify-between border-b border-border p-4">
             <h2 className="text-lg font-semibold">Menu</h2>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
@@ -396,10 +392,10 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col gap-2">
               {navItems.map((item, index) => {
                 const active = isActive(item.href)
-                const baseClass = `flex items-center px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                const baseClass = `flex items-center px-4 py-3 rounded-lg transition-all cursor-pointer text-foreground/85 hover:text-foreground ${
                   active
-                    ? 'bg-black/10 font-medium text-[#1a1a1a]'
-                    : 'hover:bg-black/5 font-normal text-[#1a1a1a]'
+                    ? 'bg-foreground/10 font-medium text-foreground'
+                    : 'hover:bg-foreground/5 font-normal'
                 }`
 
                 if (item.onClick) {
@@ -471,7 +467,7 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Mobile Menu Footer with Auth */}
-          <div className="border-t p-4">
+          <div className="border-t border-border p-4">
             <SignedIn>
               {user && (
                 <div className="flex flex-col gap-3">
@@ -481,10 +477,10 @@ export const Header: React.FC<HeaderProps> = ({
                       <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-[#1a1a1a]">
+                      <p className="text-sm font-medium text-foreground">
                         {userName}
                       </p>
-                      <p className="text-xs text-gray-500">{userEmail}</p>
+                      <p className="text-xs text-muted-foreground">{userEmail}</p>
                     </div>
                   </div>
                   <button
@@ -494,7 +490,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }
                       setIsMobileMenuOpen(false)
                     }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100"
+                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
                     Profile
                   </button>
@@ -503,7 +499,7 @@ export const Header: React.FC<HeaderProps> = ({
                       router.push('/web/dashboard/preferences')
                       setIsMobileMenuOpen(false)
                     }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100"
+                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
                     Profile Settings
                   </button>
@@ -512,7 +508,7 @@ export const Header: React.FC<HeaderProps> = ({
                       router.push('/web/dashboard')
                       setIsMobileMenuOpen(false)
                     }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100"
+                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
                     Dashboard
                   </button>
@@ -521,7 +517,7 @@ export const Header: React.FC<HeaderProps> = ({
                       router.push('/web/dashboard/preferences')
                       setIsMobileMenuOpen(false)
                     }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100"
+                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
                     Email Preferences
                   </button>
@@ -530,7 +526,7 @@ export const Header: React.FC<HeaderProps> = ({
                       signOut({ callbackUrl: '/' })
                       setIsMobileMenuOpen(false)
                     }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-red-600 transition-colors hover:bg-gray-100"
+                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
                   >
                     Sign out
                   </button>
@@ -540,7 +536,7 @@ export const Header: React.FC<HeaderProps> = ({
             <SignedOut>
               <div className="flex flex-col gap-2">
                 <SignInButton mode="modal" asChild>
-                  <button className="w-full rounded-lg bg-black px-4 py-2 text-white transition-colors hover:bg-gray-800">
+                  <button className="w-full rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:shadow-[0_0_18px_rgba(124,255,63,0.35)]">
                     Sign in
                   </button>
                 </SignInButton>

@@ -144,7 +144,7 @@ export default function DivergenceResolutionDialog({
       case "use_github_version":
         return <Github className="h-5 w-5 text-slate-600" />;
       case "use_local_version":
-        return <img src="/logo.svg" alt="vly.ai logo" className="h-5 w-5" />;
+        return <img src="/freebuff-logo.svg" alt="Freebuff Web logo" className="h-5 w-5" />;
       case "use_backup_version":
         return <RotateCcw className="h-5 w-5 text-slate-600" />;
       default:
@@ -175,7 +175,7 @@ export default function DivergenceResolutionDialog({
     },
     {
       id: "use_local_version",
-      title: "Use Current vly.ai Version",
+      title: "Use Current Freebuff Web Version",
       description: getStrategyDescription("use_local_version"),
       impact: "Safe - GitHub version is backed up first",
       recommended: divergenceInfo?.divergenceType === "ahead",

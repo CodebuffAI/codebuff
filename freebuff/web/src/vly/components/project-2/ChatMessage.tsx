@@ -105,7 +105,7 @@ const UserMessageContent: React.FC<{
       .replace(/\(selector: ([^)]+)\)/, (m, sel) => `· ${sel}`);
     selectionBadge = (
       <div
-        className="mb-1 inline-flex items-center gap-1 truncate rounded border border-[#A37FBC]/30 bg-[#A37FBC]/10 px-2 py-0.5 text-xs font-medium text-[#A37FBC] shadow-sm dark:border-[#575757] dark:bg-[#282828] dark:text-zinc-100"
+        className="mb-1 inline-flex items-center gap-1 truncate rounded border border-[#7CFF3F]/30 bg-[#7CFF3F]/10 px-2 py-0.5 text-xs font-medium text-[#7CFF3F] shadow-sm dark:border-[#575757] dark:bg-[#282828] dark:text-zinc-100"
         style={{ maxWidth: 200 }}
         title={firstLine.replace("Selected node: ", "")}
       >

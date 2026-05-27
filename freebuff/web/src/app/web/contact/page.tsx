@@ -3,8 +3,8 @@ import { ContactPage as ContactPageComponent } from "@/vly/components/ContactPag
 import { createPageMetadata } from "@/vly/lib/site-metadata";
 
 export const metadata = createPageMetadata({
-  title: "Contact | vly.ai",
-  description: "Get in touch with the vly.ai team.",
+  title: "Contact | Freebuff Web",
+  description: "Get in touch with the Freebuff Web team.",
   path: "/web/contact",
 });
 

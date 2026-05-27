@@ -25,14 +25,15 @@ export default async function WebLayout({
   }
 
   return (
-    <div className="min-h-screen overflow-y-scroll bg-[#CBCFDA] font-sans antialiased text-black">
+    <div className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#0a0a0b] font-sans antialiased text-zinc-100">
       <ConvexClientProvider>
         <ReactQueryProvider>
           <TooltipProvider>
             <PosthogIdentificationProvider>
               <ThemeProvider
                 attribute="class"
-                defaultTheme="light"
+                defaultTheme="dark"
+                forcedTheme="dark"
                 enableSystem={false}
                 disableTransitionOnChange
               >

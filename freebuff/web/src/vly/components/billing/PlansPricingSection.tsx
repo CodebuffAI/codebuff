@@ -16,8 +16,9 @@ export function PlansPricingSection(_props: PlansPricingSectionProps = {}) {
         Paid upgrades are temporarily unavailable
       </h2>
       <p className="mt-4 text-sm leading-6 text-zinc-600">
-        Freebuff and Vly billing are being unified. Existing project access
-        remains available, but checkout and paid plan changes are disabled.
+        Freebuff Web billing is being unified into Freebuff. Existing project
+        access remains available, but checkout and paid plan changes are
+        temporarily disabled.
       </p>
       <Link
         href="/web/dashboard"

@@ -408,7 +408,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-gray-400">
-              <span>vly.ai</span>
+              <span>Freebuff Web</span>
             </div>
           </div>
 
@@ -506,9 +506,9 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsThemePickerOpen(true)}
-                  className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all hover:border-[#A37FBC] hover:bg-purple-50 ${
+                  className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all hover:border-[#7CFF3F] hover:bg-purple-50 ${
                     selectedTheme
-                      ? "border-[#A37FBC] bg-purple-50 text-[#A37FBC]"
+                      ? "border-[#7CFF3F] bg-purple-50 text-[#7CFF3F]"
                       : "border-gray-300 text-gray-600"
                   }`}
                 >

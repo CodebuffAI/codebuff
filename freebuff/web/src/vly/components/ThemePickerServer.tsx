@@ -50,7 +50,7 @@ function ThemePickerServer({
     <ThemePickerLayout
       title={
         <>
-          Choose Your <span className="text-[#A37FBC]">Theme</span>
+          Choose Your <span className="text-[#7CFF3F]">Theme</span>
         </>
       }
       subtitle="Select a visual style for your project"

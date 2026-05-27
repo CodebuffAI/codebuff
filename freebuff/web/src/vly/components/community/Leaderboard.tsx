@@ -79,7 +79,7 @@ export default function Leaderboard() {
                 Leaderboard
               </h1>
               <p className="mt-1 text-gray-500">
-                Top projects and creators in the Vly community
+                Top projects and creators in the Freebuff community
               </p>
             </div>
           </div>

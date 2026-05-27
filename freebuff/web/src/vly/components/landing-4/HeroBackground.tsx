@@ -1,26 +1,24 @@
-import Image from "next/image";
-
 export function HeroBackground() {
   return (
     <>
-      {/* Background with optimized WebP image and responsive sizes */}
       <div
-        className="absolute inset-0 z-0 h-full min-h-full w-full"
-        style={{ backgroundColor: "#D3C1E5" }}
+        aria-hidden
+        className="absolute inset-0 z-0 h-full min-h-full w-full bg-background"
       >
-        <Image
-          src="/landing/bg-clouds.webp"
-          alt="Hero background clouds"
-          fill
-          priority
-          quality={85}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 100vw"
+        <div
+          className="absolute inset-0"
           style={{
-            objectFit: "cover",
-            objectPosition: "center",
+            background:
+              "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(124, 255, 63, 0.16), transparent 55%), radial-gradient(ellipse 60% 35% at 50% 30%, rgba(18, 73, 33, 0.55), transparent 70%)",
           }}
-          placeholder="blur"
-          blurDataURL="data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA="
+        />
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(124,255,63,0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(124,255,63,0.5) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
         />
       </div>
     </>

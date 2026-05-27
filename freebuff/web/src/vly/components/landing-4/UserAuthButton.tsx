@@ -148,7 +148,7 @@ export default function UserAuthButton({ mounted }: UserAuthButtonProps) {
       <SignedOut>
         <SignInButton mode="modal" asChild>
           <button
-            className="flex h-7 w-24 cursor-pointer items-center justify-center rounded-[90px] bg-[#CCB8DA] font-semibold text-white transition-colors hover:bg-[#bfa0d6]"
+            className="flex h-7 w-24 cursor-pointer items-center justify-center rounded-[90px] bg-[#7CFF3F] font-semibold text-white transition-colors hover:bg-[#bfa0d6]"
             style={{ fontSize: 16 }}
           >
             Sign In

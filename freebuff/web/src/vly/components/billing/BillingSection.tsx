@@ -63,7 +63,7 @@ export function BillingSection({
   const { fireSuccess } = useConfetti()
 
   // Feature flags
-  // VLY integrations and referrals are always enabled
+  // Freebuff Web integrations and referrals are always enabled
   const vlyIntegrationsEnabled = true
   const referralsEnabled = true
   const { enabled: organizationsEnabled } = useFeatureFlag(

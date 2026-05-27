@@ -174,7 +174,7 @@ export const InputArea = memo(
                     e.stopPropagation();
                     removeImage(index);
                   }}
-                  className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#A37FBC] bg-white text-xs font-bold text-[#A37FBC] transition-colors hover:bg-[#A37FBC]/20 sm:-right-2 sm:-top-2 sm:h-6 sm:w-6"
+                  className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#7CFF3F] bg-white text-xs font-bold text-[#7CFF3F] transition-colors hover:bg-[#7CFF3F]/20 sm:-right-2 sm:-top-2 sm:h-6 sm:w-6"
                   title="Delete image"
                 >
                   ×
@@ -187,7 +187,7 @@ export const InputArea = memo(
           {/* Floating arrow - positioned relative to text input */}
           {userInput === "" && (
             <div className="animate-fadeInSlideRight absolute -left-8 top-0 z-20 hidden items-center gap-2 md:flex">
-              <div className="animate-arrowFloat -mt-0.5 text-lg text-[#A37FBC]">
+              <div className="animate-arrowFloat -mt-0.5 text-lg text-[#7CFF3F]">
                 →
               </div>
             </div>
@@ -228,7 +228,7 @@ export const InputArea = memo(
               {displayedSuggestions.map((suggestion, index) => (
                 <div
                   key={index}
-                  className="group relative flex flex-shrink-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-[90px] border-2 border-dashed border-zinc-300 px-3 py-1.5 transition-all hover:border-[#A37FBC] hover:bg-gray-100 sm:gap-2.5 sm:px-4 sm:py-2"
+                  className="group relative flex flex-shrink-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-[90px] border-2 border-dashed border-zinc-300 px-3 py-1.5 transition-all hover:border-[#7CFF3F] hover:bg-gray-100 sm:gap-2.5 sm:px-4 sm:py-2"
                   onClick={(e) => setSuggestion(suggestion.prompt, e)}
                 >
                   <div className="relative h-5 w-5 overflow-hidden sm:h-6 sm:w-6">
@@ -246,7 +246,7 @@ export const InputArea = memo(
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeLinecap="round"
-                        className="text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC]"
+                        className="text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F]"
                       />
                       <line
                         x1="2"
@@ -256,11 +256,11 @@ export const InputArea = memo(
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeLinecap="round"
-                        className="text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC]"
+                        className="text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F]"
                       />
                     </svg>
                   </div>
-                  <div className="justify-center text-center font-['Geist'] text-xs font-normal leading-normal text-[#8A8A8A] transition-colors group-hover:text-[#A37FBC] sm:text-sm">
+                  <div className="justify-center text-center font-['Geist'] text-xs font-normal leading-normal text-[#8A8A8A] transition-colors group-hover:text-[#7CFF3F] sm:text-sm">
                     {suggestion.label}
                   </div>
                 </div>

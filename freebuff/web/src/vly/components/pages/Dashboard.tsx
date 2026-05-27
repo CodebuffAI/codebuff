@@ -32,11 +32,14 @@ import type { AutumnCustomer } from "@/vly/lib/billing/types";
 import { PageLayout } from "@/vly/components/test-landing/PageLayout";
 
 export default function Dashboard() {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const userName = session?.user?.name ?? ''
   const userImage = session?.user?.image ?? undefined
   const userBio = ''
   const projects = useQuery(api.project.getUserProjects);
+  // Treat both "session loading" and "convex query in flight" as loading,
+  // so we never flash the empty state before data has actually arrived.
+  const isLoadingProjects = sessionStatus === "loading" || projects === undefined;
   const router = useRouter();
   const { customer } = useCustomer();
   const [deleteProjectId, setDeleteProjectId] = useState<Id<"project"> | null>(
@@ -195,7 +198,7 @@ export default function Dashboard() {
                     className={`cursor-pointer justify-start font-['Geist'] text-base leading-tight ${
                       profileBio && profileBio.trim() !== ""
                         ? "font-normal text-zinc-500"
-                        : "font-semibold text-[#A37FBC]"
+                        : "font-semibold text-[#7CFF3F]"
                     }`}
                   >
                     {profileBio && profileBio.trim() !== ""
@@ -499,7 +502,7 @@ export default function Dashboard() {
 
         {/* My Projects Section */}
         <div className="flex flex-col items-start justify-start gap-2 self-stretch">
-          <div className="justify-start self-stretch font-['PP_Cirka'] text-3xl font-normal leading-loose text-black">
+          <div className="justify-start self-stretch font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
             My Projects
           </div>
           <div className="flex flex-col items-start justify-start gap-3.5 self-stretch">
@@ -516,14 +519,14 @@ export default function Dashboard() {
               <div className="flex h-9 items-center justify-start gap-7">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center justify-center gap-2 rounded-[5px] bg-white px-3 py-2 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-colors hover:bg-gray-50">
-                      <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-zinc-500">
+                    <button className="flex items-center justify-center gap-2 rounded-[5px] border border-border bg-secondary px-3 py-2 text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground">
+                      <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
                         {sortBy === "lastViewed"
                           ? "Last Viewed By Me"
                           : "Alphabetically"}
                       </div>
                       <svg
-                        className="h-4 w-4 text-zinc-500"
+                        className="h-4 w-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -537,16 +540,16 @@ export default function Dashboard() {
                       </svg>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-48">
+                  <DropdownMenuContent className="w-48 border-border bg-popover text-popover-foreground">
                     <DropdownMenuItem
                       onClick={() => setSortBy("lastViewed")}
-                      className="cursor-pointer px-3 py-1.5 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
+                      className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                     >
                       Last Viewed By Me
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setSortBy("alphabetical")}
-                      className="cursor-pointer px-3 py-1.5 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
+                      className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                     >
                       Alphabetically
                     </DropdownMenuItem>
@@ -555,13 +558,13 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={() => setIsCreateProjectModalOpen(true)}
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#E1DFF6] px-3 py-2 outline outline-1 outline-offset-[-1px] outline-[#CCB8DA] transition-colors hover:bg-[#D4D1F0]"
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-primary px-3 py-2 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)]"
               >
-                <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-[#040404]">
+                <div className="justify-start font-['Geist'] text-sm leading-tight">
                   Create Project
                 </div>
                 <svg
-                  className="h-5 w-5 text-[#040404]"
+                  className="h-5 w-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -580,9 +583,25 @@ export default function Dashboard() {
 
         {/* Project Grid */}
         <div className="mt-[20px] flex min-h-[400px] flex-col items-start justify-start gap-3.5 self-stretch">
-          {projects === undefined ? (
-            <div className="flex w-full items-center justify-center py-8">
-              <Loader className="h-6 w-6 animate-spin text-zinc-500" />
+          {isLoadingProjects ? (
+            <div
+              className="grid w-full auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3"
+              aria-label="Loading your projects"
+            >
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="inline-flex flex-col items-start justify-start gap-4"
+                >
+                  <div className="relative h-52 w-full overflow-hidden rounded-[5px] border border-border/60 bg-gradient-to-br from-card to-secondary">
+                    <div className="absolute inset-0 animate-pulse bg-muted/30" />
+                  </div>
+                  <div className="flex w-full flex-col gap-2">
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-muted/50" />
+                    <div className="h-3 w-1/3 animate-pulse rounded bg-muted/40" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredProjects && filteredProjects.length > 0 ? (
             <div className="grid w-full auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
@@ -591,7 +610,7 @@ export default function Dashboard() {
                   key={project._id}
                   className="inline-flex flex-col items-start justify-start gap-4"
                 >
-                  <div className="group relative h-52 self-stretch overflow-hidden rounded-[5px] border border-zinc-100">
+                  <div className="group relative h-52 self-stretch overflow-hidden rounded-[5px] border border-border/60">
                     {getProjectImageSrc(project) ? (
                       <img
                         src={getProjectImageSrc(project)}
@@ -599,11 +618,11 @@ export default function Dashboard() {
                         className="h-full w-full object-cover transition-transform duration-200"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-card to-secondary">
                         <div className="text-center">
-                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/50 backdrop-blur-sm">
+                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-background/40 backdrop-blur-sm">
                             <svg
-                              className="h-8 w-8 text-gray-400"
+                              className="h-8 w-8 text-muted-foreground"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -616,10 +635,10 @@ export default function Dashboard() {
                               />
                             </svg>
                           </div>
-                          <div className="text-sm font-medium text-gray-500">
+                          <div className="text-sm font-medium text-muted-foreground">
                             {project.name || "Untitled Project"}
                           </div>
-                          <div className="mt-1 text-xs text-gray-400">
+                          <div className="mt-1 text-xs text-muted-foreground/80">
                             Preview will appear after next deploy
                           </div>
                         </div>
@@ -628,11 +647,11 @@ export default function Dashboard() {
                   </div>
                   <div className="flex flex-col items-start justify-start gap-2 self-stretch">
                     <div className="inline-flex w-full items-center justify-between self-stretch">
-                      <div className="flex items-center justify-start gap-2 font-['Geist'] text-xl font-semibold leading-tight text-black">
+                      <div className="flex items-center justify-start gap-2 font-['Geist'] text-xl font-semibold leading-tight text-foreground">
                         {project.name || "Untitled Project"}
                         {isLegacyProject(project) && (
                           <span
-                            className="inline-flex items-center gap-1 rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800"
+                            className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300"
                             title="Legacy CodeSandbox project"
                           >
                             <svg
@@ -659,7 +678,7 @@ export default function Dashboard() {
                           return (
                             !quotaCheck.allowed && (
                               <span
-                                className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                                className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300"
                                 title={
                                   quotaCheck.reason ||
                                   "Workspace tier exceeds plan"
@@ -675,7 +694,7 @@ export default function Dashboard() {
                       {/* Action Buttons */}
                       <div className="inline-flex items-start justify-end gap-1">
                         <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] bg-white px-2 py-1 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-all duration-200 hover:bg-gray-100"
+                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-primary/40 hover:text-foreground"
                           onClick={() => {
                             setLoadingProjectId(project._id);
                             updateLastOpened({
@@ -692,15 +711,15 @@ export default function Dashboard() {
                           }}
                           disabled={loadingProjectId === project._id}
                         >
-                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-zinc-500">
+                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
                             Edit
                           </div>
                           {loadingProjectId === project._id && (
-                            <Loader className="h-4 w-4 animate-spin text-zinc-500" />
+                            <Loader className="h-4 w-4 animate-spin text-foreground/70" />
                           )}
                         </button>
                         <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] bg-white px-2 py-1 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-all duration-200 hover:bg-gray-100"
+                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-primary/40 hover:text-foreground"
                           onClick={() => {
                             updateLastOpened({
                               semanticIdentifier: project.semantic_identifier,
@@ -715,16 +734,16 @@ export default function Dashboard() {
                             if (url) window.open(url, "_blank");
                           }}
                         >
-                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-zinc-500">
+                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
                             Preview
                           </div>
                         </button>
                         <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] bg-white px-2 py-1 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-all duration-200 hover:bg-red-50 hover:outline-red-300"
+                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => setDeleteProjectId(project._id)}
                         >
                           <svg
-                            className="h-4 w-4 text-zinc-500"
+                            className="h-4 w-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -753,14 +772,14 @@ export default function Dashboard() {
             </div>
           ) : searchTerm ? (
             <div className="flex min-h-[320px] w-full items-center justify-center">
-              <div className="w-full max-w-2xl rounded-[28px] border border-black/10 bg-white/70 px-8 py-10 text-center shadow-[0_20px_60px_rgba(21,21,18,0.08)]">
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-zinc-400">
+              <div className="w-full max-w-2xl rounded-[28px] border border-border bg-card px-8 py-10 text-center shadow-2xl shadow-black/40">
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
                   No Match
                 </p>
-                <h3 className="mt-4 font-['PP_Cirka'] text-4xl font-normal leading-none text-black">
+                <h3 className="mt-4 font-['PP_Cirka'] text-4xl font-normal leading-none text-foreground">
                   No projects found
                 </h3>
-                <p className="mt-4 text-base leading-7 text-zinc-500">
+                <p className="mt-4 text-base leading-7 text-muted-foreground">
                   Nothing matched &quot;{searchTerm}&quot;. Try a different
                   project name or semantic identifier.
                 </p>
@@ -768,19 +787,19 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="flex min-h-[52vh] w-full items-center justify-center">
-              <div className="relative w-full max-w-3xl overflow-hidden rounded-[32px] border border-black/10 bg-white/75 px-8 py-10 shadow-[0_24px_80px_rgba(21,21,18,0.1)] sm:px-12 sm:py-12">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#e7e1f3] to-transparent" />
+              <div className="relative w-full max-w-3xl overflow-hidden rounded-[32px] border border-border bg-card px-8 py-10 shadow-2xl shadow-black/40 sm:px-12 sm:py-12">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/10 to-transparent" />
 
                 <div className="relative flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#E1DFF6] text-[#6B5B95]">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary">
                     <Sparkles className="h-7 w-7" />
                   </div>
 
-                  <h3 className="mt-6 font-['PP_Cirka'] text-4xl font-normal leading-none text-black sm:text-5xl">
+                  <h3 className="mt-6 font-['PP_Cirka'] text-4xl font-normal leading-none text-foreground sm:text-5xl">
                     Create your first project
                   </h3>
 
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
                     Start with the same prompt composer from the landing page,
                     then add a visual theme or images before generating your
                     app.
@@ -791,7 +810,7 @@ export default function Dashboard() {
                       (feature) => (
                         <span
                           key={feature}
-                          className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-sm font-medium text-zinc-500"
+                          className="rounded-full border border-border bg-secondary px-3 py-1 text-sm font-medium text-foreground/80"
                         >
                           {feature}
                         </span>
@@ -802,7 +821,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setIsCreateProjectModalOpen(true)}
-                    className="mt-8 inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#E1DFF6] px-5 py-3 font-['Geist'] text-sm font-semibold text-black outline outline-1 outline-offset-[-1px] outline-[#CCB8DA] transition-colors hover:bg-[#D4D1F0]"
+                    className="mt-8 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary px-5 py-3 font-['Geist'] text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_24px_rgba(124,255,63,0.4)]"
                   >
                     <Plus className="h-4 w-4" />
                     Open Composer
@@ -824,14 +843,14 @@ export default function Dashboard() {
         open={!!deleteProjectId}
         onOpenChange={() => setDeleteProjectId(null)}
       >
-        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none md:max-w-md">
+        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none border border-border bg-card text-foreground md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
-            <AlertDialogTitle className="font-['PP_Cirka'] text-3xl font-normal leading-loose text-black">
+            <AlertDialogTitle className="font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
               Delete Project
             </AlertDialogTitle>
             <button
               onClick={() => setDeleteProjectId(null)}
-              className="ml-4 flex h-10 w-10 items-center justify-center text-[#7F7F88] transition-colors hover:text-[#6B6B73]"
+              className="ml-4 flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
             >
               <svg
                 className="h-7 w-7"
@@ -849,7 +868,7 @@ export default function Dashboard() {
             </button>
           </AlertDialogHeader>
           <div className="inline-flex w-full flex-col items-start justify-start gap-7 md:w-96">
-            <div className="justify-start font-['Geist'] text-base font-normal leading-tight text-zinc-600">
+            <div className="justify-start font-['Geist'] text-base font-normal leading-tight text-muted-foreground">
               Are you sure you want to delete this project? This action cannot
               be undone.
             </div>
@@ -866,7 +885,7 @@ export default function Dashboard() {
                     }
                   }
                 }}
-                className="border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 hover:outline-red-300"
+                className="border border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
               >
                 Delete
               </AlertDialogAction>
@@ -877,14 +896,14 @@ export default function Dashboard() {
 
       {/* Edit Profile Dialog */}
       <AlertDialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
-        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none md:max-w-md">
+        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none border border-border bg-card text-foreground md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
-            <AlertDialogTitle className="flex items-center font-['PP_Cirka'] text-3xl font-normal leading-loose text-black">
+            <AlertDialogTitle className="flex items-center font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
               Edit Profile
             </AlertDialogTitle>
             <button
               onClick={() => setIsEditingProfile(false)}
-              className="flex h-10 w-10 items-center justify-center text-[#7F7F88] transition-colors hover:text-[#6B6B73]"
+              className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
             >
               <svg
                 className="h-7 w-7"
@@ -916,26 +935,26 @@ export default function Dashboard() {
               </div>
               <div className="flex flex-col items-start justify-start gap-3.5 self-stretch">
                 <div className="flex flex-col items-start justify-start gap-[5px] self-stretch">
-                  <div className="justify-start self-stretch font-['Geist'] text-base font-semibold leading-none text-black">
+                  <div className="justify-start self-stretch font-['Geist'] text-base font-semibold leading-none text-foreground">
                     Name
                   </div>
                   <input
                     type="text"
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] bg-white px-3.5 py-2 outline outline-1 outline-offset-[-1px] outline-zinc-300"
+                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] border border-border bg-input px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                     placeholder="Enter your name"
                   />
                 </div>
                 <div className="flex flex-col items-start justify-start gap-[5px] self-stretch">
-                  <div className="justify-start self-stretch font-['Geist'] text-base font-semibold leading-none text-black">
+                  <div className="justify-start self-stretch font-['Geist'] text-base font-semibold leading-none text-foreground">
                     Bio
                   </div>
                   <input
                     type="text"
                     value={profileBio}
                     onChange={(e) => setProfileBio(e.target.value)}
-                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] bg-white px-3.5 py-2 outline outline-1 outline-offset-[-1px] outline-zinc-300"
+                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] border border-border bg-input px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                     placeholder="Enter your bio"
                   />
                 </div>
@@ -943,7 +962,6 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => {
-                // Save profile name to localStorage if it's different from the original
                 if (
                   profileName &&
                   profileName.trim() !== "" &&
@@ -951,10 +969,8 @@ export default function Dashboard() {
                 ) {
                   localStorage.setItem("userProfileName", profileName.trim());
 	                } else if (profileName === userName) {
-                  // If user reverted to original name, remove from localStorage
                   localStorage.removeItem("userProfileName");
                 }
-                // Save bio changes to localStorage if it's different from the original
                 if (
                   profileBio &&
                   profileBio.trim() !== "" &&
@@ -962,14 +978,13 @@ export default function Dashboard() {
                 ) {
                   localStorage.setItem("userProfileBio", profileBio.trim());
 	                } else if (profileBio === userBio) {
-                  // If user reverted to original bio, remove from localStorage
                   localStorage.removeItem("userProfileBio");
                 }
                 setIsEditingProfile(false);
               }}
-              className="inline-flex h-10 items-center justify-center gap-2 self-stretch rounded-[5px] bg-slate-200 px-5 py-2 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-colors hover:bg-slate-300"
+              className="inline-flex h-10 items-center justify-center gap-2 self-stretch rounded-[5px] bg-primary px-5 py-2 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)]"
             >
-              <div className="justify-start font-['Geist'] text-xl font-medium leading-tight text-black">
+              <div className="justify-start font-['Geist'] text-xl leading-tight">
                 Save Profile
               </div>
             </button>
@@ -987,15 +1002,15 @@ export default function Dashboard() {
           />
 
           {/* Modal */}
-          <div className="fixed left-1/2 top-1/2 z-[9999] flex h-[70vh] w-[86.5vw] max-w-[1200px] -translate-x-1/2 -translate-y-1/2 transform flex-col bg-white shadow-[0px_0px_4px_0px_rgba(0,0,0,0.25)]">
+          <div className="fixed left-1/2 top-1/2 z-[9999] flex h-[70vh] w-[86.5vw] max-w-[1200px] -translate-x-1/2 -translate-y-1/2 transform flex-col border border-border bg-card text-foreground shadow-2xl shadow-black/60">
             {/* Header with title and close button */}
             <div className="flex items-center justify-between px-7 pb-2 pt-[30px]">
-              <div className="justify-start font-['PP_Cirka'] text-3xl font-normal leading-loose text-black">
+              <div className="justify-start font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
                 Select Site
               </div>
               <button
                 onClick={() => setIsSelectSiteModalOpen(false)}
-                className="ml-4 flex h-10 w-10 items-center justify-center text-[#7F7F88] transition-colors hover:text-[#6B6B73]"
+                className="ml-4 flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
               >
                 <svg
                   className="h-7 w-7"
@@ -1034,14 +1049,14 @@ export default function Dashboard() {
                     <div className="flex h-9 items-center justify-start gap-7">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="flex h-10 items-center justify-center gap-2 rounded-[5px] bg-white px-3 py-1.5 outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-colors hover:bg-gray-50">
-                            <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-zinc-500">
+                          <button className="flex h-10 items-center justify-center gap-2 rounded-[5px] border border-border bg-secondary px-3 py-1.5 text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground">
+                            <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
                               {sortBy === "lastViewed"
                                 ? "Last Viewed By Me"
                                 : "Alphabetically"}
                             </div>
                             <svg
-                              className="h-4 w-4 text-zinc-500"
+                              className="h-4 w-4"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1057,19 +1072,19 @@ export default function Dashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuContent
-                            className="z-[10000] w-48"
+                            className="z-[10000] w-48 border-border bg-popover text-popover-foreground"
                             sideOffset={5}
                             align="start"
                           >
                             <DropdownMenuItem
                               onClick={() => setSortBy("lastViewed")}
-                              className="cursor-pointer px-3 py-1.5 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
+                              className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                             >
                               Last Viewed By Me
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => setSortBy("alphabetical")}
-                              className="cursor-pointer px-3 py-1.5 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
+                              className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                             >
                               Alphabetically
                             </DropdownMenuItem>
@@ -1090,11 +1105,11 @@ export default function Dashboard() {
                     style={{ gridTemplateRows: "minmax(0, 1fr)" }}
                   >
                     {(() => {
-                      if (projects === undefined) {
+                      if (isLoadingProjects) {
                         return (
-                          <div className="col-span-1 w-full py-8 text-center text-zinc-500 md:col-span-3">
+                          <div className="col-span-1 w-full py-8 text-center text-muted-foreground md:col-span-3">
                             <div className="flex w-full justify-center">
-                              <Loader className="mx-auto h-6 w-6 animate-spin text-zinc-500" />
+                              <Loader className="mx-auto h-6 w-6 animate-spin text-primary" />
                             </div>
                           </div>
                         );
@@ -1144,9 +1159,9 @@ export default function Dashboard() {
                             }
                           >
                             <div
-                              className={`group relative aspect-[4/3] self-stretch overflow-hidden rounded-[5px] border border-zinc-100 ${
+                              className={`group relative aspect-[4/3] self-stretch overflow-hidden rounded-[5px] border border-border/60 ${
                                 selectedProjectId === project._id
-                                  ? "ring-4 ring-[#CCB8DA]"
+                                  ? "ring-4 ring-primary"
                                   : ""
                               }`}
                             >
@@ -1157,11 +1172,11 @@ export default function Dashboard() {
                                   className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                                 />
                               ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-card to-secondary">
                                   <div className="text-center">
-                                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-white/50 backdrop-blur-sm">
+                                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-background/40 backdrop-blur-sm">
                                       <svg
-                                        className="h-6 w-6 text-gray-400"
+                                        className="h-6 w-6 text-muted-foreground"
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
@@ -1174,7 +1189,7 @@ export default function Dashboard() {
                                         />
                                       </svg>
                                     </div>
-                                    <div className="text-xs font-medium text-gray-500">
+                                    <div className="text-xs font-medium text-muted-foreground">
                                       {project.name || "Untitled Project"}
                                     </div>
                                   </div>
@@ -1183,13 +1198,13 @@ export default function Dashboard() {
                             </div>
                             <div className="flex flex-col items-start justify-start gap-2 self-stretch">
                               <div className="flex w-full items-center justify-between">
-                                <div className="mr-2 flex flex-1 items-center justify-start gap-2 truncate font-['Geist'] text-lg font-semibold leading-tight text-black">
+                                <div className="mr-2 flex flex-1 items-center justify-start gap-2 truncate font-['Geist'] text-lg font-semibold leading-tight text-foreground">
                                   <span className="truncate">
                                     {project.name || "Untitled Project"}
                                   </span>
                                   {isLegacyProject(project) && (
                                     <span
-                                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800"
+                                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300"
                                       title="Legacy CodeSandbox project"
                                     >
                                       <svg
@@ -1210,7 +1225,7 @@ export default function Dashboard() {
                                   )}
                                 </div>
                                 <button
-                                  className="flex items-center justify-center gap-1 rounded-[5px] bg-white px-2 py-1 text-xs outline outline-1 outline-offset-[-1px] outline-zinc-300 transition-all duration-200 hover:bg-gray-50"
+                                  className="flex items-center justify-center gap-1 rounded-[5px] border border-border bg-secondary px-2 py-1 text-xs text-foreground/85 transition-all duration-200 hover:border-primary/40 hover:text-foreground"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     updateLastOpened({
@@ -1228,13 +1243,13 @@ export default function Dashboard() {
                                     if (url) window.open(url, "_blank");
                                   }}
                                 >
-                                  <div className="justify-start font-['Geist'] font-normal leading-none text-zinc-500">
+                                  <div className="justify-start font-['Geist'] font-normal leading-none">
                                     Preview
                                   </div>
                                 </button>
                               </div>
                               <div className="inline-flex items-center justify-between gap-2 self-stretch">
-                                <div className="justify-start font-['Geist'] text-xs font-normal leading-none text-zinc-500">
+                                <div className="justify-start font-['Geist'] text-xs font-normal leading-none text-muted-foreground">
                                   Viewed{" "}
                                   {project.last_opened
                                     ? new Date(
@@ -1247,7 +1262,7 @@ export default function Dashboard() {
                           </div>
                         ))
                       ) : (
-                        <div className="col-span-1 w-full py-8 text-center text-zinc-500 md:col-span-3">
+                        <div className="col-span-1 w-full py-8 text-center text-muted-foreground md:col-span-3">
                           {searchTerm
                             ? `No projects found matching "${searchTerm}". Try a different search term.`
                             : "No projects available to feature."}
@@ -1294,7 +1309,7 @@ export default function Dashboard() {
                     return (
                       <div className="mt-[30px] hidden items-center justify-start gap-2 md:inline-flex">
                         <button
-                          className={`justify-start font-['Geist'] text-xs font-normal ${currentPage === 1 ? "cursor-not-allowed text-zinc-300" : "cursor-pointer text-zinc-500 hover:text-zinc-700"}`}
+                          className={`justify-start font-['Geist'] text-xs font-normal ${currentPage === 1 ? "cursor-not-allowed text-muted-foreground/60" : "cursor-pointer text-muted-foreground hover:text-foreground"}`}
                           onClick={() =>
                             currentPage > 1 && setCurrentPage(currentPage - 1)
                           }
@@ -1314,14 +1329,16 @@ export default function Dashboard() {
                                 key={pageNum}
                                 className={`inline-flex w-6 flex-col items-center justify-center gap-2.5 overflow-hidden rounded-[90px] px-2 py-1 transition-colors ${
                                   isSelected
-                                    ? "bg-[#CCB8DA]"
-                                    : "bg-zinc-100 hover:bg-zinc-200"
+                                    ? "bg-primary"
+                                    : "bg-secondary hover:bg-muted"
                                 }`}
                                 onClick={() => setCurrentPage(pageNum)}
                               >
                                 <div
                                   className={`justify-start self-stretch text-center font-['Geist'] text-xs font-normal ${
-                                    isSelected ? "text-white" : "text-black"
+                                    isSelected
+                                      ? "text-primary-foreground"
+                                      : "text-foreground/85"
                                   }`}
                                 >
                                   {pageNum}
@@ -1333,22 +1350,22 @@ export default function Dashboard() {
 
                         {totalPages > 5 && (
                           <>
-                            <div className="justify-start font-['Geist'] text-xs font-normal text-zinc-300">
+                            <div className="justify-start font-['Geist'] text-xs font-normal text-muted-foreground/60">
                               ...
                             </div>
                             <button
                               className={`inline-flex w-6 flex-col items-center justify-center gap-2.5 overflow-hidden rounded-[90px] px-2 py-1 transition-colors ${
                                 currentPage === totalPages
-                                  ? "bg-[#CCB8DA]"
-                                  : "bg-zinc-100 hover:bg-zinc-200"
+                                  ? "bg-primary"
+                                  : "bg-secondary hover:bg-muted"
                               }`}
                               onClick={() => setCurrentPage(totalPages)}
                             >
                               <div
                                 className={`justify-start self-stretch text-center font-['Geist'] text-xs font-normal ${
                                   currentPage === totalPages
-                                    ? "text-white"
-                                    : "text-black"
+                                    ? "text-primary-foreground"
+                                    : "text-foreground/85"
                                 }`}
                               >
                                 {totalPages}
@@ -1358,7 +1375,7 @@ export default function Dashboard() {
                         )}
 
                         <button
-                          className={`justify-start font-['Geist'] text-xs font-normal ${currentPage === totalPages ? "cursor-not-allowed text-zinc-300" : "cursor-pointer text-zinc-500 hover:text-zinc-700"}`}
+                          className={`justify-start font-['Geist'] text-xs font-normal ${currentPage === totalPages ? "cursor-not-allowed text-muted-foreground/60" : "cursor-pointer text-muted-foreground hover:text-foreground"}`}
                           onClick={() =>
                             currentPage < totalPages &&
                             setCurrentPage(currentPage + 1)
@@ -1376,8 +1393,8 @@ export default function Dashboard() {
                 <button
                   className={`inline-flex items-center justify-center gap-2 rounded-[5px] px-5 py-2 transition-all duration-200 ${
                     selectedProjectId
-                      ? "cursor-pointer bg-slate-200 outline outline-2 outline-zinc-300 hover:bg-slate-300"
-                      : "cursor-not-allowed bg-zinc-100"
+                      ? "cursor-pointer bg-primary text-primary-foreground hover:shadow-[0_0_20px_rgba(124,255,63,0.35)]"
+                      : "cursor-not-allowed bg-muted text-muted-foreground"
                   }`}
                   onClick={() => {
                     if (selectedProjectId) {
@@ -1385,14 +1402,12 @@ export default function Dashboard() {
                         if (prev.includes(selectedProjectId)) {
                           return prev;
                         }
-                        // If no projects, add as first project (will go to second slot)
-                        // If one project exists, add as second project (will go to second slot, pushing first to first slot)
                         if (prev.length === 0) {
                           return [selectedProjectId];
                         } else if (prev.length === 1) {
                           return [...prev, selectedProjectId];
                         }
-                        return prev; // Already have 2 projects
+                        return prev;
                       });
                       setSelectedProjectId(null);
                       setIsSelectSiteModalOpen(false);
@@ -1400,11 +1415,7 @@ export default function Dashboard() {
                   }}
                   disabled={!selectedProjectId}
                 >
-                  <div
-                    className={`justify-start font-['Geist'] text-xl font-medium leading-tight ${
-                      selectedProjectId ? "text-black" : "text-zinc-500"
-                    }`}
-                  >
+                  <div className="justify-start font-['Geist'] text-xl font-medium leading-tight">
                     Post
                   </div>
                 </button>

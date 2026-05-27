@@ -46,7 +46,7 @@ export default function ComparisonTable() {
           >
             <h2 className="text-left font-serif text-3xl font-normal leading-normal text-black">
               <span className="text-zinc-800">An </span>
-              <span className="text-[#A37FBC]">AI-first</span>
+              <span className="text-[#7CFF3F]">AI-first</span>
               <span className="text-zinc-800"> database that </span>
               <span className="text-zinc-800">
                 runs laps around the competition
@@ -86,15 +86,15 @@ export default function ComparisonTable() {
                   ))}
                 </div>
 
-                {/* vly.ai Column */}
+                {/* Freebuff Web Column */}
                 <div className="col-span-1">
                   {[1, 2, 3, 4, 5, 6].map((_, index) => (
                     <div
                       key={index}
                       className={`flex h-20 items-center justify-center bg-zinc-100 py-5`}
                     >
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A37FBC]/10 outline outline-1 outline-offset-[-1px] outline-[#A37FBC]">
-                        <Check className="h-4 w-4 text-[#A37FBC]" />
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7CFF3F]/10 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]">
+                        <Check className="h-4 w-4 text-[#7CFF3F]" />
                       </div>
                     </div>
                   ))}
@@ -108,8 +108,8 @@ export default function ComparisonTable() {
                       className={`h-20 py-5 ${value ? "bg-white/60" : ""} flex items-center justify-center ${index === 1 ? "rounded-tl-[20px] rounded-tr-[20px]" : ""}`}
                     >
                       {value && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A37FBC]/10 outline outline-1 outline-offset-[-1px] outline-[#A37FBC]">
-                          <Check className="h-4 w-4 text-[#A37FBC]" />
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7CFF3F]/10 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]">
+                          <Check className="h-4 w-4 text-[#7CFF3F]" />
                         </div>
                       )}
                     </div>
@@ -124,8 +124,8 @@ export default function ComparisonTable() {
                       className={`h-20 py-5 ${value ? "bg-white/60" : ""} flex items-center justify-center ${index === 2 ? "rounded-tl-[20px] rounded-tr-[20px]" : ""}`}
                     >
                       {value && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A37FBC]/10 outline outline-1 outline-offset-[-1px] outline-[#A37FBC]">
-                          <Check className="h-4 w-4 text-[#A37FBC]" />
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7CFF3F]/10 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]">
+                          <Check className="h-4 w-4 text-[#7CFF3F]" />
                         </div>
                       )}
                     </div>
@@ -140,8 +140,8 @@ export default function ComparisonTable() {
                       className={`h-20 py-5 ${value ? "bg-white/60" : ""} flex items-center justify-center ${index === 3 ? "rounded-tl-[20px] rounded-tr-[20px]" : ""}`}
                     >
                       {value && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A37FBC]/10 outline outline-1 outline-offset-[-1px] outline-[#A37FBC]">
-                          <Check className="h-4 w-4 text-[#A37FBC]" />
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7CFF3F]/10 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]">
+                          <Check className="h-4 w-4 text-[#7CFF3F]" />
                         </div>
                       )}
                     </div>
@@ -156,8 +156,8 @@ export default function ComparisonTable() {
                       className={`h-20 py-5 ${value ? "bg-white/60" : ""} flex items-center justify-center ${index === 5 ? "rounded-tl-[20px] rounded-tr-[20px]" : ""}`}
                     >
                       {value && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A37FBC]/10 outline outline-1 outline-offset-[-1px] outline-[#A37FBC]">
-                          <Check className="h-4 w-4 text-[#A37FBC]" />
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7CFF3F]/10 outline outline-1 outline-offset-[-1px] outline-[#7CFF3F]">
+                          <Check className="h-4 w-4 text-[#7CFF3F]" />
                         </div>
                       )}
                     </div>
@@ -168,7 +168,7 @@ export default function ComparisonTable() {
               {/* Table Footer */}
               <div className="grid h-20 grid-cols-6 divide-x divide-zinc-300 rounded-bl-[20px] rounded-br-[20px] bg-white/60">
                 <div className="col-span-1" />
-                {["vly.ai", "bubble.io", "replit", "bolt", "lovable"].map(
+                {["Freebuff Web", "bubble.io", "replit", "bolt", "lovable"].map(
                   (name, index) => (
                     <div
                       key={name}
@@ -176,8 +176,8 @@ export default function ComparisonTable() {
                     >
                       {index === 0 && (
                         <Image
-                          src="/logo.svg"
-                          alt="vly.ai logo"
+                          src="/freebuff-logo.svg"
+                          alt="Freebuff Web logo"
                           width={16}
                           height={16}
                           className="object-contain"

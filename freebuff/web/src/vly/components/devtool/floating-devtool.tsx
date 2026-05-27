@@ -59,7 +59,7 @@ const DEFAULT_FLAGS: FlagDefinition[] = [
   },
   {
     key: "vly_integrations_enabled",
-    description: "Enable VLY platform integrations",
+    description: "Enable Freebuff Web platform integrations",
     defaultStrategy: "disabled",
   },
   {

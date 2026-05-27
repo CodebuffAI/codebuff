@@ -22,7 +22,7 @@ export default function TestLanding() {
           backgroundColor: "#CBCFDA",
         }}
       >
-        <Header logoSrc="/logo.svg" logoAlt="vly.ai" showHome={false} />
+        <Header logoSrc="/freebuff-logo.svg" logoAlt="Freebuff Web" showHome={false} />
         {/* Only show floating stacks on large screens */}
         <div className="hidden lg:block">
           <VCLogosStack />
@@ -45,20 +45,20 @@ export default function TestLanding() {
                     Real users confirmed by Trustpilot
                   </p>
                   <div className="space-y-4">
-                    {/* vly.ai Reviews */}
+                    {/* Freebuff Web Reviews */}
                     <a
-                      href="https://www.trustpilot.com/review/vly.ai"
+                      href="https://www.trustpilot.com/review/freebuff.com"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block rounded-lg bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
                     >
                       <div className="mb-3 flex items-center justify-center gap-3">
                         <img
-                          src="/logo.svg"
+                          src="/freebuff-logo.svg"
                           alt="vly ai"
                           className="h-10 w-10"
                         />
-                        <span className="text-lg font-medium">vly.ai</span>
+                        <span className="text-lg font-medium">Freebuff Web</span>
                       </div>
                       <ReviewScoreStrip
                         rating="4.8"

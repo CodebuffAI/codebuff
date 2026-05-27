@@ -576,7 +576,7 @@ export type BooleanFeatureId = (typeof ALL_BOOLEAN_FEATURE_IDS)[number];
 export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
   documentation_visualizer: "Documentation Visualizer",
   database_preview: "Database Access",
-  no_vlyai_branding: "Remove vly.ai Branding",
+  no_vlyai_branding: "Remove Freebuff Web Branding",
   custom_domains: "Custom Domains",
   team_collaboration: "Team Collaboration",
   integrations_library: "Integrations Library",

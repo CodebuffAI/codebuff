@@ -53,7 +53,7 @@ export const VCLogosStack: React.FC = () => {
     >
       <div className="flex flex-col items-end gap-1">
         {/* Title */}
-        <h3 className="mb-2 whitespace-nowrap text-sm font-medium text-[rgba(26,26,26,0.85)]">
+        <h3 className="mb-2 whitespace-nowrap text-sm font-medium text-foreground/85">
           Backed by top firms
         </h3>
 
@@ -74,7 +74,7 @@ export const VCLogosStack: React.FC = () => {
             </div>
           ))}
           {/* And many more text */}
-          <div className="whitespace-nowrap text-[10px] font-medium text-[rgba(26,26,26,0.7)]">
+          <div className="whitespace-nowrap text-[10px] font-medium text-muted-foreground">
             ...and many more
           </div>
         </div>

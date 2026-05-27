@@ -75,7 +75,7 @@ const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
 };
 
 const DATASETS = [
-  { label: "vly.ai", value: "vly-convex" },
+  { label: "Freebuff Web", value: "vly-convex" },
   { label: "User Projects", value: "convex-user-usage" },
 ];
 
@@ -547,7 +547,7 @@ ${JSON.stringify(log.rawData, null, 2)}
         borderColor="border-indigo-200"
       />
 
-      {/* TOP-LEVEL TABS: VLY.ai | User Projects */}
+      {/* TOP-LEVEL TABS: Freebuff Web | User Projects */}
       <Tabs
         value={activeDataset}
         onValueChange={(value) => {
@@ -558,8 +558,8 @@ ${JSON.stringify(log.rawData, null, 2)}
       >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="vly-convex" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="vly.ai" className="h-4 w-4" />
-            vly.ai
+            <img src="/freebuff-logo.svg" alt="Freebuff Web" className="h-4 w-4" />
+            Freebuff Web
           </TabsTrigger>
           <TabsTrigger value="convex-user-usage" className="gap-2">
             User Projects

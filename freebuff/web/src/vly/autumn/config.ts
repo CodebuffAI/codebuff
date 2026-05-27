@@ -89,7 +89,7 @@ export const databasePreview = feature({
 
 export const noVlyaiBranding = feature({
   id: "no_vlyai_branding",
-  name: "Remove vly.ai branding",
+  name: "Remove Freebuff Web branding",
   type: "boolean",
 });
 

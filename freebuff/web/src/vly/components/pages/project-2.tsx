@@ -610,35 +610,26 @@ function ProjectWrapper({
         />
       </Suspense>
 
-      <div className="project-page-root relative h-screen overflow-hidden bg-[#F7F7F3] dark:bg-[#1f2020]">
-        {/* SF Skyline Background with fade to #F7F7F3 on all sides */}
+      <div className="project-page-root relative h-screen overflow-hidden bg-[#0a0a0b]">
+        {/* Ambient Freebuff backdrop — subtle radial glow on near-black */}
         <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-          {/* Background Image */}
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 dark:opacity-0"
-            style={{
-              backgroundImage: 'url("/landing/landmarks.jpeg")',
-            }}
-          />
-          {/* Fade to #F7F7F3 on all sides */}
           <div
             className="absolute inset-0"
             style={{
               background: "var(--project-page-overlay)",
             }}
           />
-          {/* Subtle dark-mode ambient color to avoid flat slabs */}
           <div
-            className="absolute inset-0 hidden dark:block"
+            className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(circle at 12% 16%, rgba(135,168,118,0.11) 0%, rgba(31,32,32,0) 34%), radial-gradient(circle at 80% 12%, rgba(191,153,101,0.09) 0%, rgba(31,32,32,0) 30%)",
+                "radial-gradient(circle at 14% 12%, rgba(124,255,63,0.07) 0%, rgba(10,10,11,0) 36%), radial-gradient(circle at 86% 18%, rgba(124,255,63,0.05) 0%, rgba(10,10,11,0) 32%)",
             }}
           />
         </div>
 
         {/* Fixed Top Bar - flush with top */}
-        <div className="fixed left-0 right-0 top-0 z-50 border-b border-gray-300/70 dark:border-[#575757]">
+        <div className="fixed left-0 right-0 top-0 z-50 border-b border-[#2a2a2e]">
           <TopBar
             project={project}
             onMobileSidebarToggle={() => setIsSidebarVisible(!isSidebarVisible)}

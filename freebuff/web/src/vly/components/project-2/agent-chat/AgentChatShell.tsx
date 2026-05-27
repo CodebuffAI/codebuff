@@ -170,7 +170,7 @@ export function AgentChatShell({
   isSelectingElement: externalIsSelectingElement,
   setIsSelectingElement: externalSetIsSelectingElement,
 }: AgentChatShellProps) {
-  const vlyAgentDisplayName = "vly agent 2.0";
+  const vlyAgentDisplayName = "freebuff agent 2.0";
   // All hooks must be called unconditionally before any early returns
   const chatMessagesRef = useRef<AgentChatMessagesRef>(null);
   const [showThreadList, setShowThreadList] = useState(false);
@@ -488,11 +488,11 @@ export function AgentChatShell({
 
   // Actually create the thread (called after disclaimer acknowledgment)
   const createThreadAfterAcknowledgment = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
       if (!project || isProcessing) return;
 
       try {
-        if (agentType === "VLY Agent") {
+        if (agentType === "Freebuff Agent") {
           await createNewThread({
             projectSemanticIdentifier,
           });
@@ -521,7 +521,7 @@ export function AgentChatShell({
 
   // Handle model selection and check disclaimer first
   const handleSelectModelAndCreateThread = useCallback(
-    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "VLY Agent") => {
+    async (agentType: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff Agent") => {
       if (!project || isProcessing) return;
 
       // Check if user needs to acknowledge disclaimer for these models
@@ -848,7 +848,7 @@ export function AgentChatShell({
             <Card
               onClick={() => {
                 if (!isProcessing && project) {
-                  handleSelectModelAndCreateThread("VLY Agent");
+                  handleSelectModelAndCreateThread("Freebuff Agent");
                 }
               }}
               className={`transition-all ${
@@ -860,14 +860,14 @@ export function AgentChatShell({
               <CardHeader className="px-4 py-3 pb-2">
                 <div className="flex items-center gap-2">
                   <img
-                    src="/favicon.svg"
+                    src="/freebuff-logo.svg"
                     alt={vlyAgentDisplayName}
                     className="h-5 w-5 object-contain"
                   />
                   <CardTitle className="text-sm font-medium">
                     <span className="flex items-center gap-2">
                       <span>{vlyAgentDisplayName}</span>
-                      <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                      <span className="rounded-full border border-[#7CFF3F]/30 bg-[#7CFF3F]/15 px-1.5 py-0 text-[10px] font-medium text-[#7CFF3F]">
                         New
                       </span>
                     </span>

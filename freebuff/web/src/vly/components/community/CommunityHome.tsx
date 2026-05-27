@@ -408,7 +408,7 @@ export default function CommunityHome() {
               <h3 className="mb-1 font-medium text-gray-800 group-hover:text-[#1a73e8]">
                 Start Building
               </h3>
-              <p className="text-sm text-gray-500">Create with Vly</p>
+              <p className="text-sm text-gray-500">Create with Freebuff Web</p>
             </Link>
           </div>
         </section>

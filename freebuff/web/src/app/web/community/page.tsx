@@ -3,9 +3,9 @@ import { PageLayout } from "@/vly/components/test-landing/PageLayout";
 import { createPageMetadata } from "@/vly/lib/site-metadata";
 
 export const metadata = createPageMetadata({
-  title: "Community | vly.ai",
+  title: "Community | Freebuff Web",
   description:
-    "Explore projects, builders, and community work created with vly.ai.",
+    "Explore projects, builders, and community work created with Freebuff Web.",
   path: "/web/community",
 });
 

@@ -28,7 +28,7 @@ const DEFAULT_DRAFT_CONTENT = `Write your message in Markdown.
 
 Supported:
 - **Bold text**
-- [Hyperlinks](https://vly.ai)
+- [Hyperlinks](https://freebuff.com)
 - ![Images](https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=900&q=80)
 `;
 

@@ -17,11 +17,8 @@ export default function HeroWrapper({
   return (
     <div
       id="hero"
-      className="prevent-layout-shift relative -mt-[3vh] min-h-[90vh] px-0 pb-2 pt-[12vh] sm:min-h-[100vh] sm:pt-[15vh] md:mt-0 md:pt-[17vh]"
-      style={{
-        backgroundColor: "#D3C1E5",
-        minHeight: "90vh",
-      }}
+      className="prevent-layout-shift relative -mt-[3vh] min-h-[90vh] bg-background px-0 pb-2 pt-[12vh] sm:min-h-[100vh] sm:pt-[15vh] md:mt-0 md:pt-[17vh]"
+      style={{ minHeight: "90vh" }}
     >
       <HeroBackground />
       <div className="relative z-10 mx-auto flex w-[90%] flex-col items-center justify-center md:w-[66%]">

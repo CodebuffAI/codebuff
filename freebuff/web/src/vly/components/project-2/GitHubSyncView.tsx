@@ -166,7 +166,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
       // Create the repository
       const repoResult = await createRepository({
         name: repositoryName,
-        description: `Vly project: ${project?.name || "Untitled Project"}`,
+        description: `Freebuff project: ${project?.name || "Untitled Project"}`,
         private: true,
       });
 
@@ -1498,7 +1498,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {githubConnectionStatus?.status === "user_identified"
-                  ? "Install the vly.ai GitHub App to enable repository creation and sync."
+                  ? "Install the Freebuff Web GitHub App to enable repository creation and sync."
                   : "Connect your GitHub account to enable repository creation and sync."}
               </DialogDescription>
             </DialogHeader>
@@ -1542,7 +1542,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
                             What you'll get:
                           </p>
                           <ul className="mt-1 space-y-1 text-xs text-green-700">
-                            <li>• Create repositories from vly.ai</li>
+                            <li>• Create repositories from Freebuff Web</li>
                             <li>• Automatic bidirectional sync</li>
                             <li>• Real-time updates</li>
                             <li>• Full GitHub integration</li>
@@ -1652,7 +1652,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
                   <li>• Remove the sync connection to GitHub</li>
                   <li>• Stop automatic synchronization</li>
                   <li>• Preserve your existing GitHub repository</li>
-                  <li>• Keep your project files in vly.ai unchanged</li>
+                  <li>• Keep your project files in Freebuff Web unchanged</li>
                 </ul>
               </div>
             </div>

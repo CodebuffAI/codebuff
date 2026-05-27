@@ -14,8 +14,9 @@ export default function DashboardBilling() {
           Paid plans are temporarily unavailable
         </h1>
         <p className="mt-4 text-base leading-7 text-zinc-600">
-          Vly is moving onto the shared Freebuff login and billing stack. Your
-          projects and free usage remain available during the migration.
+          Freebuff Web is moving onto the shared Freebuff login and billing
+          stack. Your projects and free usage remain available during the
+          migration.
         </p>
         <div className="mt-8">
           <Link

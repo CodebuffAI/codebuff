@@ -77,20 +77,20 @@ export const CompetitorReviewsStack: React.FC = () => {
     >
       <div className="flex flex-col items-start gap-1">
         {/* Title */}
-        <h3 className="mb-1 whitespace-nowrap text-sm font-medium text-[rgba(26,26,26,0.85)]">
+        <h3 className="mb-1 whitespace-nowrap text-sm font-medium text-foreground/85">
           Human-Verified Reviews
         </h3>
 
         {/* Description */}
-        <p className="mb-2 whitespace-nowrap text-left text-[10px] text-[rgba(26,26,26,0.65)]">
+        <p className="mb-2 whitespace-nowrap text-left text-[10px] text-muted-foreground">
           Real users confirmed by Trustpilot
         </p>
 
         {/* Review Stack */}
         <div className="flex flex-col items-start gap-6">
-          {/* VLY AI - Special case with logo and text side by side */}
+          {/* Freebuff Web - Special case with logo and text side by side */}
           <a
-            href="https://www.trustpilot.com/review/vly.ai"
+            href="https://www.trustpilot.com/review/freebuff.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex flex-col items-start gap-1 transition-opacity hover:opacity-80"
@@ -99,15 +99,15 @@ export const CompetitorReviewsStack: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className="relative h-[50px] w-[50px]">
                 <Image
-                  src="/logo.svg"
-                  alt="vly ai"
+                  src="/freebuff-logo.svg"
+                  alt="Freebuff Web"
                   width={50}
                   height={50}
                   className="h-full w-full object-contain object-left opacity-90"
                 />
               </div>
-              <span className="text-lg font-normal tracking-wide text-[rgba(26,26,26,0.85)]">
-                vly.ai
+              <span className="text-lg font-normal tracking-wide text-foreground/85">
+                Freebuff Web
               </span>
             </div>
             {/* Review Image */}

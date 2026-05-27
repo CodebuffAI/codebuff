@@ -178,7 +178,7 @@ export default function PublishProjectDialog({
                 Launch Your Project
               </DialogTitle>
               <DialogDescription className="text-gray-500">
-                Select a deployed project to share with the Vly community
+                Select a deployed project to share with the Freebuff community
               </DialogDescription>
             </DialogHeader>
 
@@ -460,7 +460,7 @@ export default function PublishProjectDialog({
               🎉 Project Launched!
             </h3>
             <p className="mb-6 text-gray-500">
-              Your project is now live on the Vly Community
+              Your project is now live on the Freebuff Community
             </p>
             <div className="flex gap-3">
               <Button

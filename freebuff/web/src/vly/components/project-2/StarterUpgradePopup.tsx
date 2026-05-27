@@ -197,7 +197,7 @@ export function StarterUpgradePopup({
               </li>
               <li className="flex items-center gap-1.5">
                 <Zap className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                <span className="truncate">No vly.ai branding</span>
+                <span className="truncate">No Freebuff Web branding</span>
               </li>
             </ul>
           </div>

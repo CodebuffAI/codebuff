@@ -34,28 +34,27 @@ export function VlyCoin({ size = "md", className }: VlyCoinProps) {
         className,
       )}
     >
-      {/* Coin base with metallic gradient */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400 via-purple-500 to-purple-700 shadow-lg" />
-      {/* Inner highlight ring - slimmer */}
-      <div className="absolute inset-px rounded-full bg-gradient-to-br from-purple-300 via-purple-400 to-purple-600" />
+      {/* Coin base — acid-green metallic gradient */}
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#9bff64] via-[#7CFF3F] to-[#124921] shadow-[0_0_18px_-2px_rgba(124,255,63,0.55)]" />
+      {/* Inner highlight ring */}
+      <div className="absolute inset-px rounded-full bg-gradient-to-br from-[#a8ff7c] via-[#7CFF3F] to-[#2a7a35]" />
       {/* Logo container */}
       <div
         className={cn(
-          "relative z-10 flex items-center justify-center rounded-full bg-gradient-to-br from-white/90 to-purple-50",
+          "relative z-10 flex items-center justify-center rounded-full bg-[#0a0a0b]",
           config.logoContainer,
         )}
       >
-        {/* Current Vly logo */}
+        {/* Current Freebuff Web logo */}
         <img
-          src="/logo.svg"
-          alt="Vly token"
+          src="/freebuff-logo.svg"
+          alt="Freebuff credit"
           width={config.logo.width}
           height={config.logo.height}
-          className="text-purple-600"
         />
       </div>
       {/* Shine effect */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/30 via-transparent to-transparent opacity-60" />
+      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/20 via-transparent to-transparent opacity-50" />
     </div>
   );
 }

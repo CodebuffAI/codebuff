@@ -128,7 +128,7 @@ export default function MobileMenu({
       <SignedOut>
         <SignInButton mode="modal" asChild>
           <button
-            className="mt-2 w-full rounded-full bg-[#CCB8DA] px-4 py-2 font-['Geist'] font-semibold text-white"
+            className="mt-2 w-full rounded-full bg-[#7CFF3F] px-4 py-2 font-['Geist'] font-semibold text-white"
             style={{ fontSize: 16 }}
             onClick={onClose}
           >
