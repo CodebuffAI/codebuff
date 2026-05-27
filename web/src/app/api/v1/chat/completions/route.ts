@@ -15,6 +15,7 @@ import type { GetUserPreferencesFn } from './_post'
 import type { NextRequest } from 'next/server'
 
 import { getAgentRunFromId } from '@/db/agent-run'
+import { recordFreebuffUsageDay } from '@/db/freebuff-streak'
 import { getUserInfoFromApiKey } from '@/db/user'
 import { logger, loggerWithContext } from '@/util/logger'
 
@@ -42,5 +43,6 @@ export async function POST(req: NextRequest) {
     insertChatCompletionTraceBigquery,
     ensureSubscriberBlockGrant,
     getUserPreferences,
+    recordFreebuffUsageDay,
   })
 }

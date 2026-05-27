@@ -174,6 +174,9 @@ export type ResolveFreeModeCountryAccessFn = (
   req: NextRequest,
   options: FreeModeCountryAccessOptions,
 ) => Promise<FreeModeCountryAccess>
+export type RecordFreebuffUsageDayFn = (params: {
+  userId: string
+}) => Promise<void>
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
 
@@ -233,6 +236,8 @@ export async function postChatCompletions(params: {
   resolveFreeModeCountryAccess?: ResolveFreeModeCountryAccessFn
   /** Optional override for releasing stale waiting-room rows on hard blocks. */
   endFreebuffSession?: EndUserSessionFn
+  /** Optional recorder for successful freebuff chat-completion ingress. */
+  recordFreebuffUsageDay?: RecordFreebuffUsageDayFn
 }) {
   const {
     req,
@@ -249,6 +254,7 @@ export async function postChatCompletions(params: {
     checkFreeModeRateLimit = defaultCheckFreeModeRateLimit,
     resolveFreeModeCountryAccess,
     endFreebuffSession = endUserSession,
+    recordFreebuffUsageDay,
   } = params
   let { logger } = params
   let { trackEvent } = params
@@ -816,6 +822,17 @@ export async function postChatCompletions(params: {
             message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage.`,
           },
           { status: 402 },
+        )
+      }
+    }
+
+    if (isFreeModeRequest && recordFreebuffUsageDay) {
+      try {
+        await recordFreebuffUsageDay({ userId })
+      } catch (error) {
+        logger.error(
+          { error: getErrorObject(error), userId },
+          'Failed to record freebuff usage day',
         )
       }
     }

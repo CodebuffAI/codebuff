@@ -12,6 +12,7 @@ import {
   takeOverFreebuffSession,
 } from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
+import { useFreebuffStreakQuery } from '../hooks/use-freebuff-streak-query'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
@@ -26,6 +27,7 @@ import {
 import { formatSessionUnits } from '../utils/format-session-units'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import {
+  FREEBUFF_ENABLE_STREAK_IN_UI,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
 } from '@codebuff/common/constants/freebuff-models'
@@ -320,6 +322,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
+  const streakQuery = useFreebuffStreakQuery({
+    enabled: FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued),
+  })
+  const streak = streakQuery.data?.streak ?? 0
+  const streakLabel = `${streak} ${streak === 1 ? 'day' : 'days'}`
+  const streakLineText = `Streak: ${streakLabel} · Freebuff prompt days in a row`
+  const showStreakLine =
+    FREEBUFF_ENABLE_STREAK_IN_UI &&
+    (isLanding || isQueued) &&
+    Boolean(streakQuery.data)
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back. On the landing picker we tick once a
   // minute so the premium reset countdown stays fresh.
@@ -395,11 +407,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const landingTextRows =
     wrappedRows('Pick a model to start') +
     textMarginBottom +
+    (showStreakLine ? wrappedRows(streakLineText) + textMarginBottom : 0) +
     wrappedRows(counterText) +
     textMarginBottom
+  const queuedTitleText =
+    session?.status === 'queued' && session.position === 1
+      ? "You're next in line"
+      : "You're in the waiting room"
   const queuedTextRows =
-    wrappedRows("You're in the waiting room") +
-    1 /* marginBottom */ +
+    wrappedRows(queuedTitleText) +
+    (showStreakLine ? wrappedRows(streakLineText) + 1 : 1) +
     4 /* position panel */
   const selectorMaxHeight = Math.max(
     3,
@@ -421,6 +438,23 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
     return () => clearTimeout(timer)
   }, [isLanding, premiumRateLimit, premiumResetAtMs])
+
+  const renderStreakLine = () => {
+    if (!showStreakLine) return null
+
+    return (
+      <text
+        style={{
+          fg: theme.muted,
+          marginBottom: textMarginBottom,
+          wrapMode: 'word',
+          flexShrink: 0,
+        }}
+      >
+        {streakLineText}
+      </text>
+    )
+  }
 
   return (
     <box
@@ -548,12 +582,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               }}
             >
               <text
-                style={{ marginBottom: textMarginBottom, wrapMode: 'word' }}
+                style={{
+                  marginBottom: showStreakLine ? 0 : textMarginBottom,
+                  wrapMode: 'word',
+                }}
               >
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
                 </span>
               </text>
+              {renderStreakLine()}
               <text
                 style={{
                   fg: theme.muted,
@@ -585,13 +623,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               }}
             >
               <text
-                style={{ fg: theme.foreground, marginBottom: 1 }}
+                style={{
+                  fg: theme.foreground,
+                  marginBottom: showStreakLine ? 0 : 1,
+                }}
                 attributes={TextAttributes.BOLD}
               >
-                {session.position === 1
-                  ? "You're next in line"
-                  : "You're in the waiting room"}
+                {queuedTitleText}
               </text>
+              {renderStreakLine()}
 
               <FreebuffModelSelector maxHeight={selectorMaxHeight} />
 
