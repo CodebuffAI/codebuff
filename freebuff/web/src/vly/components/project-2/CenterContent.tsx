@@ -33,6 +33,17 @@ interface CenterContentProps {
   isSelectingElement: boolean;
   onCurrentPageChange?: (currentPageUrl: string) => void;
   syncStatus?: SyncStatus;
+  /**
+   * Bump from the parent to force the iframe to reload — used right after
+   * the first build settles on brand-new projects.
+   */
+  refreshTrigger?: number;
+  /**
+   * Force the "Click to test" overlay to be visible — used when the chat
+   * pane is expanded so the iframe is clearly secondary until the user
+   * clicks back into it.
+   */
+  forceShowClickToTest?: boolean;
 }
 
 type ScreenshotTrigger = "auto" | "manual";
@@ -200,6 +211,8 @@ export function CenterContent({
   isSelectingElement,
   onCurrentPageChange,
   syncStatus,
+  refreshTrigger = 0,
+  forceShowClickToTest = false,
 }: CenterContentProps) {
   const [isIframeActive, setIsIframeActive] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -314,6 +327,27 @@ export function CenterContent({
       iframe.src = currentUrl.toString();
     }
   }, [baseUrl, navState.index, navState.stack]);
+
+  // External refresh trigger (e.g. first-build reveal): bump from parent
+  // and we reload the iframe once we have a valid src to point at.
+  const lastRefreshTriggerRef = useRef<number>(refreshTrigger);
+  React.useEffect(() => {
+    if (refreshTrigger === lastRefreshTriggerRef.current) return;
+    lastRefreshTriggerRef.current = refreshTrigger;
+    if (!navState.iframeSrc) return;
+    // Small delay so any in-flight nav settles first.
+    const id = window.setTimeout(() => handleRefresh(), 250);
+    return () => window.clearTimeout(id);
+  }, [refreshTrigger, handleRefresh, navState.iframeSrc]);
+
+  // Parent-driven "show overlay": when the chat is expanded the iframe is
+  // visually secondary, so we surface the click-to-test affordance and
+  // forfeit iframe focus until the user clicks back in.
+  React.useEffect(() => {
+    if (forceShowClickToTest) {
+      setIsIframeActive(false);
+    }
+  }, [forceShowClickToTest]);
 
   // Use React Query for automatic project connection
   // React Query handles deduplication and prevents duplicate requests automatically
@@ -673,43 +707,34 @@ export function CenterContent({
 
   if (!activeEntryPoint) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex h-full w-full items-center justify-center p-4 text-muted-foreground">
         <p>Select a page to view its content.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen px-4 pb-4 pt-2" suppressHydrationWarning>
-      <div className="inline-flex w-full flex-col items-start justify-start gap-2">
-        <div className="inline-flex w-full items-center justify-between">
-          <div className="justify-start text-sm font-semibold leading-none text-stone-500">
-            {activeEntryPointByPath?.page?.page_title ?? "Untitled Page"}
-          </div>
-        </div>
-        {/* --- Minimal Navigator --- */}
+    <div
+      className="flex h-full w-full flex-col px-3 pb-3 pt-2"
+      suppressHydrationWarning
+    >
+      <div className="flex h-full w-full flex-col items-stretch justify-start gap-2">
+        {/* --- Compact URL bar (Lovable-style) --- */}
         <div
-          className="mb-2 flex w-full min-w-[220px] items-center gap-1 rounded-full border border-slate-100/60 bg-white/60 px-2 py-0.5 shadow-sm backdrop-blur-sm dark:border-[#444444] dark:bg-[#282828] dark:shadow-[0_8px_22px_-14px_rgba(0,0,0,0.92)]"
-          style={{ minHeight: 28 }}
+          className="flex w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1"
+          style={{ minHeight: 32 }}
         >
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={handleBack}
               disabled={!canGoBack}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.04] transition hover:bg-slate-200/60 active:bg-slate-300/70 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-              style={{ fontSize: 16 }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Back"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path
                   d="M10 13L5 8L10 3"
-                  stroke="#888"
+                  stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -719,20 +744,13 @@ export function CenterContent({
             <button
               onClick={handleForward}
               disabled={!canGoForward}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.04] transition hover:bg-slate-200/60 active:bg-slate-300/70 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-              style={{ fontSize: 16 }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Forward"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path
                   d="M6 13L11 8L6 3"
-                  stroke="#888"
+                  stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -745,43 +763,35 @@ export function CenterContent({
                 handleRefresh();
               }}
               disabled={!navState.iframeSrc}
-              className="flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-1 transition hover:bg-slate-200/60 active:bg-slate-300/70 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Refresh"
             >
-              <RotateCw
-                className="h-3 w-3 text-zinc-800 dark:text-zinc-200"
-                strokeWidth={1.5}
-              />
-              <span className="text-[10px] text-gray-600 dark:text-zinc-300">
-                Refresh
-              </span>
+              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
           </div>
           <span
-            className="flex-1 select-text truncate px-2 font-mono text-[11px] text-gray-500 dark:text-zinc-400"
+            className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
             style={{ letterSpacing: 0.2 }}
           >
             {navState.stack[navState.index] || (
               <span className="opacity-40">/</span>
             )}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleRestartDevServer();
               }}
               disabled={!project || isRestarting}
-              className="flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-1 transition hover:bg-slate-200/60 active:bg-slate-300/70 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-              aria-label="Restart Server"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={isRestarting ? "Restarting…" : "Restart dev server"}
+              title={isRestarting ? "Restarting…" : "Restart dev server"}
             >
               <RotateCcw
-                className={`h-3 w-3 text-zinc-800 dark:text-zinc-200 ${isRestarting ? "animate-spin" : ""}`}
+                className={`h-3.5 w-3.5 ${isRestarting ? "animate-spin" : ""}`}
                 strokeWidth={1.5}
               />
-              <span className="text-[10px] text-gray-600 dark:text-zinc-300">
-                {isRestarting ? "Restarting..." : "Broken? Restart Server"}
-              </span>
             </button>
             {isGodMode && (
               <button
@@ -806,25 +816,15 @@ export function CenterContent({
                   !projectId ||
                   isScreenshotUnsupported
                 }
-                className="flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-100 px-2 py-1 transition hover:bg-yellow-200 active:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#5a4e33] dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-                aria-label="Screenshot (God Mode)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-amber-300 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Screenshot"
                 title={
                   isScreenshotUnsupported
                     ? "Screenshots not supported: This app uses oklch() CSS colors"
                     : "Admin only: Capture screenshot"
                 }
               >
-                <Camera
-                  className="h-3 w-3 text-zinc-800 dark:text-[#d6be86]"
-                  strokeWidth={1.5}
-                />
-                <span className="text-[10px] text-gray-600 dark:text-[#d6be86]">
-                  {isCapturingScreenshot
-                    ? "Capturing..."
-                    : isScreenshotUnsupported
-                      ? "❌ Not Supported"
-                      : "📸 Screenshot"}
-                </span>
+                <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
             )}
             {syncStatus && (
@@ -833,37 +833,28 @@ export function CenterContent({
                   const url = `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`;
                   window.open(url, "_blank");
                 }}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.04] transition hover:bg-slate-200/60 active:bg-slate-300/70 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-                style={{ fontSize: 16 }}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
                 aria-label="View on GitHub"
                 title={`View on GitHub: ${syncStatus.repo_owner}/${syncStatus.repo_name}`}
               >
-                <Github
-                  className="h-4 w-4 text-zinc-800 dark:text-zinc-200"
-                  strokeWidth={1.5}
-                />
+                <Github className="h-4 w-4" strokeWidth={1.5} />
               </button>
             )}
             <button
               onClick={handleOpenInNewTab}
               disabled={!navState.iframeSrc}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-black/[0.04] transition hover:bg-slate-200/60 active:bg-slate-300/70 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#282828] dark:hover:bg-[#3c3c3c] dark:active:bg-[#3c3c3c]"
-              style={{ fontSize: 16 }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Open in new tab"
             >
-              <ExternalLink
-                className="h-4 w-4 text-zinc-800 dark:text-zinc-200"
-                strokeWidth={1.5}
-              />
+              <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </div>
         </div>
-        {/* --- End Navigator --- */}
         {/* --- Static iframe, never animates or remounts unless parent navigation --- */}
-        <div className="w-full">
+        <div className="min-h-0 w-full flex-1">
           <div
             ref={iframeContainerRef}
-            className={`${styles.iframeWrapper} relative w-full overflow-hidden rounded-sm bg-white shadow-[0_4px_30px_0_rgba(45,45,45,0.2)] dark:bg-[#282828] dark:shadow-[0_10px_30px_0_rgba(0,0,0,0.72)] ${isSelectingElement ? styles.selectingFrame : ""} ${isMobile ? "aspect-[9/16]" : "aspect-[982/567]"}`}
+            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden rounded-lg border border-border bg-card shadow-xl shadow-black/40 ${isSelectingElement ? styles.selectingFrame : ""}`}
             suppressHydrationWarning
           >
             {(() => {
@@ -892,7 +883,7 @@ export function CenterContent({
             <AnimatePresence>
               {isConnecting && (
                 <motion.div
-                  className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm"
+                  className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -910,11 +901,11 @@ export function CenterContent({
                   >
                     <Spinner3D size={36} />
                     <div className="text-center">
-                      <p className="text-sm font-medium text-zinc-700">
-                        Starting sandbox...
+                      <p className="text-sm font-medium text-foreground">
+                        Project connected, booting up preview…
                       </p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        This may take a moment
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Spinning up your sandbox — this only takes a moment.
                       </p>
                     </div>
                   </motion.div>
@@ -924,7 +915,7 @@ export function CenterContent({
             <AnimatePresence>
               {!isIframeActive && navState.iframeSrc && !isSelectingElement && (
                 <motion.div
-                  className="absolute inset-0 z-10 flex transform-gpu cursor-pointer flex-col items-center justify-center bg-black/10 hover:bg-black/5"
+                  className="absolute inset-0 z-10 flex transform-gpu cursor-pointer flex-col items-center justify-center bg-black/35 hover:bg-black/20"
                   onClick={handleOverlayClick}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -935,32 +926,30 @@ export function CenterContent({
                   }}
                   style={{ willChange: "opacity" }}
                 >
-                  <div className="flex items-center gap-3 rounded-lg border border-white/30 bg-white/95 px-4 py-3 shadow-lg">
-                    <div className="flex items-center gap-2 rounded px-2 py-1 transition-colors hover:bg-white/95">
-                      <MousePointer className="h-4 w-4 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Click to test
-                      </span>
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-xl shadow-black/40 backdrop-blur">
+                    <div className="flex items-center gap-2 rounded px-2 py-1 text-foreground">
+                      <MousePointer className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Click to test</span>
                     </div>
-                    <div className="h-6 w-px bg-gray-300"></div>
+                    <div className="h-6 w-px bg-border" />
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenInNewTab();
                       }}
-                      className="flex items-center gap-2 rounded px-2 py-1 transition-colors hover:bg-white/95"
+                      className="flex items-center gap-2 rounded px-2 py-1 text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
                     >
-                      <ExternalLink className="h-4 w-4 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-700">
+                      <ExternalLink className="h-4 w-4" />
+                      <span className="text-sm font-medium">
                         Open in new tab
                       </span>
                     </button>
                   </div>
-                  <p className="mt-3 text-center text-xs text-gray-500">
-                    Project may take a moment to load <br /> Publish your
-                    project for faster speeds.
+                  <p className="mt-3 text-center text-xs text-muted-foreground">
+                    Project may take a moment to load — <br />
+                    publish for faster preview speeds.
                   </p>
-                  <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[10px] text-amber-600">
+                  <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[10px] text-amber-300/85">
                     <AlertTriangle className="h-3 w-3 shrink-0" />
                     Styles may be off in the preview — open in new tab instead.
                   </p>
@@ -969,29 +958,6 @@ export function CenterContent({
             </AnimatePresence>
           </div>
         </div>
-
-        {/* --- Animated documentation/editor section --- */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeEntryPointByPath?._id}
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -30, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] as const }}
-            className="w-full pt-4"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div className="justify-start text-sm font-semibold leading-none text-stone-500">
-                Documentation (currently under maintence)
-              </div>
-            </div>
-            <div className="w-full rounded-lg bg-white/60 pb-8 pl-12 pr-8 pt-12 text-sm outline outline-1 outline-offset-[-1px] outline-gray-300/80">
-              <p className="font-medium text-stone-600">
-                Documentation is currently under maintence
-              </p>
-            </div>
-          </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );

@@ -4,9 +4,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader, MessageCircle } from "lucide-react";
+import { Loader, MessageCircle } from "lucide-react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   useState,
   useRef,
@@ -26,30 +25,20 @@ import { TopBar } from "../project-2/TopBar";
 import { ChatShell } from "../project-2/ChatShell";
 import { AgentChatShell } from "../project-2/agent-chat";
 import { useIsMobile } from "@/vly/hooks/use-mobile";
-import { MarkdownWithSuggest } from "../project-2/MarkdownWithSuggest";
 import { ChatStorageProvider } from "@/vly/contexts/ChatStorageContext";
 import { useProjectPageTheme } from "@/vly/hooks/useProjectPageTheme";
 import { useIsPlatformAdmin } from "@/vly/hooks/useIsPlatformAdmin";
-import {
-  ProjectStatusDialog,
-  ProjectStatus,
-} from "../project-2/ProjectStatusDialog";
-import { FeatureGate, UpgradePrompt } from "@/vly/components/billing/FeatureGate";
+import { ProjectStatusDialog, ProjectStatus } from "../project-2/ProjectStatusDialog";
 import {
   StarterUpgradePopup,
   useStarterUpgradePopup,
 } from "@/vly/components/project-2/StarterUpgradePopup";
-import { GravityAdSlot } from "@/vly/components/project-2/agent-chat/GravityAdSlot";
+import {
+  ProjectIframeArea,
+  type IframeTab,
+} from "../project-2/ProjectIframeArea";
 
 // Lazy load heavy components that may not be immediately visible
-const CenterContent = lazy(() =>
-  import("../project-2/CenterContent").then((m) => ({
-    default: m.CenterContent,
-  })),
-);
-const LeftSidebar = lazy(() =>
-  import("../project-2/LeftSidebar").then((m) => ({ default: m.LeftSidebar })),
-);
 const SyncStatusBanner = lazy(() =>
   import("../project-2/SyncStatusBanner").then((m) => ({
     default: m.SyncStatusBanner,
@@ -60,13 +49,18 @@ const DeploymentDialog = lazy(() =>
     default: m.DeploymentDialog,
   })),
 );
-const DatabaseView = lazy(() => import("../project-2/DatabaseView"));
 const WorkspaceInsufficientPlanModal = lazy(() =>
   import("../project-2/WorkspaceInsufficientPlanModal").then((m) => ({
     default: m.WorkspaceInsufficientPlanModal,
   })),
 );
 
+/**
+ * Legacy view union — still exported because `LeftSidebar` and other
+ * components import it. The new project layout only renders a subset
+ * (mapped via {@link viewToTab}); legacy values like `monitoring` /
+ * `hire developers` redirect to the new dedicated settings page.
+ */
 export type ActiveView =
   | "default"
   | "database"
@@ -84,25 +78,46 @@ export type ActiveView =
   | "hire developers"
   | "daytona fs";
 
-// Direct import for lightweight components
+// Map old ActiveView URL params to the new IframeTab IDs used by
+// ProjectIframeArea. Anything outside this map falls back to "preview".
+function viewToTab(view: ActiveView): IframeTab {
+  switch (view) {
+    case "database":
+      return "database";
+    case "editor":
+      return "editor";
+    case "keys":
+      return "keys";
+    case "integrations":
+      return "integrations";
+    case "ui components":
+      return "ui-components";
+    case "backend management":
+      return "logs";
+    default:
+      return "preview";
+  }
+}
 
-// Lazy load heavier components
-const EnvVarsView = lazy(() => import("../project-2/EnvVarsView"));
-const GitCommitsView = lazy(() => import("../project-2/GitCommitsView"));
-const IntegrationsView = lazy(() => import("../project-2/IntegrationsView"));
-const UiIntegrationView = lazy(() => import("../project-2/UiIntegrationView"));
-const AssetsView = lazy(() => import("../project-2/AssetsView"));
-const GitHubSyncView = lazy(() => import("../project-2/GitHubSyncView"));
-const EditorView = lazy(() => import("../project-2/EditorView"));
-const AppAndSupportView = lazy(() => import("../project-2/AppAndSupportView"));
-const BackendManagement = lazy(() => import("../project-2/BackendManagement"));
-const Monitoring = lazy(() => import("../project-2/Monitoring"));
-const HireDevelopersView = lazy(
-  () => import("../project-2/HireDevelopersView"),
-);
-const DaytonaFSDashboard = lazy(
-  () => import("../project-2/DaytonaFSDashboard"),
-);
+function tabToView(tab: IframeTab): ActiveView {
+  switch (tab) {
+    case "database":
+      return "database";
+    case "editor":
+      return "editor";
+    case "keys":
+      return "keys";
+    case "integrations":
+      return "integrations";
+    case "ui-components":
+      return "ui components";
+    case "logs":
+      return "backend management";
+    case "preview":
+    default:
+      return "default";
+  }
+}
 
 export function Project2({
   shouldShowPublicModel = false,
@@ -409,7 +424,20 @@ function ProjectWrapper({
     shouldShowPublicModel,
   );
   const [isChatVisible, setIsChatVisible] = useState(true);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+
+  // Whether the chat pane is in its "focused / expanded" state. Clicking
+  // inside the chat expands it; clicking outside collapses it back.
+  const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const chatAsideRef = useRef<HTMLElement>(null);
+
+  // Track whether we've revealed the iframe for the very first time on this
+  // project. Brand new projects start in "processing" / "initializing" — we
+  // hide the iframe until they leave that state, then fade it in and force
+  // a one-shot refresh via {@link iframeRefreshKey}.
+  const initialProjectStateRef = useRef<string | undefined>(undefined);
+  const [hasRevealedIframe, setHasRevealedIframe] = useState(true);
+  const [iframeRefreshKey, setIframeRefreshKey] = useState(0);
+
   const isMobile = useIsMobile();
 
   // Mutation to send messages from sidebar
@@ -511,32 +539,63 @@ function ProjectWrapper({
     };
   }, []);
 
+  // ── First-creation iframe reveal ────────────────────────────────────
+  // Snapshot the very first project.state we ever see. If it was
+  // "processing" or "initializing", treat this as a brand-new project and
+  // keep the iframe hidden until the build finishes; then fade it in and
+  // bump the refresh key to force the iframe to reload fresh content.
+  useEffect(() => {
+    if (project === undefined || project === null) return;
+    if (initialProjectStateRef.current !== undefined) return;
+
+    const initialState = project.state;
+    initialProjectStateRef.current = initialState ?? "active";
+    const looksLikeFirstBuild =
+      initialState === "processing" || initialState === "initializing";
+    if (looksLikeFirstBuild) {
+      setHasRevealedIframe(false);
+    }
+  }, [project]);
+
+  useEffect(() => {
+    if (hasRevealedIframe) return;
+    if (project === undefined || project === null) return;
+    const state = project.state;
+    if (state !== "processing" && state !== "initializing") {
+      setHasRevealedIframe(true);
+      // Refresh iframe once the build settles so it picks up the new server.
+      setIframeRefreshKey((k) => k + 1);
+    }
+  }, [hasRevealedIframe, project]);
+
+  // ── Chat expand / collapse on focus ────────────────────────────────
+  // Listen at the document level so any click outside the chat aside
+  // collapses it back. Pointerdown beats click for snappy UX.
+  useEffect(() => {
+    if (!isChatExpanded) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const aside = chatAsideRef.current;
+      if (!aside) return;
+      const target = event.target as Node | null;
+      if (target && !aside.contains(target)) {
+        setIsChatExpanded(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [isChatExpanded]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background font-sans">
         <main className="flex flex-1 flex-col items-center justify-center bg-background p-4">
           <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <Loader className="h-6 w-6 animate-spin" />
-            </div>
-            <p className="">Loading project...</p>
+            <Loader className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Loading project…
+            </p>
           </div>
-          <motion.div
-            className="fixed inset-0 z-0 transform-gpu"
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.5, ease: [0, 0, 0.2, 1] as const }}
-            style={{ willChange: "transform, opacity" }}
-          >
-            {/* Safeguard the <img> tag */}
-            {project && (
-              <img
-                src="/hero.webp"
-                alt="Background"
-                className="h-full w-full object-cover opacity-10"
-              />
-            )}
-          </motion.div>
         </main>
       </div>
     );
@@ -599,6 +658,11 @@ function ProjectWrapper({
     );
   }
 
+  // Bridge the legacy ActiveView URL state with the new IframeTab API of
+  // ProjectIframeArea (handles round-trip back to URL via updateActiveView).
+  const activeTab: IframeTab = viewToTab(activeView);
+  const setActiveTab = (tab: IframeTab) => updateActiveView(tabToView(tab));
+
   return (
     <>
       {/* Deployment Dialog - triggered by publish URL param */}
@@ -610,356 +674,137 @@ function ProjectWrapper({
         />
       </Suspense>
 
-      <div className="project-page-root relative h-screen overflow-hidden bg-[#0a0a0b]">
-        {/* Ambient Freebuff backdrop — subtle radial glow on near-black */}
-        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "var(--project-page-overlay)",
-            }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(circle at 14% 12%, rgba(124,255,63,0.07) 0%, rgba(10,10,11,0) 36%), radial-gradient(circle at 86% 18%, rgba(124,255,63,0.05) 0%, rgba(10,10,11,0) 32%)",
-            }}
-          />
-        </div>
-
-        {/* Fixed Top Bar - flush with top */}
-        <div className="fixed left-0 right-0 top-0 z-50 border-b border-[#2a2a2e]">
+      <div className="project-page-root flex h-screen flex-col overflow-hidden bg-background">
+        {/* Top bar (compact Lovable-style) */}
+        <div className="relative z-50 flex-shrink-0">
           <TopBar
             project={project}
-            onMobileSidebarToggle={() => setIsSidebarVisible(!isSidebarVisible)}
             projectTheme={projectTheme}
             onToggleProjectTheme={toggleProjectTheme}
           />
         </div>
 
-        {/* Sync Status Banner */}
-        <Suspense fallback={<div className="h-8" />}>
+        {/* Sync banner sits just under the top bar */}
+        <Suspense fallback={null}>
           <SyncStatusBanner syncStatus={syncStatus} activeView={activeView} />
         </Suspense>
 
-        {/* Mobile Sidebar Overlay */}
-        {isMobile && isSidebarVisible && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-              onClick={() => setIsSidebarVisible(false)}
-            />
-            {/* Sidebar */}
-            <motion.div
-              className="fixed bottom-0 left-0 top-[36px] z-40 transform-gpu lg:hidden"
-              style={{ zIndex: 45, willChange: "transform" }}
-              initial={{ x: -250, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -250, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] as const }}
-            >
-              <Suspense
-                fallback={
-                  <div className="flex h-full w-64 items-center justify-center border-r bg-white dark:border-[#575757] dark:bg-[#282828]">
-                    <Loader className="h-6 w-6 animate-spin" />
-                  </div>
-                }
-              >
-                <LeftSidebar
-                  activeView={activeView}
-                  setActiveView={(view) => {
-                    updateActiveView(view);
-                    setIsSidebarVisible(false); // Close sidebar when item is selected on mobile
-                  }}
-                  project={project}
-                  entryPoints={entryPointsArray}
-                  activeEntryPoint={activeEntryPoint}
-                  setActiveEntryPoint={(id) => {
-                    handleSidebarClick(id);
-                    setIsSidebarVisible(false); // Close sidebar when item is selected on mobile
-                  }}
-                  syncStatus={syncStatus}
-                  onSendMessage={handleSendMessageFromSidebar}
-                />
-              </Suspense>
-            </motion.div>
-          </>
-        )}
-
-        {/* Desktop Sidebar */}
-        <motion.div
-          className="fixed bottom-0 left-0 top-[36px] z-20 hidden transform-gpu lg:block"
-          initial={{ x: -250, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{
-            duration: 0.8,
-            delay: 0.2,
-            ease: [0, 0, 0.2, 1] as const,
-          }}
-          style={{ willChange: "transform" }}
-        >
-          <Suspense
-            fallback={
-              <div className="flex h-full w-64 items-center justify-center border-r bg-white dark:border-[#575757] dark:bg-[#282828]">
-                <Loader className="h-6 w-6 animate-spin" />
-              </div>
-            }
-          >
-            <LeftSidebar
-              activeView={activeView}
-              project={project}
-              entryPoints={entryPointsArray}
-              activeEntryPoint={activeEntryPoint}
-              setActiveEntryPoint={handleSidebarClick}
-              syncStatus={syncStatus}
-              onSendMessage={handleSendMessageFromSidebar}
-            />
-          </Suspense>
-        </motion.div>
-
-        {activeView === "default" || activeView === "specification" ? (
-          <>
-            {/* Fixed Right Chat Bar - Hidden on mobile when isChatVisible is false */}
-            <div
-              className={`fixed right-0 top-[36px] w-full min-w-[320px] max-w-[500px] transition-transform duration-300 dark:border-l dark:border-[#343434] dark:bg-[#1f2020] dark:shadow-[-14px_0_30px_-18px_rgba(0,0,0,0.95)] lg:w-[500px] ${isMobile && !isChatVisible ? "translate-x-full" : ""} ${isMobile ? "bottom-[52px] z-30" : "bottom-0 z-20"}`}
-            >
-              <ChatStorageProvider
-                projectSemanticIdentifier={semanticIdentifier}
-              >
-                {/* Only render chat components after project is fully loaded */}
-                {project === undefined ? (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="text-center text-zinc-500 dark:text-zinc-400">
-                      Loading project...
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {useAgentChat ? (
-                      <AgentChatShell
-                        project={project}
-                        projectSemanticIdentifier={semanticIdentifier}
-                        onSwitchToOldChat={undefined}
-                        isSelectingElement={isSelectingElement}
-                        setIsSelectingElement={setIsSelectingElement}
-                      />
-                    ) : (
-                      <ChatShell
-                        project={project}
-                        threadMessages={filteredThreadMessages}
-                        messagesStatus={
-                          messagesStatus === "LoadingFirstPage"
-                            ? undefined
-                            : messagesStatus
-                        }
-                        loadMoreThreadMessages={loadMoreThreadMessages}
-                        streamedMessages={filteredStreamedMessages}
-                        pageIdSelectedForEdit={pageIdSelectedForEdit}
-                        onPageSelectedForEdit={setPageIdSelectedForEdit}
-                        expandedPageNodeId={expandedPageNodeId}
-                        projectSemanticIdentifier={semanticIdentifier}
-                        createNewThreadFromEntryPoint={async () => {}}
-                        isSelectingElement={isSelectingElement}
-                        setIsSelectingElement={setIsSelectingElement}
-                        currentPageUrl={currentPageUrl}
-                        syncStatus={syncStatus}
-                        activeEntryPointId={activeEntryPoint}
-                        onSwitchToNewAgent={undefined}
-                      />
-                    )}
-                  </>
-                )}
-              </ChatStorageProvider>
-            </div>
-            <div
-              className="pointer-events-none fixed left-0 right-0 top-[16px] z-10"
-              style={{
-                height: "20px",
-              }}
-            />
-
-            {/* Mobile Chat Toggle Footer */}
-            {isMobile && (
-              <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#d0d0d0]/70 bg-[#f1f1f1]/90 shadow-lg backdrop-blur-sm dark:border-[#575757] dark:bg-[#282828]/95">
-                <button
-                  onClick={() => setIsChatVisible(!isChatVisible)}
-                  className="flex w-full items-center justify-center gap-2 py-3 text-center font-medium text-zinc-700 transition-all duration-300 hover:bg-[#e7e7e7] dark:text-zinc-100 dark:hover:bg-[#4a4a4a]"
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  {isChatVisible ? "Hide Chat" : "Show Chat"}
-                </button>
-              </div>
-            )}
-
-            {/* Center Content - Full page scroll with proper spacing */}
-            <div
-              className={`relative z-10 overflow-y-auto pt-8 transition-all duration-300 ${isMobile ? "ml-0 mr-0" : "ml-0 mr-[320px] lg:ml-[204px] lg:mr-[504px]"} ${isMobile ? "h-[calc(100vh-52px)] pb-[52px]" : "h-screen"}`}
-            >
-              {/* <Suspense fallback={<div />}>
-                <div className="mx-4 mb-0 mt-2 rounded-lg border-2 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 p-1.5 shadow-lg dark:border-[#5f5f5f] dark:from-[#282828] dark:to-[#242424]">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <p className="text-[10px] leading-tight text-green-800 dark:text-zinc-100">
-                        Congrats on being an early user! Claim 50% off paid
-                        plans (ending in 24 hours).{" "}
-                        <a
-                          href="/web/dashboard"
-                          className="font-semibold text-green-900 underline hover:text-green-700 dark:text-zinc-100 dark:hover:text-zinc-200"
-                        >
-                          Lock in a tier here
-                        </a>{" "}
-                        and{" "}
-                        <a
-                          href="https://discord.gg/2gSmB9DxJW"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-green-900 underline hover:text-green-700 dark:text-zinc-100 dark:hover:text-zinc-200"
-                        >
-                          join our discord
-                        </a>
-                        .
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Suspense> */}
-
-              <Suspense fallback={<div />}>
-                <>
-                  {project &&
-                    (activeView === "default" ||
-                      activeView === "specification") && (
-                      <div className="mx-4 mb-2 mt-4">
-                        <GravityAdSlot
-                          messages={[]}
-                          sessionId={project._id}
-                          slotKey={`center-${activeView}`}
-                          variant="default"
-                          placement="center"
-                        />
-                      </div>
-                    )}
-                  {activeView === "default" ? (
-                    <CenterContent
-                      project={project}
-                      activeEntryPoint={entryPointsArray.find(
-                        (ep) => ep._id === activeEntryPoint,
-                      )}
-                      entryPoints={entryPointsArray}
-                      isSelectingElement={isSelectingElement}
-                      onCurrentPageChange={setCurrentPageUrl}
-                      syncStatus={syncStatus}
-                    />
-                  ) : activeView === "specification" ? (
-                    <div>
-                      <div className="mb-1 ml-4 mt-4 flex items-center justify-between">
-                        <div className="justify-start text-sm font-semibold leading-none text-stone-500 dark:text-zinc-400">
-                          Specification (currently under maintence)
-                        </div>
-                      </div>
-                      <div className="mx-4 mb-8 mt-2 w-auto rounded-lg bg-white/60 pb-8 pl-12 pr-8 pt-12 text-sm outline outline-1 outline-offset-[-1px] outline-gray-300/80 dark:bg-[#282828]/90 dark:outline-[#575757]">
-                        <MarkdownWithSuggest
-                          projectSemanticIdentifier={semanticIdentifier}
-                          text={project.spec || ""}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              </Suspense>
-            </div>
-          </>
-        ) : (
-          <div
-            className={`relative z-10 ${isMobile ? "ml-0" : "ml-[200px]"}`}
-            style={{
-              marginTop: "36px",
-              height: "calc(100vh - 36px)",
+        {/* Main split: chat left | iframe area right.
+            On desktop, the widths animate when the chat is "focused" so the
+            chat grows and the iframe compacts; clicking anywhere outside the
+            chat aside collapses back to default proportions. */}
+        <div className="flex min-h-0 flex-1">
+          {/* ── Chat (left) ───────────────────────────────────────────── */}
+          <motion.aside
+            ref={chatAsideRef}
+            onPointerDown={() => {
+              if (!isMobile) setIsChatExpanded(true);
             }}
+            initial={false}
+            animate={
+              isMobile
+                ? undefined
+                : isChatExpanded
+                  ? { width: "62%" }
+                  : { width: "44%" }
+            }
+            transition={{
+              duration: 0.42,
+              ease: [0.22, 1, 0.36, 1] as const,
+            }}
+            className={`relative flex h-full flex-col border-r border-border/60 bg-card/40 ${
+              isMobile
+                ? `absolute inset-y-0 left-0 z-40 w-full max-w-[480px] transform transition-transform ${
+                    isChatVisible ? "translate-x-0" : "-translate-x-full"
+                  }`
+                : "min-w-[420px] max-w-[820px]"
+            }`}
+            style={isMobile ? undefined : { willChange: "width" }}
           >
-            <div
-              className="pointer-events-none fixed left-0 right-0 top-[16px] z-10"
-              style={{
-                height: "20px",
-              }}
+            {/* Floating chat toolbar (version history + GitHub sync) */}
+            <ChatTopActions
+              semanticIdentifier={semanticIdentifier}
+              projectId={project._id}
+              syncStatus={syncStatus}
             />
 
-            <div className="z-10 h-full w-full overflow-y-auto bg-white p-4 pl-8 dark:bg-[#282828]">
-              {/* Back arrow button */}
-              <Link
-                href={`/web/project/${semanticIdentifier}`}
-                className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-[#575757] dark:bg-[#3c3c3c] dark:text-zinc-100 dark:hover:bg-[#4a4a4a] dark:hover:text-zinc-100"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Editor
-              </Link>
+            <ChatStorageProvider
+              projectSemanticIdentifier={semanticIdentifier}
+            >
+              {project === undefined ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Loading project…
+                </div>
+              ) : useAgentChat ? (
+                <AgentChatShell
+                  project={project}
+                  projectSemanticIdentifier={semanticIdentifier}
+                  onSwitchToOldChat={undefined}
+                  isSelectingElement={isSelectingElement}
+                  setIsSelectingElement={setIsSelectingElement}
+                />
+              ) : (
+                <ChatShell
+                  project={project}
+                  threadMessages={filteredThreadMessages}
+                  messagesStatus={
+                    messagesStatus === "LoadingFirstPage"
+                      ? undefined
+                      : messagesStatus
+                  }
+                  loadMoreThreadMessages={loadMoreThreadMessages}
+                  streamedMessages={filteredStreamedMessages}
+                  pageIdSelectedForEdit={pageIdSelectedForEdit}
+                  onPageSelectedForEdit={setPageIdSelectedForEdit}
+                  expandedPageNodeId={expandedPageNodeId}
+                  projectSemanticIdentifier={semanticIdentifier}
+                  createNewThreadFromEntryPoint={async () => {}}
+                  isSelectingElement={isSelectingElement}
+                  setIsSelectingElement={setIsSelectingElement}
+                  currentPageUrl={currentPageUrl}
+                  syncStatus={syncStatus}
+                  activeEntryPointId={activeEntryPoint}
+                  onSwitchToNewAgent={undefined}
+                />
+              )}
+            </ChatStorageProvider>
+          </motion.aside>
 
-              <Suspense
-                fallback={
-                  <div className="flex h-full items-center justify-center">
-                    <Loader className="h-6 w-6 animate-spin" />
-                  </div>
-                }
-              >
-                {activeView === "database" && (
-                  <DatabaseView project={project} />
-                )}
-                {activeView === "editor" && (
-                  <FeatureGate
-                    featureId="project_code_editor"
-                    fallback={
-                      <UpgradePrompt
-                        featureId="project_code_editor"
-                        variant="compact"
-                      />
-                    }
-                  >
-                    <EditorView projectId={project._id} />
-                  </FeatureGate>
-                )}
-                {activeView === "keys" && <EnvVarsView project={project} />}
-                {activeView === "versions" && (
-                  <GitCommitsView project={project} />
-                )}
-                {activeView === "integrations" && (
-                  <IntegrationsView semanticIdentifier={semanticIdentifier} />
-                )}
-                {activeView === "ui components" && (
-                  <UiIntegrationView semanticIdentifier={semanticIdentifier} />
-                )}
-                {activeView === "assets" && (
-                  <AssetsView semanticIdentifier={semanticIdentifier} />
-                )}
-                {activeView === "github" && (
-                  <GitHubSyncView projectId={project._id} />
-                )}
-                {activeView === "app & support" && (
-                  <AppAndSupportView project={project} />
-                )}
-                {activeView === "backend management" && (
-                  <BackendManagement project={project} />
-                )}
-                {activeView === "monitoring" && (
-                  <Monitoring project={project} />
-                )}
-                {activeView === "hire developers" && <HireDevelopersView />}
-                {activeView === "daytona fs" && (
-                  <DaytonaFSDashboard projectId={project._id} />
-                )}
-              </Suspense>
-            </div>
+          {/* ── Iframe area (right) ──────────────────────────────────── */}
+          <section className="relative min-w-0 flex-1">
+            <ProjectIframeArea
+              project={project}
+              semanticIdentifier={semanticIdentifier}
+              entryPointsArray={entryPointsArray}
+              activeEntryPoint={activeEntryPoint}
+              isSelectingElement={isSelectingElement}
+              onCurrentPageChange={setCurrentPageUrl}
+              syncStatus={syncStatus}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              isRevealed={hasRevealedIframe}
+              isChatExpanded={!isMobile && isChatExpanded}
+              refreshTrigger={iframeRefreshKey}
+            />
+          </section>
+        </div>
+
+        {/* Mobile chat toggle */}
+        {isMobile && (
+          <div className="flex-shrink-0 border-t border-border/60 bg-background/95 px-2 py-1.5 backdrop-blur">
+            <button
+              onClick={() => setIsChatVisible(!isChatVisible)}
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {isChatVisible ? "Hide chat" : "Show chat"}
+            </button>
           </div>
         )}
       </div>
 
       {/* Project Status Dialog - shown as overlay when migration or errors detected */}
-      {/* <ProjectStatusDialog
+      <ProjectStatusDialog
         status={projectStatus}
         semanticIdentifier={semanticIdentifier}
       />
@@ -970,5 +815,78 @@ function ProjectWrapper({
         onOpenChange={setShowStarterPopup}
       />
     </>
+  );
+}
+
+/**
+ * Tiny floating toolbar overlaid on the top-right of the chat pane.
+ * Provides quick access to version history and GitHub sync — both lazily
+ * surfaced so we don't perturb the (very large) underlying ChatShell.
+ */
+function ChatTopActions({
+  semanticIdentifier,
+  projectId,
+  syncStatus,
+}: {
+  semanticIdentifier: string;
+  projectId: Id<"project">;
+  syncStatus?: import("convex/server").FunctionReturnType<
+    typeof api.github.repositories.getProjectSyncStatus
+  >;
+}) {
+  const router = useRouter();
+  void projectId;
+  return (
+    <div className="pointer-events-none absolute right-2 top-2 z-30 flex gap-0.5">
+      <button
+        onClick={() =>
+          router.push(`/web/project/${semanticIdentifier}?view=versions`)
+        }
+        title="Version history"
+        aria-label="Version history"
+        className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      </button>
+      <button
+        onClick={() => {
+          if (syncStatus) {
+            window.open(
+              `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`,
+              "_blank",
+            );
+          } else {
+            router.push(`/web/project/${semanticIdentifier}?view=github`);
+          }
+        }}
+        title={syncStatus ? "View on GitHub" : "Connect GitHub"}
+        aria-label="GitHub"
+        className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="currentColor"
+        >
+          <path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.6 1 .1-.8.4-1.4.8-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.3-.1-.3-.6-1.6.1-3.3 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 3 .1 3.3.8.9 1.3 2 1.3 3.3 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z" />
+        </svg>
+      </button>
+    </div>
   );
 }

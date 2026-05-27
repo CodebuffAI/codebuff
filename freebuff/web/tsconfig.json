@@ -32,6 +32,8 @@
       "@/lib/constant": ["./src/lib/constant.ts"],
       "@/lib/fonts": ["./src/lib/fonts.ts"],
       "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],
+      "@/lib/blog/*": ["./src/lib/blog/*"],
+      "@/components/blog/*": ["./src/components/blog/*"],
       "@/components/background-beams": [
         "./src/components/background-beams.tsx"
       ],

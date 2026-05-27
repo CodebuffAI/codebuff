@@ -35,6 +35,12 @@ export function Footer() {
             <h3 className="font-semibold mb-3">Links</h3>
             <nav className="flex flex-col space-y-2">
               <Link
+                href="/blog"
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
+                Blog
+              </Link>
+              <Link
                 href="https://codebuff.com"
                 target="_blank"
                 className="text-sm text-muted-foreground hover:text-primary"
