@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { pluralize } from '../string'
+import { pluralize, safeReplace } from '../string'
 
 describe('pluralize', () => {
   it('should handle singular and plural cases correctly', () => {
@@ -237,3 +237,16 @@ describe('pluralize', () => {
   })
 })
 
+describe('safeReplace', () => {
+  it('should replace every occurrence of the search string', () => {
+    expect(safeReplace('alpha beta alpha', 'alpha', 'gamma')).toBe(
+      'gamma beta gamma',
+    )
+  })
+
+  it('should treat dollar signs in replacement text literally', () => {
+    expect(safeReplace('total: AMOUNT and AMOUNT', 'AMOUNT', '$& dollars')).toBe(
+      'total: $& dollars and $& dollars',
+    )
+  })
+})

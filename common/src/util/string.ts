@@ -292,7 +292,7 @@ export const safeReplace = (
   replaceStr: string,
 ): string => {
   const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
-  return content.replace(searchStr, escapedReplaceStr)
+  return content.replaceAll(searchStr, escapedReplaceStr)
 }
 
 /**
