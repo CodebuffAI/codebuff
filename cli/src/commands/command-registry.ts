@@ -430,7 +430,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
   defineCommandWithArgs({
     name: 'provider',
-    handler: (params, args) => {
+    handler: async (params, args) => {
       const trimmedArgs = args.trim()
       if (trimmedArgs.match(/^(add|wizard)$/)) {
         params.saveToHistory(params.inputValue.trim())
@@ -442,7 +442,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       let connectCodex = false
       try {
         if (trimmedArgs) {
-          const result = handleOpenbuffProviderCommand(args)
+          const result = await handleOpenbuffProviderCommand(args)
           message = result.message
           connectCodex = !!result.connectCodex
         } else {

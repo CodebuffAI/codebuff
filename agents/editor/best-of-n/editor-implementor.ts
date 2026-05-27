@@ -25,9 +25,7 @@ export const createBestOfNImplementor = (options: {
     'propose_str_replace',
   ]
   const toolNames: AllToolNames[] = [
-    ...(allowReadOnlyTools
-      ? readOnlyToolNames
-      : []),
+    ...(allowReadOnlyTools ? readOnlyToolNames : []),
     ...proposalToolNames,
   ]
 
@@ -192,17 +190,16 @@ Write out your complete implementation now. Do not write any final summary.`,
         params,
         messageHistory: initialAgentState.messageHistory,
       })
-      const {
-        maxProposalSteps,
-        maxReadOnlyOnlySteps,
-        maxBundleProposalTurns,
-      } = proposalBudget
+      const { maxProposalSteps, maxReadOnlyOnlySteps, maxBundleProposalTurns } =
+        proposalBudget
       const collectProposalBundle = shouldCollectProposalBundle(params)
       let lastProposalSignalCount = 0
       let bundleProposalTurns = 0
+      let completedProposalSteps = 0
 
       for (let step = 0; step < maxProposalSteps; step++) {
         const result = yield 'STEP'
+        completedProposalSteps = step + 1
         agentState = result.agentState
 
         const postMessages = agentState.messageHistory.slice(
@@ -210,7 +207,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         )
         const latestAttemptMessages =
           getMessagesSinceLastProposalRetry(postMessages)
-        const latestProposalToolCalls = getProposalToolCallsFromMessages(
+        const rawLatestProposalToolCalls = getProposalToolCallsFromMessages(
           latestAttemptMessages,
         )
         const rawProposalToolResults = dedupeProposalToolResults([
@@ -218,11 +215,12 @@ Write out your complete implementation now. Do not write any final summary.`,
           ...getProposalToolResultValues(result.toolResult),
           ...accumulatedProposalToolResults,
         ])
-        const proposalToolResults = filterIgnorableNoOpProposalFailures(
-          dedupeProposalToolResults(
-            sanitizeRecoverableMixedProposalResults(rawProposalToolResults),
-          ),
-        )
+        const proposalArtifacts = sanitizeProposalArtifactsForCapturedBundle({
+          toolCalls: rawLatestProposalToolCalls,
+          rawToolResults: rawProposalToolResults,
+        })
+        const latestProposalToolCalls = proposalArtifacts.toolCalls
+        const proposalToolResults = proposalArtifacts.toolResults
         accumulatedProposalToolResults = proposalToolResults
         const hasSuccessfulProposalToolResult = proposalToolResults.some(
           isSuccessfulProposalToolResult,
@@ -230,6 +228,19 @@ Write out your complete implementation now. Do not write any final summary.`,
         const hasFailedProposalToolResult = proposalToolResults.some(
           isFailedProposalToolResult,
         )
+
+        // If the model produced real proposal diffs and then made a bad extra
+        // proposal edit, preserve the useful captured bundle instead of
+        // feeding it a retry prompt that can erase or duplicate the work. The
+        // parent will treat this as partial and run the normal completion/
+        // repair path before applying anything.
+        if (
+          hasSuccessfulProposalToolResult &&
+          proposalArtifacts.droppedFailedProposalResultCount > 0
+        ) {
+          stopReason = 'noCompletionSignal'
+          break
+        }
 
         // Proposal agents need to draft edits, not apply them. In bundle mode,
         // the completion marker is preferred, but it cannot be the only success
@@ -307,6 +318,10 @@ Write out your complete implementation now. Do not write any final summary.`,
           hasReadOnlyToolActivity(latestAttemptMessages, result.toolResult)
         ) {
           readOnlyOnlySteps++
+          if (readOnlyOnlySteps > maxReadOnlyOnlySteps) {
+            stopReason = 'noProposal'
+            break
+          }
           if (readOnlyOnlySteps === maxReadOnlyOnlySteps) {
             yield {
               toolName: 'set_messages',
@@ -372,15 +387,12 @@ Write out your complete implementation now. Do not write any final summary.`,
         ...getProposalToolResults(latestAttemptMessages),
         ...accumulatedProposalToolResults,
       ])
-      const toolResults = filterIgnorableNoOpProposalFailures(
-        dedupeProposalToolResults(
-          sanitizeRecoverableMixedProposalResults(rawToolResults),
-        ),
-      )
-      const toolCalls = sanitizeProposalToolCallsForRecoverableFailures({
+      const proposalArtifacts = sanitizeProposalArtifactsForCapturedBundle({
         toolCalls: rawToolCalls,
         rawToolResults,
       })
+      const toolResults = proposalArtifacts.toolResults
+      const toolCalls = proposalArtifacts.toolCalls
 
       // Concatenate all unified diffs for the selector to review
       const unifiedDiffs = toolResults
@@ -388,21 +400,37 @@ Write out your complete implementation now. Do not write any final summary.`,
         .map((result: any) => `--- ${result.file} ---\n${result.unifiedDiff}`)
         .join('\n\n')
 
+      const finalStopReason =
+        stopReason ??
+        (proposalArtifacts.droppedFailedProposalResultCount > 0 &&
+        (toolCalls.length > 0 || unifiedDiffs.length > 0)
+          ? 'noCompletionSignal'
+          : undefined) ??
+        inferProposalStopReason({
+          toolCalls,
+          toolResults,
+          unifiedDiffs,
+          latestAttemptMessages,
+        })
+
       yield {
         toolName: 'set_output',
         input: {
           toolCalls,
           toolResults,
           unifiedDiffs,
+          readOnlyContext: buildReadOnlyContextFromMessages(postMessages),
           proposalBudget,
-          stopReason:
-            stopReason ??
-            inferProposalStopReason({
-              toolCalls,
-              toolResults,
-              unifiedDiffs,
-              latestAttemptMessages,
-            }),
+          proposalProgress: buildProposalProgressTelemetry({
+            latestAttemptMessages,
+            toolCalls,
+            toolResults,
+            stopReason: finalStopReason,
+            stepsTaken: completedProposalSteps,
+            droppedFailedProposalResultCount:
+              proposalArtifacts.droppedFailedProposalResultCount,
+          }),
+          stopReason: finalStopReason,
           ...(toolCalls.length === 0 && !unifiedDiffs
             ? {
                 errorMessage: buildNoProposalErrorMessage(
@@ -439,26 +467,41 @@ Write out your complete implementation now. Do not write any final summary.`,
           taskText,
           getFilePathPattern(),
         )
+        const explicitBareTaskFileNameCount =
+          countLikelyBareFileNames(taskText)
+        const numericTouchedFileCount =
+          inferExpectedTouchedFileCountFromText(taskText)
         const contextFileHeaderCount = countContextFileHeaders(text)
         const explicitFilePathCount = Math.min(
           20,
           Math.max(
+            numericTouchedFileCount,
             explicitTaskFilePathCount,
-            contextFileHeaderCount > 1
-              ? Math.min(contextFileHeaderCount, 12)
-              : 0,
+            explicitBareTaskFileNameCount,
           ),
         )
         const expectedTouchedFileCount = Math.min(20, explicitFilePathCount)
+        if (numericTouchedFileCount > 1) {
+          evidence.push(`numericFileCount:${numericTouchedFileCount}`)
+        }
         if (explicitFilePathCount > 1) {
           evidence.push(`filePaths:${explicitFilePathCount}`)
         }
+        if (explicitBareTaskFileNameCount > 1) {
+          evidence.push(`bareTaskFiles:${explicitBareTaskFileNameCount}`)
+        }
+        if (contextFileHeaderCount > 1) {
+          evidence.push(`contextFiles:${Math.min(contextFileHeaderCount, 12)}`)
+        }
 
         const hasExplicitMultiFileSignal =
-          /\b(multi[- ]file|multiple files|cross[- ]file)\b/i.test(taskText)
+          numericTouchedFileCount > 1 ||
+          /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i.test(
+            taskText,
+          )
 
         const complexSignals = [
-          /\b(multi[- ]file|multiple files|cross[- ]file)\b/i,
+          /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i,
           /\b(create|add|wire|integrate|refactor|implement)\b/i,
           /\b(component|screen|overlay|command|registry|schema|provider|routing|test|tests)\b/i,
           /\bphase\s+\d+\b/i,
@@ -585,19 +628,15 @@ Write out your complete implementation now. Do not write any final summary.`,
           stepsComplete,
           hasReadOnlyActivityThisStep,
         } = input
-        const hasCompletionSignal =
-          hasProposalCompletionSignal(latestAttemptMessages)
+        const hasCompletionSignal = hasProposalCompletionSignal(
+          latestAttemptMessages,
+        )
         const hasNewProposalSignal =
           proposalSignalCount > lastProposalSignalCount
-        const hasSufficientCompletionEvidence =
-          hasSufficientProposalCompletionEvidence({
-            toolCalls: latestProposalToolCalls,
-            toolResults: proposalToolResults,
-          })
-        const proposedFileCount = getUniqueProposedFilePaths({
+        const coverage = getProposalCoverageAssessment({
           toolCalls: latestProposalToolCalls,
           toolResults: proposalToolResults,
-        }).length
+        })
 
         if (!collectProposalBundle) {
           stopReason = 'cleanProposal'
@@ -610,16 +649,17 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         if (
           hasNewProposalSignal &&
-          stepsComplete &&
-          proposedFileCount > 1 &&
-          hasSufficientCompletionEvidence
+          shouldStopAfterCoveredProposalSignal({
+            coverage,
+            stepsComplete,
+          })
         ) {
           stopReason = 'cleanProposal'
           return true
         }
 
         if (step === maxProposalSteps - 1) {
-          stopReason = hasSufficientCompletionEvidence
+          stopReason = coverage.canCleanAfterQuiescence
             ? 'cleanProposal'
             : 'stepBudget'
           return true
@@ -629,7 +669,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           if (hasReadOnlyActivityThisStep) {
             return false
           }
-          stopReason = hasSufficientCompletionEvidence
+          stopReason = coverage.canCleanAfterQuiescence
             ? 'cleanProposal'
             : 'noCompletionSignal'
           return true
@@ -644,7 +684,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         // turn's edits are already captured and will be returned to the
         // selector instead of letting one candidate block the whole run.
         if (bundleProposalTurns >= maxBundleProposalTurns) {
-          stopReason = hasSufficientCompletionEvidence
+          stopReason = coverage.canCleanAfterQuiescence
             ? 'cleanProposal'
             : 'bundleCap'
           return true
@@ -674,35 +714,91 @@ Write out your complete implementation now. Do not write any final summary.`,
         if (hasProposalCompletionSignal(latestAttemptMessages)) {
           return 'cleanProposal'
         }
-        return hasSufficientProposalCompletionEvidence({
+        return getProposalCoverageAssessment({
           toolCalls,
           toolResults,
-        })
+        }).canCleanAfterQuiescence
           ? 'cleanProposal'
           : 'noCompletionSignal'
       }
 
-      function hasSufficientProposalCompletionEvidence(input: {
-        toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
+      function shouldStopAfterCoveredProposalSignal(input: {
+        coverage: ReturnType<typeof getProposalCoverageAssessment>
+        stepsComplete: boolean
       }): boolean {
-        const proposedFileCount = getUniqueProposedFilePaths(input).length
-        if (proposedFileCount === 0) return false
-        return proposedFileCount >= getMinimumProposalFileCountForCompletion()
+        const { coverage, stepsComplete } = input
+        if (!coverage.hasAnyProposal) return false
+
+        // If the task told us the expected scope (explicit paths/count, or an
+        // explicit multi-file signal), stop as soon as that scope is covered.
+        // This is the key anti-hang path for local/OpenAI-compatible models
+        // that emit the whole bundle and then stall before writing the marker.
+        if (coverage.satisfiesKnownScope) return true
+
+        // Simple one-file work should not pay an extra model turn just to
+        // prove there are no more files.
+        if (coverage.satisfiesSimpleScope) return true
+
+        // Ambiguous standard tasks can still finish cleanly when the provider
+        // naturally completes a multi-file bundle in the same step. Avoid doing
+        // this for complex/unknown tasks; those should either keep making
+        // progress, emit the marker, or be marked partial for a completion pass.
+        return (
+          stepsComplete &&
+          coverage.proposedFileCount > 1 &&
+          coverage.canCleanAfterQuiescence
+        )
       }
 
-      function getMinimumProposalFileCountForCompletion(): number {
-        if (
-          proposalBudget.expectedTouchedFileCount > 1 ||
-          proposalBudget.expectsMultipleFiles
-        ) {
-          // The request/context says this is multi-file, but the raw file path
-          // count can include docs and context-only files. Requiring at least
-          // two changed files prevents a one-file partial from being marked
-          // complete without forcing overbroad edits just to satisfy a count.
+      function getProposalCoverageAssessment(input: {
+        toolCalls: { toolName: string; input: any }[]
+        toolResults: any[]
+      }): {
+        proposedFileCount: number
+        requiredFileCount: number
+        hasAnyProposal: boolean
+        satisfiesKnownScope: boolean
+        satisfiesSimpleScope: boolean
+        canCleanAfterQuiescence: boolean
+      } {
+        const proposedFileCount = getUniqueProposedFilePaths(input).length
+        const requiredFileCount = getKnownRequiredProposalFileCount()
+        const hasAnyProposal = proposedFileCount > 0
+        const satisfiesKnownScope =
+          requiredFileCount > 0 && proposedFileCount >= requiredFileCount
+        const satisfiesSimpleScope =
+          requiredFileCount === 0 &&
+          proposalBudget.complexity === 'simple' &&
+          proposedFileCount >= 1
+        const satisfiesUnknownQuiescentScope =
+          requiredFileCount === 0 &&
+          proposedFileCount >= (proposalBudget.expectsMultipleFiles ? 2 : 1)
+        const canCleanAfterQuiescence =
+          satisfiesKnownScope ||
+          satisfiesSimpleScope ||
+          satisfiesUnknownQuiescentScope
+
+        return {
+          proposedFileCount,
+          requiredFileCount,
+          hasAnyProposal,
+          satisfiesKnownScope,
+          satisfiesSimpleScope,
+          canCleanAfterQuiescence,
+        }
+      }
+
+      function getKnownRequiredProposalFileCount(): number {
+        if (proposalBudget.expectedTouchedFileCount > 0) {
+          return proposalBudget.expectedTouchedFileCount
+        }
+        if (proposalBudget.expectsMultipleFiles) {
+          // The request says multi-file but not how many files. Require at
+          // least two files before calling it clean; otherwise a one-file
+          // proposal is useful but partial and should go through completion.
           return 2
         }
-        return 1
+        return 0
       }
 
       function getUniqueProposedFilePaths(input: {
@@ -736,6 +832,66 @@ Write out your complete implementation now. Do not write any final summary.`,
         return typeof result.path === 'string' ? result.path : ''
       }
 
+      function buildProposalProgressTelemetry(input: {
+        latestAttemptMessages: any[]
+        toolCalls: { toolName: string; input: any }[]
+        toolResults: any[]
+        stopReason: string
+        stepsTaken: number
+        droppedFailedProposalResultCount?: number
+      }): Record<string, any> {
+        const { latestAttemptMessages, toolCalls, toolResults, stepsTaken } =
+          input
+        const proposedFiles = getUniqueProposedFilePaths({
+          toolCalls,
+          toolResults,
+        })
+        return {
+          stepsTaken,
+          readOnlyToolCallCount: countToolCallsInMessages(
+            latestAttemptMessages,
+            isReadOnlyToolName,
+          ),
+          proposalToolCallCount: toolCalls.length,
+          successfulProposalResultCount: toolResults.filter(
+            isSuccessfulProposalToolResult,
+          ).length,
+          failedProposalResultCount: toolResults.filter(
+            isFailedProposalToolResult,
+          ).length,
+          proposedFileCount: proposedFiles.length,
+          proposedFiles: proposedFiles.slice(0, 20),
+          completionSignalSeen: hasProposalCompletionSignal(
+            latestAttemptMessages,
+          ),
+          stopReason: input.stopReason,
+          ...(input.droppedFailedProposalResultCount
+            ? {
+                droppedFailedProposalResultCount:
+                  input.droppedFailedProposalResultCount,
+              }
+            : {}),
+        }
+      }
+
+      function countToolCallsInMessages(
+        messages: any[],
+        predicate: (toolName: any) => boolean,
+      ): number {
+        let count = 0
+        for (const message of messages) {
+          if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+            continue
+          }
+          for (const part of message.content) {
+            if (part?.type === 'tool-call' && predicate(part.toolName)) {
+              count++
+            }
+          }
+        }
+        return count
+      }
+
       function sanitizeRecoverableMixedProposalResults(results: any[]): any[] {
         return results.map((result) =>
           isRecoverableMixedProposalFailure(result)
@@ -748,14 +904,97 @@ Write out your complete implementation now. Do not write any final summary.`,
         )
       }
 
+      function sanitizeProposalArtifactsForCapturedBundle(input: {
+        toolCalls: { toolName: string; input: any }[]
+        rawToolResults: any[]
+      }): {
+        toolCalls: { toolName: string; input: any }[]
+        toolResults: any[]
+        droppedFailedProposalResultCount: number
+      } {
+        const normalizedToolResults = filterIgnorableNoOpProposalFailures(
+          dedupeProposalToolResults(
+            sanitizeRecoverableMixedProposalResults(input.rawToolResults),
+          ),
+        )
+        const successfulToolResults = normalizedToolResults.filter(
+          isSuccessfulProposalToolResult,
+        )
+        const successfulPaths = new Set(
+          successfulToolResults
+            .map(getProposalToolResultPath)
+            .filter(Boolean),
+        )
+        const failedToolResults = normalizedToolResults
+          .filter(isFailedProposalToolResult)
+          .filter((result) => {
+            const path = getProposalToolResultPath(result)
+            return !path || !successfulPaths.has(path)
+          })
+        const shouldCaptureSuccessfulSubset =
+          successfulToolResults.length > 0 && failedToolResults.length > 0
+        const toolResults = shouldCaptureSuccessfulSubset
+          ? normalizedToolResults.filter(
+              (result) => !isFailedProposalToolResult(result),
+            )
+          : normalizedToolResults
+
+        const recoverableSanitizedToolCalls =
+          sanitizeProposalToolCallsForRecoverableFailures({
+            toolCalls: input.toolCalls,
+            rawToolResults: input.rawToolResults,
+          })
+        const toolCalls = shouldCaptureSuccessfulSubset
+          ? dropFailedOnlyProposalToolCalls({
+              toolCalls: recoverableSanitizedToolCalls,
+              successfulToolResults,
+              failedToolResults,
+            })
+          : recoverableSanitizedToolCalls
+
+        return {
+          toolCalls,
+          toolResults,
+          droppedFailedProposalResultCount: shouldCaptureSuccessfulSubset
+            ? failedToolResults.length
+            : 0,
+        }
+      }
+
+      function dropFailedOnlyProposalToolCalls(input: {
+        toolCalls: { toolName: string; input: any }[]
+        successfulToolResults: any[]
+        failedToolResults: any[]
+      }): { toolName: string; input: any }[] {
+        const successfulPaths = new Set(
+          input.successfulToolResults
+            .map(getProposalToolResultPath)
+            .filter(Boolean),
+        )
+        const failedOnlyPaths = new Set(
+          input.failedToolResults
+            .map(getProposalToolResultPath)
+            .filter(
+              (path): path is string =>
+                Boolean(path) && !successfulPaths.has(path),
+            ),
+        )
+        if (failedOnlyPaths.size === 0) return input.toolCalls
+
+        return input.toolCalls.filter((toolCall) => {
+          const path = getProposalToolCallPath(toolCall)
+          return !path || !failedOnlyPaths.has(path)
+        })
+      }
+
       function isRecoverableMixedProposalFailure(result: any): boolean {
         return Boolean(
           result &&
-            typeof result === 'object' &&
-            typeof result.unifiedDiff === 'string' &&
-            result.unifiedDiff.trim().length > 0 &&
-            typeof result.message === 'string' &&
-            getFailedReplacementOldStrings(result.message).length > 0,
+          typeof result === 'object' &&
+          typeof result.unifiedDiff === 'string' &&
+          result.unifiedDiff.trim().length > 0 &&
+          typeof result.message === 'string' &&
+          getFailedReplacementOldStrings(result.message).length > 0,
         )
       }
 
@@ -799,10 +1038,7 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         const replacements = toolCall.input.replacements.filter(
           (replacement: any) =>
-            !replacementMatchesFailedOldString(
-              replacement,
-              failedOldStrings,
-            ),
+            !replacementMatchesFailedOldString(replacement, failedOldStrings),
         )
         if (replacements.length === 0) return undefined
         if (replacements.length === toolCall.input.replacements.length) {
@@ -895,8 +1131,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         if (successfulPaths.size === 0) return results
 
         return results.filter(
-          (result) =>
-            !isIgnorableNoOpProposalFailure(result, successfulPaths),
+          (result) => !isIgnorableNoOpProposalFailure(result, successfulPaths),
         )
       }
 
@@ -988,11 +1223,54 @@ Write out your complete implementation now. Do not write any final summary.`,
           .size
       }
 
+      function inferExpectedTouchedFileCountFromText(text: string): number {
+        const counts: number[] = []
+        const unit = String.raw`(?:files?|pages?|screens?|components?|modules?)`
+        const patterns: Array<{ pattern: RegExp; offset: number }> = [
+          {
+            pattern: new RegExp(
+              String.raw`\b(?:more\s+than|over)\s*(\d+)\s*${unit}\b`,
+              'gi',
+            ),
+            offset: 1,
+          },
+          {
+            pattern: new RegExp(
+              String.raw`\b(?:at\s+least|minimum\s+of)\s*(\d+)\s*${unit}\b`,
+              'gi',
+            ),
+            offset: 0,
+          },
+          {
+            pattern: new RegExp(String.raw`\b(\d+)\s*\+\s*${unit}\b`, 'gi'),
+            offset: 0,
+          },
+          {
+            pattern: new RegExp(
+              String.raw`\b(\d+)\s*${unit}(?:\s+or\s+more)?\b`,
+              'gi',
+            ),
+            offset: 0,
+          },
+        ]
+
+        for (const { pattern, offset } of patterns) {
+          for (const match of text.matchAll(pattern)) {
+            const parsed = Number(match[1])
+            if (Number.isFinite(parsed) && parsed > 0) {
+              counts.push(Math.min(20, Math.floor(parsed) + offset))
+            }
+          }
+        }
+
+        return counts.length === 0 ? 0 : Math.max(...counts)
+      }
+
       function countContextFileHeaders(text: string): number {
         return new Set(
           Array.from(
             text.matchAll(
-              /(?:^|\n)(?:File:\s+|\.\/)([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt))(?::)?/g,
+              /(?:^|\n)(?:File:\s+|\.\/)([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))(?::)?/g,
             ),
             (match) => match[1],
           ),
@@ -1000,7 +1278,22 @@ Write out your complete implementation now. Do not write any final summary.`,
       }
 
       function getFilePathPattern(): RegExp {
-        return /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)\b/g
+        return /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh)\b/g
+      }
+
+      function countLikelyBareFileNames(text: string): number {
+        const fileNames = new Set<string>()
+        const pattern =
+          /(?:^|[\s`"'([{])([A-Za-z0-9_.@-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))(?:$|[\s`"',;:)\]}])/g
+
+        for (const match of text.matchAll(pattern)) {
+          const fileName = match[1]
+          if (fileName && !fileName.includes('/') && !/\.mdx?$/.test(fileName)) {
+            fileNames.add(fileName)
+          }
+        }
+
+        return fileNames.size
       }
 
       function getMessageText(message: any): string {
@@ -1324,6 +1617,118 @@ Emit valid XML proposal tool calls with no markdown fences:
 </codebuff_tool_call>`
       }
 
+      function buildReadOnlyContextFromMessages(messages: any[]): string {
+        const contexts = messages
+          .filter(
+            (message) =>
+              message?.role === 'tool' && isReadOnlyToolName(message.toolName),
+          )
+          .map(formatReadOnlyToolContext)
+          .filter((text) => text.trim().length > 0)
+
+        if (contexts.length === 0) return ''
+
+        return truncateText(
+          [
+            'Read-only context gathered by previous proposal attempt:',
+            ...takeFromEndWithinBudget(contexts, 60_000),
+          ].join('\n\n'),
+          60_000,
+        )
+      }
+
+      function formatReadOnlyToolContext(message: any): string {
+        if (message.toolName === 'read_files') {
+          return formatReadFilesToolContext(message, 50_000)
+        }
+
+        const text = normalizeMessageText(getMessageText(message))
+        return text.trim()
+          ? truncateText(
+              `Tool result from ${message.toolName}:\n${text}`,
+              12_000,
+            )
+          : ''
+      }
+
+      function formatReadFilesToolContext(
+        message: any,
+        maxChars: number,
+      ): string {
+        const files = extractJsonPartValues(message)
+          .flatMap(flattenReadFileEntries)
+          .filter(
+            (entry): entry is { path: string; content: string } =>
+              typeof entry?.path === 'string' &&
+              typeof entry?.content === 'string',
+          )
+
+        if (files.length === 0) return ''
+
+        const perFileChars = Math.max(
+          2_000,
+          Math.floor(maxChars / Math.max(files.length, 1)),
+        )
+        return truncateText(
+          files
+            .map(
+              (file) =>
+                `File: ${file.path}\n${truncateText(file.content, perFileChars)}`,
+            )
+            .join('\n\n'),
+          maxChars,
+        )
+      }
+
+      function extractJsonPartValues(message: any): any[] {
+        if (!Array.isArray(message?.content)) return []
+        return message.content
+          .filter((part: any) => part?.type === 'json' && part.value)
+          .map((part: any) => part.value)
+      }
+
+      function flattenReadFileEntries(value: any): any[] {
+        if (Array.isArray(value)) return value.flatMap(flattenReadFileEntries)
+        if (value && typeof value === 'object' && 'value' in value) {
+          return flattenReadFileEntries(value.value)
+        }
+        return [value]
+      }
+
+      function takeFromEndWithinBudget(
+        messages: string[],
+        maxChars: number,
+      ): string[] {
+        const selected: string[] = []
+        let usedChars = 0
+
+        for (const message of [...messages].reverse()) {
+          const nextLength = message.length + 1
+          if (selected.length > 0 && usedChars + nextLength > maxChars) {
+            break
+          }
+          selected.unshift(message)
+          usedChars += nextLength
+        }
+
+        return selected
+      }
+
+      function normalizeMessageText(text: string): string {
+        return text
+          .replace(/<user_message>/g, '')
+          .replace(/<\/user_message>/g, '')
+          .replace(/<system>/g, '')
+          .replace(/<\/system>/g, '')
+          .trim()
+      }
+
+      function truncateText(text: string, maxChars: number): string {
+        if (text.length <= maxChars) return text
+        if (maxChars <= 20) return text.slice(0, maxChars)
+        return `${text.slice(0, maxChars - 20)}\n... [truncated]`
+      }
+
       function buildNoProposalErrorMessage(messages: any[]): string {
         const readOnlyTools = new Set<string>()
         for (const message of messages) {
@@ -1360,10 +1765,10 @@ Emit valid XML proposal tool calls with no markdown fences:
         const toolDefinitions = input.agentState?.toolDefinitions
         return Boolean(
           toolDefinitions &&
-            (toolDefinitions.read_files ||
-              toolDefinitions.code_search ||
-              toolDefinitions.glob ||
-              toolDefinitions.list_directory),
+          (toolDefinitions.read_files ||
+            toolDefinitions.code_search ||
+            toolDefinitions.glob ||
+            toolDefinitions.list_directory),
         )
       }
     },

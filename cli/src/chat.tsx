@@ -1392,7 +1392,7 @@ export const Chat = ({
   }, [setInputFocused])
 
   const handleProviderPickerSelect = useCallback(
-    (selection: ProviderPickerSelection) => {
+    async (selection: ProviderPickerSelection) => {
       setProviderPickerOpen(false)
       setInputFocused(true)
 
@@ -1404,7 +1404,9 @@ export const Chat = ({
           message = setupOpenbuffProviderFromArgs(selection.preset)
         } else if (selection.type === 'connect-codex') {
           const setupMessage = setupOpenbuffProviderFromArgs('codex')
-          const connectResult = handleOpenbuffProviderCommand('connect codex')
+          const connectResult = await handleOpenbuffProviderCommand(
+            'connect codex',
+          )
           message = `${setupMessage}\n\n${connectResult.message}`
           if (connectResult.connectCodex) {
             setInputMode('connect:chatgpt')

@@ -1175,6 +1175,24 @@ describe('getMultiPromptProgress', () => {
     })
   })
 
+  test('does not count synthesis/completion/repair follow-up agents as extra proposals', () => {
+    const completionAgent = createImplementorAgent('impl-complete', 'running')
+    completionAgent.params = {
+      proposalPhase: 'completion',
+      proposalLabel: 'Complete Proposal #2',
+    }
+
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1', 'complete'),
+      createImplementorAgent('impl-2', 'complete'),
+      completionAgent,
+    ]
+
+    const progress = getMultiPromptProgress(blocks)
+    expect(progress?.total).toBe(2)
+    expect(progress?.completed).toBe(2)
+  })
+
   test('counts failed implementors separately', () => {
     const blocks: ContentBlock[] = [
       createImplementorAgent('impl-1', 'complete'),

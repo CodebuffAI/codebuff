@@ -39,7 +39,7 @@ const DEFAULT_EDITOR_PROPOSAL_HARD_TIMEOUT_MS = 15 * 60_000
 const EDITOR_PROPOSAL_COMPLETION_MARKER = 'PROPOSAL_BUNDLE_COMPLETE'
 
 function isEditorProposalAgent(agentId: string): boolean {
-  return /^editor-implementor-proposal-\d+$/.test(agentId)
+  return /^editor-implementor-proposal-(?:\d+|direct)$/.test(agentId)
 }
 
 function getEditorProposalTimeoutConfig(spawnParams: unknown): {
@@ -651,7 +651,23 @@ export async function executeSubagent(
         throw new Error(timeoutMessage)
       }
     } else {
-      throw error
+      const recoveryMessage = buildEditorProposalProviderErrorMessage({
+        agentId: agentTemplate.id,
+        error,
+      })
+      const recoveredResult = buildRecoveredEditorProposalTimeoutResult({
+        agentTemplate,
+        agentState: withDefaults.agentState,
+        spawnParams,
+        timeoutConfig,
+        timeoutMessage: recoveryMessage,
+        recoveryReason: 'providerError',
+      })
+      if (recoveredResult) {
+        result = recoveredResult
+      } else {
+        throw error
+      }
     }
   } finally {
     timeoutSignal.cleanup()
@@ -686,6 +702,20 @@ function buildEditorProposalTimeoutMessage(params: {
   )}s ${reason} while generating an editor proposal. Set OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS=0 to disable this guard.`
 }
 
+function buildEditorProposalProviderErrorMessage(params: {
+  agentId: string
+  error: unknown
+}): string {
+  const { agentId, error } = params
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'Unknown provider error'
+  return `Subagent ${agentId} stopped after a provider error while generating an editor proposal. Captured proposal edits were recovered when possible. Provider error: ${message}`
+}
+
 function isEditorProposalProgressChunk(
   chunk: string | PrintModeEvent,
 ): boolean {
@@ -718,6 +748,7 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
     hardTimeoutMs: number | undefined
   }
   timeoutMessage: string
+  recoveryReason?: 'timeout' | 'providerError'
 }): Awaited<ReturnType<typeof loopAgentSteps>> | undefined {
   const {
     agentTemplate,
@@ -725,6 +756,7 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
     spawnParams,
     timeoutConfig,
     timeoutMessage,
+    recoveryReason = 'timeout',
   } = params
   if (!isEditorProposalAgent(agentTemplate.id)) {
     return undefined
@@ -768,9 +800,17 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
           toolResults,
           unifiedDiffs,
         }),
+        proposalProgress: buildRecoveredProposalProgressTelemetry({
+          latestAttemptMessages,
+          toolCalls,
+          toolResults,
+          recoveryReason,
+        }),
         proposalBudget: {
           ...timeoutConfig,
-          recoveredFromTimeout: true,
+          ...(recoveryReason === 'timeout'
+            ? { recoveredFromTimeout: true }
+            : { recoveredFromProviderError: true }),
         },
         timeoutMessage,
         ...(toolCalls.length === 0 && !unifiedDiffs
@@ -778,6 +818,36 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
           : {}),
       },
     },
+  }
+}
+
+function buildRecoveredProposalProgressTelemetry(params: {
+  latestAttemptMessages: Message[]
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+  recoveryReason: 'timeout' | 'providerError'
+}): Record<string, unknown> {
+  const { latestAttemptMessages, toolCalls, toolResults, recoveryReason } =
+    params
+  const proposedFiles = getUniqueProposedFilePaths({ toolCalls, toolResults })
+
+  return {
+    readOnlyToolCallCount: countToolCallsInMessages(
+      latestAttemptMessages,
+      isReadOnlyToolName,
+    ),
+    proposalToolCallCount: toolCalls.length,
+    successfulProposalResultCount: toolResults.filter(
+      isSuccessfulProposalToolResult,
+    ).length,
+    failedProposalResultCount: toolResults.filter((result) =>
+      Boolean(getProposalResultFailureMessage(result)),
+    ).length,
+    proposedFileCount: proposedFiles.length,
+    proposedFiles: proposedFiles.slice(0, 20),
+    completionSignalSeen: hasProposalCompletionSignal(latestAttemptMessages),
+    recoveredFromTimeout: recoveryReason === 'timeout',
+    recoveredFromProviderError: recoveryReason === 'providerError',
   }
 }
 
@@ -800,11 +870,11 @@ function inferRecoveredProposalStopReason(params: {
   if (hasProposalCompletionSignal(latestAttemptMessages)) {
     return 'cleanProposal'
   }
-  return hasSufficientProposalCompletionEvidence({
+  return getRecoveredProposalCoverageAssessment({
     spawnParams,
     toolCalls,
     toolResults,
-  })
+  }).canReturnClean
     ? 'cleanProposal'
     : 'noCompletionSignal'
 }
@@ -815,41 +885,144 @@ function shouldCollectProposalBundle(spawnParams: unknown): boolean {
   return value === true || value === 'true'
 }
 
-function hasSufficientProposalCompletionEvidence(params: {
+function getRecoveredProposalCoverageAssessment(params: {
   spawnParams: unknown
   toolCalls: { toolName: string; input: any }[]
   toolResults: any[]
-}): boolean {
+}): {
+  proposedFileCount: number
+  requiredFileCount: number
+  canReturnClean: boolean
+} {
   const proposedFileCount = getUniqueProposedFilePaths(params).length
-  if (proposedFileCount === 0) return false
-  return proposedFileCount >= getMinimumProposalFileCountForCompletion(
+  if (proposedFileCount === 0) {
+    return {
+      proposedFileCount,
+      requiredFileCount: 0,
+      canReturnClean: false,
+    }
+  }
+
+  const expected = getExpectedProposalFileCount(params.spawnParams)
+  const expectsMultipleFiles = getProposalExpectsMultipleFiles(
     params.spawnParams,
   )
-}
-
-function getMinimumProposalFileCountForCompletion(spawnParams: unknown): number {
-  const context = collectProposalSpawnParamText(spawnParams)
-  const explicitFilePathCount = countUniqueMatches(
-    context,
-    /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)\b/g,
+  const isComplexUnknownScope = isComplexUnknownProposalScope(
+    params.spawnParams,
   )
-  const expectsMultipleFiles =
-    explicitFilePathCount > 1 ||
-    /\b(multi[- ]file|multiple files|cross[- ]file)\b/i.test(context)
-  return expectsMultipleFiles ? 2 : 1
+  const requiredFileCount =
+    expected > 0 ? expected : expectsMultipleFiles ? 2 : 0
+  const canReturnClean =
+    requiredFileCount > 0
+      ? proposedFileCount >= requiredFileCount
+      : !isComplexUnknownScope && proposedFileCount >= 1
+
+  return {
+    proposedFileCount,
+    requiredFileCount,
+    canReturnClean,
+  }
 }
 
-function collectProposalSpawnParamText(spawnParams: unknown): string {
+function getExpectedProposalFileCount(spawnParams: unknown): number {
+  const context = collectProposalSpawnTaskText(spawnParams)
+  return Math.min(
+    20,
+    Math.max(
+      countUniqueMatches(
+        context,
+        /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)\b/g,
+      ),
+      inferExpectedTouchedFileCountFromText(context),
+    ),
+  )
+}
+
+function getProposalExpectsMultipleFiles(spawnParams: unknown): boolean {
+  const context = collectProposalSpawnTaskText(spawnParams)
+  return (
+    getExpectedProposalFileCount(spawnParams) > 1 ||
+    /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i.test(
+      context,
+    )
+  )
+}
+
+function isComplexUnknownProposalScope(spawnParams: unknown): boolean {
+  const context = collectProposalSpawnTaskText(spawnParams)
+  if (getExpectedProposalFileCount(spawnParams) > 0) return false
+  const complexSignals = [
+    /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i,
+    /\b(create|add|wire|integrate|refactor|implement)\b/i,
+    /\b(component|screen|overlay|command|registry|schema|provider|routing|test|tests)\b/i,
+    /\bphase\s+\d+\b/i,
+    /\bfull[- ]screen\b/i,
+  ].filter((pattern) => pattern.test(context)).length
+
+  return complexSignals >= 3 || context.length > 8_000
+}
+
+function inferExpectedTouchedFileCountFromText(text: string): number {
+  const counts: number[] = []
+  const unit = String.raw`(?:files?|pages?|screens?|components?|modules?)`
+  const patterns: Array<{ pattern: RegExp; offset: number }> = [
+    {
+      pattern: new RegExp(
+        String.raw`\b(?:more\s+than|over)\s*(\d+)\s*${unit}\b`,
+        'gi',
+      ),
+      offset: 1,
+    },
+    {
+      pattern: new RegExp(
+        String.raw`\b(?:at\s+least|minimum\s+of)\s*(\d+)\s*${unit}\b`,
+        'gi',
+      ),
+      offset: 0,
+    },
+    {
+      pattern: new RegExp(String.raw`\b(\d+)\s*\+\s*${unit}\b`, 'gi'),
+      offset: 0,
+    },
+    {
+      pattern: new RegExp(
+        String.raw`\b(\d+)\s*${unit}(?:\s+or\s+more)?\b`,
+        'gi',
+      ),
+      offset: 0,
+    },
+  ]
+
+  for (const { pattern, offset } of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const parsed = Number(match[1])
+      if (Number.isFinite(parsed) && parsed > 0) {
+        counts.push(Math.min(20, Math.floor(parsed) + offset))
+      }
+    }
+  }
+
+  return counts.length === 0 ? 0 : Math.max(...counts)
+}
+
+function collectProposalSpawnTaskText(spawnParams: unknown): string {
   if (!spawnParams || typeof spawnParams !== 'object') return ''
   const params = spawnParams as Record<string, unknown>
   return [
     params.proposalStrategy,
-    params.proposalContext,
+    extractTaskFacingProposalContext(params.proposalContext),
     params.previousFailure,
-    params.proposalRequirements,
   ]
     .filter((value): value is string => typeof value === 'string')
     .join('\n')
+}
+
+function extractTaskFacingProposalContext(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const contextMarker =
+    '\nCurrent file/search context already gathered by the parent agent:'
+  const markerIndex = value.indexOf(contextMarker)
+  return markerIndex === -1 ? value : value.slice(0, markerIndex)
 }
 
 function countUniqueMatches(text: string, pattern: RegExp): number {
@@ -921,6 +1094,33 @@ function getMessageText(message: any): string {
       return ''
     })
     .join('\n')
+}
+
+function countToolCallsInMessages(
+  messages: Message[],
+  predicate: (toolName: any) => boolean,
+): number {
+  let count = 0
+  for (const message of messages as any[]) {
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+      continue
+    }
+    for (const part of message.content) {
+      if (part?.type === 'tool-call' && predicate(part.toolName)) {
+        count++
+      }
+    }
+  }
+  return count
+}
+
+function isReadOnlyToolName(toolName: any): boolean {
+  return (
+    toolName === 'read_files' ||
+    toolName === 'code_search' ||
+    toolName === 'glob' ||
+    toolName === 'list_directory'
+  )
 }
 
 function getProposalToolCallsFromMessages(

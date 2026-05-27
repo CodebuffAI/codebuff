@@ -1,0 +1,178 @@
+{
+  "providers": {
+    "opencode-go": {
+      "type": "openai-compatible",
+      "baseURL": "https://opencode.ai/zen/go/v1",
+      "apiKeyEnv": "OPENCODE_GO_API_KEY",
+      "models": [
+        "glm-5.1",
+        "glm-5",
+        "kimi-k2.6",
+        "kimi-k2.5",
+        "mimo-v2.5-pro",
+        "mimo-v2.5",
+        "qwen3.6-plus",
+        "qwen3.5-plus",
+        "minimax-m2.7",
+        "minimax-m2.5",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "codex": {
+      "type": "chatgpt-oauth",
+      "models": [
+        "gpt-5.5",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5.4",
+        "gpt-5.4-codex",
+        "gpt-5.3",
+        "gpt-5.3-codex",
+        "gpt-5.2",
+        "gpt-5.2-codex",
+        "gpt-5.2-chat-latest",
+        "gpt-5.1",
+        "gpt-5.1-chat",
+        "gpt-4o-2024-11-20",
+        "gpt-4o-mini-2024-07-18",
+        "gpt-5.1-codex"
+      ],
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "local": {
+      "type": "openai-compatible",
+      "baseURL": "http://localhost:11434/v1",
+      "models": [
+        "new-model"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "openrouter": {
+      "type": "openai-compatible",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "models": [
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-opus-4.1",
+        "openai/gpt-4.1-mini"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    }
+  },
+  "defaultModel": "codex/gpt-5.5",
+  "modes": {
+    "default": "opencode-go/deepseek-v4-pro",
+    "lite": "opencode-go/deepseek-v4-flash",
+    "max": "codex/gpt-5.5",
+    "plan": "codex/gpt-5.5"
+  },
+  "modeReasoningEfforts": {},
+  "agents": {
+    "editor-implementor-proposal-direct": "opencode-go/minimax-m2.7",
+    "base": "opencode-go/kimi-k2.6",
+    "base2": "opencode-go/kimi-k2.6",
+    "base2-lite": "opencode-go/deepseek-v4-flash",
+    "base2-fast": "opencode-go/deepseek-v4-flash",
+    "base2-fast-no-validation": "opencode-go/deepseek-v4-flash",
+    "base2-max": "codex/gpt-5.5",
+    "base2-plan": "codex/gpt-5.5",
+    "base-deep": "codex/gpt-5.5",
+    "thinker": "codex/gpt-5.5",
+    "thinker-gpt": "codex/gpt-5.5",
+    "thinker-gemini": "opencode-go/kimi-k2.6",
+    "thinker-with-files-gemini": "opencode-go/kimi-k2.6",
+    "thinker-best-of-n": "codex/gpt-5.5",
+    "thinker-best-of-n-opus": "codex/gpt-5.5",
+    "thinker-selector": "codex/gpt-5.5",
+    "thinker-selector-opus": "opencode-go/deepseek-v4-flash",
+    "editor": "opencode-go/kimi-k2.6",
+    "editor-gpt-5": "codex/gpt-5.5",
+    "editor-implementor": "opencode-go/kimi-k2.6",
+    "editor-implementor-opus": "opencode-go/kimi-k2.6",
+    "editor-implementor-gpt-5": "codex/gpt-5.5",
+    "editor-multi-prompt": "opencode-go/kimi-k2.6",
+    "best-of-n-selector": "opencode-go/deepseek-v4-flash",
+    "best-of-n-selector2": "codex/gpt-5.5",
+    "code-reviewer": "codex/gpt-5.5",
+    "code-reviewer-gpt": "codex/gpt-5.5",
+    "code-reviewer-kimi": "opencode-go/kimi-k2.6",
+    "code-reviewer-minimax": "opencode-go/deepseek-v4-flash",
+    "code-reviewer-lite": "opencode-go/deepseek-v4-flash",
+    "code-reviewer-deepseek": "opencode-go/kimi-k2.6",
+    "code-reviewer-deepseek-flash": "opencode-go/deepseek-v4-flash",
+    "code-reviewer-multi-prompt": "opencode-go/kimi-k2.6",
+    "file-picker": "opencode-go/deepseek-v4-flash",
+    "file-picker-max": "opencode-go/kimi-k2.6",
+    "file-lister": "opencode-go/deepseek-v4-flash",
+    "file-lister-max": "opencode-go/deepseek-v4-flash",
+    "file-explorer": "opencode-go/deepseek-v4-flash",
+    "code-searcher": "opencode-go/deepseek-v4-flash",
+    "directory-lister": "opencode-go/deepseek-v4-flash",
+    "glob-matcher": "opencode-go/deepseek-v4-flash",
+    "context-pruner": "opencode-go/deepseek-v4-flash",
+    "basher": "opencode-go/deepseek-v4-flash",
+    "browser-use": "opencode-go/deepseek-v4-flash",
+    "researcher": "opencode-go/deepseek-v4-flash",
+    "researcher-web": "opencode-go/deepseek-v4-flash",
+    "researcher-docs": "opencode-go/deepseek-v4-flash",
+    "librarian": "opencode-go/deepseek-v4-flash",
+    "tmux-cli": "opencode-go/deepseek-v4-flash",
+    "gpt-5-agent": "codex/gpt-5.5",
+    "opus-agent": "opencode-go/kimi-k2.6",
+    "general-agent": "opencode-go/kimi-k2.6",
+    "editor-implementor-proposal-1": "opencode-go/deepseek-v4-pro",
+    "editor-implementor-proposal-2": "opencode-go/glm-5.1",
+    "editor-implementor-proposal-3": "codex/gpt-5.5",
+    "editor-implementor-proposal-4": "opencode-go/mimo-v2.5",
+    "editor-implementor-proposal-5": "opencode-go/deepseek-v4-pro"
+  },
+  "agentReasoningEfforts": {
+    "base2-max": "high"
+  },
+  "editorMultiPrompt": {
+    "proposalModels": [
+      "opencode-go/kimi-k2.6",
+      "opencode-go/glm-5.1",
+      "opencode-go/deepseek-v4-pro",
+      "opencode-go/mimo-v2.5",
+      "opencode-go/minimax-m2.7"
+    ],
+    "proposalReasoningEfforts": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "selectorModel": "codex/gpt-5.5"
+  }
+}

@@ -222,6 +222,47 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
+    it('should sanitize undefined values from JSON tool output', () => {
+      const content = jsonToolResult({
+        result: 'success',
+        dropped: undefined,
+        nested: {
+          kept: true,
+          alsoDropped: undefined,
+        },
+        list: [1, undefined, { value: 'kept', dropped: undefined }],
+        nonFinite: Number.NaN,
+      } as any)
+
+      expect(content).toEqual([
+        {
+          type: 'json',
+          value: {
+            result: 'success',
+            nested: { kept: true },
+            list: [1, null, { value: 'kept' }],
+            nonFinite: null,
+          },
+        },
+      ])
+
+      const messages: Message[] = [
+        {
+          role: 'tool',
+          toolName: 'test_tool',
+          toolCallId: 'call_123',
+          content,
+        },
+      ]
+
+      expect(() =>
+        convertCbToModelMessages({
+          messages,
+          includeCacheControl: false,
+        }),
+      ).not.toThrow()
+    })
+
     it('should convert tool messages with media output', () => {
       const messages: Message[] = [
         {

@@ -1,16 +1,24 @@
 import {
   OPENBUFF_PROVIDER_PRESETS,
+  addDiscoveredModelToProviderConfig,
   createProviderPresetConfig,
   describeLoadedProviderConfig,
+  discoverProviderModels,
+  formatDiscoveredModels,
   formatModelCapabilitiesSummary,
+  getCachedProviderModels,
   getMissingProviderEnvVars,
+  getProviderDiscoveryConfig,
   loadProviderConfigSync,
+  readModelDiscoveryCache,
   resolveConfiguredAgentModel,
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
   resolveModelCapabilities,
   writeProviderConfigFile,
 } from '@codebuff/sdk'
+
+import type { ModelDiscoveryFetch } from '@codebuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import {
@@ -55,6 +63,8 @@ export type ModelRouteTarget =
 export type KnownModelOption = {
   model: string
   capabilitiesSummary?: string
+  /** True if this model was discovered from a provider endpoint but is not yet in the user's config. */
+  discovered?: boolean
 }
 
 function formatReasoningEffort(
@@ -405,9 +415,26 @@ export function getEditableConfig(): ProviderConfigFileInput {
   })
 }
 
+/** Persist a discovered model into the provider's config file so it can be routed. */
+export function persistModelToProviderConfig(providerId: string, modelId: string): string {
+  // Strip provider prefix if the caller passed a full routable ID like
+  // "ollama/llama3" so we store "llama3" rather than "ollama/llama3" inside
+  // the provider's models array.
+  const prefix = `${providerId}/`
+  const normalizedModelId = modelId.startsWith(prefix)
+    ? modelId.slice(prefix.length)
+    : modelId
+  return addDiscoveredModelToProviderConfig({
+    providerId,
+    modelId: normalizedModelId,
+    cwd: getProjectRoot(),
+  })
+}
+
 export function getKnownModelOptions(): KnownModelOption[] {
   const loadedConfig = loadProviderConfigSync()
   const models: KnownModelOption[] = []
+  const seen = new Set<string>()
   for (const [providerId, provider] of Object.entries(
     loadedConfig.config.providers,
   )) {
@@ -422,6 +449,7 @@ export function getKnownModelOptions(): KnownModelOption[] {
         const routableModel = model.includes('/')
           ? model
           : `${providerId}/${model}`
+        seen.add(routableModel)
         models.push({
           model: routableModel,
           capabilitiesSummary: formatCapabilitiesForModel(
@@ -435,6 +463,7 @@ export function getKnownModelOptions(): KnownModelOption[] {
         const routableModel = requestedModel.includes('/')
           ? requestedModel
           : `${providerId}/${requestedModel}`
+        seen.add(routableModel)
         models.push({
           model: routableModel,
           capabilitiesSummary: formatCapabilitiesForModel(
@@ -444,10 +473,24 @@ export function getKnownModelOptions(): KnownModelOption[] {
         })
       }
     }
+
+    // Append cached discovered models not yet in config
+    for (const discovered of getCachedProviderModels(providerId)) {
+      const routableModel = discovered.id.includes('/')
+        ? discovered.id
+        : `${providerId}/${discovered.id}`
+      if (seen.has(routableModel)) continue
+      seen.add(routableModel)
+      models.push({
+        model: routableModel,
+        capabilitiesSummary: discovered.capabilities
+          ? formatModelCapabilitiesSummary(discovered.capabilities)
+          : formatCapabilitiesForModel(routableModel, loadedConfig) || undefined,
+        discovered: true,
+      })
+    }
   }
-  return Array.from(
-    new Map(models.map((option) => [option.model, option])).values(),
-  ).sort((a, b) => a.model.localeCompare(b.model))
+  return models.sort((a, b) => a.model.localeCompare(b.model))
 }
 
 export function getKnownModels(): string[] {
@@ -985,11 +1028,11 @@ export function handleOpenbuffModelsWizardInput(input: string): {
   return { done: false, message: reasoningEffortMenu() }
 }
 
-export function handleOpenbuffProviderCommand(args: string): {
+export async function handleOpenbuffProviderCommand(args: string): Promise<{
   message: string
   startWizard?: true
   connectCodex?: true
-} {
+}> {
   const parts = args.trim().split(/\s+/).filter(Boolean)
   const [command, ...rest] = parts
   if (!command) {
@@ -1029,6 +1072,89 @@ export function handleOpenbuffProviderCommand(args: string): {
     return { message: 'Disconnected Codex/ChatGPT subscription credentials.' }
   }
 
+  if (command === 'models') {
+    const providerId = rest[0]
+    if (!providerId) {
+      return {
+        message: [
+          'Usage:',
+          '- /provider models <provider-id>              — list cached discovered models',
+          '- /provider models <provider-id> --refresh   — refresh from provider endpoint',
+          '- /provider models <provider-id> add <model-id> — add a model to config',
+        ].join('\n'),
+      }
+    }
+    const loadedConfig = loadProviderConfigSync()
+    const provider = loadedConfig.config.providers[providerId]
+    if (!provider) {
+      return { message: `Provider '${providerId}' is not configured. Run /provider add first.` }
+    }
+
+    if (rest[1] === 'add') {
+      // Strip provider prefix if user pasted a full routable ID like "ollama/llama3"
+      // so we add "llama3" rather than "ollama/llama3" inside the provider models list.
+      const prefix = `${providerId}/`
+      const modelId = rest[2]?.startsWith(prefix) ? rest[2].slice(prefix.length) : rest[2]
+      if (!modelId) {
+        return { message: 'Usage: /provider models <provider-id> add <model-id>' }
+      }
+      try {
+        const configPath = addDiscoveredModelToProviderConfig({
+          providerId,
+          modelId,
+          loadedConfig,
+          cwd: getProjectRoot(),
+        })
+        return {
+          message: [
+            `Added model '${modelId}' to provider '${providerId}'.`,
+            `Updated ${configPath}`,
+            '',
+            formatOpenbuffModelStatus(),
+          ].join('\n'),
+        }
+      } catch (error) {
+        return {
+          message: `Failed to add model: ${error instanceof Error ? error.message : String(error)}`,
+        }
+      }
+    }
+
+    const shouldRefresh = rest.includes('--refresh')
+    if (shouldRefresh) {
+      const discoveryConfig = getProviderDiscoveryConfig(providerId, provider)
+      if (!discoveryConfig) {
+        return {
+          message: `Provider '${providerId}' does not support live model discovery. Add a 'discovery' field to its config in openbuff.json.`,
+        }
+      }
+      try {
+        const result = await discoverProviderModels({
+          providerId,
+          loadedConfig,
+          fetch: globalThis.fetch as ModelDiscoveryFetch,
+        })
+        return { message: formatDiscoveredModels(providerId, result, loadedConfig) }
+      } catch (error) {
+        return {
+          message: `Model discovery failed for '${providerId}': ${error instanceof Error ? error.message : String(error)}`,
+        }
+      }
+    }
+
+    // Show cached discovered models
+    const cache = readModelDiscoveryCache()
+    const cachedResult = cache[providerId]
+    const discoveryConfig = getProviderDiscoveryConfig(providerId, provider)
+    if (!cachedResult) {
+      const hint = discoveryConfig
+        ? `Run /provider models ${providerId} --refresh to discover available models, then /provider models ${providerId} add <model-id> to add one to config.`
+        : `Provider '${providerId}' does not support live model discovery.`
+      return { message: `No cached discovered models for '${providerId}'. ${hint}` }
+    }
+    return { message: formatDiscoveredModels(providerId, cachedResult, loadedConfig) }
+  }
+
   return {
     message: [
       formatOpenbuffProviderStatus(),
@@ -1037,6 +1163,8 @@ export function handleOpenbuffProviderCommand(args: string): {
       '- /provider add',
       '- /provider add <preset>',
       '- /provider remove <provider-id>',
+      '- /provider models <provider-id> [--refresh]',
+      '- /provider models <provider-id> add <model-id>',
       '- /provider connect codex',
       '- /provider disconnect codex',
     ].join('\n'),

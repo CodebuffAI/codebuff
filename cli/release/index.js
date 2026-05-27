@@ -290,9 +290,8 @@ async function downloadBinary(version) {
   }
 
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
   }/api/releases/download/${version}/${fileName}`
-
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })

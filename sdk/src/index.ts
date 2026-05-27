@@ -33,6 +33,7 @@ export * from './run-state'
 export { ToolHelpers } from './tools'
 export * from './constants'
 export * from './provider-config'
+export * from './model-discovery'
 export {
   CODEBUFF_LOCAL_MODE_ENV_VAR,
   OPENBUFF_LOCAL_MODE_ENV_VAR,

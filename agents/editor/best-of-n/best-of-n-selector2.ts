@@ -11,7 +11,7 @@ export const createBestOfNSelector2 = (options: {
   return {
     publisher,
     model: isSonnet
-      ? 'anthropic/claude-sonnet-4.5'
+      ? 'anthropic/claude-sonnet-4.6'
       : isOpus
         ? 'anthropic/claude-opus-4.7'
         : 'openai/gpt-5.5',
@@ -83,7 +83,7 @@ export const createBestOfNSelector2 = (options: {
         suggestedImprovements: {
           type: 'string',
           description:
-            'A summary of suggested improvements from non-chosen implementations that could enhance the selected implementation. You can also include any new ideas you have to improve upon the selected implementation. Leave empty if no valuable improvements were found.',
+            'Optional short notes about important risks or follow-up improvements. Leave empty when the selected implementation is safe to apply as-is.',
         },
       },
       required: ['implementationId', 'reason', 'suggestedImprovements'],
@@ -107,7 +107,7 @@ The array order is intentionally arbitrary. Do not prefer earlier candidates or 
 Your task is to:
 1. Analyze each implementation's diff carefully, compare them against the original user requirements
 2. Select the best implementation
-3. Identify the best ideas/techniques from the NON-CHOSEN implementations that could improve the selected implementation
+3. Do not ask the parent workflow to synthesize or rerun proposals. Choose the best captured proposal bundle that satisfies the request most completely, and put only short diagnostic notes in suggestedImprovements when needed.
 
 Evaluate each based on (in order of importance):
 - Correctness and completeness in fulfilling the user's request
@@ -117,11 +117,11 @@ Evaluate each based on (in order of importance):
 - Minimal changes to existing code (fewer files changed, fewer lines changed)
 - Clarity and readability
 
-Some proposal content may end with a "Proposal status:" metadata note. Treat that note as workflow metadata, not source code. A proposal marked partial must not be treated as complete merely because it has useful edits. Prefer a clean complete alternative when one exists. If a partial proposal has the best approach, you may still select it, but the parent workflow will run a completion pass before applying it.
+Some proposal content may end with a "Proposal status:" metadata note. Treat that note as workflow metadata, not source code. A captured-but-unconfirmed proposal is not automatically worse than a clean proposal: prefer the clean proposal only when coverage and correctness are comparable. If a captured multi-file bundle covers the requested files/features substantially better than a narrow clean proposal, select the captured multi-file bundle; the parent workflow may complete, repair, or apply it from captured edit evidence without rerunning proposals.
 
 ## Analyzing Non-Chosen Implementations
 
-After selecting the best implementation, look at each non-chosen implementation and identify any valuable aspects that could enhance the selected implementation. These might include:
+After selecting the best implementation, look at each non-chosen implementation and identify only aspects that are required before the selected implementation is safe to apply. These might include:
 - More elegant code patterns or abstractions
 - Simplified logic or reuse of existing code
 - Additional edge case handling
@@ -129,7 +129,9 @@ After selecting the best implementation, look at each non-chosen implementation 
 - Useful comments or documentation
 - Additional features that align with the user's request
 
-Only include improvements that are genuinely valuable and compatible with the selected implementation. If a non-chosen implementation has no useful improvements to offer, don't include it.
+Only include notes that are concrete and compatible with the selected implementation. Do not use suggestedImprovements to request another proposal pass, synthesis pass, or broad follow-up work. If the selected implementation is good enough to apply, leave suggestedImprovements empty even if another proposal has optional polish, better wording, nicer comments, or cosmetic ideas.
+
+Do not prefix suggestedImprovements with SYNTHESIZE or REQUIRES_SYNTHESIS. The parent workflow will not run a selector-driven synthesis pass.
 
 ## User Request / Context
 

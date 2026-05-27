@@ -461,6 +461,72 @@ export function assistantMessage(
   }
 }
 
+function sanitizeJsonToolResultValue(
+  value: unknown,
+  seen = new WeakSet<object>(),
+): JSONValue {
+  if (value === null) return null
+
+  if (typeof value === 'string' || typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value === 'bigint') {
+    return value.toString()
+  }
+
+  if (
+    value === undefined ||
+    typeof value === 'function' ||
+    typeof value === 'symbol'
+  ) {
+    return null
+  }
+
+  if (typeof value !== 'object') {
+    return String(value)
+  }
+
+  if (seen.has(value)) {
+    return '[Circular]'
+  }
+  seen.add(value)
+
+  const toJson = (value as { toJSON?: unknown }).toJSON
+  if (typeof toJson === 'function') {
+    const jsonValue = toJson.call(value)
+    if (jsonValue !== value) {
+      const sanitized = sanitizeJsonToolResultValue(jsonValue, seen)
+      seen.delete(value)
+      return sanitized
+    }
+  }
+
+  if (Array.isArray(value)) {
+    const result = value.map((item) => sanitizeJsonToolResultValue(item, seen))
+    seen.delete(value)
+    return result
+  }
+
+  const result: Record<string, JSONValue> = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      child === undefined ||
+      typeof child === 'function' ||
+      typeof child === 'symbol'
+    ) {
+      continue
+    }
+    result[key] = sanitizeJsonToolResultValue(child, seen)
+  }
+  seen.delete(value)
+  return result
+}
+
 export function jsonToolResult<T extends JSONValue>(
   value: T,
 ): [
@@ -471,7 +537,7 @@ export function jsonToolResult<T extends JSONValue>(
   return [
     {
       type: 'json',
-      value,
+      value: sanitizeJsonToolResultValue(value) as T,
     },
   ]
 }

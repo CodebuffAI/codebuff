@@ -133,6 +133,140 @@ export async function processStrReplace(params: {
   }
 }
 
+function levenshteinDistance(s1: string, s2: string): number {
+  const len1 = s1.length
+  const len2 = s2.length
+  if (len1 === 0) return len2
+  if (len2 === 0) return len1
+
+  let prev = new Int32Array(len2 + 1)
+  let curr = new Int32Array(len2 + 1)
+
+  for (let j = 0; j <= len2; j++) {
+    prev[j] = j
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    curr[0] = i
+    const char1 = s1.charCodeAt(i - 1)
+    for (let j = 1; j <= len2; j++) {
+      const cost = char1 === s2.charCodeAt(j - 1) ? 0 : 1
+      curr[j] = Math.min(
+        curr[j - 1] + 1, // Insertion
+        prev[j] + 1,     // Deletion
+        prev[j - 1] + cost // Substitution
+      )
+    }
+    const temp = prev
+    prev = curr
+    curr = temp
+  }
+
+  return prev[len2]
+}
+
+function findClosestMatch(params: {
+  initialContent: string
+  oldStr: string
+}): { closestBlock: string; startLine: number; similarity: number } | null {
+  const { initialContent, oldStr } = params
+  if (!oldStr || !initialContent) return null
+
+  const fileLines = initialContent.split('\n')
+  const oldLines = oldStr.split('\n')
+  const L = oldLines.length
+
+  // 1. Tokenize/Word frequency representation for fast screening
+  // Extract alphanumeric words/tokens (length >= 3)
+  const oldWords = Array.from(new Set(oldStr.toLowerCase().match(/[a-zA-Z0-9_]{3,}/g) || []))
+
+  if (oldWords.length === 0) {
+    // Fall back to unique non-whitespace characters if no words
+    const uniqueChars = Array.from(new Set(oldStr.replace(/\s+/g, '').toLowerCase()))
+    for (const char of uniqueChars) {
+      oldWords.push(char)
+    }
+  }
+
+  // If we still have nothing, we can't search
+  if (oldWords.length === 0) return null
+
+  // 2. Score each line in fileLines by number of word/token matches
+  const lineScores = new Float32Array(fileLines.length)
+  for (let i = 0; i < fileLines.length; i++) {
+    const lowerLine = fileLines[i].toLowerCase()
+    let score = 0
+    for (const word of oldWords) {
+      if (lowerLine.includes(word)) {
+        score++
+      }
+    }
+    lineScores[i] = score
+  }
+
+  // 3. Score windows of lines using word hit density
+  // We'll evaluate window sizes from Math.max(1, L - 3) to L + 3
+  const candidates: { startLine: number; endLine: number; score: number }[] = []
+  const minK = Math.max(1, L - 3)
+  const maxK = L + 3
+
+  for (let K = minK; K <= maxK; K++) {
+    if (K > fileLines.length) continue
+
+    // Slide window of size K
+    let currentWindowScore = 0
+    for (let i = 0; i < K; i++) {
+      currentWindowScore += lineScores[i]
+    }
+
+    candidates.push({ startLine: 0, endLine: K - 1, score: currentWindowScore })
+
+    for (let i = 1; i <= fileLines.length - K; i++) {
+      currentWindowScore = currentWindowScore - lineScores[i - 1] + lineScores[i + K - 1]
+      candidates.push({ startLine: i, endLine: i + K - 1, score: currentWindowScore })
+    }
+  }
+
+  // Sort candidates by score descending
+  candidates.sort((a, b) => b.score - a.score)
+
+  // Keep top 12 candidates to perform the precise Levenshtein distance on
+  const topCandidates = candidates.slice(0, 12)
+  if (topCandidates.length === 0) return null
+
+  let bestMatch: {
+    closestBlock: string
+    startLine: number
+    similarity: number
+  } | null = null
+
+  // We want to avoid evaluating near-identical overlapping ranges repeatedly if they are just 1 line off
+  const evaluatedRanges = new Set<string>()
+
+  for (const cand of topCandidates) {
+    const rangeKey = `${cand.startLine}-${cand.endLine}`
+    if (evaluatedRanges.has(rangeKey)) continue
+    evaluatedRanges.add(rangeKey)
+
+    const candidateLines = fileLines.slice(cand.startLine, cand.endLine + 1)
+    const candidateText = candidateLines.join('\n')
+
+    const dist = levenshteinDistance(candidateText, oldStr)
+    const maxLen = Math.max(candidateText.length, oldStr.length)
+    const similarity = maxLen === 0 ? 0 : 1 - dist / maxLen
+
+    if (bestMatch === null || similarity > bestMatch.similarity) {
+      bestMatch = {
+        closestBlock: candidateText,
+        startLine: cand.startLine + 1, // 1-indexed for humans/models
+        similarity,
+      }
+    }
+  }
+
+  return bestMatch
+}
+
 const tryMatchOldStr = (params: {
   initialContent: string
   oldStr: string
@@ -206,8 +340,15 @@ const tryMatchOldStr = (params: {
       }
     }
   }
+
+  const closest = findClosestMatch({ initialContent, oldStr })
+  let errorMsg = `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`
+  if (closest && closest.similarity >= 0.2) {
+    errorMsg += `\n\nDid you mean to match this block around line ${closest.startLine}?\n\`\`\`\n${closest.closestBlock}\n\`\`\``
+  }
+
   return {
     success: false,
-    error: `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`,
+    error: errorMsg,
   }
 }

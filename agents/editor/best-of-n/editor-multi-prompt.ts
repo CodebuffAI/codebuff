@@ -17,7 +17,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     },
     displayName: 'Multi-Prompt Editor',
     spawnerPrompt:
-      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. It also returns further suggested improvements which you should take seriously and act on. Pass as input an array of short prompts specifying different implementation approaches or strategies. Make sure to read any files intended to be edited before spawning this agent.',
+      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. Selector notes are diagnostic only; do not spawn another best-of-N run just because notes mention optional risks. Pass as input an array of short prompts specifying different implementation approaches or strategies. Make sure to read any files intended to be edited before spawning this agent.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -38,6 +38,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
       'editor-implementor-proposal-3',
       'editor-implementor-proposal-4',
       'editor-implementor-proposal-5',
+      'editor-implementor-proposal-direct',
       'editor-implementor-opus',
       'editor-implementor-gpt-5',
     ],
@@ -111,14 +112,45 @@ function* handleStepsMultiPrompt({
     'editor-implementor-proposal-4',
     'editor-implementor-proposal-5',
   ] as const
+  const directProposalAgentType = 'editor-implementor-proposal-direct'
 
   type ProposedToolCall = { toolName: string; input: any }
+  type ProposalProgress = {
+    stepsTaken?: number
+    readOnlyToolCallCount?: number
+    proposalToolCallCount?: number
+    successfulProposalResultCount?: number
+    failedProposalResultCount?: number
+    proposedFileCount?: number
+    proposedFiles?: string[]
+    completionSignalSeen?: boolean
+    recoveredFromTimeout?: boolean
+    recoveredFromProviderError?: boolean
+  }
+  type ProposalOrchestrationPlan = {
+    mode: 'simple-bundle' | 'standard-bundle' | 'large-bundle'
+    complexity: 'simple' | 'standard' | 'large'
+    expectedTouchedFileCount: number
+    targetFileHints: string[]
+    contextFileCount: number
+    searchPatternCount: number
+    maxBundleProposalTurns?: number
+    timeoutMs: {
+      idleTimeoutMs?: number
+      firstProgressTimeoutMs?: number
+      hardTimeoutMs?: number
+    }
+    evidence: string[]
+    riskControls: string[]
+  }
   type ProposalResult = {
     toolCalls: ProposedToolCall[]
     toolResults?: any[]
     unifiedDiffs?: string
     errorMessage?: string
     stopReason?: string
+    readOnlyContext?: string
+    proposalProgress?: ProposalProgress
     proposalBudget?: {
       maxProposalSteps: number
       maxReadOnlyOnlySteps: number
@@ -138,12 +170,24 @@ function* handleStepsMultiPrompt({
   type Implementation = {
     id: string
     strategy: string
+    label: string
     content: string
     toolCalls: ProposedToolCall[]
     stopReason?: string
+    proposalProgress?: ProposalProgress
     proposalBudget?: ProposalResult['proposalBudget']
     partial?: boolean
+    phase?: 'initial' | 'synthesis' | 'completion' | 'repair'
+    sourceProposalId?: string
+    sourceProposalLabel?: string
   }
+
+  const knownProposalPaths = () =>
+    dedupeStrings([
+      ...proposalOrchestrationPlan.targetFileHints,
+      ...extractContextFileHeaders(proposalRequestContext),
+      ...extractLikelyFilePaths([proposalRequestContext]),
+    ]).filter(shouldPrefetchPath)
 
   // Spawn proposal implementors sequentially. The parallel batch was fast with
   // the hosted backend, but local OpenAI-compatible/OAuth providers often have
@@ -165,31 +209,56 @@ function* handleStepsMultiPrompt({
     messageHistory: proposalMessageHistory,
     prompts,
   })
-  const proposalRequirements =
-    'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
+  const proposalOrchestrationPlan = buildProposalOrchestrationPlan({
+    requestContext: proposalRequestContext,
+    prompts,
+  })
+  const proposalRequestContextWithPlan = appendProposalOrchestrationPlan({
+    requestContext: proposalRequestContext,
+    plan: proposalOrchestrationPlan,
+  })
+  const proposalRequirements = buildProposalRequirements(
+    proposalOrchestrationPlan,
+  )
 
   for (const [index, prompt] of prompts.entries()) {
     const agentType =
       proposalAgentTypes[index] ??
       proposalAgentTypes[proposalAgentTypes.length - 1]
     let lastResult: ProposalResult | ProposalFailure | undefined
+    let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
+      const currentAgentType = getProposalAttemptAgentType({
+        defaultAgentType: agentType,
+        attempt,
+        lastResult,
+        forceDirectRetry,
+        hasPrefetchedContext: prefetchedContextMessages.length > 0,
+      })
+      if (currentAgentType === directProposalAgentType) {
+        forceDirectRetry = true
+      }
+      const allowReadOnlyTools = currentAgentType !== directProposalAgentType
       const { toolResult: implementorResults } = yield {
         toolName: 'spawn_agents',
         input: {
           agents: [
             {
-              agent_type: agentType,
+              agent_type: currentAgentType,
               prompt: buildProposalPrompt({
                 strategy: prompt,
                 attempt,
               }),
               params: buildProposalParams({
                 strategy: prompt,
-                requestContext: proposalRequestContext,
+                requestContext: proposalRequestContextWithPlan,
+                proposalLabel: getInitialProposalLabel(index),
+                proposalOrdinal: index + 1,
+                orchestrationPlan: proposalOrchestrationPlan,
                 attempt,
                 lastResult,
+                allowReadOnlyTools,
               }),
             },
           ],
@@ -216,10 +285,12 @@ function* handleStepsMultiPrompt({
             toolCalls: getUsableProposalToolCalls(lastResult),
             toolResults: getUsableProposalToolResultsFromResult(lastResult),
             unifiedDiffs:
-              typeof lastResult.unifiedDiffs === 'string'
+              buildUsableUnifiedDiffs(lastResult) ||
+              (typeof lastResult.unifiedDiffs === 'string'
                 ? lastResult.unifiedDiffs
-                : '',
+                : ''),
             stopReason: lastResult.stopReason,
+            proposalProgress: lastResult.proposalProgress,
             proposalBudget: lastResult.proposalBudget,
           }
         : {
@@ -246,6 +317,7 @@ function* handleStepsMultiPrompt({
       return {
         id: letters[index],
         strategy: prompts[index] ?? 'unknown',
+        label: getInitialProposalLabel(index),
         content: hasUsableEdits
           ? [
               result.unifiedDiffs || summarizeProposalToolCalls(toolCalls),
@@ -259,8 +331,12 @@ function* handleStepsMultiPrompt({
             }`,
         toolCalls,
         stopReason: result.stopReason,
+        proposalProgress: result.proposalProgress,
         proposalBudget: result.proposalBudget,
         partial: isPartialProposalResult(result),
+        phase: 'initial',
+        sourceProposalId: letters[index],
+        sourceProposalLabel: getInitialProposalLabel(index),
       }
     },
   )
@@ -279,8 +355,9 @@ function* handleStepsMultiPrompt({
     } satisfies ToolCall<'set_output'>
     return
   }
-  const selectorImplementations =
-    getSelectorCandidateImplementations(usableImplementations)
+  const selectorImplementations = getSelectorCandidateImplementations(
+    usableImplementations,
+  )
   const selectorRequestContext = buildSelectorRequestContext({
     messageHistory: proposalMessageHistory,
     prompts,
@@ -358,8 +435,9 @@ function* handleStepsMultiPrompt({
   if (!selectorOutput) {
     yield* applyImplementation({
       chosenImplementation: fallbackImplementation,
-      reason:
-        `Selector failed to return an implementation; applied the highest-ranked usable proposal (${fallbackImplementation.id}) instead.`,
+      selectedImplementation: fallbackImplementation,
+      selectionSource: 'selector-fallback',
+      reason: `Selector failed to return an implementation; applied the highest-ranked usable proposal (${getImplementationLabel(fallbackImplementation)}) instead.`,
       suggestedImprovements:
         'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.',
     })
@@ -376,7 +454,10 @@ function* handleStepsMultiPrompt({
   if (!chosenImplementation) {
     yield* applyImplementation({
       chosenImplementation: fallbackImplementation,
-      reason: `Selector chose unknown, unusable, or filtered implementation ${implementationId}; applied the highest-ranked usable proposal (${fallbackImplementation.id}) instead.`,
+      selectedImplementation: fallbackImplementation,
+      selectionSource: 'selector-fallback',
+      selectorChoiceId: implementationId,
+      reason: `Selector chose unknown, unusable, or filtered implementation ${implementationId}; applied the highest-ranked usable proposal (${getImplementationLabel(fallbackImplementation)}) instead.`,
       suggestedImprovements: selectorOutput.suggestedImprovements,
     })
     return
@@ -385,145 +466,17 @@ function* handleStepsMultiPrompt({
   // Extract suggested improvements from selector output
   const { reason, suggestedImprovements } = selectorOutput
 
-  const implementationToApply =
-    (yield* maybeRefineSelectedImplementation({
-      chosenImplementation,
-      reason,
-      suggestedImprovements,
-    })) ?? chosenImplementation
-
   yield* applyImplementation({
-    chosenImplementation: implementationToApply,
+    chosenImplementation,
+    selectedImplementation: chosenImplementation,
+    selectionSource: 'selector',
+    selectorChoiceId: implementationId,
     reason:
       chosenImplementation.id === selectedImplementationId
         ? reason
         : `${reason}\n\nSelector chose an unusable implementation, so the first usable proposal was applied instead.`,
     suggestedImprovements,
   })
-
-  function* maybeRefineSelectedImplementation(params: {
-    chosenImplementation: Implementation
-    reason: string
-    suggestedImprovements: string
-  }): Generator<ToolCall<'spawn_agents'>, Implementation | undefined, any> {
-    const { chosenImplementation, reason, suggestedImprovements } = params
-    if (
-      !shouldRefineSelectedImplementation(
-        chosenImplementation,
-        suggestedImprovements,
-      )
-    ) {
-      return undefined
-    }
-
-    const { toolResult: synthesisResults } = yield {
-      toolName: 'spawn_agents',
-      input: {
-        agents: [
-          {
-            agent_type: 'editor-implementor-proposal-1',
-            prompt: 'Synthesis: selected proposal plus selector improvements',
-            params: {
-              proposalStrategy:
-                'Synthesize the selected proposal with useful ideas from the selector review.',
-              proposalContext: buildSynthesisProposalContext({
-                chosenImplementation,
-                reason,
-                suggestedImprovements,
-              }),
-              proposalRequirements:
-                'Return one complete, self-contained proposal that incorporates the selected implementation and any concrete selector improvements that are truly useful. Use the supplied proposalContext/current file context; if exact current code is missing, use bounded read-only tools only. Then emit one complete proposal bundle with all required propose_str_replace/propose_write_file calls, and write PROPOSAL_BUNDLE_COMPLETE only when every requested edit is covered. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.',
-              previousFailure:
-                'This is a synthesis pass, not a retry. Re-emit the complete final edit proposal; do not assume earlier proposal tool calls will be applied.',
-              allowReadOnlyTools: true,
-              proposalBundleMode: true,
-              proposalTimeoutMs: getProposalTimeoutMsForContext(
-                buildSynthesisProposalContext({
-                  chosenImplementation,
-                  reason,
-                  suggestedImprovements,
-                }),
-              ),
-            },
-          },
-        ],
-      },
-      includeToolCall: false,
-    } satisfies ToolCall<'spawn_agents'>
-
-    const synthesisResult = extractSpawnResults<
-      ProposalResult | ProposalFailure
-    >(synthesisResults)[0]
-
-    if (!isUsableProposal(synthesisResult)) {
-      return undefined
-    }
-
-    return {
-      id: `${chosenImplementation.id}+S`,
-      strategy: `${chosenImplementation.strategy} (selector-refined)`,
-      content: synthesisResult.unifiedDiffs || chosenImplementation.content,
-      toolCalls: getUsableProposalToolCalls(synthesisResult),
-      stopReason: synthesisResult.stopReason,
-      proposalBudget: synthesisResult.proposalBudget,
-      partial: isPartialProposalResult(synthesisResult),
-    }
-  }
-
-  function shouldRefineSelectedImplementation(
-    chosenImplementation: Implementation,
-    suggestedImprovements: string,
-  ): boolean {
-    return (
-      isUsableImplementation(chosenImplementation) &&
-      suggestedImprovements.trim().length > 0
-    )
-  }
-
-  function buildSynthesisProposalContext(params: {
-    chosenImplementation: Implementation
-    reason: string
-    suggestedImprovements: string
-  }): string {
-    const { chosenImplementation, reason, suggestedImprovements } = params
-    const alternateImplementations = implementations
-      .filter(
-        (implementation) =>
-          implementation.id !== chosenImplementation.id &&
-          isUsableImplementation(implementation),
-      )
-      .map(
-        (implementation) =>
-          `Implementation ${implementation.id} (${implementation.strategy}):\n${truncateText(
-            implementation.content,
-            8_000,
-          )}`,
-      )
-      .join('\n\n')
-
-    return truncateText(
-      [
-        'Original request and file/search context:',
-        proposalRequestContext,
-        '',
-        `Selected implementation ${chosenImplementation.id} (${chosenImplementation.strategy}):`,
-        truncateText(chosenImplementation.content, 16_000),
-        '',
-        'Selector reason:',
-        reason,
-        '',
-        'Selector suggested improvements to incorporate when concrete and correct:',
-        suggestedImprovements,
-        '',
-        alternateImplementations
-          ? `Other usable proposal diffs for useful ideas:\n${alternateImplementations}`
-          : '',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      80_000,
-    )
-  }
 
   /**
    * Extracts the array of subagent results from spawn_agents tool output.
@@ -622,7 +575,9 @@ function* handleStepsMultiPrompt({
     )
     const hasSuccessfulToolResults = successfulToolResults.length > 0
 
-    return hasValidDiffs || hasSuccessfulToolResults || usableToolCalls.length > 0
+    return (
+      hasValidDiffs || hasSuccessfulToolResults || usableToolCalls.length > 0
+    )
   }
 
   function getUsableProposalToolCalls(
@@ -637,10 +592,222 @@ function* handleStepsMultiPrompt({
     }
 
     const toolCalls = result.toolCalls.filter(isProposalEditToolCall)
-    return sanitizeProposalToolCallsForRecoverableFailures({
-      toolCalls,
+    const sanitizedToolCalls = sanitizeProposalToolCallsForRecoverableFailures({
+      toolCalls: normalizeProposalToolCallPaths(toolCalls),
       rawToolResults: getProposalResultToolResults(result),
     }).filter(isProposalEditToolCall)
+
+    return filterProposalToolCallsForContext(sanitizedToolCalls)
+  }
+
+  function normalizeProposalToolCallPaths(
+    toolCalls: ProposedToolCall[],
+  ): ProposedToolCall[] {
+    return toolCalls.map((toolCall) => {
+      if (!isObject(toolCall.input) || typeof toolCall.input.path !== 'string') {
+        return toolCall
+      }
+
+      return {
+        ...toolCall,
+        input: {
+          ...toolCall.input,
+          path: normalizeProposalPath(toolCall.input.path),
+        },
+      }
+    })
+  }
+
+  function normalizeProposalPath(path: string): string {
+    const normalized = normalizePrefetchPath(path)
+    if (!normalized) return normalized
+
+    const repoNormalized = normalizeKnownMonorepoPath(normalized)
+    const knownPaths = knownProposalPaths()
+    if (knownPaths.includes(repoNormalized)) return repoNormalized
+    if (knownPaths.includes(normalized)) return normalized
+
+    const suffixMatches = knownPaths.filter((knownPath) =>
+      knownPath.endsWith(`/${repoNormalized}`),
+    )
+    if (suffixMatches.length === 1) return suffixMatches[0]
+
+    const normalizedSuffixMatches = knownPaths.filter((knownPath) =>
+      knownPath.endsWith(`/${normalized}`),
+    )
+    if (normalizedSuffixMatches.length === 1) {
+      return normalizedSuffixMatches[0]
+    }
+
+    const basenameMatches = knownPaths.filter(
+      (knownPath) => getBaseName(knownPath) === getBaseName(repoNormalized),
+    )
+    if (basenameMatches.length === 1) return basenameMatches[0]
+
+    return repoNormalized
+  }
+
+  function normalizeKnownMonorepoPath(path: string): string {
+    if (path.startsWith('agent-runtime/')) return `packages/${path}`
+    return path
+  }
+
+  function filterProposalToolCallsForContext(
+    toolCalls: ProposedToolCall[],
+  ): ProposedToolCall[] {
+    const unanchoredForeignPaths = new Set(
+      getUnanchoredForeignLanguageProposalPaths(toolCalls),
+    )
+    if (unanchoredForeignPaths.size === 0) return toolCalls
+
+    return toolCalls.filter((toolCall) => {
+      const path = getProposalToolCallPath(toolCall)
+      return !path || !unanchoredForeignPaths.has(path)
+    })
+  }
+
+  function getProposalToolCallPath(toolCall: ProposedToolCall): string {
+    return isObject(toolCall.input) && typeof toolCall.input.path === 'string'
+      ? normalizePrefetchPath(toolCall.input.path)
+      : ''
+  }
+
+  function getUnanchoredForeignLanguageProposalPaths(
+    toolCalls: ProposedToolCall[],
+  ): string[] {
+    const proposedPaths = dedupeStrings(
+      toolCalls.map(getProposalToolCallPath).filter(Boolean),
+    )
+    return getUnanchoredForeignLanguagePaths(proposedPaths)
+  }
+
+  function getUnanchoredForeignLanguagePaths(paths: string[]): string[] {
+    const proposedPaths = dedupeStrings(paths.filter(Boolean))
+    if (proposedPaths.length === 0) return []
+
+    const requestText = `${prompts.join('\n')}\n${proposalRequestContext}`
+    const contextPaths = dedupeStrings([
+      ...proposalOrchestrationPlan.targetFileHints,
+      ...extractContextFileHeaders(proposalRequestContext),
+      ...extractLikelyFilePaths([proposalRequestContext]),
+    ])
+    const contextExtensions = new Set(
+      contextPaths.map(getPathExtension).filter(Boolean),
+    )
+    const hasAnchoredSourceContext = [...contextExtensions].some(
+      isSourceLikeExtension,
+    )
+    if (!hasAnchoredSourceContext) return []
+
+    return proposedPaths.filter((path) => {
+      const extension = getPathExtension(path)
+      if (!isForeignLanguageExtension(extension)) return false
+      if (contextExtensions.has(extension)) return false
+      if (taskMentionsExtensionOrLanguage(requestText, extension)) return false
+      return true
+    })
+  }
+
+  function getPathExtension(path: string): string {
+    const normalizedPath = path.split(/[?#]/, 1)[0]
+    const match = normalizedPath.match(/(\.[A-Za-z0-9]+)$/)
+    return match ? match[1].toLowerCase() : ''
+  }
+
+  function isSourceLikeExtension(extension: string): boolean {
+    return [
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.py',
+      '.go',
+      '.rs',
+      '.java',
+      '.kt',
+      '.kts',
+      '.cs',
+      '.php',
+      '.rb',
+      '.swift',
+      '.scala',
+      '.lua',
+      '.ex',
+      '.exs',
+      '.erl',
+      '.clj',
+      '.cljs',
+      '.sh',
+      '.bash',
+      '.zsh',
+      '.json',
+    ].includes(extension)
+  }
+
+  function isForeignLanguageExtension(extension: string): boolean {
+    return [
+      '.py',
+      '.go',
+      '.rs',
+      '.java',
+      '.kt',
+      '.kts',
+      '.cs',
+      '.php',
+      '.rb',
+      '.swift',
+      '.scala',
+      '.lua',
+      '.ex',
+      '.exs',
+      '.erl',
+      '.clj',
+      '.cljs',
+      '.sh',
+      '.bash',
+      '.zsh',
+    ].includes(extension)
+  }
+
+  function taskMentionsExtensionOrLanguage(
+    text: string,
+    extension: string,
+  ): boolean {
+    if (!extension) return false
+    if (
+      new RegExp(escapeRipgrepLiteral(extension) + String.raw`\b`, 'i').test(
+        text,
+      )
+    ) {
+      return true
+    }
+
+    const languageHintsByExtension: Record<string, RegExp> = {
+      '.py': /\bpython\b/i,
+      '.go': /\bgolang\b|\bgo\b/i,
+      '.rs': /\brust\b/i,
+      '.java': /\bjava\b/i,
+      '.kt': /\bkotlin\b/i,
+      '.kts': /\bkotlin\b/i,
+      '.cs': /\bc#\b|\bcsharp\b/i,
+      '.php': /\bphp\b/i,
+      '.rb': /\bruby\b/i,
+      '.swift': /\bswift\b/i,
+      '.scala': /\bscala\b/i,
+      '.lua': /\blua\b/i,
+      '.ex': /\belixir\b/i,
+      '.exs': /\belixir\b/i,
+      '.erl': /\berlang\b/i,
+      '.clj': /\bclojure\b/i,
+      '.cljs': /\bclojure(script)?\b/i,
+      '.sh': /\bshell\b|\bbash\b|\bscript\b/i,
+      '.bash': /\bshell\b|\bbash\b|\bscript\b/i,
+      '.zsh': /\bshell\b|\bzsh\b|\bscript\b/i,
+    }
+
+    return languageHintsByExtension[extension]?.test(text) ?? false
   }
 
   function isUsableImplementation(implementation: Implementation): boolean {
@@ -650,12 +817,11 @@ function* handleStepsMultiPrompt({
   function getSelectorCandidateImplementations(
     implementations: Implementation[],
   ): Implementation[] {
-    const cleanImplementations = implementations.filter(
-      (implementation) => !isPartialImplementation(implementation),
-    )
-    return cleanImplementations.length > 0
-      ? cleanImplementations
-      : implementations
+    // Do not hide captured-but-unconfirmed proposals from the selector. A
+    // clean one-file proposal can be worse than a multi-file bundle that only
+    // missed PROPOSAL_BUNDLE_COMPLETE. Ranking and status metadata still make
+    // clean proposals preferred when coverage is comparable.
+    return implementations
   }
 
   function buildSelectorPresentation(params: {
@@ -754,14 +920,25 @@ function* handleStepsMultiPrompt({
       isProposalEditToolCall,
     ).length
     const contentScore = Math.min(implementation.content.length, 20_000) / 100
+    const expectedTouchedFileCount =
+      implementation.proposalBudget?.expectedTouchedFileCount ??
+      proposalOrchestrationPlan.expectedTouchedFileCount
+    const coverageScore =
+      expectedTouchedFileCount > 0
+        ? Math.min(changedFileCount, expectedTouchedFileCount) * 1_000 -
+          Math.max(0, changedFileCount - expectedTouchedFileCount) * 250
+        : changedFileCount * 650
+    const statusScore = getImplementationStatusScore(implementation)
 
-    return (
-      (isPartialImplementation(implementation) ? -10_000 : 10_000) +
-      (implementation.stopReason === 'cleanProposal' ? 1_000 : 0) +
-      changedFileCount * 200 +
-      editCallCount * 25 +
-      contentScore
-    )
+    return statusScore + coverageScore + editCallCount * 25 + contentScore
+  }
+
+  function getImplementationStatusScore(implementation: Implementation): number {
+    if (!isPartialImplementation(implementation)) return 1_500
+    if (implementation.stopReason === 'noCompletionSignal') return -150
+    if (implementation.stopReason === 'bundleCap') return -700
+    if (implementation.stopReason === 'stepBudget') return -1_000
+    return -500
   }
 
   function isPartialProposalResult(result: ProposalResult): boolean {
@@ -786,8 +963,13 @@ function* handleStepsMultiPrompt({
   function formatProposalStatus(result: ProposalResult): string {
     const stopReason =
       typeof result.stopReason === 'string' ? result.stopReason : ''
+    const recoveredFromTimeout =
+      result.proposalProgress?.recoveredFromTimeout === true
+
     if (!isPartialStopReason(stopReason)) {
-      return ''
+      return recoveredFromTimeout
+        ? 'Proposal status: recovered after timeout. Treat the captured edits as complete only if the diff clearly satisfies the request; prefer an equivalent clean non-timeout proposal.'
+        : ''
     }
 
     const budget = result.proposalBudget
@@ -799,17 +981,57 @@ function* handleStepsMultiPrompt({
           `complexity=${budget.complexity}`,
         ].join(', ')})`
       : ''
-    return `Proposal status: partial; stopped by ${stopReason}${budgetText}. Do not apply directly. Complete or repair this proposal first.`
+    return `Proposal status: captured-but-unconfirmed; stopped by ${stopReason}${budgetText}. This does not automatically disqualify the proposal: if its changed files clearly cover the request better than a narrower clean proposal, it may be the best candidate. The parent workflow will complete, repair, or apply the captured bundle according to coverage evidence.`
   }
 
   function shouldStopProposalRetries(
     result: ProposalResult | ProposalFailure | undefined,
   ): boolean {
     const failure = summarizeProposalFailure(result).toLowerCase()
+    return failure.includes('run cancelled by user')
+  }
+
+  function getProposalAttemptAgentType(params: {
+    defaultAgentType: string
+    attempt: number
+    lastResult: ProposalResult | ProposalFailure | undefined
+    forceDirectRetry?: boolean
+    hasPrefetchedContext?: boolean
+  }): string {
+    const useDirect =
+      params.attempt > 0 &&
+      (params.forceDirectRetry ||
+        shouldRetryWithoutReadOnlyTools(params.lastResult))
+
+    const preferDirectOnFirstAttempt = params.hasPrefetchedContext === true
+
+    return useDirect || (params.attempt === 0 && preferDirectOnFirstAttempt)
+      ? directProposalAgentType
+      : params.defaultAgentType
+  }
+
+  function shouldRetryWithoutReadOnlyTools(
+    result: ProposalResult | ProposalFailure | undefined,
+  ): boolean {
+    if (!isObject(result) || isUsableProposal(result)) return false
+
+    const progress = isObject((result as any).proposalProgress)
+      ? (result as any).proposalProgress
+      : undefined
+    const failure = summarizeProposalFailure(result).toLowerCase()
+    const stopReason =
+      typeof (result as any).stopReason === 'string'
+        ? (result as any).stopReason
+        : ''
+
     return (
+      stopReason === 'noProposal' ||
       failure.includes('timed out') ||
-      failure.includes('run cancelled by user') ||
-      failure.includes('aborted')
+      failure.includes('no propose_str_replace/propose_write_file') ||
+      failure.includes('did not emit propose_str_replace/propose_write_file') ||
+      failure.includes('no unified diff was produced') ||
+      (Number(progress?.readOnlyToolCallCount) > 0 &&
+        Number(progress?.proposalToolCallCount ?? 0) === 0)
     )
   }
 
@@ -845,9 +1067,50 @@ function* handleStepsMultiPrompt({
   function getUsableProposalToolResultsFromResult(
     result: ProposalResult | ProposalFailure | undefined,
   ): any[] {
-    return filterIgnorableNoOpEditFailures(
-      sanitizeRecoverableMixedEditResults(getProposalResultToolResults(result)),
+    return filterProposalToolResultsForContext(
+      filterIgnorableNoOpEditFailures(
+        sanitizeRecoverableMixedEditResults(
+          normalizeProposalResultPaths(getProposalResultToolResults(result)),
+        ),
+      ),
     )
+  }
+
+  function normalizeProposalResultPaths(results: any[]): any[] {
+    return results.map((result) => {
+      if (!isObject(result)) return result
+      const path = getEditResultPath(result)
+      if (!path) return result
+      const normalizedPath = normalizeProposalPath(path)
+      if (typeof result.file === 'string') {
+        return { ...result, file: normalizedPath }
+      }
+      return { ...result, path: normalizedPath }
+    })
+  }
+
+  function buildUsableUnifiedDiffs(
+    result: ProposalResult | ProposalFailure | undefined,
+  ): string {
+    return getUsableProposalToolResultsFromResult(result)
+      .filter(isSuccessfulEditResult)
+      .map((toolResult) => {
+        const path = getEditResultPath(toolResult)
+        return `--- ${path || 'unknown'} ---\n${toolResult.unifiedDiff}`
+      })
+      .join('\n\n')
+  }
+
+  function filterProposalToolResultsForContext(results: any[]): any[] {
+    const unanchoredForeignPaths = new Set(
+      getUnanchoredForeignLanguagePaths(results.map(getEditResultPath)),
+    )
+    if (unanchoredForeignPaths.size === 0) return results
+
+    return results.filter((result) => {
+      const path = getEditResultPath(result)
+      return !path || !unanchoredForeignPaths.has(path)
+    })
   }
 
   function isSuccessfulEditResult(result: any): boolean {
@@ -928,9 +1191,9 @@ function* handleStepsMultiPrompt({
   function isSuccessfulEditResultForNoOpFiltering(result: any): boolean {
     return Boolean(
       result &&
-        typeof result === 'object' &&
-        getEditResultPath(result) &&
-        !getEditResultFailureMessage(result),
+      typeof result === 'object' &&
+      getEditResultPath(result) &&
+      !getEditResultFailureMessage(result),
     )
   }
 
@@ -949,11 +1212,11 @@ function* handleStepsMultiPrompt({
   function isRecoverableMixedEditFailure(result: any): boolean {
     return Boolean(
       result &&
-        typeof result === 'object' &&
-        typeof result.unifiedDiff === 'string' &&
-        result.unifiedDiff.trim().length > 0 &&
-        typeof result.message === 'string' &&
-        getFailedReplacementOldStrings(result.message).length > 0,
+      typeof result === 'object' &&
+      typeof result.unifiedDiff === 'string' &&
+      result.unifiedDiff.trim().length > 0 &&
+      typeof result.message === 'string' &&
+      getFailedReplacementOldStrings(result.message).length > 0,
     )
   }
 
@@ -1087,10 +1350,28 @@ function* handleStepsMultiPrompt({
   function buildProposalParams(params: {
     strategy: string
     requestContext: string
+    proposalLabel: string
+    proposalOrdinal: number
+    orchestrationPlan: ProposalOrchestrationPlan
     attempt: number
     lastResult: ProposalResult | ProposalFailure | undefined
+    allowReadOnlyTools: boolean
   }): Record<string, any> {
-    const { strategy, requestContext, attempt, lastResult } = params
+    const {
+      strategy,
+      requestContext,
+      proposalLabel,
+      proposalOrdinal,
+      orchestrationPlan,
+      attempt,
+      lastResult,
+      allowReadOnlyTools,
+    } = params
+    const proposalContext = buildAttemptProposalContext({
+      requestContext,
+      attempt,
+      lastResult,
+    })
     const previousFailure =
       attempt > 0
         ? summarizeProposalFailure(lastResult) ||
@@ -1098,14 +1379,50 @@ function* handleStepsMultiPrompt({
         : ''
 
     return {
+      proposalLabel,
+      proposalOrdinal,
+      proposalPhase: 'initial',
       proposalStrategy: strategy,
-      proposalContext: requestContext,
-      proposalRequirements,
-      allowReadOnlyTools: true,
+      proposalContext,
+      proposalRequirements: allowReadOnlyTools
+        ? proposalRequirements
+        : buildDirectProposalRequirements(orchestrationPlan),
+      proposalOrchestrationPlan: orchestrationPlan,
+      allowReadOnlyTools,
       proposalBundleMode: true,
-      proposalTimeoutMs: getProposalTimeoutMsForContext(requestContext),
+      proposalTimeoutMs: getProposalTimeoutMsForContext(proposalContext),
+      ...buildProposalTimeoutParams(orchestrationPlan),
+      ...(orchestrationPlan.maxBundleProposalTurns
+        ? { maxBundleProposalTurns: orchestrationPlan.maxBundleProposalTurns }
+        : {}),
       ...(previousFailure && { previousFailure }),
     }
+  }
+
+  function buildAttemptProposalContext(params: {
+    requestContext: string
+    attempt: number
+    lastResult: ProposalResult | ProposalFailure | undefined
+  }): string {
+    const { requestContext, attempt, lastResult } = params
+    if (attempt <= 0 || !isObject(lastResult)) return requestContext
+
+    const readOnlyContext =
+      'readOnlyContext' in lastResult &&
+      typeof lastResult.readOnlyContext === 'string'
+        ? lastResult.readOnlyContext.trim()
+        : ''
+    if (!readOnlyContext) return requestContext
+
+    return truncateText(
+      [
+        requestContext,
+        '',
+        'Context gathered by the previous proposal attempt before it failed to emit edits:',
+        readOnlyContext,
+      ].join('\n'),
+      100_000,
+    )
   }
 
   function getProposalTimeoutMsForContext(context: string): number {
@@ -1117,6 +1434,321 @@ function* handleStepsMultiPrompt({
       return 240_000
     }
     return 180_000
+  }
+
+  function buildProposalTimeoutParams(
+    orchestrationPlan: ProposalOrchestrationPlan,
+  ): Record<string, number> {
+    const { idleTimeoutMs, firstProgressTimeoutMs, hardTimeoutMs } =
+      orchestrationPlan.timeoutMs
+    return {
+      ...(typeof idleTimeoutMs === 'number'
+        ? { proposalIdleTimeoutMs: idleTimeoutMs }
+        : {}),
+      ...(typeof firstProgressTimeoutMs === 'number'
+        ? { proposalFirstProgressTimeoutMs: firstProgressTimeoutMs }
+        : {}),
+      ...(typeof hardTimeoutMs === 'number'
+        ? { proposalHardTimeoutMs: hardTimeoutMs }
+        : {}),
+    }
+  }
+
+  function buildProposalRequirements(
+    orchestrationPlan: ProposalOrchestrationPlan,
+  ): string {
+    const base =
+      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
+
+    if (orchestrationPlan.mode !== 'large-bundle') {
+      return base
+    }
+
+    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
+    return `${base} Large-task orchestration is active: prioritize the supplied proposalOrchestrationPlan and proposalContext before additional searching. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. Keep read-only exploration bounded to exact missing context; do not wander into unrelated absolute paths or one-file-at-a-time indefinite loops. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle.`
+  }
+
+  function buildDirectProposalRequirements(
+    orchestrationPlan: ProposalOrchestrationPlan,
+  ): string {
+    const base =
+      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
+
+    if (orchestrationPlan.mode !== 'large-bundle') {
+      return base
+    }
+
+    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
+    return `${base} Large-task direct retry is active because a previous attempt gathered/read searched context but did not emit proposal edits. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle instead of searching.`
+  }
+
+  function buildProposalOrchestrationPlan(params: {
+    requestContext: string
+    prompts: string[]
+  }): ProposalOrchestrationPlan {
+    const { requestContext, prompts } = params
+    const promptText = prompts.join('\n')
+    const taskText = extractTaskFacingProposalContext(
+      `${promptText}\n${requestContext}`,
+    )
+    const contextFileHints = extractContextFileHeaders(requestContext)
+    const explicitTaskPaths = extractLikelyFilePaths([promptText, taskText])
+    const explicitBareTaskFileNames = extractLikelyBareFileNames([
+      promptText,
+      taskText,
+    ])
+    const editableExplicitTaskPaths =
+      explicitTaskPaths.filter(isLikelyEditablePath)
+    const editableContextFileHints =
+      contextFileHints.filter(isLikelyEditablePath)
+    const bareMatchedContextFileHints = matchContextPathsByBareFileNames({
+      fileNames: explicitBareTaskFileNames,
+      contextPaths: editableContextFileHints,
+    })
+    const targetFileHints = dedupeStrings([
+      ...bareMatchedContextFileHints,
+      ...editableExplicitTaskPaths,
+      ...editableContextFileHints,
+    ]).slice(0, 18)
+    const numericTouchedFileCount =
+      inferExpectedTouchedFileCountFromText(taskText)
+    const expectedTouchedFileCount = Math.min(
+      20,
+      Math.max(
+        numericTouchedFileCount,
+        editableExplicitTaskPaths.length,
+        explicitBareTaskFileNames.length,
+      ),
+    )
+    const searchPatternCount = extractLikelySearchPatterns([
+      promptText,
+      taskText,
+    ]).length
+    const complexSignals = countComplexTaskSignals(`${promptText}\n${taskText}`)
+    const contextLength = requestContext.length
+    const evidence: string[] = []
+
+    if (numericTouchedFileCount > 0) {
+      evidence.push(`numericFileCount:${numericTouchedFileCount}`)
+    }
+    if (explicitTaskPaths.length > 0) {
+      evidence.push(`explicitPaths:${explicitTaskPaths.length}`)
+    }
+    if (editableExplicitTaskPaths.length > 0) {
+      evidence.push(`editableExplicitPaths:${editableExplicitTaskPaths.length}`)
+    }
+    if (explicitBareTaskFileNames.length > 0) {
+      evidence.push(`bareTaskFiles:${explicitBareTaskFileNames.length}`)
+    }
+    if (bareMatchedContextFileHints.length > 0) {
+      evidence.push(
+        `bareMatchedContextFiles:${bareMatchedContextFileHints.length}`,
+      )
+    }
+    if (contextFileHints.length > 0) {
+      evidence.push(`contextFiles:${contextFileHints.length}`)
+    }
+    if (editableContextFileHints.length > 0) {
+      evidence.push(`editableContextFiles:${editableContextFileHints.length}`)
+    }
+    if (complexSignals > 0) {
+      evidence.push(`complexSignals:${complexSignals}`)
+    }
+    if (contextLength > 60_000) {
+      evidence.push(`largeContext:${contextLength}`)
+    }
+
+    const isLarge =
+      expectedTouchedFileCount >= 5 ||
+      targetFileHints.length >= 6 ||
+      contextLength > 60_000 ||
+      complexSignals >= 4
+    const isSimple =
+      !isLarge &&
+      expectedTouchedFileCount <= 1 &&
+      targetFileHints.length <= 1 &&
+      complexSignals <= 1 &&
+      contextLength < 12_000
+    const complexity = isLarge ? 'large' : isSimple ? 'simple' : 'standard'
+    const mode =
+      complexity === 'large'
+        ? 'large-bundle'
+        : complexity === 'simple'
+          ? 'simple-bundle'
+          : 'standard-bundle'
+    const maxBundleProposalTurns =
+      complexity === 'large'
+        ? Math.min(
+            24,
+            Math.max(
+              expectedTouchedFileCount > 0 ? expectedTouchedFileCount + 4 : 0,
+              targetFileHints.length > 0 ? targetFileHints.length + 2 : 0,
+              12,
+            ),
+          )
+        : undefined
+
+    return {
+      mode,
+      complexity,
+      expectedTouchedFileCount,
+      targetFileHints,
+      contextFileCount: contextFileHints.length,
+      searchPatternCount,
+      maxBundleProposalTurns,
+      timeoutMs:
+        complexity === 'large'
+          ? {
+              idleTimeoutMs: 420_000,
+              firstProgressTimeoutMs: 900_000,
+              hardTimeoutMs: 45 * 60_000,
+            }
+          : {},
+      evidence,
+      riskControls:
+        complexity === 'large'
+          ? [
+              'parent-prefetch',
+              'bounded-read-only-tools',
+              'progress-aware-timeouts',
+              'partial-proposal-completion',
+              'fallback-apply-after-repair',
+            ]
+          : ['parent-prefetch', 'proposal-bundle'],
+    }
+  }
+
+  function appendProposalOrchestrationPlan(params: {
+    requestContext: string
+    plan: ProposalOrchestrationPlan
+  }): string {
+    const { requestContext, plan } = params
+    return truncateText(
+      [
+        requestContext,
+        '',
+        'Proposal orchestration plan:',
+        `- mode: ${plan.mode}`,
+        `- complexity: ${plan.complexity}`,
+        `- expectedTouchedFileCount: ${plan.expectedTouchedFileCount || 'unknown'}`,
+        `- targetFileHints: ${
+          plan.targetFileHints.length > 0
+            ? plan.targetFileHints.join(', ')
+            : 'none'
+        }`,
+        `- riskControls: ${plan.riskControls.join(', ')}`,
+        `- evidence: ${plan.evidence.join(', ') || 'none'}`,
+      ].join('\n'),
+      90_000,
+    )
+  }
+
+  function countComplexTaskSignals(text: string): number {
+    return [
+      /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i,
+      /\b(create|add|wire|integrate|refactor|implement)\b/i,
+      /\b(component|screen|overlay|command|registry|schema|provider|routing|test|tests)\b/i,
+      /\bphase\s+\d+\b/i,
+      /\bfull[- ]screen\b/i,
+      /\b(provider|model|discovery|configuration|setup|picker)\b/i,
+    ].filter((pattern) => pattern.test(text)).length
+  }
+
+  function extractContextFileHeaders(text: string): string[] {
+    return dedupeStrings(
+      Array.from(
+        text.matchAll(
+          /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))/g,
+        ),
+        (match) => normalizePrefetchPath(match[1]),
+      ).filter(Boolean),
+    )
+  }
+
+  function extractLikelyBareFileNames(texts: string[]): string[] {
+    const fileNames: string[] = []
+    const pattern =
+      /(?:^|[\s`"'([{])([A-Za-z0-9_.@-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))(?:$|[\s`"',;:)\]}])/g
+
+    for (const text of texts) {
+      for (const match of text.matchAll(pattern)) {
+        const fileName = match[1]
+        if (fileName && !fileName.includes('/')) fileNames.push(fileName)
+      }
+    }
+
+    return dedupeStrings(fileNames).filter(isLikelyEditablePath)
+  }
+
+  function matchContextPathsByBareFileNames(params: {
+    fileNames: string[]
+    contextPaths: string[]
+  }): string[] {
+    const fileNameSet = new Set(params.fileNames)
+    if (fileNameSet.size === 0) return []
+
+    return dedupeStrings(
+      params.contextPaths.filter((path) => fileNameSet.has(getBaseName(path))),
+    )
+  }
+
+  function getBaseName(path: string): string {
+    return path.split('/').pop() ?? path
+  }
+
+  function isLikelyEditablePath(path: string): boolean {
+    return !/^docs\//.test(path) && !/\.mdx?$/.test(path)
+  }
+
+  function extractTaskFacingProposalContext(value: unknown): string {
+    if (typeof value !== 'string') return ''
+    const contextMarker =
+      '\nCurrent file/search context already gathered by the parent agent:'
+    const markerIndex = value.indexOf(contextMarker)
+    return markerIndex === -1 ? value : value.slice(0, markerIndex)
+  }
+
+  function inferExpectedTouchedFileCountFromText(text: string): number {
+    const counts: number[] = []
+    const unit = String.raw`(?:files?|pages?|screens?|components?|modules?)`
+    const patterns: Array<{ pattern: RegExp; offset: number }> = [
+      {
+        pattern: new RegExp(
+          String.raw`\b(?:more\s+than|over)\s*(\d+)\s*${unit}\b`,
+          'gi',
+        ),
+        offset: 1,
+      },
+      {
+        pattern: new RegExp(
+          String.raw`\b(?:at\s+least|minimum\s+of)\s*(\d+)\s*${unit}\b`,
+          'gi',
+        ),
+        offset: 0,
+      },
+      {
+        pattern: new RegExp(String.raw`\b(\d+)\s*\+\s*${unit}\b`, 'gi'),
+        offset: 0,
+      },
+      {
+        pattern: new RegExp(
+          String.raw`\b(\d+)\s*${unit}(?:\s+or\s+more)?\b`,
+          'gi',
+        ),
+        offset: 0,
+      },
+    ]
+
+    for (const { pattern, offset } of patterns) {
+      for (const match of text.matchAll(pattern)) {
+        const parsed = Number(match[1])
+        if (Number.isFinite(parsed) && parsed > 0) {
+          counts.push(Math.min(20, Math.floor(parsed) + offset))
+        }
+      }
+    }
+
+    return counts.length === 0 ? 0 : Math.max(...counts)
   }
 
   function* gatherProposalContextMessages(params: {
@@ -1138,6 +1770,7 @@ function* handleStepsMultiPrompt({
 
     const contextMessages: any[] = []
     const readPaths = new Set<string>()
+    const contextSeedTexts = [...seedTexts]
     const directPaths = extractLikelyFilePaths(seedTexts).slice(0, 12)
 
     if (directPaths.length > 0) {
@@ -1148,10 +1781,30 @@ function* handleStepsMultiPrompt({
       } satisfies ToolCall<'read_files'>
       appendToolContextMessage(contextMessages, 'read_files', toolResult)
       directPaths.forEach((path) => readPaths.add(path))
+      contextSeedTexts.push(...collectToolResultStrings(toolResult))
+    }
+
+    const referencedPathsFromPrefetch = extractLikelyFilePaths(contextSeedTexts)
+      .filter((path) => !readPaths.has(path))
+      .filter(shouldPrefetchPath)
+      .slice(0, 12)
+
+    if (referencedPathsFromPrefetch.length > 0) {
+      const { toolResult } = yield {
+        toolName: 'read_files',
+        input: { paths: referencedPathsFromPrefetch },
+        includeToolCall: false,
+      } satisfies ToolCall<'read_files'>
+      appendToolContextMessage(contextMessages, 'read_files', toolResult)
+      referencedPathsFromPrefetch.forEach((path) => readPaths.add(path))
+      contextSeedTexts.push(...collectToolResultStrings(toolResult))
     }
 
     const discoveredPaths: string[] = []
-    for (const pattern of extractLikelySearchPatterns(seedTexts).slice(0, 6)) {
+    for (const pattern of extractLikelySearchPatterns(contextSeedTexts).slice(
+      0,
+      8,
+    )) {
       const { toolResult } = yield {
         toolName: 'code_search',
         input: {
@@ -1200,7 +1853,7 @@ function* handleStepsMultiPrompt({
   function extractLikelyFilePaths(texts: string[]): string[] {
     const paths: string[] = []
     const pathPattern =
-      /(?:^|[\s`"'([{])((?:\.\/|\.\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt))(?:$|[\s`"',;:)\]}])/g
+      /(?:^|[\s`"'([{])((?:\.\/|\.\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))(?:$|[\s`"',;:)\]}])/g
 
     for (const text of texts) {
       for (const match of text.matchAll(pathPattern)) {
@@ -1228,6 +1881,7 @@ function* handleStepsMultiPrompt({
       'Use',
       'Preserve',
       'Alternative',
+      'API',
     ])
 
     for (const text of texts) {
@@ -1254,11 +1908,25 @@ function* handleStepsMultiPrompt({
         const candidate = normalizeSearchPattern(match[0])
         if (candidate && !stopWords.has(candidate)) patterns.push(candidate)
       }
+
+      for (const match of text.matchAll(
+        /\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b/g,
+      )) {
+        const candidate = normalizeSearchPattern(match[0])
+        if (candidate && !stopWords.has(candidate)) patterns.push(candidate)
+      }
+
+      for (const match of text.matchAll(
+        /\b[A-Z][A-Za-z]+[0-9][A-Za-z0-9]*\b/g,
+      )) {
+        const candidate = normalizeSearchPattern(match[0])
+        if (candidate && !stopWords.has(candidate)) patterns.push(candidate)
+      }
     }
 
     return dedupeStrings(patterns).filter((pattern) => {
       if (pattern.length < 3 || pattern.length > 80) return false
-      if (shouldPrefetchPath(pattern)) return false
+      if (pattern.includes('/') && shouldPrefetchPath(pattern)) return false
       if (/^[0-9.]+$/.test(pattern)) return false
       return true
     })
@@ -1277,7 +1945,7 @@ function* handleStepsMultiPrompt({
     const texts = collectToolResultStrings(toolResult)
     const paths: string[] = []
     const fileLinePattern =
-      /(?:^|\n)(?:\.\/)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)):/g
+      /(?:^|\n)(?:\.\/)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh)):/g
 
     for (const text of texts) {
       for (const match of text.matchAll(fileLinePattern)) {
@@ -1298,7 +1966,7 @@ function* handleStepsMultiPrompt({
     }
 
     const strings: string[] = []
-    for (const key of ['stdout', 'stderr', 'message']) {
+    for (const key of ['path', 'content', 'stdout', 'stderr', 'message']) {
       if (typeof value[key] === 'string') strings.push(value[key])
     }
     return strings
@@ -1469,6 +2137,15 @@ function* handleStepsMultiPrompt({
       return true
     }
 
+    if (message?.role === 'tool') {
+      return isInternalBestOfNToolName(message.toolName)
+    }
+
+    if (message?.role === 'user') {
+      const text = normalizeMessageText(getMessageText(message))
+      return text.startsWith('<conversation_summary>')
+    }
+
     const searchText = getMessageSearchText(message)
     return [
       'editor-multi-prompt',
@@ -1480,17 +2157,27 @@ function* handleStepsMultiPrompt({
     ].some((marker) => searchText.includes(marker))
   }
 
+  function isInternalBestOfNToolName(toolName: unknown): boolean {
+    return [
+      'spawn_agents',
+      'set_messages',
+      'set_output',
+      'propose_str_replace',
+      'propose_write_file',
+    ].includes(String(toolName))
+  }
+
   function buildSelectorRequestContext(params: {
     messageHistory: any[]
     prompts: string[]
   }): string {
     const { messageHistory, prompts } = params
-    const maxContextChars = 10_000
+    const maxContextChars = 80_000
     const requestContext = buildCleanRequestContext({
       messageHistory,
-      maxContextChars: 8_000,
-      maxUserChars: 1_500,
-      maxToolChars: 5_000,
+      maxContextChars: 72_000,
+      maxUserChars: 4_000,
+      maxToolChars: 60_000,
     })
 
     const contextParts = [
@@ -1750,10 +2437,20 @@ function* handleStepsMultiPrompt({
 
   function* applyImplementation(params: {
     chosenImplementation: Implementation
+    selectedImplementation?: Implementation
+    selectionSource?: string
+    selectorChoiceId?: string
     reason: string
     suggestedImprovements: string
   }): ReturnType<NonNullable<SecretAgentDefinition['handleSteps']>> {
-    const { chosenImplementation, reason, suggestedImprovements } = params
+    const {
+      chosenImplementation,
+      selectedImplementation = chosenImplementation,
+      selectionSource = 'selector',
+      selectorChoiceId,
+      reason,
+      suggestedImprovements,
+    } = params
 
     const candidates = [
       chosenImplementation,
@@ -1764,21 +2461,34 @@ function* handleStepsMultiPrompt({
       ),
     ]
     const applyFailures: string[] = []
+    const attemptedImplementationIds = new Set<string>()
 
     for (const candidate of candidates) {
-      const candidateToApply = isPartialImplementation(candidate)
-        ? yield* completePartialImplementation(candidate)
-        : candidate
-      if (!candidateToApply) {
+      if (attemptedImplementationIds.has(candidate.id)) {
         applyFailures.push(
-          `${candidate.id}: proposal was partial and completion pass did not return a clean complete proposal.`,
+          `${candidate.id}: skipped duplicate proposal attempt.`,
         )
         continue
       }
+      attemptedImplementationIds.add(candidate.id)
 
-      const appliedToolResults = yield* applyImplementationEdits(
-        candidateToApply,
-      )
+      let candidateToApply = candidate
+      if (
+        isPartialImplementation(candidate) &&
+        shouldCompletePartialBeforeApplying(candidate)
+      ) {
+        const completedCandidate = yield* completePartialImplementation(candidate)
+        if (completedCandidate) {
+          candidateToApply = completedCandidate
+        } else {
+          applyFailures.push(
+            `${candidate.id}: completion pass did not return a clean complete proposal; applying the captured proposal bundle directly.`,
+          )
+        }
+      }
+
+      const appliedToolResults =
+        yield* applyImplementationEdits(candidateToApply)
       if (hasCleanSuccessfulAppliedEdit(appliedToolResults)) {
         yield {
           toolName: 'set_output',
@@ -1786,11 +2496,23 @@ function* handleStepsMultiPrompt({
             chosenStrategy: candidateToApply.strategy,
             reason: buildAppliedReason({
               appliedImplementation: candidateToApply,
-              chosenImplementation,
+              chosenImplementation: selectedImplementation,
               reason,
             }),
+            ...buildSelectionOutputFields({
+              selectedImplementation,
+              appliedImplementation: candidateToApply,
+              selectionSource,
+              selectorChoiceId,
+            }),
             toolResults: getCleanAppliedToolResults(appliedToolResults),
-            suggestedImprovements,
+            suggestedImprovements: '',
+            proposalSummary: buildProposalSummary({
+              selectedImplementation,
+              appliedImplementation: candidateToApply,
+              applyFailures,
+              selectorNotes: suggestedImprovements,
+            }),
           },
           includeToolCall: false,
         } satisfies ToolCall<'set_output'>
@@ -1821,11 +2543,23 @@ function* handleStepsMultiPrompt({
             chosenStrategy: repairedImplementation.strategy,
             reason: buildAppliedReason({
               appliedImplementation: repairedImplementation,
-              chosenImplementation,
+              chosenImplementation: selectedImplementation,
               reason,
             }),
+            ...buildSelectionOutputFields({
+              selectedImplementation,
+              appliedImplementation: repairedImplementation,
+              selectionSource: `${selectionSource}-repair`,
+              selectorChoiceId,
+            }),
             toolResults: getCleanAppliedToolResults(repairedToolResults),
-            suggestedImprovements,
+            suggestedImprovements: '',
+            proposalSummary: buildProposalSummary({
+              selectedImplementation,
+              appliedImplementation: repairedImplementation,
+              applyFailures,
+              selectorNotes: suggestedImprovements,
+            }),
           },
           includeToolCall: false,
         } satisfies ToolCall<'set_output'>
@@ -1868,9 +2602,17 @@ function* handleStepsMultiPrompt({
         agents: [
           {
             agent_type: 'editor-implementor-proposal-1',
-            prompt: `Complete partial implementation ${partialImplementation.id}`,
+            prompt: `Complete ${getImplementationLabel(partialImplementation)}`,
             params: {
-              proposalStrategy: `Complete partial implementation ${partialImplementation.id}; re-emit one full proposal bundle.`,
+              proposalLabel: `Complete ${getImplementationLabel(partialImplementation)}`,
+              proposalPhase: 'completion',
+              sourceProposalId:
+                partialImplementation.sourceProposalId ??
+                partialImplementation.id,
+              sourceProposalLabel: getImplementationLabel(
+                partialImplementation,
+              ),
+              proposalStrategy: `Complete ${getImplementationLabel(partialImplementation)}; re-emit one full proposal bundle.`,
               proposalContext: buildCompletionProposalContext({
                 partialImplementation,
                 currentFileContext,
@@ -1900,19 +2642,31 @@ function* handleStepsMultiPrompt({
 
     if (
       !isUsableProposal(completionResult) ||
-      isPartialProposalResult(completionResult)
+      !hasAcceptableCompletionEvidence({
+        completionResult,
+        partialImplementation,
+      })
     ) {
       return undefined
     }
+    const completedStopReason = isPartialProposalResult(completionResult)
+      ? 'cleanProposal'
+      : completionResult.stopReason
 
     return {
       id: `${partialImplementation.id}-complete`,
       strategy: `${partialImplementation.strategy} (completed after partial proposal)`,
+      label: `${getImplementationLabel(partialImplementation)} (completed)`,
       content: completionResult.unifiedDiffs || partialImplementation.content,
       toolCalls: getUsableProposalToolCalls(completionResult),
-      stopReason: completionResult.stopReason,
+      stopReason: completedStopReason,
+      proposalProgress: completionResult.proposalProgress,
       proposalBudget: completionResult.proposalBudget,
       partial: false,
+      phase: 'completion',
+      sourceProposalId:
+        partialImplementation.sourceProposalId ?? partialImplementation.id,
+      sourceProposalLabel: getImplementationLabel(partialImplementation),
     }
   }
 
@@ -1931,9 +2685,17 @@ function* handleStepsMultiPrompt({
             : toolCall.toolName
 
       if (realToolName === 'str_replace' || realToolName === 'write_file') {
+        const input = isObject(toolCall.input)
+          ? {
+              ...toolCall.input,
+              ...(typeof toolCall.input.path === 'string'
+                ? { path: normalizeProposalPath(toolCall.input.path) }
+                : {}),
+            }
+          : toolCall.input
         const { toolResult } = yield {
           toolName: realToolName,
-          input: toolCall.input,
+          input,
           includeToolCall: true,
         } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
 
@@ -1965,9 +2727,15 @@ function* handleStepsMultiPrompt({
         agents: [
           {
             agent_type: 'editor-implementor-proposal-1',
-            prompt: `Repair implementation ${failedImplementation.id}`,
+            prompt: `Repair ${getImplementationLabel(failedImplementation)}`,
             params: {
-              proposalStrategy: `Repair implementation ${failedImplementation.id} after apply failure.`,
+              proposalLabel: `Repair ${getImplementationLabel(failedImplementation)}`,
+              proposalPhase: 'repair',
+              sourceProposalId:
+                failedImplementation.sourceProposalId ??
+                failedImplementation.id,
+              sourceProposalLabel: getImplementationLabel(failedImplementation),
+              proposalStrategy: `Repair ${getImplementationLabel(failedImplementation)} after apply failure.`,
               proposalContext: buildRepairProposalContext({
                 failedImplementation,
                 failureSummary,
@@ -1996,18 +2764,27 @@ function* handleStepsMultiPrompt({
       repairResults,
     )[0]
 
-    if (!isUsableProposal(repairResult) || isPartialProposalResult(repairResult)) {
+    if (
+      !isUsableProposal(repairResult) ||
+      isPartialProposalResult(repairResult)
+    ) {
       return undefined
     }
 
     return {
       id: `${failedImplementation.id}-repair`,
       strategy: `${failedImplementation.strategy} (repaired after apply failure)`,
+      label: `${getImplementationLabel(failedImplementation)} (repaired)`,
       content: repairResult.unifiedDiffs || failedImplementation.content,
       toolCalls: getUsableProposalToolCalls(repairResult),
       stopReason: repairResult.stopReason,
+      proposalProgress: repairResult.proposalProgress,
       proposalBudget: repairResult.proposalBudget,
       partial: false,
+      phase: 'repair',
+      sourceProposalId:
+        failedImplementation.sourceProposalId ?? failedImplementation.id,
+      sourceProposalLabel: getImplementationLabel(failedImplementation),
     }
   }
 
@@ -2061,7 +2838,10 @@ function* handleStepsMultiPrompt({
         truncateText(partialImplementation.content, 20_000),
         '',
         'Partial proposal tool calls captured so far:',
-        truncateText(safeJsonStringify(partialImplementation.toolCalls), 20_000),
+        truncateText(
+          safeJsonStringify(partialImplementation.toolCalls),
+          20_000,
+        ),
         '',
         `Partial stop reason: ${partialImplementation.stopReason ?? 'unknown'}`,
         partialImplementation.proposalBudget
@@ -2119,12 +2899,208 @@ function* handleStepsMultiPrompt({
       .filter(Boolean)
   }
 
+  function extractProposalResultFilePaths(
+    result: ProposalResult | ProposalFailure | undefined,
+  ): string[] {
+    return dedupeStrings(
+      [
+        ...getUsableProposalToolCalls(result).map((toolCall) =>
+          isObject(toolCall.input) && typeof toolCall.input.path === 'string'
+            ? toolCall.input.path
+            : '',
+        ),
+        ...getUsableProposalToolResultsFromResult(result).map(
+          getEditResultPath,
+        ),
+      ].filter(Boolean),
+    )
+  }
+
+  function hasAcceptableCompletionEvidence(params: {
+    completionResult: ProposalResult | ProposalFailure | undefined
+    partialImplementation: Implementation
+  }): boolean {
+    const { completionResult, partialImplementation } = params
+    if (!isUsableProposal(completionResult)) return false
+    if (!isPartialProposalResult(completionResult)) return true
+
+    const completionToolResults =
+      getUsableProposalToolResultsFromResult(completionResult)
+    if (completionToolResults.some(isFailedEditResult)) {
+      return false
+    }
+
+    const completionFiles = new Set(
+      extractProposalResultFilePaths(completionResult),
+    )
+    const partialFiles = new Set(
+      dedupeStrings(extractImplementationFilePaths(partialImplementation)),
+    )
+    const expectedTouchedFileCount =
+      partialImplementation.proposalBudget?.expectedTouchedFileCount ?? 0
+    const requiredFileCount = Math.max(
+      partialFiles.size,
+      expectedTouchedFileCount,
+    )
+
+    if (requiredFileCount > 0 && completionFiles.size < requiredFileCount) {
+      return false
+    }
+    if (partialFiles.size > 0) {
+      return [...partialFiles].every((file) => completionFiles.has(file))
+    }
+    return completionFiles.size > 0
+  }
+
+  function shouldCompletePartialBeforeApplying(
+    implementation: Implementation,
+  ): boolean {
+    if (!isPartialImplementation(implementation)) return false
+
+    const expectedTouchedFileCount =
+      implementation.proposalBudget?.expectedTouchedFileCount ?? 0
+    if (expectedTouchedFileCount <= 0) return false
+
+    const proposedFileCount = new Set(
+      extractImplementationFilePaths(implementation),
+    ).size
+
+    return proposedFileCount > 0 && proposedFileCount < expectedTouchedFileCount
+  }
+
   function extractAppliedEditFilePaths(appliedToolResults: any[]): string[] {
     return flattenToolResultValues(appliedToolResults)
       .map((result) =>
         isObject(result) && typeof result.file === 'string' ? result.file : '',
       )
       .filter(Boolean)
+  }
+
+  function getInitialProposalLabel(index: number): string {
+    return `Proposal #${index + 1}`
+  }
+
+  function getImplementationLabel(implementation: Implementation): string {
+    if (implementation.label) return implementation.label
+
+    const baseId = implementation.sourceProposalId ?? implementation.id
+    const letterIndex = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(baseId[0] ?? '')
+    const baseLabel =
+      letterIndex >= 0 ? getInitialProposalLabel(letterIndex) : baseId
+
+    if (implementation.id.endsWith('+S')) return `${baseLabel} (synthesized)`
+    if (implementation.id.endsWith('-complete'))
+      return `${baseLabel} (completed)`
+    if (implementation.id.endsWith('-repair')) return `${baseLabel} (repaired)`
+    return baseLabel
+  }
+
+  function buildSelectionOutputFields(params: {
+    selectedImplementation: Implementation
+    appliedImplementation: Implementation
+    selectionSource: string
+    selectorChoiceId?: string
+  }): Record<string, string> {
+    const {
+      selectedImplementation,
+      appliedImplementation,
+      selectionSource,
+      selectorChoiceId,
+    } = params
+
+    return {
+      selectedProposalId: selectedImplementation.id,
+      selectedProposalLabel: getImplementationLabel(selectedImplementation),
+      appliedProposalId: appliedImplementation.id,
+      appliedProposalLabel: getImplementationLabel(appliedImplementation),
+      selectionSource,
+      ...(selectorChoiceId ? { selectorChoiceId } : {}),
+    }
+  }
+
+  function buildProposalSummary(params: {
+    selectedImplementation: Implementation
+    appliedImplementation: Implementation
+    applyFailures: string[]
+    selectorNotes?: string
+  }): Record<string, any> {
+    const {
+      selectedImplementation,
+      appliedImplementation,
+      applyFailures,
+      selectorNotes,
+    } = params
+    const proposalEntries = implementations.map((implementation) => {
+      const files = extractImplementationFilePaths(implementation)
+      const budget = implementation.proposalBudget
+        ? {
+            maxProposalSteps: implementation.proposalBudget.maxProposalSteps,
+            ...(typeof implementation.proposalBudget.maxBundleProposalTurns ===
+            'number'
+              ? {
+                  maxBundleProposalTurns:
+                    implementation.proposalBudget.maxBundleProposalTurns,
+                }
+              : {}),
+            ...(typeof implementation.proposalBudget
+              .expectedTouchedFileCount === 'number'
+              ? {
+                  expectedTouchedFileCount:
+                    implementation.proposalBudget.expectedTouchedFileCount,
+                }
+              : {}),
+            complexity: implementation.proposalBudget.complexity,
+            evidence: implementation.proposalBudget.evidence,
+          }
+        : undefined
+      return {
+        id: implementation.id,
+        label: getImplementationLabel(implementation),
+        strategy: truncateText(implementation.strategy, 240),
+        status: isUsableImplementation(implementation)
+          ? isPartialImplementation(implementation)
+            ? 'partial'
+            : 'usable'
+          : 'unusable',
+        stopReason: implementation.stopReason ?? 'unknown',
+        changedFileCount: new Set(files).size,
+        editCallCount: implementation.toolCalls.filter(isProposalEditToolCall)
+          .length,
+        files: dedupeStrings(files).slice(0, 12),
+        ...(implementation.proposalProgress
+          ? { progress: implementation.proposalProgress }
+          : {}),
+        ...(budget ? { budget } : {}),
+      }
+    })
+
+    return {
+      selected: {
+        id: selectedImplementation.id,
+        label: getImplementationLabel(selectedImplementation),
+      },
+      applied: {
+        id: appliedImplementation.id,
+        label: getImplementationLabel(appliedImplementation),
+      },
+      totals: {
+        proposals: implementations.length,
+        usable: implementations.filter(isUsableImplementation).length,
+        partial: implementations.filter(isPartialImplementation).length,
+      },
+      orchestration: proposalOrchestrationPlan,
+      proposals: proposalEntries,
+      applyFailures: applyFailures.slice(0, 8),
+      ...(formatSelectorNotes(selectorNotes)
+        ? { selectorNotes: formatSelectorNotes(selectorNotes) }
+        : {}),
+    }
+  }
+
+  function formatSelectorNotes(selectorNotes: string | undefined): string {
+    const trimmed = selectorNotes?.trim()
+    if (!trimmed) return ''
+    return `Diagnostic only; do not start another proposal/fix loop from this note: ${truncateText(trimmed, 900)}`
   }
 
   function buildAppliedReason(params: {
@@ -2136,13 +3112,28 @@ function* handleStepsMultiPrompt({
     if (appliedImplementation.id === chosenImplementation.id) {
       return reason
     }
+    if (
+      appliedImplementation.sourceProposalId &&
+      appliedImplementation.sourceProposalId ===
+        (chosenImplementation.sourceProposalId ?? chosenImplementation.id)
+    ) {
+      if (appliedImplementation.phase === 'synthesis') {
+        return `${reason}\n\n${getImplementationLabel(chosenImplementation)} was synthesized with the selector improvements before applying.`
+      }
+      if (appliedImplementation.phase === 'completion') {
+        return `${reason}\n\n${getImplementationLabel(chosenImplementation)} was partial, so it was completed into a clean full proposal before applying.`
+      }
+      if (appliedImplementation.phase === 'repair') {
+        return `${reason}\n\n${getImplementationLabel(chosenImplementation)} failed to apply cleanly, so it was repaired against current file context before applying.`
+      }
+    }
     if (appliedImplementation.id === `${chosenImplementation.id}-complete`) {
       return `${reason}\n\nThe selected proposal was partial, so it was completed into a clean full proposal before applying.`
     }
     if (appliedImplementation.id === `${chosenImplementation.id}-repair`) {
       return `${reason}\n\nThe selected implementation failed to apply cleanly, so it was repaired against current file context before applying.`
     }
-    return `${reason}\n\nThe originally selected implementation failed to apply cleanly, so implementation ${appliedImplementation.id} was applied instead.`
+    return `${reason}\n\nThe originally selected implementation failed to apply cleanly, so ${getImplementationLabel(appliedImplementation)} was applied instead.`
   }
 
   function hasCleanSuccessfulAppliedEdit(appliedToolResults: any[]): boolean {

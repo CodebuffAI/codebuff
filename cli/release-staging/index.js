@@ -59,7 +59,7 @@ function createConfig(packageName) {
     binaryName,
     binaryPath: path.join(configDir, binaryName),
     metadataPath: path.join(configDir, 'codecane-metadata.json'),
-    tempDownloadDir: path.join(configDir, '.download-temp'),
+    tempDownloadDir: path.join(configDir, '.download-temp-staging'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
   }
@@ -291,7 +291,7 @@ async function downloadBinary(version) {
   }
 
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
   }/api/releases/download/${version}/${fileName}`
 
   // Ensure config directory exists
@@ -397,7 +397,7 @@ async function downloadBinary(version) {
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Openbuff...')
+  console.log('Download complete! Starting Codecane...')
 }
 
 async function ensureBinaryExists() {

@@ -94,6 +94,22 @@ const providerCompatibilitySchema = z
   })
   .default(DEFAULT_PROVIDER_COMPATIBILITY)
 
+export const providerDiscoverySchema = z.object({
+  /** Discovery strategy. Auto-detected from baseURL if not specified. */
+  strategy: z
+    .enum(['openai-compatible', 'ollama', 'openrouter', 'custom'])
+    .default('openai-compatible'),
+  /** Custom discovery endpoint URL. Defaults to <baseURL>/models. */
+  endpoint: z.string().url().optional(),
+  /** JSON path to the models array in the response. Defaults vary by strategy ("data" for openai-compatible, "models" for ollama). */
+  arrayPath: z.string().min(1).optional(),
+  /** JSON path to the model id field within each model object. Defaults vary by strategy ("id" for openai-compatible, "name" for ollama). */
+  idPath: z.string().min(1).optional(),
+})
+
+export type ProviderDiscovery = z.infer<typeof providerDiscoverySchema>
+export type ProviderDiscoveryInput = z.input<typeof providerDiscoverySchema>
+
 export const modelCapabilitiesSchema = z.object({
   context: z
     .object({
@@ -176,6 +192,8 @@ const openAICompatibleProviderSchema = z
     defaultCapabilities: modelCapabilitiesSchema.optional(),
     /** Per-model capability metadata keyed by requested or provider model id. */
     modelCapabilities: modelCapabilitiesByModelSchema.optional(),
+    /** Discovery settings for auto-fetching available models from the provider endpoint. */
+    discovery: providerDiscoverySchema.optional(),
   })
   .refine(
     (provider) =>
@@ -203,6 +221,8 @@ const chatGptOAuthProviderSchema = z.object({
   defaultCapabilities: modelCapabilitiesSchema.optional(),
   /** Per-model capability metadata keyed by requested or provider model id. */
   modelCapabilities: modelCapabilitiesByModelSchema.optional(),
+  /** Discovery settings for auto-fetching available models (defaults to none). */
+  discovery: providerDiscoverySchema.optional(),
 })
 
 const providerSchema = z.union([
@@ -335,6 +355,18 @@ export const providerConfigFileSchema = z
         ) {
           agentReasoningEfforts[agentId] = lastConfiguredProposalEffort
         }
+      }
+      if (!hasExplicitAgentRoute('editor-implementor-proposal-direct')) {
+        editorMultiPromptAgents['editor-implementor-proposal-direct'] =
+          lastConfiguredProposalModel
+      }
+      if (
+        lastConfiguredProposalEffort &&
+        !hasExplicitAgentRoute('editor-implementor-proposal-direct') &&
+        !hasExplicitAgentReasoningEffort('editor-implementor-proposal-direct')
+      ) {
+        agentReasoningEfforts['editor-implementor-proposal-direct'] =
+          lastConfiguredProposalEffort
       }
     }
     const configuredSelectorModel = routableModelValueToModel(

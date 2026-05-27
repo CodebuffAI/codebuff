@@ -10,13 +10,18 @@ import { useTheme } from '../hooks/use-theme'
 import {
   getEditableConfig,
   getKnownModelOptions,
+  persistModelToProviderConfig,
   setRouteModel,
   writeMergedConfig,
 } from '../utils/openbuff-provider'
 
 import type { SelectableListItem } from './selectable-list'
-import type { ModelRouteTarget } from '../utils/openbuff-provider'
-import type { OpenbuffReasoningEffort } from '@codebuff/sdk'
+import type {
+  KnownModelOption,
+  ModelRouteTarget,
+  ReasoningEffortInput,
+} from '../utils/openbuff-provider'
+import type { OpenbuffReasoningEffort, ProviderConfigFileInput } from '@codebuff/sdk'
 
 const LAYOUT = {
   CONTENT_PADDING: 4,
@@ -36,12 +41,89 @@ function displayModel(route: RoutableModelValue | undefined): string | undefined
   return route.model
 }
 
+// --- Reasoning effort types and options ---
+
+type ReasoningChoice = Exclude<ReasoningEffortInput, undefined>
+
+interface ReasoningOption {
+  value: ReasoningChoice
+  label: string
+  description: string
+}
+
+const REASONING_OPTIONS: ReasoningOption[] = [
+  {
+    value: 'default',
+    label: 'Default',
+    description: 'Use the agent/provider default reasoning effort',
+  },
+  {
+    value: 'low',
+    label: 'Low',
+    description: 'Fast tool loops; good for straightforward edits',
+  },
+  {
+    value: 'medium',
+    label: 'Medium',
+    description: 'Balanced reasoning for most tasks',
+  },
+  {
+    value: 'high',
+    label: 'High',
+    description: 'More reasoning for planning and hard problems',
+  },
+  {
+    value: 'minimal',
+    label: 'Minimal',
+    description: 'Cheapest/fastest where supported',
+  },
+  {
+    value: 'none',
+    label: 'None',
+    description: 'Disable reasoning where supported',
+  },
+]
+
+/** Read the current reasoning effort override for a route target from config. */
+function getRouteReasoningEffort(
+  config: ProviderConfigFileInput,
+  target: ModelRouteTarget,
+): OpenbuffReasoningEffort | undefined {
+  const normalize = (
+    effort: OpenbuffReasoningEffort | null | undefined,
+  ): OpenbuffReasoningEffort | undefined => effort ?? undefined
+
+  if (target.type === 'default') {
+    return normalize(config.defaultReasoningEffort)
+  }
+  if (target.type === 'mode') {
+    return normalize(config.modeReasoningEfforts?.[target.mode])
+  }
+  if (target.type === 'agent') {
+    return normalize(config.agentReasoningEfforts?.[target.agentId])
+  }
+  if (target.type === 'editor-proposal') {
+    return normalize(
+      config.editorMultiPrompt?.proposalReasoningEfforts?.[
+        target.proposalNumber - 1
+      ],
+    )
+  }
+  return normalize(config.editorMultiPrompt?.selectorReasoningEffort)
+}
+
+/** Format reasoning effort for display in route labels. */
+function formatReasoning(effort: OpenbuffReasoningEffort | undefined): string {
+  return effort ? String(effort) : 'default'
+}
+
 interface RouteItem {
   id: string
   label: string
   secondary: string
   target?: ModelRouteTarget
   currentModel: string | undefined
+  currentReasoningEffort: OpenbuffReasoningEffort | undefined
   isHeader?: boolean
 }
 
@@ -50,7 +132,7 @@ interface ModelRoutePickerProps {
   onConfigUpdated?: () => void
 }
 
-type PickerView = 'route-list' | 'model-select'
+type PickerView = 'route-list' | 'model-select' | 'reasoning-select'
 
 const isHeaderItem = (item: SelectableListItem | undefined): boolean =>
   item?.id.startsWith('section-') ?? false
@@ -62,11 +144,6 @@ const firstSelectableIndex = (items: SelectableListItem[]): number => {
 
 /**
  * Filter out section headers that have no visible child routes.
- *
- * When the user types a search query, a header can match while none of its
- * children do — producing a list where the only visible item is a header
- * and Enter is a no-op. This helper drops orphan headers from the filtered
- * result so focus always lands on a selectable route.
  */
 function filterOrphanHeaders(filtered: SelectableListItem[]): SelectableListItem[] {
   const routeIds = new Set(
@@ -75,7 +152,6 @@ function filterOrphanHeaders(filtered: SelectableListItem[]): SelectableListItem
       .map((item) => item.id),
   )
 
-  // Map each header to the set of route prefix patterns it owns.
   const headerPrefixes = new Map<string, string[]>([
     ['section-default', ['route-default']],
     ['section-modes', ['route-mode-']],
@@ -124,6 +200,8 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
 
   const [view, setView] = useState<PickerView>('route-list')
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null)
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [selectedModelDiscovered, setSelectedModelDiscovered] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const statusClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [configKey, setConfigKey] = useState(0) // Force refresh after writes
@@ -144,16 +222,19 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       label: 'Default',
       secondary: '',
       currentModel: undefined,
+      currentReasoningEffort: undefined,
       isHeader: true,
     })
 
     // Default model
+    const defaultModel = displayModel(config.defaultModel)
     items.push({
       id: 'route-default',
       label: 'default',
-      secondary: displayModel(config.defaultModel) ?? '(not set)',
+      secondary: defaultModel ?? '(not set)',
       target: { type: 'default' },
-      currentModel: displayModel(config.defaultModel) ?? undefined,
+      currentModel: defaultModel ?? undefined,
+      currentReasoningEffort: getRouteReasoningEffort(config, { type: 'default' }),
     })
 
     items.push({
@@ -161,6 +242,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       label: 'Modes',
       secondary: '',
       currentModel: undefined,
+      currentReasoningEffort: undefined,
       isHeader: true,
     })
 
@@ -179,6 +261,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         secondary: model ?? '(not set)',
         target: { type: 'mode', mode },
         currentModel: model ?? undefined,
+        currentReasoningEffort: getRouteReasoningEffort(config, { type: 'mode', mode }),
       })
     }
 
@@ -187,6 +270,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       label: 'Editor multi-prompt',
       secondary: '',
       currentModel: undefined,
+      currentReasoningEffort: undefined,
       isHeader: true,
     })
 
@@ -200,6 +284,10 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         secondary: model ?? '(not set)',
         target: { type: 'editor-proposal', proposalNumber: i + 1 },
         currentModel: model ?? undefined,
+        currentReasoningEffort: getRouteReasoningEffort(config, {
+          type: 'editor-proposal',
+          proposalNumber: i + 1,
+        }),
       })
     }
     items.push({
@@ -210,6 +298,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       target: { type: 'editor-selector' },
       currentModel:
         displayModel(config.editorMultiPrompt?.selectorModel) ?? undefined,
+      currentReasoningEffort: getRouteReasoningEffort(config, { type: 'editor-selector' }),
     })
 
     items.push({
@@ -217,6 +306,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       label: 'Agent overrides',
       secondary: '',
       currentModel: undefined,
+      currentReasoningEffort: undefined,
       isHeader: true,
     })
 
@@ -235,23 +325,31 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         secondary: displayModel(model) ?? '(not set)',
         target: { type: 'agent', agentId },
         currentModel: displayModel(model) ?? undefined,
+        currentReasoningEffort: getRouteReasoningEffort(config, { type: 'agent', agentId }),
       })
     }
 
     return items
   }, [config])
 
-  // Convert to SelectableListItem format
+  // Convert to SelectableListItem format with reasoning in label
   const selectableRouteItems: SelectableListItem[] = useMemo(
     () =>
-      routeItems.map((route) => ({
-        id: route.id,
-        label: route.isHeader ? route.label : `${route.label} → ${route.secondary}`,
-        icon: route.isHeader ? '' : route.currentModel ? '✓' : '○',
-        secondary: route.secondary,
-        hideSecondary: true,
-        accent: route.isHeader,
-      })),
+      routeItems.map((route) => {
+        const reasoningSuffix = !route.isHeader && route.currentReasoningEffort
+          ? ` (reasoning: ${formatReasoning(route.currentReasoningEffort)})`
+          : ''
+        return {
+          id: route.id,
+          label: route.isHeader
+            ? route.label
+            : `${route.label} → ${route.secondary}${reasoningSuffix}`,
+          icon: route.isHeader ? '' : route.currentModel ? '✓' : '○',
+          secondary: route.secondary,
+          hideSecondary: true,
+          accent: route.isHeader,
+        }
+      }),
     [routeItems],
   )
 
@@ -320,14 +418,52 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     filterFn: filterModels,
   })
 
+  // Reasoning options as selectable items, with current effort marked
+  const currentReasoningForRoute = selectedRoute?.currentReasoningEffort
+  const selectableReasoningItems: SelectableListItem[] = useMemo(
+    () =>
+      REASONING_OPTIONS.map((option) => ({
+        id: option.value,
+        label:
+          option.value === (currentReasoningForRoute ?? 'default')
+            ? `${option.label} ✓`
+            : option.label,
+        secondary: option.description,
+      })),
+    [currentReasoningForRoute],
+  )
+
+  const filterReasoning = useCallback(
+    (item: SelectableListItem, query: string) =>
+      item.label.toLowerCase().includes(query.toLowerCase()) ||
+      (item.secondary ?? '').toLowerCase().includes(query.toLowerCase()),
+    [],
+  )
+
+  const {
+    searchQuery: reasoningSearchQuery,
+    setSearchQuery: setReasoningSearchQuery,
+    focusedIndex: reasoningFocusedIndex,
+    setFocusedIndex: setReasoningFocusedIndex,
+    filteredItems: filteredReasoningOptions,
+    handleFocusChange: handleReasoningFocusChange,
+  } = useSearchableList({
+    items: selectableReasoningItems,
+    filterFn: filterReasoning,
+  })
+
   // Reset focus when switching views
   useEffect(() => {
     if (view === 'route-list') {
       setFocusedIndex(firstSelectableIndex(filteredRoutes))
       setModelSearchQuery('')
       setModelFocusedIndex(0)
-    } else {
+      setReasoningSearchQuery('')
+      setReasoningFocusedIndex(0)
+    } else if (view === 'model-select') {
       setModelFocusedIndex(0)
+    } else if (view === 'reasoning-select') {
+      setReasoningFocusedIndex(0)
     }
   }, [
     view,
@@ -335,6 +471,8 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     setFocusedIndex,
     setModelSearchQuery,
     setModelFocusedIndex,
+    setReasoningSearchQuery,
+    setReasoningFocusedIndex,
   ])
 
   const handleRouteSelect = useCallback(
@@ -361,11 +499,40 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     (item: SelectableListItem) => {
       if (!selectedRoute?.target) return
 
+      // Find the KnownModelOption to check if it's a discovered model
+      const modelOption = availableModels.find((opt) => opt.model === item.id)
+      setSelectedModelId(item.id)
+      setSelectedModelDiscovered(modelOption?.discovered ?? false)
+      setReasoningSearchQuery('')
+      setReasoningFocusedIndex(0)
+      setView('reasoning-select')
+    },
+    [selectedRoute, availableModels, setReasoningSearchQuery, setReasoningFocusedIndex],
+  )
+
+  const handleReasoningSelect = useCallback(
+    (item: SelectableListItem) => {
+      if (!selectedRoute?.target || !selectedModelId) return
+
+      const reasoningChoice = item.id as ReasoningChoice
+
       try {
+        // Persist discovered model to provider config if needed
+        if (selectedModelDiscovered) {
+          const slashIndex = selectedModelId.indexOf('/')
+          if (slashIndex > 0 && slashIndex < selectedModelId.length - 1) {
+            const providerId = selectedModelId.slice(0, slashIndex)
+            const modelId = selectedModelId.slice(slashIndex + 1)
+            persistModelToProviderConfig(providerId, modelId)
+          }
+        }
+
         const editableConfig = getEditableConfig()
-        setRouteModel(editableConfig, selectedRoute.target, item.id)
+        setRouteModel(editableConfig, selectedRoute.target, selectedModelId, reasoningChoice)
         const configPath = writeMergedConfig(editableConfig)
-        const msg = `✓ ${selectedRoute.label} → ${item.id}  (saved to ${configPath})`
+
+        const reasoningDisplay = reasoningChoice === 'default' ? 'default' : reasoningChoice
+        const msg = `✓ ${selectedRoute.label} → ${selectedModelId} (reasoning: ${reasoningDisplay})  (saved to ${configPath})`
         setStatusMessage(msg)
         if (statusClearTimerRef.current) {
           clearTimeout(statusClearTimerRef.current)
@@ -376,6 +543,8 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         setConfigKey((k) => k + 1)
         setView('route-list')
         setSelectedRoute(null)
+        setSelectedModelId(null)
+        setSelectedModelDiscovered(false)
         onConfigUpdated?.()
       } catch (error) {
         setStatusMessage(
@@ -383,7 +552,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         )
       }
     },
-    [selectedRoute, onConfigUpdated],
+    [selectedRoute, selectedModelId, selectedModelDiscovered, onConfigUpdated],
   )
 
   const handleKeyIntercept = useCallback(
@@ -412,8 +581,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
           }
           return true
         }
-      } else {
-        // model-select view
+      } else if (view === 'model-select') {
         if (key.name === 'escape') {
           if (modelSearchQuery.length > 0) {
             setModelSearchQuery('')
@@ -440,6 +608,30 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
           }
           return true
         }
+      } else if (view === 'reasoning-select') {
+        if (key.name === 'escape') {
+          setView('model-select')
+          setSelectedModelId(null)
+          setSelectedModelDiscovered(false)
+          return true
+        }
+        if (key.name === 'up') {
+          setReasoningFocusedIndex((prev) => Math.max(0, prev - 1))
+          return true
+        }
+        if (key.name === 'down') {
+          if (filteredReasoningOptions.length === 0) return true
+          const maxIndex = filteredReasoningOptions.length - 1
+          setReasoningFocusedIndex((prev) => Math.min(maxIndex, prev + 1))
+          return true
+        }
+        if (key.name === 'return' || key.name === 'enter') {
+          const focused = filteredReasoningOptions[reasoningFocusedIndex]
+          if (focused) {
+            handleReasoningSelect(focused)
+          }
+          return true
+        }
       }
       if (key.name === 'c' && key.ctrl) {
         onClose()
@@ -462,18 +654,28 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       filteredModels,
       modelFocusedIndex,
       handleModelSelect,
+      reasoningSearchQuery,
+      setReasoningSearchQuery,
+      setReasoningFocusedIndex,
+      filteredReasoningOptions,
+      reasoningFocusedIndex,
+      handleReasoningSelect,
     ],
   )
 
   const title =
     view === 'route-list'
       ? 'Model Route Configuration'
-      : `Select model for ${selectedRoute?.label ?? ''}`
+      : view === 'model-select'
+        ? `Select model for ${selectedRoute?.label ?? ''}`
+        : `Reasoning effort for ${selectedRoute?.label ?? ''} → ${selectedModelId ?? ''}`
 
   const helpText =
     view === 'route-list'
       ? '↑↓ navigate · Enter change · / search · Esc close'
-      : '↑↓ navigate · Enter select · / search · Esc back'
+      : view === 'model-select'
+        ? '↑↓ navigate · Enter select · / search · Esc back'
+        : '↑↓ navigate · Enter select · Esc back to model'
 
   const statusLine = statusMessage
     ? `  ${statusMessage}`
@@ -482,18 +684,58 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   const items =
     view === 'route-list'
       ? filteredRoutes.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
-      : filteredModels.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
+      : view === 'model-select'
+        ? filteredModels.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
+        : filteredReasoningOptions.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
 
   const currentFocusedIndex =
-    view === 'route-list' ? focusedIndex : modelFocusedIndex
+    view === 'route-list'
+      ? focusedIndex
+      : view === 'model-select'
+        ? modelFocusedIndex
+        : reasoningFocusedIndex
 
   const currentSetFocusedIndex =
-    view === 'route-list' ? setFocusedIndex : setModelFocusedIndex
+    view === 'route-list'
+      ? setFocusedIndex
+      : view === 'model-select'
+        ? setModelFocusedIndex
+        : setReasoningFocusedIndex
 
   const currentOnSelect =
     view === 'route-list'
       ? handleRouteSelect
-      : handleModelSelect
+      : view === 'model-select'
+        ? handleModelSelect
+        : handleReasoningSelect
+
+  // Search query management per view
+  const currentSearchQuery =
+    view === 'route-list'
+      ? searchQuery
+      : view === 'model-select'
+        ? modelSearchQuery
+        : reasoningSearchQuery
+
+  const currentSetSearchQuery =
+    view === 'route-list'
+      ? setSearchQuery
+      : view === 'model-select'
+        ? setModelSearchQuery
+        : setReasoningSearchQuery
+
+  const emptyMessage =
+    view === 'route-list'
+      ? searchQuery
+        ? 'No matching routes'
+        : 'No routes configured yet.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
+      : view === 'model-select'
+        ? modelSearchQuery
+          ? 'No matching models'
+          : availableModels.length === 0
+            ? 'No provider models configured.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
+            : 'No models found'
+        : 'No reasoning options'
 
   const handleRouteFocusChange = useCallback(
     (index: number) => {
@@ -507,24 +749,11 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   )
 
   const currentOnFocusChange =
-    view === 'route-list' ? handleRouteFocusChange : handleModelFocusChange
-
-  const currentSearchQuery =
-    view === 'route-list' ? searchQuery : modelSearchQuery
-
-  const currentSetSearchQuery =
-    view === 'route-list' ? setSearchQuery : setModelSearchQuery
-
-  const emptyMessage =
     view === 'route-list'
-      ? searchQuery
-        ? 'No matching routes'
-        : 'No routes configured yet.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
-      : modelSearchQuery
-        ? 'No matching models'
-        : availableModels.length === 0
-          ? 'No provider models configured.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
-          : 'No models found'
+      ? handleRouteFocusChange
+      : view === 'model-select'
+        ? handleModelFocusChange
+        : handleReasoningFocusChange
 
   return (
     <box

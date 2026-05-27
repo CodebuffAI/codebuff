@@ -25,6 +25,17 @@ import {
   resolveModelCapabilities,
   writeProviderConfigFile,
 } from '../provider-config'
+import {
+  discoverProviderModels,
+  getAvailableProviderModels,
+  getCachedProviderModels,
+  getProviderDiscoveryConfig,
+  addDiscoveredModelToProviderConfig,
+  readModelDiscoveryCache,
+  setModelDiscoveryCachePath,
+  setModelDiscoveryCachePathForTest,
+} from '../model-discovery'
+import type { ModelDiscoveryFetch } from '../model-discovery'
 
 const originalEnv = { ...process.env }
 const originalCwd = process.cwd()
@@ -835,6 +846,13 @@ describe('model-provider', () => {
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-direct',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/glm-5.1')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
           agentId: 'best-of-n-selector2',
           loadedConfig,
         }),
@@ -879,6 +897,13 @@ describe('model-provider', () => {
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
           agentId: 'best-of-n-selector2',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/glm-5.1')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-direct',
           loadedConfig,
         }),
       ).toBe('opencode-go/glm-5.1')
@@ -959,6 +984,13 @@ describe('model-provider', () => {
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
           agentId: 'editor-implementor-proposal-4',
+          loadedConfig,
+        }),
+      ).toBe('opencode-go/deepseek-v4-pro')
+      expect(
+        resolveConfiguredAgentModel({
+          model: 'anthropic/claude-opus-4.7',
+          agentId: 'editor-implementor-proposal-direct',
           loadedConfig,
         }),
       ).toBe('opencode-go/deepseek-v4-pro')
@@ -1178,6 +1210,538 @@ describe('model-provider', () => {
 
       resetChatGptOAuthRateLimit()
       expect(isChatGptOAuthRateLimited()).toBe(false)
+    })
+  })
+
+  describe('model discovery', () => {
+    let tempDir: string
+
+    beforeEach(() => {
+      resetEnv()
+      delete process.env[PROVIDER_CONFIG_ENV_VAR]
+      delete process.env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-discovery-'))
+      process.env[PROVIDER_CONFIG_ENV_VAR] = path.join(
+        tempDir,
+        'openbuff.json',
+      )
+    })
+
+    afterEach(() => {
+      resetEnv()
+      process.chdir(originalCwd)
+      setModelDiscoveryCachePath(undefined)
+      if (tempDir && fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    function writeTestProviderConfig(
+      providers: Record<string, Record<string, unknown>>,
+    ): string {
+      const configPath = process.env[PROVIDER_CONFIG_ENV_VAR]!
+      fs.writeFileSync(configPath, JSON.stringify({ providers }))
+      return configPath
+    }
+
+    function makeFetchMock(
+      response: unknown,
+      status = 200,
+    ): ModelDiscoveryFetch {
+      return async () =>
+        new Response(JSON.stringify(response), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    }
+
+    test('getProviderDiscoveryConfig returns openrouter for openrouter provider', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          openrouter: {
+            type: 'openai-compatible',
+            baseURL: 'https://openrouter.ai/api/v1',
+            apiKeyEnv: 'OPENROUTER_API_KEY',
+            models: ['anthropic/claude-sonnet-4.5'],
+          },
+        },
+      })
+      const result = getProviderDiscoveryConfig(
+        'openrouter',
+        config.providers.openrouter,
+      )
+      expect(result?.strategy).toBe('openrouter')
+    })
+
+    test('getProviderDiscoveryConfig returns ollama for localhost:11434', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          ollama: {
+            type: 'openai-compatible',
+            baseURL: 'http://localhost:11434/v1',
+            models: ['llama3'],
+          },
+        },
+      })
+      const result = getProviderDiscoveryConfig(
+        'ollama',
+        config.providers.ollama,
+      )
+      expect(result?.strategy).toBe('ollama')
+    })
+
+    test('getProviderDiscoveryConfig defaults to openai-compatible', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          custom: {
+            type: 'openai-compatible',
+            baseURL: 'https://api.example.com/v1',
+            apiKeyEnv: 'CUSTOM_API_KEY',
+            models: ['model-a'],
+          },
+        },
+      })
+      const result = getProviderDiscoveryConfig(
+        'custom',
+        config.providers.custom,
+      )
+      expect(result?.strategy).toBe('openai-compatible')
+    })
+
+    test('getProviderDiscoveryConfig uses explicit discovery config', () => {
+      const config = providerConfigFileSchema.parse({
+        providers: {
+          custom: {
+            type: 'openai-compatible',
+            baseURL: 'https://api.example.com/v1',
+            apiKeyEnv: 'CUSTOM_API_KEY',
+            models: ['model-a'],
+            discovery: {
+              strategy: 'custom',
+              endpoint: 'https://api.example.com/v1/custom-models',
+              arrayPath: 'results.models',
+              idPath: 'slug',
+            },
+          },
+        },
+      })
+      const result = getProviderDiscoveryConfig(
+        'custom',
+        config.providers.custom,
+      )
+      expect(result?.strategy).toBe('custom')
+      expect(result?.endpoint).toBe(
+        'https://api.example.com/v1/custom-models',
+      )
+      expect(result?.arrayPath).toBe('results.models')
+      expect(result?.idPath).toBe('slug')
+    })
+
+    test('discoverProviderModels parses OpenAI-compatible response', async () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      const result = await discoverProviderModels({
+        providerId: 'local',
+        loadedConfig,
+        fetch: makeFetchMock({
+          data: [
+            { id: 'llama3.1', created: 1_700_000_000 },
+            { id: 'qwen2.5-coder:32b' },
+          ],
+        }),
+      })
+
+      expect(result.providerId).toBe('local')
+      expect(result.models).toHaveLength(2)
+      expect(result.models[0].id).toBe('llama3.1')
+      expect(result.models[1].id).toBe('qwen2.5-coder:32b')
+      expect(result.models[0].created).toBe(1_700_000_000)
+    })
+
+    test('discoverProviderModels parses Ollama response', async () => {
+      writeTestProviderConfig({
+        ollama: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      const mockFetch: ModelDiscoveryFetch = async (input) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url
+        if (url.includes('/api/tags')) {
+          return new Response(
+            JSON.stringify({
+              models: [
+                {
+                  name: 'llama3.1',
+                  modified_at: '2024-01-01T00:00:00Z',
+                },
+                { name: 'qwen2.5-coder:32b' },
+              ],
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+        }
+        return new Response('Not found', { status: 404 })
+      }
+
+      const result = await discoverProviderModels({
+        providerId: 'ollama',
+        loadedConfig,
+        fetch: mockFetch,
+      })
+
+      expect(result.models).toHaveLength(2)
+      expect(result.models.map((m) => m.id)).toEqual([
+        'llama3.1',
+        'qwen2.5-coder:32b',
+      ])
+    })
+
+    test('discoverProviderModels parses OpenRouter response with capabilities', async () => {
+      writeTestProviderConfig({
+        openrouter: {
+          type: 'openai-compatible',
+          baseURL: 'https://openrouter.ai/api/v1',
+          apiKeyEnv: 'OPENROUTER_API_KEY',
+          models: [],
+        },
+      })
+      process.env.OPENROUTER_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+
+      const result = await discoverProviderModels({
+        providerId: 'openrouter',
+        loadedConfig,
+        fetch: makeFetchMock({
+          data: [
+            {
+              id: 'anthropic/claude-sonnet-4.5',
+              name: 'Claude Sonnet 4.5',
+              context_length: 200_000,
+              pricing: { prompt: '0.000003', completion: '0.000015' },
+            },
+          ],
+        }),
+      })
+
+      expect(result.models).toHaveLength(1)
+      const model = result.models[0]
+      expect(model.id).toBe('anthropic/claude-sonnet-4.5')
+      expect(model.name).toBe('Claude Sonnet 4.5')
+      expect(model.capabilities?.context?.windowTokens).toBe(200_000)
+      expect(model.capabilities?.pricing?.inputPerMillionTokens).toBe(3)
+      expect(model.capabilities?.pricing?.outputPerMillionTokens).toBe(15)
+    })
+
+    test('discoverProviderModels supports custom arrayPath and idPath', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.custom.com/v1',
+          apiKeyEnv: 'CUSTOM_API_KEY',
+          models: [],
+          discovery: {
+            strategy: 'custom',
+            arrayPath: 'results.models',
+            idPath: 'slug',
+          },
+        },
+      })
+      process.env.CUSTOM_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+
+      const result = await discoverProviderModels({
+        providerId: 'custom',
+        loadedConfig,
+        fetch: makeFetchMock({
+          results: {
+            models: [
+              { slug: 'custom-model-v1', name: 'Custom Model V1' },
+              { slug: 'custom-model-v2' },
+            ],
+          },
+        }),
+      })
+
+      expect(result.models).toHaveLength(2)
+      expect(result.models[0].id).toBe('custom-model-v1')
+      expect(result.models[0].name).toBe('Custom Model V1')
+      expect(result.models[1].id).toBe('custom-model-v2')
+    })
+
+    test('discoverProviderModels throws on missing provider', async () => {
+      writeTestProviderConfig({})
+      const loadedConfig = loadProviderConfigSync()
+
+      await expect(
+        discoverProviderModels({
+          providerId: 'nonexistent',
+          loadedConfig,
+          fetch: makeFetchMock({}),
+        }),
+      ).rejects.toThrow('is not configured')
+    })
+
+    test('discoverProviderModels throws on HTTP error', async () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      const errorFetch: ModelDiscoveryFetch = async () =>
+        new Response('Internal Server Error', { status: 500 })
+
+      await expect(
+        discoverProviderModels({
+          providerId: 'local',
+          loadedConfig,
+          fetch: errorFetch,
+        }),
+      ).rejects.toThrow('Model discovery failed')
+    })
+
+    test('discoverProviderModels throws on missing API key', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.example.com/v1',
+          apiKeyEnv: 'MISSING_KEY',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      await expect(
+        discoverProviderModels({
+          providerId: 'custom',
+          loadedConfig,
+          env: {},
+          fetch: makeFetchMock({ data: [] }),
+        }),
+      ).rejects.toThrow("Missing environment variable 'MISSING_KEY'")
+    })
+
+    test('cache round-trip persists discovered models', async () => {
+      setModelDiscoveryCachePathForTest(path.join(tempDir, 'discovery-cache.json'))
+
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      await discoverProviderModels({
+        providerId: 'local',
+        loadedConfig,
+        fetch: makeFetchMock({
+          data: [
+            { id: 'llama3.1' },
+            { id: 'qwen2.5-coder:32b' },
+          ],
+        }),
+      })
+
+      const cached = getCachedProviderModels('local')
+      expect(cached).toHaveLength(2)
+      expect(cached.map((m) => m.id)).toEqual([
+        'llama3.1',
+        'qwen2.5-coder:32b',
+      ])
+    })
+
+    test('getAvailableProviderModels merges configured and cached models', async () => {
+      setModelDiscoveryCachePath(path.join(tempDir, 'discovery-cache.json'))
+
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: ['configured-model'],
+        },
+      })
+
+      const loadedConfig = loadProviderConfigSync()
+      await discoverProviderModels({
+        providerId: 'local',
+        loadedConfig,
+        fetch: makeFetchMock({
+          data: [
+            { id: 'configured-model' },
+            { id: 'discovered-model' },
+          ],
+        }),
+      })
+
+      const available = getAvailableProviderModels(loadedConfig)
+
+      const configuredModel = available.find(
+        (m) => m.id === 'configured-model',
+      )
+      expect(configuredModel).toBeDefined()
+      expect(configuredModel?.configured).toBe(true)
+
+      const discoveredModel = available.find(
+        (m) => m.id === 'discovered-model',
+      )
+      expect(discoveredModel).toBeDefined()
+      expect(discoveredModel?.configured).toBe(false)
+    })
+
+    test('addDiscoveredModelToProviderConfig adds model to array models', () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: ['existing-model'],
+        },
+      })
+
+      const loadedConfig = loadProviderConfigSync()
+      const configPath = addDiscoveredModelToProviderConfig({
+        providerId: 'local',
+        modelId: 'new-model',
+        loadedConfig,
+      })
+
+      const writtenConfig = JSON.parse(
+        fs.readFileSync(configPath, 'utf8'),
+      )
+      expect(writtenConfig.providers.local.models).toContain(
+        'existing-model',
+      )
+      expect(writtenConfig.providers.local.models).toContain('new-model')
+    })
+
+    test('addDiscoveredModelToProviderConfig adds model to map models', () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: { 'existing-model': 'existing-remote' },
+        },
+      })
+
+      const loadedConfig = loadProviderConfigSync()
+      const configPath = addDiscoveredModelToProviderConfig({
+        providerId: 'local',
+        modelId: 'new-model',
+        loadedConfig,
+      })
+
+      const writtenConfig = JSON.parse(
+        fs.readFileSync(configPath, 'utf8'),
+      )
+      expect(
+        writtenConfig.providers.local.models['existing-model'],
+      ).toBe('existing-remote')
+      expect(writtenConfig.providers.local.models['new-model']).toBe(
+        'new-model',
+      )
+    })
+
+    test('addDiscoveredModelToProviderConfig deduplicates array models', () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: ['model-a', 'model-b'],
+        },
+      })
+
+      const loadedConfig = loadProviderConfigSync()
+      addDiscoveredModelToProviderConfig({
+        providerId: 'local',
+        modelId: 'model-a',
+        loadedConfig,
+      })
+
+      const freshConfig = loadProviderConfigSync()
+      const localModels = freshConfig.config.providers.local
+        .models as string[]
+      expect(localModels).toHaveLength(2)
+      expect(localModels).toContain('model-a')
+      expect(localModels).toContain('model-b')
+    })
+
+    test('addDiscoveredModelToProviderConfig strips matching provider prefix', () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: [],
+        },
+      })
+
+      const loadedConfig = loadProviderConfigSync()
+      const configPath = addDiscoveredModelToProviderConfig({
+        providerId: 'local',
+        modelId: 'local/new-model',
+        loadedConfig,
+      })
+
+      const writtenConfig = JSON.parse(
+        fs.readFileSync(configPath, 'utf8'),
+      )
+      expect(writtenConfig.providers.local.models).toContain('new-model')
+      expect(writtenConfig.providers.local.models).not.toContain('local/new-model')
+    })
+
+    test('readModelDiscoveryCache returns empty cache for invalid JSON', () => {
+      const cachePath = path.join(tempDir, 'discovery-cache.json')
+      setModelDiscoveryCachePathForTest(cachePath)
+      fs.writeFileSync(cachePath, '{ invalid json')
+
+      expect(readModelDiscoveryCache()).toEqual({})
+    })
+
+    test('discoverProviderModels does not make real network requests', async () => {
+      const noNetworkFetch: ModelDiscoveryFetch = async () => {
+        throw new Error('Real network request detected in test')
+      }
+
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+
+      // This test verifies the pattern: all fetch calls go through the
+      // injectable parameter, never the real network.
+      const result = await discoverProviderModels({
+        providerId: 'local',
+        loadedConfig,
+        fetch: makeFetchMock({ data: [{ id: 'test-model' }] }),
+      })
+      expect(result.models).toHaveLength(1)
+      expect(result.models[0].id).toBe('test-model')
     })
   })
 })

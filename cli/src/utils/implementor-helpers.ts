@@ -698,7 +698,9 @@ export function getMultiPromptProgress(
 
   const implementors = blocks.filter(
     (block): block is AgentContentBlock =>
-      block.type === 'agent' && isImplementorAgent(block),
+      block.type === 'agent' &&
+      isImplementorAgent(block) &&
+      isInitialProposalPhase(block),
   )
 
   if (implementors.length === 0) return null
@@ -723,12 +725,23 @@ export function getMultiPromptProgress(
   }
 }
 
+function isInitialProposalPhase(block: AgentContentBlock): boolean {
+  const phase = block.params?.proposalPhase
+  return phase === undefined || phase === 'initial'
+}
+
 /** Expected shape of the set_output data from editor-multi-prompt */
 interface MultiPromptSetOutputData {
   implementationId?: string
   chosenStrategy?: string
+  selectedProposalId?: string
+  selectedProposalLabel?: string
+  appliedProposalId?: string
+  appliedProposalLabel?: string
+  selectionSource?: string
   reason?: string
   suggestedImprovements?: string
+  proposalSummary?: unknown
   toolResults?: unknown[]
   error?: string
 }

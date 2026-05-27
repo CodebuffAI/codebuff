@@ -257,9 +257,13 @@ describe('processStrReplace', () => {
       expect(result.content).toBe(
         'const x = 10;\nconst y = 2;\nconst z = 30;\n',
       )
-      expect(result.messages).toContain(
-        'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
-      )
+      expect(
+        result.messages.some((msg) =>
+          msg.includes(
+            'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
+          ),
+        ),
+      ).toBe(true)
     }
   })
 
@@ -508,5 +512,28 @@ function test3() {
     expect(result).not.toBeNull()
     const successResult = result as { content: string }
     expect(successResult.content).toBe('line 1\nhello $$world!\nline 2\n')
+  })
+
+  it('should provide fuzzy matching diagnostics when oldString has a typo', async () => {
+    const initialContent = 'const firstVar = 1;\nconst secondVar = 2;\nconst thirdVar = 3;\n'
+    const oldStr = 'const secondVarr = 2;' // Typo with extra 'r'
+    const newStr = 'const secondVar = 20;'
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect(result).not.toBeNull()
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string "const secondVarr = 2;" was not found')
+      expect(result.error).toContain('Did you mean to match this block around line 2?')
+      expect(result.error).toContain('const secondVar = 2;')
+    }
   })
 })

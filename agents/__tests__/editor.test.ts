@@ -5,6 +5,7 @@ import { createBestOfNImplementor } from '../editor/best-of-n/editor-implementor
 import { createMultiPromptEditor } from '../editor/best-of-n/editor-multi-prompt'
 import { createBestOfNSelector2 } from '../editor/best-of-n/best-of-n-selector2'
 import proposalImplementor1 from '../editor/best-of-n/editor-implementor-proposal-1'
+import proposalImplementorDirect from '../editor/best-of-n/editor-implementor-proposal-direct'
 
 import type { AgentState, ToolCall } from '../types/agent-definition'
 
@@ -434,6 +435,18 @@ describe('editor agent', () => {
         'code_search',
         'glob',
         'list_directory',
+        'propose_write_file',
+        'propose_str_replace',
+      ])
+    })
+
+    test('direct retry proposal agent cannot use read-only tools', () => {
+      expect(proposalImplementorDirect.includeMessageHistory).toBe(false)
+      expect(proposalImplementorDirect.inheritParentSystemPrompt).toBe(false)
+      expect(proposalImplementorDirect.systemPrompt).toContain(
+        'do not have repository exploration tools',
+      )
+      expect(proposalImplementorDirect.toolNames).toEqual([
         'propose_write_file',
         'propose_str_replace',
       ])
@@ -925,6 +938,190 @@ describe('editor agent', () => {
       })
     })
 
+    test('bundle mode stops immediately when known multi-file scope is covered', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          allowReadOnlyTools: true,
+          proposalBundleMode: true,
+          proposalContext:
+            'Implement the requested changes in src/a.ts and src/b.ts.',
+        },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...initialMessages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_write_file',
+                input: {
+                  path: 'src/a.ts',
+                  instructions: 'Add A',
+                  content: 'export const a = 1\n',
+                },
+              },
+              {
+                type: 'tool-call',
+                toolName: 'propose_write_file',
+                input: {
+                  path: 'src/b.ts',
+                  instructions: 'Add B',
+                  content: 'export const b = 2\n',
+                },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolName: 'propose_write_file',
+            content: [
+              {
+                type: 'json',
+                value: [
+                  { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                  { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                ],
+              },
+            ],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'cleanProposal',
+          proposalBudget: {
+            expectedTouchedFileCount: 2,
+            expectsMultipleFiles: true,
+          },
+          toolResults: [
+            { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+          ],
+        },
+        includeToolCall: false,
+      })
+    })
+
+    test('bundle mode keeps large known scopes partial until coverage or marker', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          allowReadOnlyTools: true,
+          proposalBundleMode: true,
+          proposalContext:
+            'Update src/a.ts, src/b.ts, src/c.ts, src/d.ts, src/e.ts, and src/f.ts for this coordinated change.',
+        },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const partialProposalMessages = [
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/a.ts',
+                instructions: 'Add A',
+                content: 'export const a = 1\n',
+              },
+            },
+            {
+              type: 'tool-call',
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/b.ts',
+                instructions: 'Add B',
+                content: 'export const b = 2\n',
+              },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_write_file',
+          content: [
+            {
+              type: 'json',
+              value: [
+                { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+              ],
+            },
+          ],
+        },
+      ]
+
+      expect(
+        generator.next({
+          agentState: createMockAgentState(partialProposalMessages),
+          toolResult: [],
+          stepsComplete: false,
+        }).value,
+      ).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...partialProposalMessages,
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Done.' }],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'noCompletionSignal',
+          proposalBudget: {
+            expectedTouchedFileCount: 6,
+            expectsMultipleFiles: true,
+          },
+          toolResults: [
+            { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+          ],
+        },
+        includeToolCall: false,
+      })
+    })
+
     test('bundle mode stops after the configured proposal-bearing turn cap', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
@@ -1127,6 +1324,120 @@ describe('editor agent', () => {
       })
     })
 
+    test('bundle mode preserves successful diffs when a later proposal edit fails', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Add reasoning effort config' }],
+        },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          allowReadOnlyTools: false,
+          proposalBundleMode: true,
+          proposalContext:
+            'Create cli/src/types/reasoning-effort.ts and update related routes if present.',
+        },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...initialMessages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_str_replace',
+                input: {
+                  path: 'cli/src/types/model-route.ts',
+                  replacements: [
+                    { oldString: 'export type ModelRoute', newString: 'x' },
+                  ],
+                },
+              },
+              {
+                type: 'tool-call',
+                toolName: 'propose_write_file',
+                input: {
+                  path: 'cli/src/types/reasoning-effort.ts',
+                  instructions: 'Add shared reasoning effort types',
+                  content:
+                    "export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high'\n",
+                },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolName: 'propose_str_replace',
+            content: [
+              {
+                type: 'json',
+                value: [
+                  {
+                    file: 'cli/src/types/model-route.ts',
+                    errorMessage:
+                      'The file does not exist, skipping. Please use the write_file tool to create the file.',
+                  },
+                  {
+                    file: 'cli/src/types/reasoning-effort.ts',
+                    unifiedDiff:
+                      '--- /dev/null\n+++ cli/src/types/reasoning-effort.ts\n@@\n+export type ReasoningEffort = ...',
+                  },
+                ],
+              },
+            ],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'noCompletionSignal',
+          toolCalls: [
+            {
+              toolName: 'propose_write_file',
+              input: { path: 'cli/src/types/reasoning-effort.ts' },
+            },
+          ],
+          toolResults: [
+            {
+              file: 'cli/src/types/reasoning-effort.ts',
+              unifiedDiff:
+                '--- /dev/null\n+++ cli/src/types/reasoning-effort.ts\n@@\n+export type ReasoningEffort = ...',
+            },
+          ],
+          proposalProgress: {
+            droppedFailedProposalResultCount: 1,
+            failedProposalResultCount: 0,
+            successfulProposalResultCount: 1,
+          },
+        },
+        includeToolCall: false,
+      })
+      expect((output.input as any).errorMessage).toBeUndefined()
+      expect(
+        (output.input as any).toolCalls.some(
+          (toolCall: any) =>
+            toolCall.input?.path === 'cli/src/types/model-route.ts',
+        ),
+      ).toBe(false)
+    })
+
     test('uses adaptive proposal step budgets from task complexity and prefetched context', () => {
       const getBudgetForParams = (params: Record<string, any>) => {
         const implementor = createBestOfNImplementor({ model: 'gpt-5' })
@@ -1236,6 +1547,20 @@ describe('editor agent', () => {
         expectedTouchedFileCount: 5,
         complexity: 'complex',
       })
+
+      expect(
+        getBudgetForParams({
+          proposalStrategy:
+            'Implement the coordinated workflow across more than 5 files.',
+          proposalContext:
+            'User requests:\n- This task can touch more than 5files if needed.',
+          proposalBundleMode: true,
+        }),
+      ).toMatchObject({
+        expectedTouchedFileCount: 6,
+        expectsMultipleFiles: true,
+        complexity: 'complex',
+      })
     })
 
     test('adds a direct retry reminder when a proposal step only thinks/narrates', () => {
@@ -1277,7 +1602,9 @@ describe('editor agent', () => {
       })
       expect(
         (result.value as any).input.messages.at(-1).content[0].text,
-      ).toContain('emit every required file edit as valid XML proposal tool calls')
+      ).toContain(
+        'emit every required file edit as valid XML proposal tool calls',
+      )
     })
 
     test('retries when a proposal step ends without a propose tool result', () => {
@@ -1527,7 +1854,7 @@ describe('editor agent', () => {
       expect(result.value).toBe('STEP')
     })
 
-    test('retries mixed success and failure proposal results to avoid partial proposals', () => {
+    test('captures mixed success and failure proposal results as partial output', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
         { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
@@ -1594,12 +1921,27 @@ describe('editor agent', () => {
       })
 
       expect(result.value).toMatchObject({
-        toolName: 'set_messages',
+        toolName: 'set_output',
+        input: {
+          stopReason: 'noCompletionSignal',
+          toolCalls: [
+            {
+              toolName: 'propose_str_replace',
+              input: { path: 'src/a.ts' },
+            },
+          ],
+          toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+          proposalProgress: {
+            droppedFailedProposalResultCount: 1,
+          },
+        },
         includeToolCall: false,
       })
       expect(
-        (result.value as any).input.messages.at(-1).content[0].text,
-      ).toContain('old string "stale" was not found')
+        (result.value as any).input.toolCalls.some(
+          (toolCall: any) => toolCall.input?.path === 'src/b.ts',
+        ),
+      ).toBe(false)
     })
   })
 
@@ -1680,6 +2022,16 @@ describe('editor agent', () => {
       )
       expect(firstSpawn.input.agents[0].params?.allowReadOnlyTools).toBe(true)
       expect(firstSpawn.input.agents[0].params?.proposalBundleMode).toBe(true)
+      expect(firstSpawn.input.agents[0].params?.proposalLabel).toBe(
+        'Proposal #1',
+      )
+      expect(firstSpawn.input.agents[0].params?.proposalPhase).toBe('initial')
+      expect(
+        firstSpawn.input.agents[0].params?.proposalOrchestrationPlan,
+      ).toMatchObject({
+        mode: expect.any(String),
+        riskControls: expect.arrayContaining(['parent-prefetch']),
+      })
       expect(
         firstSpawn.input.agents[0].params?.maxBundleProposalTurns,
       ).toBeUndefined()
@@ -1733,6 +2085,183 @@ describe('editor agent', () => {
       expect(secondProposalSpawn.input.agents).toHaveLength(1)
       expect(secondProposalSpawn.input.agents[0].agent_type).toBe(
         'editor-implementor-proposal-2',
+      )
+    })
+
+    test('preserves parent read_files context even when file contents mention proposal tools', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update the tool list' }],
+        },
+        {
+          role: 'tool',
+          toolName: 'read_files',
+          content: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'common/src/tools/list.ts',
+                  content:
+                    "export const toolNames = ['read_files', 'propose_write_file']\n",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['Update the tool list'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      const proposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(proposalSpawn.input.agents[0].params?.proposalContext).toContain(
+        'File: common/src/tools/list.ts',
+      )
+      expect(proposalSpawn.input.agents[0].params?.proposalContext).toContain(
+        'propose_write_file',
+      )
+    })
+
+    test('uses a no-read-only direct retry after read-only exploration produces no edits', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      const directRetry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  stopReason: 'noProposal',
+                  errorMessage:
+                    'Gathered context with code_search, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                  readOnlyContext:
+                    'Read-only context gathered by previous proposal attempt:\n\nFile: packages/agent-runtime/src/tools/handlers/tool/read-docs.ts\nconst current = true\n',
+                  proposalProgress: {
+                    stepsTaken: 4,
+                    readOnlyToolCallCount: 3,
+                    proposalToolCallCount: 0,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(directRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+      expect(directRetry.input.agents[0].params?.allowReadOnlyTools).toBe(false)
+      expect(
+        directRetry.input.agents[0].params?.proposalRequirements,
+      ).toContain('Do not call read_files')
+      expect(directRetry.input.agents[0].params?.previousFailure).toContain(
+        'did not emit propose_str_replace/propose_write_file',
+      )
+      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+        'packages/agent-runtime/src/tools/handlers/tool/read-docs.ts',
+      )
+      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+        'const current = true',
+      )
+
+      const secondDirectRetry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_write_file',
+                      input: {
+                        path: 'src/a.ts',
+                        content: 'export const a = 1\n',
+                      },
+                    },
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'src/missing.ts',
+                        replacements: [{ oldString: 'old', newString: 'new' }],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    {
+                      file: 'src/missing.ts',
+                      errorMessage: 'The file does not exist, skipping.',
+                    },
+                  ],
+                  unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(secondDirectRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+      expect(secondDirectRetry.input.agents[0].params?.allowReadOnlyTools).toBe(
+        false,
       )
     })
 
@@ -1796,6 +2325,195 @@ describe('editor agent', () => {
       expect(proposalSpawn.input.agents[0].params?.proposalContext).toContain(
         'Phase 3 details from the proposal doc',
       )
+    })
+
+    test('prefetches snake_case task identifiers such as read_docs', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Run the prompt itself' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          prompts: ['Fix read_docs Context7 fallback'],
+        },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      const searchCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'code_search'>
+
+      expect(searchCall).toMatchObject({
+        toolName: 'code_search',
+        input: expect.objectContaining({ pattern: 'read_docs' }),
+        includeToolCall: false,
+      })
+    })
+
+    test('does not treat raw glob results as proposal target file hints', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Implement cli/src/components/model-route-picker.tsx only',
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'glob',
+          content: [
+            {
+              type: 'json',
+              value: {
+                files: [
+                  'cli/src/utils/__tests__/fingerprint.test.ts',
+                  'cli/src/utils/__tests__/run-state-storage.test.ts',
+                  'cli/src/utils/__tests__/format-timeout.test.ts',
+                ],
+              },
+            },
+          ],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          prompts: ['Add the reasoning step'],
+        },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['cli/src/components/model-route-picker.tsx'] },
+      })
+
+      const proposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                path: 'cli/src/components/model-route-picker.tsx',
+                content: 'export const value = 1',
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      const plan =
+        proposalSpawn.input.agents[0].params?.proposalOrchestrationPlan
+      expect(plan?.targetFileHints).toContain(
+        'cli/src/components/model-route-picker.tsx',
+      )
+      expect(plan?.targetFileHints).not.toContain(
+        'cli/src/utils/__tests__/fingerprint.test.ts',
+      )
+      expect(plan?.targetFileHints).not.toContain(
+        'cli/src/utils/__tests__/run-state-storage.test.ts',
+      )
+      expect(
+        proposalSpawn.input.agents[0].params?.proposalRequirements,
+      ).not.toContain('cli/src/utils/__tests__/fingerprint.test.ts')
+    })
+
+    test('prefetches file paths discovered inside referenced docs before spawning proposals', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Implement the referenced doc' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          prompts: ['Implement docs/openbuff-provider-model-setup-ux.md'],
+        },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['docs/openbuff-provider-model-setup-ux.md'] },
+      })
+
+      const targetPrefetch = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                path: 'docs/openbuff-provider-model-setup-ux.md',
+                content:
+                  'Implementation targets: cli/src/provider/picker.tsx and cli/src/provider/route.ts',
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(targetPrefetch).toMatchObject({
+        toolName: 'read_files',
+        input: {
+          paths: ['cli/src/provider/picker.tsx', 'cli/src/provider/route.ts'],
+        },
+        includeToolCall: false,
+      })
     })
 
     test('unwraps actual spawn_agents proposal reports before retry decisions', () => {
@@ -2201,7 +2919,7 @@ describe('editor agent', () => {
       })
     })
 
-    test('selector filters partial proposals when clean proposals exist', () => {
+    test('selector sees captured partial proposals when clean proposals exist', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -2286,9 +3004,7 @@ describe('editor agent', () => {
                       },
                     },
                   ],
-                  toolResults: [
-                    { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
-                  ],
+                  toolResults: [{ file: 'src/b.ts', unifiedDiff: '@@ diff B' }],
                   unifiedDiffs: '--- src/b.ts ---\n@@ diff B',
                   stopReason: 'cleanProposal',
                 },
@@ -2299,9 +3015,267 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
 
-      expect(selectorSpawn.input.agents[0].params?.implementations).toEqual([
-        expect.objectContaining({ id: 'candidate-1', strategy: 'clean edit' }),
+      expect(
+        selectorSpawn.input.agents[0].params?.implementations.map(
+          (implementation: any) => implementation.strategy,
+        ),
+      ).toEqual(expect.arrayContaining(['partial edit', 'clean edit']))
+      expect(
+        selectorSpawn.input.agents[0].params?.implementations.find(
+          (implementation: any) => implementation.strategy === 'partial edit',
+        )?.content,
+      ).toContain('captured-but-unconfirmed')
+    })
+
+    test('selector can apply a higher-coverage captured bundle over a clean narrow proposal', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Update codebuff-web-api.ts, read-docs.ts, and codebuff-web-api.test.ts.',
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'read_files',
+          content: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'packages/agent-runtime/src/llm-api/codebuff-web-api.ts',
+                  content: 'export const api = 1\n',
+                },
+                {
+                  path: 'packages/agent-runtime/src/tools/handlers/tool/read-docs.ts',
+                  content: 'export const docs = 1\n',
+                },
+                {
+                  path: 'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+                  content: 'test("api", () => {})\n',
+                },
+              ],
+            },
+          ],
+        },
       ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['clean narrow', 'captured broad'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_write_file',
+                        input: {
+                          path: 'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+                          content: 'test("api", () => expect(true).toBe(true))\n',
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      {
+                        file: 'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+                        unifiedDiff: '@@ test diff',
+                      },
+                    ],
+                    unifiedDiffs: '--- packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts ---\n@@ test diff',
+                    stopReason: 'cleanProposal',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-2' }] },
+      })
+
+      const selectorSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_write_file',
+                      input: {
+                        path: 'agent-runtime/src/llm-api/codebuff-web-api.ts',
+                        content: 'export const api = 2\n',
+                      },
+                    },
+                    {
+                      toolName: 'propose_write_file',
+                      input: {
+                        path: 'agent-runtime/src/tools/handlers/tool/read-docs.ts',
+                        content: 'export const docs = 2\n',
+                      },
+                    },
+                    {
+                      toolName: 'propose_write_file',
+                      input: {
+                        path: 'agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+                        content: 'test("api", () => expect(true).toBe(true))\n',
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    {
+                      file: 'agent-runtime/src/llm-api/codebuff-web-api.ts',
+                      unifiedDiff: '@@ api diff',
+                    },
+                    {
+                      file: 'agent-runtime/src/tools/handlers/tool/read-docs.ts',
+                      unifiedDiff: '@@ docs diff',
+                    },
+                    {
+                      file: 'agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+                      unifiedDiff: '@@ test diff',
+                    },
+                  ],
+                  unifiedDiffs:
+                    '--- agent-runtime/src/llm-api/codebuff-web-api.ts ---\n@@ api diff\n\n--- agent-runtime/src/tools/handlers/tool/read-docs.ts ---\n@@ docs diff\n\n--- agent-runtime/src/__tests__/codebuff-web-api.test.ts ---\n@@ test diff',
+                  stopReason: 'noCompletionSignal',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      const broadCandidate =
+        selectorSpawn.input.agents[0].params?.implementations.find(
+          (implementation: any) => implementation.strategy === 'captured broad',
+        )
+      expect(broadCandidate).toBeTruthy()
+      expect(broadCandidate?.content).toContain('captured-but-unconfirmed')
+
+      const firstApply = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  implementationId: broadCandidate!.id,
+                  reason: 'The captured bundle covers all requested files.',
+                  suggestedImprovements:
+                    'Diagnostic: clean narrow proposal missed production files.',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(firstApply).toMatchObject({
+        toolName: 'write_file',
+        input: {
+          path: 'packages/agent-runtime/src/llm-api/codebuff-web-api.ts',
+        },
+      })
+
+      const secondApply = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'packages/agent-runtime/src/llm-api/codebuff-web-api.ts',
+              message: 'Wrote file',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(secondApply.input.path).toBe(
+        'packages/agent-runtime/src/tools/handlers/tool/read-docs.ts',
+      )
+
+      const thirdApply = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'packages/agent-runtime/src/tools/handlers/tool/read-docs.ts',
+              message: 'Wrote file',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(thirdApply.input.path).toBe(
+        'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+      )
+
+      const output = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
+              message: 'Wrote file',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(output.input).toMatchObject({
+        selectedProposalId: 'B',
+        selectedProposalLabel: 'Proposal #2',
+        appliedProposalId: 'B',
+        appliedProposalLabel: 'Proposal #2',
+        suggestedImprovements: '',
+        proposalSummary: {
+          selectorNotes:
+            'Diagnostic only; do not start another proposal/fix loop from this note: Diagnostic: clean narrow proposal missed production files.',
+        },
+      })
     })
 
     test('applies successful proposal despite duplicate no-op edit result', () => {
@@ -2570,11 +3544,17 @@ describe('editor agent', () => {
       }).value as ToolCall<'spawn_agents'>
 
       expect(completionSpawn.input.agents[0].prompt).toBe(
-        'Complete partial implementation A',
+        'Complete Proposal #1',
       )
-      expect(
-        completionSpawn.input.agents[0].params?.proposalContext,
-      ).toContain('Partial stop reason: noCompletionSignal')
+      expect(completionSpawn.input.agents[0].params?.proposalLabel).toBe(
+        'Complete Proposal #1',
+      )
+      expect(completionSpawn.input.agents[0].params?.proposalPhase).toBe(
+        'completion',
+      )
+      expect(completionSpawn.input.agents[0].params?.proposalContext).toContain(
+        'Partial stop reason: noCompletionSignal',
+      )
       expect(
         completionSpawn.input.agents[0].params?.proposalRequirements,
       ).toContain('PROPOSAL_BUNDLE_COMPLETE')
@@ -2620,6 +3600,279 @@ describe('editor agent', () => {
       })
     })
 
+    test('falls back to the captured partial proposal when completion fails', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update two related files' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['multi-file'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'oldA', newString: 'newA' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    stopReason: 'noCompletionSignal',
+                    proposalBudget: {
+                      maxProposalSteps: 10,
+                      maxReadOnlyOnlySteps: 3,
+                      maxBundleProposalTurns: 5,
+                      expectedTouchedFileCount: 2,
+                      complexity: 'complex',
+                      hasPrefetchedContext: true,
+                      evidence: ['filePaths:2'],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector failed' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector failed again' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ path: 'src/a.ts', content: 'oldA' }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  errorMessage: 'completion model failed',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [{ oldString: 'oldA', newString: 'newA' }],
+        },
+      })
+    })
+
+    test('applies a captured partial proposal directly when it already covers the expected file set', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update two related files' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['multi-file'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'oldA', newString: 'newA' },
+                          ],
+                        },
+                      },
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/b.ts',
+                          replacements: [
+                            { oldString: 'oldB', newString: 'newB' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                      { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                    ],
+                    unifiedDiffs:
+                      '--- src/a.ts ---\n@@ diff A\n\n--- src/b.ts ---\n@@ diff B',
+                    stopReason: 'noCompletionSignal',
+                    proposalBudget: {
+                      maxProposalSteps: 10,
+                      maxReadOnlyOnlySteps: 3,
+                      maxBundleProposalTurns: 5,
+                      expectedTouchedFileCount: 2,
+                      complexity: 'complex',
+                      hasPrefetchedContext: true,
+                      evidence: ['filePaths:2'],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector failed' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector failed again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [{ oldString: 'oldA', newString: 'newA' }],
+        },
+      })
+    })
+
     test('excludes unusable proposals before selecting between valid proposals', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -2649,7 +3902,7 @@ describe('editor agent', () => {
         'editor-implementor-proposal-1',
       )
 
-      const secondProposal = generator.next({
+      const directRetry = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -2659,6 +3912,56 @@ describe('editor agent', () => {
                 value: {
                   type: 'error',
                   message: 'Subagent editor-implementor-proposal-1 timed out',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+      expect(directRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+
+      const finalRetry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  stopReason: 'noProposal',
+                  errorMessage:
+                    'No propose_str_replace/propose_write_file call was produced.',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+      expect(finalRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+
+      const secondProposal = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  stopReason: 'noProposal',
+                  errorMessage:
+                    'No propose_str_replace/propose_write_file call was produced.',
                 },
               },
             ],
@@ -2683,7 +3986,9 @@ describe('editor agent', () => {
                       toolName: 'propose_str_replace',
                       input: {
                         path: 'src/b.ts',
-                        replacements: [{ oldString: 'oldB', newString: 'newB' }],
+                        replacements: [
+                          { oldString: 'oldB', newString: 'newB' },
+                        ],
                       },
                     },
                   ],
@@ -2713,7 +4018,9 @@ describe('editor agent', () => {
                       toolName: 'propose_str_replace',
                       input: {
                         path: 'src/c.ts',
-                        replacements: [{ oldString: 'oldC', newString: 'newC' }],
+                        replacements: [
+                          { oldString: 'oldC', newString: 'newC' },
+                        ],
                       },
                     },
                   ],
@@ -2772,6 +4079,90 @@ describe('editor agent', () => {
           replacements: [{ oldString: 'oldC', newString: 'newC' }],
         },
       })
+    })
+
+    test('rejects unanchored foreign-language proposal paths when TypeScript context is supplied', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+        {
+          role: 'tool',
+          toolName: 'read_files',
+          content: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'packages/agent-runtime/src/tools/read-docs.ts',
+                  content: 'export const existing = true\n',
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['Fix docs fallback'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      const retry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_write_file',
+                      input: {
+                        path: 'src/integrations/context7_api.py',
+                        content: 'def wrong_language(): pass\n',
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    {
+                      file: 'src/integrations/context7_api.py',
+                      unifiedDiff: '@@ python diff',
+                    },
+                  ],
+                  unifiedDiffs:
+                    '--- src/integrations/context7_api.py ---\n@@ python diff',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(retry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
+      )
+      expect(retry.input.agents[0].agent_type).not.toBe('best-of-n-selector2')
     })
 
     test('reports proposal summaries when no proposal has edits', () => {
@@ -2953,7 +4344,7 @@ describe('editor agent', () => {
       })
     })
 
-    test('runs a synthesis proposal when selector has concrete improvements', () => {
+    test('applies selected proposal directly even when selector asks for synthesis', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -3016,7 +4407,7 @@ describe('editor agent', () => {
         input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
       })
 
-      const synthesisSpawn = generator.next({
+      const applyCall = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -3026,56 +4417,8 @@ describe('editor agent', () => {
                 value: {
                   implementationId: 'A',
                   reason: 'A is solid',
-                  suggestedImprovements: 'Also preserve the export order.',
-                },
-              },
-            ],
-          },
-        ],
-        stepsComplete: false,
-      }).value as ToolCall<'spawn_agents'>
-
-      expect(synthesisSpawn.toolName).toBe('spawn_agents')
-      expect(synthesisSpawn.input.agents[0].prompt).toBe(
-        'Synthesis: selected proposal plus selector improvements',
-      )
-      expect(synthesisSpawn.input.agents[0].params?.proposalContext).toContain(
-        'Also preserve the export order.',
-      )
-      expect(synthesisSpawn.input.agents[0].params?.allowReadOnlyTools).toBe(
-        true,
-      )
-      expect(synthesisSpawn.input.agents[0].params?.proposalBundleMode).toBe(
-        true,
-      )
-      expect(
-        synthesisSpawn.input.agents[0].params?.proposalRequirements,
-      ).toContain('PROPOSAL_BUNDLE_COMPLETE')
-      expect(
-        synthesisSpawn.input.agents[0].params?.maxBundleProposalTurns,
-      ).toBeUndefined()
-
-      const applyCall = generator.next({
-        agentState: mockAgentState,
-        toolResult: [
-          {
-            type: 'json',
-            value: [
-              {
-                value: {
-                  toolCalls: [
-                    {
-                      toolName: 'propose_str_replace',
-                      input: {
-                        path: 'src/a.ts',
-                        replacements: [
-                          { oldString: 'old', newString: 'newer' },
-                        ],
-                      },
-                    },
-                  ],
-                  toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff S' }],
-                  unifiedDiffs: '--- src/a.ts ---\n@@ diff S',
+                  suggestedImprovements:
+                    'SYNTHESIZE: Also preserve the export order.',
                 },
               },
             ],
@@ -3087,7 +4430,228 @@ describe('editor agent', () => {
       expect(applyCall.toolName).toBe('str_replace')
       expect(applyCall.input).toMatchObject({
         path: 'src/a.ts',
-        replacements: [{ oldString: 'old', newString: 'newer' }],
+        replacements: [{ oldString: 'old', newString: 'new' }],
+      })
+    })
+
+    test('applies selected proposal directly for optional selector polish', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'old', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  implementationId: 'A',
+                  reason: 'A is solid',
+                  suggestedImprovements:
+                    'Borrow only clearer optional wording from candidate-2.',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall.toolName).toBe('str_replace')
+      expect(applyCall.input).toMatchObject({
+        path: 'src/a.ts',
+        replacements: [{ oldString: 'old', newString: 'new' }],
+      })
+    })
+
+    test('ignores selector synthesis directives instead of rerunning proposals', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['selected', 'fallback'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'oldA', newString: 'newA' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    stopReason: 'cleanProposal',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-2' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/b.ts',
+                          replacements: [
+                            { oldString: 'oldB', newString: 'newB' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                    ],
+                    unifiedDiffs: '--- src/b.ts ---\n@@ diff B',
+                    stopReason: 'cleanProposal',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  implementationId: 'A',
+                  reason: 'A is better',
+                  suggestedImprovements:
+                    'SYNTHESIZE: Also preserve the export order.',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [{ oldString: 'oldA', newString: 'newA' }],
+        },
       })
     })
 
@@ -3247,7 +4811,11 @@ describe('editor agent', () => {
       }).value as ToolCall<'spawn_agents'>
 
       expect(repairSpawn.toolName).toBe('spawn_agents')
-      expect(repairSpawn.input.agents[0].prompt).toBe('Repair implementation A')
+      expect(repairSpawn.input.agents[0].prompt).toBe('Repair Proposal #1')
+      expect(repairSpawn.input.agents[0].params?.proposalLabel).toBe(
+        'Repair Proposal #1',
+      )
+      expect(repairSpawn.input.agents[0].params?.proposalPhase).toBe('repair')
       expect(repairSpawn.input.agents[0].params?.proposalContext).toContain(
         'old string "stale"',
       )
@@ -3414,7 +4982,11 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
 
-      expect(repairSpawn.input.agents[0].prompt).toBe('Repair implementation A')
+      expect(repairSpawn.input.agents[0].prompt).toBe('Repair Proposal #1')
+      expect(repairSpawn.input.agents[0].params?.proposalLabel).toBe(
+        'Repair Proposal #1',
+      )
+      expect(repairSpawn.input.agents[0].params?.proposalPhase).toBe('repair')
       expect(
         repairSpawn.input.agents[0].params?.proposalRequirements,
       ).toContain('bounded read-only tools')
@@ -4007,9 +5579,7 @@ describe('editor agent', () => {
           replacements: [{ oldString: 'old', newString: 'new' }],
         },
       })
-      expect(JSON.stringify(applyCall.input)).not.toContain(
-        'oldString":"stale',
-      )
+      expect(JSON.stringify(applyCall.input)).not.toContain('oldString":"stale')
     })
 
     test('selector succeeds on retry after first attempt fails', () => {
