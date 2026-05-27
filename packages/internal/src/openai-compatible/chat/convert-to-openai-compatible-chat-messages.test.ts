@@ -147,6 +147,7 @@ describe('tool calls', () => {
       {
         role: 'assistant',
         content: '',
+        reasoning_content: '',
         tool_calls: [
           {
             type: 'function',
@@ -196,6 +197,7 @@ describe('tool calls', () => {
       {
         role: 'assistant',
         content: '',
+        reasoning_content: '',
         tool_calls: [
           {
             type: 'function',
@@ -327,6 +329,7 @@ describe('provider-specific metadata merging', () => {
       {
         role: 'assistant',
         content: '',
+        reasoning_content: '',
         tool_calls: [
           {
             id: 'call1',
@@ -500,6 +503,7 @@ describe('provider-specific metadata merging', () => {
       {
         role: 'assistant',
         content: 'Checking that now...Almost there...',
+        reasoning_content: '',
         tool_calls: [
           {
             id: 'call1',
@@ -683,6 +687,7 @@ describe('provider-specific metadata merging', () => {
         role: 'assistant',
         globalPriority: 'high',
         content: 'Initiating tool calls...',
+        reasoning_content: '',
         tool_calls: [
           {
             id: 'callXYZ',
@@ -731,6 +736,7 @@ describe('provider-specific metadata merging', () => {
         cacheControl: { type: 'default' },
         sharedKey: 'assistantLevel',
         content: '',
+        reasoning_content: '',
         tool_calls: [
           {
             id: 'collisionToolCall',
@@ -741,6 +747,40 @@ describe('provider-specific metadata merging', () => {
             },
             cacheControl: { type: 'ephemeral' },
             sharedKey: 'toolLevel',
+          },
+        ],
+      },
+    ])
+  })
+
+  it('should include empty reasoning_content on assistant tool-call messages without reasoning', () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call1',
+            toolName: 'listFiles',
+            input: { dir: '/src' },
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        reasoning_content: '',
+        tool_calls: [
+          {
+            id: 'call1',
+            type: 'function',
+            function: {
+              name: 'listFiles',
+              arguments: JSON.stringify({ dir: '/src' }),
+            },
           },
         ],
       },

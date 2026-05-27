@@ -1,6 +1,7 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
+import { searchWeb } from '../../../llm-api/linkup-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -27,6 +28,7 @@ export const handleWebSearch = (async (params: {
   fetch: typeof globalThis.fetch
   clientEnv: ClientEnv
   ciEnv: CiEnv
+  localMode?: boolean
 }): Promise<{
   output: CodebuffToolOutput<'web_search'>
   creditsUsed: number
@@ -48,6 +50,7 @@ export const handleWebSearch = (async (params: {
     fetch,
     clientEnv,
     ciEnv,
+    localMode,
   } = params
   const { query, depth } = toolCall.input
 
@@ -68,7 +71,52 @@ export const handleWebSearch = (async (params: {
 
   let creditsUsed = 0
 
+  const searchDirectly = async () => {
+    const result = await searchWeb({
+      query,
+      depth,
+      logger,
+      fetch,
+      serverEnv: { LINKUP_API_KEY: process.env.LINKUP_API_KEY ?? '' },
+    })
+
+    if (result === null) {
+      return {
+        output: jsonToolResult({
+          errorMessage: `No search results found for "${query}"`,
+        }),
+        creditsUsed,
+      }
+    }
+
+    const searchDuration = Date.now() - searchStartTime
+    const resultLength = result.length
+    const hasResults = Boolean(result.trim())
+
+    logger.info(
+      {
+        ...searchContext,
+        searchDuration,
+        resultLength,
+        hasResults,
+        usedWebApi: false,
+        creditsUsed,
+        success: true,
+      },
+      'Search completed via Linkup API',
+    )
+
+    return {
+      output: jsonToolResult({ result }),
+      creditsUsed,
+    }
+  }
+
   try {
+    if (localMode || !ciEnv.CODEBUFF_API_KEY) {
+      return await searchDirectly()
+    }
+
     const webApi = await callWebSearchAPI({
       query,
       depth,

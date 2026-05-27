@@ -1,8 +1,8 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
+import { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 
-import type { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
@@ -26,6 +26,7 @@ export const handleReadDocs = (async (
     userInputId: string
     clientEnv: ClientEnv
     ciEnv: CiEnv
+    localMode?: boolean
   } & ParamsExcluding<
     typeof fetchContext7LibraryDocumentation,
     'query' | 'topic' | 'tokens'
@@ -49,6 +50,7 @@ export const handleReadDocs = (async (
     fetch,
     clientEnv,
     ciEnv,
+    localMode,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
 
@@ -69,7 +71,55 @@ export const handleReadDocs = (async (
   await previousToolCallFinished
 
   let creditsUsed = 0
+
+  const fetchDocsDirectly = async () => {
+    const documentation = await fetchContext7LibraryDocumentation({
+      query: libraryTitle,
+      topic,
+      tokens: max_tokens,
+      logger,
+      fetch,
+    })
+
+    if (typeof documentation !== 'string') {
+      const docMsg = `No documentation found for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}`
+      return {
+        output: jsonToolResult({
+          documentation: docMsg,
+          errorMessage: docMsg,
+        }),
+        creditsUsed,
+      }
+    }
+
+    const docsDuration = Date.now() - docsStartTime
+    const resultLength = documentation.length
+    const estimatedTokens = Math.ceil(resultLength / 4)
+    logger.info(
+      {
+        ...docsContext,
+        docsDuration,
+        resultLength,
+        estimatedTokens,
+        hasResults: Boolean(documentation.trim()),
+        usedWebApi: false,
+        creditsUsed,
+        success: true,
+      },
+      'Documentation request completed successfully via Context7 API',
+    )
+
+    return {
+      output: jsonToolResult({ documentation }),
+      creditsUsed,
+    }
+  }
+
   try {
+    if (localMode || !ciEnv.CODEBUFF_API_KEY) {
+      return await fetchDocsDirectly()
+    }
+
     const viaWebApi = await callDocsSearchAPI({
       libraryTitle,
       topic,

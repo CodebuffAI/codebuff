@@ -173,6 +173,7 @@ function* handleStepsMultiPrompt({
     label: string
     content: string
     toolCalls: ProposedToolCall[]
+    unverifiedPaths?: string[]
     stopReason?: string
     proposalProgress?: ProposalProgress
     proposalBudget?: ProposalResult['proposalBudget']
@@ -330,6 +331,7 @@ function* handleStepsMultiPrompt({
               'No applicable edit tool calls were produced.'
             }`,
         toolCalls,
+        unverifiedPaths: getUnverifiedStrReplacePaths(result),
         stopReason: result.stopReason,
         proposalProgress: result.proposalProgress,
         proposalBudget: result.proposalBudget,
@@ -395,11 +397,20 @@ function* handleStepsMultiPrompt({
             params: {
               requestContext: selectorRequestContext,
               implementations: selectorPresentation.implementations.map(
-                ({ selectorId, implementation }) => ({
-                  id: selectorId,
-                  strategy: implementation.strategy,
-                  content: implementation.content,
-                }),
+                ({ selectorId, implementation }) => {
+                  let content = implementation.content
+                  if (
+                    implementation.unverifiedPaths &&
+                    implementation.unverifiedPaths.length > 0
+                  ) {
+                    content = `⚠ WARNING: This proposal targets paths not found in the gathered context: ${implementation.unverifiedPaths.join(', ')}\n\n${content}`
+                  }
+                  return {
+                    id: selectorId,
+                    strategy: implementation.strategy,
+                    content,
+                  }
+                },
               ),
             },
           },
@@ -658,12 +669,26 @@ function* handleStepsMultiPrompt({
     const unanchoredForeignPaths = new Set(
       getUnanchoredForeignLanguageProposalPaths(toolCalls),
     )
-    if (unanchoredForeignPaths.size === 0) return toolCalls
-
-    return toolCalls.filter((toolCall) => {
+    let filtered = toolCalls.filter((toolCall) => {
       const path = getProposalToolCallPath(toolCall)
       return !path || !unanchoredForeignPaths.has(path)
     })
+
+    const knownPaths = new Set(knownProposalPaths().map((p) => normalizeProposalPath(p)))
+    filtered = filtered.filter((toolCall) => {
+      if (toolCall.toolName !== 'propose_str_replace') {
+        return true
+      }
+      const rawPath =
+        isObject(toolCall.input) && typeof toolCall.input.path === 'string'
+          ? toolCall.input.path
+          : ''
+      if (!rawPath) return false
+      const normalizedPath = normalizeProposalPath(rawPath)
+      return knownPaths.has(normalizedPath)
+    })
+
+    return filtered
   }
 
   function getProposalToolCallPath(toolCall: ProposedToolCall): string {
@@ -1051,6 +1076,30 @@ function* handleStepsMultiPrompt({
       )
     }
     return false
+  }
+
+  function getUnverifiedStrReplacePaths(
+    result: ProposalResult | ProposalFailure | undefined,
+  ): string[] {
+    if (
+      !isObject(result) ||
+      !('toolCalls' in result) ||
+      !Array.isArray(result.toolCalls)
+    ) {
+      return []
+    }
+    const knownPaths = new Set(knownProposalPaths().map((p) => normalizeProposalPath(p)))
+    return dedupeStrings(
+      result.toolCalls
+        .filter(isProposalEditToolCall)
+        .filter((tc) => tc.toolName === 'propose_str_replace')
+        .map((tc) =>
+          isObject(tc.input) && typeof tc.input.path === 'string'
+            ? normalizeProposalPath(tc.input.path)
+            : '',
+        )
+        .filter((path) => path && !knownPaths.has(path)),
+    )
   }
 
   function getProposalResultToolResults(
@@ -1458,7 +1507,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
+      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
 
     if (orchestrationPlan.mode !== 'large-bundle') {
       return base
@@ -1472,7 +1521,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
+      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
 
     if (orchestrationPlan.mode !== 'large-bundle') {
       return base
@@ -2659,6 +2708,7 @@ function* handleStepsMultiPrompt({
       label: `${getImplementationLabel(partialImplementation)} (completed)`,
       content: completionResult.unifiedDiffs || partialImplementation.content,
       toolCalls: getUsableProposalToolCalls(completionResult),
+      unverifiedPaths: getUnverifiedStrReplacePaths(completionResult),
       stopReason: completedStopReason,
       proposalProgress: completionResult.proposalProgress,
       proposalBudget: completionResult.proposalBudget,
@@ -2672,7 +2722,80 @@ function* handleStepsMultiPrompt({
 
   function* applyImplementationEdits(
     chosenImplementation: Implementation,
-  ): Generator<ToolCall<'str_replace'> | ToolCall<'write_file'>, any[], any> {
+  ): Generator<
+    ToolCall<'str_replace'> | ToolCall<'write_file'> | ToolCall<'read_files'>,
+    any[],
+    any
+  > {
+    // 1. Gather all unique paths targeted by propose_str_replace in the chosen implementation
+    const strReplacePaths = dedupeStrings(
+      chosenImplementation.toolCalls
+        .filter((tc) => tc.toolName === 'propose_str_replace')
+        .map((tc) =>
+          isObject(tc.input) && typeof tc.input.path === 'string'
+            ? normalizeProposalPath(tc.input.path)
+            : '',
+        )
+        .filter(Boolean),
+    )
+
+    // 2. Perform dry-run validation if there are any str_replace paths
+    if (strReplacePaths.length > 0) {
+      const readFiles = yield* readFilesContent(strReplacePaths)
+      const fileContentsMap = new Map<string, string>()
+      for (const file of readFiles) {
+        if (typeof file.path === 'string' && typeof file.content === 'string') {
+          fileContentsMap.set(normalizeProposalPath(file.path), file.content)
+        }
+      }
+
+      // Check each propose_str_replace tool call
+      const validationFailures: string[] = []
+      for (const toolCall of chosenImplementation.toolCalls) {
+        if (toolCall.toolName !== 'propose_str_replace') continue
+        const rawPath =
+          isObject(toolCall.input) && typeof toolCall.input.path === 'string'
+            ? toolCall.input.path
+            : ''
+        const path = normalizeProposalPath(rawPath)
+        const fileContent = fileContentsMap.get(path)
+
+        if (fileContent === undefined) {
+          validationFailures.push(`Target file does not exist on disk: ${rawPath}`)
+          continue
+        }
+
+        const replacements =
+          isObject(toolCall.input) && Array.isArray(toolCall.input.replacements)
+            ? toolCall.input.replacements
+            : []
+        for (const replacement of replacements) {
+          if (!isObject(replacement) || typeof replacement.oldString !== 'string') {
+            validationFailures.push(
+              `Invalid replacement structure in propose_str_replace for ${rawPath}`,
+            )
+            continue
+          }
+          const oldString = replacement.oldString
+          if (!fileContent.includes(oldString)) {
+            validationFailures.push(
+              `Could not find exact text to replace in ${rawPath}.\nOld string search failed.`,
+            )
+          }
+        }
+      }
+
+      if (validationFailures.length > 0) {
+        // Return a mock failed tool result so that the system treats this implementation as a failure
+        return [
+          {
+            toolName: 'str_replace',
+            errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
+          },
+        ]
+      }
+    }
+
     // Apply the chosen implementation's tool calls as real edits
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
@@ -2704,6 +2827,26 @@ function* handleStepsMultiPrompt({
     }
 
     return appliedToolResults
+  }
+
+  function* readFilesContent(
+    paths: string[],
+  ): Generator<ToolCall<'read_files'>, { path: string; content: string }[], any> {
+    if (paths.length === 0) return []
+    const { toolResult } = yield {
+      toolName: 'read_files',
+      input: { paths },
+      includeToolCall: false,
+    } satisfies ToolCall<'read_files'>
+
+    return extractJsonPartValues({
+      content: Array.isArray(toolResult) ? toolResult : [toolResult],
+    })
+      .flatMap(flattenReadFileEntries)
+      .filter(
+        (entry): entry is { path: string; content: string } =>
+          typeof entry?.path === 'string' && typeof entry?.content === 'string',
+      )
   }
 
   function* repairFailedImplementation(params: {
@@ -2777,6 +2920,7 @@ function* handleStepsMultiPrompt({
       label: `${getImplementationLabel(failedImplementation)} (repaired)`,
       content: repairResult.unifiedDiffs || failedImplementation.content,
       toolCalls: getUsableProposalToolCalls(repairResult),
+      unverifiedPaths: getUnverifiedStrReplacePaths(repairResult),
       stopReason: repairResult.stopReason,
       proposalProgress: repairResult.proposalProgress,
       proposalBudget: repairResult.proposalBudget,

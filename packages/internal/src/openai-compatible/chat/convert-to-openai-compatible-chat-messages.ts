@@ -116,7 +116,11 @@ export function convertToOpenAICompatibleChatMessages(
           role: 'assistant',
           content: text,
           reasoning_content:
-            reasoningContent.length > 0 ? reasoningContent : undefined,
+            reasoningContent.length > 0
+              ? reasoningContent
+              : toolCalls.length > 0
+                ? ''
+                : undefined,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           ...metadata,
         })

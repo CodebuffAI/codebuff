@@ -19,6 +19,7 @@ export const getCiEnv = (): CiEnv => ({
   IS_PULL_REQUEST: process.env.IS_PULL_REQUEST,
   CODEBUFF_GITHUB_TOKEN: process.env.CODEBUFF_GITHUB_TOKEN,
   CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
+  LINKUP_API_KEY: process.env.LINKUP_API_KEY,
 })
 
 /**

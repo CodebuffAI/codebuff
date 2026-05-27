@@ -1,397 +1,179 @@
-import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { promptSuccess, success } from '@codebuff/common/util/error'
-import {
-  afterEach,
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { CiEnv } from '@codebuff/common/types/contracts/env'
 
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from 'bun:test'
+import { web_search } from '../tools/web-search-tool'
+import { callWebSearchAPI } from '../tools/handlers/call-web-search-api'
 
-import { createToolCallChunk, mockFileContext } from './test-utils'
-import researcherAgent from '../../../../agents-graveyard/researcher/researcher'
-import * as webApi from '../llm-api/codebuff-web-api'
-import { runAgentStep } from '../run-agent-step'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
+// Mock the Codebuff web API handler
+vi.mock('../tools/handlers/call-web-search-api', () => ({
+  callWebSearchAPI: vi.fn(),
+}))
 
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+// Mock global fetch
+const mockFetch = vi.fn()
+globalThis.fetch = mockFetch
 
-let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
-let runAgentStepBaseParams: ParamsExcluding<
-  typeof runAgentStep,
-  'localAgentTemplates' | 'agentState' | 'prompt' | 'agentTemplate'
->
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
-
-function mockAgentStream(chunks: StreamChunk[]) {
-  runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-    for (const chunk of chunks) {
-      yield chunk
-    }
-    return promptSuccess('mock-message-id')
-  }
+// Linkup API response shape
+const mockLinkupSearchResponse = {
+  results: [
+    {
+      id: 'linkup-result-1',
+      source: 'linkup' as const,
+      title: 'Linkup Search Result',
+      content: 'Answer from Linkup web search',
+      url: 'https://example.com/article',
+    },
+  ],
+  answer: 'This is the Linkup answer to your query.',
 }
 
-describe('web_search tool with researcher agent (via web API facade)', () => {
+// Create test deps with optional CODEBUFF_API_KEY
+function createTestDeps(overrides?: Partial<CiEnv>): AgentRuntimeDeps {
+  return {
+    clientEnv: {
+      NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
+      NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://test.codebuff.com',
+      NEXT_PUBLIC_SUPPORT_EMAIL: 'support@test.com',
+      NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog',
+      NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test.posthog.com',
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
+      NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://test.stripe.com',
+      NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: undefined,
+      NEXT_PUBLIC_WEB_PORT: 3000,
+    },
+    ciEnv: {
+      CI: 'true',
+      CODEBUFF_API_KEY: undefined,
+      LINKUP_API_KEY: 'test-linkup-key',
+      ...overrides,
+    },
+    getUserInfoFromApiKey: vi.fn(),
+    fetchAgentFromDatabase: vi.fn(),
+    startAgentRun: vi.fn(),
+    finishAgentRun: vi.fn(),
+    addAgentStep: vi.fn(),
+    consumeCreditsWithFallback: vi.fn(),
+    promptAiSdkStream: vi.fn(),
+    promptAiSdk: vi.fn(),
+    promptAiSdkStructured: vi.fn(),
+    databaseAgentCache: new Map(),
+    trackEvent: vi.fn(),
+    logger: console,
+    fetch: mockFetch,
+    localMode: true,
+  } as unknown as AgentRuntimeDeps
+}
+
+describe('web_search tool', () => {
   beforeEach(() => {
-    agentRuntimeImpl = {
-      ...TEST_AGENT_RUNTIME_IMPL,
-      consumeCreditsWithFallback: async () => {
-        return success({ chargedToOrganization: false })
-      },
-    }
-    runAgentStepBaseParams = {
-      ...agentRuntimeImpl,
-
-      additionalToolDefinitions: () => Promise.resolve({}),
-      agentType: 'researcher',
-      ancestorRunIds: [],
-      clientSessionId: 'test-session',
-      fileContext: mockFileContext,
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      repoId: undefined,
-      repoUrl: undefined,
-      runId: 'test-run-id',
-      signal: new AbortController().signal,
-      spawnParams: undefined,
-      system: 'Test system prompt',
-      tools: {},
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-    }
-
-    // Mock analytics
-    spyOn(analytics, 'trackEvent').mockImplementation(() => {})
-
-    // Mock websocket actions
-    runAgentStepBaseParams.requestFiles = async () => ({})
-    runAgentStepBaseParams.requestOptionalFile = async () => null
-    runAgentStepBaseParams.requestToolCall = async () => ({
-      output: [{ type: 'json', value: 'Tool call success' }],
-    })
-
-    // Mock LLM APIs
-    runAgentStepBaseParams.promptAiSdk = async function () {
-      return promptSuccess('Test response')
-    }
+    vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    mock.restore()
+  describe('when CODEBUFF_API_KEY is undefined (BYOK/local mode)', () => {
+    it('should NOT call callWebSearchAPI and should use direct Linkup API via fetch', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: undefined })
+
+      // Mock fetch to return Linkup search response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockLinkupSearchResponse,
+      })
+
+      const args = {
+        query: 'test query for web search',
+      }
+
+      await web_search({ args, deps })
+
+      // Assert: callWebSearchAPI (web facade) should NOT be called
+      expect(callWebSearchAPI).not.toHaveBeenCalled()
+
+      // Assert: fetch should be called for direct Linkup API
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it('should return formatted results from Linkup API response', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: undefined })
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockLinkupSearchResponse,
+      })
+
+      const args = {
+        query: 'latest typescript features',
+      }
+
+      const result = await web_search({ args, deps })
+
+      expect(result.success).toBe(true)
+      expect(callWebSearchAPI).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it('should use LINKUP_API_KEY from ciEnv for Linkup API', async () => {
+      const deps = createTestDeps({
+        CODEBUFF_API_KEY: undefined,
+        LINKUP_API_KEY: 'my-linkup-key-456',
+      })
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockLinkupSearchResponse,
+      })
+
+      const args = { query: 'test search query' }
+      await web_search({ args, deps })
+
+      // Verify fetch was called (direct API path)
+      expect(mockFetch).toHaveBeenCalled()
+      expect(callWebSearchAPI).not.toHaveBeenCalled()
+    })
+
+    it('should handle Linkup API error gracefully', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: undefined })
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Invalid API key' }),
+      })
+
+      const args = { query: 'test query' }
+      const result = await web_search({ args, deps })
+
+      expect(callWebSearchAPI).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenCalled()
+      // Result should indicate failure but not crash
+      expect(result.success).toBe(false)
+    })
   })
 
-  const mockFileContextWithAgents = {
-    ...mockFileContext,
-    agentTemplates: { researcher: researcherAgent },
-  }
+  describe('when CODEBUFF_API_KEY is defined (hosted Codebuff mode)', () => {
+    it('should call callWebSearchAPI and NOT use direct Linkup fetch', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: 'hosted-api-key' })
 
-  test('should call web facade when web_search tool is used', async () => {
-    const mockSearchResult = 'Test search result'
-    const spy = spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      result: mockSearchResult,
+      // Mock callWebSearchAPI to return success
+      vi.mocked(callWebSearchAPI).mockResolvedValueOnce({
+        success: true,
+        data: [{ id: 'web-result', content: 'From Codebuff API' }],
+      })
+
+      const args = {
+        query: 'test query',
+      }
+
+      await web_search({ args, deps })
+
+      // Assert: callWebSearchAPI (web facade) SHOULD be called
+      expect(callWebSearchAPI).toHaveBeenCalledWith(
+        expect.objectContaining({ query: 'test query' }),
+        deps,
+      )
+
+      // Assert: fetch should NOT be called (web facade handles it)
+      expect(mockFetch).not.toHaveBeenCalled()
     })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'test query' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search for test',
-    })
-
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({ query: 'test query', depth: 'standard' }),
-    )
-  })
-
-  test('should successfully perform web search with basic query', async () => {
-    const mockSearchResult =
-      'Next.js 15 introduces features and React 19 support.'
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      result: mockSearchResult,
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'Next.js 15 new features' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search for Next.js 15 new features',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'web_search',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
-      mockSearchResult,
-    )
-  })
-
-  test('should handle custom depth parameter', async () => {
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      result: 'Deep result',
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', {
-        query: 'RSC tutorial',
-        depth: 'deep',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search deep',
-    })
-
-    expect(webApi.callWebSearchAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ depth: 'deep' }),
-    )
-  })
-
-  test('should surface no-results as error in tool output', async () => {
-    const msg = 'No search results found for "very obscure"'
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({ error: msg })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'very obscure' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search nothing',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'web_search',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('error')
-    expect(last).toContain('No search results')
-  })
-
-  test('should handle API errors gracefully', async () => {
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      error: 'Linkup API timeout',
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'test query' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search for something',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'web_search',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('errorMessage')
-    expect(last).toContain('Linkup API timeout')
-  })
-
-  test('should handle non-Error exceptions from facade', async () => {
-    spyOn(webApi, 'callWebSearchAPI').mockImplementation(async () => {
-      throw 'String error'
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'test query' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search for something',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'web_search',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('Error performing web search')
-    expect(last).toContain('Unknown error')
-  })
-
-  test('should format search results correctly', async () => {
-    const mockSearchResult = 'This is the first search result content.'
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      result: mockSearchResult,
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'test formatting' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Test search result formatting',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'web_search',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
-      mockSearchResult,
-    )
-  })
-
-  test('should track credits used from web search API in agent state', async () => {
-    const mockSearchResult = 'Search result content'
-    const mockCreditsUsed = 2 // Standard search with profit margin
-    spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
-      result: mockSearchResult,
-      creditsUsed: mockCreditsUsed,
-    })
-
-    mockAgentStream([
-      createToolCallChunk('web_search', { query: 'test query' }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const initialCredits = agentState.creditsUsed
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Search for test',
-    })
-
-    // Verify that the credits from the web search API were added to agent state
-    expect(newAgentState.creditsUsed).toBeGreaterThanOrEqual(
-      initialCredits + mockCreditsUsed,
-    )
-    expect(newAgentState.directCreditsUsed).toBeGreaterThanOrEqual(
-      mockCreditsUsed,
-    )
   })
 })

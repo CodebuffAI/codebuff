@@ -111,6 +111,7 @@ Your task is to:
 
 Evaluate each based on (in order of importance):
 - Correctness and completeness in fulfilling the user's request
+- Strict validation of target file paths: proposals whose content is annotated with a \`⚠ WARNING\` target non-existent paths (hallucinations). Strongly prefer candidates with NO path warnings over those attempting edits on unknown or non-existent paths. (Note: New files created via \`propose_write_file\` are fully acceptable and do not trigger path warnings).
 - Simplicity and maintainability
 - Code quality and adherence to project conventions
 - Proper reuse of existing code (helper functions, libraries, etc.)

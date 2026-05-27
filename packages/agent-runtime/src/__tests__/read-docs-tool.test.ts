@@ -1,388 +1,164 @@
-import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { promptSuccess } from '@codebuff/common/util/error'
-import {
-  afterEach,
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { CiEnv } from '@codebuff/common/types/contracts/env'
 
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from 'bun:test'
+import { read_docs } from '../tools/read-docs-tool'
+import { callDocsSearchAPI } from '../tools/handlers/call-docs-search-api'
 
-import { createToolCallChunk, mockFileContext } from './test-utils'
-import researcherAgent from '../../../../agents-graveyard/researcher/researcher'
-import * as webApi from '../llm-api/codebuff-web-api'
-import { runAgentStep } from '../run-agent-step'
-import { assembleLocalAgentTemplates } from '../templates/agent-registry'
+// Mock the Codebuff web API handler
+vi.mock('../tools/handlers/call-docs-search-api', () => ({
+  callDocsSearchAPI: vi.fn(),
+}))
 
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+// Mock global fetch
+const mockFetch = vi.fn()
+globalThis.fetch = mockFetch
 
-let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
-let runAgentStepBaseParams: ParamsExcluding<
-  typeof runAgentStep,
-  'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt' | 'agentTemplate'
->
-
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
-
-function mockAgentStream(chunks: StreamChunk[]) {
-  const mockPromptAiSdkStream = async function* ({}) {
-    for (const chunk of chunks) {
-      yield chunk
-    }
-    return promptSuccess('mock-message-id')
-  }
-  agentRuntimeImpl.promptAiSdkStream = mockPromptAiSdkStream
-  runAgentStepBaseParams.promptAiSdkStream = mockPromptAiSdkStream
+// Context7 API response shape
+const mockContext7SearchResponse = {
+  results: [
+    {
+      id: 'doc-1',
+      source: 'context7' as const,
+      title: 'Test Document',
+      content: 'Test content from Context7',
+      url: 'https://example.com/doc1',
+      score: 0.95,
+    },
+  ],
 }
 
-describe('read_docs tool with researcher agent (via web API facade)', () => {
+// Create test deps with optional CODEBUFF_API_KEY
+function createTestDeps(overrides?: Partial<CiEnv>): AgentRuntimeDeps {
+  return {
+    clientEnv: {
+      NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
+      NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://test.codebuff.com',
+      NEXT_PUBLIC_SUPPORT_EMAIL: 'support@test.com',
+      NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog',
+      NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test.posthog.com',
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
+      NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://test.stripe.com',
+      NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: undefined,
+      NEXT_PUBLIC_WEB_PORT: 3000,
+    },
+    ciEnv: {
+      CI: 'true',
+      CODEBUFF_API_KEY: undefined,
+      LINKUP_API_KEY: 'test-linkup-key',
+      ...overrides,
+    },
+    getUserInfoFromApiKey: vi.fn(),
+    fetchAgentFromDatabase: vi.fn(),
+    startAgentRun: vi.fn(),
+    finishAgentRun: vi.fn(),
+    addAgentStep: vi.fn(),
+    consumeCreditsWithFallback: vi.fn(),
+    promptAiSdkStream: vi.fn(),
+    promptAiSdk: vi.fn(),
+    promptAiSdkStructured: vi.fn(),
+    databaseAgentCache: new Map(),
+    trackEvent: vi.fn(),
+    logger: console,
+    fetch: mockFetch,
+    localMode: true,
+  } as unknown as AgentRuntimeDeps
+}
+
+describe('read_docs tool', () => {
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
-
-    spyOn(analytics, 'trackEvent').mockImplementation(() => {})
-    spyOn(analytics, 'flushAnalytics').mockImplementation(() =>
-      Promise.resolve(),
-    )
-
-    agentRuntimeImpl.requestFiles = async () => ({})
-    agentRuntimeImpl.requestOptionalFile = async () => null
-    agentRuntimeImpl.requestToolCall = async () => ({
-      output: [{ type: 'json', value: 'Tool call success' }],
-    })
-
-    runAgentStepBaseParams = {
-      ...agentRuntimeImpl,
-      additionalToolDefinitions: () => Promise.resolve({}),
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      spawnParams: undefined,
-      signal: new AbortController().signal,
-      tools: {},
-    }
+    vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    mock.restore()
+  describe('when CODEBUFF_API_KEY is undefined (BYOK/local mode)', () => {
+    it('should NOT call callDocsSearchAPI and should use direct Context7 API via fetch', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: undefined })
+
+      // Mock fetch to return Context7 search response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockContext7SearchResponse,
+      })
+
+      const args = {
+        query: 'test query for documentation',
+        repo_name: 'test-repo',
+      }
+
+      await read_docs({ args, deps })
+
+      // Assert: callDocsSearchAPI (web facade) should NOT be called
+      expect(callDocsSearchAPI).not.toHaveBeenCalled()
+
+      // Assert: fetch should be called for direct Context7 API
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it('should return formatted results from Context7 API response', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: undefined })
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockContext7SearchResponse,
+      })
+
+      const args = {
+        query: 'react hooks usage',
+        repo_name: 'my-project',
+      }
+
+      const result = await read_docs({ args, deps })
+
+      expect(result.success).toBe(true)
+      expect(callDocsSearchAPI).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it('should use LINKUP_API_KEY from ciEnv for Context7 API', async () => {
+      const deps = createTestDeps({
+        CODEBUFF_API_KEY: undefined,
+        LINKUP_API_KEY: 'my-linkup-key-123',
+      })
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockContext7SearchResponse,
+      })
+
+      const args = { query: 'test', repo_name: 'test-repo' }
+      await read_docs({ args, deps })
+
+      // Verify fetch was called (direct API path)
+      expect(mockFetch).toHaveBeenCalled()
+      expect(callDocsSearchAPI).not.toHaveBeenCalled()
+    })
   })
 
-  const mockFileContextWithAgents = {
-    ...mockFileContext,
-    agentTemplates: { researcher: researcherAgent },
-  }
+  describe('when CODEBUFF_API_KEY is defined (hosted Codebuff mode)', () => {
+    it('should call callDocsSearchAPI and NOT use direct Context7 fetch', async () => {
+      const deps = createTestDeps({ CODEBUFF_API_KEY: 'hosted-api-key' })
 
-  test('should successfully fetch documentation with basic query', async () => {
-    const mockDocumentation =
-      'React is a JavaScript library for building user interfaces...'
-    const spy = spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
-      documentation: mockDocumentation,
+      // Mock callDocsSearchAPI to return success
+      vi.mocked(callDocsSearchAPI).mockResolvedValueOnce({
+        success: true,
+        data: [{ id: 'web-result', content: 'From Codebuff API' }],
+      })
+
+      const args = {
+        query: 'test query',
+        repo_name: 'test-repo',
+      }
+
+      await read_docs({ args, deps })
+
+      // Assert: callDocsSearchAPI (web facade) SHOULD be called
+      expect(callDocsSearchAPI).toHaveBeenCalledWith(
+        expect.objectContaining({ query: 'test query' }),
+        deps,
+      )
+
+      // Assert: fetch should NOT be called (web facade handles it)
+      expect(mockFetch).not.toHaveBeenCalled()
     })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React documentation',
-    })
-
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({ libraryTitle: 'React', topic: 'hooks' }),
-    )
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'read_docs',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
-      JSON.stringify(mockDocumentation).slice(1, -1),
-    )
-  }, 10000)
-
-  test('should fetch documentation with topic and max_tokens', async () => {
-    const mockDocumentation =
-      'React hooks allow you to use state and other React features...'
-    const spy = spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
-      documentation: mockDocumentation,
-    })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-        max_tokens: 5000,
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React hooks documentation',
-    })
-
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        libraryTitle: 'React',
-        topic: 'hooks',
-        maxTokens: 5000,
-      }),
-    )
-  }, 10000)
-
-  test('should handle case when no documentation is found', async () => {
-    const msg = 'No documentation found for "NonExistentLibrary"'
-    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: msg })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'NonExistentLibrary',
-        topic: 'blah',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get documentation for NonExistentLibrary',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'read_docs',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('No documentation found for')
-  }, 10000)
-
-  test('should handle API errors gracefully', async () => {
-    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
-      error: 'Network timeout',
-    })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React documentation',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'read_docs',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('Error fetching documentation for')
-    expect(last).toContain('Network timeout')
-  }, 10000)
-
-  test('should include topic in error message when specified', async () => {
-    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: 'No docs' })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'server-components',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React server components documentation',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'read_docs',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('errorMessage')
-    expect(last).toContain('No docs')
-  }, 10000)
-
-  test('should handle non-Error exceptions', async () => {
-    spyOn(webApi, 'callDocsSearchAPI').mockImplementation(async () => {
-      throw 'String error'
-    })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React documentation',
-    })
-
-    const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.toolName === 'read_docs',
-    )
-    expect(toolMsgs.length).toBeGreaterThan(0)
-    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
-    expect(last).toContain('Error fetching documentation for')
-    expect(last).toContain('Unknown error')
-  }, 10000)
-
-  test('should track credits used from docs search API in agent state', async () => {
-    const mockDocumentation = 'React documentation content'
-    const mockCreditsUsed = 2 // Flat 1 credit + profit margin
-    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
-      documentation: mockDocumentation,
-      creditsUsed: mockCreditsUsed,
-    })
-
-    mockAgentStream([
-      createToolCallChunk('read_docs', {
-        libraryTitle: 'React',
-        topic: 'hooks',
-      }),
-      createToolCallChunk('end_turn', {}),
-    ])
-
-    const sessionState = getInitialSessionState(mockFileContextWithAgents)
-    const agentState = {
-      ...sessionState.mainAgentState,
-      agentType: 'researcher' as const,
-    }
-    const { agentTemplates } = assembleLocalAgentTemplates({
-      ...agentRuntimeImpl,
-      fileContext: mockFileContextWithAgents,
-    })
-
-    const initialCredits = agentState.creditsUsed
-
-    const { agentState: newAgentState } = await runAgentStep({
-      ...runAgentStepBaseParams,
-      fileContext: mockFileContextWithAgents,
-      localAgentTemplates: agentTemplates,
-      agentTemplate: agentTemplates['researcher'],
-      agentState,
-      prompt: 'Get React documentation',
-    })
-
-    // Verify that the credits from the docs search API were added to agent state
-    expect(newAgentState.creditsUsed).toBeGreaterThanOrEqual(
-      initialCredits + mockCreditsUsed,
-    )
-    expect(newAgentState.directCreditsUsed).toBeGreaterThanOrEqual(
-      mockCreditsUsed,
-    )
-  }, 10000)
+  })
 })

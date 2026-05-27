@@ -1,44 +1,68 @@
-import { type SecretAgentDefinition } from '../types/secret-agent-definition'
-import { createFileLister } from './file-lister'
+import { publisher } from '../constants'
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../types/secret-agent-definition'
 
-const base = createFileLister()
+import type { AssistantMessage } from '../types/util-types'
 
 const definition: SecretAgentDefinition = {
   id: 'file-lister-max',
-  ...base,
-  spawnerPrompt:
-    'Lists up to 20 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
-  instructionsPrompt: `Instructions:
-- List out the full paths of 20 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path. Make sure that the file paths are exactly correct.
-- Do not write any introductory commentary.
-- Do not write any analysis or any English text at all.
-- Do not use any more tools. Do not call read_subtree again.
+  displayName: 'Liszt the File Lister',
+  publisher,
+  model: 'anthropic/claude-haiku-4.5',
+  spawnerPrompt: 'Lists files that are relevant to the prompt',
+  inputSchema: {
+    prompt: {
+      type: 'string',
+      description: 'A coding task to complete',
+    },
+  },
+  outputMode: 'last_message',
+  includeMessageHistory: false,
+  toolNames: [],
+  spawnableAgents: [],
 
-Here's an example response with made up file paths (these are not real file paths, just an example):
-<example_response>
-packages/core/src/index.ts
-packages/core/src/api/server.ts
-packages/core/src/api/routes/user.ts
-packages/core/src/api/routes/auth.ts
-packages/core/src/api/middleware/cors.ts
-packages/core/src/utils/logger.ts
-packages/core/src/utils/validator.ts
-packages/core/src/utils/crypto.ts
-packages/common/src/util/stringify.ts
-packages/common/src/types/user.ts
-packages/common/src/types/config.ts
-packages/common/src/constants/index.ts
-packages/common/src/constants/routes.ts
-packages/utils/src/cli/parseArgs.ts
-packages/utils/src/cli/format.ts
-packages/utils/src/cli/prompt.ts
-docs/routes/index.md
-docs/routes/user.md
-docs/api/auth.md
-package.json
-</example_response>
+  systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
+  instructionsPrompt: `PHASE 1 Instructions:
+- Do not use any tools.
+- Do not write any analysis.
+- List out the full paths of up to 12 files that are relevant to the prompt, separated by newlines.
+- Write out the following string to signal the end of this phase:
+"cb_easp": true
 
-Again: Do not call any tools or write anything else other than the chosen file paths on new lines. Go.`.trim(),
+Do not write an introduction. Do not use any tools. Do not write anything else other than the file paths.
+
+PHASE 2 Instructions:
+- Do not use any tools.
+- Do not write any analysis.
+- After reading those files, give your new best guess at the most relevant files, separated by newlines.
+  `.trim(),
+
+  handleSteps: function* ({ logger }) {
+    const { agentState } = yield 'STEP_ALL'
+    const { messageHistory } = agentState
+    const lastAssistantMessage = messageHistory.findLast(
+      (message) => message.role === 'assistant',
+    ) as AssistantMessage
+    const lastMessageContent = lastAssistantMessage.content
+    const lastMessageStr = Array.isArray(lastMessageContent)
+      ? lastMessageContent[0].type === 'text'
+        ? lastMessageContent[0].text
+        : ''
+      : lastMessageContent
+
+    const files = lastMessageStr.split('\n').filter(Boolean)
+
+    yield {
+      toolName: 'read_files',
+      input: {
+        paths: files,
+      },
+    }
+
+    yield 'STEP_ALL'
+  },
 }
 
 export default definition

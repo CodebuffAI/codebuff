@@ -24,6 +24,7 @@ const evalsCiEnv: CiEnv = {
   CODEBUFF_GITHUB_TOKEN: undefined,
   CODEBUFF_API_KEY: 'eval-api-key',
   EVAL_RESULTS_EMAIL: undefined,
+  LINKUP_API_KEY: undefined,
 }
 
 export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
