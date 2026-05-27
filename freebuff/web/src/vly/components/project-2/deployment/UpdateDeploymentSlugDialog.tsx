@@ -40,7 +40,7 @@ export const UpdateDeploymentSlugDialog = ({
   const updateSlug = useAction(api.deployment.updateDeploymentSlug);
 
   // Extract current slug from domain
-  const currentSlug = currentDomain.replace(".vly.dev", "");
+  const currentSlug = currentDomain.replace(".freebuff.app", "");
 
   // Pure validation function - returns validation result without side effects
   const validateSlug = (slug: string): { isValid: boolean; error: string } => {
@@ -161,7 +161,7 @@ export const UpdateDeploymentSlugDialog = ({
                 className="flex-1 border-0 shadow-none focus:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="px-3 font-mono text-sm text-gray-500">
-                .vly.dev
+                .freebuff.app
               </div>
             </div>
             {slugError && (

@@ -137,7 +137,7 @@ const FirstDeploymentView = ({
           }}
         />
         <div className="flex h-9 items-center rounded-r-md pl-2 pr-1 font-mono text-sm">
-          .vly.dev
+          .freebuff.app
         </div>
       </div>
       <div>
@@ -358,7 +358,7 @@ const DeploymentManager = ({
                 <div className="flex items-center gap-2">
                   {[
                     ...(activeProjectDomains ?? []),
-                    { domain: `${prodSlug}.vly.dev`, _id: "vly-site" },
+                    { domain: `${prodSlug}.freebuff.app`, _id: "vly-site" },
                   ].map((domain) => (
                     <a
                       href={`https://${domain.domain}`}

@@ -75,7 +75,7 @@ export default function Dashboard() {
     if (
       project.pretty_preview_url &&
       project.pretty_preview_url.startsWith("http") &&
-      !project.pretty_preview_url.includes("vly.sh") && // Exclude vly.sh URLs as they're not images
+      !project.pretty_preview_url.includes("freebuff.dev") && // Exclude freebuff.dev URLs as they're not images
       (project.pretty_preview_url.includes(".jpg") ||
         project.pretty_preview_url.includes(".jpeg") ||
         project.pretty_preview_url.includes(".png") ||

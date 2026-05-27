@@ -594,8 +594,8 @@ export const deployOnFreestyle = internalAction({
         // Use the commit hash from preparation if available, otherwise let GitHub deployment use the latest
         const deploymentDescription =
           preparationResult?.success && preparationResult?.tagName
-            ? `Production deployment ${preparationResult.tagName} to ${args.slug}.vly.dev`
-            : `Production deployment to ${args.slug}.vly.dev`;
+            ? `Production deployment ${preparationResult.tagName} to ${args.slug}.freebuff.app`
+            : `Production deployment to ${args.slug}.freebuff.app`;
 
         const githubDeploymentResult = await ctx.runAction(
           internal.github.deployments.createGitHubDeploymentForProject,
@@ -924,7 +924,7 @@ export const deployOnFreestyle = internalAction({
         },
       );
 
-      const deploymentDomain = result.domains?.[0] || `${args.slug}.vly.dev`;
+      const deploymentDomain = result.domains?.[0] || `${args.slug}.freebuff.app`;
 
       // Promote the deployment before custom-domain mapping
       await ctx.runMutation(internal.deployment.update, {

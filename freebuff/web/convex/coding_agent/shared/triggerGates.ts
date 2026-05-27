@@ -31,7 +31,7 @@ interface GateArgs {
   projectSemanticIdentifier?: string;
   projectId?: Id<"project">;
   skipRateLimitCheck?: boolean;
-  agentType?: "Claude Code" | "Codex" | "Gemini CLI";
+  agentType?: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff";
 }
 
 export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
