@@ -3,6 +3,8 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import { env } from '@codebuff/internal/env'
 
@@ -55,6 +57,8 @@ export function getSessionGraceMs(): number {
  * queue).
  */
 const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
+  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 1000,
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 1000,
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 1000,
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 1000,
   [FREEBUFF_KIMI_MODEL_ID]: 1000,

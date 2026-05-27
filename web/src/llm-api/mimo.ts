@@ -42,7 +42,14 @@ const MIMO_V25_PRO_PRICING: MiMoPricing = {
   outputCostPerToken: 0.87 / 1_000_000,
 }
 
+const MIMO_V25_PRICING: MiMoPricing = {
+  inputCostPerToken: 0.14 / 1_000_000,
+  cachedInputCostPerToken: 0.0028 / 1_000_000,
+  outputCostPerToken: 0.28 / 1_000_000,
+}
+
 const MIMO_PRICING_BY_DIRECT_MODEL_ID: Record<string, MiMoPricing> = {
+  [mimoModels.mimoV25Direct]: MIMO_V25_PRICING,
   [mimoModels.mimoV25ProDirect]: MIMO_V25_PRO_PRICING,
 }
 

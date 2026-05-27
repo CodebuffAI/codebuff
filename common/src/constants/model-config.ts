@@ -72,6 +72,8 @@ export const deepseekModels = {
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
 export const mimoModels = {
+  mimoV25Direct: 'mimo-v2.5',
+  mimoV25: 'mimo/mimo-v2.5',
   mimoV25ProDirect: 'mimo-v2.5-pro',
   mimoV25Pro: 'mimo/mimo-v2.5-pro',
 } as const

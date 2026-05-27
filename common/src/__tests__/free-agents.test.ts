@@ -6,6 +6,8 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '../constants/freebuff-models'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
@@ -29,6 +31,12 @@ describe('free mode agent model allowlist', () => {
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe('base2-free-deepseek-flash')
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
+      'base2-free-mimo-pro',
+    )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(
+      'base2-free-mimo',
+    )
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -59,6 +67,30 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        FREEBUFF_MIMO_V25_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        `${FREEBUFF_MIMO_V25_MODEL_ID}-20260527`,
+      ),
+    ).toBe(true)
   })
 
   test('allows each freebuff reviewer agent only with its configured model', () => {
@@ -87,6 +119,18 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'code-reviewer-deepseek-flash',
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-mimo',
+        FREEBUFF_MIMO_V25_MODEL_ID,
       ),
     ).toBe(true)
   })

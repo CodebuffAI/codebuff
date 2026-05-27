@@ -425,6 +425,8 @@ export type ModelName =
   | 'deepseek/deepseek-r1-0528:nitro'
 
   // Xiaomi MiMo
+  | 'mimo/mimo-v2.5'
+  | 'mimo-v2.5'
   | 'mimo/mimo-v2.5-pro'
   | 'mimo-v2.5-pro'
 

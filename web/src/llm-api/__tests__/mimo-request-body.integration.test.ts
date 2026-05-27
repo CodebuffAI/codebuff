@@ -20,6 +20,18 @@ describe('normalizeMiMoRequestBody', () => {
     })
   })
 
+  it('maps the non-pro MiMo model id to the Xiaomi API model id', () => {
+    const body: ChatCompletionRequestBody = {
+      model: 'mimo/mimo-v2.5',
+      messages: [{ role: 'user', content: 'Hello' }],
+    }
+
+    expect(normalizeMiMoRequestBody(body)).toEqual({
+      ...body,
+      model: 'mimo-v2.5',
+    })
+  })
+
   it('converts unsupported attachment parts into text notices', () => {
     const body: ChatCompletionRequestBody = {
       model: 'mimo/mimo-v2.5-pro',

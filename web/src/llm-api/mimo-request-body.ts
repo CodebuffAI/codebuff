@@ -3,6 +3,8 @@ import { mimoModels } from '@codebuff/common/constants/model-config'
 import type { ChatCompletionRequestBody } from './types'
 
 export const MIMO_MODEL_IDS: Record<string, string> = {
+  [mimoModels.mimoV25Direct]: mimoModels.mimoV25Direct,
+  [mimoModels.mimoV25]: mimoModels.mimoV25Direct,
   [mimoModels.mimoV25ProDirect]: mimoModels.mimoV25ProDirect,
   [mimoModels.mimoV25Pro]: mimoModels.mimoV25ProDirect,
 }

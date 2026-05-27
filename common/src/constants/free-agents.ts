@@ -7,7 +7,8 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
-  SUPPORTED_FREEBUFF_MODELS,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from './freebuff-models'
 
 import type { CostMode } from './model-config'
@@ -29,15 +30,16 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-kimi',
   'base2-free-deepseek',
   'base2-free-deepseek-flash',
+  'base2-free-mimo-pro',
+  'base2-free-mimo',
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
 )
-const FREEBUFF_ALLOWED_MODEL_IDS = SUPPORTED_FREEBUFF_MODELS.map(
-  (model) => model.id,
-)
 
 export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free',
   [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
@@ -45,6 +47,8 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
 }
 
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
   [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
@@ -70,10 +74,14 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
+    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
   'base2-free-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
+  'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
+  'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -98,6 +106,8 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
+  'code-reviewer-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
+  'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
   // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
   // free roots before those reviewer IDs existed.
   'code-reviewer-lite': new Set([
@@ -105,6 +115,8 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
 
   // Legacy: kept for the standalone gemini thinker agent if invoked directly.
@@ -204,9 +216,14 @@ export function isFreeModeAllowedAgentModel(
   if (allowedModels.has(model)) return true
 
   // OpenRouter may return dated variants (e.g. "minimax/minimax-m2.7-20260211")
-  // so also check if the returned model starts with any allowed model prefix.
+  // so also check date-like suffixes. Do not accept arbitrary suffixes:
+  // "mimo-v2.5-pro" must not match the non-pro "mimo-v2.5" allowlist entry.
   for (const allowed of allowedModels) {
-    if (model.startsWith(allowed + '-')) return true
+    const prefix = allowed + '-'
+    if (model.startsWith(prefix)) {
+      const suffix = model.slice(prefix.length)
+      if (/^\d{6,8}(?:$|[-:])/.test(suffix)) return true
+    }
   }
 
   return false
