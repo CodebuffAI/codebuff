@@ -16,6 +16,7 @@ const CLOUDFLARED_PATHS = [
 const args = new Set(process.argv.slice(2))
 const shouldStartDb = !args.has('--no-db')
 const shouldKillPorts = !args.has('--no-kill')
+const shouldPrewarmRoutes = args.has('--prewarm')
 
 const children: ChildProcess[] = []
 
@@ -308,7 +309,7 @@ async function main() {
   spawnProcess(
     'freebuff:3000',
     BUN_PATH,
-    ['--cwd', 'freebuff/web', 'next', 'dev', '--port', '3000'],
+    ['--cwd', 'freebuff/web', 'next', 'dev', '--turbopack', '--port', '3000'],
     {
       ...process.env,
       PORT: '3000',
@@ -321,6 +322,20 @@ async function main() {
 
   log('waiting for Freebuff/Vly to serve JWKS')
   await waitForHttp('http://localhost:3000/api/web/.well-known/jwks.json')
+
+  if (shouldPrewarmRoutes) {
+    runCommand(
+      'prewarming common Freebuff/Vly routes',
+      BUN_PATH,
+      ['scripts/prewarm-vly-routes.ts'],
+      {
+        ...process.env,
+        VLY_PREWARM_BASE_URL: 'http://localhost:3000',
+      },
+    )
+  } else {
+    warn('skipping route prewarm; pass --prewarm to compile common routes up front')
+  }
 
   log('starting Convex dev')
   spawnProcess('convex', BUN_PATH, ['--cwd', 'freebuff/web', 'convex', 'dev'], convexEnv)
