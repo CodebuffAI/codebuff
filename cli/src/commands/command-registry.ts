@@ -4,6 +4,7 @@ import { safeOpen } from '../utils/open-url'
 import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
+import { handleInfoCommand } from './info'
 import { handleInitializationFlowLocally } from './init'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { runBashCommand } from './router'
@@ -462,6 +463,25 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       return
+    },
+  }),
+  defineCommand({
+    name: 'info',
+    aliases: ['status'],
+    handler: (params) => {
+      try {
+        const { postUserMessage } = handleInfoCommand()
+        params.setMessages((prev) => postUserMessage(prev))
+      } catch (error) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage(
+            `Failed to gather info: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        ])
+      }
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
     },
   }),
   defineCommand({

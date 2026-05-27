@@ -97,7 +97,7 @@
   },
   "modeReasoningEfforts": {},
   "agents": {
-    "editor-implementor-proposal-direct": "opencode-go/minimax-m2.7",
+    "editor-implementor-proposal-direct": "opencode-go/kimi-k2.6",
     "base": "opencode-go/kimi-k2.6",
     "base2": "opencode-go/kimi-k2.6",
     "base2-lite": "opencode-go/deepseek-v4-flash",
@@ -150,9 +150,9 @@
     "opus-agent": "opencode-go/kimi-k2.6",
     "general-agent": "opencode-go/kimi-k2.6",
     "editor-implementor-proposal-1": "opencode-go/deepseek-v4-pro",
-    "editor-implementor-proposal-2": "opencode-go/glm-5.1",
+    "editor-implementor-proposal-2": "opencode-go/kimi-k2.6",
     "editor-implementor-proposal-3": "codex/gpt-5.5",
-    "editor-implementor-proposal-4": "opencode-go/mimo-v2.5",
+    "editor-implementor-proposal-4": "opencode-go/deepseek-v4-pro",
     "editor-implementor-proposal-5": "opencode-go/deepseek-v4-pro"
   },
   "agentReasoningEfforts": {
@@ -161,10 +161,10 @@
   "editorMultiPrompt": {
     "proposalModels": [
       "opencode-go/kimi-k2.6",
-      "opencode-go/glm-5.1",
+      "opencode-go/kimi-k2.6",
       "opencode-go/deepseek-v4-pro",
-      "opencode-go/mimo-v2.5",
-      "opencode-go/minimax-m2.7"
+      "opencode-go/deepseek-v4-pro",
+      "opencode-go/kimi-k2.6"
     ],
     "proposalReasoningEfforts": [
       null,

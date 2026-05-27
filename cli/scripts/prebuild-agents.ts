@@ -139,7 +139,7 @@ export function isBundledAgent(agentId: string): boolean {
 }
 
 async function main() {
-  const DEBUG = false
+  const DEBUG = true
   if (DEBUG) {
     console.log('🔍 DEBUG: Scanning agents/ directory...')
   }

@@ -230,17 +230,16 @@ function* handleStepsMultiPrompt({
     let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
-      const currentAgentType = getProposalAttemptAgentType({
-        defaultAgentType: agentType,
-        attempt,
-        lastResult,
-        forceDirectRetry,
-        hasPrefetchedContext: prefetchedContextMessages.length > 0,
-      })
-      if (currentAgentType === directProposalAgentType) {
+      const currentAgentType = agentType
+      const useDirectMode =
+        attempt > 0 &&
+        (forceDirectRetry ||
+          shouldRetryWithoutReadOnlyTools(lastResult))
+      const allowReadOnlyTools = !useDirectMode
+
+      if (useDirectMode) {
         forceDirectRetry = true
       }
-      const allowReadOnlyTools = currentAgentType !== directProposalAgentType
       const { toolResult: implementorResults } = yield {
         toolName: 'spawn_agents',
         input: {
@@ -1507,7 +1506,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
+      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context or read. If you need to import or use a utility or type, you MUST first verify its exact export/path/API using read-files, code_search, or glob tools. If you cannot find or verify its existence in the codebase, DO NOT invent it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
 
     if (orchestrationPlan.mode !== 'large-bundle') {
       return base
@@ -1521,7 +1520,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
+      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
 
     if (orchestrationPlan.mode !== 'large-bundle') {
       return base

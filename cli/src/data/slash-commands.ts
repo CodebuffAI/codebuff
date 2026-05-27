@@ -60,6 +60,12 @@ const LOCAL_MODE_REMOVED_COMMAND_IDS = new Set([
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
+    id: 'info',
+    label: 'info',
+    description: 'Show CLI diagnostic information (version, workspace, auth)',
+    aliases: ['status'],
+  },
+  {
     id: 'help',
     label: 'help',
     description: 'Display keyboard shortcuts and tips',

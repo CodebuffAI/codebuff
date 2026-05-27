@@ -210,6 +210,10 @@ describe('command-registry', () => {
       expect(credits).toBeDefined()
       expect(credits?.name).toBe('usage')
 
+      const status = findCommand('status')
+      expect(status).toBeDefined()
+      expect(status?.name).toBe('info')
+
       const modelDefault = findCommand('model:default')
       expect(modelDefault).toBeDefined()
       expect(modelDefault?.name).toBe('mode:default')
@@ -232,6 +236,7 @@ describe('command-registry', () => {
       expect(findCommand('LOGIN')?.name).toBe('login')
       expect(findCommand('UsAgE')?.name).toBe('usage')
       expect(findCommand('CREDITS')?.name).toBe('usage')
+      expect(findCommand('STATUS')?.name).toBe('info')
     })
   })
 
@@ -254,6 +259,19 @@ describe('command-registry', () => {
       for (const alias of allAliases) {
         expect(names.has(alias)).toBe(false)
       }
+    })
+
+    test('info command exposes status alias in slash metadata', () => {
+      const infoCommand = SLASH_COMMANDS.find((cmd) => cmd.id === 'info')
+
+      expect(infoCommand).toBeDefined()
+      expect(infoCommand?.aliases).toContain('status')
+      expect(infoCommand?.implicitCommand).toBeUndefined()
+    })
+
+    test('info and status resolve to the same registered command', () => {
+      expect(findCommand('info')?.name).toBe('info')
+      expect(findCommand('status')?.name).toBe('info')
     })
 
     test('slash command metadata maps to registered commands', () => {
