@@ -424,6 +424,12 @@ export type ModelName =
   | 'deepseek/deepseek-r1-0528'
   | 'deepseek/deepseek-r1-0528:nitro'
 
+  // Xiaomi MiMo
+  | 'mimo/mimo-v2.5'
+  | 'mimo-v2.5'
+  | 'mimo/mimo-v2.5-pro'
+  | 'mimo-v2.5-pro'
+
   // Other open source models
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'

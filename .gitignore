@@ -25,6 +25,7 @@ npm-app/src/__tests__/data/
 debug/
 .context/
 docs/bot-detection.md
+.codex
 
 # Nx cache directories
 .nx/cache

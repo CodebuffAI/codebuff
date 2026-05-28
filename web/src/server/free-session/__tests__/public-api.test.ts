@@ -6,6 +6,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -1134,6 +1135,9 @@ describe('getSessionState', () => {
     // banner can read any entry without caring which model the user was on.
     expect(state.rateLimitsByModel?.[FREEBUFF_KIMI_MODEL_ID]).toEqual(
       expectedRateLimit(FREEBUFF_KIMI_MODEL_ID, 1),
+    )
+    expect(state.rateLimitsByModel?.[FREEBUFF_MIMO_V25_PRO_MODEL_ID]).toEqual(
+      expectedRateLimit(FREEBUFF_MIMO_V25_PRO_MODEL_ID, 1),
     )
   })
 

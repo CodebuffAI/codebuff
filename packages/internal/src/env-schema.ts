@@ -10,6 +10,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   MOONSHOT_API_KEY: z.string().min(1).optional(),
   CANOPYWAVE_API_KEY: z.string().min(1).optional(),
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
+  MIMO_API_KEY: z.string().min(1).optional(),
   SILICONFLOW_API_KEY: z.string().min(1).optional(),
   OPENCODE_API_KEY: z.string().min(1).optional(),
   SERPER_API_KEY: z.string().min(1),
@@ -30,11 +31,13 @@ export const serverEnvSchema = clientEnvSchema.extend({
 
   // Web/Database variables
   DATABASE_URL: z.string().min(1),
+  REDIS_URL: z.string().min(1).optional(),
   CODEBUFF_GITHUB_ID: z.string().min(1),
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
   FREEBUFF_GITHUB_ID: z.string().min(1).optional(),
   FREEBUFF_GITHUB_SECRET: z.string().min(1).optional(),
   NEXTAUTH_URL: z.url().optional(),
+  NEXTAUTH_FREEBUFF_URL: z.url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
@@ -105,6 +108,7 @@ export const serverProcessEnv: ServerInput = {
   MOONSHOT_API_KEY: process.env.MOONSHOT_API_KEY,
   CANOPYWAVE_API_KEY: process.env.CANOPYWAVE_API_KEY,
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+  MIMO_API_KEY: process.env.MIMO_API_KEY,
   SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   OPENCODE_API_KEY: process.env.OPENCODE_API_KEY,
   SERPER_API_KEY: process.env.SERPER_API_KEY,
@@ -120,11 +124,13 @@ export const serverProcessEnv: ServerInput = {
 
   // Web/Database variables
   DATABASE_URL: process.env.DATABASE_URL,
+  REDIS_URL: process.env.REDIS_URL,
   CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
   FREEBUFF_GITHUB_ID: process.env.FREEBUFF_GITHUB_ID,
   FREEBUFF_GITHUB_SECRET: process.env.FREEBUFF_GITHUB_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  NEXTAUTH_FREEBUFF_URL: process.env.NEXTAUTH_FREEBUFF_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,

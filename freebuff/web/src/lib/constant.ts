@@ -1,4 +1,4 @@
-import { env } from '@codebuff/common/env'
+import { getFreebuffAppUrl } from './freebuff-public-env'
 
 export const siteConfig = {
   title: 'Freebuff — the free coding agent',
@@ -35,5 +35,5 @@ export const siteConfig = {
     'Codebuff',
     'open source coding agent',
   ],
-  url: () => env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+  url: getFreebuffAppUrl,
 }

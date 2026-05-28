@@ -173,6 +173,7 @@ async function main() {
     'src/index.tsx',
     '--compile',
     '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
+    '--no-compile-autoload-bunfig', // User project bunfig.toml must not affect the standalone CLI.
     `--target=${targetInfo.bunTarget}`,
     ...(OVERRIDE_COMPILE_EXECUTABLE_PATH
       ? [`--compile-executable-path=${OVERRIDE_COMPILE_EXECUTABLE_PATH}`]

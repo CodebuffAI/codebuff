@@ -20,6 +20,7 @@ import {
   getCliAuthOnboardSearchParams,
   isCliAuthCodeCandidate,
 } from '@/app/onboard/_helpers'
+import { getFreebuffNextAuthUrl } from '@/lib/freebuff-server-env'
 import { logger } from '@/util/logger'
 
 const useJwtOnlyAuth =
@@ -202,7 +203,7 @@ export const authOptions: NextAuthOptions = {
           return baseUrl
         }
 
-        const onboardUrl = new URL(`${baseUrl}/onboard`)
+        const onboardUrl = new URL('/onboard', getFreebuffNextAuthUrl())
         onboardUrl.search = getCliAuthOnboardSearchParams(
           potentialRedirectUrl.searchParams,
           authCode,

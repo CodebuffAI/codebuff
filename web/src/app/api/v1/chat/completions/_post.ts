@@ -68,6 +68,12 @@ import {
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
 import {
+  handleMiMoNonStream,
+  handleMiMoStream,
+  isMiMoModel,
+  MiMoError,
+} from '@/llm-api/mimo'
+import {
   handleMoonshotNonStream,
   handleMoonshotStream,
   isMoonshotModel,
@@ -116,7 +122,10 @@ import type {
 } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
-import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
+import {
+  checkConfiguredFreeModeRateLimit,
+  type RateLimitResult,
+} from './free-mode-rate-limiter'
 import { beginChatCompletionRequestMetrics } from './request-metrics'
 
 export const formatQuotaResetCountdown = (
@@ -157,14 +166,22 @@ export const formatQuotaResetCountdown = (
 
 export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
 export type EndUserSessionFn = typeof endUserSession
-export type CheckFreeModeRateLimitFn = typeof defaultCheckFreeModeRateLimit
+export type CheckFreeModeRateLimitFn = (
+  userId: string,
+) => RateLimitResult | Promise<RateLimitResult>
 export type ResolveFreeModeCountryAccessFn = (
   userId: string,
   req: NextRequest,
   options: FreeModeCountryAccessOptions,
 ) => Promise<FreeModeCountryAccess>
+export type RecordFreebuffUsageDayFn = (params: {
+  userId: string
+}) => Promise<void>
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
+
+const defaultCheckFreeModeRateLimit: CheckFreeModeRateLimitFn = (userId) =>
+  checkConfiguredFreeModeRateLimit(userId, { redisUrl: env.REDIS_URL })
 
 function sampleSuccessLogger(logger: Logger, sampled: boolean): Logger {
   if (sampled) return logger
@@ -219,6 +236,8 @@ export async function postChatCompletions(params: {
   resolveFreeModeCountryAccess?: ResolveFreeModeCountryAccessFn
   /** Optional override for releasing stale waiting-room rows on hard blocks. */
   endFreebuffSession?: EndUserSessionFn
+  /** Optional recorder for successful freebuff chat-completion ingress. */
+  recordFreebuffUsageDay?: RecordFreebuffUsageDayFn
 }) {
   const {
     req,
@@ -235,6 +254,7 @@ export async function postChatCompletions(params: {
     checkFreeModeRateLimit = defaultCheckFreeModeRateLimit,
     resolveFreeModeCountryAccess,
     endFreebuffSession = endUserSession,
+    recordFreebuffUsageDay,
   } = params
   let { logger } = params
   let { trackEvent } = params
@@ -673,7 +693,7 @@ export async function postChatCompletions(params: {
 
     // Rate limit free mode requests (after validation so invalid requests don't consume quota)
     if (isFreeModeRequest) {
-      const rateLimitResult = checkFreeModeRateLimit(userId)
+      const rateLimitResult = await checkFreeModeRateLimit(userId)
       if (rateLimitResult.limited) {
         const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
         const resetTime = new Date(
@@ -806,6 +826,17 @@ export async function postChatCompletions(params: {
       }
     }
 
+    if (isFreeModeRequest && recordFreebuffUsageDay) {
+      try {
+        await recordFreebuffUsageDay({ userId })
+      } catch (error) {
+        logger.error(
+          { error: getErrorObject(error), userId },
+          'Failed to record freebuff usage day',
+        )
+      }
+    }
+
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
     const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
 
@@ -842,17 +873,25 @@ export async function postChatCompletions(params: {
           !useOpenCodeZen &&
           !useCanopyWave &&
           isDeepSeekModel(typedBody.model)
+        const useMiMo =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isMiMoModel(typedBody.model)
         const useFireworks =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           isFireworksModel(typedBody.model)
         const useOpenAIDirect =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           !useFireworks &&
           isOpenAIDirectModel(typedBody.model)
         const baseArgs = {
@@ -874,14 +913,16 @@ export async function postChatCompletions(params: {
                 ? await handleCanopyWaveStream(baseArgs)
                 : useDeepSeek
                   ? await handleDeepSeekStream(baseArgs)
-                  : useFireworks
-                    ? await handleFireworksStream(baseArgs)
-                    : useOpenAIDirect
-                      ? await handleOpenAIStream(baseArgs)
-                      : await handleOpenRouterStream({
-                          ...baseArgs,
-                          openrouterApiKey,
-                        })
+                  : useMiMo
+                    ? await handleMiMoStream(baseArgs)
+                    : useFireworks
+                      ? await handleFireworksStream(baseArgs)
+                      : useOpenAIDirect
+                        ? await handleOpenAIStream(baseArgs)
+                        : await handleOpenRouterStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
 
         trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -914,17 +955,25 @@ export async function postChatCompletions(params: {
           !useOpenCodeZen &&
           !useCanopyWave &&
           isDeepSeekModel(model)
+        const useMiMo =
+          !useMoonshot &&
+          !useOpenCodeZen &&
+          !useCanopyWave &&
+          !useDeepSeek &&
+          isMiMoModel(model)
         const useFireworks =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           isFireworksModel(model)
         const shouldUseOpenAIEndpoint =
           !useMoonshot &&
           !useOpenCodeZen &&
           !useCanopyWave &&
           !useDeepSeek &&
+          !useMiMo &&
           !useFireworks &&
           isOpenAIDirectModel(model)
 
@@ -947,14 +996,16 @@ export async function postChatCompletions(params: {
                 ? handleCanopyWaveNonStream(baseArgs)
                 : useDeepSeek
                   ? handleDeepSeekNonStream(baseArgs)
-                  : useFireworks
-                    ? handleFireworksNonStream(baseArgs)
-                    : shouldUseOpenAIEndpoint
-                      ? handleOpenAINonStream(baseArgs)
-                      : handleOpenRouterNonStream({
-                          ...baseArgs,
-                          openrouterApiKey,
-                        })
+                  : useMiMo
+                    ? handleMiMoNonStream(baseArgs)
+                    : useFireworks
+                      ? handleFireworksNonStream(baseArgs)
+                      : shouldUseOpenAIEndpoint
+                        ? handleOpenAINonStream(baseArgs)
+                        : handleOpenRouterNonStream({
+                            ...baseArgs,
+                            openrouterApiKey,
+                          })
         const result = await nonStreamRequest
 
         trackSuccessEvent({
@@ -989,6 +1040,10 @@ export async function postChatCompletions(params: {
       if (error instanceof DeepSeekError) {
         deepseekError = error
       }
+      let mimoError: MiMoError | undefined
+      if (error instanceof MiMoError) {
+        mimoError = error
+      }
       let moonshotError: MoonshotError | undefined
       if (error instanceof MoonshotError) {
         moonshotError = error
@@ -1019,11 +1074,13 @@ export async function postChatCompletions(params: {
               ? 'CanopyWave'
               : deepseekError
                 ? 'DeepSeek'
-                : fireworksError
-                  ? 'Fireworks'
-                  : openaiError
-                    ? 'OpenAI'
-                    : 'OpenRouter'
+                : mimoError
+                  ? 'MiMo'
+                  : fireworksError
+                    ? 'Fireworks'
+                    : openaiError
+                      ? 'OpenAI'
+                      : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -1044,6 +1101,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            mimoError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1054,6 +1112,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            mimoError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1092,6 +1151,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof DeepSeekError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof MiMoError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {

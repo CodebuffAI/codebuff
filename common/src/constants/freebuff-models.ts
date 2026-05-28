@@ -4,6 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
+import { mimoModels } from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -37,6 +38,13 @@ export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
+export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
+export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
+/** UI-only rollout switch. Backend support and free-mode allowlists remain
+ *  wired even when these models are hidden from the Freebuff picker. */
+export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = false
+/** UI-only rollout switch for the streak indicator in the waiting room. */
+export const FREEBUFF_ENABLE_STREAK_IN_UI = true
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
@@ -72,7 +80,7 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
-export const FREEBUFF_MODELS = [
+const FREEBUFF_CORE_MODELS = [
   {
     id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     displayName: 'DeepSeek V4 Pro',
@@ -101,15 +109,40 @@ export const FREEBUFF_MODELS = [
   },
 ] as const satisfies readonly FreebuffModelOption[]
 
+const FREEBUFF_MIMO_MODELS = [
+  {
+    id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    displayName: 'MiMo 2.5 Pro',
+    tagline: 'Agentic',
+    availability: 'always',
+  },
+  {
+    id: FREEBUFF_MIMO_V25_MODEL_ID,
+    displayName: 'MiMo 2.5',
+    tagline: 'Multimodal',
+    availability: 'always',
+  },
+] as const satisfies readonly FreebuffModelOption[]
+
+export const SUPPORTED_FREEBUFF_MODELS = [
+  ...FREEBUFF_MIMO_MODELS,
+  ...FREEBUFF_CORE_MODELS,
+] as const satisfies readonly FreebuffModelOption[]
+
+export const FREEBUFF_MODELS = [
+  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? FREEBUFF_MIMO_MODELS : []),
+  ...FREEBUFF_CORE_MODELS,
+] as const satisfies readonly FreebuffModelOption[]
+
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
-export const SUPPORTED_FREEBUFF_MODELS = FREEBUFF_MODELS
-
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
-export type SupportedFreebuffModelId = FreebuffModelId
+export type SupportedFreebuffModelId =
+  (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the picker. MiniMax is the

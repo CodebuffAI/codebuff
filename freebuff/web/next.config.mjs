@@ -23,12 +23,12 @@ const autumnShimAbsolute = resolve(import.meta.dirname, autumnShimRelative)
 const nextConfig = {
   outputFileTracingRoot: resolve(import.meta.dirname, '../../'),
   env: {
-    // In development, override the app URL to point to the Freebuff dev server port.
-    // In production, NEXT_PUBLIC_CODEBUFF_APP_URL is set via deployment env vars.
+    // In development, point Freebuff-specific URLs at the Freebuff dev server.
+    // In production, set these via deployment env vars.
     ...(process.env.NODE_ENV === 'development'
       ? {
-          NEXT_PUBLIC_CODEBUFF_APP_URL: `http://localhost:${FREEBUFF_PORT}`,
-          NEXTAUTH_URL: `http://localhost:${FREEBUFF_PORT}`,
+          NEXT_PUBLIC_FREEBUFF_APP_URL: `http://localhost:${FREEBUFF_PORT}`,
+          NEXTAUTH_FREEBUFF_URL: `http://localhost:${FREEBUFF_PORT}`,
         }
       : {}),
   },
