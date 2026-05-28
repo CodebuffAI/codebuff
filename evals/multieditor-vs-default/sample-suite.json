@@ -1,0 +1,33 @@
+{
+  "name": "multieditor-vs-default-smoke",
+  "description": "Seed tasks for comparing the default editor against the deterministic multieditor harness.",
+  "tasks": [
+    {
+      "id": "one-file-bugfix",
+      "title": "One-file bugfix",
+      "prompt": "Fix a localized bug without changing public behavior outside the affected function.",
+      "repository": { "name": "codebuff" },
+      "bucket": "one-file-bugfix",
+      "validationCommands": ["bun test <focused-test-file>", "bun x tsc --noEmit -p <package>/tsconfig.json"],
+      "scoringNotes": ["Applies cleanly", "Minimal diff", "No hallucinated imports"]
+    },
+    {
+      "id": "helper-reuse",
+      "title": "Existing helper reuse",
+      "prompt": "Implement a small feature using an existing nearby helper instead of duplicating logic.",
+      "repository": { "name": "codebuff" },
+      "bucket": "existing-helper-reuse",
+      "validationCommands": ["bun test <focused-test-file>"],
+      "scoringNotes": ["Reuses verified helper", "No duplicated logic", "Preserves existing API"]
+    },
+    {
+      "id": "tests-required",
+      "title": "Tests required",
+      "prompt": "Add behavior that requires updating or adding a focused test.",
+      "repository": { "name": "codebuff" },
+      "bucket": "tests-required",
+      "validationCommands": ["bun test <focused-test-file>"],
+      "scoringNotes": ["Includes relevant test", "Test fails without implementation", "No broad fixture churn"]
+    }
+  ]
+}
