@@ -1,6 +1,6 @@
 import '@/styles/globals.css'
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 
 import {
   OrganizationJsonLd,
@@ -15,6 +15,21 @@ import { fonts } from '@/lib/fonts'
 import { PostHogProvider } from '@/lib/PostHogProvider'
 import SessionProvider from '@/lib/SessionProvider'
 import { cn } from '@/lib/utils'
+
+/**
+ * Lock the viewport so iOS/Android browsers can't double-tap or pinch-zoom
+ * the app, and so focusing an input never triggers Safari's reflow zoom.
+ * Inputs further enforce >=16px font-size to keep iOS from auto-zooming.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#0a0a0b',
+}
 
 export const generateMetadata = (): Metadata => ({
   metadataBase: new URL(siteConfig.url()),

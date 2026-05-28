@@ -82,7 +82,7 @@ export default function Footer() {
         <motion.img
           className="relative mt-4 h-12 w-12"
           style={{ willChange: "transform" }}
-          src="/freebuff-logo.svg"
+          src="/favicon.svg"
           alt="Freebuff Web logo"
           variants={itemVariants}
           whileHover={{

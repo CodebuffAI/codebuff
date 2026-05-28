@@ -51,7 +51,6 @@ import {
   lazy,
   Suspense,
 } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 // Lazy load heavy message components
 const ChatMessages = lazy(() =>
@@ -723,7 +722,7 @@ ${message}`;
               <CardHeader className="px-4 py-3 pb-2">
                 <div className="flex items-center gap-2">
                   <img
-                    src="/freebuff-logo.svg"
+                    src="/favicon.svg"
                     alt="freebuff agent 2.0"
                     className="h-5 w-5 object-contain"
                   />
@@ -809,43 +808,27 @@ ${message}`;
         </DialogContent>
       </Dialog>
 
-      <AnimatePresence mode="wait">
-        {showThreadList ? (
-          <motion.div
-            key="thread-list"
-            className="relative flex h-full w-full min-w-[320px] max-w-[500px] transform-gpu flex-col overflow-hidden bg-white shadow-[0_0_20px_0_rgba(45,45,45,0.18)] dark:border-l dark:border-[#363636] dark:bg-[#282828] dark:shadow-[0_0_28px_0_rgba(0,0,0,0.72)]"
-            initial={{ x: 400, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 400, opacity: 0 }}
-            transition={{
-              duration: 0.4,
-              ease: [0, 0, 0.2, 1] as const,
-            }}
-            style={{ willChange: "transform" }}
-          >
-            <AgentThreadList
-              projectSemanticIdentifier={projectSemanticIdentifier}
-              activeThreadId={
-                project?.active_agent_thread || project?.active_thread
-              }
-              onSelectThread={handleSetActiveThread}
-              onCreateNewThread={handleCreateNewThread}
-              onBack={() => setShowThreadList(false)}
-              isProcessing={isProcessing}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="chat-panel"
-            className="relative flex h-full w-full min-w-[320px] max-w-[500px] transform-gpu flex-col overflow-hidden bg-slate-50 shadow-[0_0_20px_0_rgba(45,45,45,0.18)] dark:border-l dark:border-[#363636] dark:bg-[#282828] dark:shadow-[0_0_28px_0_rgba(0,0,0,0.72)]"
-            initial={{ x: 400, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 400, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0, 0, 0.2, 1] as const }}
-            style={{ willChange: "transform" }}
-          >
+      {/*
+        Thread switcher used to slide in/out with framer-motion. Per design
+        feedback we now swap views instantly — no animation.
+      */}
+      {showThreadList ? (
+        <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-transparent">
+          <AgentThreadList
+            projectSemanticIdentifier={projectSemanticIdentifier}
+            activeThreadId={
+              project?.active_agent_thread || project?.active_thread
+            }
+            onSelectThread={handleSetActiveThread}
+            onCreateNewThread={handleCreateNewThread}
+            onBack={() => setShowThreadList(false)}
+            isProcessing={isProcessing}
+          />
+        </div>
+      ) : (
+        <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-transparent">
             {/* Header with back button and thread title */}
-            <div className="group flex-shrink-0 border-b bg-white px-4 py-2.5 dark:border-[#3a3a3a] dark:bg-[#232323]">
+            <div className="group flex-shrink-0 border-b border-border/60 bg-transparent px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <button
                   onClick={(e) => {
@@ -1194,9 +1177,8 @@ ${message}`;
                 divergenceInfo={divergenceInfo}
               />
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </>
   );
 }

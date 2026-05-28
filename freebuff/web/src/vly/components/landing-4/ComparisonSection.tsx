@@ -57,7 +57,7 @@ export default function ComparisonSection() {
                     <div className="flex flex-col items-start justify-start">
                       <div className="flex items-center gap-2">
                         <Image
-                          src="/freebuff-logo.svg"
+                          src="/favicon.svg"
                           alt="vly"
                           width={24}
                           height={24}

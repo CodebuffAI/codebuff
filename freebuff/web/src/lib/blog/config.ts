@@ -17,7 +17,7 @@ export const blogConfig = {
   defaultDescription:
     'The free coding agent. No subscription. No configuration. Start in seconds.',
   /** Default OG image (lives in /public). */
-  defaultOgImage: '/freebuff-logo.svg',
+  defaultOgImage: '/favicon.svg',
   /** Path that hosts the blog under the site root. */
   basePath: '/blog',
   /** Default author id if a post forgets to set one. */

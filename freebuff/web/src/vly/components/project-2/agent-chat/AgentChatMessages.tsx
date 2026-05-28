@@ -202,8 +202,8 @@ const ThinkingIndicator: React.FC = () => {
   };
 
   return (
-    <span className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-      <Loader className="h-2.5 w-2.5 animate-spin text-blue-600" />
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Loader className="h-3 w-3 animate-spin text-primary" />
       <span className="animate-pulse font-normal">Thinking</span>
       <span className="font-mono tabular-nums">{formatTime(elapsedMs)}</span>
     </span>
@@ -216,10 +216,10 @@ const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
   stateMessage,
 }) => {
   const stateColors = {
-    Processing: "text-blue-600",
-    Completed: "text-green-600",
-    Cancelled: "text-gray-500",
-    Error: "text-red-600",
+    Processing: "text-primary",
+    Completed: "text-emerald-400",
+    Cancelled: "text-muted-foreground",
+    Error: "text-red-400",
   };
 
   // Show "Thinking" instead of "Processing"
@@ -228,8 +228,9 @@ const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
   return (
     <span
       className={cn(
-        "text-[10px] font-normal",
-        stateColors[state as keyof typeof stateColors] || "text-gray-500",
+        "text-xs font-normal",
+        stateColors[state as keyof typeof stateColors] ||
+          "text-muted-foreground",
       )}
     >
       {displayText}
@@ -283,7 +284,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
           parts.push(
             <code
               key={key++}
-              className="rounded bg-zinc-100 px-1 font-mono text-[10px] text-zinc-700"
+              className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/85"
             >
               {matched.slice(1, -1)}
             </code>,
@@ -308,7 +309,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
           result.push(
             <pre
               key={`code-${index}`}
-              className="my-2 overflow-x-auto rounded bg-zinc-100 p-2 font-mono text-[10px] leading-relaxed text-zinc-800"
+              className="my-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed text-foreground/85"
             >
               <code>{codeBlockLines.join("\n")}</code>
             </pre>,
@@ -333,14 +334,14 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
         const content = headerMatch[2];
         const Tag = `h${Math.min(level + 2, 6)}` as "h3" | "h4" | "h5" | "h6";
         const sizes = {
-          1: "text-sm font-semibold mt-2 mb-1",
-          2: "text-xs font-semibold mt-2 mb-1",
-          3: "text-xs font-medium mt-1.5 mb-0.5",
+          1: "text-base font-semibold mt-3 mb-1",
+          2: "text-sm font-semibold mt-2.5 mb-1",
+          3: "text-sm font-medium mt-2 mb-0.5",
         };
         result.push(
           <Tag
             key={index}
-            className={`${sizes[level as keyof typeof sizes] || sizes[3]} text-zinc-900`}
+            className={`${sizes[level as keyof typeof sizes] || sizes[3]} text-foreground`}
           >
             {renderInline(content)}
           </Tag>,
@@ -363,10 +364,13 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
         result.push(
           <ul
             key={`list-${index}`}
-            className="mb-1.5 ml-4 mt-1 list-disc space-y-0.5"
+            className="mb-2 ml-5 mt-1 list-disc space-y-1"
           >
             {listItems.map((item, i) => (
-              <li key={i} className="text-xs leading-relaxed text-zinc-800">
+              <li
+                key={i}
+                className="text-sm leading-relaxed text-foreground/85"
+              >
                 {renderInline(item)}
               </li>
             ))}
@@ -388,7 +392,10 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
 
       // Regular paragraph
       result.push(
-        <p key={index} className="mb-1 text-xs leading-relaxed text-zinc-800">
+        <p
+          key={index}
+          className="mb-1.5 text-sm leading-relaxed text-foreground/85"
+        >
           {renderInline(line)}
         </p>,
       );
@@ -397,9 +404,12 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
     // Flush any remaining list
     if (inList && listItems.length > 0) {
       result.push(
-        <ul key="list-final" className="mb-1.5 ml-4 mt-1 list-disc space-y-0.5">
+        <ul key="list-final" className="mb-2 ml-5 mt-1 list-disc space-y-1">
           {listItems.map((item, i) => (
-            <li key={i} className="text-xs leading-relaxed text-zinc-800">
+            <li
+              key={i}
+              className="text-sm leading-relaxed text-foreground/85"
+            >
               {renderInline(item)}
             </li>
           ))}
@@ -412,7 +422,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
       result.push(
         <pre
           key="code-final"
-          className="my-2 overflow-x-auto rounded bg-zinc-100 p-2 font-mono text-[10px] leading-relaxed text-zinc-800"
+          className="my-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed text-foreground/85"
         >
           <code>{codeBlockLines.join("\n")}</code>
         </pre>,
@@ -450,17 +460,17 @@ const AssistantStreamItem: React.FC<{
   // Handle thinking blocks - always collapsed by default
   if (isThinkingType) {
     return (
-      <div className="mb-1">
+      <div className="mb-2">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1 text-[10px] text-zinc-400 transition-colors hover:text-zinc-500">
-            <span className="font-normal">Thinking...</span>
+          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground/80">
+            <span className="font-normal">Thinking…</span>
             <ChevronDown
-              className={`h-2.5 w-2.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+              className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-0.5">
-              <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-zinc-400">
+            <div className="mt-1 border-l-2 border-border/60 pl-3">
+              <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                 {item.content}
               </p>
             </div>
@@ -473,9 +483,9 @@ const AssistantStreamItem: React.FC<{
   // Always show text/assistant types, only collapse other types
   if (isTextType) {
     return (
-      <div className="mb-1.5">
+      <div className="mb-2">
         {item.title && (
-          <div className="mb-1 text-[11px] font-medium text-zinc-600">
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
             {item.title}
           </div>
         )}
@@ -504,17 +514,17 @@ const AssistantStreamItem: React.FC<{
     }
 
     return (
-      <div className="mb-1.5">
+      <div className="mb-2">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-[11px] text-zinc-500 transition-colors hover:text-zinc-700">
-            <span className="font-medium">{displayTitle}</span>
+          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground/80">
+            <span>{displayTitle}</span>
             <ChevronDown
               className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-1">
-              <pre className="whitespace-pre-wrap font-mono text-[10px] text-zinc-700">
+            <div className="mt-1 border-l-2 border-border/60 pl-3">
+              <pre className="whitespace-pre-wrap font-mono text-xs text-foreground/75">
                 {item.content}
               </pre>
             </div>
@@ -526,13 +536,13 @@ const AssistantStreamItem: React.FC<{
 
   // For other types, show content directly with title
   return (
-    <div className="mb-1.5">
+    <div className="mb-2">
       {item.title && (
-        <div className="mb-1 text-[11px] font-medium text-zinc-600">
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">
           {item.title}
         </div>
       )}
-      <pre className="whitespace-pre-wrap font-mono text-[10px] text-zinc-700">
+      <pre className="whitespace-pre-wrap font-mono text-xs text-foreground/75">
         {item.content}
       </pre>
     </div>
@@ -815,11 +825,11 @@ const AgentMessageCard: React.FC<{
 
   return (
     <div className="mb-6 w-full max-w-full overflow-hidden">
-      {/* User Message with Google Docs themed outline */}
+      {/* User Message — softer, theme-aware bubble */}
       {message.user_message && (
-        <div className="group relative mb-3 flex items-center gap-2">
-          <div className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.12)] transition-all duration-200 group-hover:mr-8">
-            <p className="text-xs leading-relaxed text-zinc-900">
+        <div className="group relative mb-4 flex items-center gap-2">
+          <div className="flex-1 rounded-xl bg-muted/60 px-4 py-2.5 transition-all duration-200 group-hover:mr-8">
+            <p className="text-sm leading-relaxed text-foreground">
               {message.user_message}
             </p>
           </div>
@@ -926,10 +936,8 @@ const AgentMessageCard: React.FC<{
         </div>
       ) : null}
 
-      {/* Status and metadata at the bottom - compact and subtle */}
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-zinc-400">
-        {/* Show combined spinner + pulsating thinking + count-up when processing/streaming */}
-        {/* Only show in status area if we have stream content (to avoid double spinner when no messages) */}
+      {/* Status and metadata at the bottom — compact and subtle */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {isStreaming && hasStream && <ThinkingIndicator />}
         {!isStreaming && (
           <MessageStateBadge
@@ -939,12 +947,14 @@ const AgentMessageCard: React.FC<{
         )}
         {message.credits_deducted !== undefined &&
           message.credits_deducted > 0 && (
-            <span className="font-mono text-zinc-400">
+            <span className="font-mono text-muted-foreground">
               {formatCreditsDisplay(message.credits_deducted)}
             </span>
           )}
         {message.model_used && (
-          <span className="font-mono text-zinc-400">{message.model_used}</span>
+          <span className="font-mono text-muted-foreground">
+            {message.model_used}
+          </span>
         )}
       </div>
 

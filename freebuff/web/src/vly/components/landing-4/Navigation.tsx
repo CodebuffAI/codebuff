@@ -148,7 +148,7 @@ export default function Navigation({
           aria-label="Go to homepage"
         >
           <Image
-            src="/freebuff-logo.svg"
+            src="/favicon.svg"
             alt="Logo"
             width={48}
             height={48}

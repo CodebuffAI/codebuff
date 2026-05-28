@@ -41,7 +41,7 @@ export interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  logoSrc = '/freebuff-logo.svg',
+  logoSrc = '/favicon.svg',
   logoAlt = 'Freebuff Web',
   className = '',
   showHome = false,
@@ -181,8 +181,8 @@ export const Header: React.FC<HeaderProps> = ({
       className={`fixed left-0 right-0 top-0 z-50 w-full border-b border-transparent bg-transparent transition-all duration-300 ${className}`}
     >
       <div
-        className={`mx-auto flex max-w-[1280px] items-center justify-between px-8 transition-all duration-300 ${
-          isScrolled ? 'py-2' : 'py-4'
+        className={`mx-auto flex max-w-[1280px] items-center justify-between px-4 transition-all duration-300 sm:px-6 md:px-8 ${
+          isScrolled ? 'py-2' : 'py-3 sm:py-4'
         }`}
       >
         <div
@@ -198,7 +198,7 @@ export const Header: React.FC<HeaderProps> = ({
               alt={logoAlt}
               width={100}
               height={100}
-              className="h-[60px] w-[60px] object-contain sm:h-[80px] sm:w-[80px] md:h-[100px] md:w-[100px]"
+              className="h-10 w-10 object-contain sm:h-[60px] sm:w-[60px] md:h-[80px] md:w-[80px]"
             />
           </Link>
         </div>

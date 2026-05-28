@@ -615,7 +615,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     if (!isHydrated) {
       return (
         <div className="relative mx-4 mb-4 mt-2 flex-shrink-0">
-          <div className="rounded-xl border border-border bg-background">
+          <div className="rounded-xl bg-muted/40">
             <div className="relative min-h-[120px] animate-pulse rounded-xl bg-muted/50" />
           </div>
         </div>
@@ -627,7 +627,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
         <div className="relative mx-4 mb-4 mt-2 flex-shrink-0">
           {/* Message Queue Indicator */}
           {queuedMessages.length > 0 && (
-            <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 transition-all duration-300 ease-in-out dark:border-[#575757] dark:bg-[#282828]/80">
+            <div className="mb-2 rounded-xl bg-muted/40 px-3 py-2 transition-all duration-300 ease-in-out">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 animate-pulse text-gray-500 dark:text-zinc-300" />
@@ -749,10 +749,10 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
 
                 <div
                   ref={dropZoneRef}
-                  className={`relative rounded-xl border transition-all duration-200 focus-within:border-border focus-within:shadow-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 ${
+                  className={`relative rounded-xl transition-all duration-200 focus-within:shadow-none focus-within:outline-none focus-within:ring-1 focus-within:ring-border/60 focus-within:ring-offset-0 ${
                     isDragOver
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background"
+                      ? "bg-primary/10 ring-1 ring-primary"
+                      : "bg-muted/40"
                   }`}
                   style={{
                     boxShadow: "none",
@@ -912,13 +912,13 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                               type="button"
                               onClick={onSwitchAgent}
                               disabled={isProcessing}
-                              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-zinc-500 transition-colors hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:text-zinc-100 ${
+                              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${
                                 compactMode ? "text-[10px]" : "text-xs"
                               }`}
                             >
                               <Sparkles className="h-3 w-3" />
                               <span>Agent</span>
-                              <span className="rounded-full border border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-700">
+                              <span className="rounded-full bg-primary/15 px-1.5 py-0 text-[10px] font-medium text-primary">
                                 New
                               </span>
                             </button>

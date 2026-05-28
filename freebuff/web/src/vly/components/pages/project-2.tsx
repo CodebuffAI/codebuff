@@ -2,9 +2,14 @@
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
+import {
+  usePaginatedQuery,
+  useQuery,
+  useMutation,
+  useConvexAuth,
+} from "convex/react";
 import { motion } from "framer-motion";
-import { Loader, MessageCircle } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   useState,
@@ -162,6 +167,7 @@ function ProjectWrapper({
   shouldShowPublicModel?: boolean;
 }) {
   const { projectTheme, toggleProjectTheme } = useProjectPageTheme();
+  const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
 
   // Determine which chat UI to show based on active thread type
@@ -226,9 +232,22 @@ function ProjectWrapper({
     project ? { projectId: project._id } : "skip",
   );
 
-  // Only show loading if project is loading
-  // entryPoints and streamedMessages can load independently
-  const isLoading = project === undefined;
+  // We treat the page as loading while EITHER Convex auth is still resolving
+  // OR the project query itself has not landed. This prevents the "not found"
+  // flash that happens when the query races ahead of auth and returns null
+  // before the auth token reaches the backend. entryPoints/streamedMessages
+  // are intentionally allowed to load independently.
+  const isLoading = isAuthLoading || project === undefined;
+
+  // Stable "auth has settled" flag: stays true once we observe that Convex
+  // auth finished loading. We use this to delay marking a project as
+  // "not-found" until after auth has had a real chance to be applied.
+  const [hasAuthSettled, setHasAuthSettled] = useState(false);
+  useEffect(() => {
+    if (!isAuthLoading) {
+      setHasAuthSettled(true);
+    }
+  }, [isAuthLoading]);
 
   // Determine project status (non-blocking)
   const [projectStatus, setProjectStatus] = useState<ProjectStatus | null>(
@@ -240,10 +259,13 @@ function ProjectWrapper({
     // Only check migration status after project has loaded
     if (project === undefined) return;
 
-    // Check if project exists
+    // Don't even consider "not-found" until we know auth is fully settled
+    // AND the user is authenticated. Otherwise a transient null from a
+    // pre-auth query run would trigger the not-found dialog briefly.
     if (project === null) {
-      // Async to avoid setState-in-effect warning
-      setTimeout(() => setProjectStatus("not-found"), 0);
+      if (hasAuthSettled && isAuthenticated) {
+        setTimeout(() => setProjectStatus("not-found"), 0);
+      }
       return;
     }
 
@@ -293,7 +315,14 @@ function ProjectWrapper({
 
     // Project is accessible and migrated - defer to avoid cascading renders
     setTimeout(() => setProjectStatus(null), 0);
-  }, [project, migrationRecord, semanticIdentifier, allowProjectCalled]);
+  }, [
+    project,
+    migrationRecord,
+    semanticIdentifier,
+    allowProjectCalled,
+    hasAuthSettled,
+    isAuthenticated,
+  ]);
 
   // Auto-refresh when migration completes
   useEffect(() => {
@@ -423,12 +452,29 @@ function ProjectWrapper({
   const [showDeploymentDialog, setShowDeploymentDialog] = useState(
     shouldShowPublicModel,
   );
-  const [isChatVisible, setIsChatVisible] = useState(true);
+  // Mobile-only "tab" state. Desktop renders chat and iframe side-by-side
+  // and ignores this entirely. On mobile we swap full-screen between the
+  // chat view and the preview view, with a fixed bottom tab bar.
+  const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
 
-  // Whether the chat pane is in its "focused / expanded" state. Clicking
-  // inside the chat expands it; clicking outside collapses it back.
+  // Whether the chat pane is in its "focused / expanded" state on desktop.
+  // Triggered by focusing the chat input; collapsed by clicking the
+  // "Click to test" overlay on the iframe.
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const chatAsideRef = useRef<HTMLElement>(null);
+
+  // Active agent thread — used to badge the mobile Chat tab while the
+  // assistant is working in the background so the user doesn't lose
+  // sight of progress while they're on the Preview tab.
+  const activeAgentThread = useQuery(
+    api.coding_agent.cli_agent.agent_thread.getAgentThreadPublic,
+    project?.active_agent_thread
+      ? { threadId: project.active_agent_thread }
+      : "skip",
+  );
+  const isChatProcessing =
+    project?.state === "processing" ||
+    activeAgentThread?.isProcessing === true;
 
   // Track whether we've revealed the iframe for the very first time on this
   // project. Brand new projects start in "processing" / "initializing" — we
@@ -568,42 +614,59 @@ function ProjectWrapper({
     }
   }, [hasRevealedIframe, project]);
 
-  // ── Chat expand / collapse on focus ────────────────────────────────
-  // Listen at the document level so any click outside the chat aside
-  // collapses it back. Pointerdown beats click for snappy UX.
+  // ── Chat expand / collapse via explicit, intentional triggers ───────
+  // Per design feedback we no longer auto-expand on any pointerdown in the
+  // chat and no longer auto-collapse on outside clicks. The two triggers
+  // are now:
+  //   • EXPAND  → user focuses the chat input/textarea (focusin event
+  //     bubbles out of <textarea>/<input> inside the chat aside).
+  //   • COLLAPSE → user clicks the "Click to test" overlay on the iframe
+  //     (wired via the onClickToTest callback into ProjectIframeArea).
   useEffect(() => {
-    if (!isChatExpanded) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const aside = chatAsideRef.current;
-      if (!aside) return;
-      const target = event.target as Node | null;
-      if (target && !aside.contains(target)) {
-        setIsChatExpanded(false);
+    if (isMobile) return;
+    const aside = chatAsideRef.current;
+    if (!aside) return;
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      // Only expand when the focus lands on an actual input control
+      // (textarea or text input). Buttons, dropdowns, links, etc. are
+      // intentionally ignored so the chat keeps its compact shape.
+      const tag = target.tagName;
+      const isTextInput =
+        tag === "TEXTAREA" ||
+        (tag === "INPUT" &&
+          (target as HTMLInputElement).type !== "file" &&
+          (target as HTMLInputElement).type !== "button" &&
+          (target as HTMLInputElement).type !== "checkbox") ||
+        target.isContentEditable === true;
+      if (isTextInput) {
+        setIsChatExpanded(true);
       }
     };
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () =>
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [isChatExpanded]);
 
+    aside.addEventListener("focusin", handleFocusIn);
+    return () => {
+      aside.removeEventListener("focusin", handleFocusIn);
+    };
+  }, [isMobile, project?._id]);
+
+  // Show a single, polished loading screen while either auth is resolving or
+  // the project query hasn't returned yet. We intentionally use the SAME
+  // screen for both states so users never see a flash of empty/not-found
+  // before auth completes.
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background font-sans">
-        <main className="flex flex-1 flex-col items-center justify-center bg-background p-4">
-          <div className="flex flex-col items-center gap-4">
-            <Loader className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Loading project…
-            </p>
-          </div>
-        </main>
-      </div>
-    );
+    return <ProjectLoadingScreen />;
   }
 
-  // This should not happen given our checks above, but TypeScript guard
-  // If project doesn't exist, show minimal UI with the dialog overlay
+  // After auth + project query have both settled, if the project is still
+  // missing we either keep waiting (auth not authenticated → middleware will
+  // redirect to /login shortly) or surface the not-found dialog.
   if (!project) {
+    if (!hasAuthSettled || !isAuthenticated) {
+      return <ProjectLoadingScreen />;
+    }
     return (
       <>
         <div className="flex min-h-screen flex-col bg-background font-sans">
@@ -674,59 +737,63 @@ function ProjectWrapper({
         />
       </Suspense>
 
-      <div className="project-page-root flex h-screen flex-col overflow-hidden bg-background">
-        {/* Top bar (compact Lovable-style) */}
-        <div className="relative z-50 flex-shrink-0">
-          <TopBar
-            project={project}
-            projectTheme={projectTheme}
-            onToggleProjectTheme={toggleProjectTheme}
-          />
-        </div>
+      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-background">
+        {/* Top bar — hidden on the mobile Preview tab so the iframe gets
+            the full screen. Chat tab still shows it for project context. */}
+        {(!isMobile || mobileView === "chat") && (
+          <div className="relative z-50 flex-shrink-0">
+            <TopBar
+              project={project}
+              projectTheme={projectTheme}
+              onToggleProjectTheme={toggleProjectTheme}
+            />
+          </div>
+        )}
 
         {/* Sync banner sits just under the top bar */}
-        <Suspense fallback={null}>
-          <SyncStatusBanner syncStatus={syncStatus} activeView={activeView} />
-        </Suspense>
+        {(!isMobile || mobileView === "chat") && (
+          <Suspense fallback={null}>
+            <SyncStatusBanner syncStatus={syncStatus} activeView={activeView} />
+          </Suspense>
+        )}
 
-        {/* Main split: chat left | iframe area right.
-            On desktop, the widths animate when the chat is "focused" so the
-            chat grows and the iframe compacts; clicking anywhere outside the
-            chat aside collapses back to default proportions. */}
-        <div className="flex min-h-0 flex-1">
-          {/* ── Chat (left) ───────────────────────────────────────────── */}
+        {/* Main split: chat left | iframe area right (desktop).
+            On mobile we render both stacked and toggle visibility with
+            display:none so neither view loses internal state when the
+            user flips between Chat and Preview tabs. */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* ── Chat ──────────────────────────────────────────────────── */}
           <motion.aside
             ref={chatAsideRef}
-            onPointerDown={() => {
-              if (!isMobile) setIsChatExpanded(true);
-            }}
             initial={false}
             animate={
               isMobile
                 ? undefined
                 : isChatExpanded
-                  ? { width: "62%" }
-                  : { width: "44%" }
+                  ? { width: "58%" }
+                  : { width: "42%" }
             }
             transition={{
               duration: 0.42,
               ease: [0.22, 1, 0.36, 1] as const,
             }}
-            className={`relative flex h-full flex-col border-r border-border/60 bg-card/40 ${
+            className={`relative flex h-full min-h-0 flex-col overflow-hidden bg-background ${
               isMobile
-                ? `absolute inset-y-0 left-0 z-40 w-full max-w-[480px] transform transition-transform ${
-                    isChatVisible ? "translate-x-0" : "-translate-x-full"
-                  }`
-                : "min-w-[420px] max-w-[820px]"
+                ? `w-full ${mobileView === "chat" ? "flex" : "hidden"}`
+                : "min-w-[400px] max-w-[820px]"
             }`}
             style={isMobile ? undefined : { willChange: "width" }}
           >
-            {/* Floating chat toolbar (version history + GitHub sync) */}
-            <ChatTopActions
-              semanticIdentifier={semanticIdentifier}
-              projectId={project._id}
-              syncStatus={syncStatus}
-            />
+            {/* Floating chat toolbar — hidden on mobile (those actions
+                live in the project dropdown instead, to keep the chat
+                surface uncluttered for small screens). */}
+            {!isMobile && (
+              <ChatTopActions
+                semanticIdentifier={semanticIdentifier}
+                projectId={project._id}
+                syncStatus={syncStatus}
+              />
+            )}
 
             <ChatStorageProvider
               projectSemanticIdentifier={semanticIdentifier}
@@ -770,8 +837,12 @@ function ProjectWrapper({
             </ChatStorageProvider>
           </motion.aside>
 
-          {/* ── Iframe area (right) ──────────────────────────────────── */}
-          <section className="relative min-w-0 flex-1">
+          {/* ── Iframe area ──────────────────────────────────────────── */}
+          <section
+            className={`relative min-h-0 min-w-0 flex-1 overflow-hidden ${
+              isMobile && mobileView !== "preview" ? "hidden" : ""
+            }`}
+          >
             <ProjectIframeArea
               project={project}
               semanticIdentifier={semanticIdentifier}
@@ -785,21 +856,26 @@ function ProjectWrapper({
               isRevealed={hasRevealedIframe}
               isChatExpanded={!isMobile && isChatExpanded}
               refreshTrigger={iframeRefreshKey}
+              onClickToTest={() => {
+                if (!isMobile) setIsChatExpanded(false);
+              }}
+              hideTabs={isMobile}
+              openInNewTab={() => {
+                const url =
+                  project?.pretty_preview_url ?? project?.preview_url ?? "";
+                if (url) window.open(url, "_blank", "noopener,noreferrer");
+              }}
             />
           </section>
         </div>
 
-        {/* Mobile chat toggle */}
+        {/* ── Mobile bottom tab bar ──────────────────────────────────── */}
         {isMobile && (
-          <div className="flex-shrink-0 border-t border-border/60 bg-background/95 px-2 py-1.5 backdrop-blur">
-            <button
-              onClick={() => setIsChatVisible(!isChatVisible)}
-              className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <MessageCircle className="h-4 w-4" />
-              {isChatVisible ? "Hide chat" : "Show chat"}
-            </button>
-          </div>
+          <MobileTabBar
+            view={mobileView}
+            onChange={setMobileView}
+            isChatProcessing={isChatProcessing}
+          />
         )}
       </div>
 
@@ -815,6 +891,28 @@ function ProjectWrapper({
         onOpenChange={setShowStarterPopup}
       />
     </>
+  );
+}
+
+/**
+ * Shared loading screen for every "we don't have the project yet" state:
+ * auth resolving, project query in-flight, or auth landed but query still
+ * re-running. Renders flush with the app theme so the user never sees a
+ * blank or "not found" flash on their way to the editor.
+ */
+function ProjectLoadingScreen() {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-background">
+      <img
+        src="/favicon.svg"
+        alt="Freebuff"
+        className="h-9 w-9 animate-pulse object-contain opacity-90"
+      />
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader className="h-3.5 w-3.5 animate-spin text-primary" />
+        <span>Loading project…</span>
+      </div>
+    </div>
   );
 }
 
@@ -839,10 +937,24 @@ function ChatTopActions({
   return (
     <div className="pointer-events-none absolute right-2 top-2 z-30 flex gap-0.5">
       <button
-        onClick={() =>
-          router.push(`/web/project/${semanticIdentifier}?view=versions`)
+        onClick={() => {
+          if (syncStatus) {
+            window.open(
+              `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}/commits`,
+              "_blank",
+              "noopener,noreferrer",
+            );
+          } else {
+            router.push(
+              `/web/project/${semanticIdentifier}/settings?section=github`,
+            );
+          }
+        }}
+        title={
+          syncStatus
+            ? "Version history (open commits on GitHub)"
+            : "Connect GitHub to view version history"
         }
-        title="Version history"
         aria-label="Version history"
         className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
       >
@@ -868,9 +980,12 @@ function ChatTopActions({
             window.open(
               `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`,
               "_blank",
+              "noopener,noreferrer",
             );
           } else {
-            router.push(`/web/project/${semanticIdentifier}?view=github`);
+            router.push(
+              `/web/project/${semanticIdentifier}/settings?section=github`,
+            );
           }
         }}
         title={syncStatus ? "View on GitHub" : "Connect GitHub"}
@@ -888,5 +1003,112 @@ function ChatTopActions({
         </svg>
       </button>
     </div>
+  );
+}
+
+/**
+ * Fixed bottom tab bar shown only on mobile. Large icon-first tap targets
+ * (Lovable-style) for switching between Chat and Preview. The Chat tab
+ * shows a pulsing dot when the agent is processing so the user always
+ * knows there's work in flight, even while they're testing the preview.
+ */
+function MobileTabBar({
+  view,
+  onChange,
+  isChatProcessing,
+}: {
+  view: "chat" | "preview";
+  onChange: (next: "chat" | "preview") => void;
+  isChatProcessing: boolean;
+}) {
+  return (
+    <nav
+      className="relative z-40 flex flex-shrink-0 items-stretch justify-around gap-1 bg-background/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1.5 backdrop-blur-xl"
+      aria-label="Project navigation"
+    >
+      <MobileTabButton
+        active={view === "chat"}
+        onClick={() => onChange("chat")}
+        label="Chat"
+        showDot={isChatProcessing && view !== "chat"}
+        icon={
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        }
+      />
+      <MobileTabButton
+        active={view === "preview"}
+        onClick={() => onChange("preview")}
+        label="Preview"
+        icon={
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="14" rx="2" />
+            <path d="M8 21h8" />
+            <path d="M12 18v3" />
+          </svg>
+        }
+      />
+    </nav>
+  );
+}
+
+function MobileTabButton({
+  active,
+  onClick,
+  label,
+  icon,
+  showDot,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: React.ReactNode;
+  showDot?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={label}
+      className={`relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium transition-colors ${
+        active
+          ? "bg-muted/70 text-foreground"
+          : "text-foreground/65 hover:bg-muted/40 hover:text-foreground"
+      }`}
+    >
+      {showDot && (
+        <span
+          className="absolute right-[28%] top-1.5 flex h-2 w-2 items-center justify-center"
+          aria-hidden="true"
+        >
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/70" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+        </span>
+      )}
+      <span aria-hidden="true">{icon}</span>
+      <span>{label}</span>
+    </button>
   );
 }

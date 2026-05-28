@@ -47,7 +47,7 @@ export function VlyCoin({ size = "md", className }: VlyCoinProps) {
       >
         {/* Current Freebuff Web logo */}
         <img
-          src="/freebuff-logo.svg"
+          src="/favicon.svg"
           alt="Freebuff credit"
           width={config.logo.width}
           height={config.logo.height}

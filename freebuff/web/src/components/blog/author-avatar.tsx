@@ -32,7 +32,7 @@ const GENERIC_AVATARS = new Set([
   '/logo-icon.png',
   '/logo-icon-black-bg.png',
   '/freebuff-icon.svg',
-  '/freebuff-logo.svg',
+  '/favicon.svg',
   '/Placeholder.svg',
 ])
 

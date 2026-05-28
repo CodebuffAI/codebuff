@@ -25,7 +25,15 @@ import {
 const CreateProjectModal = lazy(
   () => import("@/vly/components/CreateProjectModal"),
 );
-import { Loader, AlertTriangle, Plus, Sparkles } from "lucide-react";
+import {
+  Loader,
+  AlertTriangle,
+  Plus,
+  Sparkles,
+  ArrowUpRight,
+  Trash2,
+  ChevronDown,
+} from "lucide-react";
 import { useCustomer } from "autumn-js/react";
 import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
 import type { AutumnCustomer } from "@/vly/lib/billing/types";
@@ -175,9 +183,9 @@ export default function Dashboard() {
       showHome={true}
       showParallax={false}
       showFooter={!isSearching && !isCreateProjectModalOpen}
-      contentClassName="pt-[16vh]"
+      contentClassName="pt-6 sm:pt-[16vh]"
     >
-      <div className="w-full space-y-8 px-4 md:px-20">
+      <div className="w-full max-w-full space-y-6 overflow-x-hidden px-4 sm:space-y-8 md:px-12 lg:px-20">
         {/* Profile and Featured Sites Section - Commented out for now */}
         {/* <div className="flex flex-col items-start justify-start gap-8 self-stretch lg:flex-row">
             Profile Card
@@ -500,286 +508,258 @@ export default function Dashboard() {
             </div>
           </div> */}
 
-        {/* My Projects Section */}
-        <div className="flex flex-col items-start justify-start gap-2 self-stretch">
-          <div className="justify-start self-stretch font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
-            My Projects
+        {/* My Projects header — borderless, terminal-style toolbar that
+            matches the project page's aesthetic. */}
+        <div className="flex flex-col items-start justify-start gap-4 self-stretch">
+          <div className="flex w-full items-end justify-between gap-4">
+            <div>
+              <h1 className="font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+                My Projects
+              </h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Pick up where you left off or spin up a new build.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsCreateProjectModalOpen(true)}
+              className="hidden h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)] sm:inline-flex"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="font-['Geist'] text-sm">New project</span>
+            </button>
           </div>
-          <div className="flex flex-col items-start justify-start gap-3.5 self-stretch">
-            <div className="inline-flex items-center justify-start gap-7 self-stretch rounded-[90px]">
+
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex-1">
               <SearchInput
-                placeholder="Search by project name"
+                placeholder="Search projects by name…"
                 onSearch={(term) => {
                   setSearchTerm(term);
                   setIsSearching(term.length > 0);
                 }}
               />
             </div>
-            <div className="inline-flex items-end justify-between self-stretch">
-              <div className="flex h-9 items-center justify-start gap-7">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex items-center justify-center gap-2 rounded-[5px] border border-border bg-secondary px-3 py-2 text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground">
-                      <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
-                        {sortBy === "lastViewed"
-                          ? "Last Viewed By Me"
-                          : "Alphabetically"}
-                      </div>
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-48 border-border bg-popover text-popover-foreground">
-                    <DropdownMenuItem
-                      onClick={() => setSortBy("lastViewed")}
-                      className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
-                    >
-                      Last Viewed By Me
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setSortBy("alphabetical")}
-                      className="cursor-pointer px-3 py-1.5 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
-                    >
-                      Alphabetically
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <button
-                onClick={() => setIsCreateProjectModalOpen(true)}
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-primary px-3 py-2 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)]"
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex h-10 items-center justify-center gap-2 rounded-lg bg-muted/40 px-3 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground">
+                  <span className="font-['Geist'] font-medium">
+                    {sortBy === "lastViewed"
+                      ? "Last viewed"
+                      : "Alphabetical"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-44 rounded-lg border-0 bg-popover/95 p-1 text-popover-foreground shadow-lg shadow-black/30 backdrop-blur"
               >
-                <div className="justify-start font-['Geist'] text-sm leading-tight">
-                  Create Project
-                </div>
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <DropdownMenuItem
+                  onClick={() => setSortBy("lastViewed")}
+                  className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-foreground/85 focus:bg-muted focus:text-foreground"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
-            </div>
+                  Last viewed
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setSortBy("alphabetical")}
+                  className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-foreground/85 focus:bg-muted focus:text-foreground"
+                >
+                  Alphabetical
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              onClick={() => setIsCreateProjectModalOpen(true)}
+              className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)] sm:hidden"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="font-['Geist'] text-sm">New project</span>
+            </button>
           </div>
         </div>
 
-        {/* Project Grid */}
-        <div className="mt-[20px] flex min-h-[400px] flex-col items-start justify-start gap-3.5 self-stretch">
+        {/* Project Grid — borderless cards inspired by the project page
+            chat aesthetic. Hover reveals action affordances; the rest of
+            the time each card just floats on the surface as a soft tile. */}
+        <div className="mt-2 flex min-h-[400px] flex-col items-start justify-start gap-3.5 self-stretch">
           {isLoadingProjects ? (
             <div
-              className="grid w-full auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3"
+              className="grid w-full auto-rows-fr grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3"
               aria-label="Loading your projects"
             >
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="inline-flex flex-col items-start justify-start gap-4"
+                  className="flex flex-col gap-3 rounded-2xl bg-muted/30 p-3"
                 >
-                  <div className="relative h-52 w-full overflow-hidden rounded-[5px] border border-border/60 bg-gradient-to-br from-card to-secondary">
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted/40">
                     <div className="absolute inset-0 animate-pulse bg-muted/30" />
                   </div>
-                  <div className="flex w-full flex-col gap-2">
-                    <div className="h-5 w-2/3 animate-pulse rounded bg-muted/50" />
+                  <div className="flex flex-col gap-2 px-1 pb-1">
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-muted/50" />
                     <div className="h-3 w-1/3 animate-pulse rounded bg-muted/40" />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredProjects && filteredProjects.length > 0 ? (
-            <div className="grid w-full auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
-              {filteredProjects.map((project) => (
-                <div
-                  key={project._id}
-                  className="inline-flex flex-col items-start justify-start gap-4"
-                >
-                  <div className="group relative h-52 self-stretch overflow-hidden rounded-[5px] border border-border/60">
-                    {getProjectImageSrc(project) ? (
-                      <img
-                        src={getProjectImageSrc(project)}
-                        alt={project.name || "Project preview"}
-                        className="h-full w-full object-cover transition-transform duration-200"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-card to-secondary">
-                        <div className="text-center">
-                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-background/40 backdrop-blur-sm">
-                            <svg
-                              className="h-8 w-8 text-muted-foreground"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </div>
-                          <div className="text-sm font-medium text-muted-foreground">
-                            {project.name || "Untitled Project"}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground/80">
-                            Preview will appear after next deploy
+            <div className="grid w-full auto-rows-fr grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {filteredProjects.map((project) => {
+                const isOpening = loadingProjectId === project._id;
+                const previewUrl =
+                  project.pretty_preview_url || project.preview_url;
+                const quotaCheck = checkProjectWorkspaceQuota(
+                  project,
+                  customer as AutumnCustomer | null | undefined,
+                );
+                const openProject = () => {
+                  if (isOpening) return;
+                  setLoadingProjectId(project._id);
+                  updateLastOpened({
+                    semanticIdentifier: project.semantic_identifier,
+                  }).catch((error: any) => {
+                    console.error(
+                      "Failed to update last opened timestamp:",
+                      error,
+                    );
+                  });
+                  router.push(
+                    `/web/project/${project.semantic_identifier}`,
+                  );
+                };
+                return (
+                  <div
+                    key={project._id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={openProject}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openProject();
+                      }
+                    }}
+                    className="group flex cursor-pointer flex-col gap-3 rounded-2xl bg-muted/25 p-3 outline-none ring-0 transition-all duration-200 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-primary/60"
+                  >
+                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted/40">
+                      {getProjectImageSrc(project) ? (
+                        <img
+                          src={getProjectImageSrc(project)}
+                          alt={project.name || "Project preview"}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/30 to-muted/60">
+                          <div className="text-center">
+                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-background/40 backdrop-blur-sm">
+                              <Sparkles className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <div className="text-xs font-medium text-muted-foreground">
+                              Preview will appear after next deploy
+                            </div>
                           </div>
                         </div>
+                      )}
+
+                      {isOpening && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                          <Loader className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                      )}
+
+                      {/* Action overlay — Preview + Delete. Always visible
+                          on phones/tablets (touch has no hover), reveals on
+                          hover on desktop (≥lg) so cards stay clean at rest.
+                          Breakpoint matches `useIsMobile` (1024px). */}
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-gradient-to-t from-background/85 via-background/40 to-transparent p-2 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">
+                        {previewUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateLastOpened({
+                                semanticIdentifier:
+                                  project.semantic_identifier,
+                              }).catch((error: any) => {
+                                console.error(
+                                  "Failed to update last opened timestamp:",
+                                  error,
+                                );
+                              });
+                              window.open(previewUrl, "_blank");
+                            }}
+                            className="pointer-events-auto flex h-8 items-center gap-1 rounded-md bg-background/85 px-2.5 text-xs font-medium text-foreground/90 backdrop-blur hover:bg-background"
+                            aria-label="Open preview in new tab"
+                          >
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                            Preview
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteProjectId(project._id);
+                          }}
+                          className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-md bg-background/85 text-muted-foreground backdrop-blur transition-colors hover:bg-destructive/15 hover:text-destructive"
+                          aria-label="Delete project"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-start justify-start gap-2 self-stretch">
-                    <div className="inline-flex w-full items-center justify-between self-stretch">
-                      <div className="flex items-center justify-start gap-2 font-['Geist'] text-xl font-semibold leading-tight text-foreground">
-                        {project.name || "Untitled Project"}
+                    </div>
+
+                    <div className="flex flex-col gap-1 px-1 pb-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate font-['Geist'] text-base font-semibold leading-tight text-foreground">
+                          {project.name || "Untitled Project"}
+                        </h3>
                         {isLegacyProject(project) && (
                           <span
-                            className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300"
+                            className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
                             title="Legacy CodeSandbox project"
                           >
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                              />
-                            </svg>
                             Legacy
                           </span>
                         )}
-                        {(() => {
-                          const quotaCheck = checkProjectWorkspaceQuota(
-                            project,
-                            customer as AutumnCustomer | null | undefined,
-                          );
-                          return (
-                            !quotaCheck.allowed && (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300"
-                                title={
-                                  quotaCheck.reason ||
-                                  "Workspace tier exceeds plan"
-                                }
-                              >
-                                <AlertTriangle className="h-3 w-3" />
-                                Plan Upgrade Required
-                              </span>
-                            )
-                          );
-                        })()}
-                      </div>
-                      {/* Action Buttons */}
-                      <div className="inline-flex items-start justify-end gap-1">
-                        <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-primary/40 hover:text-foreground"
-                          onClick={() => {
-                            setLoadingProjectId(project._id);
-                            updateLastOpened({
-                              semanticIdentifier: project.semantic_identifier,
-                            }).catch((error: any) => {
-                              console.error(
-                                "Failed to update last opened timestamp:",
-                                error,
-                              );
-                            });
-                            router.push(
-                              `/web/project/${project.semantic_identifier}`,
-                            );
-                          }}
-                          disabled={loadingProjectId === project._id}
-                        >
-                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
-                            Edit
-                          </div>
-                          {loadingProjectId === project._id && (
-                            <Loader className="h-4 w-4 animate-spin text-foreground/70" />
-                          )}
-                        </button>
-                        <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-primary/40 hover:text-foreground"
-                          onClick={() => {
-                            updateLastOpened({
-                              semanticIdentifier: project.semantic_identifier,
-                            }).catch((error: any) => {
-                              console.error(
-                                "Failed to update last opened timestamp:",
-                                error,
-                              );
-                            });
-                            const url =
-                              project.pretty_preview_url || project.preview_url;
-                            if (url) window.open(url, "_blank");
-                          }}
-                        >
-                          <div className="justify-start font-['Geist'] text-sm font-medium leading-tight">
-                            Preview
-                          </div>
-                        </button>
-                        <button
-                          className="flex items-center justify-center gap-2.5 rounded-[5px] border border-border bg-secondary px-2 py-1 text-foreground/85 transition-all duration-200 hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleteProjectId(project._id)}
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        {!quotaCheck.allowed && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
+                            title={
+                              quotaCheck.reason ||
+                              "Workspace tier exceeds plan"
+                            }
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
+                            <AlertTriangle className="h-3 w-3" />
+                            Upgrade
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    <div className="inline-flex items-center justify-between self-stretch">
-                      <div className="justify-start font-['Geist'] text-sm font-medium leading-tight text-zinc-500">
+                      <p className="font-['Geist'] text-xs text-muted-foreground">
                         Viewed{" "}
-                        {project._creationTime
-                          ? new Date(project._creationTime).toLocaleDateString()
-                          : "recently"}
-                      </div>
+                        {project.last_opened
+                          ? new Date(project.last_opened).toLocaleDateString()
+                          : project._creationTime
+                            ? new Date(
+                                project._creationTime,
+                              ).toLocaleDateString()
+                            : "recently"}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : searchTerm ? (
             <div className="flex min-h-[320px] w-full items-center justify-center">
-              <div className="w-full max-w-2xl rounded-[28px] border border-border bg-card px-8 py-10 text-center shadow-2xl shadow-black/40">
+              <div className="w-full max-w-2xl rounded-3xl bg-muted/25 px-8 py-10 text-center">
                 <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                  No Match
+                  No match
                 </p>
-                <h3 className="mt-4 font-['PP_Cirka'] text-4xl font-normal leading-none text-foreground">
+                <h3 className="mt-4 font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
                   No projects found
                 </h3>
-                <p className="mt-4 text-base leading-7 text-muted-foreground">
+                <p className="mt-4 text-sm leading-7 text-muted-foreground">
                   Nothing matched &quot;{searchTerm}&quot;. Try a different
                   project name or semantic identifier.
                 </p>
@@ -787,30 +767,29 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="flex min-h-[52vh] w-full items-center justify-center">
-              <div className="relative w-full max-w-3xl overflow-hidden rounded-[32px] border border-border bg-card px-8 py-10 shadow-2xl shadow-black/40 sm:px-12 sm:py-12">
+              <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl bg-muted/25 px-8 py-12 sm:px-12">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/10 to-transparent" />
 
                 <div className="relative flex flex-col items-center text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                    <Sparkles className="h-7 w-7" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                    <Sparkles className="h-6 w-6" />
                   </div>
 
-                  <h3 className="mt-6 font-['PP_Cirka'] text-4xl font-normal leading-none text-foreground sm:text-5xl">
+                  <h3 className="mt-6 font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
                     Create your first project
                   </h3>
 
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-                    Start with the same prompt composer from the landing page,
-                    then add a visual theme or images before generating your
-                    app.
+                  <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">
+                    Start with a prompt, add a visual theme or images, and
+                    Freebuff will scaffold a working app for you.
                   </p>
 
-                  <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                     {["Prompt-driven", "Theme picker", "Image upload"].map(
                       (feature) => (
                         <span
                           key={feature}
-                          className="rounded-full border border-border bg-secondary px-3 py-1 text-sm font-medium text-foreground/80"
+                          className="rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-foreground/75"
                         >
                           {feature}
                         </span>
@@ -821,7 +800,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setIsCreateProjectModalOpen(true)}
-                    className="mt-8 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary px-5 py-3 font-['Geist'] text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_24px_rgba(124,255,63,0.4)]"
+                    className="mt-7 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-['Geist'] text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_24px_rgba(124,255,63,0.4)]"
                   >
                     <Plus className="h-4 w-4" />
                     Open Composer
@@ -843,10 +822,10 @@ export default function Dashboard() {
         open={!!deleteProjectId}
         onOpenChange={() => setDeleteProjectId(null)}
       >
-        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none border border-border bg-card text-foreground md:max-w-md">
+        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
-            <AlertDialogTitle className="font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
-              Delete Project
+            <AlertDialogTitle className="font-['PP_Cirka'] text-2xl font-normal leading-tight text-foreground">
+              Delete project
             </AlertDialogTitle>
             <button
               onClick={() => setDeleteProjectId(null)}
@@ -885,7 +864,7 @@ export default function Dashboard() {
                     }
                   }
                 }}
-                className="border border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
+                className="rounded-lg border-0 bg-destructive/15 text-destructive hover:bg-destructive/25"
               >
                 Delete
               </AlertDialogAction>
@@ -896,7 +875,7 @@ export default function Dashboard() {
 
       {/* Edit Profile Dialog */}
       <AlertDialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
-        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] !rounded-none border border-border bg-card text-foreground md:max-w-md">
+        <AlertDialogContent className="w-[86.5vw] max-w-[1200px] rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
             <AlertDialogTitle className="flex items-center font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
               Edit Profile
@@ -942,7 +921,7 @@ export default function Dashboard() {
                     type="text"
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] border border-border bg-input px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-lg bg-muted/40 px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                     placeholder="Enter your name"
                   />
                 </div>
@@ -954,7 +933,7 @@ export default function Dashboard() {
                     type="text"
                     value={profileBio}
                     onChange={(e) => setProfileBio(e.target.value)}
-                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-[5px] border border-border bg-input px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                    className="inline-flex items-center justify-start gap-2.5 self-stretch rounded-lg bg-muted/40 px-3.5 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                     placeholder="Enter your bio"
                   />
                 </div>

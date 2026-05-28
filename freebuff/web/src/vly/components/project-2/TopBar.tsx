@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import {
   ChevronDown,
-  Menu,
   Loader2,
   Eye,
   Share2,
@@ -18,6 +17,8 @@ import {
   Globe,
   LogOut,
   Rocket,
+  History,
+  Github,
 } from 'lucide-react'
 import { FunctionReturnType } from 'convex/server'
 import { api } from '@/convex/_generated/api'
@@ -68,6 +69,13 @@ export function TopBar({
   projectTheme?: ProjectPageTheme
   onToggleProjectTheme?: () => void
 }) {
+  // Live GitHub sync status — when set, the dropdown menu's "Open GitHub"
+  // item jumps straight to the connected repo. Otherwise it falls through
+  // to the connect-GitHub flow inside settings.
+  const githubSyncStatus = useQuery(
+    api.github.repositories.getProjectSyncStatus,
+    project?._id ? { projectId: project._id } : 'skip',
+  )
   void _onMobileSidebarToggle
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
   const [founderContactOpen, setFounderContactOpen] = useState(false)
@@ -114,25 +122,26 @@ export function TopBar({
   return (
     <TooltipProvider delayDuration={200}>
       <div
-        className="flex h-11 w-full items-center justify-between gap-2 border-b border-border/60 bg-background/95 px-3 backdrop-blur-xl"
+        className="flex h-11 w-full items-center justify-between gap-1.5 border-b border-border/60 bg-background/95 px-2 backdrop-blur-xl sm:gap-2 sm:px-3"
         style={{ contain: 'layout style paint' }}
       >
         {/* ── Left: project dropdown ───────────────────────────────────── */}
-        <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="group flex max-w-[280px] items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60 focus:bg-muted focus:outline-none"
+                className="group flex max-w-[180px] items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60 focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
                 aria-label="Project menu"
               >
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-card">
-                  <img
-                    src="/freebuff-icon.svg"
-                    alt="Freebuff"
-                    className="h-5 w-5 object-contain"
-                  />
-                </span>
-                <span className="min-w-0 truncate text-foreground/90">
+                {/* Freebuff brand mark — uses the favicon (dark rounded
+                    square + sparkle) directly so it always looks like the
+                    Freebuff icon and is distinct from the old vly logo. */}
+                <img
+                  src="/favicon.svg"
+                  alt="Freebuff"
+                  className="h-6 w-6 flex-shrink-0 rounded-md object-contain"
+                />
+                <span className="min-w-0 truncate text-[13px] font-medium text-foreground/90">
                   {project.name || project.semantic_identifier || 'Untitled project'}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -155,6 +164,46 @@ export function TopBar({
               >
                 <Settings className="mr-2.5 h-4 w-4 text-muted-foreground" />
                 Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
+                onClick={() => {
+                  if (githubSyncStatus) {
+                    window.open(
+                      `https://github.com/${githubSyncStatus.repo_owner}/${githubSyncStatus.repo_name}`,
+                      '_blank',
+                      'noopener,noreferrer',
+                    )
+                  } else {
+                    router.push(
+                      `/web/project/${project.semantic_identifier}/settings?section=github`,
+                    )
+                  }
+                }}
+              >
+                <Github className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                {githubSyncStatus ? 'Open on GitHub' : 'Connect GitHub'}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
+                onClick={() => {
+                  if (githubSyncStatus) {
+                    window.open(
+                      `https://github.com/${githubSyncStatus.repo_owner}/${githubSyncStatus.repo_name}/commits`,
+                      '_blank',
+                      'noopener,noreferrer',
+                    )
+                  } else {
+                    router.push(
+                      `/web/project/${project.semantic_identifier}/settings?section=github`,
+                    )
+                  }
+                }}
+              >
+                <History className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                Version history
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -257,8 +306,9 @@ export function TopBar({
         </div>
 
         {/* ── Right: icon actions ──────────────────────────────────────── */}
-        <div className="flex items-center gap-0.5">
-          {/* Preview - opens in new tab */}
+        <div className="flex flex-shrink-0 items-center gap-1">
+          {/* Preview - opens in new tab. Always visible; this is the
+              fastest path to a real production-style preview. */}
           <IconButton
             label="Open preview in new tab"
             onClick={openPreviewInNewTab}
@@ -267,30 +317,58 @@ export function TopBar({
           </IconButton>
 
           {/* Share - opens invite dialog */}
-          <InviteDialog projectId={project._id}>
-            <button
-              className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Share"
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <InviteDialog projectId={project._id}>
+                  <button
+                    type="button"
+                    className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground sm:px-2.5"
+                    aria-label="Share project"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
+                </InviteDialog>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={6}
+              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
             >
-              <Share2 className="h-4 w-4" />
-              <span className="hidden md:inline">Share</span>
-            </button>
-          </InviteDialog>
+              Share with collaborators
+            </TooltipContent>
+          </Tooltip>
 
           {/* Publish - primary CTA */}
-          <button
-            className="ml-1 flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={() => setDeployDialogOpen(true)}
-            disabled={isPublishing}
-            aria-label="Publish"
-          >
-            {isPublishing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Rocket className="h-3.5 w-3.5" />
-            )}
-            <span>{isPublishing ? 'Publishing…' : 'Publish'}</span>
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)] disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
+                onClick={() => setDeployDialogOpen(true)}
+                disabled={isPublishing}
+                aria-label="Publish"
+              >
+                {isPublishing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Rocket className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">
+                  {isPublishing ? 'Publishing…' : 'Publish'}
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={6}
+              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+            >
+              Publish to community
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

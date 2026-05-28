@@ -12,7 +12,7 @@ export const HOME_TITLE =
 export const HOME_DESCRIPTION =
   "Freebuff Web ships full-stack web apps with AI coding agents, a managed backend, realtime data, and 1000+ integrations.";
 export const DEFAULT_OG_IMAGE_PATH = "/freebuff-icon.svg";
-export const BRAND_LOGO_URL = `${SITE_URL}/freebuff-logo.svg`;
+export const BRAND_LOGO_URL = `${SITE_URL}/favicon.svg`;
 export const BRAND_ICON_URL = `${SITE_URL}/freebuff-icon.svg`;
 
 type PageMetadataOptions = {

@@ -35,7 +35,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
         }}
       />
 
-      <Header logoSrc="/freebuff-logo.svg" logoAlt="Freebuff Web" showHome={showHome} />
+      <Header logoSrc="/favicon.svg" logoAlt="Freebuff Web" showHome={showHome} />
 
       <main className={`relative z-10 pt-24 ${contentClassName}`}>
         {children}

@@ -203,7 +203,7 @@ export function TokenIcon({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
         className={`relative z-10 flex items-center justify-center rounded-full bg-gradient-to-br from-white/90 to-purple-50 ${logoSizeMap[size].containerClass}`}
       >
         <img
-          src="/freebuff-logo.svg"
+          src="/favicon.svg"
           alt="Freebuff credit"
           width={logoSizeMap[size].width}
           height={logoSizeMap[size].height}

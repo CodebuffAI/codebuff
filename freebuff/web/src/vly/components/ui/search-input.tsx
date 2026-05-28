@@ -28,10 +28,10 @@ const SearchInput: React.FC<SearchInputProps> = ({
 
   return (
     <div
-      className={`flex flex-1 items-center justify-start gap-2 self-stretch rounded-[5px] bg-white px-5 py-2 outline outline-1 outline-offset-[-1px] outline-zinc-300 ${className}`}
+      className={`flex h-10 flex-1 items-center justify-start gap-2 self-stretch rounded-lg bg-muted/40 px-4 transition-colors focus-within:bg-muted/55 ${className}`}
     >
       <svg
-        className="h-5 w-5 text-zinc-500"
+        className="h-4 w-4 text-muted-foreground"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -48,15 +48,15 @@ const SearchInput: React.FC<SearchInputProps> = ({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 justify-start border-none bg-transparent font-['Geist'] text-sm font-medium leading-tight text-black outline-none placeholder:font-['Geist'] placeholder:text-sm placeholder:font-medium placeholder:leading-tight placeholder:text-zinc-500"
+        className="flex-1 justify-start border-none bg-transparent font-['Geist'] text-sm font-medium leading-tight text-foreground outline-none placeholder:font-['Geist'] placeholder:text-sm placeholder:font-medium placeholder:leading-tight placeholder:text-muted-foreground"
       />
       {value && (
         <button
           type="button"
           onClick={handleClear}
-          className="flex items-center justify-center rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
+          className="flex items-center justify-center rounded-sm text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
         >
-          <X className="h-4 w-4 text-zinc-500" />
+          <X className="h-4 w-4" />
           <span className="sr-only">Clear search</span>
         </button>
       )}

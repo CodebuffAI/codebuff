@@ -242,7 +242,7 @@ export const ReviewComparison: React.FC = () => {
                     <div className="mb-3 flex items-center gap-2">
                       <div className="relative h-6 w-6">
                         <Image
-                          src="/freebuff-logo.svg"
+                          src="/favicon.svg"
                           alt="Freebuff Web"
                           width={24}
                           height={24}
@@ -480,7 +480,7 @@ export const ReviewComparisonCompact: React.FC = () => {
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-1.5">
             <Image
-              src="/freebuff-logo.svg"
+              src="/favicon.svg"
               alt="Freebuff Web"
               width={14}
               height={14}

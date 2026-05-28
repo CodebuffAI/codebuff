@@ -3,7 +3,6 @@ import { useAction, useQuery } from "convex/react";
 import { FunctionReturnType } from "convex/server";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertTriangle,
   ExternalLink,
   MousePointer,
   RotateCcw,
@@ -19,6 +18,12 @@ import styles from "./CenterContent.module.css";
 import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/vly/components/ui/tooltip";
 
 // @ts-ignore
 type EntryPoint = FunctionReturnType<typeof api.project.getEntryPoints>[number];
@@ -44,6 +49,12 @@ interface CenterContentProps {
    * clicks back into it.
    */
   forceShowClickToTest?: boolean;
+  /**
+   * Fired when the user clicks the "Click to test" overlay. The parent
+   * uses this to shrink the chat pane back to its default width — the
+   * user is signaling they want to interact with the preview.
+   */
+  onClickToTest?: () => void;
 }
 
 type ScreenshotTrigger = "auto" | "manual";
@@ -213,6 +224,7 @@ export function CenterContent({
   syncStatus,
   refreshTrigger = 0,
   forceShowClickToTest = false,
+  onClickToTest,
 }: CenterContentProps) {
   const [isIframeActive, setIsIframeActive] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -349,6 +361,16 @@ export function CenterContent({
     }
   }, [forceShowClickToTest]);
 
+  // Mobile: the user has to deliberately tap the Preview tab to land here,
+  // so there's no risk of accidental iframe focus — skip the overlay and
+  // let them interact with the preview immediately. Desktop still uses
+  // the overlay to keep iframe scroll from stealing the chat scroll.
+  React.useEffect(() => {
+    if (isMobile && !forceShowClickToTest) {
+      setIsIframeActive(true);
+    }
+  }, [isMobile, forceShowClickToTest]);
+
   // Use React Query for automatic project connection
   // React Query handles deduplication and prevents duplicate requests automatically
   const { isConnecting, checkProjectConnection } = useProjectConnection({
@@ -445,8 +467,11 @@ export function CenterContent({
     }
   }, [navState.stack, navState.index, onCurrentPageChange]);
 
-  // Overlay click logic
+  // Overlay click logic: tell the parent the user wants to engage with
+  // the iframe so it can shrink the chat back to its default size, then
+  // pass clicks through to the iframe itself.
   const handleOverlayClick = () => {
+    onClickToTest?.();
     setIsIframeActive(true);
   };
 
@@ -715,146 +740,176 @@ export function CenterContent({
 
   return (
     <div
-      className="flex h-full w-full flex-col px-3 pb-3 pt-2"
+      className="flex h-full w-full flex-col px-0 pb-0 pt-0 lg:px-3 lg:pb-3 lg:pt-2"
       suppressHydrationWarning
     >
-      <div className="flex h-full w-full flex-col items-stretch justify-start gap-2">
-        {/* --- Compact URL bar (Lovable-style) --- */}
-        <div
-          className="flex w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1"
-          style={{ minHeight: 32 }}
-        >
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={handleBack}
-              disabled={!canGoBack}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Back"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M10 13L5 8L10 3"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={handleForward}
-              disabled={!canGoForward}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Forward"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M6 13L11 8L6 3"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRefresh();
-              }}
-              disabled={!navState.iframeSrc}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Refresh"
-            >
-              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-          </div>
-          <span
-            className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
-            style={{ letterSpacing: 0.2 }}
+      <div className="flex h-full w-full flex-col items-stretch justify-start gap-0 lg:gap-2">
+        {/* --- Compact URL bar (Lovable-style). Hidden on mobile so the
+              iframe gets the full available height; the floating "Open
+              in new tab" + bottom Chat tab cover navigation needs. --- */}
+        <TooltipProvider delayDuration={200}>
+          <div
+            className="hidden w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 lg:flex"
+            style={{ minHeight: 32 }}
           >
-            {navState.stack[navState.index] || (
-              <span className="opacity-40">/</span>
-            )}
-          </span>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRestartDevServer();
-              }}
-              disabled={!project || isRestarting}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label={isRestarting ? "Restarting…" : "Restart dev server"}
-              title={isRestarting ? "Restarting…" : "Restart dev server"}
+            <div className="flex items-center gap-0.5">
+              <ToolbarTooltip label="Back">
+                <button
+                  onClick={handleBack}
+                  disabled={!canGoBack}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Back"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M10 13L5 8L10 3"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </ToolbarTooltip>
+              <ToolbarTooltip label="Forward">
+                <button
+                  onClick={handleForward}
+                  disabled={!canGoForward}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Forward"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M6 13L11 8L6 3"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </ToolbarTooltip>
+              <ToolbarTooltip label="Refresh preview">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRefresh();
+                  }}
+                  disabled={!navState.iframeSrc}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Refresh"
+                >
+                  <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              </ToolbarTooltip>
+            </div>
+            <span
+              className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
+              style={{ letterSpacing: 0.2 }}
             >
-              <RotateCcw
-                className={`h-3.5 w-3.5 ${isRestarting ? "animate-spin" : ""}`}
-                strokeWidth={1.5}
-              />
-            </button>
-            {isGodMode && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startScreenshotCapture({
-                    trigger: "manual",
-                    iframe: iframeRef.current,
-                    projectId,
-                    autoScreenshotLimitReached,
-                    setIsCapturingScreenshot,
-                    screenshotTimeoutRef,
-                    activeScreenshotRequestIdRef,
-                    activeScreenshotTriggerRef,
-                    autoScreenshotFailureCountRef,
-                    setAutoScreenshotLimitReached,
-                  });
-                }}
-                disabled={
-                  isCapturingScreenshot ||
-                  !navState.iframeSrc ||
-                  !projectId ||
-                  isScreenshotUnsupported
-                }
-                className="flex h-7 w-7 items-center justify-center rounded-md text-amber-300 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Screenshot"
-                title={
-                  isScreenshotUnsupported
-                    ? "Screenshots not supported: This app uses oklch() CSS colors"
-                    : "Admin only: Capture screenshot"
+              {navState.stack[navState.index] || (
+                <span className="opacity-40">/</span>
+              )}
+            </span>
+            <div className="flex items-center gap-0.5">
+              {/* Restart — wider button with visible label so it doesn't get
+                  mistaken for the refresh icon. */}
+              <ToolbarTooltip
+                label={
+                  isRestarting
+                    ? "Restarting dev server…"
+                    : "Restart dev server"
                 }
               >
-                <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </button>
-            )}
-            {syncStatus && (
-              <button
-                onClick={() => {
-                  const url = `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`;
-                  window.open(url, "_blank");
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
-                aria-label="View on GitHub"
-                title={`View on GitHub: ${syncStatus.repo_owner}/${syncStatus.repo_name}`}
-              >
-                <Github className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            )}
-            <button
-              onClick={handleOpenInNewTab}
-              disabled={!navState.iframeSrc}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Open in new tab"
-            >
-              <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRestartDevServer();
+                  }}
+                  disabled={!project || isRestarting}
+                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground/75 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={
+                    isRestarting ? "Restarting dev server" : "Restart dev server"
+                  }
+                >
+                  <RotateCcw
+                    className={`h-3.5 w-3.5 ${isRestarting ? "animate-spin" : ""}`}
+                    strokeWidth={1.5}
+                  />
+                  <span>{isRestarting ? "Restarting…" : "Restart"}</span>
+                </button>
+              </ToolbarTooltip>
+              {isGodMode && (
+                <ToolbarTooltip
+                  label={
+                    isScreenshotUnsupported
+                      ? "Screenshots unsupported (oklch CSS colors)"
+                      : "Capture screenshot (admin)"
+                  }
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startScreenshotCapture({
+                        trigger: "manual",
+                        iframe: iframeRef.current,
+                        projectId,
+                        autoScreenshotLimitReached,
+                        setIsCapturingScreenshot,
+                        screenshotTimeoutRef,
+                        activeScreenshotRequestIdRef,
+                        activeScreenshotTriggerRef,
+                        autoScreenshotFailureCountRef,
+                        setAutoScreenshotLimitReached,
+                      });
+                    }}
+                    disabled={
+                      isCapturingScreenshot ||
+                      !navState.iframeSrc ||
+                      !projectId ||
+                      isScreenshotUnsupported
+                    }
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-amber-300 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Screenshot"
+                  >
+                    <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                </ToolbarTooltip>
+              )}
+              {syncStatus && (
+                <ToolbarTooltip
+                  label={`Open on GitHub: ${syncStatus.repo_owner}/${syncStatus.repo_name}`}
+                >
+                  <button
+                    onClick={() => {
+                      const url = `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`;
+                      window.open(url, "_blank");
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
+                    aria-label="View on GitHub"
+                  >
+                    <Github className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
+                </ToolbarTooltip>
+              )}
+              <ToolbarTooltip label="Open preview in new tab">
+                <button
+                  onClick={handleOpenInNewTab}
+                  disabled={!navState.iframeSrc}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Open in new tab"
+                >
+                  <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              </ToolbarTooltip>
+            </div>
           </div>
-        </div>
+        </TooltipProvider>
         {/* --- Static iframe, never animates or remounts unless parent navigation --- */}
         <div className="min-h-0 w-full flex-1">
           <div
             ref={iframeContainerRef}
-            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden rounded-lg border border-border bg-card shadow-xl shadow-black/40 ${isSelectingElement ? styles.selectingFrame : ""}`}
+            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card lg:rounded-lg lg:border lg:border-border lg:shadow-xl lg:shadow-black/40 ${isSelectingElement ? styles.selectingFrame : ""}`}
             suppressHydrationWarning
           >
             {(() => {
@@ -926,18 +981,20 @@ export function CenterContent({
                   }}
                   style={{ willChange: "opacity" }}
                 >
-                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-xl shadow-black/40 backdrop-blur">
-                    <div className="flex items-center gap-2 rounded px-2 py-1 text-foreground">
+                  <div className="flex items-center gap-2 rounded-xl bg-card/95 p-1.5 shadow-xl shadow-black/40 backdrop-blur">
+                    <div
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-foreground"
+                      aria-label="Click to test"
+                    >
                       <MousePointer className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Click to test</span>
                     </div>
-                    <div className="h-6 w-px bg-border" />
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenInNewTab();
                       }}
-                      className="flex items-center gap-2 rounded px-2 py-1 text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex items-center gap-2 rounded-lg bg-primary/15 px-3 py-2 text-primary transition-colors hover:bg-primary/25"
+                      aria-label="Open preview in new tab"
                     >
                       <ExternalLink className="h-4 w-4" />
                       <span className="text-sm font-medium">
@@ -945,14 +1002,6 @@ export function CenterContent({
                       </span>
                     </button>
                   </div>
-                  <p className="mt-3 text-center text-xs text-muted-foreground">
-                    Project may take a moment to load — <br />
-                    publish for faster preview speeds.
-                  </p>
-                  <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[10px] text-amber-300/85">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Styles may be off in the preview — open in new tab instead.
-                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -960,5 +1009,30 @@ export function CenterContent({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Small wrapper around the shared Tooltip primitives so every toolbar
+ * button gets a consistent, themed tooltip without copy-pasting markup.
+ */
+function ToolbarTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactElement;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        sideOffset={6}
+        className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+      >
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

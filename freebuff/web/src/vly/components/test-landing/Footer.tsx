@@ -17,7 +17,7 @@ export interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  logoSrc = "/freebuff-logo.svg",
+  logoSrc = "/favicon.svg",
   logoAlt = "Freebuff Web",
   className = "",
 }) => {
@@ -41,7 +41,7 @@ export const Footer: React.FC<FooterProps> = ({
       />
 
       {/* Footer Content */}
-      <div className="relative z-10 px-8 py-20">
+      <div className="relative z-10 px-5 py-12 sm:px-8 sm:py-20">
         <div className="mx-auto max-w-[1280px]">
           {/* Logo */}
           <div className="mb-8">
@@ -63,7 +63,7 @@ export const Footer: React.FC<FooterProps> = ({
           </p>
 
           {/* Navigation Links */}
-          <div className="mb-8 flex flex-wrap justify-center gap-6">
+          <div className="mb-8 flex flex-wrap justify-center gap-x-5 gap-y-2.5 sm:gap-6">
             <Link
               href="/web/dashboard"
               className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
@@ -109,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="mb-8 flex justify-center gap-4">
+          <div className="mb-8 flex flex-wrap justify-center gap-3 sm:gap-4">
             <SignedOut>
               <SignInButton mode="modal" asChild>
                 <button className="rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground backdrop-blur-lg transition-all hover:border-primary/50 hover:text-primary">
