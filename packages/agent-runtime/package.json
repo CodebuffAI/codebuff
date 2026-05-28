@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "gpt-tokenizer": "^2.8.1",
+    "open-websearch": "^2.1.11",
     "zod-from-json-schema": "0.4.2",
     "lodash": "4.17.23"
   },

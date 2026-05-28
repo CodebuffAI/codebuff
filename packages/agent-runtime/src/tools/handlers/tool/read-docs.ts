@@ -1,6 +1,5 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
-import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
 import { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -8,7 +7,6 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
@@ -24,9 +22,6 @@ export const handleReadDocs = (async (
     repoId: string | undefined
     userId: string | undefined
     userInputId: string
-    clientEnv: ClientEnv
-    ciEnv: CiEnv
-    localMode?: boolean
   } & ParamsExcluding<
     typeof fetchContext7LibraryDocumentation,
     'query' | 'topic' | 'tokens'
@@ -48,9 +43,6 @@ export const handleReadDocs = (async (
     userInputId,
 
     fetch,
-    clientEnv,
-    ciEnv,
-    localMode,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
 
@@ -70,9 +62,9 @@ export const handleReadDocs = (async (
 
   await previousToolCallFinished
 
-  let creditsUsed = 0
+  const creditsUsed = 0
 
-  const fetchDocsDirectly = async () => {
+  try {
     const documentation = await fetchContext7LibraryDocumentation({
       query: libraryTitle,
       topic,
@@ -102,7 +94,6 @@ export const handleReadDocs = (async (
         resultLength,
         estimatedTokens,
         hasResults: Boolean(documentation.trim()),
-        usedWebApi: false,
         creditsUsed,
         success: true,
       },
@@ -111,74 +102,6 @@ export const handleReadDocs = (async (
 
     return {
       output: jsonToolResult({ documentation }),
-      creditsUsed,
-    }
-  }
-
-  try {
-    if (localMode || !ciEnv.CODEBUFF_API_KEY) {
-      return await fetchDocsDirectly()
-    }
-
-    const viaWebApi = await callDocsSearchAPI({
-      libraryTitle,
-      topic,
-      maxTokens: max_tokens,
-      repoUrl: null,
-      logger,
-      fetch,
-      env: { clientEnv, ciEnv },
-    })
-
-    if (viaWebApi.error || typeof viaWebApi.documentation !== 'string') {
-      const docsDuration = Date.now() - docsStartTime
-      const docMsg = `Error fetching documentation for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}: ${viaWebApi.error}`
-      logger.warn(
-        {
-          ...docsContext,
-          docsDuration,
-          usedWebApi: true,
-          success: false,
-          error: viaWebApi.error,
-        },
-        'Web API docs returned error',
-      )
-      return {
-        output: jsonToolResult({
-          documentation: docMsg,
-          ...(viaWebApi.error && { errorMessage: viaWebApi.error }),
-        }),
-        creditsUsed,
-      }
-    }
-
-    const docsDuration = Date.now() - docsStartTime
-    const resultLength = viaWebApi.documentation?.length || 0
-    const hasResults = Boolean(
-      viaWebApi.documentation && viaWebApi.documentation.trim(),
-    )
-    const estimatedTokens = Math.ceil(resultLength / 4)
-
-    // Capture credits used from the API response
-    if (typeof viaWebApi.creditsUsed === 'number') {
-      creditsUsed = viaWebApi.creditsUsed
-    }
-
-    logger.info(
-      {
-        ...docsContext,
-        docsDuration,
-        resultLength,
-        estimatedTokens,
-        hasResults,
-        usedWebApi: true,
-        creditsUsed,
-        success: true,
-      },
-      'Documentation request completed successfully via web API',
-    )
-    return {
-      output: jsonToolResult({ documentation: viaWebApi.documentation }),
       creditsUsed,
     }
   } catch (error) {

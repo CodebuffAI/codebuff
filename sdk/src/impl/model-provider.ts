@@ -249,7 +249,7 @@ function createConfiguredOpenAICompatibleModel(
 
         return {
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-          'user-agent': 'factory-cli/0.130.0',
+          'user-agent': `factory-cli/0.130.0 (openbuff/${VERSION})`,
           'x-stainless-arch': arch,
           'x-stainless-lang': 'js',
           'x-stainless-os': os,

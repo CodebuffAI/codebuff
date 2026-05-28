@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebuff/common/constants/free-agents'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
@@ -15,7 +14,7 @@ import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
-import { callTokenCountAPI } from './llm-api/codebuff-web-api'
+
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
@@ -929,39 +928,7 @@ export async function loopAgentSteps(
         countTokensJson(system) +
         countTokensJson(toolsForTokenCount)
 
-      if (
-        localMode ||
-        shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-          agentId: agentTemplate.id,
-          model: agentTemplate.model,
-        })
-      ) {
-        currentAgentState.contextTokenCount = estimateContextTokensLocally()
-      } else {
-        // Check context token count via the web API.
-        const tokenCountResult = await callTokenCountAPI({
-          messages: messagesWithStepPrompt,
-          system,
-          model: agentTemplate.model,
-          tools: toolsForTokenCount,
-          fetch,
-          logger,
-          env: { clientEnv, ciEnv },
-        })
-        if (tokenCountResult.inputTokens !== undefined) {
-          currentAgentState.contextTokenCount = tokenCountResult.inputTokens
-        } else if (tokenCountResult.error) {
-          logger.warn(
-            { error: tokenCountResult.error },
-            'Failed to get token count from web API',
-          )
-          const estimatedTokens =
-            countTokensJson(currentAgentState.messageHistory) +
-            countTokensJson(system) +
-            countTokensJson(toolDefinitions)
-          currentAgentState.contextTokenCount = estimatedTokens
-        }
-      }
+      currentAgentState.contextTokenCount = estimateContextTokensLocally()
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined

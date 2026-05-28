@@ -1,34 +1,49 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { createRequire } from 'node:module'
 
-import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
-import { searchWeb } from '../../../llm-api/linkup-api'
+import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+const execFileAsync = promisify(execFile)
+
+const WEBSEARCH_TIMEOUT_MS = 30_000
+
+/**
+ * Resolve the open-websearch binary from node_modules.
+ * This avoids requiring a global install — it's resolved from the
+ * @codebuff/agent-runtime package's own dependency tree.
+ */
+const resolveOpenWebsearchBin = (logger?: Logger): string | null => {
+  try {
+    const require = createRequire(import.meta.url)
+    return require.resolve('open-websearch/build/index.js')
+  } catch (err) {
+    logger?.warn(
+      { error: err instanceof Error ? err.message : String(err) },
+      'Failed to resolve open-websearch binary',
+    )
+    return null
+  }
+}
 
 export const handleWebSearch = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'web_search'>
   logger: Logger
-  apiKey: string
 
   agentStepId: string
   clientSessionId: string
   fingerprintId: string
   repoId: string | undefined
-  repoUrl: string | undefined
   userInputId: string
   userId: string | undefined
-
-  fetch: typeof globalThis.fetch
-  clientEnv: ClientEnv
-  ciEnv: CiEnv
-  localMode?: boolean
 }): Promise<{
   output: CodebuffToolOutput<'web_search'>
   creditsUsed: number
@@ -38,19 +53,12 @@ export const handleWebSearch = (async (params: {
     toolCall,
 
     agentStepId,
-    apiKey,
     clientSessionId,
     fingerprintId,
     logger,
     repoId,
-    repoUrl,
     userId,
     userInputId,
-
-    fetch,
-    clientEnv,
-    ciEnv,
-    localMode,
   } = params
   const { query, depth } = toolCall.input
 
@@ -69,18 +77,63 @@ export const handleWebSearch = (async (params: {
 
   await previousToolCallFinished
 
-  let creditsUsed = 0
+  const creditsUsed = 0
 
-  const searchDirectly = async () => {
-    const result = await searchWeb({
+  try {
+    const openWebsearchBin = resolveOpenWebsearchBin(logger)
+    if (!openWebsearchBin) {
+      logger.error(
+        { ...searchContext },
+        'open-websearch binary not found in node_modules',
+      )
+      return {
+        output: jsonToolResult({
+          errorMessage:
+            'open-websearch is not installed. Run: npm install open-websearch',
+        }),
+        creditsUsed,
+      }
+    }
+
+    const limit = depth === 'deep' ? 10 : 5
+    const { stdout } = await execFileAsync('node', [
+      openWebsearchBin,
+      'search',
       query,
-      depth,
-      logger,
-      fetch,
-      serverEnv: { LINKUP_API_KEY: process.env.LINKUP_API_KEY ?? '' },
-    })
+      '--limit',
+      String(limit),
+      '--engine',
+      'duckduckgo',
+      '--json',
+    ], { timeout: WEBSEARCH_TIMEOUT_MS })
 
-    if (result === null) {
+    const parsed = JSON.parse(stdout) as {
+      status?: string
+      data?: {
+        results?: Array<{ title: string; url: string; description: string }>
+      }
+      error?: string
+    }
+
+    if (parsed.error) {
+      const searchDuration = Date.now() - searchStartTime
+      logger.warn(
+        { ...searchContext, searchDuration, error: parsed.error },
+        'open-websearch returned error',
+      )
+      return {
+        output: jsonToolResult({ errorMessage: parsed.error }),
+        creditsUsed,
+      }
+    }
+
+    const results = parsed.data?.results ?? []
+    if (results.length === 0) {
+      const searchDuration = Date.now() - searchStartTime
+      logger.warn(
+        { ...searchContext, searchDuration },
+        'open-websearch returned no results',
+      )
       return {
         output: jsonToolResult({
           errorMessage: `No search results found for "${query}"`,
@@ -90,91 +143,44 @@ export const handleWebSearch = (async (params: {
     }
 
     const searchDuration = Date.now() - searchStartTime
-    const resultLength = result.length
-    const hasResults = Boolean(result.trim())
-
     logger.info(
       {
         ...searchContext,
         searchDuration,
-        resultLength,
-        hasResults,
-        usedWebApi: false,
-        creditsUsed,
+        resultCount: results.length,
         success: true,
       },
-      'Search completed via Linkup API',
+      'Search completed via open-websearch',
     )
 
     return {
-      output: jsonToolResult({ result }),
-      creditsUsed,
-    }
-  }
-
-  try {
-    if (localMode || !ciEnv.CODEBUFF_API_KEY) {
-      return await searchDirectly()
-    }
-
-    const webApi = await callWebSearchAPI({
-      query,
-      depth,
-      repoUrl: repoUrl ?? null,
-      fetch,
-      logger,
-      apiKey,
-      env: { clientEnv, ciEnv },
-    })
-
-    if (webApi.error) {
-      const searchDuration = Date.now() - searchStartTime
-      logger.warn(
-        {
-          ...searchContext,
-          searchDuration,
-          usedWebApi: true,
-          success: false,
-          error: webApi.error,
-        },
-        'Web API search returned error',
-      )
-      return {
-        output: jsonToolResult({
-          errorMessage: webApi.error,
-        }),
-        creditsUsed,
-      }
-    }
-    const searchDuration = Date.now() - searchStartTime
-    const resultLength = webApi.result?.length || 0
-    const hasResults = Boolean(webApi.result && webApi.result.trim())
-
-    // Capture credits used from the API response
-    if (typeof webApi.creditsUsed === 'number') {
-      creditsUsed = webApi.creditsUsed
-    }
-
-    logger.info(
-      {
-        ...searchContext,
-        searchDuration,
-        resultLength,
-        hasResults,
-        usedWebApi: true,
-        creditsCharged: 'server',
-        creditsUsed,
-        success: true,
-      },
-      'Search completed via web API',
-    )
-
-    return {
-      output: jsonToolResult({ result: webApi.result ?? '' }),
+      output: jsonToolResult({
+        result: JSON.stringify(results, null, 2),
+      }),
       creditsUsed,
     }
   } catch (error) {
     const searchDuration = Date.now() - searchStartTime
+
+    // Detect missing Node.js (ENOENT on the 'node' command)
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
+      logger.error(
+        { ...searchContext, searchDuration },
+        'Node.js runtime not found',
+      )
+      return {
+        output: jsonToolResult({
+          errorMessage:
+            'Node.js is required to run open-websearch. Please install Node.js from https://nodejs.org.',
+        }),
+        creditsUsed,
+      }
+    }
+
     const errorMessage = `Error performing web search for "${query}": ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
