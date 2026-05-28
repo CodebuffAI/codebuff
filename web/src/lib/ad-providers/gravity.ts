@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { buildArray } from '@codebuff/common/util/array'
 
 import type {
@@ -15,12 +17,14 @@ const CHOICE_PLACEMENT_IDS = [
   'choice-ad-3',
   'choice-ad-4',
 ]
+const SINGLE_AD_PLACEMENT_IDS = ['Single-Ad-Unit-1']
 const WAITING_ROOM_PLACEMENT_IDS = [
   'waiting-room-1',
   'waiting-room-2',
   'waiting-room-3',
   'waiting-room-4',
 ]
+const FREEBUFF_CLI_AD_UNIT_EXPERIMENT = 'freebuff-cli-ad-unit-v1'
 
 type GravityRawAd = {
   adText: string
@@ -82,6 +86,28 @@ function prepareGravityMessages(messages: AdMessage[]): AdMessage[] {
   return buildArray(lastAssistant, lastUser)
 }
 
+function isFreebuffCli(userAgent?: string): boolean {
+  return userAgent?.startsWith('Freebuff-CLI/') ?? false
+}
+
+function useSingleAdUnit(userId: string): boolean {
+  const hash = createHash('sha256')
+    .update(`${FREEBUFF_CLI_AD_UNIT_EXPERIMENT}:${userId}`)
+    .digest()
+
+  return hash[0] >= 128
+}
+
+function getPlacementIds(input: FetchAdInput): string[] {
+  if (input.surface === 'waiting_room') return WAITING_ROOM_PLACEMENT_IDS
+
+  if (isFreebuffCli(input.requestUserAgent) && useSingleAdUnit(input.userId)) {
+    return SINGLE_AD_PLACEMENT_IDS
+  }
+
+  return CHOICE_PLACEMENT_IDS
+}
+
 export function createGravityProvider(config: { apiKey: string }): AdProvider {
   return {
     id: 'gravity',
@@ -100,10 +126,7 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
 
       const filteredMessages = prepareGravityMessages(messages)
 
-      const placementIds =
-        input.surface === 'waiting_room'
-          ? WAITING_ROOM_PLACEMENT_IDS
-          : CHOICE_PLACEMENT_IDS
+      const placementIds = getPlacementIds(input)
 
       const placements = placementIds.map((id) => ({
         placement: 'below_response',
@@ -160,7 +183,11 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
           errorBody = 'Unable to parse error response'
         }
         logger.error(
-          { request: requestBody, response: errorBody, status: response.status },
+          {
+            request: requestBody,
+            response: errorBody,
+            status: response.status,
+          },
           '[ads:gravity] API returned error',
         )
         return null
