@@ -43,9 +43,8 @@ export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = false
-/** UI-only rollout switch. Backend tracking remains active while hidden so
- *  streaks are populated before the indicator is enabled. */
-export const FREEBUFF_ENABLE_STREAK_IN_UI = false
+/** UI-only rollout switch for the streak indicator in the waiting room. */
+export const FREEBUFF_ENABLE_STREAK_IN_UI = true
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
