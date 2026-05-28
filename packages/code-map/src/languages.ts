@@ -2,12 +2,12 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 // Import some types for wasm & .scm files
-import './types.ts'
+import './types'
 
 import { Language, Parser, Query } from 'web-tree-sitter'
 
-import { initTreeSitterForNode } from './init-node.ts'
-import { DEBUG_PARSING } from './parse.ts'
+import { initTreeSitterForNode } from './init-node'
+import { DEBUG_PARSING } from './parse'
 
 /* ------------------------------------------------------------------ */
 /* 1. Query imports (these work in all bundled environments)         */
@@ -21,7 +21,7 @@ import pythonQuery from './tree-sitter-queries/tree-sitter-python-tags.scm'
 import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
 import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
 import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
-import { getDirnameDynamically } from './utils.ts'
+import { getDirnameDynamically } from './utils'
 
 /* ------------------------------------------------------------------ */
 /* 2. Types and interfaces                                           */
