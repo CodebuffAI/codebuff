@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+export {}
+
 const baseUrl = (
   process.env.VLY_PREWARM_BASE_URL ??
   process.env.NEXT_PUBLIC_FREEBUFF_URL ??

@@ -1,7 +1,7 @@
 'use client'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import { Check, ChevronDown, Copy } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -418,7 +418,7 @@ function PhilosophySection() {
   )
 }
 
-const wordVariant = {
+const wordVariant: Variants = {
   initial: { opacity: 0, y: 30, filter: 'blur(8px)' },
   animate: {
     opacity: 1,
@@ -426,7 +426,7 @@ const wordVariant = {
     filter: 'blur(0px)',
     transition: {
       duration: 0.6,
-      ease: [0.165, 0.84, 0.44, 1],
+      ease: [0.165, 0.84, 0.44, 1] as [number, number, number, number],
     },
   },
 }

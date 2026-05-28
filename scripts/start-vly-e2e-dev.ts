@@ -34,7 +34,11 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-function prefixedLog(prefix: string, data: Buffer | string, stream = process.stdout) {
+function prefixedLog(
+  prefix: string,
+  data: Buffer | string,
+  stream: NodeJS.WritableStream = process.stdout,
+) {
   const text = data.toString()
   for (const line of text.split(/\r?\n/)) {
     if (line.trim().length === 0) continue
@@ -236,9 +240,9 @@ async function main() {
     warn('skipping database startup because --no-db was passed')
   }
 
-  const [vlyTunnelUrl, codebuffTunnelUrl] =
+  const [vlyTunnelUrl, codebuffTunnelUrl]: [string, string] =
     hasPreconfiguredTunnels
-      ? [vlyTunnelUrlFromEnv, codebuffTunnelUrlFromEnv]
+      ? [vlyTunnelUrlFromEnv as string, codebuffTunnelUrlFromEnv as string]
       : await Promise.all([
           startTunnel('tunnel:3000', 3000),
           startTunnel('tunnel:3001', 3001),
