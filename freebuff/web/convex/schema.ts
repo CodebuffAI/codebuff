@@ -1204,6 +1204,23 @@ export default defineSchema(
       .index('by_project', ['projectId'])
       .index('by_ui_preset', ['uiPresetId'])
       .index('by_project_and_preset', ['projectId', 'uiPresetId']),
+
+    // OTP codes for "Import existing projects" flow.
+    // The signed-in Freebuff user (requester) requests an OTP delivered to a
+    // legacy email address; on verify, projects from the legacy users row are
+    // moved to the requester via Strategy A (claim legacy row) or Strategy B
+    // (transfer project_member rows).
+    import_email_otps: defineTable({
+      requester_user_id: v.id('users'), // current signed-in Freebuff user
+      email: v.string(), // lowercased legacy email the OTP was sent to
+      code: v.string(), // 6-digit numeric code (string to preserve leading zeros)
+      expires_at: v.number(), // ms timestamp
+      attempts: v.number(), // failed verification attempts
+      consumed: v.boolean(), // true once successfully used
+      created_at: v.number(),
+    })
+      .index('by_requester_and_email', ['requester_user_id', 'email'])
+      .index('by_expires_at', ['expires_at']),
   },
   {
     schemaValidation: false, // TODO: turn back to true

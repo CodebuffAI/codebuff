@@ -155,6 +155,7 @@ import type * as github_utils_index from "../github/utils/index.js";
 import type * as github_utils_octokit from "../github/utils/octokit.js";
 import type * as gravity from "../gravity.js";
 import type * as http from "../http.js";
+import type * as import_projects from "../import_projects.js";
 import type * as integration_auth from "../integration_auth.js";
 import type * as integrations from "../integrations.js";
 import type * as integrations_add_integration from "../integrations/add_integration.js";
@@ -362,6 +363,7 @@ declare const fullApi: ApiFromModules<{
   "github/utils/octokit": typeof github_utils_octokit;
   gravity: typeof gravity;
   http: typeof http;
+  import_projects: typeof import_projects;
   integration_auth: typeof integration_auth;
   integrations: typeof integrations;
   "integrations/add_integration": typeof integrations_add_integration;

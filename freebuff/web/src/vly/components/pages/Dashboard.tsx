@@ -25,6 +25,9 @@ import {
 const CreateProjectModal = lazy(
   () => import("@/vly/components/CreateProjectModal"),
 );
+const ImportProjectsDialog = lazy(
+  () => import("@/vly/components/ImportProjectsDialog"),
+);
 import {
   Loader,
   AlertTriangle,
@@ -33,6 +36,7 @@ import {
   ArrowUpRight,
   Trash2,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { useCustomer } from "autumn-js/react";
 import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
@@ -67,6 +71,8 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] =
+    useState(false);
+  const [isImportProjectsDialogOpen, setIsImportProjectsDialogOpen] =
     useState(false);
   const [loadingProjectId, setLoadingProjectId] =
     useState<Id<"project"> | null>(null);
@@ -520,13 +526,22 @@ export default function Dashboard() {
                 Pick up where you left off or spin up a new build.
               </p>
             </div>
-            <button
-              onClick={() => setIsCreateProjectModalOpen(true)}
-              className="hidden h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)] sm:inline-flex"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="font-['Geist'] text-sm">New project</span>
-            </button>
+            <div className="hidden items-center gap-2 sm:flex">
+              <button
+                onClick={() => setIsImportProjectsDialogOpen(true)}
+                className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 font-medium text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
+              >
+                <Download className="h-4 w-4" />
+                <span className="font-['Geist'] text-sm">Import existing</span>
+              </button>
+              <button
+                onClick={() => setIsCreateProjectModalOpen(true)}
+                className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)]"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="font-['Geist'] text-sm">New project</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
@@ -568,6 +583,13 @@ export default function Dashboard() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <button
+              onClick={() => setIsImportProjectsDialogOpen(true)}
+              className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-secondary px-4 font-medium text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground sm:hidden"
+            >
+              <Download className="h-4 w-4" />
+              <span className="font-['Geist'] text-sm">Import</span>
+            </button>
             <button
               onClick={() => setIsCreateProjectModalOpen(true)}
               className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground transition-all hover:shadow-[0_0_20px_rgba(124,255,63,0.35)] sm:hidden"
@@ -1409,6 +1431,14 @@ export default function Dashboard() {
         <CreateProjectModal
           isOpen={isCreateProjectModalOpen}
           onClose={() => setIsCreateProjectModalOpen(false)}
+        />
+      </Suspense>
+
+      {/* Import Projects Dialog */}
+      <Suspense fallback={<div />}>
+        <ImportProjectsDialog
+          isOpen={isImportProjectsDialogOpen}
+          onClose={() => setIsImportProjectsDialogOpen(false)}
         />
       </Suspense>
     </PageLayout>

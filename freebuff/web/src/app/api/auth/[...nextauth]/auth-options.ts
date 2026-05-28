@@ -20,7 +20,7 @@ import {
   getCliAuthOnboardSearchParams,
   isCliAuthCodeCandidate,
 } from '@/app/onboard/_helpers'
-import { getFreebuffNextAuthUrl } from '@/lib/freebuff-server-env'
+import { getFreebuffNextAuthUrl } from '../../../../lib/freebuff-server-env'
 import { logger } from '@/util/logger'
 
 const useJwtOnlyAuth =

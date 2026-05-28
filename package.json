@@ -28,7 +28,7 @@
     "dev:vly:backend": "bun --cwd freebuff/web convex dev",
     "dev:vly:e2e": "bun scripts/start-vly-e2e-dev.ts",
     "dev:vly:prewarm": "bun scripts/prewarm-vly-routes.ts",
-    "build:vly": "bun --cwd freebuff/web build",
+    "build:vly": "bun run --cwd freebuff/web build",
     "start-studio": "bun --cwd packages/internal db:studio",
     "down": "bun scripts/stop-services.ts",
     "ps": "bun scripts/status-services.ts",

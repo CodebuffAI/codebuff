@@ -20,6 +20,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     rate: 1, // 1 request
     period: 15000, // 15 seconds in milliseconds
   },
+  // Import-projects OTP send: 3 emails per hour per requester
+  importOtpSends: {
+    kind: "fixed window",
+    rate: 3,
+    period: HOUR,
+  },
+  // Import-projects OTP verify attempts: 10 per 15 min per requester
+  importOtpVerifies: {
+    kind: "fixed window",
+    rate: 10,
+    period: 15 * 60 * 1000,
+  },
 });
 
 // Helper function to get user ID for rate limiting
