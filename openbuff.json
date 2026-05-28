@@ -7,16 +7,12 @@
       "models": [
         "glm-5.1",
         "glm-5",
-        "kimi-k2.6",
         "kimi-k2.5",
         "mimo-v2.5-pro",
-        "mimo-v2.5",
         "qwen3.6-plus",
         "qwen3.5-plus",
         "minimax-m2.7",
-        "minimax-m2.5",
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
+        "minimax-m2.5"
       ],
       "supportsStructuredOutputs": false,
       "compatibility": {
@@ -30,7 +26,6 @@
     "codex": {
       "type": "chatgpt-oauth",
       "models": [
-        "gpt-5.5",
         "gpt-5.4-mini",
         "gpt-5.4-nano",
         "gpt-5.4",
@@ -76,7 +71,61 @@
       "models": [
         "anthropic/claude-sonnet-4.5",
         "anthropic/claude-opus-4.1",
-        "openai/gpt-4.1-mini"
+        "openai/gpt-4.1-mini",
+        "moonshotai/kimi-k2.6:free"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "opencode-zen": {
+      "type": "openai-compatible",
+      "baseURL": "https://opencode.ai/zen/v1",
+      "apiKeyEnv": "OPENCODE_API_KEY",
+      "models": [
+        "mimo-v2.5-free",
+        "deepseek-v4-flash-free"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "agentrouter": {
+      "type": "openai-compatible",
+      "baseURL": "https://agentrouter.org/v1",
+      "apiKeyEnv": "AGENT_ROUTER_TOKEN",
+      "models": [
+        "glm-5.1",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "AGENT_ROUTER": {
+      "type": "openai-compatible",
+      "baseURL": "https://agentrouter.org/v1",
+      "apiKeyEnv": "AGENT_ROUTER_TOKEN",
+      "models": [
+        "glm-5.1",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
       ],
       "supportsStructuredOutputs": false,
       "compatibility": {
@@ -88,83 +137,83 @@
       }
     }
   },
-  "defaultModel": "codex/gpt-5.5",
+  "defaultModel": "agentrouter/deepseek-v4-pro",
   "modes": {
-    "default": "opencode-go/deepseek-v4-pro",
-    "lite": "opencode-go/deepseek-v4-flash",
-    "max": "codex/gpt-5.5",
-    "plan": "codex/gpt-5.5"
+    "default": "agentrouter/deepseek-v4-pro",
+    "lite": "agentrouter/deepseek-v4-flash",
+    "max": "agentrouter/glm-5.1",
+    "plan": "agentrouter/glm-5.1"
   },
   "modeReasoningEfforts": {},
   "agents": {
-    "editor-implementor-proposal-direct": "opencode-go/kimi-k2.6",
-    "base": "opencode-go/kimi-k2.6",
-    "base2": "opencode-go/kimi-k2.6",
-    "base2-lite": "opencode-go/deepseek-v4-flash",
-    "base2-fast": "opencode-go/deepseek-v4-flash",
-    "base2-fast-no-validation": "opencode-go/deepseek-v4-flash",
-    "base2-max": "codex/gpt-5.5",
-    "base2-plan": "codex/gpt-5.5",
-    "base-deep": "codex/gpt-5.5",
-    "thinker": "codex/gpt-5.5",
-    "thinker-gpt": "codex/gpt-5.5",
-    "thinker-gemini": "opencode-go/kimi-k2.6",
-    "thinker-with-files-gemini": "opencode-go/kimi-k2.6",
-    "thinker-best-of-n": "codex/gpt-5.5",
-    "thinker-best-of-n-opus": "codex/gpt-5.5",
-    "thinker-selector": "codex/gpt-5.5",
-    "thinker-selector-opus": "opencode-go/deepseek-v4-flash",
-    "editor": "opencode-go/kimi-k2.6",
-    "editor-gpt-5": "codex/gpt-5.5",
-    "editor-implementor": "opencode-go/kimi-k2.6",
-    "editor-implementor-opus": "opencode-go/kimi-k2.6",
-    "editor-implementor-gpt-5": "codex/gpt-5.5",
-    "editor-multi-prompt": "opencode-go/kimi-k2.6",
-    "best-of-n-selector": "opencode-go/deepseek-v4-flash",
-    "best-of-n-selector2": "codex/gpt-5.5",
-    "code-reviewer": "codex/gpt-5.5",
-    "code-reviewer-gpt": "codex/gpt-5.5",
-    "code-reviewer-kimi": "opencode-go/kimi-k2.6",
-    "code-reviewer-minimax": "opencode-go/deepseek-v4-flash",
-    "code-reviewer-lite": "opencode-go/deepseek-v4-flash",
-    "code-reviewer-deepseek": "opencode-go/kimi-k2.6",
-    "code-reviewer-deepseek-flash": "opencode-go/deepseek-v4-flash",
-    "code-reviewer-multi-prompt": "opencode-go/kimi-k2.6",
-    "file-picker": "opencode-go/deepseek-v4-flash",
-    "file-picker-max": "opencode-go/kimi-k2.6",
-    "file-lister": "opencode-go/deepseek-v4-flash",
-    "file-lister-max": "opencode-go/deepseek-v4-flash",
-    "file-explorer": "opencode-go/deepseek-v4-flash",
-    "code-searcher": "opencode-go/deepseek-v4-flash",
-    "directory-lister": "opencode-go/deepseek-v4-flash",
-    "glob-matcher": "opencode-go/deepseek-v4-flash",
-    "context-pruner": "opencode-go/deepseek-v4-flash",
-    "basher": "opencode-go/deepseek-v4-flash",
-    "browser-use": "opencode-go/deepseek-v4-flash",
-    "researcher": "opencode-go/deepseek-v4-flash",
-    "researcher-web": "opencode-go/deepseek-v4-flash",
-    "researcher-docs": "opencode-go/deepseek-v4-flash",
-    "librarian": "opencode-go/deepseek-v4-flash",
-    "tmux-cli": "opencode-go/deepseek-v4-flash",
-    "gpt-5-agent": "codex/gpt-5.5",
-    "opus-agent": "opencode-go/kimi-k2.6",
-    "general-agent": "opencode-go/kimi-k2.6",
-    "editor-implementor-proposal-1": "opencode-go/deepseek-v4-pro",
-    "editor-implementor-proposal-2": "opencode-go/kimi-k2.6",
-    "editor-implementor-proposal-3": "codex/gpt-5.5",
-    "editor-implementor-proposal-4": "opencode-go/deepseek-v4-pro",
-    "editor-implementor-proposal-5": "opencode-go/deepseek-v4-pro"
+    "editor-implementor-proposal-direct": "agentrouter/deepseek-v4-pro",
+    "base": "agentrouter/deepseek-v4-pro",
+    "base2": "agentrouter/deepseek-v4-pro",
+    "base2-lite": "agentrouter/deepseek-v4-flash",
+    "base2-fast": "agentrouter/deepseek-v4-flash",
+    "base2-fast-no-validation": "agentrouter/deepseek-v4-flash",
+    "base2-max": "agentrouter/glm-5.1",
+    "base2-plan": "agentrouter/glm-5.1",
+    "base-deep": "agentrouter/glm-5.1",
+    "thinker": "agentrouter/glm-5.1",
+    "thinker-gpt": "agentrouter/glm-5.1",
+    "thinker-gemini": "agentrouter/deepseek-v4-pro",
+    "thinker-with-files-gemini": "agentrouter/deepseek-v4-pro",
+    "thinker-best-of-n": "agentrouter/glm-5.1",
+    "thinker-best-of-n-opus": "agentrouter/glm-5.1",
+    "thinker-selector": "agentrouter/glm-5.1",
+    "thinker-selector-opus": "agentrouter/deepseek-v4-pro",
+    "editor": "agentrouter/deepseek-v4-pro",
+    "editor-gpt-5": "agentrouter/glm-5.1",
+    "editor-implementor": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-opus": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-gpt-5": "agentrouter/glm-5.1",
+    "editor-multi-prompt": "agentrouter/deepseek-v4-pro",
+    "best-of-n-selector": "agentrouter/deepseek-v4-pro",
+    "best-of-n-selector2": "agentrouter/glm-5.1",
+    "code-reviewer": "agentrouter/glm-5.1",
+    "code-reviewer-gpt": "agentrouter/glm-5.1",
+    "code-reviewer-kimi": "agentrouter/deepseek-v4-pro",
+    "code-reviewer-minimax": "agentrouter/deepseek-v4-pro",
+    "code-reviewer-lite": "agentrouter/deepseek-v4-flash",
+    "code-reviewer-deepseek": "agentrouter/deepseek-v4-pro",
+    "code-reviewer-deepseek-flash": "agentrouter/deepseek-v4-flash",
+    "code-reviewer-multi-prompt": "agentrouter/deepseek-v4-pro",
+    "file-picker": "agentrouter/deepseek-v4-pro",
+    "file-picker-max": "agentrouter/deepseek-v4-pro",
+    "file-lister": "agentrouter/deepseek-v4-pro",
+    "file-lister-max": "agentrouter/deepseek-v4-pro",
+    "file-explorer": "agentrouter/deepseek-v4-pro",
+    "code-searcher": "agentrouter/deepseek-v4-pro",
+    "directory-lister": "agentrouter/deepseek-v4-pro",
+    "glob-matcher": "agentrouter/deepseek-v4-pro",
+    "context-pruner": "agentrouter/deepseek-v4-pro",
+    "basher": "agentrouter/deepseek-v4-pro",
+    "browser-use": "agentrouter/deepseek-v4-pro",
+    "researcher": "agentrouter/deepseek-v4-pro",
+    "researcher-web": "agentrouter/deepseek-v4-pro",
+    "researcher-docs": "agentrouter/deepseek-v4-pro",
+    "librarian": "agentrouter/deepseek-v4-pro",
+    "tmux-cli": "agentrouter/deepseek-v4-pro",
+    "gpt-5-agent": "agentrouter/glm-5.1",
+    "opus-agent": "agentrouter/deepseek-v4-pro",
+    "general-agent": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-proposal-1": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-proposal-2": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-proposal-3": "agentrouter/glm-5.1",
+    "editor-implementor-proposal-4": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-proposal-5": "agentrouter/deepseek-v4-pro"
   },
   "agentReasoningEfforts": {
     "base2-max": "high"
   },
   "editorMultiPrompt": {
     "proposalModels": [
-      "opencode-go/kimi-k2.6",
-      "opencode-go/kimi-k2.6",
-      "opencode-go/deepseek-v4-pro",
-      "opencode-go/deepseek-v4-pro",
-      "opencode-go/kimi-k2.6"
+      "agentrouter/deepseek-v4-pro",
+      "agentrouter/deepseek-v4-pro",
+      "agentrouter/deepseek-v4-pro",
+      "agentrouter/deepseek-v4-pro",
+      "agentrouter/deepseek-v4-pro"
     ],
     "proposalReasoningEfforts": [
       null,
@@ -173,6 +222,6 @@
       null,
       null
     ],
-    "selectorModel": "codex/gpt-5.5"
+    "selectorModel": "agentrouter/glm-5.1"
   }
 }
