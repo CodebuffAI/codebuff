@@ -158,6 +158,10 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Publish to npm
+        env:
+          # npm trusted publishing can authenticate from private repositories,
+          # but provenance statements are only supported for public sources.
+          NPM_CONFIG_PROVENANCE: 'false'
         run: |
           cd freebuff/cli/release
           npm publish --access public
