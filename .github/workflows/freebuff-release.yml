@@ -160,4 +160,4 @@ jobs:
       - name: Publish to npm
         run: |
           cd freebuff/cli/release
-          npm publish --access public --provenance
+          npm publish --access public
