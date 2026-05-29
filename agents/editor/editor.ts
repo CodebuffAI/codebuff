@@ -33,11 +33,6 @@ export const createCodeEditor = (options: {
   return {
     publisher,
     model: EDITOR_MODEL_BY_VARIANT[options.model],
-    ...(options.model === 'opus' && {
-      providerOptions: {
-        only: ['amazon-bedrock'],
-      },
-    }),
     displayName: 'Code Editor',
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
@@ -49,7 +44,12 @@ export const createCodeEditor = (options: {
 
     instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
     
-Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
+Your task is to write out ALL the code changes needed to complete the user's request, across every file that must change.
+
+You may make edits across multiple turns. After each edit you will see whether it applied successfully:
+- If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or fall back to write_file with the complete file content.
+- Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.
+- When every change has been made and all edits have applied successfully, stop: respond with a brief one-line confirmation and make no further tool calls.
 
 Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
 
@@ -130,10 +130,21 @@ More style notes:
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
-    handleSteps: function* ({ agentState: initialAgentState, logger }) {
+    handleSteps: function* ({ agentState: initialAgentState }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
-      const { agentState } = yield 'STEP'
+
+      // Keep stepping while the model is still emitting edit tool calls so it
+      // can implement multi-file changes and recover from failed str_replaces.
+      // Bounded to avoid runaway loops on models that never stop calling tools.
+      const maxEditSteps = 12
+      let agentState = initialAgentState
+      for (let step = 0; step < maxEditSteps; step++) {
+        const result = yield 'STEP'
+        agentState = result.agentState
+        if (result.stepsComplete) break
+      }
+
       const { messageHistory } = agentState
 
       const newMessages = messageHistory.slice(initialMessageHistoryLength)

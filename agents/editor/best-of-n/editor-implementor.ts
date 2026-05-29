@@ -38,11 +38,6 @@ export const createBestOfNImplementor = (options: {
         : isGemini
           ? 'google/gemini-3-pro-preview'
           : 'openai/gpt-5.5',
-    ...(isOpus && {
-      providerOptions: {
-        only: ['amazon-bedrock'],
-      },
-    }),
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'low',
