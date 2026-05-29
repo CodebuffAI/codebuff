@@ -86,10 +86,6 @@ function prepareGravityMessages(messages: AdMessage[]): AdMessage[] {
   return buildArray(lastAssistant, lastUser)
 }
 
-function isFreebuffCli(userAgent?: string): boolean {
-  return userAgent?.startsWith('Freebuff-CLI/') ?? false
-}
-
 function useSingleAdUnit(userId: string): boolean {
   const hash = createHash('sha256')
     .update(`${FREEBUFF_CLI_AD_UNIT_EXPERIMENT}:${userId}`)
@@ -101,7 +97,7 @@ function useSingleAdUnit(userId: string): boolean {
 function getPlacementIds(input: FetchAdInput): string[] {
   if (input.surface === 'waiting_room') return WAITING_ROOM_PLACEMENT_IDS
 
-  if (isFreebuffCli(input.requestUserAgent) && useSingleAdUnit(input.userId)) {
+  if (useSingleAdUnit(input.userId)) {
     return SINGLE_AD_PLACEMENT_IDS
   }
 
