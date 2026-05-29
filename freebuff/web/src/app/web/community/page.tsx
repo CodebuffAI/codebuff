@@ -1,5 +1,5 @@
 import CommunityHome from "@/vly/components/community/CommunityHome";
-import { PageLayout } from "@/vly/components/test-landing/PageLayout";
+import { CommunityShell } from "@/vly/components/community/CommunityShell";
 import { createPageMetadata } from "@/vly/lib/site-metadata";
 
 export const metadata = createPageMetadata({
@@ -11,8 +11,8 @@ export const metadata = createPageMetadata({
 
 export default function CommunityPage() {
   return (
-    <PageLayout showHome={true} showParallax={false}>
+    <CommunityShell>
       <CommunityHome />
-    </PageLayout>
+    </CommunityShell>
   );
 }

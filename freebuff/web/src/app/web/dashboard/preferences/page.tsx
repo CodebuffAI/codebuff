@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { PageLayout } from "@/vly/components/test-landing/PageLayout";
+import { AppShell } from "@/vly/components/app-shell/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/vly/components/ui/card";
 import { Switch } from "@/vly/components/ui/switch";
 import { toast } from "sonner";
@@ -169,13 +169,9 @@ export default function DashboardPreferencesPage() {
   };
 
   return (
-    <PageLayout
-      showHome={true}
-      showParallax={false}
-      contentClassName="pt-[16vh]"
-    >
-      <div className="mx-auto w-full max-w-3xl px-4 pb-16 md:px-8">
-        <Card>
+    <AppShell title="Account" subtitle="Email preferences">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <Card className="border-0 bg-card/60">
           <CardHeader>
             <CardTitle className="text-2xl">Email Preferences</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -234,7 +230,7 @@ export default function DashboardPreferencesPage() {
           </CardContent>
         </Card>
       </div>
-    </PageLayout>
+    </AppShell>
   );
 }
 

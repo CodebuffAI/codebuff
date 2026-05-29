@@ -51,7 +51,9 @@ const nextConfig = {
     serverComponentsHmrCache: true,
   },
   turbopack: {
-    root: resolve(import.meta.dirname, '../../'),
+    // Keep Turbopack scoped to this Next app. Letting it infer the monorepo
+    // lockfile root makes local Vly dev crawl and cache the whole repo.
+    root: import.meta.dirname,
     resolveAlias: {
       'autumn-js/react': autumnShimRelative,
     },
@@ -77,6 +79,18 @@ const nextConfig = {
     )
     config.infrastructureLogging = {
       level: 'error',
+    }
+    config.watchOptions = {
+      ...(config.watchOptions ?? {}),
+      ignored: [
+        '**/.git/**',
+        '**/.next/**',
+        '**/node_modules/**',
+        '../../debug/**',
+        '../../web/.next/**',
+        '../../cli/release/**',
+        '../../cli/release-staging/**',
+      ],
     }
     return config
   },

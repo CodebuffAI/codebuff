@@ -194,10 +194,10 @@ const EarnCreditsSection: React.FC = () => {
 
           {/* CTA */}
           <Link
-            href="/web/earn"
+            href="/web"
             className="mx-auto flex w-fit items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_24px_rgba(124,255,63,0.4)]"
           >
-            Claim your free spin
+            Start building
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

@@ -13,7 +13,6 @@ export default function robots(): MetadataRoute.Robots {
           "/callback",
           "/web/dashboard/",
           "/web/devtools",
-          "/web/earn/admin/",
           "/github/",
           "/web/invite/",
           "/maintenance",

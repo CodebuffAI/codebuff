@@ -65,7 +65,7 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Navigation Links */}
           <div className="mb-8 flex flex-wrap justify-center gap-x-5 gap-y-2.5 sm:gap-6">
             <Link
-              href="/web/dashboard"
+              href="/web"
               className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               My Projects
@@ -75,12 +75,6 @@ export const Footer: React.FC<FooterProps> = ({
               className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >
               Community
-            </Link>
-            <Link
-              href="/web/earn"
-              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
-            >
-              Earn
             </Link>
             <button
               onClick={handleOpenDiscord}

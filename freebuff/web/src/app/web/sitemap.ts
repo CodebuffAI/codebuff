@@ -14,9 +14,9 @@ const publicRoutes: Array<{
   priority: number;
 }> = [
   { path: "/web", changeFrequency: "daily", priority: 1 },
+  { path: "/web/about", changeFrequency: "weekly", priority: 0.9 },
   { path: "/web/pricing", changeFrequency: "weekly", priority: 0.9 },
   { path: "/web/community", changeFrequency: "daily", priority: 0.8 },
-  { path: "/web/earn", changeFrequency: "weekly", priority: 0.8 },
   { path: "/web/contact", changeFrequency: "monthly", priority: 0.6 },
   { path: "/web/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/web/terms", changeFrequency: "yearly", priority: 0.3 },

@@ -101,15 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
       href: '/web/community',
     },
     {
-      label: 'Earn',
-      href: '/web/earn',
-      badge: (
-        <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-          new
-        </span>
-      ),
-    },
-    {
       label: 'Discord',
       onClick: handleOpenDiscord,
       external: true,

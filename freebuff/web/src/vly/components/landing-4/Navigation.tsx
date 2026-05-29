@@ -92,16 +92,6 @@ export default function Navigation({
       onClick: () => handleNavigate("/web/pricing"),
     },
     {
-      label: "Earn",
-      href: "/web/earn",
-      onClick: () => handleNavigate("/web/earn"),
-      badge: (
-        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-          new
-        </span>
-      ),
-    },
-    {
       label: "Discord",
       onClick: handleOpenDiscord,
     },

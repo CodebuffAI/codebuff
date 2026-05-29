@@ -1,13 +1,5 @@
-import TestLanding from "@/vly/components/test-landing";
-import type { Metadata } from "next";
+import ProjectsDashboard from "@/vly/components/pages/ProjectsDashboard";
 
-export const metadata: Metadata = {
-  other: {
-    "link rel='preload' as='image' href='/landing/landmarks.jpeg'": "",
-    "link rel='preconnect' href='https://fonts.gstatic.com'": "",
-  },
-};
-
-export default function Home() {
-  return <TestLanding />;
+export default function WebHome() {
+  return <ProjectsDashboard />;
 }

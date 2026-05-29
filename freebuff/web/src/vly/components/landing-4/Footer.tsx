@@ -114,7 +114,6 @@ export default function Footer() {
             { name: "Home", action: () => scrollToSection("hero") },
             { name: "Comparison", action: () => scrollToSection("comparison") },
             { name: "Reviews", action: () => scrollToSection("reviews") },
-            { name: "Earn", action: () => router.push("/web/earn") },
             {
               name: "Privacy",
               action: () => window.open("/web/privacy", "_blank"),

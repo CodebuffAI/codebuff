@@ -1,5 +1,7 @@
-import Dashboard from "@/vly/components/pages/Dashboard";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
-  return <Dashboard />;
+// The projects dashboard now lives at the canonical /web route. Keep this
+// path working (it's linked from many places + bookmarks) by redirecting.
+export default function DashboardRedirectPage() {
+  redirect("/web");
 }

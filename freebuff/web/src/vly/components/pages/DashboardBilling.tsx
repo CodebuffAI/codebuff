@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { PageLayout } from '@/vly/components/test-landing/PageLayout'
+import { AppShell } from '@/vly/components/app-shell/AppShell'
 
 export default function DashboardBilling() {
   return (
-    <PageLayout showHome={true} showParallax={false}>
+    <AppShell title="Pricing">
       <main className="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center px-5 py-12 text-center sm:px-6 sm:py-16">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
           Billing paused
@@ -20,13 +20,13 @@ export default function DashboardBilling() {
         </p>
         <div className="mt-8">
           <Link
-            href="/web/dashboard"
+            href="/web"
             className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Back to dashboard
+            Back to projects
           </Link>
         </div>
       </main>
-    </PageLayout>
+    </AppShell>
   )
 }
