@@ -63,10 +63,82 @@ Do not use any further tools or spawn any further agents.
   }
 }
 
+/**
+ * Extract the raw spawn_agents results from the toolResult wrapper.
+ * The spawn_agents tool returns results as [{type: 'json', value: [...]}].
+ * This extracts the inner value from each spawned agent result.
+ */
+function extractSpawnResults(results: any[] | undefined): any[] {
+  if (!results || results.length === 0) return []
+  const jsonResult = results.find((r) => r.type === 'json')
+  if (!jsonResult?.value) return []
+  const spawnedResults = Array.isArray(jsonResult.value)
+    ? jsonResult.value
+    : [jsonResult.value]
+  return spawnedResults.map((result: any) => result?.value).filter(Boolean)
+}
+
+/**
+ * Extract text content from a spawned agent's output, handling multiple
+ * output formats that the agent runtime may produce:
+ * - lastMessage / allMessages: traverses message array for assistant text
+ * - structuredOutput: extracts string value or text-containing fields
+ * - Direct strings: raw string output
+ */
+function extractAgentText(agentOutput: any): string | null {
+  if (!agentOutput) return null
+
+  // Direct string value
+  if (typeof agentOutput === 'string') return agentOutput
+
+  // lastMessage / allMessages format — traverse messages for assistant text
+  if (
+    (agentOutput.type === 'lastMessage' || agentOutput.type === 'allMessages') &&
+    Array.isArray(agentOutput.value)
+  ) {
+    for (let i = agentOutput.value.length - 1; i >= 0; i--) {
+      const message = agentOutput.value[i]
+      if (message.role === 'assistant' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'text' && typeof part.text === 'string') {
+            return part.text
+          }
+        }
+      }
+    }
+  }
+
+  // structuredOutput format — value may be a string or object with text fields
+  if (agentOutput.type === 'structuredOutput') {
+    if (typeof agentOutput.value === 'string') return agentOutput.value
+    if (isObject(agentOutput.value)) {
+      for (const key of ['message', 'text', 'content', 'output', 'response']) {
+        const val = agentOutput.value[key]
+        if (typeof val === 'string' && val) return val
+      }
+    }
+  }
+
+  return null
+}
+
+function extractErrorMessage(agentOutput: any): string | null {
+  if (!agentOutput) return null
+  if (agentOutput.type === 'error') {
+    return agentOutput.message ?? agentOutput.value ?? null
+  }
+  return null
+}
+
+function isObject(value: any): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
 // handleSteps for default mode - spawns 1 file-lister
 const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   prompt,
   params,
+  logger,
 }) {
   const { toolResult: fileListerResults } = yield {
     toolName: 'spawn_agents',
@@ -88,7 +160,7 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   let hasAnyResults = false
 
   for (const result of spawnResults) {
-    const fileListText = extractLastMessageText(result)
+    const fileListText = extractAgentText(result)
     if (fileListText) {
       hasAnyResults = true
       const paths = fileListText.split('\n').filter(Boolean)
@@ -103,6 +175,11 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
       .map(extractErrorMessage)
       .filter(Boolean)
       .join('; ')
+    if (spawnResults.length > 0) {
+      logger?.debug?.(
+        `file-picker: failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`,
+      )
+    }
     yield {
       type: 'STEP_TEXT',
       text: errorMessages
@@ -120,50 +197,13 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   }
 
   yield 'STEP'
-
-  function extractSpawnResults(results: any[] | undefined): any[] {
-    if (!results || results.length === 0) return []
-    const jsonResult = results.find((r) => r.type === 'json')
-    if (!jsonResult?.value) return []
-    const spawnedResults = Array.isArray(jsonResult.value)
-      ? jsonResult.value
-      : [jsonResult.value]
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
-  }
-
-  function extractLastMessageText(agentOutput: any): string | null {
-    if (!agentOutput) return null
-    if (
-      agentOutput.type === 'lastMessage' &&
-      Array.isArray(agentOutput.value)
-    ) {
-      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
-        const message = agentOutput.value[i]
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'text' && typeof part.text === 'string') {
-              return part.text
-            }
-          }
-        }
-      }
-    }
-    return null
-  }
-
-  function extractErrorMessage(agentOutput: any): string | null {
-    if (!agentOutput) return null
-    if (agentOutput.type === 'error') {
-      return agentOutput.message ?? agentOutput.value ?? null
-    }
-    return null
-  }
 }
 
 // handleSteps for max mode - spawns 1 file-lister-max
 const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   prompt,
   params,
+  logger,
 }) {
   const { toolResult: fileListerResults } = yield {
     toolName: 'spawn_agents',
@@ -185,7 +225,7 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   let hasAnyResults = false
 
   for (const result of spawnResults) {
-    const fileListText = extractLastMessageText(result)
+    const fileListText = extractAgentText(result)
     if (fileListText) {
       hasAnyResults = true
       const paths = fileListText.split('\n').filter(Boolean)
@@ -200,6 +240,11 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
       .map(extractErrorMessage)
       .filter(Boolean)
       .join('; ')
+    if (spawnResults.length > 0) {
+      logger?.debug?.(
+        `file-picker-max: failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`,
+      )
+    }
     yield {
       type: 'STEP_TEXT',
       text: errorMessages
@@ -217,44 +262,6 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   }
 
   yield 'STEP'
-
-  function extractSpawnResults(results: any[] | undefined): any[] {
-    if (!results || results.length === 0) return []
-    const jsonResult = results.find((r) => r.type === 'json')
-    if (!jsonResult?.value) return []
-    const spawnedResults = Array.isArray(jsonResult.value)
-      ? jsonResult.value
-      : [jsonResult.value]
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
-  }
-
-  function extractLastMessageText(agentOutput: any): string | null {
-    if (!agentOutput) return null
-    if (
-      agentOutput.type === 'lastMessage' &&
-      Array.isArray(agentOutput.value)
-    ) {
-      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
-        const message = agentOutput.value[i]
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'text' && typeof part.text === 'string') {
-              return part.text
-            }
-          }
-        }
-      }
-    }
-    return null
-  }
-
-  function extractErrorMessage(agentOutput: any): string | null {
-    if (!agentOutput) return null
-    if (agentOutput.type === 'error') {
-      return agentOutput.message ?? agentOutput.value ?? null
-    }
-    return null
-  }
 }
 
 const definition: SecretAgentDefinition = {
@@ -262,4 +269,5 @@ const definition: SecretAgentDefinition = {
   ...createFilePicker('default'),
 }
 
+export { extractSpawnResults, extractAgentText, extractErrorMessage, isObject }
 export default definition
