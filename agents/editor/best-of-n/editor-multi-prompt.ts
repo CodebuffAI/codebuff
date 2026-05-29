@@ -230,11 +230,11 @@ function* handleStepsMultiPrompt({
     let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
-      const currentAgentType = agentType
       const useDirectMode =
         attempt > 0 &&
         (forceDirectRetry ||
           shouldRetryWithoutReadOnlyTools(lastResult))
+      const currentAgentType = useDirectMode ? directProposalAgentType : agentType
       const allowReadOnlyTools = !useDirectMode
 
       if (useDirectMode) {
@@ -357,106 +357,126 @@ function* handleStepsMultiPrompt({
     return
   }
 
-  // === CONDITIONAL PIPELINE SELECTION ===
-  const isUnitTest = process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test'
-
-  if (!isUnitTest) {
-    // === NEW APPLY-VERIFY-REPAIR-RANK PIPELINE ===
+  if (shouldUseObjectiveVerificationPipeline(params)) {
+    // === APPLY-VERIFY-REPAIR-RANK PIPELINE ===
 
     const projectInfo = yield* detectProjectInfo()
+    yield* hydrateWorkspacePackageScripts(projectInfo, usableImplementations)
     const verificationResults: CandidateVerificationResult[] = []
 
     for (const candidate of usableImplementations) {
-      // 1. Reset workspace to clean baseline
-      yield* resetWorkspace()
-
-      // 2. Try applying edits of this candidate
-      let appliedToolResults = yield* applyImplementationEdits(candidate)
-      
+      const validationResult = yield* validateImplementationEdits(candidate)
       let typecheckPassed: boolean | null = null
       let testsPassed: boolean | null = null
+      let verificationAttempted = false
       let verificationPassed = false
       let verificationErrors: string[] = []
       let repairRoundsUsed = 0
       let finalImplementation = candidate
 
-      if (hasCleanSuccessfulAppliedEdit(appliedToolResults)) {
-        // Applied cleanly! Let's verify typechecks & tests
-        const verifyResult = yield* verifyImplementation(projectInfo)
+      if (validationResult.success) {
+        const verifyResult = yield* verifyImplementationInIsolatedWorkspace(
+          projectInfo,
+          candidate,
+        )
         typecheckPassed = verifyResult.typecheckPassed
         testsPassed = verifyResult.testsPassed
-        verificationPassed = verifyResult.errors.length === 0
+        verificationAttempted = verifyResult.verificationAttempted
+        verificationPassed =
+          verifyResult.verificationAttempted && verifyResult.errors.length === 0
         verificationErrors = verifyResult.errors
 
-        // 3. If verification failed, run repair rounds!
         const maxRepairRounds = 2
         let currentImplementation = candidate
-        
-        while (!verificationPassed && repairRoundsUsed < maxRepairRounds) {
+
+        while (
+          verificationAttempted &&
+          !verificationPassed &&
+          repairRoundsUsed < maxRepairRounds
+        ) {
           repairRoundsUsed++
-          
-          // Spawn repair implementor to fix compilation/test errors
+
           const repaired = yield* repairFailedImplementation({
             failedImplementation: currentImplementation,
             appliedToolResults: [],
             verificationErrors,
           })
-          
+
           if (!repaired) {
             break
           }
-          
-          // Re-apply repaired candidate to clean workspace
-          yield* resetWorkspace()
-          const repairedApplied = yield* applyImplementationEdits(repaired)
-          
-          if (hasCleanSuccessfulAppliedEdit(repairedApplied)) {
-            const repairedVerify = yield* verifyImplementation(projectInfo)
+
+          const repairedValidation = yield* validateImplementationEdits(repaired)
+
+          if (repairedValidation.success) {
+            const repairedVerify = yield* verifyImplementationInIsolatedWorkspace(
+              projectInfo,
+              repaired,
+            )
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
-            verificationPassed = repairedVerify.errors.length === 0
+            verificationAttempted = repairedVerify.verificationAttempted
+            verificationPassed =
+              repairedVerify.verificationAttempted &&
+              repairedVerify.errors.length === 0
             verificationErrors = repairedVerify.errors
             currentImplementation = repaired
             finalImplementation = repaired
           } else {
-            break // Repair failed to apply cleanly
+            verificationErrors = [
+              ...verificationErrors,
+              summarizeAppliedToolResults(repairedValidation.toolResults),
+            ].filter(Boolean)
+            break
           }
         }
       } else {
-        // Apply failed (e.g. str_replace mismatch) - run existing diff-level repair!
         const repaired = yield* repairFailedImplementation({
           failedImplementation: candidate,
-          appliedToolResults,
+          appliedToolResults: validationResult.toolResults,
         })
-        
+
         if (repaired) {
-          yield* resetWorkspace()
-          const repairedApplied = yield* applyImplementationEdits(repaired)
-          if (hasCleanSuccessfulAppliedEdit(repairedApplied)) {
-            const repairedVerify = yield* verifyImplementation(projectInfo)
+          const repairedValidation = yield* validateImplementationEdits(repaired)
+          if (repairedValidation.success) {
+            const repairedVerify = yield* verifyImplementationInIsolatedWorkspace(
+              projectInfo,
+              repaired,
+            )
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
-            verificationPassed = repairedVerify.errors.length === 0
+            verificationAttempted = repairedVerify.verificationAttempted
+            verificationPassed =
+              repairedVerify.verificationAttempted &&
+              repairedVerify.errors.length === 0
             verificationErrors = repairedVerify.errors
             finalImplementation = repaired
+          } else {
+            verificationErrors = [
+              summarizeAppliedToolResults(validationResult.toolResults),
+              summarizeAppliedToolResults(repairedValidation.toolResults),
+            ].filter(Boolean)
           }
+        } else {
+          verificationErrors = [
+            summarizeAppliedToolResults(validationResult.toolResults),
+          ].filter(Boolean)
         }
       }
 
       verificationResults.push({
         candidateId: candidate.id,
-        appliedCleanly: hasCleanSuccessfulAppliedEdit(appliedToolResults) || finalImplementation !== candidate,
+        appliedCleanly: validationResult.success || finalImplementation !== candidate,
         typecheckPassed,
         testsPassed,
+        verificationAttempted,
         verificationPassed,
         verificationErrors,
         repairRoundsUsed,
+        diffSize: getImplementationDiffSize(finalImplementation),
         finalImplementation,
       })
     }
-
-    // Reset workspace after all verification runs complete so we don't leak anything intermediate
-    yield* resetWorkspace()
 
     // 4. Rank results objectively
     const rankedVerificationResults = rankVerifiedResults(verificationResults)
@@ -477,7 +497,9 @@ function* handleStepsMultiPrompt({
     // Filter candidates that belong to the highest achieved tier.
     const highestTierResults = rankedVerificationResults.filter((r) => 
       r.verificationPassed === bestResult.verificationPassed &&
+      r.verificationAttempted === bestResult.verificationAttempted &&
       (r.typecheckPassed === true) === (bestResult.typecheckPassed === true) &&
+      (r.testsPassed === true) === (bestResult.testsPassed === true) &&
       r.appliedCleanly === bestResult.appliedCleanly
     )
 
@@ -493,7 +515,7 @@ function* handleStepsMultiPrompt({
     if (highestTierImplementations.length === 1) {
       // If only one candidate achieved the highest tier, select it directly and deterministically!
       chosenImplementation = highestTierImplementations[0]
-      selectionReason = `Objective rank: candidate was the only proposal to achieve the highest tier (verificationPassed=${bestResult.verificationPassed}, typecheckPassed=${bestResult.typecheckPassed === true}, appliedCleanly=${bestResult.appliedCleanly}).`
+      selectionReason = `Objective rank: candidate was the only proposal to achieve the highest tier (verificationAttempted=${bestResult.verificationAttempted}, verificationPassed=${bestResult.verificationPassed}, typecheckPassed=${bestResult.typecheckPassed === true}, testsPassed=${bestResult.testsPassed === true}, appliedCleanly=${bestResult.appliedCleanly}).`
     } else {
       // Break ties using the LLM selector (best-of-n-selector2)!
       const selectorImplementations = getSelectorCandidateImplementations(
@@ -605,9 +627,8 @@ function* handleStepsMultiPrompt({
       }
     }
 
-    // 5. Final apply of the chosen implementation to the actual workspace!
-    yield* resetWorkspace()
-
+    // 5. Apply the chosen implementation once to the actual workspace. Candidate
+    // verification above runs in an isolated temp copy and must not reset user work.
     const finalAppliedResults = yield* applyImplementationEdits(chosenImplementation)
     if (hasCleanSuccessfulAppliedEdit(finalAppliedResults)) {
       yield {
@@ -649,7 +670,7 @@ function* handleStepsMultiPrompt({
     } satisfies ToolCall<'set_output'>
     return
   } else {
-    // === OLD LLM-ONLY SELECTOR PIPELINE (Bypasses verification under unit tests to keep existing mocks 100% green) ===
+    // === LEGACY LLM-ONLY SELECTOR PIPELINE ===
     const selectorImplementations = getSelectorCandidateImplementations(
       usableImplementations,
     )
@@ -962,6 +983,9 @@ function* handleStepsMultiPrompt({
     const knownPaths = new Set(knownProposalPaths().map((p) => normalizeProposalPath(p)))
     filtered = filtered.filter((toolCall) => {
       if (toolCall.toolName !== 'propose_str_replace') {
+        return true
+      }
+      if (knownPaths.size === 0) {
         return true
       }
       const rawPath =
@@ -3008,11 +3032,50 @@ function* handleStepsMultiPrompt({
   function* applyImplementationEdits(
     chosenImplementation: Implementation,
   ): Generator<
-    ToolCall<'str_replace'> | ToolCall<'write_file'> | ToolCall<'read_files'>,
+    ToolCall<'str_replace'> | ToolCall<'write_file'>,
     any[],
     any
   > {
-    // 1. Gather all unique paths targeted by propose_str_replace in the chosen implementation
+    // Apply the chosen implementation's tool calls as real edits
+    const appliedToolResults: any[] = []
+    for (const toolCall of chosenImplementation.toolCalls) {
+      // Convert propose_* tool calls to real edit tool calls
+      const realToolName =
+        toolCall.toolName === 'propose_str_replace'
+          ? 'str_replace'
+          : toolCall.toolName === 'propose_write_file'
+            ? 'write_file'
+            : toolCall.toolName
+
+      if (realToolName === 'str_replace' || realToolName === 'write_file') {
+        const input = isObject(toolCall.input)
+          ? {
+              ...toolCall.input,
+              ...(typeof toolCall.input.path === 'string'
+                ? { path: normalizeProposalPath(toolCall.input.path) }
+                : {}),
+            }
+          : toolCall.input
+        const { toolResult } = yield {
+          toolName: realToolName,
+          input,
+          includeToolCall: true,
+        } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
+
+        appliedToolResults.push(toolResult)
+      }
+    }
+
+    return appliedToolResults
+  }
+
+  function* validateImplementationEdits(
+    chosenImplementation: Implementation,
+  ): Generator<
+    ToolCall<'read_files'>,
+    { success: boolean; toolResults: any[] },
+    any
+  > {
     const strReplacePaths = dedupeStrings(
       chosenImplementation.toolCalls
         .filter((tc) => tc.toolName === 'propose_str_replace')
@@ -3071,47 +3134,26 @@ function* handleStepsMultiPrompt({
       }
 
       if (validationFailures.length > 0) {
-        // Return a mock failed tool result so that the system treats this implementation as a failure
-        return [
+        return {
+          success: false,
+          toolResults: [
           {
             toolName: 'str_replace',
             errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
           },
-        ]
+          ],
+        }
       }
     }
 
-    // Apply the chosen implementation's tool calls as real edits
-    const appliedToolResults: any[] = []
-    for (const toolCall of chosenImplementation.toolCalls) {
-      // Convert propose_* tool calls to real edit tool calls
-      const realToolName =
-        toolCall.toolName === 'propose_str_replace'
-          ? 'str_replace'
-          : toolCall.toolName === 'propose_write_file'
-            ? 'write_file'
-            : toolCall.toolName
-
-      if (realToolName === 'str_replace' || realToolName === 'write_file') {
-        const input = isObject(toolCall.input)
-          ? {
-              ...toolCall.input,
-              ...(typeof toolCall.input.path === 'string'
-                ? { path: normalizeProposalPath(toolCall.input.path) }
-                : {}),
-            }
-          : toolCall.input
-        const { toolResult } = yield {
-          toolName: realToolName,
-          input,
-          includeToolCall: true,
-        } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
-
-        appliedToolResults.push(toolResult)
-      }
+    return {
+      success: true,
+      toolResults: [
+        {
+          message: 'Dry-run validation passed',
+        },
+      ],
     }
-
-    return appliedToolResults
   }
 
   function* readFilesContent(
@@ -3639,6 +3681,14 @@ function* handleStepsMultiPrompt({
     hasTsConfig: boolean
     hasTypecheckScript: boolean
     hasTestScript: boolean
+    workspaces: string[]
+    workspacePackageScripts: Record<
+      string,
+      {
+        hasTypecheckScript: boolean
+        hasTestScript: boolean
+      }
+    >
   }
 
   interface CandidateVerificationResult {
@@ -3646,10 +3696,36 @@ function* handleStepsMultiPrompt({
     appliedCleanly: boolean
     typecheckPassed: boolean | null
     testsPassed: boolean | null
+    verificationAttempted: boolean
     verificationPassed: boolean
     verificationErrors: string[]
     repairRoundsUsed: number
+    diffSize: number
     finalImplementation: Implementation
+  }
+
+  type VerificationResult = {
+    verificationAttempted: boolean
+    typecheckPassed: boolean | null
+    testsPassed: boolean | null
+    errors: string[]
+  }
+
+  function shouldUseObjectiveVerificationPipeline(params: any): boolean {
+    if (
+      isObject(params) &&
+      (params.skipObjectiveVerification === true ||
+        params.useObjectiveVerification === false)
+    ) {
+      return false
+    }
+
+    const isUnitTest =
+      process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test'
+    return (
+      !isUnitTest ||
+      (isObject(params) && params.forceObjectiveVerification === true)
+    )
   }
 
   function* detectProjectInfo(): Generator<any, ProjectInfo, any> {
@@ -3661,10 +3737,7 @@ function* handleStepsMultiPrompt({
       includeToolCall: false,
     } satisfies ToolCall<'list_directory'>
     
-    const fileList = Array.isArray(rootFiles) ? rootFiles : []
-    const fileNames = fileList.map((f: any) =>
-      isObject(f) && typeof f.name === 'string' ? f.name : ''
-    ).filter(Boolean)
+    const fileNames = extractDirectoryEntryNames(rootFiles)
     
     if (fileNames.includes('bun.lockb')) {
       packageManager = 'bun'
@@ -3677,6 +3750,7 @@ function* handleStepsMultiPrompt({
     const hasTsConfig = fileNames.includes('tsconfig.json')
     let hasTypecheckScript = false
     let hasTestScript = false
+    let workspaces: string[] = []
     
     if (fileNames.includes('package.json')) {
       const readFilesResult = yield* readFilesContent(['package.json'])
@@ -3689,6 +3763,7 @@ function* handleStepsMultiPrompt({
           hasTestScript =
             typeof scripts.test === 'string' &&
             scripts.test !== 'echo "Error: no test specified" && exit 1'
+          workspaces = parsePackageWorkspaces(content)
         } catch {
           // ignore
         }
@@ -3700,11 +3775,144 @@ function* handleStepsMultiPrompt({
       hasTsConfig,
       hasTypecheckScript,
       hasTestScript,
+      workspaces,
+      workspacePackageScripts: {},
     }
+  }
+
+  function parsePackageWorkspaces(packageJson: any): string[] {
+    const rawWorkspaces: unknown[] = Array.isArray(packageJson?.workspaces)
+      ? packageJson.workspaces
+      : Array.isArray(packageJson?.workspaces?.packages)
+        ? packageJson.workspaces.packages
+        : []
+
+    return dedupeStrings(
+      rawWorkspaces
+        .filter(
+          (workspace: unknown): workspace is string =>
+            typeof workspace === 'string',
+        )
+        .map(normalizePrefetchPath)
+        .filter((workspace) => workspace && !workspace.startsWith('!')),
+    )
+  }
+
+  function extractDirectoryEntryNames(toolResult: any): string[] {
+    const values = extractJsonPartValues({
+      content: Array.isArray(toolResult) ? toolResult : [toolResult],
+    })
+    const entries = values.length > 0 ? values : Array.isArray(toolResult) ? toolResult : []
+
+    return entries
+      .flatMap((entry: any) => {
+        if (Array.isArray(entry)) return entry
+        if (isObject(entry) && Array.isArray(entry.entries)) return entry.entries
+        if (isObject(entry) && Array.isArray(entry.files)) return entry.files
+        return [entry]
+      })
+      .map((entry: any) => {
+        if (typeof entry === 'string') return entry.replace(/\/$/, '').split('/').pop() ?? ''
+        if (isObject(entry) && typeof entry.name === 'string') return entry.name
+        if (isObject(entry) && typeof entry.path === 'string') {
+          return entry.path.replace(/\/$/, '').split('/').pop() ?? ''
+        }
+        return ''
+      })
+      .filter(Boolean)
+  }
+
+  function* hydrateWorkspacePackageScripts(
+    projectInfo: ProjectInfo,
+    implementations: Implementation[],
+  ): Generator<ToolCall<'read_files'>, void, any> {
+    const packageJsonPaths = dedupeStrings(
+      implementations.flatMap((implementation) =>
+        getWorkspacePackageDirsForImplementation(projectInfo, implementation).map(
+          (dir) => `${dir}/package.json`,
+        ),
+      ),
+    )
+
+    if (packageJsonPaths.length === 0) return
+
+    const packageJsonFiles = yield* readFilesContent(packageJsonPaths)
+    for (const file of packageJsonFiles) {
+      const packageDir = file.path.replace(/\/package\.json$/, '')
+      try {
+        const parsed = JSON.parse(file.content)
+        const scripts = parsed?.scripts || {}
+        projectInfo.workspacePackageScripts[packageDir] = {
+          hasTypecheckScript: typeof scripts.typecheck === 'string',
+          hasTestScript:
+            typeof scripts.test === 'string' &&
+            scripts.test !== 'echo "Error: no test specified" && exit 1',
+        }
+      } catch {
+        // Ignore unreadable package metadata; root verification remains available.
+      }
+    }
+  }
+
+  function getWorkspacePackageDirsForImplementation(
+    projectInfo: ProjectInfo,
+    implementation: Implementation,
+  ): string[] {
+    if (projectInfo.workspaces.length === 0) return []
+
+    return dedupeStrings(
+      getImplementationTouchedPaths(implementation)
+        .map((path) => inferWorkspacePackageDir(projectInfo.workspaces, path))
+        .filter((dir): dir is string => Boolean(dir)),
+    )
+  }
+
+  function getImplementationTouchedPaths(implementation: Implementation): string[] {
+    return dedupeStrings(
+      implementation.toolCalls
+        .map((toolCall) =>
+          isObject(toolCall.input) && typeof toolCall.input.path === 'string'
+            ? normalizeProposalPath(toolCall.input.path)
+            : '',
+        )
+        .filter(Boolean),
+    )
+  }
+
+  function inferWorkspacePackageDir(
+    workspaces: string[],
+    touchedPath: string,
+  ): string | undefined {
+    const normalizedPath = normalizePrefetchPath(touchedPath)
+    if (!normalizedPath) return undefined
+
+    for (const workspace of workspaces) {
+      const normalizedWorkspace = normalizePrefetchPath(workspace)
+      if (!normalizedWorkspace || normalizedWorkspace === '.') continue
+
+      if (normalizedWorkspace.endsWith('/*')) {
+        const prefix = normalizedWorkspace.slice(0, -1)
+        if (!normalizedPath.startsWith(prefix)) continue
+
+        const rest = normalizedPath.slice(prefix.length)
+        const packageName = rest.split('/')[0]
+        return packageName ? `${prefix}${packageName}` : undefined
+      }
+
+      if (
+        normalizedPath === normalizedWorkspace ||
+        normalizedPath.startsWith(`${normalizedWorkspace}/`)
+      ) {
+        return normalizedWorkspace
+      }
+    }
+
+    return undefined
   }
 
   function* runVerificationCommand(
     command: string,
+    timeoutSeconds = 45,
   ): Generator<
     ToolCall<'run_terminal_command'>,
     { exitCode: number; stdout: string; stderr: string; success: boolean },
@@ -3714,7 +3922,7 @@ function* handleStepsMultiPrompt({
       toolName: 'run_terminal_command',
       input: {
         command,
-        timeout_seconds: 45,
+        timeout_seconds: timeoutSeconds,
       },
       includeToolCall: false,
     } satisfies ToolCall<'run_terminal_command'>
@@ -3745,52 +3953,297 @@ function* handleStepsMultiPrompt({
     }
   }
 
-  function* resetWorkspace(): Generator<any, boolean, any> {
-    const resetCmd = 'git checkout -- . && git clean -fd -e evals/multieditor-vs-default'
-    const res = yield* runVerificationCommand(resetCmd)
-    return res.success
-  }
-
-  function* verifyImplementation(
+  function* verifyImplementationInIsolatedWorkspace(
     projectInfo: ProjectInfo,
-  ): Generator<any, { typecheckPassed: boolean | null; testsPassed: boolean | null; errors: string[] }, any> {
+    implementation: Implementation,
+  ): Generator<any, VerificationResult, any> {
     let typecheckPassed: boolean | null = null
     let testsPassed: boolean | null = null
     const errors: string[] = []
-    
-    const pm = projectInfo.packageManager
-    const runCmd = pm === 'npm' ? 'npm run' : `${pm} run`
-    
-    if (projectInfo.hasTypecheckScript) {
-      const cmd = `${runCmd} typecheck`
-      const res = yield* runVerificationCommand(cmd)
-      typecheckPassed = res.success
-      if (!res.success) {
-        errors.push(`Typecheck failed (${cmd}):\n${res.stdout}\n${res.stderr}`)
-      }
-    } else if (projectInfo.hasTsConfig) {
-      const tscCmd = pm === 'npm' ? 'npx tsc --noEmit' : pm === 'pnpm' ? 'pnpm exec tsc --noEmit' : `${pm} x tsc --noEmit`
-      const res = yield* runVerificationCommand(tscCmd)
-      typecheckPassed = res.success
-      if (!res.success) {
-        errors.push(`Typecheck failed (${tscCmd}):\n${res.stdout}\n${res.stderr}`)
+
+    const commands = getVerificationCommands(projectInfo, implementation)
+    if (commands.length === 0) {
+      return {
+        verificationAttempted: false,
+        typecheckPassed,
+        testsPassed,
+        errors,
       }
     }
-    
-    if (projectInfo.hasTestScript) {
-      const testCmd = pm === 'npm' ? 'npm test' : `${pm} test`
-      const res = yield* runVerificationCommand(testCmd)
-      testsPassed = res.success
-      if (!res.success) {
-        errors.push(`Tests failed (${testCmd}):\n${res.stdout}\n${res.stderr}`)
+
+    const res = yield* runVerificationCommand(
+      buildIsolatedVerificationCommand(implementation, commands),
+      Math.max(90, commands.length * 60),
+    )
+    const parsed = parseIsolatedVerificationOutput(res.stdout)
+
+    if (parsed) {
+      if (parsed.outputs.length !== commands.length) {
+        errors.push(
+          `Isolated verification produced ${parsed.outputs.length} result(s) for ${commands.length} command(s).`,
+        )
       }
+      for (const commandResult of parsed.outputs) {
+        if (commandResult.kind === 'typecheck') {
+          typecheckPassed = commandResult.exitCode === 0
+        }
+        if (commandResult.kind === 'test') {
+          testsPassed = commandResult.exitCode === 0
+        }
+        if (commandResult.exitCode !== 0) {
+          errors.push(
+            `${commandResult.label} failed (${commandResult.command}):\n${commandResult.stdout}\n${commandResult.stderr}`,
+          )
+        }
+      }
+      if (!res.success && errors.length === 0) {
+        errors.push(
+          `Isolated verification command exited with code ${res.exitCode} without a failing command result:\n${res.stdout}\n${res.stderr}`,
+        )
+      }
+    } else {
+      errors.push(
+        `Isolated verification failed before producing structured output:\n${res.stdout}\n${res.stderr}`,
+      )
     }
-    
+
     return {
+      verificationAttempted: true,
       typecheckPassed,
       testsPassed,
       errors,
     }
+  }
+
+  function getVerificationCommands(
+    projectInfo: ProjectInfo,
+    implementation: Implementation,
+  ): Array<{
+    kind: 'typecheck' | 'test'
+    label: string
+    command: string
+  }> {
+    const commands: Array<{
+      kind: 'typecheck' | 'test'
+      label: string
+      command: string
+    }> = []
+    const pm = projectInfo.packageManager
+    const runCmd = pm === 'npm' ? 'npm run' : `${pm} run`
+    const workspaceDirs = getWorkspacePackageDirsForImplementation(
+      projectInfo,
+      implementation,
+    )
+    const workspaceCommands = workspaceDirs.flatMap((dir) => {
+      const scripts = projectInfo.workspacePackageScripts[dir]
+      if (!scripts) return []
+
+      const scopedCommands: Array<{
+        kind: 'typecheck' | 'test'
+        label: string
+        command: string
+      }> = []
+      if (scripts.hasTypecheckScript) {
+        scopedCommands.push({
+          kind: 'typecheck',
+          label: `Typecheck (${dir})`,
+          command: buildPackageManagerRunCommand(pm, dir, 'typecheck'),
+        })
+      }
+      if (scripts.hasTestScript) {
+        scopedCommands.push({
+          kind: 'test',
+          label: `Tests (${dir})`,
+          command: buildPackageManagerRunCommand(pm, dir, 'test'),
+        })
+      }
+      return scopedCommands
+    })
+
+    if (workspaceCommands.length > 0) {
+      return workspaceCommands
+    }
+
+    if (projectInfo.hasTypecheckScript) {
+      commands.push({
+        kind: 'typecheck',
+        label: 'Typecheck',
+        command: `${runCmd} typecheck`,
+      })
+    } else if (projectInfo.hasTsConfig) {
+      commands.push({
+        kind: 'typecheck',
+        label: 'Typecheck',
+        command:
+          pm === 'npm'
+            ? 'npx tsc --noEmit'
+            : pm === 'pnpm'
+              ? 'pnpm exec tsc --noEmit'
+              : `${pm} x tsc --noEmit`,
+      })
+    }
+
+    if (projectInfo.hasTestScript) {
+      commands.push({
+        kind: 'test',
+        label: 'Tests',
+        command: pm === 'npm' ? 'npm test' : `${pm} test`,
+      })
+    }
+
+    return commands
+  }
+
+  function buildPackageManagerRunCommand(
+    packageManager: ProjectInfo['packageManager'],
+    packageDir: string,
+    scriptName: 'typecheck' | 'test',
+  ): string {
+    const quotedDir = shellSingleQuote(packageDir)
+    if (packageManager === 'bun') {
+      return `bun --cwd ${quotedDir} run ${scriptName}`
+    }
+    if (packageManager === 'pnpm') {
+      return `pnpm --dir ${quotedDir} run ${scriptName}`
+    }
+    if (packageManager === 'yarn') {
+      return `yarn --cwd ${quotedDir} run ${scriptName}`
+    }
+    return `npm --prefix ${quotedDir} run ${scriptName}`
+  }
+
+  function parseIsolatedVerificationOutput(stdout: string):
+    | {
+        outputs: Array<{
+          kind: 'typecheck' | 'test'
+          label: string
+          command: string
+          exitCode: number
+          stdout: string
+          stderr: string
+        }>
+      }
+    | undefined {
+    const lines = stdout.trim().split('\n').filter(Boolean)
+    const lastLine = lines[lines.length - 1]
+    if (!lastLine) return undefined
+    try {
+      const parsed = JSON.parse(lastLine)
+      return isObject(parsed) && Array.isArray(parsed.outputs)
+        ? (parsed as any)
+        : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  function buildIsolatedVerificationCommand(
+    implementation: Implementation,
+    commands: Array<{
+      kind: 'typecheck' | 'test'
+      label: string
+      command: string
+    }>,
+  ): string {
+    const toolCallsPayload = Buffer.from(
+      JSON.stringify(implementation.toolCalls),
+      'utf8',
+    ).toString('base64')
+    const commandsPayload = Buffer.from(JSON.stringify(commands), 'utf8').toString(
+      'base64',
+    )
+    const script = `
+const cp = require('node:child_process')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const root = process.cwd()
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-verify-'))
+const excludedDirs = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage'])
+function copyDir(src, dst) {
+  fs.mkdirSync(dst, { recursive: true })
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (excludedDirs.has(entry.name) || entry.name.endsWith('.tsbuildinfo')) continue
+    const from = path.join(src, entry.name)
+    const to = path.join(dst, entry.name)
+    if (entry.isDirectory()) copyDir(from, to)
+    else if (entry.isSymbolicLink()) {
+      try { fs.symlinkSync(fs.readlinkSync(from), to) } catch {}
+    } else if (entry.isFile()) fs.copyFileSync(from, to)
+  }
+}
+function safePath(rawPath) {
+  const target = path.resolve(scratch, String(rawPath || ''))
+  if (target !== scratch && !target.startsWith(scratch + path.sep)) {
+    throw new Error('Unsafe proposal path: ' + rawPath)
+  }
+  return target
+}
+function applyToolCall(toolCall) {
+  const input = toolCall.input || {}
+  const target = safePath(input.path)
+  if (toolCall.toolName === 'propose_write_file' || toolCall.toolName === 'write_file') {
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, String(input.content ?? ''))
+    return
+  }
+  if (toolCall.toolName === 'propose_str_replace' || toolCall.toolName === 'str_replace') {
+    let content = fs.readFileSync(target, 'utf8')
+    for (const replacement of input.replacements || []) {
+      const oldString = String(replacement.oldString ?? replacement.old ?? '')
+      const newString = String(replacement.newString ?? replacement.new ?? '')
+      if (!oldString || !content.includes(oldString)) {
+        throw new Error('Old string not found in ' + input.path)
+      }
+      content = content.replace(oldString, newString)
+    }
+    fs.writeFileSync(target, content)
+  }
+}
+try {
+  copyDir(root, scratch)
+  const toolCalls = JSON.parse(Buffer.from(process.argv[1], 'base64').toString('utf8'))
+  const commands = JSON.parse(Buffer.from(process.argv[2], 'base64').toString('utf8'))
+  for (const toolCall of toolCalls) applyToolCall(toolCall)
+  const outputs = []
+  let ok = true
+  for (const item of commands) {
+    const result = cp.spawnSync(item.command, {
+      cwd: scratch,
+      shell: true,
+      encoding: 'utf8',
+      timeout: 45000,
+      maxBuffer: 4 * 1024 * 1024,
+    })
+    const exitCode = typeof result.status === 'number' ? result.status : 1
+    outputs.push({
+      kind: item.kind,
+      label: item.label,
+      command: item.command,
+      exitCode,
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+    })
+    if (exitCode !== 0) {
+      ok = false
+      break
+    }
+  }
+  console.log(JSON.stringify({ outputs }))
+  process.exit(ok ? 0 : 1)
+} catch (error) {
+  console.error(error && error.stack ? error.stack : String(error))
+  process.exit(1)
+} finally {
+  fs.rmSync(scratch, { recursive: true, force: true })
+}
+`
+
+    return `node -e ${shellSingleQuote(script)} ${toolCallsPayload} ${commandsPayload}`
+  }
+
+  function shellSingleQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`
   }
 
   function rankVerifiedResults(
@@ -3800,11 +4253,21 @@ function* handleStepsMultiPrompt({
       if (a.verificationPassed !== b.verificationPassed) {
         return a.verificationPassed ? -1 : 1
       }
+
+      if (a.verificationAttempted !== b.verificationAttempted) {
+        return a.verificationAttempted ? -1 : 1
+      }
       
       const aTypecheck = a.typecheckPassed === true
       const bTypecheck = b.typecheckPassed === true
       if (aTypecheck !== bTypecheck) {
         return aTypecheck ? -1 : 1
+      }
+
+      const aTests = a.testsPassed === true
+      const bTests = b.testsPassed === true
+      if (aTests !== bTests) {
+        return aTests ? -1 : 1
       }
       
       if (a.appliedCleanly !== b.appliedCleanly) {
@@ -3814,9 +4277,41 @@ function* handleStepsMultiPrompt({
       if (a.repairRoundsUsed !== b.repairRoundsUsed) {
         return a.repairRoundsUsed - b.repairRoundsUsed
       }
+
+      if (a.diffSize !== b.diffSize) {
+        return a.diffSize - b.diffSize
+      }
       
       return 0
     })
+  }
+
+  function getImplementationDiffSize(implementation: Implementation): number {
+    if (implementation.content.trim()) {
+      return implementation.content.split('\n').length
+    }
+
+    return implementation.toolCalls.reduce((total, toolCall) => {
+      if (!isObject(toolCall.input)) return total + 1
+      const replacements = Array.isArray(toolCall.input.replacements)
+        ? toolCall.input.replacements
+        : []
+      const replacementSize = replacements.reduce((sum, replacement) => {
+        if (!isObject(replacement)) return sum + 1
+        return (
+          sum +
+          String(replacement.oldString ?? replacement.old ?? '').split('\n')
+            .length +
+          String(replacement.newString ?? replacement.new ?? '').split('\n')
+            .length
+        )
+      }, 0)
+      const contentSize =
+        typeof toolCall.input.content === 'string'
+          ? toolCall.input.content.split('\n').length
+          : 0
+      return total + Math.max(1, replacementSize + contentSize)
+    }, 0)
   }
 }
 

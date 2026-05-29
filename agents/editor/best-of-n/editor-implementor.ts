@@ -724,14 +724,15 @@ Write out your complete implementation now. Do not write any final summary.`,
         const { coverage, stepsComplete } = input
         if (!coverage.hasAnyProposal) return false
 
-        // If the model has not completed its turn/generation, do not cut it off
-        if (!stepsComplete) return false
-
         // If the task told us the expected scope (explicit paths/count, or an
         // explicit multi-file signal), stop as soon as that scope is covered.
         // This is the key anti-hang path for local/OpenAI-compatible models
         // that emit the whole bundle and then stall before writing the marker.
         if (coverage.satisfiesKnownScope) return true
+
+        // If the model has not completed its turn/generation, do not cut it off
+        // unless the known required scope above is already covered.
+        if (!stepsComplete) return false
 
         // Simple one-file work should not pay an extra model turn just to
         // prove there are no more files.
