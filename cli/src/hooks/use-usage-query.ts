@@ -1,124 +1,78 @@
-import { env } from '@codebuff/common/env'
-import { useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { invalidateActivityQuery, useActivityQuery } from './use-activity-query'
-import { getAuthToken } from '../utils/auth'
+import { getApiClient } from '../utils/codebuff-api'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger as defaultLogger } from '../utils/logger'
 
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
+import type { CodebuffApiClient } from '../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-// Query keys for type-safe cache management
+export interface UsageResponse {
+  usage: number
+  remainingBalance: number | null
+  next_quota_reset: string | null
+}
+
 export const usageQueryKeys = {
   all: ['usage'] as const,
   current: () => [...usageQueryKeys.all, 'current'] as const,
 }
 
-interface UsageResponse {
-  type: 'usage-response'
-  usage: number
-  remainingBalance: number | null
-  balanceBreakdown?: {
-    free: number
-    paid: number
-    ad?: number
-    referral?: number
-    admin?: number
-  }
-  next_quota_reset: string | null
-  autoTopupEnabled?: boolean
-}
-
-interface FetchUsageParams {
-  authToken: string
+export interface FetchUsageDataDeps {
+  apiClient?: CodebuffApiClient
   logger?: Logger
-  clientEnv?: ClientEnv
 }
 
-/**
- * Fetches usage data from the API
- */
 export async function fetchUsageData({
-  authToken,
+  apiClient: providedApiClient,
   logger = defaultLogger,
-  clientEnv = env,
-}: FetchUsageParams): Promise<UsageResponse> {
-  const appUrl = clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
-  if (!appUrl) {
-    throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
-  }
+}: FetchUsageDataDeps): Promise<UsageResponse> {
+  const client = providedApiClient ?? getApiClient()
 
-  const response = await fetch(`${appUrl}/api/v1/usage`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      fingerprintId: 'cli-usage',
-      authToken,
-    }),
+  const response = await client.post<UsageResponse>('/api/v1/usage', {
+    fingerprintId: undefined,
   })
 
   if (!response.ok) {
-    logger.error(
-      { status: response.status },
-      'Failed to fetch usage data from API',
-    )
+    logger.debug({ status: response.status }, 'Failed to fetch usage data')
     throw new Error(`Failed to fetch usage: ${response.status}`)
   }
 
-  const responseBody = await response.json()
-  const data = responseBody as UsageResponse
-  return data
+  return (
+    response.data ?? {
+      usage: 0,
+      remainingBalance: null,
+      next_quota_reset: null,
+    }
+  )
 }
 
 export interface UseUsageQueryDeps {
-  logger?: Logger
+  apiClient?: CodebuffApiClient
   enabled?: boolean
-  refetchInterval?: number | false
-  /** Refetch stale data when user becomes active after being idle */
-  refetchOnActivity?: boolean
-  /** Pause polling when user is idle */
-  pauseWhenIdle?: boolean
-  /** Time in ms to consider user idle (default: 30 seconds) */
-  idleThreshold?: number
+  refetchIntervalMs?: number
+  logger?: Logger
 }
 
-/**
- * Hook to fetch usage data from the API
- * Uses the activity-aware query hook for terminal-specific optimizations
- */
 export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
   const {
-    logger = defaultLogger,
+    apiClient: providedApiClient,
     enabled = true,
-    refetchInterval = false,
-    refetchOnActivity = false,
-    pauseWhenIdle = true,
-    idleThreshold = 30_000,
+    refetchIntervalMs = 60 * 1000,
+    logger = defaultLogger,
   } = deps
-  const authToken = getAuthToken()
 
-  return useActivityQuery({
+  return useQuery({
     queryKey: usageQueryKeys.current(),
-    queryFn: () => fetchUsageData({ authToken: authToken!, logger }),
-    enabled: enabled && !!authToken,
-    staleTime: 0, // Always consider data stale for immediate refetching
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    retry: false, // Don't retry failed usage queries
-    refetchOnMount: 'always', // Always refetch on mount to get fresh data when banner opens
-    refetchInterval, // Poll at specified interval (when banner is visible)
-    refetchOnActivity,
-    pauseWhenIdle,
-    idleThreshold,
+    queryFn: () =>
+      fetchUsageData({
+        apiClient: providedApiClient,
+        logger,
+      }),
+    enabled: enabled && !IS_FREEBUFF,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchInterval: refetchIntervalMs,
   })
-}
-
-/**
- * Hook to manually trigger a usage data refresh
- */
-export function useRefreshUsage() {
-  return useCallback(() => {
-    invalidateActivityQuery(usageQueryKeys.current())
-  }, [])
 }

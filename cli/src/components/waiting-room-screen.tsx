@@ -3,7 +3,6 @@ import { useKeyboard, useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
-import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { LimitedLandingPanel } from './limited-landing-panel'
 import { ShimmerText } from './shimmer-text'
@@ -12,7 +11,7 @@ import {
   takeOverFreebuffSession,
 } from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
-import { useGravityAd } from '../hooks/use-gravity-ad'
+
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
@@ -143,7 +142,7 @@ const TakeoverPrompt: React.FC = () => {
   const handleTakeover = useCallback(() => {
     if (pending) return
     setPending(true)
-    takeOverFreebuffSession().finally(() => setPending(false))
+    try { takeOverFreebuffSession() } finally { setPending(false) }
   }, [pending])
 
   useKeyboard(
@@ -276,17 +275,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     applySheenToChar,
   })
 
-  // Always enable ads in the waiting room — this is where monetization lives.
-  // forceStart bypasses the "wait for first user message" gate inside the hook,
-  // which would otherwise block ads here since no conversation exists yet.
-  // Try Gravity first, then fall back to ZeroClick when Gravity doesn't fill.
-  const { ads, recordImpression } = useGravityAd({
-    enabled: true,
-    forceStart: true,
-    provider: 'gravity',
-    fallbackProvider: 'zeroclick',
-    surface: 'waiting_room',
-  })
+  // Ads are permanently disabled — no Gravity provider
 
   useFreebuffCtrlCExit()
 
@@ -356,7 +345,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
     const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
-      refreshFreebuffLandingMetadata().catch(() => {})
+      void refreshFreebuffLandingMetadata()
     }, delayMs)
 
     return () => clearTimeout(timer)
@@ -636,20 +625,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         </box>
       </box>
 
-      {/* Reserve the ad banner slot before the async ad fetch resolves so the
-          waiting-room content does not jump when the banner fills. */}
+      {/* Spacer to prevent content jump */}
       <box
         style={{
           width: '100%',
           flexShrink: 0,
-          height: CHOICE_AD_BANNER_HEIGHT,
+          height: 3,
         }}
       >
-        {ads ? (
-          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
-        ) : (
-          <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
-        )}
+        <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
       </box>
     </box>
   )

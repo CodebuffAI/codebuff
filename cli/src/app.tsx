@@ -1,16 +1,12 @@
-import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
 import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
-import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
 import { WaitingRoomScreen } from './components/waiting-room-screen'
-import { useAuthQuery } from './hooks/use-auth-query'
-import { useAuthState } from './hooks/use-auth-state'
 import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useLogo } from './hooks/use-logo'
 import { useSheenAnimation } from './hooks/use-sheen-animation'
@@ -21,7 +17,7 @@ import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
-import { IS_FREEBUFF, isLocalMode } from './utils/constants'
+import { IS_FREEBUFF } from './utils/constants'
 import { findGitRoot } from './utils/git'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
@@ -35,8 +31,6 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 interface AppProps {
   initialPrompt: string | null
   agentId?: string
-  requireAuth: boolean | null
-  hasInvalidCredentials: boolean
   fileTree: FileTreeNode[]
   continueChat: boolean
   continueChatId?: string
@@ -48,8 +42,6 @@ interface AppProps {
 export const App = ({
   initialPrompt,
   agentId,
-  requireAuth,
-  hasInvalidCredentials,
   fileTree,
   continueChat,
   continueChatId,
@@ -109,22 +101,6 @@ export const App = ({
   useTerminalFocus({
     onFocusChange: setInputFocused,
     onSupportDetected: handleSupportDetected,
-  })
-
-  // Get auth query for network status tracking
-  const authQuery = useAuthQuery()
-
-  const {
-    isAuthenticated,
-    setIsAuthenticated,
-    setUser,
-    handleLoginSuccess,
-    logoutMutation,
-  } = useAuthState({
-    requireAuth,
-    inputRef,
-    setInputFocused,
-    resetChatStore,
   })
 
   const projectRoot = getProjectRoot()
@@ -226,7 +202,7 @@ export const App = ({
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
-          {IS_FREEBUFF ? 'Freebuff' : isLocalMode() ? 'Openbuff' : 'Codebuff'} will run commands on your behalf to help you build.
+          {IS_FREEBUFF ? 'Freebuff' : 'Openbuff'} will run commands on your behalf to help you build.
         </text>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
@@ -244,47 +220,15 @@ export const App = ({
     )
   }, [logoComponent, projectRoot, theme])
 
-  // Derive auth reachability + retrying state from authQuery error
-  const authError = authQuery.error
-  const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
+  // Auth status is always 'ok' in local/BYOK mode — no cloud backend to query
+  const authStatus: AuthStatus = 'ok'
 
-  let authStatus: AuthStatus = 'ok'
-  if (authQuery.isError && authErrorStatusCode !== undefined) {
-    if (isRetryableStatusCode(authErrorStatusCode)) {
-      // Retryable errors (408 timeout, 429 rate limit, 5xx server errors)
-      authStatus = 'retrying'
-    } else if (authErrorStatusCode >= 500) {
-      // Non-retryable server errors (unlikely but possible future codes)
-      authStatus = 'unreachable'
-    }
-    // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
-  }
-
-  // Render project picker FIRST when at home directory or outside a project.
-  // This deliberately precedes the login/auth and waiting-room gates so the
-  // user always gets to pick a working directory before anything else — auth
-  // failures or a banned/queued freebuff session would otherwise replace the
-  // picker mid-flash and look like being kicked out of the app.
+  // Render project picker FIRST when at home directory or outside a project
   if (showProjectPicker) {
     return (
       <ProjectPickerScreen
         onSelectProject={onProjectChange}
         initialPath={projectRoot}
-      />
-    )
-  }
-
-  // Render login modal when not authenticated AND auth service is reachable
-  // Don't show login modal during network outages OR while retrying
-  if (
-    requireAuth !== null &&
-    isAuthenticated === false &&
-    authStatus === 'ok'
-  ) {
-    return (
-      <LoginModal
-        onLoginSuccess={handleLoginSuccess}
-        hasInvalidCredentials={hasInvalidCredentials}
       />
     )
   }
@@ -300,9 +244,6 @@ export const App = ({
       agentId={agentId}
       fileTree={fileTree}
       inputRef={inputRef}
-      setIsAuthenticated={setIsAuthenticated}
-      setUser={setUser}
-      logoutMutation={logoutMutation}
       continueChat={effectiveContinueChat}
       continueChatId={effectiveContinueChatId}
       authStatus={authStatus}
@@ -324,9 +265,6 @@ interface AuthedSurfaceProps {
   agentId?: string
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
-  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean | null>>
-  setUser: React.Dispatch<React.SetStateAction<import('./utils/auth').User | null>>
-  logoutMutation: ReturnType<typeof useAuthState>['logoutMutation']
   continueChat: boolean
   continueChatId: string | undefined
   authStatus: AuthStatus
@@ -339,11 +277,6 @@ interface AuthedSurfaceProps {
   onNewChat: () => void
 }
 
-/**
- * Rendered only after auth is confirmed. Owns the freebuff waiting-room gate
- * so `useFreebuffSession` runs exactly once per authed session (not before
- * we have a token).
- */
 const AuthedSurface = ({
   chatKey,
   headerContent,
@@ -351,9 +284,6 @@ const AuthedSurface = ({
   agentId,
   fileTree,
   inputRef,
-  setIsAuthenticated,
-  setUser,
-  logoutMutation,
   continueChat,
   continueChatId,
   authStatus,
@@ -368,28 +298,16 @@ const AuthedSurface = ({
   const { session, error: sessionError } = useFreebuffSession()
 
   // Terminal state: a 409 from the gate means another CLI rotated our
-  // instance id. Show a dedicated screen and stop polling — don't fall back
-  // into the waiting room, which would look like normal queued progress.
+  // instance id. Show a dedicated screen and stop polling.
   if (IS_FREEBUFF && session?.status === 'superseded') {
     return <FreebuffSupersededScreen />
   }
 
-  // Route every non-admitted state through the pre-chat screen:
-  //   null     → initial GET in flight (brief)
-  //   'none'   → no seat yet; show model-picker landing
-  //   'queued' → waiting our turn
-  //   'country_blocked' → terminal region-gate message
-  //   'banned' → terminal account-banned message
-  //   'rate_limited' → hit per-model session quota; terminal for this run
-  //   'takeover_prompt' → another local CLI already holds this account
-  //
-  // 'ended' deliberately falls through to <Chat>: the agent may still be
-  // finishing work under the server-side grace period, and the chat surface
-  // itself swaps the input box for the session-ended banner.
+  // Route every non-admitted state through the pre-chat screen
   if (
     IS_FREEBUFF &&
-    (session === null ||
-      session.status === 'queued' ||
+    session &&
+    (session.status === 'queued' ||
       session.status === 'none' ||
       session.status === 'country_blocked' ||
       session.status === 'banned' ||
@@ -399,10 +317,7 @@ const AuthedSurface = ({
     return <WaitingRoomScreen session={session} error={sessionError} />
   }
 
-  // Chat history renders inside AuthedSurface so the freebuff session stays
-  // mounted while the user browses history. Unmounting this surface would
-  // DELETE the session row and drop the user back into the waiting room on
-  // return.
+  // Chat history renders inside AuthedSurface
   if (showChatHistory) {
     return (
       <ChatHistoryScreen
@@ -421,9 +336,6 @@ const AuthedSurface = ({
       agentId={agentId}
       fileTree={fileTree}
       inputRef={inputRef}
-      setIsAuthenticated={setIsAuthenticated}
-      setUser={setUser}
-      logoutMutation={logoutMutation}
       continueChat={continueChat}
       continueChatId={continueChatId}
       authStatus={authStatus}

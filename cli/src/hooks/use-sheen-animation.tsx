@@ -4,8 +4,8 @@ import {
   SHADOW_CHARS,
   SHEEN_STEP,
   SHEEN_INTERVAL_MS,
-} from '../login/constants'
-import { getSheenColor } from '../login/utils'
+  getSheenColor,
+} from '../components/logo-constants'
 
 interface UseSheenAnimationParams {
   logoColor: string
@@ -16,10 +16,6 @@ interface UseSheenAnimationParams {
   setSheenPosition: (value: number | ((prev: number) => number)) => void
 }
 
-/**
- * Custom hook that handles the sheen animation effect on the logo
- * Animates a fill effect that loops: fill with accent color, then unfill back to original
- */
 export function useSheenAnimation({
   logoColor,
   accentColor,
@@ -28,10 +24,8 @@ export function useSheenAnimation({
   sheenPosition,
   setSheenPosition,
 }: UseSheenAnimationParams) {
-  // Track whether we're in the reverse (unfill) phase
   const [isReversing, setIsReversing] = useState(false)
 
-  // Run looping sheen animation
   useEffect(() => {
     const maxPosition = Math.max(10, Math.min((terminalWidth || 80) - 4, 100))
     const step = SHEEN_STEP
@@ -39,13 +33,10 @@ export function useSheenAnimation({
     const interval = setInterval(() => {
       setSheenPosition((prev) => {
         const next = prev + step
-        
         if (next >= maxPosition) {
-          // Reached the end, switch direction
           setIsReversing((wasReversing) => !wasReversing)
-          return 0 // Reset position for next phase
+          return 0
         }
-        
         return next
       })
     }, SHEEN_INTERVAL_MS)
@@ -55,7 +46,6 @@ export function useSheenAnimation({
     }
   }, [terminalWidth, setSheenPosition])
 
-  // Apply sheen effect to a character based on its position
   const applySheenToChar = useCallback(
     (char: string, charIndex: number) => {
       if (char === ' ' || char === '\n') {

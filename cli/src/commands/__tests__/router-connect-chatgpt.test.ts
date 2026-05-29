@@ -44,7 +44,6 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
       inputValue: 'auth-code-123',
       isChainInProgressRef: { current: false },
       isStreaming: false,
-      logoutMutation: {} as RouterParams['logoutMutation'],
       streamMessageIdRef: { current: null },
       addToQueue: () => {},
       clearMessages: () => {},
@@ -54,9 +53,7 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
       setCanProcessQueue: () => {},
       setInputFocused: () => {},
       setInputValue,
-      setIsAuthenticated: () => {},
       setMessages,
-      setUser: () => {},
       stopStreaming: () => {},
     } satisfies RouterParams
 

@@ -23,7 +23,7 @@ export const OutOfCreditsBanner = () => {
 
   const { data: apiData } = useUsageQuery({
     enabled: true,
-    refetchInterval: CREDIT_POLL_INTERVAL,
+    refetchIntervalMs: CREDIT_POLL_INTERVAL,
   })
 
   // Get cached data for immediate display

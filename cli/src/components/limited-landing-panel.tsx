@@ -43,9 +43,7 @@ export const LimitedLandingPanel: React.FC<LimitedLandingPanelProps> = ({
   const start = useCallback(() => {
     if (!interactable) return
     setPending(true)
-    joinFreebuffQueue(LIMITED_FREEBUFF_MODEL_ID).finally(() =>
-      setPending(false),
-    )
+    try { joinFreebuffQueue(LIMITED_FREEBUFF_MODEL_ID) } finally { setPending(false) }
   }, [interactable])
 
   useKeyboard(

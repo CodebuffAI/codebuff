@@ -1,6 +1,5 @@
 import { isEqual } from 'lodash'
 
-import { formatToolOutput } from './codebuff-client'
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 
 import type {
@@ -171,13 +170,10 @@ export const extractSpawnAgentResultContent = (
     return { content: String(obj.error), hasError: true }
   }
   if (obj.type === 'error') {
-    return {
-      content:
-        typeof obj.message === 'string'
-          ? obj.message
-          : formatToolOutput([{ type: 'json', value: obj }]),
-      hasError: true,
-    }
+    const message = typeof obj.message === 'string'
+      ? obj.message
+      : JSON.stringify(obj, null, 2)
+    return { content: message, hasError: true }
   }
   if ((obj.value as any)?.errorMessage) {
     return { content: String((obj.value as any).errorMessage), hasError: true }
@@ -186,13 +182,10 @@ export const extractSpawnAgentResultContent = (
     return { content: String((obj.value as any).error), hasError: true }
   }
   if ((obj.value as any)?.type === 'error') {
-    return {
-      content:
-        typeof (obj.value as any).message === 'string'
-          ? (obj.value as any).message
-          : formatToolOutput([{ type: 'json', value: obj.value }]),
-      hasError: true,
-    }
+    const message = typeof (obj.value as any).message === 'string'
+      ? (obj.value as any).message
+      : JSON.stringify(obj.value, null, 2)
+    return { content: message, hasError: true }
   }
 
   // Handle lastMessage and allMessages output modes: { type: "lastMessage"|"allMessages", value: [Message array] }
@@ -232,7 +225,7 @@ export const extractSpawnAgentResultContent = (
     }
     // Fall through to format as JSON
     return {
-      content: formatToolOutput([{ type: 'json', value: obj.value }]),
+      content: JSON.stringify(obj.value, null, 2),
       hasError: false,
     }
   }
@@ -252,7 +245,7 @@ export const extractSpawnAgentResultContent = (
 
   // Fallback to formatted output
   return {
-    content: formatToolOutput([{ type: 'json', value: resultValue }]),
+    content: JSON.stringify(resultValue, null, 2),
     hasError: false,
   }
 }
@@ -633,10 +626,10 @@ export const updateToolBlockWithOutput = (
         if (parsed?.stdout || parsed?.stderr) {
           output = (parsed.stdout || '') + (parsed.stderr || '')
         } else {
-          output = formatToolOutput(toolOutput)
+          output = JSON.stringify(toolOutput, null, 2)
         }
       } else {
-        output = formatToolOutput(toolOutput)
+        output = JSON.stringify(toolOutput, null, 2)
       }
       return { ...block, output }
     } else if (block.type === 'agent' && block.blocks) {

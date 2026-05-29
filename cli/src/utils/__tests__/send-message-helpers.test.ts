@@ -1372,7 +1372,7 @@ describe('updateToolBlockWithOutput', () => {
       toolOutput: ['File contents'],
     })
 
-    expect((result[0] as ToolContentBlock).output).toBe('File contents')
+    expect((result[0] as ToolContentBlock).output).toBe(JSON.stringify(['File contents'], null, 2))
   })
 
   test('updates nested tool block', () => {
@@ -1400,7 +1400,7 @@ describe('updateToolBlockWithOutput', () => {
       toolOutput: ['File contents'],
     })
     const agent = result[0] as AgentContentBlock
-    expect((agent.blocks![0] as ToolContentBlock).output).toBe('File contents')
+    expect((agent.blocks![0] as ToolContentBlock).output).toBe(JSON.stringify(['File contents'], null, 2))
   })
 
   test('returns same reference if no match', () => {

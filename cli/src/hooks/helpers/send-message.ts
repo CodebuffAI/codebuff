@@ -553,7 +553,7 @@ function handleFreebuffGateError(
       )
       // Re-sync without resetting chat — this is a "we'll wait", not a
       // "let's start fresh".
-      refreshFreebuffSession().catch(() => {})
+      void refreshFreebuffSession()
       return
     case 'session_superseded':
       updater.setError(

@@ -1,7 +1,6 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { safeOpen } from '../utils/open-url'
 
-import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInfoCommand } from './info'
@@ -11,10 +10,9 @@ import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
-import { WEBSITE_URL } from '../login/constants'
+import { WEBSITE_URL } from '../components/logo-constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
-import { useLoginStore } from '../state/login-store'
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 import {
   AGENT_MODES,
@@ -37,9 +35,7 @@ import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue, PendingAttachment } from '../types/store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
-import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
-import type { UseMutationResult } from '@tanstack/react-query'
 
 export type RouterParams = {
   abortControllerRef: React.MutableRefObject<AbortController | null>
@@ -48,7 +44,6 @@ export type RouterParams = {
   inputValue: string
   isChainInProgressRef: React.MutableRefObject<boolean>
   isStreaming: boolean
-  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
   clearMessages: () => void
@@ -60,11 +55,9 @@ export type RouterParams = {
   setInputValue: (
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
-  setIsAuthenticated: (value: React.SetStateAction<boolean | null>) => void
   setMessages: (
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void
-  setUser: (value: React.SetStateAction<User | null>) => void
   stopStreaming: () => void
 }
 
@@ -127,15 +120,6 @@ type CommandWithArgsConfig = {
 /**
  * Factory for commands that do NOT accept arguments.
  * Any args passed are gracefully ignored.
- *
- * @example
- * defineCommand({
- *   name: 'new',
- *   aliases: ['n', 'clear'],
- *   handler: (params) => {
- *     params.setMessages(() => [])
- *   },
- * })
  */
 export function defineCommand(config: CommandConfig): CommandDefinition {
   return {
@@ -152,17 +136,6 @@ export function defineCommand(config: CommandConfig): CommandDefinition {
 /**
  * Factory for commands that accept arguments.
  * The handler receives both params and args.
- *
- * @example
- * defineCommandWithArgs({
- *   name: 'bash',
- *   aliases: ['!'],
- *   handler: (params, args) => {
- *     if (args.trim()) {
- *       runBashCommand(args.trim())
- *     }
- *   },
- * })
  */
 export function defineCommandWithArgs(
   config: CommandWithArgsConfig,
@@ -180,8 +153,6 @@ const clearInput = (params: RouterParams) => {
 }
 
 const FREEBUFF_REMOVED_COMMANDS = new Set([
-  'ads:enable',
-  'ads:disable',
   'usage',
   'subscribe',
   'image',
@@ -199,24 +170,6 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
-  defineCommand({
-    name: 'ads:enable',
-    handler: (params) => {
-      const { postUserMessage } = handleAdsEnable()
-      params.setMessages((prev) => postUserMessage(prev))
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'ads:disable',
-    handler: (params) => {
-      const { postUserMessage } = handleAdsDisable()
-      params.setMessages((prev) => postUserMessage(prev))
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
   defineCommand({
     name: 'help',
     aliases: ['h', '?'],
@@ -263,52 +216,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       useChatStore.getState().setInputMode('bash')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'login',
-    aliases: ['signin'],
-    handler: (params) => {
-      params.setMessages((prev) => [
-        ...prev,
-        getSystemMessage(
-          "You're already in the app. Use /logout to switch accounts.",
-        ),
-      ])
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'logout',
-    aliases: ['signout'],
-    handler: (params) => {
-      if (isLocalMode()) {
-        params.setMessages((prev) => [
-          ...prev,
-          getSystemMessage('Logout is disabled in Openbuff.'),
-        ])
-        clearInput(params)
-        return
-      }
-      params.abortControllerRef.current?.abort()
-      params.stopStreaming()
-      params.setCanProcessQueue(false)
-
-      const { resetLoginState } = useLoginStore.getState()
-      params.logoutMutation.mutate(undefined, {
-        onSettled: () => {
-          resetLoginState()
-          params.setMessages((prev) => [
-            ...prev,
-            getSystemMessage('Logged out.'),
-          ])
-          clearInput(params)
-          setTimeout(() => {
-            params.setUser(null)
-            params.setIsAuthenticated(false)
-          }, 300)
-        },
-      })
     },
   }),
   defineCommand({
@@ -488,15 +395,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'usage',
     aliases: ['credits'],
     handler: async (params) => {
-      if (isLocalMode()) {
-        params.setMessages((prev) => [
-          ...prev,
-          getSystemMessage('Usage and credits are disabled in Openbuff.'),
-        ])
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        return
-      }
       const { postUserMessage } = await handleUsageCommand()
       params.setMessages((prev) => postUserMessage(prev))
       params.saveToHistory(params.inputValue.trim())
@@ -507,14 +405,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'subscribe',
     aliases: ['strong', 'sub', 'buy-credits'],
     handler: (params) => {
-      if (isLocalMode()) {
-        params.setMessages((prev) => [
-          ...prev,
-          getSystemMessage('Subscriptions are disabled in Openbuff.'),
-        ])
-        clearInput(params)
-        return
-      }
       safeOpen(WEBSITE_URL + '/subscribe')
       clearInput(params)
     },
@@ -738,10 +628,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /end-session (freebuff-only) — end the active session early and drop back
-  // to the model picker. The hook flips status to 'none', which unmounts
-  // <Chat> and mounts <WaitingRoomScreen> on the landing view, where the
-  // user picks a model and hits Enter to rejoin the queue.
+  // /end-session (freebuff-only)
   defineCommand({
     name: 'end-session',
     aliases: ['model'],
@@ -753,10 +640,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       ])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      returnToFreebuffLanding({ resetChat: true }).catch(() => {
-        // The hook surfaces poll errors via the session store; nothing to do
-        // here beyond letting the chat history reflect the attempt.
-      })
+      void returnToFreebuffLanding({ resetChat: true })
     },
   }),
 ]

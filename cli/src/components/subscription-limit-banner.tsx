@@ -9,7 +9,7 @@ import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { useUpdatePreference } from '../hooks/use-update-preference'
 import { useUsageQuery } from '../hooks/use-usage-query'
-import { WEBSITE_URL } from '../login/constants'
+import { WEBSITE_URL } from './logo-constants'
 import { useChatStore } from '../state/chat-store'
 import { formatResetTime } from '../utils/time-format'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -26,7 +26,7 @@ export const SubscriptionLimitBanner = () => {
 
   const { data: usageData } = useUsageQuery({
     enabled: true,
-    refetchInterval: 30 * 1000,
+    refetchIntervalMs: 30 * 1000,
   })
 
   const rateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined

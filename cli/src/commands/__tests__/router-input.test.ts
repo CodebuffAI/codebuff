@@ -152,8 +152,6 @@ describe('router-utils', () => {
 
   describe('slash commands only work with / prefix', () => {
     const slashCommands = [
-      'login',
-      'logout',
       'usage',
       'credits',
       'exit',
@@ -196,9 +194,9 @@ describe('router-utils', () => {
 describe('command-registry', () => {
   describe('findCommand', () => {
     test('finds command by name', () => {
-      const login = findCommand('login')
-      expect(login).toBeDefined()
-      expect(login?.name).toBe('login')
+      const help = findCommand('help')
+      expect(help).toBeDefined()
+      expect(help?.name).toBe('help')
 
       const usage = findCommand('usage')
       expect(usage).toBeDefined()
@@ -222,9 +220,9 @@ describe('command-registry', () => {
       expect(quit).toBeDefined()
       expect(quit?.name).toBe('exit')
 
-      const signin = findCommand('signin')
+      const signin = findCommand('credits')
       expect(signin).toBeDefined()
-      expect(signin?.name).toBe('login')
+      expect(signin?.name).toBe('usage')
     })
 
     test('returns undefined for unknown command', () => {
@@ -233,7 +231,7 @@ describe('command-registry', () => {
     })
 
     test('is case insensitive', () => {
-      expect(findCommand('LOGIN')?.name).toBe('login')
+      expect(findCommand('HELP')?.name).toBe('help')
       expect(findCommand('UsAgE')?.name).toBe('usage')
       expect(findCommand('CREDITS')?.name).toBe('usage')
       expect(findCommand('STATUS')?.name).toBe('info')

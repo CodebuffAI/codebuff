@@ -232,7 +232,7 @@ export const FreebuffModelSelector: React.FC = () => {
       if (modelId === committedModelId) return
       if (!isJoinable(modelId)) return
       setPending(modelId)
-      joinFreebuffQueue(modelId).finally(() => setPending(null))
+      try { joinFreebuffQueue(modelId) } finally { setPending(null) }
     },
     [pending, committedModelId, isJoinable],
   )

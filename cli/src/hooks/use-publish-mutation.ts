@@ -1,15 +1,28 @@
 import { useMutation } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
 
-import {
-  handlePublish as defaultHandlePublish,
-  type PublishResult,
-} from '../commands/publish'
 import { usePublishStore } from '../state/publish-store'
+
+export interface PublishResult {
+  success: boolean
+  publisherId?: string
+  agents?: Array<{
+    id: string
+    version: string
+    displayName: string
+  }>
+  error?: string
+  details?: string
+  hint?: string
+}
 
 // Query keys for type-safe cache management
 export const publishQueryKeys = {
   all: ['publish'] as const,
+}
+
+async function handlePublish(_agentIds: string[]): Promise<PublishResult> {
+  return { success: false, error: 'Agent publishing is disabled in Openbuff local mode.' }
 }
 
 export interface UsePublishMutationDeps {
@@ -21,7 +34,7 @@ export interface UsePublishMutationDeps {
  * Uses TanStack Query mutation for proper state management
  */
 export function usePublishMutation(deps: UsePublishMutationDeps = {}) {
-  const { handlePublish = defaultHandlePublish } = deps
+  const { handlePublish: customPublish = handlePublish } = deps
 
   const { setIsPublishing, setSuccessResult, setErrorResult } = usePublishStore(
     useShallow((state) => ({
@@ -34,7 +47,7 @@ export function usePublishMutation(deps: UsePublishMutationDeps = {}) {
   return useMutation({
     mutationFn: async (agentIds: string[]) => {
       setIsPublishing(true)
-      return handlePublish(agentIds)
+      return customPublish(agentIds)
     },
     onSuccess: (result) => {
       if (result.success && result.publisherId && result.agents) {

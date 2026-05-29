@@ -3,7 +3,6 @@ import { memo, useCallback } from 'react'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
-import { getToolDisplayInfo } from '../../utils/codebuff-client'
 import { shouldCollapseToolByDefault } from '../../utils/constants'
 import { renderToolComponent } from '../tools/registry'
 import { ToolCallItem } from '../tools/tool-call-item'
@@ -44,7 +43,7 @@ export const ToolBranch = memo(
       return null
     }
 
-    const displayInfo = getToolDisplayInfo(toolBlock.toolName)
+    const displayInfo = { name: toolBlock.toolName }
     
     // Check if there's a registered custom component for this tool
     const toolRenderConfig = renderToolComponent(toolBlock, theme, {

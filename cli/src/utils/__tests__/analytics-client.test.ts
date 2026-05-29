@@ -49,6 +49,11 @@ describe('analytics with PostHog alias', () => {
   }
 
   beforeEach(() => {
+    // Prevent isLocalModeEnabled from short-circuiting trackEvent/identifyUser.
+    // The production code reads process.env directly (not injected deps), so the
+    // test must set this env var to keep the code path active.
+    process.env.OPENBUFF_LOCAL_MODE = 'false'
+
     // Reset mocks
     captureMock = mock(() => {})
     identifyMock = mock(() => {})

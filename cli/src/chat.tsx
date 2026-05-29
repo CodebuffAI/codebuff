@@ -11,9 +11,7 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { ChoiceAdBanner } from './components/choice-ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ModelRoutePicker } from './components/model-route-picker'
 import {
@@ -43,13 +41,13 @@ import { useChatUI } from './hooks/use-chat-ui'
 import { useSubscriptionQuery } from './hooks/use-subscription-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
-import { useGravityAd } from './hooks/use-gravity-ad'
+
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
-import { WEBSITE_URL } from './login/constants'
+import { WEBSITE_URL } from './components/logo-constants'
 import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
@@ -57,7 +55,6 @@ import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
-import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -96,12 +93,11 @@ import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { FreebuffSessionResponse } from './types/freebuff-session'
-import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-import type { UseMutationResult } from '@tanstack/react-query'
-import type { Dispatch, SetStateAction } from 'react'
+
+
 
 export const Chat = ({
   headerContent,
@@ -109,9 +105,7 @@ export const Chat = ({
   agentId,
   fileTree,
   inputRef,
-  setIsAuthenticated,
-  setUser,
-  logoutMutation,
+
   continueChat,
   continueChatId,
   authStatus,
@@ -125,9 +119,7 @@ export const Chat = ({
   agentId?: string
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
-  setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
-  setUser: Dispatch<SetStateAction<User | null>>
-  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
+
   continueChat: boolean
   continueChatId?: string
   authStatus: AuthStatus
@@ -184,14 +176,6 @@ export const Chat = ({
   const { data: subscriptionData } = useSubscriptionQuery({
     refetchInterval: 60 * 1000,
   })
-  const hasSubscription = subscriptionData?.hasSubscription ?? false
-
-  const { ads, recordImpression } = useGravityAd({
-    enabled: IS_FREEBUFF || !hasSubscription,
-    provider: 'gravity',
-    fallbackProvider: 'zeroclick',
-  })
-
   // Set initial mode from CLI flag on mount
   useEffect(() => {
     if (initialMode) {
@@ -237,18 +221,11 @@ export const Chat = ({
   // Get loaded skills for slash commands
   const loadedSkills = useMemo(() => getLoadedSkills(), [])
 
-  // Filter slash commands based on current ads state - only show the option that changes state
-  // Hide both ads commands entirely for subscribers
-  // Also merge in skill commands
+  // Merge skill commands into the slash command list
   const filteredSlashCommands = useMemo(() => {
-    const adsEnabled = getAdsEnabled()
     const allCommands = getSlashCommandsWithSkills(loadedSkills)
-    return allCommands.filter((cmd) => {
-      if (cmd.id === 'ads:enable') return !hasSubscription && !adsEnabled
-      if (cmd.id === 'ads:disable') return !hasSubscription && adsEnabled
-      return true
-    })
-  }, [inputValue, loadedSkills, hasSubscription]) // Re-evaluate when input changes (user may have just toggled)
+    return allCommands
+  }, [loadedSkills])
 
   const {
     slashContext,
@@ -502,7 +479,6 @@ export const Chat = ({
           inputValue: content,
           isChainInProgressRef,
           isStreaming,
-          logoutMutation,
           streamMessageIdRef,
           addToQueue,
           clearMessages,
@@ -512,9 +488,7 @@ export const Chat = ({
           setCanProcessQueue,
           setInputFocused,
           setInputValue,
-          setIsAuthenticated,
           setMessages,
-          setUser,
           stopStreaming,
         })
 
@@ -782,16 +756,6 @@ export const Chat = ({
     inputValueRef.current = inputValue
   }, [inputValue])
 
-  // Report activity on input changes for ad rotation (debounced via separate effect)
-  const lastReportedActivityRef = useRef<number>(0)
-  useEffect(() => {
-    const now = Date.now()
-    // Throttle to max once per second to avoid excessive calls
-    if (now - lastReportedActivityRef.current > 1000) {
-      lastReportedActivityRef.current = now
-      reportActivity()
-    }
-  }, [inputValue])
   useEffect(() => {
     cursorPositionRef.current = cursorPosition
   }, [cursorPosition])
@@ -891,8 +855,6 @@ export const Chat = ({
   }, [feedbackMode, askUserState, inputRef])
 
   const handleSubmit = useCallback(async () => {
-    // Report activity for ad rotation
-    reportActivity()
     // Update terminal title with truncated user input
     if (inputValue.trim()) {
       setTerminalTitle(inputValue)
@@ -1375,17 +1337,6 @@ export const Chat = ({
       !isAtBottom ||
       hasActiveFreebuffSession)
 
-  // Track mouse movement for ad activity (throttled)
-  const lastMouseActivityRef = useRef<number>(0)
-  const handleMouseActivity = useCallback(() => {
-    const now = Date.now()
-    // Throttle to max once per second
-    if (now - lastMouseActivityRef.current > 1000) {
-      lastMouseActivityRef.current = now
-      reportActivity()
-    }
-  }, [])
-
   const handleCloseModelRoutePicker = useCallback(() => {
     setModelRoutePickerOpen(false)
     setInputFocused(true)
@@ -1443,7 +1394,6 @@ export const Chat = ({
 
   return (
     <box
-      onMouseMove={handleMouseActivity}
       style={{
         flexDirection: 'column',
         gap: 0,
@@ -1536,15 +1486,13 @@ export const Chat = ({
                 ...prev,
                 getSystemMessage(END_SESSION_MESSAGE),
               ])
-              returnToFreebuffLanding({ resetChat: true }).catch(() => {})
+              void returnToFreebuffLanding({ resetChat: true })
             }}
             freebuffSession={freebuffSession}
           />
         )}
 
-        {ads && (IS_FREEBUFF || getAdsEnabled()) && (
-          <ChoiceAdBanner ads={ads} onImpression={recordImpression} />
-        )}
+        {}
 
         {reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:

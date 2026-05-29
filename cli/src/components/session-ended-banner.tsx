@@ -72,9 +72,8 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     // re-queued. app.tsx swaps us into <WaitingRoomScreen> on the
     // transition, unmounting this banner — no need to clear the pending state on
     // success.
-    returnToFreebuffLanding({ resetChat: true }).catch(() =>
-      setPendingAction(null),
-    )
+    void returnToFreebuffLanding({ resetChat: true })
+    setPendingAction(null)
   }, [canRestart])
 
   const startSameChatSession = useCallback(() => {
@@ -82,7 +81,8 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     setPendingAction('same-chat')
     // Re-POST with the currently selected model and keep the chat/run state
     // intact so the next prompt continues the same conversation.
-    refreshFreebuffSession().catch(() => setPendingAction(null))
+    void refreshFreebuffSession()
+    setPendingAction(null)
   }, [canRestart])
 
   useKeyboard(

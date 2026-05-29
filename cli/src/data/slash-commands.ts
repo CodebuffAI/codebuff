@@ -33,8 +33,6 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
     }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
-  'ads:enable',
-  'ads:disable',
   'usage',
   'subscribe',
   'agent:gpt-5',
@@ -55,7 +53,6 @@ const FREEBUFF_ONLY_COMMAND_IDS = new Set([
 const LOCAL_MODE_REMOVED_COMMAND_IDS = new Set([
   'usage',
   'subscribe',
-  'logout',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -83,16 +80,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
       ]
     : []),
 
-  {
-    id: 'ads:enable',
-    label: 'ads:enable',
-    description: 'Enable contextual ads',
-  },
-  {
-    id: 'ads:disable',
-    label: 'ads:disable',
-    description: 'Disable contextual ads',
-  },
   {
     id: 'init',
     label: 'init',
@@ -213,13 +200,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'end-session',
     description: 'End your free session (lets you switch model)',
     aliases: ['model'],
-  },
-  {
-    id: 'logout',
-    label: 'logout',
-    description: 'Sign out of your session',
-    aliases: ['signout'],
-    implicitCommand: true,
   },
   {
     id: 'exit',

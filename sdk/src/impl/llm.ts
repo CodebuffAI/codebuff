@@ -70,7 +70,7 @@ export function getProviderOptions(params: {
   costMode?: string
   cacheDebugCorrelation?: string
   extraCodebuffMetadata?: Record<string, string>
-}): { codebuff: JSONObject } {
+}): { openbuff: JSONObject } {
   const {
     model,
     runId,
@@ -100,10 +100,12 @@ export function getProviderOptions(params: {
 
   return {
     ...providerOptions,
-    // Could either be "codebuff" or "openaiCompatible"
-    codebuff: {
-      ...providerOptions?.codebuff,
-      // All values here get appended to the request body
+    // Use openbuff key for provider metadata (formerly "codebuff").
+    // Provider metadata is stripped by BYOK compatibility layers that don't
+    // support it, so this is harmless for third-party providers.
+    openbuff: {
+      ...(providerOptions as any)?.codebuff,
+      ...(providerOptions as any)?.openbuff,
       codebuff_metadata: {
         // Caller-supplied keys go first so they can't override reserved
         // identifiers like run_id/client_id/cost_mode that the server trusts.

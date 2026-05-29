@@ -110,12 +110,6 @@ export const HelpBanner = () => {
                 <text style={{ fg: theme.foreground }}>/subscribe</text>
                 <text style={{ fg: theme.muted }}>·</text>
                 <text style={{ fg: theme.foreground }}>/usage</text>
-                {!hasSubscription && (
-                  <>
-                    <text style={{ fg: theme.muted }}>·</text>
-                    <text style={{ fg: theme.foreground }}>/ads:enable</text>
-                  </>
-                )}
               </box>
               <text style={{ fg: theme.muted }}>
                 Subscribe for the best credit rates — /subscribe

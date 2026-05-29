@@ -27,7 +27,6 @@ describe('command factory pattern', () => {
       inputValue: '/test',
       isChainInProgressRef: { current: false },
       isStreaming: false,
-      logoutMutation: {} as RouterParams['logoutMutation'],
       streamMessageIdRef: { current: null },
       addToQueue: mock(() => {}),
       clearMessages: mock(() => {}),
@@ -37,9 +36,7 @@ describe('command factory pattern', () => {
       setCanProcessQueue: mock(() => {}),
       setInputFocused: mock(() => {}),
       setInputValue: mock(() => {}),
-      setIsAuthenticated: mock(() => {}),
       setMessages: mock(() => {}),
-      setUser: mock(() => {}),
       stopStreaming: mock(() => {}),
       ...overrides,
     }) as RouterParams
@@ -161,7 +158,7 @@ describe('command factory pattern', () => {
     })
 
     test('expected commands ignore args', () => {
-      const expectedNoArgs = ['login', 'logout', 'exit', 'usage', 'init']
+      const expectedNoArgs = ['exit', 'usage', 'init']
       for (const name of expectedNoArgs) {
         const cmd = COMMAND_REGISTRY.find((c) => c.name === name)
         expect(cmd, `Command ${name} should exist`).toBeDefined()

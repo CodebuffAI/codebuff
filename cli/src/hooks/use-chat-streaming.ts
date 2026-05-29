@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 
 
-import { authQueryKeys } from './use-auth-query'
 import { useConnectionStatus } from './use-connection-status'
 import { useElapsedTime } from './use-elapsed-time'
 import { useExitHandler } from './use-exit-handler'
@@ -92,27 +91,23 @@ export function useChatStreaming({
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
   const reconnectionTimeout = useTimeout()
 
-  // Reconnection handler
+  // Reconnection handler — no cloud auth to invalidate in Openbuff
   const handleReconnection = useCallback(
-    (isInitialConnection: boolean) => {
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-
+    (_isInitialConnection: boolean) => {
       startUiTransition(() => {
-        if (!isInitialConnection) {
-          setShowReconnectionMessage(true)
-          reconnectionTimeout.setTimeout(
-            'reconnection-message',
-            () => {
-              startUiTransition(() => {
-                setShowReconnectionMessage(false)
-              })
-            },
-            RECONNECTION_MESSAGE_DURATION_MS,
-          )
-        }
+        setShowReconnectionMessage(true)
+        reconnectionTimeout.setTimeout(
+          'reconnection-message',
+          () => {
+            startUiTransition(() => {
+              setShowReconnectionMessage(false)
+            })
+          },
+          RECONNECTION_MESSAGE_DURATION_MS,
+        )
       })
     },
-    [queryClient, reconnectionTimeout, startUiTransition],
+    [reconnectionTimeout, startUiTransition],
   )
 
   // Connection status

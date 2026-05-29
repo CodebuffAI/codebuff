@@ -1,0 +1,23 @@
+{
+  "providers": {
+    "local": {
+      "type": "openai-compatible",
+      "baseURL": "http://localhost:11434/v1",
+      "models": [
+        "new-model"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    }
+  },
+  "modes": {},
+  "modeReasoningEfforts": {},
+  "agents": {},
+  "agentReasoningEfforts": {}
+}

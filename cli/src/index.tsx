@@ -29,9 +29,7 @@ import { App } from './app'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
-import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
-import { setApiClientAuthToken } from './utils/codebuff-api'
 import { IS_FREEBUFF, isLocalMode } from './utils/constants'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
@@ -121,7 +119,7 @@ function parseArgs(): ParsedArgs {
         '--cwd <directory>',
         'Set the working directory (default: current directory)',
       )
-      .addHelpText('after', '\nCommands:\n  login                          Log in to your account')
+
       .helpOption('-h, --help', 'Show this help message')
       .parse(process.argv)
   } else {
@@ -291,20 +289,10 @@ async function main(): Promise<void> {
     localMode,
   } = parseArgs()
 
-  const isLoginCommand = process.argv[2] === 'login'
   const isPublishCommand = process.argv[2] === 'publish'
   const hasAgentOverride = Boolean(agent?.trim())
 
   await initializeApp({ cwd })
-
-  // Set the auth token for the API client
-  setApiClientAuthToken(localMode ? undefined : getAuthToken())
-
-  // Handle login command before rendering the app
-  if (isLoginCommand) {
-    logger.info(green('Openbuff runs locally; no cloud login is required.'))
-    return
-  }
 
   // Show project picker only when user starts at the home directory or an ancestor
   const projectRoot = getProjectRoot()
@@ -349,33 +337,11 @@ async function main(): Promise<void> {
   const queryClient = createQueryClient()
 
   const AppWithAsyncAuth = () => {
-    const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
-    const [hasInvalidCredentials, setHasInvalidCredentials] =
-      React.useState(false)
     const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
     const [currentProjectRoot, setCurrentProjectRoot] =
       React.useState(projectRoot)
     const [showProjectPickerScreen, setShowProjectPickerScreen] =
       React.useState(showProjectPicker)
-
-    React.useEffect(() => {
-      const apiKey = getAuthTokenDetails().token ?? ''
-
-      if (isLocalMode()) {
-        setRequireAuth(false)
-        setHasInvalidCredentials(false)
-        return
-      }
-
-      if (!apiKey) {
-        setRequireAuth(true)
-        setHasInvalidCredentials(false)
-        return
-      }
-
-      setHasInvalidCredentials(true)
-      setRequireAuth(false)
-    }, [])
 
     const loadFileTree = React.useCallback(async (root: string) => {
       try {
@@ -429,8 +395,6 @@ async function main(): Promise<void> {
       <App
         initialPrompt={initialPrompt}
         agentId={agent}
-        requireAuth={requireAuth}
-        hasInvalidCredentials={hasInvalidCredentials}
         fileTree={fileTree}
         continueChat={continueChat}
         continueChatId={continueId ?? undefined}

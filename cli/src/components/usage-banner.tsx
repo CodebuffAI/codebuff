@@ -13,7 +13,7 @@ import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { useUpdatePreference } from '../hooks/use-update-preference'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
-import { WEBSITE_URL } from '../login/constants'
+import { WEBSITE_URL } from './logo-constants'
 import { useChatStore } from '../state/chat-store'
 import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
 import {
@@ -64,7 +64,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
     isFetching,
   } = useUsageQuery({
     enabled: true,
-    refetchInterval: USAGE_POLL_INTERVAL,
+    refetchIntervalMs: USAGE_POLL_INTERVAL,
   })
 
   // Get cached data for immediate display

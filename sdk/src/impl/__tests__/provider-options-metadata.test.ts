@@ -11,7 +11,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
 
   it('includes run_id and client_id in codebuff_metadata', () => {
     const opts = getProviderOptions(baseParams)
-    const meta = (opts.codebuff as any).codebuff_metadata
+    const meta = (opts.openbuff as any).codebuff_metadata
     expect(meta).toMatchObject({
       run_id: 'run-1',
       client_id: 'session-1',
@@ -23,7 +23,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
       ...baseParams,
       extraCodebuffMetadata: { freebuff_instance_id: 'abc-123' },
     })
-    const meta = (opts.codebuff as any).codebuff_metadata
+    const meta = (opts.openbuff as any).codebuff_metadata
     expect(meta).toMatchObject({
       run_id: 'run-1',
       client_id: 'session-1',
@@ -33,7 +33,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
 
   it('omits extra keys when extraCodebuffMetadata is undefined', () => {
     const opts = getProviderOptions(baseParams)
-    const meta = (opts.codebuff as any).codebuff_metadata
+    const meta = (opts.openbuff as any).codebuff_metadata
     expect(Object.keys(meta)).toEqual(
       expect.arrayContaining(['run_id', 'client_id']),
     )
@@ -46,7 +46,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
       costMode: 'free',
       extraCodebuffMetadata: { freebuff_instance_id: 'uuid-xyz' },
     })
-    const meta = (opts.codebuff as any).codebuff_metadata
+    const meta = (opts.openbuff as any).codebuff_metadata
     expect(meta).toMatchObject({
       cost_mode: 'free',
       freebuff_instance_id: 'uuid-xyz',
@@ -66,7 +66,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
         run_id: 'evil-override',
       },
     })
-    const meta = (opts.codebuff as any).codebuff_metadata
+    const meta = (opts.openbuff as any).codebuff_metadata
     expect(meta.run_id).toBe('run-1')
   })
 })

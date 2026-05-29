@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react'
 import { useUsageQuery } from './use-usage-query'
 import { IS_FREEBUFF } from '../utils/constants'
 import { useChatStore } from '../state/chat-store'
-import { getAuthToken } from '../utils/auth'
 import { shouldAutoShowBanner } from '../utils/usage-banner-state'
 
 /**
@@ -30,13 +29,13 @@ export function useUsageMonitor() {
       return
     }
 
-    const authToken = getAuthToken()
     const remainingBalance = usageData?.remainingBalance ?? null
-    const autoTopupEnabled = usageData?.autoTopupEnabled ?? false
+    const autoTopupEnabled = false
 
     const decision = shouldAutoShowBanner(
       isChainInProgress,
-      !!authToken,
+      // No Codebuff auth in Openbuff — BYOK mode has no auth token
+      false,
       remainingBalance,
       lastWarnedThresholdRef.current,
       autoTopupEnabled,
