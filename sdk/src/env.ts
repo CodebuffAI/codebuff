@@ -12,7 +12,7 @@ import {
   OPENBUFF_LOCAL_MODE_ENV_VAR,
   isLocalModeEnabled,
 } from '@codebuff/common/constants/local-mode'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
+import { API_KEY_ENV_VAR, OPENBUFF_API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 import { getBaseEnv } from '@codebuff/common/env-process'
 
 import type { SdkEnv } from './types/env'
@@ -36,7 +36,7 @@ export const getSdkEnv = (): SdkEnv => ({
 })
 
 export const getCodebuffApiKeyFromEnv = (): string | undefined => {
-  return process.env[API_KEY_ENV_VAR]
+  return process.env[API_KEY_ENV_VAR] ?? process.env[OPENBUFF_API_KEY_ENV_VAR]
 }
 
 export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {

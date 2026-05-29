@@ -6,6 +6,7 @@ export const AGENT_TEMPLATES_DIR = '.agents/'
 export const AGENT_DEFINITION_FILE = 'agent-definition.d.ts'
 
 export const API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
+export const OPENBUFF_API_KEY_ENV_VAR = 'OPENBUFF_API_KEY'
 
 export const INVALID_AUTH_TOKEN_MESSAGE =
   'Invalid auth token. You may have been logged out from the web portal. Please log in again.'
