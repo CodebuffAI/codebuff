@@ -30,7 +30,7 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
   const handleContinueAsUser = () => {
     persistReferrer()
 
-    let callbackUrl = '/'
+    let callbackUrl = searchParams.get('callbackUrl') || '/'
 
     if (authCode) {
       callbackUrl = getCliAuthOnboardPath(searchParams, authCode)
@@ -68,7 +68,7 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
                 alt="Freebuff"
                 width={48}
                 height={48}
-                className="relative rounded-sm"
+                className="relative"
               />
             </div>
             <span className="text-2xl tracking-widest font-serif text-white">
