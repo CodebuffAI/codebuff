@@ -138,7 +138,7 @@ export default function Navigation({
           aria-label="Go to homepage"
         >
           <Image
-            src="/favicon.svg"
+            src="/logo-icon.png"
             alt="Logo"
             width={48}
             height={48}

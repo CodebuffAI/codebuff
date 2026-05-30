@@ -21,7 +21,6 @@ export function BlogNav() {
               alt={`${blogConfig.brand} logo`}
               width={24}
               height={24}
-              className="rounded-sm"
             />
             <span className="font-serif text-lg tracking-wide text-zinc-200 group-hover:text-white">
               freebuff

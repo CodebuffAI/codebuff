@@ -176,7 +176,7 @@ export default function ComparisonTable() {
                     >
                       {index === 0 && (
                         <Image
-                          src="/favicon.svg"
+                          src="/logo-icon.png"
                           alt="Freebuff Web logo"
                           width={16}
                           height={16}

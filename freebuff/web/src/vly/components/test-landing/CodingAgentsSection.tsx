@@ -5,7 +5,7 @@ import React from "react";
 const codingAgents = [
   {
     name: "vly agent 2.0",
-    icon: "/favicon.svg",
+    icon: "/logo-icon.png",
   },
   {
     name: "Claude Code",

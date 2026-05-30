@@ -5,15 +5,16 @@ import React from 'react'
 /**
  * Canonical Freebuff brand mark.
  *
- * Always renders the boxed favicon (dark rounded square + sparkle + green
- * accent) inside a fixed square so it can never be stretched or cropped into
- * looking like a different logo. Use this everywhere the brand mark appears
- * so the app, the favicon, and the marketing pages stay in lockstep.
+ * Renders the square boxed logo PNG (dark square + sparkle + green dash) at
+ * its natural shape. The PNG ships with its own subtle corner radius so the
+ * wrapper does not add additional rounding by default. Use this everywhere
+ * the brand mark appears so the app, the favicon, and the marketing pages
+ * stay in lockstep.
  */
 export function FreebuffLogo({
   size = 28,
   className = '',
-  rounded = 'rounded-lg',
+  rounded = '',
 }: {
   size?: number
   className?: string
@@ -26,7 +27,7 @@ export function FreebuffLogo({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/favicon.svg"
+        src="/logo-icon.png"
         alt="Freebuff"
         width={size}
         height={size}

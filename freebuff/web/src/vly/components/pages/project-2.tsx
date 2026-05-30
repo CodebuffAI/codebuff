@@ -904,7 +904,7 @@ function ProjectLoadingScreen() {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-background">
       <img
-        src="/favicon.svg"
+        src="/logo-icon.png"
         alt="Freebuff"
         className="h-9 w-9 animate-pulse object-contain opacity-90"
       />

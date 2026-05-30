@@ -20,7 +20,6 @@ export function Footer() {
                 alt="Freebuff"
                 width={24}
                 height={24}
-                className="rounded-sm"
               />
               <span className="text-lg tracking-widest font-serif text-white">
                 freebuff

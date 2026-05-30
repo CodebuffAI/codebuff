@@ -22,7 +22,7 @@ export default function TestLanding() {
           backgroundColor: "#CBCFDA",
         }}
       >
-        <Header logoSrc="/favicon.svg" logoAlt="Freebuff Web" showHome={false} />
+        <Header logoSrc="/logo-icon.png" logoAlt="Freebuff Web" showHome={false} />
         {/* Only show floating stacks on large screens */}
         <div className="hidden lg:block">
           <VCLogosStack />
@@ -54,7 +54,7 @@ export default function TestLanding() {
                     >
                       <div className="mb-3 flex items-center justify-center gap-3">
                         <img
-                          src="/favicon.svg"
+                          src="/logo-icon.png"
                           alt="vly ai"
                           className="h-10 w-10"
                         />

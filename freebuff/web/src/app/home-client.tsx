@@ -460,7 +460,7 @@ export default function HomeClient() {
               alt="Freebuff"
               width={28}
               height={28}
-              className="rounded-sm opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
+              className="opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
             />
             <span className="text-xl tracking-widest font-serif text-zinc-400 group-hover:text-white transition-colors duration-200">
               freebuff

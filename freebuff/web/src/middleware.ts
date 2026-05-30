@@ -54,7 +54,7 @@ function gatePage(next: string, error?: string): NextResponse {
 </head>
 <body>
   <div class="card">
-    <img src="/favicon.svg" alt="Freebuff" />
+    <img src="/logo-icon.png" alt="Freebuff" />
     <h1>Freebuff Web</h1>
     <p>This preview is password protected. Enter the password to continue.</p>
     <form method="POST">

@@ -722,7 +722,7 @@ ${message}`;
               <CardHeader className="px-4 py-3 pb-2">
                 <div className="flex items-center gap-2">
                   <img
-                    src="/favicon.svg"
+                    src="/logo-icon.png"
                     alt="freebuff agent 2.0"
                     className="h-5 w-5 object-contain"
                   />

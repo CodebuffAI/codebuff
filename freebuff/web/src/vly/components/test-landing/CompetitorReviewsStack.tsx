@@ -99,7 +99,7 @@ export const CompetitorReviewsStack: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className="relative h-[50px] w-[50px]">
                 <Image
-                  src="/favicon.svg"
+                  src="/logo-icon.png"
                   alt="Freebuff Web"
                   width={50}
                   height={50}

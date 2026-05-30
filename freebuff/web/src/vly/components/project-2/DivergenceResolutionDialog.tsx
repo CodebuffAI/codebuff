@@ -144,7 +144,7 @@ export default function DivergenceResolutionDialog({
       case "use_github_version":
         return <Github className="h-5 w-5 text-slate-600" />;
       case "use_local_version":
-        return <img src="/favicon.svg" alt="Freebuff Web logo" className="h-5 w-5" />;
+        return <img src="/logo-icon.png" alt="Freebuff Web logo" className="h-5 w-5" />;
       case "use_backup_version":
         return <RotateCcw className="h-5 w-5 text-slate-600" />;
       default:

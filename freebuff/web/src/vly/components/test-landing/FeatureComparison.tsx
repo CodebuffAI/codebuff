@@ -48,7 +48,7 @@ export const FeatureComparison: React.FC = () => {
         {/* Header Row */}
         <div className="grid grid-cols-2 border-b-2 border-gray-300 bg-gray-50">
           <div className="flex items-center gap-2 border-r border-gray-300 px-4 py-3">
-            <img src="/favicon.svg" alt="Freebuff Web" className="h-5 w-5" />
+            <img src="/logo-icon.png" alt="Freebuff Web" className="h-5 w-5" />
             <span className="text-base font-semibold text-gray-900">
               Freebuff Web
             </span>

@@ -17,7 +17,7 @@ export interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  logoSrc = "/favicon.svg",
+  logoSrc = "/logo-icon.png",
   logoAlt = "Freebuff Web",
   className = "",
 }) => {
@@ -49,9 +49,9 @@ export const Footer: React.FC<FooterProps> = ({
               <Image
                 src={logoSrc}
                 alt={logoAlt}
-                width={140}
-                height={46}
-                className="mx-auto h-12 w-auto"
+                width={48}
+                height={48}
+                className="mx-auto h-12 w-12 object-contain"
               />
             </Link>
           </div>

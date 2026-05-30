@@ -38,19 +38,21 @@ export function VlyCoin({ size = "md", className }: VlyCoinProps) {
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#9bff64] via-[#7CFF3F] to-[#124921] shadow-[0_0_18px_-2px_rgba(124,255,63,0.55)]" />
       {/* Inner highlight ring */}
       <div className="absolute inset-px rounded-full bg-gradient-to-br from-[#a8ff7c] via-[#7CFF3F] to-[#2a7a35]" />
-      {/* Logo container */}
+      {/* Logo container — rounded-md (not rounded-full) so the square logo
+          artwork isn't corner-cropped by a circular mask. */}
       <div
         className={cn(
-          "relative z-10 flex items-center justify-center rounded-full bg-[#0a0a0b]",
+          "relative z-10 flex items-center justify-center overflow-hidden rounded-md bg-[#0a0a0b]",
           config.logoContainer,
         )}
       >
         {/* Current Freebuff Web logo */}
         <img
-          src="/favicon.svg"
+          src="/logo-icon.png"
           alt="Freebuff credit"
           width={config.logo.width}
           height={config.logo.height}
+          className="h-full w-full object-contain"
         />
       </div>
       {/* Shine effect */}

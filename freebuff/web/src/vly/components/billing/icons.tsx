@@ -198,16 +198,17 @@ export function TokenIcon({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400 via-purple-500 to-purple-700 shadow-sm" />
       {/* Inner highlight ring */}
       <div className="absolute inset-px rounded-full bg-gradient-to-br from-purple-300 via-purple-400 to-purple-600" />
-      {/* Logo container */}
+      {/* Logo container — rounded-md (not rounded-full) so the square logo
+          artwork isn't corner-cropped by a circular mask. */}
       <div
-        className={`relative z-10 flex items-center justify-center rounded-full bg-gradient-to-br from-white/90 to-purple-50 ${logoSizeMap[size].containerClass}`}
+        className={`relative z-10 flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-white/90 to-purple-50 ${logoSizeMap[size].containerClass}`}
       >
         <img
-          src="/favicon.svg"
+          src="/logo-icon.png"
           alt="Freebuff credit"
           width={logoSizeMap[size].width}
           height={logoSizeMap[size].height}
-          className="text-purple-600"
+          className="h-full w-full object-contain text-purple-600"
         />
       </div>
       {/* Shine effect */}

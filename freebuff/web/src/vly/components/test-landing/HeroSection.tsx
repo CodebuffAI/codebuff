@@ -37,7 +37,7 @@ export interface HeroSectionProps {
 export const HeroSection: React.FC<HeroSectionProps> = ({
   "data-id": dataId,
   // Header-related props are available but rendered by a separate Header component
-  logoSrc: _logoSrc = "/favicon.svg",
+  logoSrc: _logoSrc = "/logo-icon.png",
   logoAlt: _logoAlt = "Freebuff Web",
   headerLinks: _headerLinks = [
     {
@@ -314,11 +314,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       <ScrollFadeIn className="relative z-10 mx-auto mt-20 flex max-w-[560px] flex-col items-center justify-center gap-8 px-3 sm:px-4 md:flex-row md:items-start md:gap-3 md:px-2">
         <div className="relative flex flex-1 flex-col items-center">
           <Image
-            src="/favicon.svg"
+            src="/logo-icon.png"
             alt="Freebuff Web"
-            width={80}
-            height={24}
-            className="mb-2 h-4 w-auto object-contain"
+            width={48}
+            height={48}
+            className="mb-2 h-4 w-4 object-contain"
           />
           <p className="mb-2 text-[10px] text-muted-foreground">
             Verified <strong className="text-foreground/85">Freebuff Web</strong> review — avg: 4.8 stars
@@ -429,7 +429,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Image src="/favicon.svg" alt="Freebuff Web" width={16} height={5} />
+                    <Image
+                      src="/logo-icon.png"
+                      alt="Freebuff Web"
+                      width={16}
+                      height={16}
+                      className="h-3 w-3 object-contain"
+                    />
                     <span className="text-xs font-medium text-[#1a1a1a]">
                       Freebuff Web
                     </span>

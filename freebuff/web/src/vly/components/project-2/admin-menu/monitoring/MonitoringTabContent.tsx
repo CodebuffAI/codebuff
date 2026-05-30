@@ -558,7 +558,7 @@ ${JSON.stringify(log.rawData, null, 2)}
       >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="vly-convex" className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="Freebuff Web" className="h-4 w-4" />
+            <img src="/logo-icon.png" alt="Freebuff Web" className="h-4 w-4" />
             Freebuff Web
           </TabsTrigger>
           <TabsTrigger value="convex-user-usage" className="gap-2">

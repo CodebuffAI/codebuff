@@ -133,13 +133,13 @@ export function TopBar({
                 className="group flex max-w-[180px] items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60 focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
                 aria-label="Project menu"
               >
-                {/* Freebuff brand mark — uses the favicon (dark rounded
-                    square + sparkle) directly so it always looks like the
-                    Freebuff icon and is distinct from the old vly logo. */}
+                {/* Freebuff brand mark — uses the canonical logo asset
+                    directly so it always looks like the Freebuff icon and is
+                    distinct from the old vly logo. */}
                 <img
-                  src="/favicon.svg"
+                  src="/logo-icon.png"
                   alt="Freebuff"
-                  className="h-6 w-6 flex-shrink-0 rounded-md object-contain"
+                  className="h-6 w-6 flex-shrink-0 object-contain"
                 />
                 <span className="min-w-0 truncate text-[13px] font-medium text-foreground/90">
                   {project.name || project.semantic_identifier || 'Untitled project'}

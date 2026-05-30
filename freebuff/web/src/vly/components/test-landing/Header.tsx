@@ -41,7 +41,7 @@ export interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  logoSrc = '/favicon.svg',
+  logoSrc = '/logo-icon.png',
   logoAlt = 'Freebuff Web',
   className = '',
   showHome = false,
