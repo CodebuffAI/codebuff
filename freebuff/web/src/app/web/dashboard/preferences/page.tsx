@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -9,7 +9,11 @@ import { AppShell } from "@/vly/components/app-shell/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/vly/components/ui/card";
 import { Switch } from "@/vly/components/ui/switch";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, MailWarning } from "lucide-react";
+import { CheckCircle2, Download, Loader2, MailWarning } from "lucide-react";
+
+const ImportProjectsDialog = lazy(
+  () => import("@/vly/components/ImportProjectsDialog"),
+);
 
 type EmailPreferences = {
   email: string;
@@ -37,6 +41,7 @@ export default function DashboardPreferencesPage() {
   const [unsubscribeResultMessage, setUnsubscribeResultMessage] = useState<
     string | null
   >(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const promotionalSubscribed = useMemo(() => {
     if (!preferences || preferences === null) {
@@ -169,7 +174,20 @@ export default function DashboardPreferencesPage() {
   };
 
   return (
-    <AppShell title="Account" subtitle="Email preferences">
+    <AppShell
+      title="Account"
+      subtitle="Email preferences"
+      actions={
+        <button
+          type="button"
+          onClick={() => setIsImportDialogOpen(true)}
+          className="hidden h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)] sm:flex"
+        >
+          <Download className="h-4 w-4" />
+          Import
+        </button>
+      }
+    >
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <Card className="border-0 bg-card/60">
           <CardHeader>
@@ -230,6 +248,15 @@ export default function DashboardPreferencesPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Suspense fallback={null}>
+        {isImportDialogOpen && (
+          <ImportProjectsDialog
+            isOpen={isImportDialogOpen}
+            onClose={() => setIsImportDialogOpen(false)}
+          />
+        )}
+      </Suspense>
     </AppShell>
   );
 }

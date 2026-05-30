@@ -14,7 +14,6 @@ import {
   Sparkles,
   ArrowUpRight,
   Trash2,
-  Download,
   ChevronDown,
 } from 'lucide-react'
 import { useCustomer } from 'autumn-js/react'
@@ -43,9 +42,6 @@ const ThemePickerModal = lazy(
 )
 const CreateProjectModal = lazy(
   () => import('@/vly/components/CreateProjectModal'),
-)
-const ImportProjectsDialog = lazy(
-  () => import('@/vly/components/ImportProjectsDialog'),
 )
 
 type AnyProject = NonNullable<
@@ -93,7 +89,6 @@ export default function ProjectsDashboard() {
   )
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] =
     useState(false)
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false)
   const [loadingProjectId, setLoadingProjectId] =
     useState<Id<'project'> | null>(null)
@@ -136,24 +131,14 @@ export default function ProjectsDashboard() {
     <AppShell
       title="Projects"
       actions={
-        <>
-          <button
-            type="button"
-            onClick={() => setIsImportDialogOpen(true)}
-            className="hidden h-9 items-center gap-1.5 rounded-lg bg-muted/40 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground sm:flex"
-          >
-            <Download className="h-4 w-4" />
-            Import
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsCreateProjectModalOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)]"
-          >
-            <Plus className="h-4 w-4" />
-            New project
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={() => setIsCreateProjectModalOpen(true)}
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)]"
+        >
+          <Plus className="h-4 w-4" />
+          New project
+        </button>
       }
     >
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -463,20 +448,12 @@ export default function ProjectsDashboard() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Create / Import ──────────────────────────────────────────── */}
+      {/* ── Create ───────────────────────────────────────────────────── */}
       <Suspense fallback={null}>
         {isCreateProjectModalOpen && (
           <CreateProjectModal
             isOpen={isCreateProjectModalOpen}
             onClose={() => setIsCreateProjectModalOpen(false)}
-          />
-        )}
-      </Suspense>
-      <Suspense fallback={null}>
-        {isImportDialogOpen && (
-          <ImportProjectsDialog
-            isOpen={isImportDialogOpen}
-            onClose={() => setIsImportDialogOpen(false)}
           />
         )}
       </Suspense>
