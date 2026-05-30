@@ -1,4 +1,3 @@
-
 import { publisher } from '../constants'
 import {
   PLACEHOLDER,
@@ -134,7 +133,50 @@ function isObject(value: any): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-// handleSteps for default mode - spawns 1 file-lister
+/**
+ * Process spawn_agents results from a file-lister agent into file paths.
+ * Pure function — does not yield, so it survives .toString() serialization.
+ */
+function processSpawnResults(
+  spawnResults: any[],
+): { paths: string[]; hasResults: boolean; errorText: string | null; debugMessage: string | null } {
+  const allPaths = new Set<string>()
+  let hasResults = false
+  let debugMessage: string | null = null
+
+  for (const result of spawnResults) {
+    const fileListText = extractAgentText(result)
+    if (fileListText) {
+      hasResults = true
+      const paths = fileListText.split('\n').filter(Boolean)
+      for (const path of paths) {
+        allPaths.add(path)
+      }
+    }
+  }
+
+  if (hasResults) {
+    return {
+      paths: Array.from(allPaths),
+      hasResults: true,
+      errorText: null,
+      debugMessage: null,
+    }
+  }
+
+  const errorText = spawnResults
+    .map(extractErrorMessage)
+    .filter(Boolean)
+    .join('; ') || null
+
+  if (spawnResults.length > 0) {
+    debugMessage = `failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`
+  }
+
+  return { paths: [], hasResults: false, errorText, debugMessage }
+}
+
+// handleSteps default mode - spawns 1 file-lister
 const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   prompt,
   params,
@@ -154,42 +196,21 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   } satisfies ToolCall
 
   const spawnResults = extractSpawnResults(fileListerResults)
+  const { paths, hasResults, errorText, debugMessage } =
+    processSpawnResults(spawnResults)
 
-  // Collect paths from all agents and deduplicate
-  const allPaths = new Set<string>()
-  let hasAnyResults = false
-
-  for (const result of spawnResults) {
-    const fileListText = extractAgentText(result)
-    if (fileListText) {
-      hasAnyResults = true
-      const paths = fileListText.split('\n').filter(Boolean)
-      for (const path of paths) {
-        allPaths.add(path)
-      }
-    }
-  }
-
-  if (!hasAnyResults) {
-    const errorMessages = spawnResults
-      .map(extractErrorMessage)
-      .filter(Boolean)
-      .join('; ')
-    if (spawnResults.length > 0) {
-      logger?.debug?.(
-        `file-picker: failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`,
-      )
+  if (!hasResults) {
+    if (debugMessage) {
+      logger?.debug?.(`file-picker: ${debugMessage}`)
     }
     yield {
       type: 'STEP_TEXT',
-      text: errorMessages
-        ? `Error from file-lister(s): ${errorMessages}`
+      text: errorText
+        ? `Error from file-lister(s): ${errorText}`
         : 'Error: Could not extract file list from spawned agent(s)',
     } satisfies StepText
     return
   }
-
-  const paths = Array.from(allPaths)
 
   yield {
     toolName: 'read_files',
@@ -199,7 +220,7 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   yield 'STEP'
 }
 
-// handleSteps for max mode - spawns 1 file-lister-max
+// handleSteps max mode - spawns 1 file-lister-max
 const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   prompt,
   params,
@@ -219,42 +240,21 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   } satisfies ToolCall
 
   const spawnResults = extractSpawnResults(fileListerResults)
+  const { paths, hasResults, errorText, debugMessage } =
+    processSpawnResults(spawnResults)
 
-  // Collect paths from all agents and deduplicate
-  const allPaths = new Set<string>()
-  let hasAnyResults = false
-
-  for (const result of spawnResults) {
-    const fileListText = extractAgentText(result)
-    if (fileListText) {
-      hasAnyResults = true
-      const paths = fileListText.split('\n').filter(Boolean)
-      for (const path of paths) {
-        allPaths.add(path)
-      }
-    }
-  }
-
-  if (!hasAnyResults) {
-    const errorMessages = spawnResults
-      .map(extractErrorMessage)
-      .filter(Boolean)
-      .join('; ')
-    if (spawnResults.length > 0) {
-      logger?.debug?.(
-        `file-picker-max: failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`,
-      )
+  if (!hasResults) {
+    if (debugMessage) {
+      logger?.debug?.(`file-picker-max: ${debugMessage}`)
     }
     yield {
       type: 'STEP_TEXT',
-      text: errorMessages
-        ? `Error from file-lister(s): ${errorMessages}`
+      text: errorText
+        ? `Error from file-lister(s): ${errorText}`
         : 'Error: Could not extract file list from spawned agent(s)',
     } satisfies StepText
     return
   }
-
-  const paths = Array.from(allPaths)
 
   yield {
     toolName: 'read_files',
