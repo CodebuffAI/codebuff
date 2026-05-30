@@ -8,6 +8,8 @@ import {
   Undo,
   CheckCircle,
   TriangleAlert,
+  Wrench,
+  Sparkles as SparklesIcon,
 } from "lucide-react";
 import React, {
   useImperativeHandle,
@@ -549,6 +551,182 @@ const AssistantStreamItem: React.FC<{
   );
 };
 
+// ─── Cursor-style turn rendering ─────────────────────────────────────────────
+// Stream items split into two visual lanes:
+//   • text/assistant items render inline with a "Show more" toggle when long.
+//   • everything else (tool_use, tool_result, thinking, system, result, error)
+//     groups into one collapsed Activity block per consecutive run.
+// Inside an expanded Activity, items still use AssistantStreamItem so each
+// individual entry stays expandable too.
+
+const TEXT_TYPES = new Set(["text", "assistant"]);
+
+const TEXT_TRUNCATE_LINE_LIMIT = 12;
+const TEXT_TRUNCATE_CHAR_LIMIT = 600;
+
+type StreamGroup =
+  | { kind: "text"; items: AssistantStreamItemType[] }
+  | { kind: "activity"; items: AssistantStreamItemType[] };
+
+const groupStreamItems = (
+  stream: AssistantStreamItemType[],
+): StreamGroup[] => {
+  const groups: StreamGroup[] = [];
+  for (const item of stream) {
+    const kind: StreamGroup["kind"] = TEXT_TYPES.has(item.type)
+      ? "text"
+      : "activity";
+    const last = groups[groups.length - 1];
+    if (last && last.kind === kind) {
+      last.items.push(item);
+    } else {
+      groups.push({ kind, items: [item] });
+    }
+  }
+  return groups;
+};
+
+// Truncated text: joins assistant/text items into one markdown block, then
+// hides the tail behind a "Show more" toggle when it exceeds the line/char
+// thresholds. Keeps SimpleMarkdown rendering once expanded.
+const TruncatedTextGroup: React.FC<{
+  items: AssistantStreamItemType[];
+}> = React.memo(({ items }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const fullText = useMemo(
+    () => items.map((item) => item.content ?? "").join(""),
+    [items],
+  );
+
+  const lineCount = useMemo(() => fullText.split("\n").length, [fullText]);
+
+  const isLong =
+    lineCount > TEXT_TRUNCATE_LINE_LIMIT ||
+    fullText.length > TEXT_TRUNCATE_CHAR_LIMIT;
+
+  const visibleText = useMemo(() => {
+    if (!isLong || isExpanded) return fullText;
+    const lines = fullText.split("\n").slice(0, TEXT_TRUNCATE_LINE_LIMIT);
+    let trimmed = lines.join("\n");
+    if (trimmed.length > TEXT_TRUNCATE_CHAR_LIMIT) {
+      trimmed = trimmed.slice(0, TEXT_TRUNCATE_CHAR_LIMIT);
+    }
+    return `${trimmed}…`;
+  }, [fullText, isExpanded, isLong]);
+
+  const firstTitle = items.find((item) => item.title)?.title;
+
+  return (
+    <div className="mb-2">
+      {firstTitle && (
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+          {firstTitle}
+        </div>
+      )}
+      <SimpleMarkdown text={visibleText} />
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <span>{isExpanded ? "Show less" : "Show more"}</span>
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 transition-transform",
+              isExpanded ? "rotate-180" : "",
+            )}
+          />
+        </button>
+      )}
+    </div>
+  );
+});
+TruncatedTextGroup.displayName = "TruncatedTextGroup";
+
+// Build a one-line summary describing a run of activity items so the user
+// knows what's hidden inside the collapsed group without expanding.
+const buildActivitySummary = (items: AssistantStreamItemType[]) => {
+  const total = items.length;
+  const types = items.reduce<Record<string, number>>((acc, item) => {
+    acc[item.type] = (acc[item.type] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const toolUseCount = types["tool_use"] ?? 0;
+  const toolResultCount = types["tool_result"] ?? 0;
+  const thinkingCount = types["thinking"] ?? 0;
+  const errorCount = types["error"] ?? 0;
+  const onlyToolish =
+    total > 0 &&
+    toolUseCount + toolResultCount + thinkingCount + errorCount === total;
+
+  if (errorCount > 0 && total === errorCount) {
+    return errorCount === 1 ? "Error" : `Errors (${errorCount})`;
+  }
+  if (onlyToolish && toolUseCount > 0 && toolResultCount === 0) {
+    return toolUseCount === 1
+      ? "Used 1 tool"
+      : `Used ${toolUseCount} tools`;
+  }
+  if (onlyToolish && toolUseCount + toolResultCount > 0) {
+    const calls = toolUseCount + toolResultCount;
+    return calls === 1 ? "Tool activity" : `Used ${toolUseCount || calls} tools`;
+  }
+  if (thinkingCount > 0 && thinkingCount === total) {
+    return "Thinking…";
+  }
+  return total === 1 ? "Activity" : `Activity (${total} steps)`;
+};
+
+// One collapsible group rendering a consecutive run of non-text stream items.
+// Collapsed by default; shows a wrench/sparkles icon, a one-line summary, and
+// a chevron. When expanded, falls back to <AssistantStreamItem> per child so
+// individual entries remain independently expandable.
+const ActivityGroup: React.FC<{
+  items: AssistantStreamItemType[];
+}> = ({ items }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const summary = useMemo(() => buildActivitySummary(items), [items]);
+  const hasError = items.some((item) => item.type === "error");
+  const usesTools = items.some(
+    (item) => item.type === "tool_use" || item.type === "tool_result",
+  );
+  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : SparklesIcon;
+
+  return (
+    <div className="mb-2">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors",
+            hasError
+              ? "text-red-400 hover:text-red-300"
+              : "text-muted-foreground hover:text-foreground/80",
+          )}
+        >
+          <Icon className="h-3 w-3" />
+          <span>{summary}</span>
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 transition-transform",
+              isExpanded ? "rotate-180" : "",
+            )}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-1 border-l-2 border-border/60 pl-3">
+            {items.map((item, index) => (
+              <AssistantStreamItem key={index} item={item} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+};
+
 // Compact Paywall Component for in-chat display - matches CreditOverlay format
 const CompactPaywallBump: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -920,12 +1098,16 @@ const AgentMessageCard: React.FC<{
         </div>
       )}
 
-      {/* Assistant Stream Content - No background, just text */}
+      {/* Assistant Stream Content - text rendered inline (with show more for
+          long blocks); tool calls / thinking / system items group into a
+          single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-1.5">
-          {message.assistant_stream!.map(
-            (item: AssistantStreamItemType, index: number) => (
-              <AssistantStreamItem key={index} item={item} />
+          {groupStreamItems(message.assistant_stream!).map((group, index) =>
+            group.kind === "text" ? (
+              <TruncatedTextGroup key={index} items={group.items} />
+            ) : (
+              <ActivityGroup key={index} items={group.items} />
             ),
           )}
         </div>
