@@ -35,9 +35,9 @@ export const createCodeEditor = (options: {
     model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
+      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context.",
     outputMode: 'structured_output',
-    toolNames: ['write_file', 'str_replace', 'set_output'],
+    toolNames: ['read_files', 'write_file', 'str_replace', 'set_output'],
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -51,7 +51,7 @@ You may make edits across multiple turns. After each edit you will see whether i
 - Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.
 - When every change has been made and all edits have applied successfully, stop: respond with a brief one-line confirmation and make no further tool calls.
 
-Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
+Important: You may call read_files only for exact files you need to edit or to recover after a failed/stale str_replace. You cannot search, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any unsupported tools!
 
 Write out what changes you would make using the tool call format below. Use this exact format for each file change:
 

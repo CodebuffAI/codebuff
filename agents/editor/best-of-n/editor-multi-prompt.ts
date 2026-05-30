@@ -214,6 +214,8 @@ function* handleStepsMultiPrompt({
     requestContext: proposalRequestContext,
     prompts,
   })
+  const hasExactProposalContext =
+    extractContextFileHeaders(proposalRequestContext).length > 0
   const proposalRequestContextWithPlan = appendProposalOrchestrationPlan({
     requestContext: proposalRequestContext,
     plan: proposalOrchestrationPlan,
@@ -230,14 +232,17 @@ function* handleStepsMultiPrompt({
     let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
-      const useDirectMode =
-        attempt > 0 &&
-        (forceDirectRetry ||
-          shouldRetryWithoutReadOnlyTools(lastResult))
-      const currentAgentType = useDirectMode ? directProposalAgentType : agentType
+      const currentAgentType = getProposalAttemptAgentType({
+        defaultAgentType: agentType,
+        attempt,
+        lastResult,
+        forceDirectRetry,
+        hasPrefetchedContext: hasExactProposalContext,
+      })
+      const useDirectMode = currentAgentType === directProposalAgentType
       const allowReadOnlyTools = !useDirectMode
 
-      if (useDirectMode) {
+      if (attempt > 0 && useDirectMode) {
         forceDirectRetry = true
       }
       const { toolResult: implementorResults } = yield {
@@ -406,13 +411,15 @@ function* handleStepsMultiPrompt({
             break
           }
 
-          const repairedValidation = yield* validateImplementationEdits(repaired)
+          const repairedValidation =
+            yield* validateImplementationEdits(repaired)
 
           if (repairedValidation.success) {
-            const repairedVerify = yield* verifyImplementationInIsolatedWorkspace(
-              projectInfo,
-              repaired,
-            )
+            const repairedVerify =
+              yield* verifyImplementationInIsolatedWorkspace(
+                projectInfo,
+                repaired,
+              )
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
             verificationAttempted = repairedVerify.verificationAttempted
@@ -437,12 +444,14 @@ function* handleStepsMultiPrompt({
         })
 
         if (repaired) {
-          const repairedValidation = yield* validateImplementationEdits(repaired)
+          const repairedValidation =
+            yield* validateImplementationEdits(repaired)
           if (repairedValidation.success) {
-            const repairedVerify = yield* verifyImplementationInIsolatedWorkspace(
-              projectInfo,
-              repaired,
-            )
+            const repairedVerify =
+              yield* verifyImplementationInIsolatedWorkspace(
+                projectInfo,
+                repaired,
+              )
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
             verificationAttempted = repairedVerify.verificationAttempted
@@ -466,7 +475,8 @@ function* handleStepsMultiPrompt({
 
       verificationResults.push({
         candidateId: candidate.id,
-        appliedCleanly: validationResult.success || finalImplementation !== candidate,
+        appliedCleanly:
+          validationResult.success || finalImplementation !== candidate,
         typecheckPassed,
         testsPassed,
         verificationAttempted,
@@ -480,7 +490,7 @@ function* handleStepsMultiPrompt({
 
     // 4. Rank results objectively
     const rankedVerificationResults = rankVerifiedResults(verificationResults)
-    
+
     // Find highest tier achieved
     const bestResult = rankedVerificationResults[0]
     if (!bestResult) {
@@ -495,16 +505,20 @@ function* handleStepsMultiPrompt({
     }
 
     // Filter candidates that belong to the highest achieved tier.
-    const highestTierResults = rankedVerificationResults.filter((r) => 
-      r.verificationPassed === bestResult.verificationPassed &&
-      r.verificationAttempted === bestResult.verificationAttempted &&
-      (r.typecheckPassed === true) === (bestResult.typecheckPassed === true) &&
-      (r.testsPassed === true) === (bestResult.testsPassed === true) &&
-      r.appliedCleanly === bestResult.appliedCleanly
+    const highestTierResults = rankedVerificationResults.filter(
+      (r) =>
+        r.verificationPassed === bestResult.verificationPassed &&
+        r.verificationAttempted === bestResult.verificationAttempted &&
+        (r.typecheckPassed === true) ===
+          (bestResult.typecheckPassed === true) &&
+        (r.testsPassed === true) === (bestResult.testsPassed === true) &&
+        r.appliedCleanly === bestResult.appliedCleanly,
     )
 
     // Grab the implementations for the highest tier candidates
-    const highestTierImplementations = highestTierResults.map((r) => r.finalImplementation)
+    const highestTierImplementations = highestTierResults.map(
+      (r) => r.finalImplementation,
+    )
 
     let chosenImplementation: Implementation
     let selectionReason = ''
@@ -581,7 +595,10 @@ function* handleStepsMultiPrompt({
           suggestedImprovements: string
         }>(selectorResult)[0]
 
-        if (isObject(candidate) && typeof candidate.implementationId === 'string') {
+        if (
+          isObject(candidate) &&
+          typeof candidate.implementationId === 'string'
+        ) {
           selectorOutput = {
             implementationId: candidate.implementationId,
             reason:
@@ -602,7 +619,8 @@ function* handleStepsMultiPrompt({
       if (!selectorOutput) {
         chosenImplementation = fallbackImplementation
         selectionReason = `Selector failed to return an implementation; applied the highest-ranked usable proposal (${getImplementationLabel(fallbackImplementation)}) instead.`
-        suggestedImprovements = 'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.'
+        suggestedImprovements =
+          'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.'
         selectionSource = 'selector-fallback'
       } else {
         const { implementationId } = selectorOutput
@@ -629,7 +647,8 @@ function* handleStepsMultiPrompt({
 
     // 5. Apply the chosen implementation once to the actual workspace. Candidate
     // verification above runs in an isolated temp copy and must not reset user work.
-    const finalAppliedResults = yield* applyImplementationEdits(chosenImplementation)
+    const finalAppliedResults =
+      yield* applyImplementationEdits(chosenImplementation)
     if (hasCleanSuccessfulAppliedEdit(finalAppliedResults)) {
       yield {
         toolName: 'set_output',
@@ -734,7 +753,10 @@ function* handleStepsMultiPrompt({
         suggestedImprovements: string
       }>(selectorResult)[0]
 
-      if (isObject(candidate) && typeof candidate.implementationId === 'string') {
+      if (
+        isObject(candidate) &&
+        typeof candidate.implementationId === 'string'
+      ) {
         selectorOutput = {
           implementationId: candidate.implementationId,
           reason:
@@ -760,7 +782,8 @@ function* handleStepsMultiPrompt({
     if (!selectorOutput) {
       chosenImplementation = fallbackImplementation
       selectionReason = `Selector failed to return an implementation; applied the highest-ranked usable proposal (${getImplementationLabel(fallbackImplementation)}) instead.`
-      suggestedImprovements = 'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.'
+      suggestedImprovements =
+        'The selector model failed. Check its provider quota/credentials or route editor-selector to a local/OpenAI-compatible model.'
       selectionSource = 'selector-fallback'
     } else {
       const { implementationId } = selectorOutput
@@ -921,7 +944,10 @@ function* handleStepsMultiPrompt({
     toolCalls: ProposedToolCall[],
   ): ProposedToolCall[] {
     return toolCalls.map((toolCall) => {
-      if (!isObject(toolCall.input) || typeof toolCall.input.path !== 'string') {
+      if (
+        !isObject(toolCall.input) ||
+        typeof toolCall.input.path !== 'string'
+      ) {
         return toolCall
       }
 
@@ -980,7 +1006,9 @@ function* handleStepsMultiPrompt({
       return !path || !unanchoredForeignPaths.has(path)
     })
 
-    const knownPaths = new Set(knownProposalPaths().map((p) => normalizeProposalPath(p)))
+    const knownPaths = new Set(
+      knownProposalPaths().map((p) => normalizeProposalPath(p)),
+    )
     filtered = filtered.filter((toolCall) => {
       if (toolCall.toolName !== 'propose_str_replace') {
         return true
@@ -1267,7 +1295,9 @@ function* handleStepsMultiPrompt({
     return statusScore + coverageScore + editCallCount * 25 + contentScore
   }
 
-  function getImplementationStatusScore(implementation: Implementation): number {
+  function getImplementationStatusScore(
+    implementation: Implementation,
+  ): number {
     if (!isPartialImplementation(implementation)) return 1_500
     if (implementation.stopReason === 'noCompletionSignal') return -150
     if (implementation.stopReason === 'bundleCap') return -700
@@ -1397,7 +1427,9 @@ function* handleStepsMultiPrompt({
     ) {
       return []
     }
-    const knownPaths = new Set(knownProposalPaths().map((p) => normalizeProposalPath(p)))
+    const knownPaths = new Set(
+      knownProposalPaths().map((p) => normalizeProposalPath(p)),
+    )
     return dedupeStrings(
       result.toolCalls
         .filter(isProposalEditToolCall)
@@ -2112,7 +2144,11 @@ function* handleStepsMultiPrompt({
   function* gatherProposalContextMessages(params: {
     messageHistory: any[]
     prompts: string[]
-  }): Generator<ToolCall<'read_files'> | ToolCall<'code_search'>, any[], any> {
+  }): Generator<
+    ToolCall<'read_files'> | ToolCall<'code_search'> | ToolCall<'glob'>,
+    any[],
+    any
+  > {
     const { messageHistory, prompts } = params
     const seedTexts = [
       ...prompts,
@@ -2130,6 +2166,7 @@ function* handleStepsMultiPrompt({
     const readPaths = new Set<string>()
     const contextSeedTexts = [...seedTexts]
     const directPaths = extractLikelyFilePaths(seedTexts).slice(0, 12)
+    const existingContextPaths = extractMessageHistoryFilePaths(messageHistory)
 
     if (directPaths.length > 0) {
       const { toolResult } = yield {
@@ -2155,6 +2192,43 @@ function* handleStepsMultiPrompt({
       } satisfies ToolCall<'read_files'>
       appendToolContextMessage(contextMessages, 'read_files', toolResult)
       referencedPathsFromPrefetch.forEach((path) => readPaths.add(path))
+      contextSeedTexts.push(...collectToolResultStrings(toolResult))
+    }
+
+    const globDiscoveredPaths: string[] = []
+    const bareFileNamesToResolve = extractLikelyBareFileNames(seedTexts)
+      .filter(
+        (fileName) =>
+          !existingContextPaths.some((path) => getBaseName(path) === fileName),
+      )
+      .slice(0, 8)
+    for (const fileName of bareFileNamesToResolve) {
+      const { toolResult } = yield {
+        toolName: 'glob',
+        input: { pattern: `**/${fileName}` },
+        includeToolCall: false,
+      } satisfies ToolCall<'glob'>
+      appendToolContextMessage(contextMessages, 'glob', toolResult)
+      globDiscoveredPaths.push(
+        ...extractFilePathsFromGlobResult(toolResult).filter(
+          (path) => getBaseName(path) === fileName,
+        ),
+      )
+    }
+
+    const globReadPaths = dedupeStrings(globDiscoveredPaths)
+      .filter((path) => !readPaths.has(path))
+      .filter(shouldPrefetchPath)
+      .slice(0, 8)
+
+    if (globReadPaths.length > 0) {
+      const { toolResult } = yield {
+        toolName: 'read_files',
+        input: { paths: globReadPaths },
+        includeToolCall: false,
+      } satisfies ToolCall<'read_files'>
+      appendToolContextMessage(contextMessages, 'read_files', toolResult)
+      globReadPaths.forEach((path) => readPaths.add(path))
       contextSeedTexts.push(...collectToolResultStrings(toolResult))
     }
 
@@ -2223,6 +2297,50 @@ function* handleStepsMultiPrompt({
     }
 
     return dedupeStrings(paths)
+  }
+
+  function extractMessageHistoryFilePaths(messageHistory: any[]): string[] {
+    return dedupeStrings(
+      messageHistory
+        .filter(
+          (message) =>
+            message?.role === 'tool' &&
+            ['read_files', 'find_files'].includes(String(message.toolName)),
+        )
+        .flatMap((message) =>
+          extractJsonPartValues(message)
+            .flatMap(flattenReadFileEntries)
+            .map((entry) =>
+              typeof entry?.path === 'string'
+                ? normalizePrefetchPath(entry.path)
+                : '',
+            ),
+        )
+        .filter(shouldPrefetchPath),
+    )
+  }
+
+  function extractFilePathsFromGlobResult(toolResult: any): string[] {
+    if (Array.isArray(toolResult)) {
+      return dedupeStrings(toolResult.flatMap(extractFilePathsFromGlobResult))
+    }
+    if (!toolResult || typeof toolResult !== 'object') return []
+    if (toolResult.type === 'json' && 'value' in toolResult) {
+      return extractFilePathsFromGlobResult(toolResult.value)
+    }
+    if (Array.isArray(toolResult.files)) {
+      return dedupeStrings(
+        toolResult.files
+          .filter((path: unknown): path is string => typeof path === 'string')
+          .map(normalizePrefetchPath)
+          .filter(shouldPrefetchPath),
+      )
+    }
+    if (typeof toolResult.path === 'string') {
+      const path = normalizePrefetchPath(toolResult.path)
+      return path && shouldPrefetchPath(path) ? [path] : []
+    }
+    return []
   }
 
   function extractLikelySearchPatterns(texts: string[]): string[] {
@@ -2835,7 +2953,8 @@ function* handleStepsMultiPrompt({
         isPartialImplementation(candidate) &&
         shouldCompletePartialBeforeApplying(candidate)
       ) {
-        const completedCandidate = yield* completePartialImplementation(candidate)
+        const completedCandidate =
+          yield* completePartialImplementation(candidate)
         if (completedCandidate) {
           candidateToApply = completedCandidate
         } else {
@@ -3031,11 +3150,7 @@ function* handleStepsMultiPrompt({
 
   function* applyImplementationEdits(
     chosenImplementation: Implementation,
-  ): Generator<
-    ToolCall<'str_replace'> | ToolCall<'write_file'>,
-    any[],
-    any
-  > {
+  ): Generator<ToolCall<'str_replace'> | ToolCall<'write_file'>, any[], any> {
     // Apply the chosen implementation's tool calls as real edits
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
@@ -3097,7 +3212,6 @@ function* handleStepsMultiPrompt({
         }
       }
 
-      // Check each propose_str_replace tool call
       const validationFailures: string[] = []
       for (const toolCall of chosenImplementation.toolCalls) {
         if (toolCall.toolName !== 'propose_str_replace') continue
@@ -3109,7 +3223,16 @@ function* handleStepsMultiPrompt({
         const fileContent = fileContentsMap.get(path)
 
         if (fileContent === undefined) {
-          validationFailures.push(`Target file does not exist on disk: ${rawPath}`)
+          validationFailures.push(
+            `Target file does not exist on disk: ${rawPath}`,
+          )
+          continue
+        }
+
+        if (isFileReadFailureContent(fileContent)) {
+          validationFailures.push(
+            `Target file could not be read for validation: ${rawPath} (${summarizeFileReadFailure(fileContent)})`,
+          )
           continue
         }
 
@@ -3117,19 +3240,16 @@ function* handleStepsMultiPrompt({
           isObject(toolCall.input) && Array.isArray(toolCall.input.replacements)
             ? toolCall.input.replacements
             : []
-        for (const replacement of replacements) {
-          if (!isObject(replacement) || typeof replacement.oldString !== 'string') {
-            validationFailures.push(
-              `Invalid replacement structure in propose_str_replace for ${rawPath}`,
-            )
-            continue
-          }
-          const oldString = replacement.oldString
-          if (!fileContent.includes(oldString)) {
-            validationFailures.push(
-              `Could not find exact text to replace in ${rawPath}.\nOld string search failed.`,
-            )
-          }
+        const dryRunResult = dryRunStrReplace({
+          path: rawPath,
+          content: fileContent,
+          replacements,
+        })
+
+        if (dryRunResult.success) {
+          fileContentsMap.set(path, dryRunResult.content)
+        } else {
+          validationFailures.push(...dryRunResult.failures)
         }
       }
 
@@ -3137,10 +3257,10 @@ function* handleStepsMultiPrompt({
         return {
           success: false,
           toolResults: [
-          {
-            toolName: 'str_replace',
-            errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
-          },
+            {
+              toolName: 'str_replace',
+              errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
+            },
           ],
         }
       }
@@ -3156,9 +3276,226 @@ function* handleStepsMultiPrompt({
     }
   }
 
+  function dryRunStrReplace(params: {
+    path: string
+    content: string
+    replacements: any[]
+  }):
+    | { success: true; content: string }
+    | { success: false; failures: string[] } {
+    const { path, content, replacements } = params
+    if (replacements.length === 0) {
+      return {
+        success: false,
+        failures: [
+          `Invalid replacement structure in propose_str_replace for ${path}`,
+        ],
+      }
+    }
+
+    const lineEnding = content.includes('\r\n') ? '\r\n' : '\n'
+    let currentContent = normalizeLineEndings(content)
+    const failures: string[] = []
+
+    for (const replacement of replacements) {
+      if (
+        !isObject(replacement) ||
+        typeof replacement.oldString !== 'string' ||
+        typeof replacement.newString !== 'string'
+      ) {
+        failures.push(
+          `Invalid replacement structure in propose_str_replace for ${path}`,
+        )
+        continue
+      }
+
+      const oldString = normalizeLineEndings(replacement.oldString)
+      const newString = normalizeLineEndings(replacement.newString)
+      if (!oldString) {
+        failures.push(
+          `Invalid empty oldString in propose_str_replace for ${path}`,
+        )
+        continue
+      }
+
+      const allowMultiple = replacement.allowMultiple === true
+      const match = findDryRunReplacementMatch({
+        content: currentContent,
+        oldString,
+        newString,
+        allowMultiple,
+      })
+
+      if (!match.success) {
+        failures.push(match.failure)
+        continue
+      }
+
+      currentContent = currentContent.replaceAll(
+        match.oldString,
+        () => match.newString,
+      )
+    }
+
+    if (failures.length > 0) {
+      return { success: false, failures }
+    }
+
+    return {
+      success: true,
+      content: currentContent.replaceAll('\n', lineEnding),
+    }
+  }
+
+  function findDryRunReplacementMatch(params: {
+    content: string
+    oldString: string
+    newString: string
+    allowMultiple: boolean
+  }):
+    | { success: true; oldString: string; newString: string }
+    | { success: false; failure: string } {
+    const { content, oldString, newString, allowMultiple } = params
+    const count = content.split(oldString).length - 1
+    if (count === 1) {
+      return { success: true, oldString, newString }
+    }
+    if (count > 1) {
+      if (allowMultiple) {
+        return { success: true, oldString, newString }
+      }
+      return {
+        success: false,
+        failure: `Found ${count} occurrences of the oldString during dry-run validation. Use a longer oldString or set allowMultiple to true.`,
+      }
+    }
+
+    const indentedMatch = findIndentedReplacementMatch({
+      content,
+      oldString,
+      newString,
+    })
+    if (indentedMatch) return { success: true, ...indentedMatch }
+
+    const whitespaceAgnosticMatch = findWhitespaceAgnosticReplacementMatch({
+      content,
+      oldString,
+    })
+    if (whitespaceAgnosticMatch) {
+      return {
+        success: true,
+        oldString: whitespaceAgnosticMatch,
+        newString,
+      }
+    }
+
+    return {
+      success: false,
+      failure:
+        'Could not find exact text to replace during dry-run validation.\nOld string search failed.',
+    }
+  }
+
+  function findIndentedReplacementMatch(params: {
+    content: string
+    oldString: string
+    newString: string
+  }): { oldString: string; newString: string } | null {
+    const { content, oldString, newString } = params
+    for (let i = 1; i <= 12; i++) {
+      const prefix = ' '.repeat(i)
+      const searchContent = addLinePrefix(oldString, prefix)
+      if (content.includes(searchContent)) {
+        return {
+          oldString: searchContent,
+          newString: addLinePrefix(newString, prefix),
+        }
+      }
+    }
+    for (let i = 1; i <= 6; i++) {
+      const prefix = '\t'.repeat(i)
+      const searchContent = addLinePrefix(oldString, prefix)
+      if (content.includes(searchContent)) {
+        return {
+          oldString: searchContent,
+          newString: addLinePrefix(newString, prefix),
+        }
+      }
+    }
+    return null
+  }
+
+  function findWhitespaceAgnosticReplacementMatch(params: {
+    content: string
+    oldString: string
+  }): string | null {
+    const { content, oldString } = params
+    const noWhitespaceSearch = oldString.replace(/\s+/g, '')
+    if (!noWhitespaceSearch) return null
+
+    const noWhitespaceContent = content.replace(/\s+/g, '')
+    const noWhitespaceIndex = noWhitespaceContent.indexOf(noWhitespaceSearch)
+    if (noWhitespaceIndex < 0) return null
+
+    let realIndex = 0
+    let nonWhitespaceCount = 0
+    while (nonWhitespaceCount < noWhitespaceIndex && realIndex < content.length) {
+      if (/\S/.test(content[realIndex])) {
+        nonWhitespaceCount++
+      }
+      realIndex++
+    }
+
+    let searchLength = 0
+    let nonWhitespaceSearchCount = 0
+    while (
+      nonWhitespaceSearchCount < noWhitespaceSearch.length &&
+      realIndex + searchLength < content.length
+    ) {
+      if (/\S/.test(content[realIndex + searchLength])) {
+        nonWhitespaceSearchCount++
+      }
+      searchLength++
+    }
+
+    if (nonWhitespaceSearchCount !== noWhitespaceSearch.length) return null
+
+    const actualContent = content.slice(realIndex, realIndex + searchLength)
+    return actualContent && content.includes(actualContent) ? actualContent : null
+  }
+
+  function addLinePrefix(value: string, prefix: string): string {
+    return value
+      .split('\n')
+      .map((line) => (line ? prefix + line : line))
+      .join('\n')
+  }
+
+  function normalizeLineEndings(value: string): string {
+    return value.replace(/\r\n/g, '\n')
+  }
+
+  function isFileReadFailureContent(content: string): boolean {
+    return (
+      content.startsWith('[FILE_DOES_NOT_EXIST]') ||
+      content.startsWith('[BLOCKED]') ||
+      content.startsWith('[FILE_OUTSIDE_PROJECT]') ||
+      content.startsWith('[FILE_TOO_LARGE]') ||
+      content.startsWith('[FILE_READ_ERROR]')
+    )
+  }
+
+  function summarizeFileReadFailure(content: string): string {
+    return content.split('\n', 1)[0]
+  }
+
   function* readFilesContent(
     paths: string[],
-  ): Generator<ToolCall<'read_files'>, { path: string; content: string }[], any> {
+  ): Generator<
+    ToolCall<'read_files'>,
+    { path: string; content: string }[],
+    any
+  > {
     if (paths.length === 0) return []
     const { toolResult } = yield {
       toolName: 'read_files',
@@ -3185,10 +3522,12 @@ function* handleStepsMultiPrompt({
     Implementation | undefined,
     any
   > {
-    const { failedImplementation, appliedToolResults, verificationErrors } = params
+    const { failedImplementation, appliedToolResults, verificationErrors } =
+      params
     let failureSummary = summarizeAppliedToolResults(appliedToolResults)
     if (verificationErrors && verificationErrors.length > 0) {
-      failureSummary = (failureSummary ? failureSummary + '\n\n' : '') +
+      failureSummary =
+        (failureSummary ? failureSummary + '\n\n' : '') +
         `The project verification failed. Here are the compilation, typecheck, or test errors:\n${verificationErrors.join('\n')}`
     }
     const currentFileContext = yield* readRepairFileContext({
@@ -3730,15 +4069,15 @@ function* handleStepsMultiPrompt({
 
   function* detectProjectInfo(): Generator<any, ProjectInfo, any> {
     let packageManager: 'bun' | 'pnpm' | 'yarn' | 'npm' = 'npm'
-    
+
     const { toolResult: rootFiles } = yield {
       toolName: 'list_directory',
       input: { path: '.' },
       includeToolCall: false,
     } satisfies ToolCall<'list_directory'>
-    
+
     const fileNames = extractDirectoryEntryNames(rootFiles)
-    
+
     if (fileNames.includes('bun.lockb')) {
       packageManager = 'bun'
     } else if (fileNames.includes('pnpm-lock.yaml')) {
@@ -3746,15 +4085,17 @@ function* handleStepsMultiPrompt({
     } else if (fileNames.includes('yarn.lock')) {
       packageManager = 'yarn'
     }
-    
+
     const hasTsConfig = fileNames.includes('tsconfig.json')
     let hasTypecheckScript = false
     let hasTestScript = false
     let workspaces: string[] = []
-    
+
     if (fileNames.includes('package.json')) {
       const readFilesResult = yield* readFilesContent(['package.json'])
-      const packageJsonFile = readFilesResult.find((f) => f.path === 'package.json')
+      const packageJsonFile = readFilesResult.find(
+        (f) => f.path === 'package.json',
+      )
       if (packageJsonFile) {
         try {
           const content = JSON.parse(packageJsonFile.content)
@@ -3769,7 +4110,7 @@ function* handleStepsMultiPrompt({
         }
       }
     }
-    
+
     return {
       packageManager,
       hasTsConfig,
@@ -3802,17 +4143,20 @@ function* handleStepsMultiPrompt({
     const values = extractJsonPartValues({
       content: Array.isArray(toolResult) ? toolResult : [toolResult],
     })
-    const entries = values.length > 0 ? values : Array.isArray(toolResult) ? toolResult : []
+    const entries =
+      values.length > 0 ? values : Array.isArray(toolResult) ? toolResult : []
 
     return entries
       .flatMap((entry: any) => {
         if (Array.isArray(entry)) return entry
-        if (isObject(entry) && Array.isArray(entry.entries)) return entry.entries
+        if (isObject(entry) && Array.isArray(entry.entries))
+          return entry.entries
         if (isObject(entry) && Array.isArray(entry.files)) return entry.files
         return [entry]
       })
       .map((entry: any) => {
-        if (typeof entry === 'string') return entry.replace(/\/$/, '').split('/').pop() ?? ''
+        if (typeof entry === 'string')
+          return entry.replace(/\/$/, '').split('/').pop() ?? ''
         if (isObject(entry) && typeof entry.name === 'string') return entry.name
         if (isObject(entry) && typeof entry.path === 'string') {
           return entry.path.replace(/\/$/, '').split('/').pop() ?? ''
@@ -3828,9 +4172,10 @@ function* handleStepsMultiPrompt({
   ): Generator<ToolCall<'read_files'>, void, any> {
     const packageJsonPaths = dedupeStrings(
       implementations.flatMap((implementation) =>
-        getWorkspacePackageDirsForImplementation(projectInfo, implementation).map(
-          (dir) => `${dir}/package.json`,
-        ),
+        getWorkspacePackageDirsForImplementation(
+          projectInfo,
+          implementation,
+        ).map((dir) => `${dir}/package.json`),
       ),
     )
 
@@ -3867,7 +4212,9 @@ function* handleStepsMultiPrompt({
     )
   }
 
-  function getImplementationTouchedPaths(implementation: Implementation): string[] {
+  function getImplementationTouchedPaths(
+    implementation: Implementation,
+  ): string[] {
     return dedupeStrings(
       implementation.toolCalls
         .map((toolCall) =>
@@ -3926,16 +4273,21 @@ function* handleStepsMultiPrompt({
       },
       includeToolCall: false,
     } satisfies ToolCall<'run_terminal_command'>
-    
+
     const result = Array.isArray(toolResult) ? toolResult[0] : toolResult
     let exitCode = 1
     let stdout = ''
     let stderr = ''
-    
+
     if (isObject(result)) {
       if (result.type === 'json' && isObject(result.value)) {
         const val = result.value
-        exitCode = typeof val.exitCode === 'number' ? val.exitCode : (val.errorMessage ? 1 : 0)
+        exitCode =
+          typeof val.exitCode === 'number'
+            ? val.exitCode
+            : val.errorMessage
+              ? 1
+              : 0
         stdout = typeof val.stdout === 'string' ? val.stdout : ''
         stderr = typeof val.stderr === 'string' ? val.stderr : ''
       } else {
@@ -3944,7 +4296,7 @@ function* handleStepsMultiPrompt({
         stderr = typeof result.stderr === 'string' ? result.stderr : ''
       }
     }
-    
+
     return {
       exitCode,
       stdout,
@@ -4149,9 +4501,10 @@ function* handleStepsMultiPrompt({
       JSON.stringify(implementation.toolCalls),
       'utf8',
     ).toString('base64')
-    const commandsPayload = Buffer.from(JSON.stringify(commands), 'utf8').toString(
-      'base64',
-    )
+    const commandsPayload = Buffer.from(
+      JSON.stringify(commands),
+      'utf8',
+    ).toString('base64')
     const script = `
 const cp = require('node:child_process')
 const fs = require('node:fs')
@@ -4257,7 +4610,7 @@ try {
       if (a.verificationAttempted !== b.verificationAttempted) {
         return a.verificationAttempted ? -1 : 1
       }
-      
+
       const aTypecheck = a.typecheckPassed === true
       const bTypecheck = b.typecheckPassed === true
       if (aTypecheck !== bTypecheck) {
@@ -4269,11 +4622,11 @@ try {
       if (aTests !== bTests) {
         return aTests ? -1 : 1
       }
-      
+
       if (a.appliedCleanly !== b.appliedCleanly) {
         return a.appliedCleanly ? -1 : 1
       }
-      
+
       if (a.repairRoundsUsed !== b.repairRoundsUsed) {
         return a.repairRoundsUsed - b.repairRoundsUsed
       }
@@ -4281,7 +4634,7 @@ try {
       if (a.diffSize !== b.diffSize) {
         return a.diffSize - b.diffSize
       }
-      
+
       return 0
     })
   }

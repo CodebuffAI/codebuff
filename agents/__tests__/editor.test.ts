@@ -47,10 +47,11 @@ describe('editor agent', () => {
     })
 
     test('has correct tool names', () => {
+      expect(editor.toolNames).toContain('read_files')
       expect(editor.toolNames).toContain('write_file')
       expect(editor.toolNames).toContain('str_replace')
       expect(editor.toolNames).toContain('set_output')
-      expect(editor.toolNames).toHaveLength(3)
+      expect(editor.toolNames).toHaveLength(4)
     })
   })
 
@@ -183,9 +184,10 @@ describe('editor agent', () => {
       expect(editor.spawnerPrompt).toContain('input prompt')
     })
 
-    test('mentions reading files before spawning', () => {
+    test('mentions reading files for target context', () => {
       expect(editor.spawnerPrompt).toContain('read')
       expect(editor.spawnerPrompt).toContain('files')
+      expect(editor.spawnerPrompt).toContain('recover')
     })
   })
 
@@ -1995,7 +1997,7 @@ describe('editor agent', () => {
       }).value as ToolCall<'spawn_agents'>
       expect(firstSpawn.input.agents).toHaveLength(1)
       expect(firstSpawn.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-1',
+        'editor-implementor-proposal-direct',
       )
       expect(firstSpawn.input.agents[0].prompt).toBe('Strategy: minimal')
       expect(firstSpawn.input.agents[0].prompt).not.toContain('<user>')
@@ -2012,7 +2014,7 @@ describe('editor agent', () => {
         '<tool',
       )
       expect(firstSpawn.input.agents[0].params?.proposalRequirements).toContain(
-        'bounded read-only context gathering',
+        'Do not call read_files',
       )
       expect(firstSpawn.input.agents[0].params?.proposalRequirements).toContain(
         'write_file',
@@ -2020,7 +2022,7 @@ describe('editor agent', () => {
       expect(firstSpawn.input.agents[0].params?.proposalRequirements).toContain(
         'PROPOSAL_BUNDLE_COMPLETE',
       )
-      expect(firstSpawn.input.agents[0].params?.allowReadOnlyTools).toBe(true)
+      expect(firstSpawn.input.agents[0].params?.allowReadOnlyTools).toBe(false)
       expect(firstSpawn.input.agents[0].params?.proposalBundleMode).toBe(true)
       expect(firstSpawn.input.agents[0].params?.proposalLabel).toBe(
         'Proposal #1',
@@ -2084,7 +2086,7 @@ describe('editor agent', () => {
 
       expect(secondProposalSpawn.input.agents).toHaveLength(1)
       expect(secondProposalSpawn.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-2',
+        'editor-implementor-proposal-direct',
       )
     })
 
@@ -2168,7 +2170,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
       })
 
       const directRetry = generator.next({
@@ -2319,6 +2323,12 @@ describe('editor agent', () => {
       }).value as ToolCall<'spawn_agents'>
 
       expect(proposalSpawn.toolName).toBe('spawn_agents')
+      expect(proposalSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+      expect(proposalSpawn.input.agents[0].params?.allowReadOnlyTools).toBe(
+        false,
+      )
       expect(proposalSpawn.input.agents[0].params?.proposalContext).toContain(
         'File: docs/openbuff-provider-model-setup-ux.md',
       )
@@ -2363,6 +2373,102 @@ describe('editor agent', () => {
         input: expect.objectContaining({ pattern: 'read_docs' }),
         includeToolCall: false,
       })
+    })
+
+    test('resolves bare file names with glob before spawning proposals', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Fix editor-multi-prompt.ts retry behavior',
+            },
+          ],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          prompts: ['Make the direct proposal retry reliable'],
+        },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      const globCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [],
+        stepsComplete: false,
+      }).value as ToolCall<'glob'>
+
+      expect(globCall).toMatchObject({
+        toolName: 'glob',
+        input: { pattern: '**/editor-multi-prompt.ts' },
+        includeToolCall: false,
+      })
+
+      const readCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              files: ['agents/editor/best-of-n/editor-multi-prompt.ts'],
+              count: 1,
+              message: 'Found 1 file',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(readCall).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/editor/best-of-n/editor-multi-prompt.ts'] },
+        includeToolCall: false,
+      })
+
+      const maybeSearchOrProposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                path: 'agents/editor/best-of-n/editor-multi-prompt.ts',
+                content: 'export function createMultiPromptEditor() {}',
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'code_search'> | ToolCall<'spawn_agents'>
+
+      const proposalSpawn =
+        maybeSearchOrProposalSpawn.toolName === 'code_search'
+          ? (generator.next({
+              agentState: mockAgentState,
+              toolResult: [],
+              stepsComplete: false,
+            }).value as ToolCall<'spawn_agents'>)
+          : maybeSearchOrProposalSpawn
+
+      expect(proposalSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+      expect(proposalSpawn.input.agents[0].params?.proposalContext).toContain(
+        'File: agents/editor/best-of-n/editor-multi-prompt.ts',
+      )
     })
 
     test('does not treat raw glob results as proposal target file hints', () => {
@@ -2788,7 +2894,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
       })
 
       const listRoot = generator.next({
@@ -3103,6 +3211,120 @@ describe('editor agent', () => {
       )
     })
 
+    test('objective dry-run validation simulates sequential replacements and whitespace fallback in one file', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'], forceObjectiveVerification: true },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            {
+                              oldString: 'const old = 1',
+                              newString: 'const mid=1',
+                            },
+                            {
+                              oldString: 'const mid = 1',
+                              newString: 'const done = 1',
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    stopReason: 'cleanProposal',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'list_directory'>,
+      ).toMatchObject({
+        toolName: 'list_directory',
+        input: { path: '.' },
+      })
+
+      const validationRead = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { entries: [{ name: 'README.md' }] },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(validationRead).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+        includeToolCall: false,
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'const old = 1' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [
+            { oldString: 'const old = 1', newString: 'const mid=1' },
+            { oldString: 'const mid = 1', newString: 'const done = 1' },
+          ],
+        },
+      })
+    })
+
     test('selector fallback applies the highest-ranked clean proposal, not the first proposal', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -3166,7 +3388,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-2' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-2' }],
+        },
       })
 
       const selectorSpawn = generator.next({
@@ -3324,7 +3548,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-2' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-2' }],
+        },
       })
 
       const selectorSpawn = generator.next({
@@ -3427,7 +3653,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-direct' }],
+        },
       })
 
       expect(
@@ -3444,7 +3672,8 @@ describe('editor agent', () => {
                         toolName: 'propose_write_file',
                         input: {
                           path: 'packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts',
-                          content: 'test("api", () => expect(true).toBe(true))\n',
+                          content:
+                            'test("api", () => expect(true).toBe(true))\n',
                         },
                       },
                     ],
@@ -3454,7 +3683,8 @@ describe('editor agent', () => {
                         unifiedDiff: '@@ test diff',
                       },
                     ],
-                    unifiedDiffs: '--- packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts ---\n@@ test diff',
+                    unifiedDiffs:
+                      '--- packages/agent-runtime/src/__tests__/codebuff-web-api.test.ts ---\n@@ test diff',
                     stopReason: 'cleanProposal',
                   },
                 },
@@ -3464,7 +3694,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-2' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-direct' }],
+        },
       })
 
       const selectorSpawn = generator.next({
@@ -3647,7 +3879,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
       })
 
       expect(
@@ -4061,7 +4295,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
       })
 
       const applyCall = generator.next({
@@ -4465,7 +4701,9 @@ describe('editor agent', () => {
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
-        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-direct' }],
+        },
       })
 
       const retry = generator.next({
