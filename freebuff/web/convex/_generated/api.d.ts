@@ -54,6 +54,8 @@ import type * as coding_agent_cli_agent_executeClaudeCode from "../coding_agent/
 import type * as coding_agent_cli_agent_executeCodex from "../coding_agent/cli_agent/executeCodex.js";
 import type * as coding_agent_cli_agent_executeFreebuff from "../coding_agent/cli_agent/executeFreebuff.js";
 import type * as coding_agent_cli_agent_executeGemini from "../coding_agent/cli_agent/executeGemini.js";
+import type * as coding_agent_cli_agent_freebuff_agent_run_mutations from "../coding_agent/cli_agent/freebuff_agent_run_mutations.js";
+import type * as coding_agent_cli_agent_freebuff_bundled_agents from "../coding_agent/cli_agent/freebuff_bundled_agents.js";
 import type * as coding_agent_cli_agent_queries from "../coding_agent/cli_agent/queries.js";
 import type * as coding_agent_cli_agent_shellEscape from "../coding_agent/cli_agent/shellEscape.js";
 import type * as coding_agent_cli_agent_streamParser from "../coding_agent/cli_agent/streamParser.js";
@@ -65,7 +67,6 @@ import type * as coding_agent_context_assembly from "../coding_agent/context/ass
 import type * as coding_agent_context_queries from "../coding_agent/context/queries.js";
 import type * as coding_agent_context_types from "../coding_agent/context/types.js";
 import type * as coding_agent_cycle from "../coding_agent/cycle.js";
-import type * as coding_agent_freebuff_bridge from "../coding_agent/freebuff_bridge.js";
 import type * as coding_agent_freebuff_bridge_mutations from "../coding_agent/freebuff_bridge_mutations.js";
 import type * as coding_agent_helpers_agent_thread_namer from "../coding_agent/helpers/agent_thread_namer.js";
 import type * as coding_agent_helpers_fastReturn from "../coding_agent/helpers/fastReturn.js";
@@ -262,6 +263,8 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/cli_agent/executeCodex": typeof coding_agent_cli_agent_executeCodex;
   "coding_agent/cli_agent/executeFreebuff": typeof coding_agent_cli_agent_executeFreebuff;
   "coding_agent/cli_agent/executeGemini": typeof coding_agent_cli_agent_executeGemini;
+  "coding_agent/cli_agent/freebuff_agent_run_mutations": typeof coding_agent_cli_agent_freebuff_agent_run_mutations;
+  "coding_agent/cli_agent/freebuff_bundled_agents": typeof coding_agent_cli_agent_freebuff_bundled_agents;
   "coding_agent/cli_agent/queries": typeof coding_agent_cli_agent_queries;
   "coding_agent/cli_agent/shellEscape": typeof coding_agent_cli_agent_shellEscape;
   "coding_agent/cli_agent/streamParser": typeof coding_agent_cli_agent_streamParser;
@@ -273,7 +276,6 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/context/queries": typeof coding_agent_context_queries;
   "coding_agent/context/types": typeof coding_agent_context_types;
   "coding_agent/cycle": typeof coding_agent_cycle;
-  "coding_agent/freebuff_bridge": typeof coding_agent_freebuff_bridge;
   "coding_agent/freebuff_bridge_mutations": typeof coding_agent_freebuff_bridge_mutations;
   "coding_agent/helpers/agent_thread_namer": typeof coding_agent_helpers_agent_thread_namer;
   "coding_agent/helpers/fastReturn": typeof coding_agent_helpers_fastReturn;
@@ -448,6 +450,7 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   migrationWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"migrationWorkpool">;
+  freebuffAgentWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"freebuffAgentWorkpool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   autumn: import("@useautumn/convex/_generated/component.js").ComponentApi<"autumn">;
   allUsersAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allUsersAggregate">;

@@ -30,6 +30,12 @@ crons.interval(
   internal.tickets_email.processPendingEmails,
 );
 
+crons.interval(
+  "sweep timed out freebuff agent runs",
+  { minutes: 1 },
+  internal.coding_agent.freebuff_bridge_mutations.sweepTimedOutFreebuffRuns,
+);
+
 // Check and unpause users with replenished resource limits - run every 24 hours
 crons.interval(
   "check and unpause users with replenished credits",

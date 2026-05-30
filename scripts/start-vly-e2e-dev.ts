@@ -14,7 +14,7 @@ const CLOUDFLARED_PATHS = [
 ]
 
 const args = new Set(process.argv.slice(2))
-const shouldStartDb = !args.has('--no-db')
+const shouldStartDb = args.has('--with-db')
 const shouldKillPorts = !args.has('--no-kill')
 const shouldPrewarmRoutes = args.has('--prewarm')
 
@@ -127,7 +127,7 @@ function cleanup() {
         process.kill(-child.pid, 'SIGTERM')
       } catch {
         try {
-          child.kill('SIGTERM')
+      child.kill('SIGTERM')
         } catch {
           // ignore
         }
@@ -144,7 +144,7 @@ async function startTunnel(prefix: string, port: number) {
   const cloudflaredPath = findExecutable('cloudflared', CLOUDFLARED_PATHS)
   if (!cloudflaredPath) {
     fail(
-      'cloudflared is not installed or not on PATH. Install it with `brew install cloudflared`, or start tunnels manually and rerun with VLY_TUNNEL_URL and CODEBUFF_TUNNEL_URL exported.',
+      'cloudflared is not installed or not on PATH. Install it with `brew install cloudflared`, or start a tunnel manually and rerun with VLY_TUNNEL_URL exported.',
     )
   }
 
@@ -208,27 +208,18 @@ async function waitForHttp(url: string, timeoutMs = 90_000) {
 
 async function main() {
   if (shouldKillPorts) {
-    log('clearing ports 3000 and 3001')
+    log('clearing port 3000')
     killPort(3000)
-    killPort(3001)
   }
 
   const vlyTunnelUrlFromEnv = process.env.VLY_TUNNEL_URL
-  const codebuffTunnelUrlFromEnv = process.env.CODEBUFF_TUNNEL_URL
-  const hasPreconfiguredTunnels = Boolean(
-    vlyTunnelUrlFromEnv && codebuffTunnelUrlFromEnv,
-  )
+  const hasPreconfiguredTunnel = Boolean(vlyTunnelUrlFromEnv)
 
-  if (vlyTunnelUrlFromEnv || codebuffTunnelUrlFromEnv) {
-    if (!hasPreconfiguredTunnels) {
-      fail(
-        'set both VLY_TUNNEL_URL and CODEBUFF_TUNNEL_URL, or leave both unset so the script can start Cloudflare tunnels',
-      )
-    }
-    log('using preconfigured tunnel URLs from environment')
+  if (hasPreconfiguredTunnel) {
+    log('using preconfigured VLY_TUNNEL_URL from environment')
   } else if (!findExecutable('cloudflared', CLOUDFLARED_PATHS)) {
     fail(
-      'cloudflared is not installed or not on PATH. Install it with `brew install cloudflared`, then rerun this script. If you already have tunnel URLs, export both VLY_TUNNEL_URL and CODEBUFF_TUNNEL_URL before running.',
+      'cloudflared is not installed or not on PATH. Install it with `brew install cloudflared`, then rerun this script. If you already have a tunnel URL, export VLY_TUNNEL_URL before running.',
     )
   }
 
@@ -237,23 +228,20 @@ async function main() {
       'start-db',
     ])
   } else {
-    warn('skipping database startup because --no-db was passed')
+    warn('skipping Docker/Postgres startup; pass --with-db only when changing the Codebuff web API locally')
   }
 
-  const [vlyTunnelUrl, codebuffTunnelUrl]: [string, string] =
-    hasPreconfiguredTunnels
-      ? [vlyTunnelUrlFromEnv as string, codebuffTunnelUrlFromEnv as string]
-      : await Promise.all([
-          startTunnel('tunnel:3000', 3000),
-          startTunnel('tunnel:3001', 3001),
-        ])
+  const vlyTunnelUrl = hasPreconfiguredTunnel
+    ? (vlyTunnelUrlFromEnv as string)
+    : await startTunnel('tunnel:3000', 3000)
 
   log(`Vly tunnel: ${vlyTunnelUrl}`)
-  log(`Codebuff tunnel: ${codebuffTunnelUrl}`)
+  log('Codebuff API: https://codebuff.com')
 
   const convexEnv = {
     ...process.env,
     VLY_CONVEX_AUTH_ISSUER: vlyTunnelUrl,
+    NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://codebuff.com',
   }
 
   runCommand('setting Convex VLY_CONVEX_AUTH_ISSUER', BUN_PATH, [
@@ -265,21 +253,17 @@ async function main() {
     'VLY_CONVEX_AUTH_ISSUER',
     vlyTunnelUrl,
   ])
-  runCommand('setting Convex CODEBUFF_HARNESS_URL', BUN_PATH, [
+  runCommand('setting Convex NEXT_PUBLIC_CODEBUFF_APP_URL', BUN_PATH, [
     '--cwd',
     'freebuff/web',
     'convex',
     'env',
     'set',
-    'CODEBUFF_HARNESS_URL',
-    codebuffTunnelUrl,
+    'NEXT_PUBLIC_CODEBUFF_APP_URL',
+    'https://codebuff.com',
   ])
 
-  const optionalConvexEnvNames = [
-    'NEXT_PUBLIC_CONVEX_SITE_URL',
-    'CODEBUFF_API_KEY',
-    'FREEBUFF_TO_VLY_CALLBACK_TOKEN',
-  ]
+  const optionalConvexEnvNames = ['CODEBUFF_API_KEY']
 
   for (const name of optionalConvexEnvNames) {
     const value = process.env[name]
@@ -301,14 +285,6 @@ async function main() {
   requireEnv('NEXT_PUBLIC_CONVEX_URL')
   requireEnv('CONVEX_DEPLOYMENT')
 
-  log('starting Codebuff backend on http://localhost:3001')
-  spawnProcess('codebuff:3001', BUN_PATH, ['--cwd', 'web', 'dev', '--port', '3001'], {
-    ...process.env,
-    PORT: '3001',
-    NEXT_PUBLIC_WEB_PORT: '3001',
-    NEXT_PUBLIC_CODEBUFF_APP_URL: 'http://localhost:3001',
-  })
-
   log('starting Freebuff/Vly on http://localhost:3000')
   spawnProcess(
     'freebuff:3000',
@@ -318,7 +294,7 @@ async function main() {
       ...process.env,
       PORT: '3000',
       NEXT_PUBLIC_WEB_PORT: '3000',
-      NEXT_PUBLIC_CODEBUFF_APP_URL: 'http://localhost:3001',
+      NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://codebuff.com',
       NEXTAUTH_URL: 'http://localhost:3000',
       VLY_CONVEX_AUTH_ISSUER: vlyTunnelUrl,
     },
@@ -348,7 +324,7 @@ async function main() {
   log('ready')
   console.log(`  Local app:        http://localhost:3000/web`)
   console.log(`  Vly tunnel:       ${vlyTunnelUrl}`)
-  console.log(`  Codebuff tunnel:  ${codebuffTunnelUrl}`)
+  console.log(`  Codebuff API:     https://codebuff.com`)
   console.log('')
   console.log('Press Ctrl-C to stop Next, Convex, and Cloudflare tunnel processes.')
 }

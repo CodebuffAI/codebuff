@@ -184,6 +184,23 @@ export const handleWorkflowComplete = internalMutation({
     };
 
     try {
+      if (agentType === "Freebuff" && result.kind === "success") {
+        const returnValue = result.returnValue as {
+          success?: boolean;
+          error?: string;
+          sessionId?: string;
+        };
+
+        if (returnValue?.success) {
+          await ctx.db.patch(threadId, {
+            workflow_id: undefined,
+            active_session_id: returnValue.sessionId,
+            last_edited_timestamp: Date.now(),
+          });
+          return;
+        }
+      }
+
       // Reset thread processing state
       await ctx.db.patch(threadId, {
         isProcessing: false,

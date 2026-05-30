@@ -187,6 +187,30 @@ export default defineSchema(
       compacted_history_updated_at: v.optional(v.number()),
       compaction_count: v.optional(v.number()),
     }).index('by_project_by_entry_point', ['project']),
+    freebuff_agent_runs: defineTable({
+      run_id: v.string(),
+      work_id: v.optional(v.string()),
+      project_id: v.id('project'),
+      thread_id: v.id('agent_thread'),
+      message_id: v.id('agent_message'),
+      status: v.union(
+        v.literal('queued'),
+        v.literal('running'),
+        v.literal('completed'),
+        v.literal('error'),
+        v.literal('timed_out'),
+      ),
+      queued_at: v.number(),
+      started_at: v.optional(v.number()),
+      last_event_at: v.optional(v.number()),
+      completed_at: v.optional(v.number()),
+      timed_out_at: v.optional(v.number()),
+      error: v.optional(v.string()),
+    })
+      .index('by_run_id', ['run_id'])
+      .index('by_status', ['status'])
+      .index('by_status_started_at', ['status', 'started_at'])
+      .index('by_message_id', ['message_id']),
     temporary_stream: defineTable({
       content: v.string(),
       resolved: v.boolean(),

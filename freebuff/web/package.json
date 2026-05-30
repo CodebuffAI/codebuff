@@ -17,6 +17,7 @@
     "@codebuff/billing": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
+    "@codebuff/sdk": "workspace:*",
     "@codesandbox/sdk": "^2.1.0",
     "@convex-dev/aggregate": "^0.2.0",
     "@convex-dev/migrations": "^0.2.9",

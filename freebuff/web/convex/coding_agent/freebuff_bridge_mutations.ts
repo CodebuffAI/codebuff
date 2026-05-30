@@ -10,6 +10,8 @@ type AssistantStreamItem = {
   description?: string;
 };
 
+const TERMINAL_RUN_STATUSES = new Set(["completed", "error", "timed_out"]);
+
 function appendOrMergeStreamItem(
   assistantStream: AssistantStreamItem[],
   item: AssistantStreamItem,
@@ -50,6 +52,32 @@ export const recordRunEvent = internalMutation({
   },
   handler: async (ctx, args) => {
     const event = args.event as any;
+    const now = Date.now();
+    if (event.runId) {
+      const runDoc = await ctx.db
+        .query("freebuff_agent_runs")
+        .withIndex("by_run_id", (q) => q.eq("run_id", String(event.runId)))
+        .unique();
+
+      if (runDoc && !TERMINAL_RUN_STATUSES.has(runDoc.status)) {
+        const runPatch: Record<string, any> = { last_event_at: now };
+        if (event.type === "start") {
+          runPatch.status = "running";
+          runPatch.started_at = runDoc.started_at ?? now;
+        } else if (event.type === "final") {
+          runPatch.status = "completed";
+          runPatch.completed_at = now;
+        } else if (event.type === "error") {
+          runPatch.status = "error";
+          runPatch.error = String(event.message ?? "Freebuff run failed");
+          runPatch.completed_at = now;
+        }
+        await ctx.db.patch(runDoc._id, runPatch);
+      } else if (runDoc) {
+        return { ignored: true, status: runDoc.status };
+      }
+    }
+
     const messageId = event.messageId as Id<"agent_message">;
     const message = await ctx.db.get(messageId);
     if (!message) throw new Error("Agent message not found");
@@ -131,5 +159,75 @@ export const recordRunEvent = internalMutation({
     }
 
     await ctx.db.patch(messageId, patch);
+  },
+});
+
+export const sweepTimedOutFreebuffRuns = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cutoff = now - 10 * 60 * 1000;
+
+    const staleRunning = await ctx.db
+      .query("freebuff_agent_runs")
+      .withIndex("by_status_started_at", (q) =>
+        q.eq("status", "running").lt("started_at", cutoff),
+      )
+      .collect();
+
+    const queuedRuns = await ctx.db
+      .query("freebuff_agent_runs")
+      .withIndex("by_status", (q) => q.eq("status", "queued"))
+      .collect();
+    const staleQueued = queuedRuns.filter((run) => run.queued_at < cutoff);
+
+    let timedOut = 0;
+    for (const runDoc of [...staleRunning, ...staleQueued]) {
+      const latestRunDoc = await ctx.db.get(runDoc._id);
+      if (!latestRunDoc || TERMINAL_RUN_STATUSES.has(latestRunDoc.status)) {
+        continue;
+      }
+
+      const message = await ctx.db.get(latestRunDoc.message_id);
+      const thread = await ctx.db.get(latestRunDoc.thread_id);
+
+      await ctx.db.patch(latestRunDoc._id, {
+        status: "timed_out",
+        timed_out_at: now,
+        error: "Freebuff run timed out after 10 minutes.",
+        last_event_at: now,
+      });
+
+      if (message) {
+        const assistantStream = compactAssistantStream(
+          (message.assistant_stream ?? []) as AssistantStreamItem[],
+        );
+        assistantStream.push({
+          type: "error",
+          title: "Freebuff timed out",
+          content:
+            "Freebuff run timed out after 10 minutes. Try a smaller prompt or break the request into steps.",
+        });
+        await ctx.db.patch(latestRunDoc.message_id, {
+          state: "Error",
+          state_message: "Freebuff run timed out after 10 minutes.",
+          isStreaming: false,
+          assistant_stream: assistantStream,
+        });
+      }
+
+      if (thread) {
+        await ctx.db.patch(latestRunDoc.thread_id, {
+          isProcessing: false,
+          workflow_id: undefined,
+          last_edited_timestamp: now,
+        });
+        await ctx.db.patch(thread.project_id, { state: "active" });
+      }
+
+      timedOut += 1;
+    }
+
+    return { timedOut };
   },
 });
