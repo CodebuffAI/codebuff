@@ -1,5 +1,6 @@
 import { buildArray } from '@codebuff/common/util/array'
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
+import { deepseekModels } from '@codebuff/common/constants/model-config'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -43,14 +44,13 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  // Lite (paid Codebuff) defaults to Kimi: no data-retention surface in the
-  // CLI today, so we don't want to silently route Codebuff prompts through a
-  // model whose provider trains on user data. Free (freebuff) defaults to
-  // MiniMax M2.7; Kimi and DeepSeek are separate free agent variants.
+  // Lite (paid Codebuff) defaults to DeepSeek V4 Flash. The unqualified
+  // base2-free agent still uses MiniMax for legacy callers; new Freebuff
+  // clients select explicit free variants from the model picker.
   const model =
     modelOverride ??
     (mode === 'lite'
-      ? 'moonshotai/kimi-k2.6'
+      ? deepseekModels.deepseekV4Flash
       : mode === 'free'
         ? FREEBUFF_MINIMAX_MODEL_ID
         : 'anthropic/claude-opus-4.7')

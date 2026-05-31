@@ -8,8 +8,24 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 
 import { createBase2 } from '../base2/base2'
+import codeReviewerLite from '../reviewer/code-reviewer-lite'
 
 describe('base2 reviewer selection', () => {
+  test('Codebuff lite uses DeepSeek V4 Flash and its matching reviewer', () => {
+    const base2 = createBase2('lite')
+
+    expect(base2.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(base2.spawnableAgents).toContain('code-reviewer-deepseek-flash')
+    expect(base2.instructionsPrompt).toContain(
+      'Spawn a code-reviewer-deepseek-flash',
+    )
+    expect(base2.stepPrompt).toContain('spawn a code-reviewer-deepseek-flash')
+  })
+
+  test('legacy lite reviewer definition uses DeepSeek V4 Flash', () => {
+    expect(codeReviewerLite.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
   test.each([
     [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
     [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],

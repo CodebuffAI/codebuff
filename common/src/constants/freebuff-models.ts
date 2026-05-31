@@ -140,10 +140,8 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
-  KIMI_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   DEEPSEEK_V4_FLASH_MODEL,
-  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
@@ -157,19 +155,18 @@ export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. MiniMax is the
- *  fastest always-available option and backs the default base2-free agent.
- *  Callers that need a guaranteed-available id for resolution / auto-fallbacks
- *  should use FALLBACK_FREEBUFF_MODEL_ID instead. */
+/** What new freebuff users see selected in the picker. Callers that need a
+ *  guaranteed-available id for resolution / auto-fallbacks should use
+ *  FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MINIMAX_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
  *  DEFAULT_FREEBUFF_MODEL_ID so a new user's "preferred default" can be the
  *  smartest model without auto-flipping anyone to a closed serverless model. */
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MINIMAX_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID

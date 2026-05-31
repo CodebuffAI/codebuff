@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
@@ -25,8 +26,9 @@ import {
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
-  test('defaults to MiniMax M2.7 for base2-free', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MINIMAX_MODEL_ID)
+  test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
   test('DeepSeek Pro carries the data-collection warning so users see it before picking', () => {
@@ -99,6 +101,28 @@ describe('freebuff model availability', () => {
     expect(mimoPro?.tagline).toBe('Smart multimodal')
   })
 
+  test('legacy models remain server-supported but are no longer selectable in full mode', () => {
+    for (const legacyModel of [
+      FREEBUFF_KIMI_MODEL_ID,
+      FREEBUFF_MINIMAX_MODEL_ID,
+    ]) {
+      expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+        legacyModel,
+      )
+      expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+        legacyModel,
+      )
+      expect(
+        getFreebuffModelsForAccessTier('full').map((m) => m.id),
+      ).not.toContain(legacyModel)
+      expect(isFreebuffModelId(legacyModel)).toBe(false)
+      expect(isSupportedFreebuffModelId(legacyModel)).toBe(true)
+      expect(isFreebuffModelAllowedForAccessTier(legacyModel, 'full')).toBe(
+        true,
+      )
+    }
+  })
+
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
@@ -131,10 +155,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(false)
     expect(
-      resolveFreebuffModelForAccessTier(
-        FREEBUFF_MIMO_V25_MODEL_ID,
-        'limited',
-      ),
+      resolveFreebuffModelForAccessTier(FREEBUFF_MIMO_V25_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),

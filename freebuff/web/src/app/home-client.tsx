@@ -27,7 +27,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiniMax M2.7: fastest.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',

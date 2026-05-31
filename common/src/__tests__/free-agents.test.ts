@@ -18,7 +18,7 @@ import {
 } from '../constants/free-agents'
 
 describe('free mode agent model allowlist', () => {
-  test('maps selectable freebuff models to concrete root agents', () => {
+  test('maps supported freebuff models to concrete root agents', () => {
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       'base2-free',
     )
