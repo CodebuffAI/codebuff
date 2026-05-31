@@ -892,7 +892,13 @@ export async function* promptAiSdkStream(
         if (chunkValue.type === 'tool-call') {
           hasYieldedContent = true
           anyContentYielded = true
-          yield chunkValue
+          const { providerMetadata, ...toolCall } = chunkValue
+          yield {
+            ...toolCall,
+            ...(providerMetadata
+              ? { providerOptions: providerMetadata }
+              : {}),
+          }
         }
       }
       const flushed = stopSequenceHandler.flush()

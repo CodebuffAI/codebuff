@@ -29,6 +29,7 @@ import type {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentTemplateType,
@@ -193,6 +194,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     toolName: T
     toolCallId: string
     input: unknown
+    providerOptions?: ProviderMetadata
   }
 }): CodebuffToolCall<T> | ToolCallError {
   const { rawToolCall } = params
@@ -241,6 +243,9 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     toolName,
     input: result.data,
     toolCallId: rawToolCall.toolCallId,
+    ...(rawToolCall.providerOptions && {
+      providerOptions: rawToolCall.providerOptions,
+    }),
   } as CodebuffToolCall<T>
 }
 
@@ -265,6 +270,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   logger: Logger
   previousToolCallFinished: Promise<void>
   prompt: string | undefined
+  providerOptions?: ProviderMetadata
   repoId: string | undefined
   repoUrl: string | undefined
   runId: string
@@ -315,6 +321,7 @@ export async function executeToolCall<T extends ToolName>(
       toolName,
       toolCallId,
       input,
+      providerOptions: params.providerOptions,
     },
   })
 
@@ -538,6 +545,7 @@ export function parseRawCustomToolCall(params: {
     toolName: string
     toolCallId: string
     input: unknown
+    providerOptions?: ProviderMetadata
   }
   autoInsertEndStepParam?: boolean
 }): CustomToolCall | ToolCallError {
@@ -604,6 +612,9 @@ export function parseRawCustomToolCall(params: {
     toolName: toolName,
     input,
     toolCallId: rawToolCall.toolCallId,
+    ...(rawToolCall.providerOptions && {
+      providerOptions: rawToolCall.providerOptions,
+    }),
   }
 }
 
@@ -642,6 +653,7 @@ export async function executeCustomToolCall(
       toolName,
       toolCallId: toolCallId ?? generateCompactId(),
       input,
+      providerOptions: params.providerOptions,
     },
     autoInsertEndStepParam,
   })

@@ -27,6 +27,7 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -133,11 +134,15 @@ export async function processStream(
     const responseHandler = createResponseHandler()
     return {
       onTagStart: () => { },
-      onTagEnd: async (_: string, input: Record<string, string>) => {
+      onTagEnd: async (
+        _: string,
+        input: Record<string, string>,
+        context?: { toolCallId?: string; providerOptions?: ProviderMetadata },
+      ) => {
         if (signal.aborted) {
           return
         }
-        const toolCallId = generateCompactId()
+        const toolCallId = context?.toolCallId ?? generateCompactId()
         const isNativeTool = toolNames.includes(toolName as ToolName)
 
         // Check if this is an agent tool call that should be transformed to spawn_agents
@@ -172,6 +177,7 @@ export async function processStream(
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
             previousToolCallFinished: previousPromise,
+            providerOptions: context?.providerOptions,
             toolCallId,
             toolCalls,
             toolCallsToAddToMessageHistory,
@@ -191,6 +197,7 @@ export async function processStream(
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
             previousToolCallFinished: previousPromise,
+            providerOptions: context?.providerOptions,
             toolCallId,
             toolCalls,
             toolCallsToAddToMessageHistory,

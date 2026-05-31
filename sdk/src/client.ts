@@ -2,7 +2,7 @@ import { LOCAL_MODE_API_KEY, isLocalModeEnabled } from '@codebuff/common/constan
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
 import { WEBSITE_URL } from './constants'
-import { getCodebuffApiKeyFromEnv } from './env'
+import { getCodebuffApiKeyFromEnv, getSdkEnv } from './env'
 import { run } from './run'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
@@ -18,7 +18,7 @@ export class CodebuffClient {
   constructor(options: CodebuffClientOptions) {
     const localMode = isLocalModeEnabled({
       localMode: options.localMode,
-      env: process.env,
+      env: getSdkEnv(),
     })
     const foundApiKey = options.apiKey ?? getCodebuffApiKeyFromEnv()
     if (!foundApiKey && !localMode) {

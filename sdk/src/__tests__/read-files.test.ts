@@ -385,6 +385,127 @@ describe('getFiles', () => {
     })
   })
 
+  describe('ranged reads', () => {
+    const multiLine = Array.from(
+      { length: 10 },
+      (_, i) => `line ${i + 1}`,
+    ).join('\n')
+
+    test('should return only the requested line slice with a header', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/big.ts', startLine: 3, endLine: 5 }],
+      })
+
+      expect(result['src/big.ts']).toBe(
+        '[Lines 3-5 of 10 in src/big.ts]\nline 3\nline 4\nline 5',
+      )
+    })
+
+    test('should default startLine to 1 and endLine to last line', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/big.ts' }],
+      })
+
+      expect(result['src/big.ts']).toBe(
+        '[Lines 1-10 of 10 in src/big.ts]\n' + multiLine,
+      )
+    })
+
+    test('should clamp endLine to the last line', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/big.ts', startLine: 8, endLine: 9999 }],
+      })
+
+      expect(result['src/big.ts']).toBe(
+        '[Lines 8-10 of 10 in src/big.ts]\nline 8\nline 9\nline 10',
+      )
+    })
+
+    test('should report when startLine is beyond the end of the file', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/big.ts', startLine: 50 }],
+      })
+
+      expect(result['src/big.ts']).toContain('but file has only 10 lines')
+    })
+
+    test('ranged value wins when a path is in both filePaths and ranges', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/big.ts'],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/big.ts', startLine: 1, endLine: 2 }],
+      })
+
+      expect(result['src/big.ts']).toBe(
+        '[Lines 1-2 of 10 in src/big.ts]\nline 1\nline 2',
+      )
+    })
+
+    test('should apply the 100k cap to a large ranged slice', async () => {
+      const hugeLine = 'x'.repeat(100_050)
+      const mockFs = createMockFs({
+        files: { '/project/src/huge.ts': { content: hugeLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/huge.ts', startLine: 1, endLine: 1 }],
+      })
+
+      expect(result['src/huge.ts']).toContain('[Lines 1-1 of 1 in src/huge.ts]')
+      expect(result['src/huge.ts']).toContain('FILE_TOO_LARGE')
+    })
+
+    test('regression: plain reads are unaffected when no ranges given', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/index.ts': { content: 'console.log(1)' } },
+      })
+
+      const result = await getFiles({
+        filePaths: ['src/index.ts'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['src/index.ts']).toBe('console.log(1)')
+    })
+  })
+
   describe('file read errors', () => {
     test('should return ERROR for unexpected read errors', async () => {
       const mockFs = createMockFs({

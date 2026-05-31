@@ -14,6 +14,7 @@ import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampl
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+import { getCliEnv } from './env'
 
 // Re-export types from core for backwards compatibility
 export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
@@ -134,8 +135,12 @@ function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
   }
 }
 
+function isLocalModeAnalyticsDisabled(): boolean {
+  return isLocalModeEnabled({ env: getCliEnv() })
+}
+
 export function initAnalytics() {
-  if (isLocalModeEnabled({ env: process.env })) {
+  if (isLocalModeAnalyticsDisabled()) {
     return
   }
 
@@ -185,7 +190,7 @@ export function trackEvent(
   event: AnalyticsEvent,
   properties?: Record<string, any>,
 ) {
-  if (isLocalModeEnabled({ env: process.env })) {
+  if (isLocalModeAnalyticsDisabled()) {
     return
   }
 
@@ -241,7 +246,7 @@ export function trackEvent(
 }
 
 export function identifyUser(userId: string, properties?: Record<string, any>) {
-  if (isLocalModeEnabled({ env: process.env })) {
+  if (isLocalModeAnalyticsDisabled()) {
     return
   }
 

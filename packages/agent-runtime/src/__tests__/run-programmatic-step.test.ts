@@ -297,6 +297,123 @@ describe('runProgrammaticStep', () => {
       expect(result.endTurn).toBe(true)
     })
 
+    it('should serialize default programmatic tool results as neutral context before STEP', async () => {
+      const mockGenerator = (function* () {
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield 'STEP'
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['read_files', 'end_turn']
+
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'read_files') {
+            options.onResponseChunk({
+              type: 'tool_call',
+              toolCallId: options.toolCallId ?? 'read-files-call-id',
+              toolName: 'read_files',
+              input: { paths: ['test.txt'] },
+              includeToolCall: !options.excludeToolFromMessageHistory,
+            })
+            options.toolResults.push({
+              role: 'tool',
+              toolName: 'read_files',
+              toolCallId: options.toolCallId ?? 'read-files-call-id',
+              content: jsonToolResult({
+                files: [{ path: 'test.txt', content: 'hello' }],
+              }),
+            })
+          }
+        },
+      )
+
+      const responseChunks: unknown[] = []
+      const result = await runProgrammaticStep({
+        ...mockParams,
+        onResponseChunk: (chunk) => responseChunks.push(chunk),
+      })
+
+      expect(result.endTurn).toBe(false)
+      expect(
+        result.agentState.messageHistory.some(
+          (message) =>
+            message.role === 'assistant' &&
+            message.content.some((part) => part.type === 'tool-call'),
+        ),
+      ).toBe(false)
+      expect(
+        result.agentState.messageHistory.some(
+          (message) => message.role === 'tool',
+        ),
+      ).toBe(false)
+
+      const contextMessage = result.agentState.messageHistory.find(
+        (message) =>
+          message.role === 'user' &&
+          message.content.some(
+            (part) =>
+              part.type === 'text' &&
+              part.text.includes('<programmatic_tool_result>') &&
+              part.text.includes('Tool: read_files') &&
+              part.text.includes('test.txt'),
+          ),
+      )
+      expect(contextMessage).toBeDefined()
+      const toolCallEvent = responseChunks.find(
+        (chunk) =>
+          typeof chunk === 'object' &&
+          chunk !== null &&
+          'type' in chunk &&
+          chunk.type === 'tool_call',
+      ) as { includeToolCall?: boolean } | undefined
+      expect(toolCallEvent?.includeToolCall).toBeUndefined()
+    })
+
+    it('should not add neutral context for default programmatic tools when no LLM step follows', async () => {
+      const mockGenerator = (function* () {
+        yield { toolName: 'read_files', input: { paths: ['test.txt'] } }
+        yield { toolName: 'end_turn', input: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['read_files', 'end_turn']
+
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'read_files') {
+            options.toolResults.push({
+              role: 'tool',
+              toolName: 'read_files',
+              toolCallId: options.toolCallId ?? 'read-files-call-id',
+              content: jsonToolResult({
+                files: [{ path: 'test.txt', content: 'hello' }],
+              }),
+            })
+          }
+        },
+      )
+
+      const result = await runProgrammaticStep(mockParams)
+
+      expect(result.endTurn).toBe(true)
+      expect(
+        result.agentState.messageHistory.some(
+          (message) =>
+            message.role === 'user' &&
+            message.content.some(
+              (part) =>
+                part.type === 'text' &&
+                part.text.includes('<programmatic_tool_result>'),
+            ),
+        ),
+      ).toBe(false)
+    })
+
     it('should add find_files tool result to messageHistory', async () => {
       const mockGenerator = (function* () {
         yield { toolName: 'find_files', input: { query: 'authentication' } }
@@ -784,17 +901,9 @@ describe('runProgrammaticStep', () => {
       expect(result.agentState.messageHistory[1]).toEqual(
         previousMessageHistory[1],
       )
-      // Verify an assistant message was added (with native tools, this is a tool-call structure)
-      const lastMessage =
-        result.agentState.messageHistory[
-          result.agentState.messageHistory.length - 1
-        ]
-      expect(lastMessage.role).toBe('assistant')
-      // With native tools, the tool call is structured differently than the old XML format
-      expect(lastMessage.content[0]).toMatchObject({
-        type: 'tool-call',
-        toolName: 'end_turn',
-      })
+      // Programmatic tool calls are provider-neutral by default and end_turn
+      // does not need to add model-visible context.
+      expect(result.agentState.messageHistory).toEqual(previousMessageHistory)
     })
   })
 

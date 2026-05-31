@@ -7,6 +7,7 @@ import {
   providerConfigFileSchema,
   writeProviderConfigFile,
 } from './provider-config'
+import { getSystemProcessEnv } from './env'
 
 import type {
   LoadedProviderConfig,
@@ -265,7 +266,8 @@ export function getProviderDiscoveryConfig(
 export async function discoverProviderModels(
   params: DiscoverProviderModelsParams,
 ): Promise<ProviderModelDiscoveryResult> {
-  const loadedConfig = params.loadedConfig ?? loadProviderConfigSync()
+  const env = params.env ?? getSystemProcessEnv()
+  const loadedConfig = params.loadedConfig ?? loadProviderConfigSync({ env })
   const provider = loadedConfig.config.providers[params.providerId]
   if (!provider)
     throw new Error(`Provider '${params.providerId}' is not configured.`)
@@ -279,7 +281,7 @@ export async function discoverProviderModels(
   const response = await params.fetch(endpoint, {
     headers: {
       Accept: 'application/json',
-      ...authorizationHeaders(provider, params.env ?? process.env),
+      ...authorizationHeaders(provider, env),
     },
   })
   if (!response.ok) {

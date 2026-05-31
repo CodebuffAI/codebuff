@@ -183,13 +183,6 @@ function* handleStepsMultiPrompt({
     sourceProposalLabel?: string
   }
 
-  const knownProposalPaths = () =>
-    dedupeStrings([
-      ...proposalOrchestrationPlan.targetFileHints,
-      ...extractContextFileHeaders(proposalRequestContext),
-      ...extractLikelyFilePaths([proposalRequestContext]),
-    ]).filter(shouldPrefetchPath)
-
   // Spawn proposal implementors sequentially. The parallel batch was fast with
   // the hosted backend, but local OpenAI-compatible/OAuth providers often have
   // low per-account concurrency; when one stream stalls the whole Promise.all
@@ -214,6 +207,14 @@ function* handleStepsMultiPrompt({
     requestContext: proposalRequestContext,
     prompts,
   })
+  // Declared after its dependencies (proposalOrchestrationPlan,
+  // proposalRequestContext) to avoid a temporal-dead-zone footgun.
+  const knownProposalPaths = () =>
+    dedupeStrings([
+      ...proposalOrchestrationPlan.targetFileHints,
+      ...extractContextFileHeaders(proposalRequestContext),
+      ...extractLikelyFilePaths([proposalRequestContext]),
+    ]).filter(shouldPrefetchPath)
   const hasExactProposalContext =
     extractContextFileHeaders(proposalRequestContext).length > 0
   const proposalRequestContextWithPlan = appendProposalOrchestrationPlan({
@@ -393,6 +394,11 @@ function* handleStepsMultiPrompt({
 
         const maxRepairRounds = 2
         let currentImplementation = candidate
+        // The candidate's edits already applied cleanly in this branch, so
+        // repair should see those applied results (not an empty array) for
+        // the same 'what actually applied' context the validation-failure
+        // branch passes. Updated as currentImplementation advances per round.
+        let latestAppliedToolResults: any[] = validationResult.toolResults
 
         while (
           verificationAttempted &&
@@ -403,7 +409,7 @@ function* handleStepsMultiPrompt({
 
           const repaired = yield* repairFailedImplementation({
             failedImplementation: currentImplementation,
-            appliedToolResults: [],
+            appliedToolResults: latestAppliedToolResults,
             verificationErrors,
           })
 
@@ -429,6 +435,7 @@ function* handleStepsMultiPrompt({
             verificationErrors = repairedVerify.errors
             currentImplementation = repaired
             finalImplementation = repaired
+            latestAppliedToolResults = repairedValidation.toolResults
           } else {
             verificationErrors = [
               ...verificationErrors,
@@ -504,15 +511,13 @@ function* handleStepsMultiPrompt({
       return
     }
 
-    // Filter candidates that belong to the highest achieved tier.
-    const highestTierResults = rankedVerificationResults.filter(
-      (r) =>
-        r.verificationPassed === bestResult.verificationPassed &&
-        r.verificationAttempted === bestResult.verificationAttempted &&
-        (r.typecheckPassed === true) ===
-          (bestResult.typecheckPassed === true) &&
-        (r.testsPassed === true) === (bestResult.testsPassed === true) &&
-        r.appliedCleanly === bestResult.appliedCleanly,
+    // Filter candidates that belong to the highest achieved tier. Use the same
+    // tier definition the ranker uses (sameVerificationTier) so the grouping is
+    // guaranteed consistent with rankVerifiedResults' ordering — preventing a
+    // candidate the ranker placed in a lower tier from leaking into the
+    // "highest tier" set (and vice versa).
+    const highestTierResults = rankedVerificationResults.filter((r) =>
+      sameVerificationTier(r, bestResult),
     )
 
     // Grab the implementations for the highest tier candidates
@@ -891,18 +896,21 @@ function* handleStepsMultiPrompt({
     }
 
     const usableToolCalls = getUsableProposalToolCalls(result)
-    if (usableToolCalls.length === 0) {
-      return false
-    }
 
     // Accept proposals that have a valid unified diff, even when individual
     // toolResults are missing. XML-parsed tool calls can produce a valid
-    // unifiedDiffs string without populating the toolResults array. The tool
-    // calls still must be applyable; a diff alone cannot be applied by the
-    // parent workflow.
+    // unifiedDiffs string without populating the toolResults array.
     const hasValidDiffs =
       typeof result.unifiedDiffs === 'string' &&
       result.unifiedDiffs.trim().length > 0
+
+    // A proposal is unusable only when it has neither applyable tool calls nor
+    // a valid diff. Previously an empty usableToolCalls (e.g. after
+    // context-gated filtering) discarded a proposal even when it carried a
+    // valid unifiedDiffs string.
+    if (usableToolCalls.length === 0 && !hasValidDiffs) {
+      return false
+    }
 
     const proposalToolResults = getUsableProposalToolResultsFromResult(result)
     const failedToolResults = proposalToolResults.filter(isFailedEditResult)
@@ -965,34 +973,26 @@ function* handleStepsMultiPrompt({
     const normalized = normalizePrefetchPath(path)
     if (!normalized) return normalized
 
-    const repoNormalized = normalizeKnownMonorepoPath(normalized)
     const knownPaths = knownProposalPaths()
-    if (knownPaths.includes(repoNormalized)) return repoNormalized
+    // Exact match against a known path is always safe.
     if (knownPaths.includes(normalized)) return normalized
 
-    const suffixMatches = knownPaths.filter((knownPath) =>
-      knownPath.endsWith(`/${repoNormalized}`),
-    )
-    if (suffixMatches.length === 1) return suffixMatches[0]
-
-    const normalizedSuffixMatches = knownPaths.filter((knownPath) =>
-      knownPath.endsWith(`/${normalized}`),
-    )
-    if (normalizedSuffixMatches.length === 1) {
-      return normalizedSuffixMatches[0]
+    // Unambiguous suffix match: rewrite only when exactly one known path ends
+    // with this relative path (e.g. "src/utils/foo.ts" → the single known
+    // "packages/x/src/utils/foo.ts"). A multi-segment suffix is specific enough
+    // to be safe; we intentionally do NOT fall back to basename matching, which
+    // could silently redirect an edit onto the wrong file when two packages
+    // share a basename (e.g. cli/.../foo.ts vs web/.../foo.ts).
+    if (normalized.includes('/')) {
+      const suffixMatches = knownPaths.filter((knownPath) =>
+        knownPath.endsWith(`/${normalized}`),
+      )
+      if (suffixMatches.length === 1) return suffixMatches[0]
     }
 
-    const basenameMatches = knownPaths.filter(
-      (knownPath) => getBaseName(knownPath) === getBaseName(repoNormalized),
-    )
-    if (basenameMatches.length === 1) return basenameMatches[0]
-
-    return repoNormalized
-  }
-
-  function normalizeKnownMonorepoPath(path: string): string {
-    if (path.startsWith('agent-runtime/')) return `packages/${path}`
-    return path
+    // No safe rewrite found: keep the proposal's own normalized path rather
+    // than guessing.
+    return normalized
   }
 
   function filterProposalToolCallsForContext(
@@ -1006,25 +1006,12 @@ function* handleStepsMultiPrompt({
       return !path || !unanchoredForeignPaths.has(path)
     })
 
-    const knownPaths = new Set(
-      knownProposalPaths().map((p) => normalizeProposalPath(p)),
-    )
-    filtered = filtered.filter((toolCall) => {
-      if (toolCall.toolName !== 'propose_str_replace') {
-        return true
-      }
-      if (knownPaths.size === 0) {
-        return true
-      }
-      const rawPath =
-        isObject(toolCall.input) && typeof toolCall.input.path === 'string'
-          ? toolCall.input.path
-          : ''
-      if (!rawPath) return false
-      const normalizedPath = normalizeProposalPath(rawPath)
-      return knownPaths.has(normalizedPath)
-    })
-
+    // NOTE: We intentionally do NOT drop propose_str_replace calls just because
+    // their path is absent from the parent-gathered context (knownProposalPaths).
+    // A proposal agent may legitimately read and target a file the parent did
+    // not prefetch; dropping those edits silently lost valid work and could
+    // empty out an otherwise-usable proposal. The only paths we drop are the
+    // clearly-foreign, unanchored, foreign-language ones filtered above.
     return filtered
   }
 
@@ -4597,6 +4584,26 @@ try {
 
   function shellSingleQuote(value: string): string {
     return `'${value.replace(/'/g, `'\\''`)}'`
+  }
+
+  // Two results are in the same verification tier when all of the discrete
+  // (non-tiebreaker) ranking criteria match. This MUST stay consistent with the
+  // ordered fields rankVerifiedResults compares before its repairRoundsUsed/
+  // diffSize tiebreakers, so the "highest tier" grouping never splits or merges
+  // candidates differently than the ranker ordered them. typecheckPassed and
+  // testsPassed use `=== true` here (matching the ranker), so null and false
+  // intentionally collapse into the same "not passed" bucket.
+  function sameVerificationTier(
+    a: CandidateVerificationResult,
+    b: CandidateVerificationResult,
+  ): boolean {
+    return (
+      a.verificationPassed === b.verificationPassed &&
+      a.verificationAttempted === b.verificationAttempted &&
+      (a.typecheckPassed === true) === (b.typecheckPassed === true) &&
+      (a.testsPassed === true) === (b.testsPassed === true) &&
+      a.appliedCleanly === b.appliedCleanly
+    )
   }
 
   function rankVerifiedResults(

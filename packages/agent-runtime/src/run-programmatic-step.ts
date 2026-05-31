@@ -1,6 +1,6 @@
 import { HandleStepsYieldValueSchema } from '@codebuff/common/types/agent-template'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { assistantMessage } from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
 import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
@@ -24,7 +24,10 @@ import type {
 import type { AddAgentStepFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ToolCallPart,
   ToolResultOutput,
@@ -34,6 +37,10 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 // Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
 const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
 export const runIdToStepAll: Set<string> = new Set()
+// Tracks which agent instance (agentState.agentId) created the generator cached
+// for a given runId. Used to detect a runId collision between two distinct
+// agent runs (which would otherwise silently resume each other's generator).
+const runIdToOwnerAgentId = new Map<string, string>()
 
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache(params: { logger: Logger }) {
@@ -42,7 +49,35 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
     delete runIdToGenerator[key]
   }
   runIdToStepAll.clear()
+  runIdToOwnerAgentId.clear()
 }
+
+/**
+ * Clear all in-memory programmatic-step state for a single run: the cached
+ * generator, the STEP_ALL latch, and any proposed file content.
+ *
+ * `runProgrammaticStep` only tears down this state in its own `finally` when
+ * the turn ends. But when a generator yields 'STEP'/'STEP_ALL' it is
+ * intentionally retained, and control returns to `loopAgentSteps`. If the
+ * subsequent LLM step throws (network error, abort, etc.), the run never
+ * re-enters `runProgrammaticStep`, so without this the generator/latch/content
+ * would leak for the lifetime of the process and a recycled runId could even
+ * resume a stale generator. `loopAgentSteps` calls this in a `finally` to
+ * guarantee per-run cleanup on every exit path. All operations are idempotent.
+ */
+export function clearAgentGeneratorForRun(runId: string): void {
+  delete runIdToGenerator[runId]
+  runIdToStepAll.delete(runId)
+  runIdToOwnerAgentId.delete(runId)
+  clearProposedContentForRun(runId)
+}
+
+// Safety bound on how many tool calls a single handleSteps invocation may
+// execute before yielding 'STEP'/'STEP_ALL' or ending. This is far above any
+// real generator and exists only to prevent a buggy generator that yields tool
+// calls forever from becoming an unbounded infinite loop (the per-LLM-turn
+// budget in runAgentStep does not cover the programmatic tool-call loop).
+const MAX_PROGRAMMATIC_TOOL_CALLS = 10_000
 
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
@@ -134,6 +169,26 @@ export async function runProgrammaticStep(
   // Run with either a generator or a sandbox.
   let generator = runIdToGenerator[agentState.runId]
 
+  // Detect a runId collision: a cached generator for this runId that was
+  // created by a *different* agent instance means two overlapping runs share a
+  // runId, and we'd be resuming the wrong run's generator. This should never
+  // happen if startAgentRun returns globally-unique runIds; warn loudly if it
+  // does so the underlying id-generation bug can be found.
+  if (generator) {
+    const ownerAgentId = runIdToOwnerAgentId.get(agentState.runId)
+    if (ownerAgentId !== undefined && ownerAgentId !== agentState.agentId) {
+      logger.warn(
+        {
+          runId: agentState.runId,
+          ownerAgentId,
+          currentAgentId: agentState.agentId,
+          template: template.id,
+        },
+        'Resuming a programmatic-step generator for a runId owned by a different agent instance; possible runId collision',
+      )
+    }
+  }
+
   // Check if we need to initialize a generator
   if (!generator) {
     const createLogMethod =
@@ -169,6 +224,7 @@ export async function runProgrammaticStep(
       logger: streamingLogger,
     })
     runIdToGenerator[agentState.runId] = generator
+    runIdToOwnerAgentId.set(agentState.runId, agentState.agentId)
   }
 
   // Check if we're in STEP_ALL mode
@@ -213,14 +269,37 @@ export async function runProgrammaticStep(
   let toolResult: ToolResultOutput[] | undefined = undefined
   let endTurn = false
   let generateN: number | undefined = undefined
+  const pendingProgrammaticContextMessages: Message[] = []
+  const addProgrammaticToolResultContext = (message: Message) => {
+    pendingProgrammaticContextMessages.push(message)
+  }
+  const flushProgrammaticToolResultContext = () => {
+    if (pendingProgrammaticContextMessages.length === 0) {
+      return
+    }
+    agentState.messageHistory = [
+      ...agentState.messageHistory,
+      ...pendingProgrammaticContextMessages,
+    ]
+    pendingProgrammaticContextMessages.length = 0
+  }
 
   let startTime = new Date()
   let creditsBefore = agentState.directCreditsUsed
   let childrenBefore = agentState.childRunIds.length
 
+  let programmaticIterations = 0
+
   try {
     // Execute tools synchronously as the generator yields them
     do {
+      if (programmaticIterations++ >= MAX_PROGRAMMATIC_TOOL_CALLS) {
+        throw new Error(
+          `handleSteps for agent ${template.id} exceeded ${MAX_PROGRAMMATIC_TOOL_CALLS} iterations ` +
+            `without yielding STEP/STEP_ALL or ending; aborting to prevent an infinite loop`,
+        )
+      }
+
       startTime = new Date()
       creditsBefore = agentState.directCreditsUsed
       childrenBefore = agentState.childRunIds.length
@@ -249,10 +328,12 @@ export async function runProgrammaticStep(
       }
 
       if (result.value === 'STEP') {
+        flushProgrammaticToolResultContext()
         break
       }
       if (result.value === 'STEP_ALL') {
         runIdToStepAll.add(agentState.runId)
+        flushProgrammaticToolResultContext()
         break
       }
 
@@ -273,6 +354,7 @@ export async function runProgrammaticStep(
             previousToolCallFinished: Promise.resolve(),
             toolCalls,
             toolResults,
+            addProgrammaticToolResultContext,
             onResponseChunk,
           })
         }
@@ -284,6 +366,7 @@ export async function runProgrammaticStep(
         // Handle GENERATE_N: generate n responses using the LLM
         generateN = result.value.n
         endTurn = false
+        flushProgrammaticToolResultContext()
         break
       }
 
@@ -301,6 +384,7 @@ export async function runProgrammaticStep(
         previousToolCallFinished: Promise.resolve(),
         toolCalls,
         toolResults,
+        addProgrammaticToolResultContext,
         onResponseChunk,
       })
 
@@ -344,7 +428,15 @@ export async function runProgrammaticStep(
 
     onResponseChunk(errorMessage)
 
-    agentState.messageHistory.push(assistantMessage(errorMessage))
+    // Recreate the array rather than push in place: messageHistory is treated
+    // as readonly elsewhere in this file, and mutating it can break referential
+    // change detection for callers holding the same reference.
+    agentState.messageHistory = [
+      ...agentState.messageHistory,
+      assistantMessage(errorMessage),
+    ]
+    // Spread is undefined-safe and preserves any already-set output fields
+    // while recording the error.
     agentState.output = {
       ...agentState.output,
       error: errorMessage,
@@ -410,12 +502,54 @@ export const getPublicAgentState = (
 
 /**
  * Represents a tool call to be executed.
- * Can optionally include `includeToolCall: false` to exclude from message history.
+ * Programmatic tool calls are not model-generated tool calls. By default their
+ * results are recorded as provider-neutral user context. Use
+ * `includeToolCall: true` only when the target provider can accept synthetic
+ * assistant tool calls in prompt history.
  */
 type ToolCallToExecute = {
   toolName: string
   input: Record<string, unknown>
   includeToolCall?: boolean
+}
+
+const PROGRAMMATIC_CONTEXT_MANAGEMENT_TOOLS = new Set([
+  'add_message',
+  'set_messages',
+  'set_output',
+  'end_turn',
+])
+
+function formatProgrammaticToolResultMessage(params: {
+  toolName: string
+  input: Record<string, unknown>
+  toolResult: ToolResultOutput[]
+}): string {
+  const resultText = params.toolResult
+    .map((result) => {
+      if (result.type === 'json') {
+        return JSON.stringify(result.value, null, 2)
+      }
+      if (result.type === 'media') {
+        return `[media result: ${result.mediaType}, ${result.data.length} bytes]`
+      }
+      result satisfies never
+      return ''
+    })
+    .filter(Boolean)
+    .join('\n\n')
+
+  return [
+    '<programmatic_tool_result>',
+    `Tool: ${params.toolName}`,
+    '',
+    'Input JSON:',
+    JSON.stringify(params.input, null, 2),
+    '',
+    'Output:',
+    resultText || '(no output)',
+    '</programmatic_tool_result>',
+  ].join('\n')
 }
 
 /**
@@ -432,12 +566,13 @@ type ExecuteToolCallsArrayParams = Omit<
   | 'toolResultsToAddToMessageHistory'
 > & {
   agentState: AgentState
+  addProgrammaticToolResultContext?: (message: Message) => void
   onResponseChunk: (chunk: string | PrintModeEvent) => void
 }
 
 /**
  * Executes a single tool call.
- * Adds the tool call as an assistant message and then executes it.
+ * Adds provider-native tool-call history only for explicit opt-in calls.
  *
  * @returns The tool result from the executed tool call.
  */
@@ -445,7 +580,12 @@ async function executeSingleToolCall(
   toolCallToExecute: ToolCallToExecute,
   params: ExecuteToolCallsArrayParams,
 ): Promise<ToolResultOutput[] | undefined> {
-  const { agentState, onResponseChunk, toolResults } = params
+  const {
+    addProgrammaticToolResultContext,
+    agentState,
+    onResponseChunk,
+    toolResults,
+  } = params
 
   // Note: We don't check if the tool is available for the agent template anymore.
   // You can run any tool from handleSteps now!
@@ -456,8 +596,9 @@ async function executeSingleToolCall(
   // }
 
   const toolCallId = crypto.randomUUID()
-  const excludeToolFromMessageHistory =
-    toolCallToExecute.includeToolCall === false
+  const includeStructuredToolCall =
+    toolCallToExecute.includeToolCall === true
+  const excludeToolFromMessageHistory = !includeStructuredToolCall
 
   // Add assistant message with the tool call before executing it
   if (!excludeToolFromMessageHistory) {
@@ -505,18 +646,27 @@ async function executeSingleToolCall(
         onResponseChunk(chunk)
         return
       }
+      let chunkForClient = chunk
+      if (
+        chunk.type === 'tool_call' &&
+        toolCallToExecute.includeToolCall === undefined &&
+        chunk.includeToolCall === false
+      ) {
+        const { includeToolCall: _includeToolCall, ...rest } = chunk
+        chunkForClient = rest
+      }
 
       // Only add parentAgentId if this programmatic agent has a parent (i.e., it's nested)
       // This ensures we don't add parentAgentId to top-level spawns
       if (agentState.parentId) {
         const parentAgentId = agentState.agentId
 
-        switch (chunk.type) {
+        switch (chunkForClient.type) {
           case 'subagent_start':
           case 'subagent_finish':
-            if (!chunk.parentAgentId) {
+            if (!chunkForClient.parentAgentId) {
               onResponseChunk({
-                ...chunk,
+                ...chunkForClient,
                 parentAgentId,
               })
               return
@@ -524,9 +674,9 @@ async function executeSingleToolCall(
             break
           case 'tool_call':
           case 'tool_result': {
-            if (!chunk.parentAgentId) {
+            if (!chunkForClient.parentAgentId) {
               onResponseChunk({
-                ...chunk,
+                ...chunkForClient,
                 parentAgentId,
               })
               return
@@ -539,7 +689,7 @@ async function executeSingleToolCall(
       }
 
       // For other events or top-level spawns, send as-is
-      onResponseChunk(chunk)
+      onResponseChunk(chunkForClient)
     },
   })
 
@@ -547,7 +697,25 @@ async function executeSingleToolCall(
   agentState.messageHistory.push(...toolResultsToAddToMessageHistory)
 
   // Get the latest tool result
-  return toolResults[toolResults.length - 1]?.content
+  const latestToolResult = toolResults[toolResults.length - 1]?.content
+
+  if (
+    toolCallToExecute.includeToolCall === undefined &&
+    latestToolResult &&
+    !PROGRAMMATIC_CONTEXT_MANAGEMENT_TOOLS.has(toolCallToExecute.toolName)
+  ) {
+    addProgrammaticToolResultContext?.(
+      userMessage(
+        formatProgrammaticToolResultMessage({
+          toolName: toolCallToExecute.toolName,
+          input: toolCallToExecute.input,
+          toolResult: latestToolResult,
+        }),
+      ),
+    )
+  }
+
+  return latestToolResult
 }
 
 /**

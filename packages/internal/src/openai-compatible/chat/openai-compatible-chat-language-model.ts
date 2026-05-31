@@ -35,6 +35,7 @@ import type {
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
+  JSONValue,
   LanguageModelV2StreamPart,
   SharedV2ProviderMetadata} from '@ai-sdk/provider';
 import type {
@@ -67,6 +68,44 @@ export type OpenAICompatibleChatConfig = {
    */
   stringifyTextContent?: boolean;
 };
+
+const TOOL_CALL_METADATA_KEYS = new Set(['index', 'id', 'type', 'function']);
+
+function getToolCallProviderMetadata(
+  toolCall: Record<string, unknown>,
+): SharedV2ProviderMetadata | undefined {
+  const metadata: Record<string, JSONValue> = {};
+
+  for (const [key, value] of Object.entries(toolCall)) {
+    if (TOOL_CALL_METADATA_KEYS.has(key) || value === undefined) {
+      continue;
+    }
+    metadata[key] = value as JSONValue;
+  }
+
+  if (Object.keys(metadata).length === 0) {
+    return undefined;
+  }
+
+  return { openaiCompatible: metadata };
+}
+
+function mergeProviderMetadata(
+  left: SharedV2ProviderMetadata | undefined,
+  right: SharedV2ProviderMetadata | undefined,
+): SharedV2ProviderMetadata | undefined {
+  if (left == null) return right;
+  if (right == null) return left;
+
+  const merged: SharedV2ProviderMetadata = { ...left };
+  for (const [provider, metadata] of Object.entries(right)) {
+    merged[provider] = {
+      ...(merged[provider] ?? {}),
+      ...metadata,
+    };
+  }
+  return merged;
+}
 
 export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -276,6 +315,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments!,
+          providerMetadata: getToolCallProviderMetadata(
+            toolCall as Record<string, unknown>,
+          ),
         });
       }
     }
@@ -365,6 +407,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         arguments: string;
       };
       hasFinished: boolean;
+      providerMetadata?: SharedV2ProviderMetadata;
     }> = [];
 
     let finishReason: LanguageModelV2FinishReason = 'unknown';
@@ -428,6 +471,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
+          providerMetadata: toolCall.providerMetadata,
         });
         toolCall.hasFinished = true;
       }
@@ -591,6 +635,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index;
+                const providerMetadata = getToolCallProviderMetadata(
+                  toolCallDelta as Record<string, unknown>,
+                );
 
                 if (toolCalls[index] == null) {
                   if (toolCallDelta.function?.name == null) {
@@ -617,6 +664,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
                     hasFinished: false,
+                    providerMetadata,
                   };
 
                   const toolCall = toolCalls[index];
@@ -647,6 +695,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                         toolCallId: toolCall.id ?? generateId(),
                         toolName: toolCall.function.name,
                         input: toolCall.function.arguments,
+                        providerMetadata: toolCall.providerMetadata,
                       });
                       toolCall.hasFinished = true;
                     }
@@ -661,6 +710,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 if (toolCall.hasFinished) {
                   continue;
                 }
+
+                toolCall.providerMetadata = mergeProviderMetadata(
+                  toolCall.providerMetadata,
+                  providerMetadata,
+                );
 
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function!.arguments +=
@@ -690,6 +744,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
+                    providerMetadata: toolCall.providerMetadata,
                   });
                   toolCall.hasFinished = true;
                 }
@@ -760,7 +815,7 @@ const OpenAICompatibleChatResponseSchema = z.object({
                 name: z.string(),
                 arguments: z.string(),
               }),
-            }),
+            }).passthrough(),
           )
           .nullish(),
       }),
@@ -801,7 +856,7 @@ const createOpenAICompatibleChatChunkSchema = <
                       name: z.string().nullish(),
                       arguments: z.string().nullish(),
                     }),
-                  }),
+                  }).passthrough(),
                 )
                 .nullish(),
             })

@@ -201,10 +201,17 @@ describe('commander agent', () => {
         params: { command: 'ls -la', what_to_summarize: 'list of files' },
       })
 
-      // First yield is the command
-      generator.next()
+      // First yield is the command, excluded from model history because this is
+      // a programmatic tool call rather than a provider-generated one.
+      expect(generator.next().value).toEqual({
+        toolName: 'run_terminal_command',
+        input: {
+          command: 'ls -la',
+        },
+        includeToolCall: false,
+      })
 
-      // Second yield should be STEP for model analysis
+      // Second yield should add a plain-text summary prompt for model analysis.
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -214,7 +221,22 @@ describe('commander agent', () => {
       }
       const result = generator.next(mockToolResult)
 
-      expect(result.value).toBe('STEP')
+      const toolCall = result.value as {
+        toolName: string
+        input: { role: string; content: string }
+        includeToolCall?: boolean
+      }
+      expect(toolCall.toolName).toBe('add_message')
+      expect(toolCall.input.role).toBe('user')
+      expect(toolCall.input.content).toContain('Command: ls -la')
+      expect(toolCall.input.content).toContain(
+        'What to summarize: list of files',
+      )
+      expect(toolCall.input.content).toContain('file1.txt\\nfile2.txt')
+      expect(toolCall.includeToolCall).toBe(false)
+
+      // Third yield should be STEP for model analysis.
+      expect(generator.next().value).toBe('STEP')
     })
 
     test('handles empty tool result gracefully', () => {

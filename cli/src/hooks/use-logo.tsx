@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 
 import { LOGO, LOGO_SMALL, SHADOW_CHARS, parseLogoLines } from '../components/logo-constants'
-import { IS_FREEBUFF, isLocalMode } from '../utils/constants'
+
 
 interface UseLogoOptions {
   /** Available width for rendering the logo */
@@ -33,11 +33,11 @@ export const useLogo = ({
   const rawLogoString = useMemo(() => {
     if (availableWidth >= 70) return LOGO
     if (availableWidth >= 20) return LOGO_SMALL
-    return IS_FREEBUFF ? 'FREEBUFF' : 'OPENBUFF'
+    return 'OPENBUFF'
   }, [availableWidth])
 
   const textBlock = useMemo(() => {
-    if (rawLogoString === 'FREEBUFF' || rawLogoString === 'OPENBUFF') {
+    if (rawLogoString === 'OPENBUFF') {
       return ''
     }
     return parseLogoLines(rawLogoString)
@@ -46,8 +46,8 @@ export const useLogo = ({
   }, [rawLogoString, availableWidth])
 
   const component = useMemo(() => {
-    if (rawLogoString === 'FREEBUFF' || rawLogoString === 'OPENBUFF') {
-      const brandName = IS_FREEBUFF ? 'Freebuff' : 'Openbuff'
+    if (rawLogoString === 'OPENBUFF') {
+      const brandName = 'Openbuff'
       const displayText = availableWidth < 30 ? brandName : `${brandName} CLI`
 
       return (

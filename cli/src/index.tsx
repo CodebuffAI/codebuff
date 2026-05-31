@@ -31,7 +31,7 @@ import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { IS_FREEBUFF, isLocalMode } from './utils/constants'
-import { getCliEnv } from './utils/env'
+import { getCliEnv, getSystemProcessEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
@@ -156,8 +156,9 @@ function parseArgs(): ParsedArgs {
   const options = program.opts()
   const args = program.args
   const localMode = true
-  process.env.OPENBUFF_LOCAL_MODE = 'true'
-  if (options.local) process.env.CODEBUFF_LOCAL_MODE = 'true'
+  const systemEnv = getSystemProcessEnv()
+  systemEnv.OPENBUFF_LOCAL_MODE = 'true'
+  if (options.local) systemEnv.CODEBUFF_LOCAL_MODE = 'true'
 
   const continueFlag = options.continue
 

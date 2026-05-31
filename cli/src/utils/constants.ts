@@ -14,14 +14,18 @@ import { getCliEnv } from './env'
  */
 export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
 
-export const isLocalMode = (): boolean =>
-  !process.argv.includes('--cloud') &&
-  isLocalModeEnabled({
-    env: {
-      [OPENBUFF_LOCAL_MODE_ENV_VAR]: process.env[OPENBUFF_LOCAL_MODE_ENV_VAR],
-      [CODEBUFF_LOCAL_MODE_ENV_VAR]: process.env[CODEBUFF_LOCAL_MODE_ENV_VAR],
-    },
-  })
+export const isLocalMode = (): boolean => {
+  const env = getCliEnv()
+  return (
+    !process.argv.includes('--cloud') &&
+    isLocalModeEnabled({
+      env: {
+        [OPENBUFF_LOCAL_MODE_ENV_VAR]: env.OPENBUFF_LOCAL_MODE,
+        [CODEBUFF_LOCAL_MODE_ENV_VAR]: env.CODEBUFF_LOCAL_MODE,
+      },
+    })
+  )
+}
 
 /** Message shown when the user ends a freebuff session early. */
 export const END_SESSION_MESSAGE =

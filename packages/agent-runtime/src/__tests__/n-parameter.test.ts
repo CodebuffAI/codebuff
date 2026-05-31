@@ -851,17 +851,20 @@ describe('n parameter and GENERATE_N functionality', () => {
   })
 
   describe('runAgentStep n parameter edge cases', () => {
-    it('should handle promptAiSdk returning malformed JSON', async () => {
+    it('should degrade gracefully when promptAiSdk returns malformed JSON', async () => {
       runAgentStepBaseParams.promptAiSdk = mock(() =>
         Promise.resolve(promptSuccess('Not valid JSON')),
       )
 
-      await expect(
-        runAgentStep({
-          ...runAgentStepBaseParams,
-          n: 3,
-        }),
-      ).rejects.toThrow()
+      // Fix #6: instead of throwing, malformed JSON degrades to a single
+      // response containing the raw string rather than crashing the run.
+      const result = await runAgentStep({
+        ...runAgentStepBaseParams,
+        n: 3,
+      })
+
+      expect(result.nResponses).toEqual(['Not valid JSON'])
+      expect(result.shouldEndTurn).toBe(false)
     })
 
     it('should update agentState.creditsUsed when using n parameter', async () => {

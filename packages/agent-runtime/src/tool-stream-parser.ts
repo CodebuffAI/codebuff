@@ -10,11 +10,17 @@ import type { Model } from '@codebuff/common/old-constants'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type {
   PrintModeError,
   PrintModeText,
 } from '@codebuff/common/types/print-mode'
 import type { PromptResult } from '@codebuff/common/util/error'
+
+type ToolCallContext = {
+  toolCallId?: string
+  providerOptions?: ProviderMetadata
+}
 
 function summarizeToolInput(input: unknown): Record<string, unknown> {
   if (typeof input === 'string') {
@@ -57,6 +63,7 @@ export async function* processStreamWithTools(params: {
       onTagEnd: (
         tagName: string,
         params: Record<string, any>,
+        context?: ToolCallContext,
       ) => void | Promise<void>
     }
   >
@@ -68,6 +75,7 @@ export async function* processStreamWithTools(params: {
     onTagEnd: (
       tagName: string,
       params: Record<string, any>,
+      context?: ToolCallContext,
     ) => void | Promise<void>
   }
   onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
@@ -102,11 +110,13 @@ export async function* processStreamWithTools(params: {
   const xmlParserState: StreamParserState = createStreamParserState()
 
   async function processToolCallObject(params: {
+    toolCallId?: string
     toolName: string
     input: any
     contents?: string
+    providerOptions?: ProviderMetadata
   }): Promise<void> {
-    const { toolName, contents } = params
+    const { toolCallId, toolName, contents, providerOptions } = params
     let { input } = params
 
     // AI SDK sometimes emits tool-call chunks with a raw JSON string as `input`
@@ -136,7 +146,10 @@ export async function* processStreamWithTools(params: {
     })
 
     await processor.onTagStart(toolName, {})
-    await processor.onTagEnd(toolName, input)
+    await processor.onTagEnd(toolName, input, {
+      toolCallId,
+      providerOptions,
+    })
   }
 
   function flush() {

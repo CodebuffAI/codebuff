@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { MultilineInput } from './multiline-input'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
+import { getSystemProcessEnv } from '../utils/env'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -152,7 +153,7 @@ function normalizeModels(value: string): string[] {
 
 function envStatus(env: string | undefined): string | null {
   if (!env) return null
-  return process.env[env] ? '✓' : '!'
+  return getSystemProcessEnv()[env] ? '✓' : '!'
 }
 
 function isEditableCustomField(field: CustomField): field is EditableCustomField {

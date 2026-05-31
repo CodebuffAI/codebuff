@@ -33,6 +33,7 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
+import type { FileLineRange } from '@codebuff/common/types/contracts/client'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -423,9 +424,10 @@ async function runOnce({
 
       return filteredTools
     },
-    requestFiles: ({ filePaths }) =>
+    requestFiles: ({ filePaths, ranges }) =>
       readFiles({
         filePaths,
+        ranges,
         override: overrideTools?.read_files,
         fileFilter,
         cwd,
@@ -580,12 +582,14 @@ function requireCwd(cwd: string | undefined, toolName: string): string {
 
 async function readFiles({
   filePaths,
+  ranges,
   override,
   fileFilter,
   cwd,
   fs,
 }: {
   filePaths: string[]
+  ranges?: FileLineRange[]
   override?: NonNullable<
     Required<CodebuffClientOptions>['overrideTools']['read_files']
   >
@@ -594,10 +598,13 @@ async function readFiles({
   fs: CodebuffFileSystem
 }) {
   if (override) {
+    // The public override signature only accepts { filePaths }, so ranged
+    // reads fall back to whole-file reads when a custom override is provided.
     return await override({ filePaths })
   }
   return getFiles({
     filePaths,
+    ranges,
     cwd: requireCwd(cwd, 'read_files'),
     fs,
     fileFilter,

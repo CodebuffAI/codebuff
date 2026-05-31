@@ -822,6 +822,104 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(receivedNResponses).toEqual(expectedResponses)
   })
 
+  it('should NOT restart loop for a programmatic (handleSteps) agent missing output', async () => {
+    // A programmatic agent with an outputSchema that returns without calling
+    // set_output must NOT trigger the output-schema retry: restarting the loop
+    // would re-run handleSteps from the top (its generator is torn down once it
+    // returns). The generator should run exactly once.
+
+    const outputSchema = z.object({ result: z.string() })
+
+    let generatorRuns = 0
+    const mockGeneratorFunction = function* () {
+      generatorRuns++
+      yield { toolName: 'end_turn', input: {} }
+    } as () => StepGenerator
+
+    const templateWithOutputSchema = {
+      ...mockTemplate,
+      outputSchema,
+      toolNames: ['set_output', 'end_turn'],
+      handleSteps: mockGeneratorFunction,
+    } satisfies AgentTemplate as AgentTemplate
+
+    mockAgentState.output = undefined
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates: { 'test-agent': templateWithOutputSchema },
+    })
+
+    // Generator ran exactly once (no restart-from-scratch), and no LLM call.
+    expect(generatorRuns).toBe(1)
+    expect(llmCallCount).toBe(0)
+    expect(result.agentState).toBeDefined()
+  })
+
+  it('should tear down the generator after an error so a re-run starts fresh', async () => {
+    // Verifies generator/latch cleanup happens on every exit path. A generator
+    // that throws should not leave stale per-run state behind; running the same
+    // runId again must re-instantiate the generator from the top.
+
+    let generatorRuns = 0
+    const mockGeneratorFunction = function* () {
+      generatorRuns++
+      yield { toolName: 'read_files', input: { paths: ['file1.txt'] } }
+      throw new Error('Programmatic step failed')
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+    const localAgentTemplates = { 'test-agent': mockTemplate }
+
+    const first = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates,
+    })
+    expect(first.agentState.output?.error).toContain(
+      'Error executing handleSteps for agent test-agent',
+    )
+    expect(generatorRuns).toBe(1)
+
+    // Re-run with the same (mocked) runId. If the generator leaked, this would
+    // resume the stale one instead of creating a new one.
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates,
+    })
+    expect(generatorRuns).toBe(2)
+  })
+
+  it('should degrade to a single response when n>1 returns a non-array', async () => {
+    // A malformed best-of-N completion must not throw and kill the run; it
+    // should fall back to a single response.
+
+    let receivedNResponses: string[] | undefined
+    const mockGeneratorFunction = function* () {
+      const { nResponses } = yield { type: 'GENERATE_N', n: 3 }
+      receivedNResponses = nResponses
+      yield { toolName: 'end_turn', input: {} }
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+    const localAgentTemplates = { 'test-agent': mockTemplate }
+
+    loopAgentStepsBaseParams.promptAiSdk = async () =>
+      promptSuccess('not a json array')
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates,
+    })
+
+    // Degraded gracefully to a single-element array rather than throwing.
+    expect(receivedNResponses).toEqual(['not a json array'])
+    expect(result.output.type).not.toBe('error')
+  })
+
   it('should allow agents without outputSchema to end normally', async () => {
     // Test that agents without outputSchema can end without setting output
 

@@ -205,7 +205,8 @@ export function parseApiErrorResponseBody(responseBody: unknown): {
   if (typeof responseBody !== 'string') return {}
   try {
     const parsed: unknown = JSON.parse(responseBody)
-    if (!parsed || typeof parsed !== 'object') return {}
+    const root = normalizeApiErrorEnvelope(parsed)
+    if (!root) return {}
     const result: {
       errorCode?: string
       message?: string
@@ -213,35 +214,54 @@ export function parseApiErrorResponseBody(responseBody: unknown): {
       countryBlockReason?: string
       ipPrivacySignals?: string[]
     } = {}
+
+    const nestedError = getObjectProperty(root, 'error')
+    if (nestedError) {
+      const nestedMessage = getStringProperty(nestedError, 'message')
+      const nestedReason = getGoogleRpcReason(nestedError)
+      const nestedStatus = getStringProperty(nestedError, 'status')
+      const nestedCode = getStringProperty(nestedError, 'code')
+
+      result.errorCode = nestedReason ?? nestedStatus ?? nestedCode
+      if (nestedMessage) {
+        result.message =
+          nestedReason && !nestedMessage.includes(nestedReason)
+            ? `${nestedMessage} (${nestedReason})`
+            : nestedMessage
+      } else if (nestedReason) {
+        result.message = nestedReason
+      }
+    }
+
     if (
-      'error' in parsed &&
-      typeof (parsed as { error: unknown }).error === 'string'
+      'error' in root &&
+      typeof (root as { error: unknown }).error === 'string'
     ) {
-      result.errorCode = (parsed as { error: string }).error
+      result.errorCode = (root as { error: string }).error
     }
     if (
-      'message' in parsed &&
-      typeof (parsed as { message: unknown }).message === 'string'
+      'message' in root &&
+      typeof (root as { message: unknown }).message === 'string'
     ) {
-      result.message = (parsed as { message: string }).message
+      result.message = (root as { message: string }).message
     }
     if (
-      'countryCode' in parsed &&
-      typeof (parsed as { countryCode: unknown }).countryCode === 'string'
+      'countryCode' in root &&
+      typeof (root as { countryCode: unknown }).countryCode === 'string'
     ) {
-      result.countryCode = (parsed as { countryCode: string }).countryCode
+      result.countryCode = (root as { countryCode: string }).countryCode
     }
     if (
-      'countryBlockReason' in parsed &&
-      typeof (parsed as { countryBlockReason: unknown }).countryBlockReason ===
+      'countryBlockReason' in root &&
+      typeof (root as { countryBlockReason: unknown }).countryBlockReason ===
         'string'
     ) {
       result.countryBlockReason = (
-        parsed as { countryBlockReason: string }
+        root as { countryBlockReason: string }
       ).countryBlockReason
     }
-    if ('ipPrivacySignals' in parsed) {
-      const signals = (parsed as { ipPrivacySignals: unknown }).ipPrivacySignals
+    if ('ipPrivacySignals' in root) {
+      const signals = (root as { ipPrivacySignals: unknown }).ipPrivacySignals
       if (Array.isArray(signals)) {
         result.ipPrivacySignals = signals.filter(
           (signal): signal is string => typeof signal === 'string',
@@ -252,6 +272,68 @@ export function parseApiErrorResponseBody(responseBody: unknown): {
   } catch {
     return {}
   }
+}
+
+function normalizeApiErrorEnvelope(
+  parsed: unknown,
+): Record<string, unknown> | undefined {
+  if (!parsed || typeof parsed !== 'object') return undefined
+
+  if (!Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>
+  }
+
+  for (const item of parsed) {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      return item as Record<string, unknown>
+    }
+  }
+
+  return undefined
+}
+
+function getObjectProperty(
+  object: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = object[key]
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  return value as Record<string, unknown>
+}
+
+function getStringProperty(
+  object: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = object[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getGoogleRpcReason(
+  error: Record<string, unknown>,
+): string | undefined {
+  const details = error.details
+  if (!Array.isArray(details)) return undefined
+
+  for (const detail of details) {
+    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
+      continue
+    }
+
+    const detailRecord = detail as Record<string, unknown>
+    const reason = getStringProperty(detailRecord, 'reason')
+    if (reason) return reason
+
+    const metadata = getObjectProperty(detailRecord, 'metadata')
+    const metadataReason = metadata
+      ? getStringProperty(metadata, 'reason')
+      : undefined
+    if (metadataReason) return metadataReason
+  }
+
+  return undefined
 }
 
 export type ApiErrorDetails = ReturnType<typeof parseApiErrorResponseBody> & {

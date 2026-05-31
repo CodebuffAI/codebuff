@@ -1,22 +1,19 @@
-// Logo and sheen animation constants — inlined from the deleted login/constants.ts.
-// These are standalone visual constants used by use-logo.tsx and use-sheen-animation.tsx.
-
 export const LOGO = `
- ██████╗ ██████╗ ██████╗ ███████╗██████╗ ██╗   ██╗███████╗███████╗
-██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝
-██║     ██║   ██║██║  ██║█████╗  ██████╔╝██║   ██║█████╗  █████╗  
-██║     ██║   ██║██║  ██║██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══╝  
-╚██████╗╚██████╔╝██████╔╝███████╗██████╔╝╚██████╔╝██║     ██║     
- ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝     
+  ██████╗ ██████╗ ███████╗███╗   ██╗██████╗ ██╗   ██╗███████╗███████╗
+ ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔══██╗██║   ██║██╔════╝██╔════╝
+ ██║   ██║██████╔╝█████╗  ██╔██╗ ██║██████╔╝██║   ██║█████╗  █████╗  
+ ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║██╔══██╗██║   ██║██╔══╝  ██╔══╝  
+ ╚██████╔╝██║     ███████╗██║ ╚████║██████╔╝╚██████╔╝██║     ██║     
+  ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝     
 `
 
 export const LOGO_SMALL = `
- ██████╗ ██████╗ ██████╗ ██╗   ██╗███████╗
-██╔════╝██╔═══██╗██╔══██╗██║   ██║██╔════╝
-██║     ██║   ██║██║  ██║██║   ██║█████╗  
-██║     ██║   ██║██║  ██║██║   ██║██╔══╝  
-╚██████╗╚██████╔╝██████╔╝╚██████╔╝██║     
- ╚═════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝     
+  ██████╗  ██████╗ 
+ ██╔═══██╗ ██╔══██╗
+ ██║   ██║ ██████╔╝
+ ██║   ██║ ██╔══██╗
+ ╚██████╔╝ ██████╔╝
+  ╚═════╝  ╚═════╝ 
 `
 
 export const SHADOW_CHARS = new Set([
@@ -26,7 +23,7 @@ export const SHADOW_CHARS = new Set([
 export const SHEEN_STEP = 2
 export const SHEEN_INTERVAL_MS = 80
 
-export const WEBSITE_URL = 'https://codebuff.com'
+export const WEBSITE_URL = 'https://openbuff.com'
 
 /** Parse logo string into an array of trimmed lines, stripping leading/trailing blank lines. */
 export function parseLogoLines(logo: string): string[] {

@@ -7,6 +7,7 @@ import { z } from 'zod/v4'
 import { CHATGPT_OAUTH_OPENAI_MODEL_ALLOWLIST } from '@codebuff/common/constants/chatgpt-oauth'
 
 import { getConfigDir } from './credentials'
+import { getSystemProcessEnv } from './env'
 
 export const PROVIDER_CONFIG_ENV_VAR = 'OPENBUFF_PROVIDER_CONFIG'
 export const LEGACY_PROVIDER_CONFIG_ENV_VAR = 'CODEBUFF_PROVIDER_CONFIG'
@@ -544,12 +545,12 @@ function getAncestorProviderConfigPaths(startDir: string): string[] {
   }
 }
 
-export function loadProviderConfigSync(): LoadedProviderConfig {
-  // Bypass env architecture check - provider config discovery intentionally reads
-  // runtime env so users can point the SDK at a config file without code changes.
+export function loadProviderConfigSync(
+  params: { env?: NodeJS.ProcessEnv } = {},
+): LoadedProviderConfig {
+  const env = params.env ?? getSystemProcessEnv()
   const explicitConfigPath =
-    process.env[PROVIDER_CONFIG_ENV_VAR] ??
-    process.env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
+    env[PROVIDER_CONFIG_ENV_VAR] ?? env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
   const configPaths = explicitConfigPath
     ? [explicitConfigPath]
     : getDefaultProviderConfigPaths()
@@ -936,11 +937,9 @@ export function resolveConfiguredProviderModel(params: {
   env?: NodeJS.ProcessEnv
   loadedConfig?: LoadedProviderConfig
 }): ResolvedProviderModel | undefined {
-  const {
-    model,
-    env = process.env,
-    loadedConfig = loadProviderConfigSync(),
-  } = params
+  const { model, env = getSystemProcessEnv() } = params
+  const loadedConfig =
+    params.loadedConfig ?? loadProviderConfigSync({ env })
 
   for (const [providerId, provider] of Object.entries(
     loadedConfig.config.providers,
@@ -1304,8 +1303,9 @@ export function getMissingProviderEnvVars(
     env?: NodeJS.ProcessEnv
   } = {},
 ): string[] {
-  const loadedConfig = params.loadedConfig ?? loadProviderConfigSync()
-  const env = params.env ?? process.env
+  const env = params.env ?? getSystemProcessEnv()
+  const loadedConfig =
+    params.loadedConfig ?? loadProviderConfigSync({ env })
   const missing = new Set<string>()
   for (const provider of Object.values(loadedConfig.config.providers)) {
     if (

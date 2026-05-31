@@ -70,13 +70,16 @@ Do not use any tools! Only analyze the output of the command.`,
     const timeout_seconds = params?.timeout_seconds as number | undefined
     const what_to_summarize = params?.what_to_summarize as string | undefined
 
-    // Run the command
+    // Run the command. When a follow-up LLM summary is requested, do not replay
+    // this programmatic call as provider-native tool history: Gemini Agent
+    // Platform requires thought signatures on function calls it generated.
     const { toolResult } = yield {
       toolName: 'run_terminal_command',
       input: {
         command,
         ...(timeout_seconds !== undefined && { timeout_seconds }),
       },
+      ...(what_to_summarize && { includeToolCall: false }),
     }
 
     if (!what_to_summarize) {
@@ -92,7 +95,28 @@ Do not use any tools! Only analyze the output of the command.`,
       return
     }
 
-    // Let the model analyze and describe the output
+    const result = toolResult?.[0]
+    const output = result?.type === 'json' ? result.value : null
+    const outputJson = JSON.stringify(output, null, 2) ?? 'null'
+
+    yield {
+      toolName: 'add_message',
+      input: {
+        role: 'user',
+        content: [
+          'The terminal command has completed.',
+          '',
+          `Command: ${command}`,
+          `What to summarize: ${what_to_summarize}`,
+          '',
+          'Command output JSON:',
+          outputJson,
+        ].join('\n'),
+      },
+      includeToolCall: false,
+    }
+
+    // Let the model analyze and describe the output from the plain text message.
     yield 'STEP'
   },
 }

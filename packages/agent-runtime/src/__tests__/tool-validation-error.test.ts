@@ -65,6 +65,32 @@ describe('tool validation error handling', () => {
     }
   })
 
+  it('should preserve provider options from parsed native tool calls', () => {
+    const providerOptions = {
+      openaiCompatible: {
+        extra_content: {
+          google: {
+            thought_signature: 'sig-123',
+          },
+        },
+      },
+    }
+
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'read_files',
+        toolCallId: 'provider-metadata-tool-call-id',
+        input: { paths: ['test.ts'] },
+        providerOptions,
+      },
+    })
+
+    expect('error' in result).toBe(false)
+    if (!('error' in result)) {
+      expect(result.providerOptions).toEqual(providerOptions)
+    }
+  })
+
   it('should repair bare path values for list_directory string input', () => {
     const result = parseRawToolCall({
       rawToolCall: {
@@ -453,6 +479,15 @@ describe('tool validation error handling', () => {
       input: {
         paths: ['test.ts'], // Valid array parameter
       },
+      providerOptions: {
+        openaiCompatible: {
+          extra_content: {
+            google: {
+              thought_signature: 'sig-456',
+            },
+          },
+        },
+      },
     }
 
     async function* mockStream() {
@@ -513,6 +548,18 @@ describe('tool validation error handling', () => {
         typeof chunk !== 'string' && chunk.type === 'tool_result',
     )
     expect(toolResultEvents.length).toBe(1)
+
+    const assistantToolCallMessage = agentState.messageHistory.find(
+      (message): message is AssistantMessage =>
+        message.role === 'assistant' &&
+        message.content.some((part) => part.type === 'tool-call'),
+    )
+    const assistantToolCallPart = assistantToolCallMessage?.content.find(
+      (part) => part.type === 'tool-call',
+    )
+    expect(assistantToolCallPart?.providerOptions).toEqual(
+      validToolCallChunk.providerOptions,
+    )
 
     // Verify NO error events
     const errorEvents = responseChunks.filter(

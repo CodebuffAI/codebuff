@@ -32,4 +32,38 @@ describe('extractApiErrorDetails', () => {
         'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
     })
   })
+
+  it('extracts Google OpenAI-compatible error arrays', () => {
+    const apiError = new Error('Bad Request') as Error & {
+      statusCode: number
+      responseBody: string
+    }
+    apiError.statusCode = 401
+    apiError.responseBody = JSON.stringify([
+      {
+        error: {
+          code: 401,
+          message:
+            'Request had invalid authentication credentials. Expected OAuth 2 access token.',
+          status: 'UNAUTHENTICATED',
+          details: [
+            {
+              '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+              reason: 'ACCESS_TOKEN_TYPE_UNSUPPORTED',
+              metadata: {
+                service: 'aiplatform.googleapis.com',
+              },
+            },
+          ],
+        },
+      },
+    ])
+
+    expect(extractApiErrorDetails(apiError)).toEqual({
+      statusCode: 401,
+      errorCode: 'ACCESS_TOKEN_TYPE_UNSUPPORTED',
+      message:
+        'Request had invalid authentication credentials. Expected OAuth 2 access token. (ACCESS_TOKEN_TYPE_UNSUPPORTED)',
+    })
+  })
 })

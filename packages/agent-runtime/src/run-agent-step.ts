@@ -17,7 +17,10 @@ import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { runProgrammaticStep } from './run-programmatic-step'
+import {
+  clearAgentGeneratorForRun,
+  runProgrammaticStep,
+} from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { buildAgentToolSet } from './templates/prompts'
@@ -403,19 +406,20 @@ export const runAgentStep = async (
     try {
       nResponses = JSON.parse(responsesString) as string[]
       if (!Array.isArray(nResponses)) {
-        if (params.n > 1) {
-          throw new Error(
-            `Expected JSON array response from LLM when n > 1, got non-array: ${responsesString.slice(0, 50)}`,
-          )
-        }
-        // If it parsed but isn't an array, treat as single response
+        // Parsed but not an array: degrade to a single response rather than
+        // throwing, so one malformed best-of-N completion can't kill the run.
+        logger.warn(
+          { n: params.n, response: responsesString.slice(0, 50) },
+          'Expected JSON array response from LLM for n; got non-array, falling back to single response',
+        )
         nResponses = [responsesString]
       }
     } catch (e) {
-      if (params.n > 1) {
-        throw e
-      }
-      // If parsing fails, treat as single raw response (common for n=1)
+      // Parsing failed: degrade to a single raw response rather than throwing.
+      logger.warn(
+        { error: e, n: params.n },
+        'Failed to parse n-response array from LLM; falling back to single response',
+      )
       nResponses = [responsesString]
     }
 
@@ -738,6 +742,12 @@ export async function loopAgentSteps(
   }
   initialAgentState.runId = runId
 
+  // Outer try/finally guarantees this run's in-memory programmatic-step state
+  // is torn down on EVERY exit path after runId is assigned — including if the
+  // prompt/tool setup below throws before the main loop's own try/catch is
+  // reached. The inner try/catch (further down) keeps owning error handling and
+  // the abort/failure return values; this wrapper only adds the cleanup.
+  try {
   let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
   // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
   const useParentTools =
@@ -966,11 +976,21 @@ export async function loopAgentSteps(
         totalSteps = stepNumber
 
         shouldEndTurn = endTurn
+
+        // nResponses (from a prior GENERATE_N) is consumed by the generator on
+        // this step. Clear it so a later programmatic step can't read the same
+        // stale responses again.
+        nResponses = undefined
       }
 
       // Check if output is required but missing
       if (
         agentTemplate.outputSchema &&
+        // Skip for programmatic agents: the generator (not the model) drives
+        // behavior, and restarting the loop here would re-run handleSteps from
+        // the top (its generator is torn down once it returns). A userMessage
+        // reminder also has no effect on a generator-driven agent.
+        !agentTemplate.handleSteps &&
         currentAgentState.output === undefined &&
         shouldEndTurn &&
         !hasRetriedOutputSchema
@@ -1072,7 +1092,7 @@ export async function loopAgentSteps(
       agentState: currentAgentState,
       output: getAgentOutput(currentAgentState, agentTemplate),
     }
-  } catch (error) {
+    } catch (error) {
     // Handle user-initiated aborts separately - don't log as errors
     if (isAbortError(error)) {
       if (clearUserPromptMessagesAfterResponse) {
@@ -1185,6 +1205,16 @@ export async function loopAgentSteps(
         }),
       },
     }
+    }
+  } finally {
+    // Always tear down this run's in-memory programmatic-step state. When a
+    // generator yields STEP/STEP_ALL it is intentionally retained across loop
+    // iterations; if a later LLM step throws or the run is aborted, control
+    // never returns to runProgrammaticStep's own cleanup. Clearing here on
+    // every exit path (including a throw during prompt/tool setup) prevents
+    // leaking generators/latches/proposed-content and removes the window where
+    // a recycled runId could resume a stale generator.
+    clearAgentGeneratorForRun(runId)
   }
 }
 

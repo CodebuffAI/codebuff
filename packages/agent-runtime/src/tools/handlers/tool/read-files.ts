@@ -26,13 +26,14 @@ export const handleReadFiles = (async (
 
     fileContext,
   } = params
-  const { paths } = toolCall.input
+  const { paths, ranges } = toolCall.input
 
   await previousToolCallFinished
 
   const addedFiles = await getFileReadingUpdates({
     ...params,
     requestedFiles: paths,
+    ranges,
   })
 
   return {
