@@ -291,7 +291,7 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(anonymousOnlyAccess)).toBe(false)
   })
 
-  test('keeps suspicious traffic limited when Scamalytics does not clear IPinfo signals', async () => {
+  test('allows suspicious IPinfo traffic when Spur is clean', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -314,8 +314,8 @@ describe('free mode country access', () => {
       },
     )
 
-    expect(access.allowed).toBe(false)
-    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
     expect(access.spurStatus).toBe('clean')
     expect(access.scamalyticsStatus).toBe('suspicious')
     expect(getFreeModeRiskScore(access)).toBe(80)
@@ -414,7 +414,7 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
   })
 
-  test('keeps IPinfo and Spur residential proxy corroboration limited when Scamalytics is clean', async () => {
+  test('allows suspicious IPinfo traffic when Scamalytics is clean', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -437,8 +437,10 @@ describe('free mode country access', () => {
       },
     )
 
-    expect(access.allowed).toBe(false)
-    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
+    expect(access.spurStatus).toBe('suspicious')
+    expect(access.scamalyticsStatus).toBe('clean')
     expect(getFreeModeRiskScore(access)).toBe(75)
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
