@@ -21,11 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonicalUrl,
       type: 'website',
       siteName: 'Freebuff',
+      images: [siteConfig.socialImage],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: [siteConfig.socialImage],
     },
   }
 }

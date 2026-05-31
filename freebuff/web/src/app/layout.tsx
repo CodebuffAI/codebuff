@@ -30,6 +30,7 @@ export const generateMetadata = (): Metadata => ({
     title: siteConfig.title,
     description: siteConfig.description,
     siteName: siteConfig.title,
+    images: [siteConfig.socialImage],
     type: 'website',
     locale: 'en',
   },
@@ -37,6 +38,7 @@ export const generateMetadata = (): Metadata => ({
     card: 'summary_large_image',
     title: siteConfig.title,
     description: siteConfig.description,
+    images: [siteConfig.socialImage],
   },
 })
 

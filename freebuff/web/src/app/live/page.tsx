@@ -23,6 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonical,
       type: 'website',
       siteName: 'Freebuff',
+      images: [siteConfig.socialImage],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Live Freebuff Users',
+      description: 'Live aggregate Freebuff usage by country and model.',
+      images: [siteConfig.socialImage],
     },
   }
 }
