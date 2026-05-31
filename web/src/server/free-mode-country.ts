@@ -1091,12 +1091,7 @@ export async function getFreeModeCountryAccess(
       scamalyticsRisk: scamalyticsIpRisk?.risk ?? null,
     }
 
-    if (
-      spurIpPrivacy &&
-      spurStatus === 'clean' &&
-      scamalyticsIpRisk &&
-      scamalyticsStatus === 'clean'
-    ) {
+    if (spurStatus === 'clean' || scamalyticsStatus === 'clean') {
       return {
         ...baseAccess,
         allowed: true,
