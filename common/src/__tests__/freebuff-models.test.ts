@@ -8,6 +8,7 @@ import {
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_IDS,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -84,10 +85,15 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('limited access exposes only DeepSeek V4 Flash', () => {
+  test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
+    ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     ])
     expect(
       isFreebuffModelAllowedForAccessTier(
@@ -103,7 +109,19 @@ describe('freebuff model availability', () => {
         FREEBUFF_MIMO_V25_MODEL_ID,
         'limited',
       ),
+    ).toBe(true)
+    expect(
+      isFreebuffModelAllowedForAccessTier(
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+        'limited',
+      ),
     ).toBe(false)
+    expect(
+      resolveFreebuffModelForAccessTier(
+        FREEBUFF_MIMO_V25_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)

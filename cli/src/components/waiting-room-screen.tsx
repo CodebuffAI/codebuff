@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
-import { LimitedLandingPanel } from './limited-landing-panel'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
@@ -454,9 +453,6 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     reservedChrome -
     (isQueued ? queuedTextRows : landingTextRows),
   )
-  // The limited-tier panel owns its own title/counter, so the only chrome
-  // around it is the shared frame (no extra prompt rows to subtract).
-  const limitedPanelMaxHeight = Math.max(3, terminalHeight - reservedChrome)
 
   useEffect(() => {
     if (!isLanding || !premiumRateLimit) return
@@ -563,30 +559,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </text>
           )}
 
-          {isLanding && accessTier === 'limited' && (
-            <LimitedLandingPanel
-              isQuotaExhausted={isPremiumExhausted}
-              exhaustedMessageText={`You've used your ${sessionLimit} ${sessionLabel} for today. Resets in ${premiumResetCountdown}.`}
-              maxHeight={limitedPanelMaxHeight}
-              sessionCounterText={`${formatSessionUnits(
-                sharedPremiumUsed,
-              )} of ${sessionLimit} ${sessionLabel} used, resets in ${premiumResetCountdown}`}
-              sessionCounter={
-                <>
-                  <span fg={premiumUsedColor}>
-                    {formatSessionUnits(sharedPremiumUsed)} of {sessionLimit}{' '}
-                    {sessionLabel} used
-                  </span>
-                  <span fg={theme.muted}>
-                    {', '}
-                    resets in {premiumResetCountdown}
-                  </span>
-                </>
-              }
-            />
-          )}
-
-          {isLanding && accessTier !== 'limited' && (
+          {isLanding && (
             <box
               style={{
                 flexDirection: 'column',

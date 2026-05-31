@@ -7,6 +7,8 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import { openCodeZenModels } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
@@ -178,6 +180,20 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-free-deepseek-flash') {
         return {
           agent_id: 'base2-free-deepseek-flash',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-mimo') {
+        return {
+          agent_id: 'base2-free-mimo',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-mimo-pro') {
+        return {
+          agent_id: 'base2-free-mimo-pro',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -857,7 +873,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
-    it('limits unknown-location free-mode requests to DeepSeek Flash', async () => {
+    it('limits unknown-location free-mode requests to limited models', async () => {
       const checkSessionAdmissible = mock(async () => {
         throw new Error(
           'limited model enforcement should run before session gate',
@@ -916,6 +932,97 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         freebuff: true,
         accessTier: 'limited',
       })
+    })
+
+    it('allows non-Pro MiMo 2.5 in limited free mode', async () => {
+      const checkSessionAdmissible = mock(async (params) => {
+        expect(params.accessTier).toBe('limited')
+        expect(params.requestedModel).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+        return { ok: true, reason: 'active', remainingMs: 60_000 } as const
+      })
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-connecting-ip': '192.0.2.1',
+          },
+          body: JSON.stringify({
+            model: FREEBUFF_MIMO_V25_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free-mimo',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+              freebuff_instance_id: 'active-instance-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible,
+      })
+
+      expect(response.status).toBe(200)
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects MiMo 2.5 Pro in limited free mode before the session gate', async () => {
+      const checkSessionAdmissible = mock(async () => {
+        throw new Error(
+          'limited model enforcement should run before session gate',
+        )
+      })
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-connecting-ip': '192.0.2.1',
+          },
+          body: JSON.stringify({
+            model: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free-mimo-pro',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+              freebuff_instance_id: 'active-instance-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible,
+      })
+
+      expect(response.status).toBe(409)
+      const body = await response.json()
+      expect(body.error).toBe('session_model_mismatch')
+      expect(body.message).toContain('DeepSeek V4 Flash or MiMo 2.5')
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(0)
     })
 
     it('classifies anonymized Cloudflare country codes as limited access', async () => {

@@ -7,7 +7,10 @@ import {
   getFreebuffSession,
   postFreebuffSession,
 } from '../_handlers'
-import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
 
 import type { FreebuffSessionDeps } from '../_handlers'
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
@@ -270,6 +273,23 @@ describe('POST /api/v1/freebuff/session', () => {
       access_tier: 'limited',
       country_code: 'JP',
       country_block_reason: 'country_not_allowed',
+    })
+  })
+
+  test('creates a limited MiMo 2.5 session for disallowed country when requested', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'JP', model: FREEBUFF_MIMO_V25_MODEL_ID }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(200)
+    const body = await resp.json()
+    expect(body.status).toBe('queued')
+    expect(body.accessTier).toBe('limited')
+    expect(body.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(sessionDeps.rows.get('u1')).toMatchObject({
+      access_tier: 'limited',
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
     })
   })
 

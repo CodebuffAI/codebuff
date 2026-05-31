@@ -7,6 +7,7 @@ import {
   FREEBUFF_LIMITED_SESSION_PERIOD,
   FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
   FREEBUFF_LIMITED_SESSION_WINDOW_HOURS,
+  FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_PREMIUM_SESSION_PERIOD,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
@@ -90,7 +91,10 @@ function quotaConfigForAccessTier(
 ): SessionQuotaConfig {
   if (accessTier === 'limited') {
     return {
-      models: [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
+      models: [
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        FREEBUFF_MIMO_V25_MODEL_ID,
+      ],
       limit: FREEBUFF_LIMITED_SESSION_LIMIT,
       period: FREEBUFF_LIMITED_SESSION_PERIOD,
       resetTimeZone: FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
@@ -758,7 +762,7 @@ export async function checkSessionAdmissible(params: {
       ok: false,
       code: 'session_model_mismatch',
       message:
-        'This free session is not valid for limited access. Restart freebuff to switch to DeepSeek V4 Flash.',
+        'This free session is not valid for limited access. Restart freebuff to switch to a limited model.',
     }
   }
 
@@ -771,7 +775,8 @@ export async function checkSessionAdmissible(params: {
     return {
       ok: false,
       code: 'session_model_mismatch',
-      message: 'Limited free access is only available with DeepSeek V4 Flash.',
+      message:
+        'Limited free access is only available with DeepSeek V4 Flash or MiMo 2.5.',
     }
   }
 

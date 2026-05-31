@@ -113,7 +113,7 @@ export type FreeModeCountryAccessOptions = {
   scamalyticsUser?: string
   ipHashSecret?: string
   allowLocalhost?: boolean
-  /** Dev-only escape hatch: when true (and `allowLocalhost` is also true),
+  /** Debug escape hatch: when true (and `allowLocalhost` is also true),
    *  the localhost bypass returns `allowed: false` so callers exercise the
    *  limited Freebuff tier instead of full. Cache writes/reads are skipped
    *  for these requests (clientIpHash is nulled) so flipping the flag takes
@@ -930,7 +930,7 @@ export async function getFreeModeCountryAccess(
         ...NOT_CHECKED_SPUR_CONTEXT,
         ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
         hasClientIp: Boolean(clientIp),
-        // Null hash skips the country-access cache so toggling the env var
+        // Null hash skips the country-access cache so toggling the force flag
         // takes effect immediately without evicting prior allowed=true rows.
         clientIpHash: null,
       }

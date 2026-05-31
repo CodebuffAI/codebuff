@@ -45,6 +45,10 @@ export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = false
 /** UI-only rollout switch for the streak indicator in the waiting room. */
 export const FREEBUFF_ENABLE_STREAK_IN_UI = true
+/** Local/debug switch: force the localhost free-mode country bypass into
+ *  limited access so the limited Freebuff UX can be exercised without an env
+ *  var. */
+export const FREEBUFF_FORCE_LIMITED_MODE = false
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
@@ -161,8 +165,12 @@ export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
 
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
-export const LIMITED_FREEBUFF_MODELS = FREEBUFF_MODELS.filter(
-  (model) => model.id === LIMITED_FREEBUFF_MODEL_ID,
+export const LIMITED_FREEBUFF_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+] as const
+export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
+  (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
 
 export type FreebuffAccessTier = 'full' | 'limited'
@@ -180,7 +188,7 @@ export function isFreebuffModelAllowedForAccessTier(
 ): boolean {
   if (!model) return false
   if (accessTier !== 'limited') return isSupportedFreebuffModelId(model)
-  return model === LIMITED_FREEBUFF_MODEL_ID
+  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
 }
 
 export function isFreebuffModelId(
@@ -200,7 +208,11 @@ export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
 ): SupportedFreebuffModelId {
-  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  if (accessTier === 'limited') {
+    return isFreebuffModelAllowedForAccessTier(id, accessTier)
+      ? (id as SupportedFreebuffModelId)
+      : LIMITED_FREEBUFF_MODEL_ID
+  }
   const resolved = resolveSupportedFreebuffModel(id)
   return isFreebuffModelAllowedForAccessTier(resolved, accessTier)
     ? resolved

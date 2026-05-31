@@ -39,9 +39,9 @@ import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 // list of choices grouped by tier. Empty sections are filtered so a model set
 // with no premium (or no unlimited) entries doesn't render an orphan header.
 //
-// `label` may be empty: limited-tier users only ever see one section, so the
-// "LIMITED" header would just leak the internal tier name without organizing
-// anything. Renderer treats an empty label as "no header row".
+// `label` may be empty: limited-tier users only see the constrained model set,
+// so the "LIMITED" header would just leak the internal tier name without
+// organizing anything. Renderer treats an empty label as "no header row".
 type Section = {
   key: 'premium' | 'unlimited' | 'limited'
   label: string
@@ -107,10 +107,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     () => getFreebuffModelsForAccessTier(accessTier),
     [accessTier],
   )
-  // Limited tier only ever surfaces one model, so a comparative tagline
-  // ("Most efficient") reads as filler. Hide it; the warning (data-collection)
-  // is the row's real content.
-  const showTagline = accessTier !== 'limited'
+  // Single-model limited states don't need comparative taglines. When limited
+  // has multiple choices, keep the row shape aligned with the full picker.
+  const showTagline = accessTier !== 'limited' || availableModels.length > 1
   const availableModelIds = useMemo(
     () => availableModels.map((m) => m.id),
     [availableModels],

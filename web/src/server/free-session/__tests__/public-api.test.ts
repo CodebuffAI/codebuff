@@ -6,6 +6,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
@@ -592,7 +593,7 @@ describe('requestSession', () => {
     expect(state.rateLimit).toBeUndefined()
   })
 
-  test('limited access coerces any requested model to DeepSeek Flash', async () => {
+  test('limited access coerces unsupported requested models to DeepSeek Flash', async () => {
     const state = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
@@ -603,6 +604,20 @@ describe('requestSession', () => {
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
     expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(deps.rows.get('u1')?.access_tier).toBe('limited')
+  })
+
+  test('limited access allows non-Pro MiMo 2.5', async () => {
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.accessTier).toBe('limited')
+    expect(state.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
   })
 
@@ -634,12 +649,15 @@ describe('requestSession', () => {
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
   })
 
-  test('rate_limited: limited access blocks the next Flash session at 5 units', async () => {
+  test('rate_limited: limited access blocks the next session at 5 units across Flash and MiMo', async () => {
     const now = deps._now()
     for (let i = 0; i < FREEBUFF_LIMITED_SESSION_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: 'deepseek/deepseek-v4-flash',
+        model:
+          i === 0
+            ? FREEBUFF_MIMO_V25_MODEL_ID
+            : FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         access_tier: 'limited',
         admitted_at: new Date(now.getTime() - i * 60_000),
       })
@@ -647,14 +665,14 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: DEFAULT_MODEL,
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
       accessTier: 'limited',
       deps,
     })
     expect(state.status).toBe('rate_limited')
     if (state.status !== 'rate_limited') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
-    expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(state.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(state.limit).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(state.recentCount).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(deps.rows.has('u1')).toBe(false)

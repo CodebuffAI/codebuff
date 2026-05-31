@@ -2,6 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   type FreebuffAccessTier,
+  FREEBUFF_FORCE_LIMITED_MODE,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   isFreebuffModelAllowedForAccessTier,
   isSupportedFreebuffModelId,
@@ -361,7 +362,7 @@ export async function postChatCompletions(params: {
 
     // For free mode requests, classify the request into full or limited
     // access. Most non-allowlist/privacy cases, including VPN/proxy traffic,
-    // are limited to the cheap DeepSeek Flash path; Cloudflare Tor remains a
+    // are limited to the cheaper limited-model path; Cloudflare Tor remains a
     // hard block.
     if (isFreeModeRequest) {
       const countryAccess = await resolveCountryAccess(userId, req, {
@@ -371,9 +372,7 @@ export async function postChatCompletions(params: {
         scamalyticsApiKey: env.SCAMALYTICS_API_KEY,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
-        forceLimited:
-          env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-          env.FREEBUFF_DEV_FORCE_LIMITED,
+        forceLimited: FREEBUFF_FORCE_LIMITED_MODE,
       })
       freebuffAccessTier = getFreeModeAccessTier(countryAccess)
       const hardBlocked = shouldHardBlockFreeModeAccess(countryAccess)
@@ -652,7 +651,7 @@ export async function postChatCompletions(params: {
         {
           error: 'session_model_mismatch',
           message:
-            'Limited free access is only available with DeepSeek V4 Flash.',
+            'Limited free access is only available with DeepSeek V4 Flash or MiMo 2.5.',
         },
         { status: STATUS_BY_GATE_CODE.session_model_mismatch },
       )
