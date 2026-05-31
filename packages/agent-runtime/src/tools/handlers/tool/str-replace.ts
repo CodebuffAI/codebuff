@@ -41,6 +41,23 @@ export const handleStrReplace = (async (
   } = params
   const { path, replacements } = toolCall.input
 
+  if (fileProcessingState.failedEditRequiresReadByPath[path]) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: path,
+            errorMessage: [
+              'Edit blocked: a previous str_replace failed for this file.',
+              'Recovery required: re-read the exact current lines with read_files before attempting another str_replace on this path.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
   if (!fileProcessingState.promisesByPath[path]) {
     fileProcessingState.promisesByPath[path] = []
   }
@@ -81,6 +98,12 @@ export const handleStrReplace = (async (
   await previousToolCallFinished
 
   const strReplaceResult = await newPromise
+  if ('error' in strReplaceResult) {
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+  } else {
+    delete fileProcessingState.failedEditRequiresReadByPath[path]
+  }
+
   const clientToolResult = await postStreamProcessing<'str_replace'>(
     strReplaceResult,
     fileProcessingState,

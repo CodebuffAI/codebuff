@@ -233,12 +233,20 @@ function* handleStepsMultiPrompt({
     let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
+      const proposalContextForAttempt = buildAttemptProposalContext({
+        requestContext: proposalRequestContextWithPlan,
+        attempt,
+        lastResult,
+      })
       const currentAgentType = getProposalAttemptAgentType({
         defaultAgentType: agentType,
         attempt,
         lastResult,
         forceDirectRetry,
-        hasPrefetchedContext: hasExactProposalContext,
+        hasAdequateDirectContext: hasAdequateDirectProposalContext({
+          context: proposalContextForAttempt,
+          lastResult,
+        }),
       })
       const useDirectMode = currentAgentType === directProposalAgentType
       const allowReadOnlyTools = !useDirectMode
@@ -258,7 +266,7 @@ function* handleStepsMultiPrompt({
               }),
               params: buildProposalParams({
                 strategy: prompt,
-                requestContext: proposalRequestContextWithPlan,
+                requestContext: proposalContextForAttempt,
                 proposalLabel: getInitialProposalLabel(index),
                 proposalOrdinal: index + 1,
                 orchestrationPlan: proposalOrchestrationPlan,
@@ -896,19 +904,7 @@ function* handleStepsMultiPrompt({
     }
 
     const usableToolCalls = getUsableProposalToolCalls(result)
-
-    // Accept proposals that have a valid unified diff, even when individual
-    // toolResults are missing. XML-parsed tool calls can produce a valid
-    // unifiedDiffs string without populating the toolResults array.
-    const hasValidDiffs =
-      typeof result.unifiedDiffs === 'string' &&
-      result.unifiedDiffs.trim().length > 0
-
-    // A proposal is unusable only when it has neither applyable tool calls nor
-    // a valid diff. Previously an empty usableToolCalls (e.g. after
-    // context-gated filtering) discarded a proposal even when it carried a
-    // valid unifiedDiffs string.
-    if (usableToolCalls.length === 0 && !hasValidDiffs) {
+    if (usableToolCalls.length === 0) {
       return false
     }
 
@@ -918,14 +914,7 @@ function* handleStepsMultiPrompt({
       return false
     }
 
-    const successfulToolResults = proposalToolResults.filter(
-      isSuccessfulEditResult,
-    )
-    const hasSuccessfulToolResults = successfulToolResults.length > 0
-
-    return (
-      hasValidDiffs || hasSuccessfulToolResults || usableToolCalls.length > 0
-    )
+    return true
   }
 
   function getUsableProposalToolCalls(
@@ -1347,18 +1336,52 @@ function* handleStepsMultiPrompt({
     attempt: number
     lastResult: ProposalResult | ProposalFailure | undefined
     forceDirectRetry?: boolean
-    hasPrefetchedContext?: boolean
+    hasAdequateDirectContext?: boolean
   }): string {
+    const hasAdequateDirectContext = params.hasAdequateDirectContext === true
     const useDirect =
+      hasAdequateDirectContext &&
       params.attempt > 0 &&
       (params.forceDirectRetry ||
         shouldRetryWithoutReadOnlyTools(params.lastResult))
 
-    const preferDirectOnFirstAttempt = params.hasPrefetchedContext === true
+    const preferDirectOnFirstAttempt =
+      params.attempt === 0 && hasAdequateDirectContext
 
-    return useDirect || (params.attempt === 0 && preferDirectOnFirstAttempt)
+    return useDirect || preferDirectOnFirstAttempt
       ? directProposalAgentType
       : params.defaultAgentType
+  }
+
+  function hasAdequateDirectProposalContext(params: {
+    context: string
+    lastResult: ProposalResult | ProposalFailure | undefined
+  }): boolean {
+    const fileHeaders = extractContextFileHeaders(params.context)
+    if (fileHeaders.length === 0) return false
+
+    const context = params.context.toLowerCase()
+    if (
+      context.includes('content omitted') ||
+      context.includes('truncated') ||
+      context.includes('file contents unavailable')
+    ) {
+      return false
+    }
+
+    const unverifiedStrReplacePaths = getUnverifiedStrReplacePaths(
+      params.lastResult,
+    )
+    if (unverifiedStrReplacePaths.length > 0) {
+      const knownPaths = new Set(
+        fileHeaders.map((path) => normalizeProposalPath(path)),
+      )
+      if (unverifiedStrReplacePaths.some((path) => !knownPaths.has(path))) {
+        return false
+      }
+    }
+
+    return true
   }
 
   function shouldRetryWithoutReadOnlyTools(
@@ -1744,11 +1767,7 @@ function* handleStepsMultiPrompt({
       lastResult,
       allowReadOnlyTools,
     } = params
-    const proposalContext = buildAttemptProposalContext({
-      requestContext,
-      attempt,
-      lastResult,
-    })
+    const proposalContext = requestContext
     const previousFailure =
       attempt > 0
         ? summarizeProposalFailure(lastResult) ||
@@ -1849,7 +1868,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, return the smallest anchored proposal you can justify from proposalContext rather than fabricating files in unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
+      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. This direct no-read mode is only used when the parent has supplied exact current file content; do not guess beyond it. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, do not fabricate an edit: emit no proposal calls rather than editing unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
 
     if (orchestrationPlan.mode !== 'large-bundle') {
       return base

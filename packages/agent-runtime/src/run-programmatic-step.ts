@@ -248,6 +248,7 @@ export async function runProgrammaticStep(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
+    failedEditRequiresReadByPath: {},
   }
   const agentContext = cloneDeep(agentState.agentContext)
   const _sendSubagentChunk = (data: {

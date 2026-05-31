@@ -55,13 +55,13 @@ export const createBestOfNImplementor = (options: {
 You may use read_files, code_search, glob, and list_directory only to gather exact current context.
 You draft edits only with propose_str_replace and propose_write_file.
 Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
-If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls.`
+If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.`
       : `You are a strict implementation proposal generator.
 
-You do not have repository exploration tools in this phase.
+You do not have repository exploration tools in this phase because the parent only uses this mode after supplying exact current file context.
 Use the supplied proposalContext/current file context and draft edits only with propose_str_replace and propose_write_file.
 Never call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
-Emit complete propose_* tool calls immediately. If exact replacement text is not available, prefer propose_write_file with complete file content from the supplied context over guessing stale oldString values.`,
+Emit complete propose_* tool calls immediately. If exact replacement text is not available, prefer propose_write_file with complete file content from the supplied context over guessing stale oldString values. If the supplied context is insufficient for an existing-file edit, emit no proposal call rather than fabricating paths or oldString values.`,
 
     toolNames,
     spawnableAgents: [],
@@ -76,8 +76,8 @@ Your task is to write out ALL the code changes needed to complete the user's req
 IMPORTANT: Your response must progress toward at least one propose_str_replace or propose_write_file tool call. Use those tools to draft edits without actually applying them - they will be reviewed first. ${
       allowReadOnlyTools
         ? 'You may first use read_files, code_search, glob, or list_directory when exact current context is missing.'
-        : 'You do not have read-only tools here; use the supplied proposalContext/current file context and emit proposal tool calls immediately.'
-    } DO NOT use any mutating/control tools such as write_file, str_replace, spawn_agents, or set_output. Use your reasoning internally, keep visible narration short, and emit all needed proposal tool calls as soon as you have enough context.
+        : 'You do not have read-only tools here; use the supplied proposalContext/current file context and emit proposal tool calls immediately only when that context is sufficient.'
+    } DO NOT use any mutating/control tools such as write_file, str_replace, spawn_agents, or set_output. Use your reasoning internally, keep visible narration short, and emit all needed proposal tool calls as soon as you have enough context. For existing-file edits, never guess stale oldString values; use propose_write_file when full file content is available, or withhold the proposal if context is insufficient.
 
 For multi-file implementations, return a complete proposal bundle. Use multiple propose_* tool calls when needed, one per file or one propose_str_replace with multiple replacements for the same file. Do not stop after the first file if the requested implementation needs additional files.
 After you have emitted every required proposal tool call, write the exact marker PROPOSAL_BUNDLE_COMPLETE. If you cannot finish, do not write that marker.

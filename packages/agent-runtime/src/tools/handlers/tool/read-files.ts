@@ -4,6 +4,7 @@ import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { FileProcessingState } from './write-file'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -18,6 +19,7 @@ export const handleReadFiles = (async (
     toolCall: CodebuffToolCall<ToolName>
 
     fileContext: ProjectFileContext
+    fileProcessingState: FileProcessingState
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const {
@@ -25,10 +27,15 @@ export const handleReadFiles = (async (
     toolCall,
 
     fileContext,
+    fileProcessingState,
   } = params
   const { paths, ranges } = toolCall.input
 
   await previousToolCallFinished
+
+  for (const path of new Set([...paths, ...(ranges ?? []).map((range) => range.path)])) {
+    delete fileProcessingState.failedEditRequiresReadByPath[path]
+  }
 
   const addedFiles = await getFileReadingUpdates({
     ...params,

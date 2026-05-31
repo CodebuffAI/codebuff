@@ -170,12 +170,25 @@ export function createBase2(
 - **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
 
+# Harness-enforced recovery workflow
+
+When tools, tests, or reviewers report a failure, treat that feedback as the current source of truth and follow this state machine instead of continuing free-form edits:
+
+1. **Failed edit circuit breaker:** If \`str_replace\` or \`write_file\` reports an error, do not retry an edit to that file from memory. First re-read the exact current file region with \`read_files\` (use \`ranges\` for large files), then make one minimal edit based on the fresh text.
+2. **Stale-context guard:** Before editing a file after any intervening edit, failed edit, test failure, or reviewer comment involving that file, re-read the exact relevant lines. Do not rely on earlier snippets or mental snapshots.
+3. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
+4. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved.
+5. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
+6. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
+7. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
+
 # Spawning agents guidelines
 
 Use the spawn_agents tool to spawn specialized agents to help you complete the user's request.
 
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
+- **Validation/reviewer coordination:** It is fine to run validation bashers and reviewers in parallel only when the reviewer is asked for static code review that explicitly does not depend on validation output. Always wait for both. Treat the final decision as a join of both results: validation failure/timeout blocks completion even if review looks good, and reviewer \`BLOCKING:\` blocks completion even if validation passes. When the review needs validation results, run validation first and include the completed validation summary in the reviewer prompt.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
     isFree &&
@@ -191,9 +204,9 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
       `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
     isDefault &&
-      '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
+      '- Spawn a code-reviewer to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
     isMax &&
-      '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
+      '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
@@ -414,9 +427,9 @@ ${buildArray(
   !hasNoValidation &&
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   (isDefault || isMax) &&
-    `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
   isFree &&
-    `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
   !isFast &&
     !noAskUser &&
@@ -453,9 +466,9 @@ function buildImplementationStepPrompt({
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
-      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
     isFree &&
-      `You must spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+      `You must spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
       !noAskUser &&

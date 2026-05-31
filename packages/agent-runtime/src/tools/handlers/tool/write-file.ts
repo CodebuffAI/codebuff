@@ -38,6 +38,7 @@ export type FileProcessingState = {
   fileChangeErrors: Extract<FileProcessing, { error: string }>[]
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
+  failedEditRequiresReadByPath: Record<string, boolean>
 }
 
 export function getFileProcessingValues(
@@ -49,6 +50,7 @@ export function getFileProcessingValues(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
+    failedEditRequiresReadByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues

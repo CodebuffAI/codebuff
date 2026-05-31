@@ -12,6 +12,9 @@ const logger: Logger = {
   error: () => {},
 }
 
+const recoveryGuidance =
+  'Before attempting another str_replace on this file, re-read the exact current lines with read_files'
+
 describe('processStrReplace', () => {
   it('should replace exact string matches', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\n'
@@ -114,6 +117,7 @@ describe('processStrReplace', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('file does not exist')
+      expect(result.error).not.toContain(recoveryGuidance)
     }
   })
 
@@ -129,6 +133,7 @@ describe('processStrReplace', () => {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('old string was empty')
+      expect(result.error).toContain(recoveryGuidance)
     }
   })
 
@@ -152,6 +157,7 @@ describe('processStrReplace', () => {
       expect(result.error).toContain(
         'The old string "const z = 3;" was not found',
       )
+      expect(result.error).toContain(recoveryGuidance)
     }
   })
 

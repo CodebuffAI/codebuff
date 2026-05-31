@@ -8,6 +8,16 @@ function normalizeLineEndings(params: { str: string }): string {
   return params.str.replace(/\r\n/g, '\n')
 }
 
+const FAILED_EDIT_RECOVERY_GUIDANCE = [
+  'Recovery required: stop retrying this edit from memory.',
+  'Before attempting another str_replace on this file, re-read the exact current lines with read_files and copy the current text into oldString.',
+  'If the file has changed since your last read, base the next edit on the fresh read, not on the failed oldString.',
+].join('\n')
+
+function addFailedEditRecoveryGuidance(error: string): string {
+  return `${error}\n\n${FAILED_EDIT_RECOVERY_GUIDANCE}`
+}
+
 export async function processStrReplace(params: {
   path: string
   replacements: {
@@ -102,7 +112,7 @@ export async function processStrReplace(params: {
     return {
       tool: 'str_replace' as const,
       path,
-      error: messages.join('\n\n'),
+      error: addFailedEditRecoveryGuidance(messages.join('\n\n')),
     }
   }
 

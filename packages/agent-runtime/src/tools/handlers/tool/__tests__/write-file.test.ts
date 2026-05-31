@@ -14,6 +14,7 @@ describe('handleWriteFile', () => {
         fileChangeErrors: [],
         fileChanges: [],
         firstFileProcessed: true,
+        failedEditRequiresReadByPath: {},
       }
 
       const result = getFileProcessingValues(state)

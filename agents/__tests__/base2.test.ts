@@ -23,3 +23,19 @@ describe('base2 reviewer selection', () => {
     expect(base2.stepPrompt).toContain(`spawn a ${expectedReviewer}`)
   })
 })
+
+describe('base2 validation/reviewer coordination prompts', () => {
+  test('requires joining parallel validation and review before finalizing', () => {
+    const base2 = createBase2('default')
+
+    expect(base2.systemPrompt).toContain('Validation/review join discipline')
+    expect(base2.systemPrompt).toContain(
+      'Do not treat parallel reviewer approval as final approval until validation has completed',
+    )
+    expect(base2.systemPrompt).toContain(
+      'validation failure/timeout blocks completion even if review looks good',
+    )
+    expect(base2.instructionsPrompt).toContain('static code review only')
+    expect(base2.stepPrompt).toContain('wait for both results before finalizing')
+  })
+})

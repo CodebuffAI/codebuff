@@ -2143,7 +2143,7 @@ describe('editor agent', () => {
       )
     })
 
-    test('uses a no-read-only direct retry after read-only exploration produces no edits', () => {
+    test('continues read-only retries when exploration produces no exact file context', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -2175,7 +2175,7 @@ describe('editor agent', () => {
         },
       })
 
-      const directRetry = generator.next({
+      const readOnlyRetry = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -2190,7 +2190,7 @@ describe('editor agent', () => {
                   errorMessage:
                     'Gathered context with code_search, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
                   readOnlyContext:
-                    'Read-only context gathered by previous proposal attempt:\n\nFile: packages/agent-runtime/src/tools/handlers/tool/read-docs.ts\nconst current = true\n',
+                    'Read-only context gathered by previous proposal attempt:\n\ncode_search result: packages/agent-runtime/src/tools/handlers/tool/read-docs.ts mentions const current = true\n',
                   proposalProgress: {
                     stepsTaken: 4,
                     readOnlyToolCallCount: 3,
@@ -2204,20 +2204,20 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
 
-      expect(directRetry.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-direct',
+      expect(readOnlyRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
       )
-      expect(directRetry.input.agents[0].params?.allowReadOnlyTools).toBe(false)
+      expect(readOnlyRetry.input.agents[0].params?.allowReadOnlyTools).toBe(true)
       expect(
-        directRetry.input.agents[0].params?.proposalRequirements,
-      ).toContain('Do not call read_files')
-      expect(directRetry.input.agents[0].params?.previousFailure).toContain(
+        readOnlyRetry.input.agents[0].params?.proposalRequirements,
+      ).toContain('you may use read_files')
+      expect(readOnlyRetry.input.agents[0].params?.previousFailure).toContain(
         'did not emit propose_str_replace/propose_write_file',
       )
-      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+      expect(readOnlyRetry.input.agents[0].params?.proposalContext).toContain(
         'packages/agent-runtime/src/tools/handlers/tool/read-docs.ts',
       )
-      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+      expect(readOnlyRetry.input.agents[0].params?.proposalContext).toContain(
         'const current = true',
       )
 
@@ -2262,14 +2262,14 @@ describe('editor agent', () => {
       }).value as ToolCall<'spawn_agents'>
 
       expect(secondDirectRetry.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-direct',
+        'editor-implementor-proposal-1',
       )
       expect(secondDirectRetry.input.agents[0].params?.allowReadOnlyTools).toBe(
-        false,
+        true,
       )
     })
 
-    test('prefetches explicit file paths before spawning complex proposals', () => {
+    test('uses direct proposal mode when explicit file prefetch supplies exact content', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         {
@@ -3997,6 +3997,81 @@ describe('editor agent', () => {
       })
     })
 
+    test('rejects diff-only proposals because there are no edits to apply', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update a file' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        toolName: 'spawn_agents',
+      })
+
+      const diffOnlyResult = {
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                  stopReason: 'cleanProposal',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }
+
+      for (let retryIndex = 0; retryIndex < 2; retryIndex++) {
+        const retrySpawn = generator.next(diffOnlyResult).value as ToolCall<'spawn_agents'>
+        expect(retrySpawn).toMatchObject({
+          toolName: 'spawn_agents',
+          input: {
+            agents: [{ prompt: expect.stringContaining('Retry Strategy') }],
+          },
+        })
+      }
+
+      const output = generator.next(diffOnlyResult).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          error: expect.stringContaining(
+            'No proposal returned usable edit tool calls',
+          ),
+        },
+      })
+    })
+
     test('completes a partial proposal before applying it', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -4498,7 +4573,7 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
       expect(directRetry.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-direct',
+        'editor-implementor-proposal-1',
       )
 
       const finalRetry = generator.next({
@@ -4523,7 +4598,7 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
       expect(finalRetry.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-direct',
+        'editor-implementor-proposal-1',
       )
 
       const secondProposal = generator.next({
@@ -5852,7 +5927,7 @@ describe('editor agent', () => {
       expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
     })
 
-    test('isUsableProposal accepts proposals with valid diffs but missing toolResults', () => {
+    test('isUsableProposal accepts valid proposal tool calls with diffs but missing toolResults', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },

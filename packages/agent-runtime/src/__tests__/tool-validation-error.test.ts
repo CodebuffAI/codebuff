@@ -292,6 +292,29 @@ describe('tool validation error handling', () => {
         'If the intent is deletion, set "newString": "" explicitly.',
       )
       expect(result.error).toContain('Raw validation issues:')
+      expect(result.error).toContain(
+        're-read the exact current lines with read_files',
+      )
+    }
+  })
+
+  it('should include failed-edit recovery guidance for invalid replacement shapes', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'invalid-replacement-shape-tool-call-id',
+        input: {
+          path: 'test.ts',
+          replacements: [{ oldString: 'before' }],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain(
+        'stop retrying from memory: re-read the exact current lines with read_files',
+      )
     }
   })
 

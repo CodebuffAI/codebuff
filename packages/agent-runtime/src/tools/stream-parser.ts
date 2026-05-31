@@ -104,6 +104,7 @@ export async function processStream(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
+    failedEditRequiresReadByPath: {},
   }
 
   // === RESPONSE HANDLER ===
