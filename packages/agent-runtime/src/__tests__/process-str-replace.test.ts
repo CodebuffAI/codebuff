@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
-import { processStrReplace } from '../process-str-replace'
+import { getContentHash, processStrReplace } from '../process-str-replace'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -579,6 +579,250 @@ function test3() {
       expect(result.error).toContain('Candidate 1: lines')
       expect(result.error).toContain('Candidate 2: lines')
       expect(result.error).toContain('targetAlpha')
+    }
+  })
+
+  it('should reject naked str_replace on large files before editing', async () => {
+    const initialContent = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+    ).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Large-file edit blocked for large.ts')
+      expect(result.error).toContain('Do not use naked str_replace on large files')
+      expect(result.error).toContain('read_files.ranges')
+    }
+  })
+
+  it('should allow large-file str_replace when basedOnRead hash matches', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash(rangeContent),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const target = 2;')
+      expect(result.content).not.toContain('const target = 1;')
+    }
+  })
+
+  it('should restrict basedOnRead replacements to the validated range', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 100 || index === 500
+        ? 'const target = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash(rangeContent),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content.split('\n')[100]).toBe('const target = 1;')
+      expect(result.content.split('\n')[500]).toBe('const target = 2;')
+    }
+  })
+
+  it('should apply multiple replacements in one validated large-file range', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500
+        ? 'const first = 1;\nconst second = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+    const basedOnRead = {
+      startLine: 501,
+      endLine: 502,
+      hash: getContentHash(rangeContent),
+    }
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const first = 1;',
+          newString: 'const first = 2;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+        {
+          oldString: 'const second = 1;',
+          newString: 'const second = 2;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const first = 2;\nconst second = 2;')
+    }
+  })
+
+  it('should reject line-count-changing basedOnRead replacements', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500
+        ? 'const first = 1;\nconst second = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const first = 1;',
+          newString: 'const first = 2;\nconst inserted = true;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 502,
+            hash: getContentHash(rangeContent),
+          },
+        },
+        {
+          oldString: 'const second = 1;',
+          newString: 'const second = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 502,
+            hash: getContentHash(rangeContent),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('basedOnRead str_replace must preserve line count')
+      expect(result.error).not.toContain('const inserted = true;')
+    }
+  })
+
+  it('should accept multi-line CRLF range hashes from read_files', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500
+        ? 'const target = 1;'
+        : index === 501
+          ? 'const neighbor = 1;'
+          : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\r\n')
+    const rangeContent = lines.slice(500, 502).join('\r\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;\r\nconst neighbor = 1;',
+          newString: 'const target = 2;\r\nconst neighbor = 1;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 502,
+            hash: getContentHash(rangeContent),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const target = 2;\r\nconst neighbor = 1;')
+      expect(result.content).toContain('\r\n')
+    }
+  })
+
+  it('should reject stale basedOnRead hashes before editing large files', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash('const target = 0;'),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('the basedOnRead range is stale')
+      expect(result.error).toContain('Expected sha256:')
+      expect(result.error).toContain('Re-read with read_files ranges')
     }
   })
 })

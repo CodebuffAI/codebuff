@@ -1,12 +1,27 @@
+import { createHash } from 'crypto'
+
 import { createPatch } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
+type ReplacementReadCapability = {
+  startLine: number
+  endLine: number
+  hash: string
+}
+
 function normalizeLineEndings(params: { str: string }): string {
   return params.str.replace(/\r\n/g, '\n')
 }
+
+export function getContentHash(content: string): string {
+  return `sha256:${createHash('sha256').update(normalizeLineEndings({ str: content })).digest('hex')}`
+}
+
+const LARGE_FILE_LINE_THRESHOLD = 1_000
+const LARGE_FILE_CHAR_THRESHOLD = 100_000
 
 const FAILED_EDIT_RECOVERY_GUIDANCE = [
   'Recovery required: stop retrying this edit from memory.',
@@ -24,6 +39,7 @@ export async function processStrReplace(params: {
     oldString: string
     newString: string
     allowMultiple: boolean
+    basedOnRead?: ReplacementReadCapability
   }[]
   initialContentPromise: Promise<string | null>
   logger: Logger
@@ -52,11 +68,59 @@ export async function processStrReplace(params: {
   let currentContent = initialContent
   let messages: string[] = []
   const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
+  const initialContentLineCount = normalizeLineEndings({
+    str: initialContent,
+  }).split('\n').length
+  const isLargeFile =
+    initialContent.length > LARGE_FILE_CHAR_THRESHOLD ||
+    initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
+  const normalizedInitialContent = normalizeLineEndings({ str: initialContent })
+  const validatedReadRanges = new Map<string, ValidatedReadRange>()
+  const preflightErrors: string[] = []
+
+  for (const { oldString, newString, basedOnRead } of replacements) {
+    if (!basedOnRead) continue
+    const key = getReadCapabilityKey(basedOnRead)
+    if (!validatedReadRanges.has(key)) {
+      const validatedRange = validateReadCapability({
+        content: normalizedInitialContent,
+        path,
+        basedOnRead,
+      })
+      if (typeof validatedRange === 'string') {
+        preflightErrors.push(validatedRange)
+      } else if (validatedRange) {
+        validatedReadRanges.set(key, validatedRange)
+      }
+    }
+
+    if (
+      isLargeFile &&
+      normalizeLineEndings({ str: oldString }).split('\n').length !==
+        normalizeLineEndings({ str: newString }).split('\n').length
+    ) {
+      preflightErrors.push(
+        [
+          `Large-file edit blocked for ${path}: basedOnRead str_replace must preserve line count within the validated range.`,
+          'Use a fresh range that covers the complete structural change, or use a patch/range-aware edit tool for line insertions/deletions.',
+        ].join('\n'),
+      )
+    }
+  }
+
+  if (preflightErrors.length > 0) {
+    return {
+      tool: 'str_replace' as const,
+      path,
+      error: addFailedEditRecoveryGuidance(preflightErrors.join('\n\n')),
+    }
+  }
 
   for (const {
     oldString: oldStr,
     newString: newStr,
     allowMultiple,
+    basedOnRead,
   } of replacements) {
     // Regular case: require oldStr for replacements
     if (!oldStr) {
@@ -72,8 +136,27 @@ export async function processStrReplace(params: {
     const normalizedOldStr = normalizeLineEndings({ str: oldStr })
     const normalizedNewStr = normalizeLineEndings({ str: newStr })
 
+    if (isLargeFile && !basedOnRead) {
+      messages.push(
+        [
+          `Large-file edit blocked for ${path}: this file has ${initialContentLineCount.toLocaleString()} lines and ${initialContent.length.toLocaleString()} characters.`,
+          'Do not use naked str_replace on large files.',
+          'First read the exact target window with read_files.ranges, then retry with basedOnRead copied from that read result: { startLine, endLine, hash: rangeHash }.',
+        ].join('\n'),
+      )
+      continue
+    }
+
+    const validatedReadRange = basedOnRead
+      ? getCurrentValidatedReadRange({
+          content: normalizedCurrentContent,
+          validatedRange: validatedReadRanges.get(getReadCapabilityKey(basedOnRead)),
+        })
+      : null
+
+    const matchContent = validatedReadRange?.content ?? normalizedCurrentContent
     const match = tryMatchOldStr({
-      initialContent: normalizedCurrentContent,
+      initialContent: matchContent,
       oldStr: normalizedOldStr,
       newStr: normalizedNewStr,
       allowMultiple,
@@ -91,10 +174,17 @@ export async function processStrReplace(params: {
     currentContent =
       updatedOldStr === null
         ? normalizedCurrentContent
-        : normalizedCurrentContent.replaceAll(
-            updatedOldStr,
-            () => normalizedNewStr,
-          )
+        : validatedReadRange
+          ? replaceWithinValidatedRange({
+              content: normalizedCurrentContent,
+              range: validatedReadRange,
+              oldStr: updatedOldStr,
+              newStr: normalizedNewStr,
+            })
+          : normalizedCurrentContent.replaceAll(
+              updatedOldStr,
+              () => normalizedNewStr,
+            )
   }
 
   currentContent = currentContent.replaceAll('\n', lineEnding)
@@ -141,6 +231,83 @@ export async function processStrReplace(params: {
     patch: finalPatch,
     messages,
   }
+}
+
+type ValidatedReadRange = {
+  startLine: number
+  endLine: number
+  content: string
+}
+
+function getReadCapabilityKey(basedOnRead: ReplacementReadCapability): string {
+  return `${basedOnRead.startLine}:${basedOnRead.endLine}:${basedOnRead.hash}`
+}
+
+function getCurrentValidatedReadRange(params: {
+  content: string
+  validatedRange: ValidatedReadRange | undefined
+}): ValidatedReadRange | null {
+  const { content, validatedRange } = params
+  if (!validatedRange) return null
+  const lines = content.split('\n')
+  return {
+    ...validatedRange,
+    content: lines
+      .slice(validatedRange.startLine - 1, validatedRange.endLine)
+      .join('\n'),
+  }
+}
+
+function validateReadCapability(params: {
+  content: string
+  path: string
+  basedOnRead: ReplacementReadCapability
+}): ValidatedReadRange | string | null {
+  const { content, path, basedOnRead } = params
+  const { startLine, endLine, hash } = basedOnRead
+  if (startLine > endLine) {
+    return `Large-file edit blocked for ${path}: basedOnRead.startLine must be <= basedOnRead.endLine.`
+  }
+
+  const lines = content.split('\n')
+  if (startLine > lines.length) {
+    return `Large-file edit blocked for ${path}: basedOnRead starts at line ${startLine}, but the file currently has only ${lines.length} lines. Re-read the target range before editing.`
+  }
+
+  const end = Math.min(endLine, lines.length)
+  const currentRange = lines.slice(startLine - 1, end).join('\n')
+  const currentHash = getContentHash(currentRange)
+  if (currentHash !== hash) {
+    return [
+      `Large-file edit blocked for ${path}: the basedOnRead range is stale.`,
+      `Expected ${hash} for lines ${startLine}-${endLine}, but current hash is ${currentHash}.`,
+      `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry with the new rangeHash.`,
+    ].join('\n')
+  }
+
+  return {
+    startLine,
+    endLine: end,
+    content: currentRange,
+  }
+}
+
+function replaceWithinValidatedRange(params: {
+  content: string
+  range: ValidatedReadRange
+  oldStr: string
+  newStr: string
+}): string {
+  const { content, range, oldStr, newStr } = params
+  const lines = content.split('\n')
+  const updatedRange = range.content.replaceAll(oldStr, () => newStr)
+
+  const updatedRangeLines = updatedRange.split('\n')
+  return [
+    ...lines.slice(0, range.startLine - 1),
+    ...updatedRangeLines,
+    ...lines.slice(range.endLine),
+  ].join('\n')
 }
 
 function levenshteinDistance(s1: string, s2: string): number {

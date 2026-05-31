@@ -1,4 +1,7 @@
+import { createHash } from 'crypto'
 import path from 'path'
+
+import { applyPatchParams } from '@codebuff/common/tools/params/tool/apply-patch'
 
 import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -27,6 +30,18 @@ type PatchAttempt = {
   diff: string
 }
 
+type ReadCapability = {
+  startLine: number
+  endLine: number
+  hash: string
+}
+
+type ValidatedReadRange = {
+  startLine: number
+  endLine: number
+  content: string
+}
+
 const END_PATCH = '*** End Patch'
 const END_FILE = '*** End of File'
 const END_SECTION_MARKERS = [
@@ -52,6 +67,13 @@ function hasTraversal(targetPath: string): boolean {
 function normalizeLineEndings(input: string): string {
   return input.replace(/\r\n/g, '\n')
 }
+
+export function getPatchRangeContentHash(content: string): string {
+  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
+}
+
+const LARGE_FILE_LINE_THRESHOLD = 1_000
+const LARGE_FILE_CHAR_THRESHOLD = 100_000
 
 function ensureTrailingNewline(input: string): string {
   return input.endsWith('\n') ? input : `${input}\n`
@@ -449,15 +471,15 @@ function applyDiff(
   input: string,
   diff: string,
   mode: DiffMode = 'default',
-): { result: string; fuzz: number } {
+): { result: string; fuzz: number; chunks: Chunk[] } {
   const diffLines = normalizeDiffLines(diff)
 
   if (mode === 'create') {
-    return { result: parseCreateDiff(diffLines), fuzz: 0 }
+    return { result: parseCreateDiff(diffLines), fuzz: 0, chunks: [] }
   }
 
   const { chunks, fuzz } = parseUpdateDiff(diffLines, input)
-  return { result: applyChunks(input, chunks), fuzz }
+  return { result: applyChunks(input, chunks), fuzz, chunks }
 }
 
 function isConsistentlyCrlf(input: string): boolean {
@@ -501,6 +523,7 @@ function buildPatchAttempts(oldContent: string, diff: string): PatchAttempt[] {
 function tryApplyPatchWithFallbacks(params: {
   oldContent: string
   diff: string
+  requiredRanges: ValidatedReadRange[]
 }): {
   patched: string | null
   attemptedStrategies: string[]
@@ -526,7 +549,19 @@ function tryApplyPatchWithFallbacks(params: {
     attemptedStrategies.push(attempt.name)
 
     try {
-      const { result: patched } = applyDiff(attempt.source, attempt.diff, 'default')
+      const { result: patched, chunks } = applyDiff(
+        attempt.source,
+        attempt.diff,
+        'default',
+      )
+      const rangeError = validatePatchChunksWithinRanges({
+        chunks,
+        ranges: params.requiredRanges,
+      })
+      if (rangeError) {
+        lastError = rangeError
+        continue
+      }
 
       if (patchHasIntendedChanges(attempt.diff) && patched === attempt.source) {
         lastError = 'Patch produced no content changes'
@@ -568,6 +603,82 @@ function formatPatchFailureMessage(params: {
     .join(' ')
 }
 
+function getLineCount(content: string): number {
+  return normalizeLineEndings(content).split('\n').length
+}
+
+function validateReadCapabilities(params: {
+  path: string
+  content: string
+  capabilities: ReadCapability[]
+}): ValidatedReadRange[] | string {
+  const { path, content, capabilities } = params
+  const lines = normalizeLineEndings(content).split('\n')
+  const errors: string[] = []
+  const validated: ValidatedReadRange[] = []
+
+  for (const capability of capabilities) {
+    const { startLine, endLine, hash } = capability
+    if (startLine > endLine) {
+      errors.push(
+        `apply_patch rejected for ${path}: basedOnRead.startLine must be <= basedOnRead.endLine.`,
+      )
+      continue
+    }
+    if (startLine > lines.length) {
+      errors.push(
+        `apply_patch rejected for ${path}: basedOnRead starts at line ${startLine}, but the file currently has only ${lines.length} lines. Re-read the target range before editing.`,
+      )
+      continue
+    }
+
+    const end = Math.min(endLine, lines.length)
+    const currentRange = lines.slice(startLine - 1, end).join('\n')
+    const currentHash = getPatchRangeContentHash(currentRange)
+    if (currentHash !== hash) {
+      errors.push(
+        [
+          `apply_patch rejected for ${path}: the basedOnRead range is stale.`,
+          `Expected ${hash} for lines ${startLine}-${endLine}, but current hash is ${currentHash}.`,
+          `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry with the new rangeHash.`,
+        ].join('\n'),
+      )
+      continue
+    }
+
+    validated.push({ startLine, endLine: end, content: currentRange })
+  }
+
+  if (errors.length > 0) {
+    return errors.join('\n\n')
+  }
+
+  return validated
+}
+
+function validatePatchChunksWithinRanges(params: {
+  chunks: Chunk[]
+  ranges: ValidatedReadRange[]
+}): string | null {
+  const { chunks, ranges } = params
+  if (ranges.length === 0) return null
+
+  for (const chunk of chunks) {
+    const chunkStartLine = chunk.origIndex + 1
+    const chunkEndLine = chunk.origIndex + Math.max(1, chunk.delLines.length)
+    const matchingRange = ranges.find(
+      (range) =>
+        chunkStartLine >= range.startLine && chunkEndLine <= range.endLine,
+    )
+
+    if (!matchingRange) {
+      return `Patch hunk touches lines ${chunkStartLine}-${chunkEndLine}, which are outside the provided basedOnRead ranges. Re-read every target hunk with read_files.ranges and include one basedOnRead capability per hunk.`
+    }
+  }
+
+  return null
+}
+
 function successResult(file: string, action: PatchAction): ApplyPatchJson {
   return {
     type: 'json',
@@ -585,17 +696,19 @@ function errorResult(errorMessage: string): ApplyPatchJson {
   }
 }
 
-function parseOperation(parameters: unknown): ApplyPatchOperation | null {
-  if (
-    typeof parameters !== 'object' ||
-    parameters === null ||
-    !('operation' in parameters) ||
-    typeof (parameters as { operation: unknown }).operation !== 'object'
-  ) {
-    return null
+function parseOperation(
+  parameters: unknown,
+): { operation: ApplyPatchOperation } | { errorMessage: string } {
+  const parsed = applyPatchParams.inputSchema.safeParse(parameters)
+  if (!parsed.success) {
+    return {
+      errorMessage: `Invalid apply_patch input: ${parsed.error.issues
+        .map((issue) => issue.message)
+        .join('; ')}`,
+    }
   }
 
-  return (parameters as { operation: ApplyPatchOperation }).operation
+  return { operation: parsed.data.operation }
 }
 
 export async function applyPatchTool(params: {
@@ -604,11 +717,12 @@ export async function applyPatchTool(params: {
   fs: CodebuffFileSystem
 }): Promise<ApplyPatchResult> {
   const { parameters, cwd, fs } = params
-  const operation = parseOperation(parameters)
+  const parsedOperation = parseOperation(parameters)
 
-  if (!operation) {
-    return [errorResult('Missing or invalid operation object.')]
+  if ('errorMessage' in parsedOperation) {
+    return [errorResult(parsedOperation.errorMessage)]
   }
+  const { operation } = parsedOperation
 
   try {
     if (hasTraversal(operation.path)) {
@@ -634,9 +748,36 @@ export async function applyPatchTool(params: {
 
     const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)
     const oldContent = await fs.readFile(fullPath, 'utf-8')
+    const isLargeFile =
+      oldContent.length > LARGE_FILE_CHAR_THRESHOLD ||
+      getLineCount(oldContent) > LARGE_FILE_LINE_THRESHOLD
+    if (isLargeFile && (!operation.basedOnRead || operation.basedOnRead.length === 0)) {
+      return [
+        errorResult(
+          [
+            `Large-file apply_patch blocked for ${operation.path}: this file has ${getLineCount(oldContent).toLocaleString()} lines and ${oldContent.length.toLocaleString()} characters.`,
+            'Do not use naked apply_patch on large files.',
+            'First read every touched hunk with read_files.ranges, then retry with operation.basedOnRead containing { startLine, endLine, hash: rangeHash } for each hunk.',
+          ].join('\n'),
+        ),
+      ]
+    }
+
+    const requiredRanges = operation.basedOnRead
+      ? validateReadCapabilities({
+          path: operation.path,
+          content: oldContent,
+          capabilities: operation.basedOnRead,
+        })
+      : []
+    if (typeof requiredRanges === 'string') {
+      return [errorResult(requiredRanges)]
+    }
+
     const patchResult = tryApplyPatchWithFallbacks({
       oldContent,
       diff: sanitizedDiff,
+      requiredRanges,
     })
 
     if (!patchResult.patched) {

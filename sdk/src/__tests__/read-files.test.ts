@@ -210,6 +210,7 @@ describe('getFiles', () => {
       expect(result['large.bin']).toContain('FILE_TOO_LARGE')
       expect(result['large.bin']).toContain('101,001 chars')
       expect(result['large.bin']).toContain('Do not edit from this truncated content')
+      expect(result['large.bin']).toContain('Large-file edits require basedOnRead')
       expect(result['large.bin']).toContain(
         'ranges: [{ path: "large.bin", startLine, endLine }]',
       )
@@ -407,8 +408,8 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts', startLine: 3, endLine: 5 }],
       })
 
-      expect(result['src/big.ts']).toBe(
-        '[Lines 3-5 of 10 in src/big.ts]\nline 3\nline 4\nline 5',
+      expect(result['src/big.ts']).toMatch(
+        /^\[Lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 3\nline 4\nline 5$/,
       )
     })
 
@@ -424,9 +425,10 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts' }],
       })
 
-      expect(result['src/big.ts']).toBe(
-        '[Lines 1-10 of 10 in src/big.ts]\n' + multiLine,
+      expect(result['src/big.ts']).toMatch(
+        /^\[Lines 1-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]/,
       )
+      expect(result['src/big.ts']).toContain(multiLine)
     })
 
     test('should clamp endLine to the last line', async () => {
@@ -441,8 +443,8 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts', startLine: 8, endLine: 9999 }],
       })
 
-      expect(result['src/big.ts']).toBe(
-        '[Lines 8-10 of 10 in src/big.ts]\nline 8\nline 9\nline 10',
+      expect(result['src/big.ts']).toMatch(
+        /^\[Lines 8-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 8\nline 9\nline 10$/,
       )
     })
 
@@ -473,8 +475,8 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts', startLine: 1, endLine: 2 }],
       })
 
-      expect(result['src/big.ts']).toBe(
-        '[Lines 1-2 of 10 in src/big.ts]\nline 1\nline 2',
+      expect(result['src/big.ts']).toMatch(
+        /^\[Lines 1-2 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 1\nline 2$/,
       )
     })
 
@@ -498,8 +500,8 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/large.ts', startLine: 20_000, endLine: 20_002 }],
       })
 
-      expect(result['src/large.ts']).toBe(
-        '[Lines 20000-20002 of 30,000 in src/large.ts]\nline 20000\nline 20001\nline 20002',
+      expect(result['src/large.ts']).toMatch(
+        /^\[Lines 20000-20002 of 30,000 in src\/large\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 20000\nline 20001\nline 20002$/,
       )
     })
 
@@ -516,7 +518,9 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/huge.ts', startLine: 1, endLine: 1 }],
       })
 
-      expect(result['src/huge.ts']).toContain('[Lines 1-1 of 1 in src/huge.ts]')
+      expect(result['src/huge.ts']).toMatch(
+        /^\[Lines 1-1 of 1 in src\/huge\.ts; rangeHash=sha256:[a-f0-9]{64}\]/,
+      )
       expect(result['src/huge.ts']).toContain('FILE_TOO_LARGE')
       expect(result['src/huge.ts']).toContain('do not edit from this truncated range')
     })

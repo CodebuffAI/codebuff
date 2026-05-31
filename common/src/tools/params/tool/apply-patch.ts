@@ -22,6 +22,27 @@ export const applyPatchResultSchema = z.union([
 const toolName = 'apply_patch'
 const endsAgentStep = false
 
+const readCapabilitySchema = z
+  .object({
+    startLine: z
+      .number()
+      .int()
+      .min(1)
+      .describe('1-indexed inclusive start line from the read_files.ranges result this patch hunk is based on.'),
+    endLine: z
+      .number()
+      .int()
+      .min(1)
+      .describe('1-indexed inclusive end line from the read_files.ranges result this patch hunk is based on.'),
+    hash: z
+      .string()
+      .min(1)
+      .describe('The sha256 rangeHash returned by read_files.ranges for this exact range.'),
+  })
+  .refine((capability) => capability.startLine <= capability.endLine, {
+    message: 'basedOnRead.startLine must be <= basedOnRead.endLine',
+  })
+
 const operationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('create_file'),
@@ -32,6 +53,12 @@ const operationSchema = z.discriminatedUnion('type', [
     type: z.literal('update_file'),
     path: z.string().min(1, 'Path cannot be empty'),
     diff: z.string().min(1, 'Diff cannot be empty'),
+    basedOnRead: z
+      .array(readCapabilitySchema)
+      .optional()
+      .describe(
+        'Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing.',
+      ),
   }),
   z.object({
     type: z.literal('delete_file'),
@@ -56,7 +83,7 @@ Each call performs a single operation on one file.
 
 Operation types:
 - create_file: Create a new file. Requires path and diff (lines prefixed with +).
-- update_file: Update an existing file. Requires path and diff (unified diff with @@ hunks).
+- update_file: Update an existing file. Requires path and diff (unified diff with @@ hunks). For large files, also requires basedOnRead capabilities copied from fresh read_files.ranges headers for every touched hunk.
 - delete_file: Delete a file. Requires only path.
 
 Example (create):
@@ -82,6 +109,13 @@ ${$getNativeToolCallExampleString({
       type: 'update_file',
       path: 'lib/fib.py',
       diff: '@@\n-def fib(n):\n+def fibonacci(n):\n     if n <= 1:\n         return n\n-    return fib(n-1) + fib(n-2)\n+    return fibonacci(n-1) + fibonacci(n-2)\n',
+      basedOnRead: [
+        {
+          startLine: 1,
+          endLine: 5,
+          hash: 'sha256:abc123',
+        },
+      ],
     },
   },
   endsAgentStep,

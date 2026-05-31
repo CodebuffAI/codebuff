@@ -28,6 +28,7 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
+import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -670,11 +671,9 @@ async function handleToolCall({
 
   try {
     let override = overrides[toolName as PublishedClientToolName]
-    if (
-      !override &&
-      (toolName === 'str_replace' || toolName === 'apply_patch')
-    ) {
-      // Reuse the write_file override for file editing tools.
+    if (!override && (toolName === 'str_replace' || toolName === 'apply_patch')) {
+      // Reuse the write_file override for file editing tools that send
+      // FileChange-shaped payloads to the client.
       override = overrides['write_file']
     }
     if (override) {
@@ -693,6 +692,12 @@ async function handleToolCall({
       })
     } else if (toolName === 'apply_patch') {
       result = await applyPatchTool({
+        parameters: input,
+        cwd: requireCwd(cwd, toolName),
+        fs,
+      })
+    } else if (toolName === 'replace_range') {
+      result = await replaceRange({
         parameters: input,
         cwd: requireCwd(cwd, toolName),
         fs,

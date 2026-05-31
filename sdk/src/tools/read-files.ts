@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 
@@ -13,6 +15,14 @@ export type FileFilterResult = {
 export type FileFilter = (filePath: string) => FileFilterResult
 
 export type { FileLineRange }
+
+function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n/g, '\n')
+}
+
+function getContentHash(content: string): string {
+  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
+}
 
 export async function getFiles(params: {
   filePaths: string[]
@@ -145,7 +155,7 @@ export async function getFiles(params: {
         fmtNum(MAX_CHARS) +
         ' char limit. The content above has been truncated. Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path: "' +
         relativePath +
-        '", startLine, endLine }]. Do not edit from this truncated content.]'
+        '", startLine, endLine }]. Do not edit from this truncated content. Large-file edits require basedOnRead from fresh range read headers: startLine, endLine, and rangeHash. For patch edits, include one basedOnRead read cap per touched hunk.]'
     } else {
       // Prepend TEMPLATE marker for example files
       result[relativePath] = isExampleFile
@@ -179,7 +189,8 @@ export async function getFiles(params: {
     }
 
     const slice = lines.slice(start - 1, end).join('\n')
-    const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}]\n`
+    const rangeHash = getContentHash(slice)
+    const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}]\n`
     let body = slice
     if (body.length > MAX_CHARS) {
       body =

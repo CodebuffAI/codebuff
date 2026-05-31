@@ -63,12 +63,22 @@ const inputSchema = z
     `Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
   )
 const description = `
+Read files from disk. For large files, prefer ranges over full-file reads before editing.
+
+Important:
+- Full reads may be truncated for large files; do not edit from truncated content.
+- Range reads return a header with startLine, endLine, and rangeHash.
+- Use replace_range for medium/large line-count-changing edits, copying expectedHash from rangeHash.
+- For large-file str_replace, copy basedOnRead from a fresh range read: startLine, endLine, hash: rangeHash.
+- For large-file apply_patch, include basedOnRead capabilities for every touched hunk, copied from fresh range read headers.
+
 Example:
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
     paths: ['path/to/file1.ts', 'path/to/file2.ts'],
+    ranges: [{ path: 'path/to/large-file.ts', startLine: 120, endLine: 160 }],
   },
   endsAgentStep,
 })}
