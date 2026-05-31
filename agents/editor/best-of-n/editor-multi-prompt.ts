@@ -341,7 +341,7 @@ function* handleStepsMultiPrompt({
         label: getInitialProposalLabel(index),
         content: hasUsableEdits
           ? [
-              result.unifiedDiffs || summarizeProposalToolCalls(toolCalls),
+              buildSelectorProposalContent(result, toolCalls),
               proposalStatus,
             ]
               .filter(Boolean)
@@ -2499,31 +2499,90 @@ function* handleStepsMultiPrompt({
     return deduped
   }
 
+  function buildSelectorProposalContent(
+    result: ProposalResult,
+    toolCalls: ProposedToolCall[],
+  ): string {
+    const usableDiffs = buildUsableUnifiedDiffs(result)
+    if (usableDiffs.trim()) return usableDiffs
+
+    if (typeof result.unifiedDiffs === 'string' && result.unifiedDiffs.trim()) {
+      return result.unifiedDiffs
+    }
+
+    return summarizeProposalToolCalls(toolCalls)
+  }
+
   function summarizeProposalToolCalls(toolCalls: ProposedToolCall[]): string {
     if (toolCalls.length === 0) return 'No changes proposed'
 
     return [
-      'Proposal tool calls were returned without generated diffs:',
-      ...toolCalls.map((toolCall, index) => {
+      'Proposal edit actions were returned without generated diffs. Review these concrete actions instead:',
+      ...toolCalls.flatMap((toolCall, index) => {
         const input = isObject(toolCall.input) ? toolCall.input : {}
         const path =
           typeof input.path === 'string' ? input.path : 'unknown path'
         if (toolCall.toolName === 'propose_str_replace') {
-          const replacementCount = Array.isArray(input.replacements)
-            ? input.replacements.length
-            : 0
-          return `${index + 1}. propose_str_replace ${path} (${replacementCount} replacement${replacementCount === 1 ? '' : 's'})`
+          const replacements = Array.isArray(input.replacements)
+            ? input.replacements
+            : []
+          const header = `${index + 1}. propose_str_replace ${path} (${replacements.length} replacement${replacements.length === 1 ? '' : 's'})`
+          return [
+            header,
+            ...replacements.map((replacement: any, replacementIndex: number) =>
+              formatReplacementSummary(replacement, replacementIndex),
+            ),
+          ]
         }
         if (toolCall.toolName === 'propose_write_file') {
           const instructions =
             typeof input.instructions === 'string'
               ? ` - ${truncateText(input.instructions, 160)}`
               : ''
-          return `${index + 1}. propose_write_file ${path}${instructions}`
+          const content =
+            typeof input.content === 'string'
+              ? `\n${truncateText(input.content, 2_000)}`
+              : ''
+          return [`${index + 1}. propose_write_file ${path}${instructions}${content}`]
         }
-        return `${index + 1}. ${toolCall.toolName} ${path}`
+        return [`${index + 1}. ${toolCall.toolName} ${path}`]
       }),
     ].join('\n')
+  }
+
+  function formatReplacementSummary(
+    replacement: any,
+    replacementIndex: number,
+  ): string {
+    if (!isObject(replacement)) {
+      return `   ${replacementIndex + 1}. Invalid replacement payload`
+    }
+    const oldString =
+      typeof replacement.oldString === 'string'
+        ? replacement.oldString
+        : typeof replacement.old === 'string'
+          ? replacement.old
+          : ''
+    const newString =
+      typeof replacement.newString === 'string'
+        ? replacement.newString
+        : typeof replacement.new === 'string'
+          ? replacement.new
+          : ''
+    return [
+      `   ${replacementIndex + 1}. Replace:`,
+      '      --- oldString ---',
+      indentBlock(truncateText(oldString || '[missing oldString]', 1_200), '      '),
+      '      --- newString ---',
+      indentBlock(truncateText(newString, 1_200), '      '),
+    ].join('\n')
+  }
+
+  function indentBlock(text: string, indent: string): string {
+    return text
+      .split('\n')
+      .map((line) => `${indent}${line}`)
+      .join('\n')
   }
 
   function buildNoUsableProposalError(

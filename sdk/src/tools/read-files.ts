@@ -24,6 +24,21 @@ function getContentHash(content: string): string {
   return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
 }
 
+// Mints a single opaque capability token that self-encodes the range and its
+// hash. str_replace decodes and re-validates this statelessly, so the model
+// copies ONE value instead of three coupled fields. Keep this format in sync
+// with decodeReadCapabilityToken in process-str-replace.ts.
+function encodeReadCapabilityToken(
+  startLine: number,
+  endLine: number,
+  rangeHash: string,
+): string {
+  return (
+    'cap.' +
+    Buffer.from(`${startLine}:${endLine}:${rangeHash}`).toString('base64url')
+  )
+}
+
 export async function getFiles(params: {
   filePaths: string[]
   cwd: string
@@ -48,6 +63,7 @@ export async function getFiles(params: {
   const hasCustomFilter = fileFilter !== undefined
 
   const result: Record<string, string | null> = {}
+  const wholeFileReadPaths = new Set<string>()
   const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
   const MAX_CHARS = 100_000 // 100k characters threshold
   const numFmt = new Intl.NumberFormat('en-US')
@@ -140,6 +156,7 @@ export async function getFiles(params: {
       continue
     }
     const { relativePath, content, status, isExampleFile } = read
+    wholeFileReadPaths.add(relativePath)
     if (content === undefined) {
       result[relativePath] = status ?? FILE_READ_STATUS.ERROR
       continue
@@ -163,9 +180,10 @@ export async function getFiles(params: {
         : content
     }
   }
-
   // Loop 2: ranged reads. Additive; if a path appears in both, the ranged
-  // value wins (it's the more specific request).
+  // value wins (it's the more specific request). Multiple ranges for the same
+  // file are concatenated instead of overwriting each other so every requested
+  // range header/hash remains visible to the caller.
   for (const range of ranges ?? []) {
     const read = await readOne(range.path)
     if (!read) {
@@ -173,7 +191,10 @@ export async function getFiles(params: {
     }
     const { relativePath, content, status } = read
     if (content === undefined) {
-      result[relativePath] = status ?? FILE_READ_STATUS.ERROR
+      const renderedStatus = status ?? FILE_READ_STATUS.ERROR
+      result[relativePath] = result[relativePath]
+        ? `${result[relativePath]}\n\n${renderedStatus}`
+        : renderedStatus
       continue
     }
 
@@ -182,27 +203,39 @@ export async function getFiles(params: {
     const start = Math.max(1, range.startLine ?? 1)
     const end = Math.min(totalLines, range.endLine ?? totalLines)
 
+    let renderedRange: string
     if (start > totalLines || end < start) {
-      result[relativePath] =
-        `[Requested lines ${start}-${range.endLine ?? totalLines} but file has only ${fmtNum(totalLines)} lines.]`
-      continue
+      renderedRange = `[Requested lines ${start}-${range.endLine ?? totalLines} but file has only ${fmtNum(totalLines)} lines.]`
+    } else {
+      const slice = lines.slice(start - 1, end).join('\n')
+      const rangeHash = getContentHash(slice)
+      const readCapability = encodeReadCapabilityToken(start, end, rangeHash)
+      const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}; readCapability=${readCapability}]\n`
+      let body = slice
+      if (body.length > MAX_CHARS) {
+        body =
+          body.slice(0, MAX_CHARS) +
+          '\n\n[FILE_TOO_LARGE: This range is ' +
+          fmtNum(slice.length) +
+          ' chars, exceeding the ' +
+          fmtNum(MAX_CHARS) +
+          ' char limit. Request a smaller line range before editing; do not edit from this truncated range.]'
+      }
+      renderedRange = header + body
     }
 
-    const slice = lines.slice(start - 1, end).join('\n')
-    const rangeHash = getContentHash(slice)
-    const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}]\n`
-    let body = slice
-    if (body.length > MAX_CHARS) {
-      body =
-        body.slice(0, MAX_CHARS) +
-        '\n\n[FILE_TOO_LARGE: This range is ' +
-        fmtNum(slice.length) +
-        ' chars, exceeding the ' +
-        fmtNum(MAX_CHARS) +
-        ' char limit. Request a smaller line range before editing; do not edit from this truncated range.]'
-    }
-    result[relativePath] = header + body
+    const existing = result[relativePath]
+    const shouldReplaceWholeFileRead =
+      wholeFileReadPaths.has(relativePath) && !isRenderedRangeResult(existing)
+    result[relativePath] =
+      existing && !shouldReplaceWholeFileRead
+        ? `${existing}\n\n${renderedRange}`
+        : renderedRange
   }
 
   return result
+}
+
+function isRenderedRangeResult(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.startsWith('[Lines ')
 }

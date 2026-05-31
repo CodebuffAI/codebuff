@@ -56,7 +56,35 @@ const inputSchema = z
                     .describe(
                       'Whether to allow multiple replacements of oldString.',
                     ),
+                  basedOnRead: z
+                    .union([
+                      z
+                        .string()
+                        .min(1)
+                        .describe(
+                          'The single readCapability token copied verbatim from a fresh read_files range header. Preserved so the proposal can be applied deterministically to large files.',
+                        ),
+                      z.object({
+                        startLine: z.number().int().min(1),
+                        endLine: z.number().int().min(1),
+                        hash: z.string().min(1),
+                      }),
+                    ])
+                    .optional()
+                    .describe(
+                      'Required when proposing edits to large files. Either the readCapability token from a fresh read_files range header (preferred), or { startLine, endLine, hash } from that header. Carried through to the real str_replace when the proposal is applied.',
+                    ),
                 }),
+              )
+              .refine(
+                (replacement) =>
+                  !replacement.basedOnRead ||
+                  typeof replacement.basedOnRead === 'string' ||
+                  replacement.basedOnRead.startLine <=
+                    replacement.basedOnRead.endLine,
+                {
+                  message: 'basedOnRead.startLine must be <= basedOnRead.endLine',
+                },
               )
               .describe('Pair of oldString and newString values.'),
           )

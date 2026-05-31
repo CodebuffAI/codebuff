@@ -409,7 +409,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[Lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 3\nline 4\nline 5$/,
+        /^\[Lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 3\nline 4\nline 5$/,
       )
     })
 
@@ -426,7 +426,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[Lines 1-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]/,
+        /^\[Lines 1-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]/,
       )
       expect(result['src/big.ts']).toContain(multiLine)
     })
@@ -444,7 +444,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[Lines 8-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 8\nline 9\nline 10$/,
+        /^\[Lines 8-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 8\nline 9\nline 10$/,
       )
     })
 
@@ -476,8 +476,31 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[Lines 1-2 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 1\nline 2$/,
+        /^\[Lines 1-2 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 1\nline 2$/,
       )
+    })
+
+    test('returns every range when multiple ranges target the same file', async () => {
+      const mockFs = createMockFs({
+        files: { '/project/src/big.ts': { content: multiLine } },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [
+          { path: 'src/big.ts', startLine: 1, endLine: 2 },
+          { path: 'src/big.ts', startLine: 8, endLine: 9 },
+        ],
+      })
+
+      // Both ranges must be present; the later range must not overwrite the
+      // earlier one (the historical large-file read failure).
+      expect(result['src/big.ts']).toContain('[Lines 1-2 of 10 in src/big.ts')
+      expect(result['src/big.ts']).toContain('line 1')
+      expect(result['src/big.ts']).toContain('[Lines 8-9 of 10 in src/big.ts')
+      expect(result['src/big.ts']).toContain('line 9')
     })
 
     test('should allow ranged reads for files over the whole-file 100k char truncation threshold', async () => {
@@ -501,7 +524,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/large.ts']).toMatch(
-        /^\[Lines 20000-20002 of 30,000 in src\/large\.ts; rangeHash=sha256:[a-f0-9]{64}\]\nline 20000\nline 20001\nline 20002$/,
+        /^\[Lines 20000-20002 of 30,000 in src\/large\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 20000\nline 20001\nline 20002$/,
       )
     })
 
@@ -519,7 +542,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/huge.ts']).toMatch(
-        /^\[Lines 1-1 of 1 in src\/huge\.ts; rangeHash=sha256:[a-f0-9]{64}\]/,
+        /^\[Lines 1-1 of 1 in src\/huge\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]/,
       )
       expect(result['src/huge.ts']).toContain('FILE_TOO_LARGE')
       expect(result['src/huge.ts']).toContain('do not edit from this truncated range')

@@ -20,6 +20,70 @@ export function getContentHash(content: string): string {
   return `sha256:${createHash('sha256').update(normalizeLineEndings({ str: content })).digest('hex')}`
 }
 
+const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
+
+/**
+ * Encodes a read capability as a single self-contained opaque token. The token
+ * embeds {startLine, endLine, rangeHash} so the model only ever copies ONE
+ * value from a read_files header instead of three coupled fields it could
+ * mispair. read_files mints these tokens; str_replace decodes and re-validates
+ * them statelessly against the current file (the hash is still the authority).
+ */
+export function encodeReadCapabilityToken(params: {
+  startLine: number
+  endLine: number
+  hash: string
+}): string {
+  const { startLine, endLine, hash } = params
+  return (
+    READ_CAPABILITY_TOKEN_PREFIX +
+    Buffer.from(`${startLine}:${endLine}:${hash}`).toString('base64url')
+  )
+}
+
+function decodeReadCapabilityToken(
+  token: string,
+): ReplacementReadCapability | string {
+  if (!token.startsWith(READ_CAPABILITY_TOKEN_PREFIX)) {
+    return `Invalid basedOnRead: expected a read capability token ("${READ_CAPABILITY_TOKEN_PREFIX}..." from a read_files header) or a { startLine, endLine, hash } object, but received ${JSON.stringify(token)}.`
+  }
+  let decoded: string
+  try {
+    decoded = Buffer.from(
+      token.slice(READ_CAPABILITY_TOKEN_PREFIX.length),
+      'base64url',
+    ).toString('utf8')
+  } catch {
+    return `Invalid basedOnRead capability token: could not decode ${JSON.stringify(token)}. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+  }
+  const firstSep = decoded.indexOf(':')
+  const secondSep = decoded.indexOf(':', firstSep + 1)
+  if (firstSep === -1 || secondSep === -1) {
+    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+  }
+  const startLine = Number(decoded.slice(0, firstSep))
+  const endLine = Number(decoded.slice(firstSep + 1, secondSep))
+  const hash = decoded.slice(secondSep + 1)
+  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || !hash) {
+    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
+  }
+  return { startLine, endLine, hash }
+}
+
+/**
+ * Normalizes a supplied basedOnRead into a concrete capability object. Accepts
+ * either the opaque token string minted by read_files or the explicit
+ * { startLine, endLine, hash } object (backward compatible). Returns a string
+ * when the token is malformed so callers can surface a recoverable error.
+ */
+function normalizeBasedOnRead(
+  basedOnRead: ReplacementReadCapability | string | undefined,
+): ReplacementReadCapability | string | undefined {
+  if (basedOnRead === undefined) return undefined
+  if (typeof basedOnRead === 'string') return decodeReadCapabilityToken(basedOnRead)
+  return basedOnRead
+}
+
 const LARGE_FILE_LINE_THRESHOLD = 1_000
 const LARGE_FILE_CHAR_THRESHOLD = 100_000
 
@@ -39,7 +103,7 @@ export async function processStrReplace(params: {
     oldString: string
     newString: string
     allowMultiple: boolean
-    basedOnRead?: ReplacementReadCapability
+    basedOnRead?: ReplacementReadCapability | string
   }[]
   initialContentPromise: Promise<string | null>
   logger: Logger
@@ -74,14 +138,33 @@ export async function processStrReplace(params: {
   const isLargeFile =
     initialContent.length > LARGE_FILE_CHAR_THRESHOLD ||
     initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
+  // basedOnRead is a large-file safety anchor only. Small files are edited by
+  // exact oldString matching, which is already safe, so any basedOnRead supplied
+  // on a small file is ignored rather than validated. This prevents repeated
+  // edit failures when a stale/mismatched basedOnRead is accidentally included
+  // on a file that does not require it (the historical small-file failure loop).
+  const enforceReadCapability = isLargeFile
   const normalizedInitialContent = normalizeLineEndings({ str: initialContent })
   const validatedReadRanges = new Map<string, ValidatedReadRange>()
   const preflightErrors: string[] = []
+  let ignoredBasedOnReadOnSmallFile = false
 
-  for (const { oldString, newString, basedOnRead } of replacements) {
-    if (!basedOnRead) continue
-    const key = getReadCapabilityKey(basedOnRead)
-    if (!validatedReadRanges.has(key)) {
+  // Decode any token-form basedOnRead up front so the rest of the pipeline only
+  // ever sees concrete { startLine, endLine, hash } objects (or undefined).
+  const normalizedReplacements = replacements.map((replacement) => ({
+    ...replacement,
+    basedOnRead: normalizeBasedOnRead(replacement.basedOnRead),
+  }))
+
+  if (enforceReadCapability) {
+    for (const { basedOnRead } of normalizedReplacements) {
+      if (!basedOnRead) continue
+      if (typeof basedOnRead === 'string') {
+        preflightErrors.push(basedOnRead)
+        continue
+      }
+      const key = getReadCapabilityKey(basedOnRead)
+      if (validatedReadRanges.has(key)) continue
       const validatedRange = validateReadCapability({
         content: normalizedInitialContent,
         path,
@@ -92,19 +175,11 @@ export async function processStrReplace(params: {
       } else if (validatedRange) {
         validatedReadRanges.set(key, validatedRange)
       }
-    }
 
-    if (
-      isLargeFile &&
-      normalizeLineEndings({ str: oldString }).split('\n').length !==
-        normalizeLineEndings({ str: newString }).split('\n').length
-    ) {
-      preflightErrors.push(
-        [
-          `Large-file edit blocked for ${path}: basedOnRead str_replace must preserve line count within the validated range.`,
-          'Use a fresh range that covers the complete structural change, or use a patch/range-aware edit tool for line insertions/deletions.',
-        ].join('\n'),
-      )
+      // The range hash is the safety boundary for large-file edits. Once the
+      // read range is fresh, replacements may freely insert/delete lines inside
+      // that anchored range; requiring equal line counts made structural edits
+      // to large files effectively impossible and caused repeated no-op retries.
     }
   }
 
@@ -121,7 +196,7 @@ export async function processStrReplace(params: {
     newString: newStr,
     allowMultiple,
     basedOnRead,
-  } of replacements) {
+  } of normalizedReplacements) {
     // Regular case: require oldStr for replacements
     if (!oldStr) {
       messages.push(
@@ -136,23 +211,39 @@ export async function processStrReplace(params: {
     const normalizedOldStr = normalizeLineEndings({ str: oldStr })
     const normalizedNewStr = normalizeLineEndings({ str: newStr })
 
-    if (isLargeFile && !basedOnRead) {
+    // A valid basedOnRead is the concrete capability object. (Malformed tokens
+    // on large files were already rejected in preflight; on small files any
+    // basedOnRead is ignored entirely.)
+    const validBasedOnRead =
+      basedOnRead && typeof basedOnRead === 'object' ? basedOnRead : undefined
+
+    if (isLargeFile && !validBasedOnRead) {
+      // Large files are strict: edits MUST be anchored to a freshly-read range.
+      // This guarantees deterministic, location-correct edits instead of
+      // "applies only if the string happens to be unique".
       messages.push(
         [
           `Large-file edit blocked for ${path}: this file has ${initialContentLineCount.toLocaleString()} lines and ${initialContent.length.toLocaleString()} characters.`,
           'Do not use naked str_replace on large files.',
-          'First read the exact target window with read_files.ranges, then retry with basedOnRead copied from that read result: { startLine, endLine, hash: rangeHash }.',
+          'First read the exact target window with read_files.ranges, then retry with basedOnRead set to the readCapability token from that read header (or { startLine, endLine, hash: rangeHash }).',
         ].join('\n'),
       )
       continue
     }
 
-    const validatedReadRange = basedOnRead
-      ? getCurrentValidatedReadRange({
-          content: normalizedCurrentContent,
-          validatedRange: validatedReadRanges.get(getReadCapabilityKey(basedOnRead)),
-        })
-      : null
+    if (basedOnRead && !enforceReadCapability) {
+      ignoredBasedOnReadOnSmallFile = true
+    }
+
+    const validatedReadRange =
+      enforceReadCapability && validBasedOnRead
+        ? getCurrentValidatedReadRange({
+            content: normalizedCurrentContent,
+            validatedRange: validatedReadRanges.get(
+              getReadCapabilityKey(validBasedOnRead),
+            ),
+          })
+        : null
 
     const matchContent = validatedReadRange?.content ?? normalizedCurrentContent
     const match = tryMatchOldStr({
@@ -213,6 +304,29 @@ export async function processStrReplace(params: {
     patch = lines.slice(hunkStartIndex).join('\n')
   }
   const finalPatch = patch
+
+  if (isLargeFile) {
+    const newLineCount = normalizeLineEndings({ str: currentContent }).split(
+      '\n',
+    ).length
+    messages.push(
+      [
+        `Note: ${path} changed (now ${newLineCount.toLocaleString()} lines).`,
+        'Any basedOnRead rangeHash you read BEFORE this edit is now stale.',
+        'To make several edits to this file, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead); they are all validated against the pre-edit file, so they will not invalidate each other.',
+        'Otherwise, re-read with read_files.ranges to get a fresh rangeHash before the next edit.',
+      ].join('\n'),
+    )
+  }
+
+  if (ignoredBasedOnReadOnSmallFile) {
+    messages.push(
+      [
+        `Note: basedOnRead was ignored for ${path} because this file is below the large-file threshold (${LARGE_FILE_LINE_THRESHOLD.toLocaleString()} lines / ${LARGE_FILE_CHAR_THRESHOLD.toLocaleString()} chars).`,
+        'Small files are edited by exact oldString matching; omit basedOnRead for them.',
+      ].join('\n'),
+    )
+  }
 
   logger.debug(
     {
@@ -282,6 +396,7 @@ function validateReadCapability(params: {
       `Large-file edit blocked for ${path}: the basedOnRead range is stale.`,
       `Expected ${hash} for lines ${startLine}-${endLine}, but current hash is ${currentHash}.`,
       `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry with the new rangeHash.`,
+      'Tip: when editing the same file multiple times, batch all replacements into a SINGLE str_replace call (each with its own basedOnRead) so earlier edits do not invalidate later ranges.',
     ].join('\n')
   }
 
