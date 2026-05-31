@@ -294,6 +294,10 @@ describe('processStrReplace', () => {
       if ('error' in result) {
         expect(result.error).toContain('Found 3 occurrences')
         expect(result.error).toContain('set allowMultiple to true')
+        expect(result.error).toContain(
+          'Occurrence ranges for read_files.ranges recovery:',
+        )
+        expect(result.error).toContain('Occurrence 1: lines 1-1')
       }
     })
 
@@ -538,8 +542,43 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('The old string "const secondVarr = 2;" was not found')
-      expect(result.error).toContain('Did you mean to match this block around line 2?')
+      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
+      expect(result.error).toContain('Candidate 1: lines 2-2')
+      expect(result.error).toContain(
+        'Recovery read: read_files ranges: [{ path, startLine: 2, endLine: 2 }]',
+      )
       expect(result.error).toContain('const secondVar = 2;')
+    }
+  })
+
+  it('should provide multiple candidate ranges for large-file recovery', async () => {
+    const initialContent = Array.from({ length: 80 }, (_, index) =>
+      index === 30
+        ? 'const targetAlpha = makeValue(1);'
+        : index === 60
+          ? 'const targetAlpha = makeValue(2);'
+          : `const filler${index} = ${index};`,
+    ).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const targetAlpha = makeValue(3);',
+          newString: 'const targetAlpha = makeValue(4);',
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
+      expect(result.error).toContain('Candidate 1: lines')
+      expect(result.error).toContain('Candidate 2: lines')
+      expect(result.error).toContain('targetAlpha')
     }
   })
 })

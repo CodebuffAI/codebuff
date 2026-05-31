@@ -10,6 +10,7 @@ import {
 } from '@codebuff/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
+import { getBundledRgPath } from '../native/ripgrep'
 import { codeSearch } from '../tools/code-search'
 
 import type { MockChildProcess } from '@codebuff/common/testing/mocks'
@@ -29,6 +30,24 @@ describe('codeSearch', () => {
   afterEach(() => {
     mock.restore()
     clearMockedModules()
+  })
+
+  describe('ripgrep path resolution', () => {
+    it('does not return a stale CODEBUFF_RG_PATH override', () => {
+      const stalePath = '/definitely/missing/codebuff/rg'
+
+      try {
+        expect(
+          getBundledRgPath(undefined, {
+            CODEBUFF_RG_PATH: stalePath,
+            PATH: '',
+          }),
+        ).not.toBe(stalePath)
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error)
+        expect((error as Error).message).toContain('Ripgrep binary not found')
+      }
+    })
   })
 
   describe('basic search', () => {

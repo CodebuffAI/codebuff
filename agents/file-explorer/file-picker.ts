@@ -182,6 +182,78 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   params,
   logger,
 }) {
+  const extractSpawnResults = (results: any[] | undefined): any[] => {
+    if (!results || results.length === 0) return []
+    const jsonResult = results.find((r) => r.type === 'json')
+    if (!jsonResult?.value) return []
+    const spawnedResults = Array.isArray(jsonResult.value)
+      ? jsonResult.value
+      : [jsonResult.value]
+    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
+  }
+  const isObject = (value: any): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+  const extractAgentText = (agentOutput: any): string | null => {
+    if (!agentOutput) return null
+    if (typeof agentOutput === 'string') return agentOutput
+    if (
+      (agentOutput.type === 'lastMessage' || agentOutput.type === 'allMessages') &&
+      Array.isArray(agentOutput.value)
+    ) {
+      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
+        const message = agentOutput.value[i]
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'text' && typeof part.text === 'string') {
+              return part.text
+            }
+          }
+        }
+      }
+    }
+    if (agentOutput.type === 'structuredOutput') {
+      if (typeof agentOutput.value === 'string') return agentOutput.value
+      if (isObject(agentOutput.value)) {
+        for (const key of ['message', 'text', 'content', 'output', 'response']) {
+          const val = agentOutput.value[key]
+          if (typeof val === 'string' && val) return val
+        }
+      }
+    }
+    return null
+  }
+  const extractErrorMessage = (agentOutput: any): string | null => {
+    if (!agentOutput) return null
+    if (agentOutput.type === 'error') {
+      return agentOutput.message ?? agentOutput.value ?? null
+    }
+    return null
+  }
+  const processSpawnResults = (
+    spawnResults: any[],
+  ): { paths: string[]; hasResults: boolean; errorText: string | null; debugMessage: string | null } => {
+    const allPaths = new Set<string>()
+    let hasResults = false
+    let debugMessage: string | null = null
+    for (const result of spawnResults) {
+      const fileListText = extractAgentText(result)
+      if (fileListText) {
+        hasResults = true
+        const paths = fileListText.split('\n').filter(Boolean)
+        for (const path of paths) {
+          allPaths.add(path)
+        }
+      }
+    }
+    if (hasResults) {
+      return { paths: Array.from(allPaths), hasResults: true, errorText: null, debugMessage: null }
+    }
+    const errorText = spawnResults.map(extractErrorMessage).filter(Boolean).join('; ') || null
+    if (spawnResults.length > 0) {
+      debugMessage = `failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`
+    }
+    return { paths: [], hasResults: false, errorText, debugMessage }
+  }
   const { toolResult: fileListerResults } = yield {
     toolName: 'spawn_agents',
     input: {
@@ -226,6 +298,78 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   params,
   logger,
 }) {
+  const extractSpawnResults = (results: any[] | undefined): any[] => {
+    if (!results || results.length === 0) return []
+    const jsonResult = results.find((r) => r.type === 'json')
+    if (!jsonResult?.value) return []
+    const spawnedResults = Array.isArray(jsonResult.value)
+      ? jsonResult.value
+      : [jsonResult.value]
+    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
+  }
+  const isObject = (value: any): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+  const extractAgentText = (agentOutput: any): string | null => {
+    if (!agentOutput) return null
+    if (typeof agentOutput === 'string') return agentOutput
+    if (
+      (agentOutput.type === 'lastMessage' || agentOutput.type === 'allMessages') &&
+      Array.isArray(agentOutput.value)
+    ) {
+      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
+        const message = agentOutput.value[i]
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'text' && typeof part.text === 'string') {
+              return part.text
+            }
+          }
+        }
+      }
+    }
+    if (agentOutput.type === 'structuredOutput') {
+      if (typeof agentOutput.value === 'string') return agentOutput.value
+      if (isObject(agentOutput.value)) {
+        for (const key of ['message', 'text', 'content', 'output', 'response']) {
+          const val = agentOutput.value[key]
+          if (typeof val === 'string' && val) return val
+        }
+      }
+    }
+    return null
+  }
+  const extractErrorMessage = (agentOutput: any): string | null => {
+    if (!agentOutput) return null
+    if (agentOutput.type === 'error') {
+      return agentOutput.message ?? agentOutput.value ?? null
+    }
+    return null
+  }
+  const processSpawnResults = (
+    spawnResults: any[],
+  ): { paths: string[]; hasResults: boolean; errorText: string | null; debugMessage: string | null } => {
+    const allPaths = new Set<string>()
+    let hasResults = false
+    let debugMessage: string | null = null
+    for (const result of spawnResults) {
+      const fileListText = extractAgentText(result)
+      if (fileListText) {
+        hasResults = true
+        const paths = fileListText.split('\n').filter(Boolean)
+        for (const path of paths) {
+          allPaths.add(path)
+        }
+      }
+    }
+    if (hasResults) {
+      return { paths: Array.from(allPaths), hasResults: true, errorText: null, debugMessage: null }
+    }
+    const errorText = spawnResults.map(extractErrorMessage).filter(Boolean).join('; ') || null
+    if (spawnResults.length > 0) {
+      debugMessage = `failed to extract text from spawned results (types: ${spawnResults.map((r: any) => r?.type).filter(Boolean).join(', ')})`
+    }
+    return { paths: [], hasResults: false, errorText, debugMessage }
+  }
   const { toolResult: fileListerResults } = yield {
     toolName: 'spawn_agents',
     input: {

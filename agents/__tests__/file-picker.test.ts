@@ -550,6 +550,46 @@ describe('file-picker agent', () => {
       expect(typeof isolatedFunction).toBe('function')
     })
 
+    test('serialized default handleSteps does not reference closure helpers', () => {
+      const defaultPicker = createFilePicker('default')
+      const isolatedFunction = new Function(
+        `return (${defaultPicker.handleSteps!.toString()})`,
+      )()
+      const generator = isolatedFunction({
+        agentState: createMockAgentState(),
+        logger: createMockLogger(),
+        params: {},
+      })
+
+      generator.next()
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [{ type: 'text', text: 'src/isolated.ts' }],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      })
+
+      const toolCall = result.value as ToolCall<'read_files'>
+      expect(toolCall.toolName).toBe('read_files')
+      expect(toolCall.input.paths).toEqual(['src/isolated.ts'])
+    })
+
     test('handleSteps can be serialized for max mode', () => {
       const maxPicker = createFilePicker('max')
       const handleStepsString = maxPicker.handleSteps!.toString()
@@ -558,6 +598,46 @@ describe('file-picker agent', () => {
 
       const isolatedFunction = new Function(`return (${handleStepsString})`)()
       expect(typeof isolatedFunction).toBe('function')
+    })
+
+    test('serialized max handleSteps does not reference closure helpers', () => {
+      const maxPicker = createFilePicker('max')
+      const isolatedFunction = new Function(
+        `return (${maxPicker.handleSteps!.toString()})`,
+      )()
+      const generator = isolatedFunction({
+        agentState: createMockAgentState(),
+        logger: createMockLogger(),
+        params: {},
+      })
+
+      generator.next()
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [{ type: 'text', text: 'src/max-isolated.ts' }],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      })
+
+      const toolCall = result.value as ToolCall<'read_files'>
+      expect(toolCall.toolName).toBe('read_files')
+      expect(toolCall.input.paths).toEqual(['src/max-isolated.ts'])
     })
   })
 

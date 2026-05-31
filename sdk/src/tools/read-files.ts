@@ -74,7 +74,11 @@ export async function getFiles(params: {
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
     if (filterResult?.status === 'blocked') {
-      return { relativePath, status: FILE_READ_STATUS.IGNORED, isExampleFile: false }
+      return {
+        relativePath,
+        status: FILE_READ_STATUS.IGNORED,
+        isExampleFile: false,
+      }
     }
     const isExampleFile = filterResult?.status === 'allow-example'
 
@@ -99,7 +103,7 @@ export async function getFiles(params: {
           relativePath,
           status:
             FILE_READ_STATUS.TOO_LARGE +
-            ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content.]`,
+            ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content, then read exact sections with read_files.ranges.]`,
           isExampleFile,
         }
       }
@@ -139,7 +143,9 @@ export async function getFiles(params: {
         fmtNum(content.length) +
         ' chars, exceeding the ' +
         fmtNum(MAX_CHARS) +
-        ' char limit. The content above has been truncated. Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path, startLine, endLine }].]'
+        ' char limit. The content above has been truncated. Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path: "' +
+        relativePath +
+        '", startLine, endLine }]. Do not edit from this truncated content.]'
     } else {
       // Prepend TEMPLATE marker for example files
       result[relativePath] = isExampleFile
@@ -182,7 +188,7 @@ export async function getFiles(params: {
         fmtNum(slice.length) +
         ' chars, exceeding the ' +
         fmtNum(MAX_CHARS) +
-        ' char limit. Request a smaller line range.]'
+        ' char limit. Request a smaller line range before editing; do not edit from this truncated range.]'
     }
     result[relativePath] = header + body
   }

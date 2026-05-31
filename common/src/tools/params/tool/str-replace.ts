@@ -70,6 +70,7 @@ Use this tool to make edits within existing files.
 
 Important:
 If you are making multiple edits in a row to a file, use only one str_replace call with multiple replacements instead of multiple str_replace tool calls.
+For large files, first use read_files with ranges to read the exact line window you intend to edit. If a replacement fails, re-read the closest candidate range reported in the error before retrying.
 
 Example:
 ${$getNativeToolCallExampleString({

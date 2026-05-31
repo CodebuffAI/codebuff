@@ -4999,6 +4999,119 @@ describe('editor agent', () => {
       })
     })
 
+    test('does not report success when final apply returns no recorded tool result', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'old', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  implementationId: 'A',
+                  reason: 'Only implementation',
+                  suggestedImprovements: '',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall.toolName).toBe('str_replace')
+
+      const readFilesCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: undefined,
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(readFilesCall.toolName).toBe('read_files')
+      expect(readFilesCall.input).toMatchObject({ paths: ['src/a.ts'] })
+
+      const repairSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'old' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(repairSpawn.toolName).toBe('spawn_agents')
+      expect(repairSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
+      )
+      expect(
+        repairSpawn.input.agents[0].params?.previousFailure,
+      ).toContain('did not return a tool result; no edit was recorded')
+    })
+
     test('applies selected proposal directly even when selector asks for synthesis', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -5796,7 +5909,7 @@ describe('editor agent', () => {
           [
             {
               type: 'json',
-              value: { file: 'src/a.ts', value: 'domain value kept' },
+              value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
             },
           ],
         ] as any,
@@ -5805,7 +5918,7 @@ describe('editor agent', () => {
 
       expect(outputCall.toolName).toBe('set_output')
       expect((outputCall.input as any).toolResults).toEqual([
-        { file: 'src/a.ts', value: 'domain value kept' },
+        { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
       ])
       expect(() =>
         (outputCall.input as any).toolResults.map(Boolean),

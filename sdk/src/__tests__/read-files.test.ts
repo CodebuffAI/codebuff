@@ -209,6 +209,10 @@ describe('getFiles', () => {
       // Should contain truncation message
       expect(result['large.bin']).toContain('FILE_TOO_LARGE')
       expect(result['large.bin']).toContain('101,001 chars')
+      expect(result['large.bin']).toContain('Do not edit from this truncated content')
+      expect(result['large.bin']).toContain(
+        'ranges: [{ path: "large.bin", startLine, endLine }]',
+      )
     })
 
     test('should read files at exactly 100k chars', async () => {
@@ -474,6 +478,31 @@ describe('getFiles', () => {
       )
     })
 
+    test('should allow ranged reads for files over the whole-file 100k char truncation threshold', async () => {
+      const largeContent = Array.from({ length: 30_000 }, (_, index) =>
+        `line ${index + 1}`,
+      ).join('\n')
+      const mockFs = createMockFs({
+        files: {
+          '/project/src/large.ts': {
+            content: largeContent,
+            size: largeContent.length,
+          },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: [],
+        cwd: '/project',
+        fs: mockFs,
+        ranges: [{ path: 'src/large.ts', startLine: 20_000, endLine: 20_002 }],
+      })
+
+      expect(result['src/large.ts']).toBe(
+        '[Lines 20000-20002 of 30,000 in src/large.ts]\nline 20000\nline 20001\nline 20002',
+      )
+    })
+
     test('should apply the 100k cap to a large ranged slice', async () => {
       const hugeLine = 'x'.repeat(100_050)
       const mockFs = createMockFs({
@@ -489,6 +518,7 @@ describe('getFiles', () => {
 
       expect(result['src/huge.ts']).toContain('[Lines 1-1 of 1 in src/huge.ts]')
       expect(result['src/huge.ts']).toContain('FILE_TOO_LARGE')
+      expect(result['src/huge.ts']).toContain('do not edit from this truncated range')
     })
 
     test('regression: plain reads are unaffected when no ranges given', async () => {

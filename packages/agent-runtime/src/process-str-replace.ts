@@ -163,8 +163,8 @@ function levenshteinDistance(s1: string, s2: string): number {
       const cost = char1 === s2.charCodeAt(j - 1) ? 0 : 1
       curr[j] = Math.min(
         curr[j - 1] + 1, // Insertion
-        prev[j] + 1,     // Deletion
-        prev[j - 1] + cost // Substitution
+        prev[j] + 1, // Deletion
+        prev[j - 1] + cost, // Substitution
       )
     }
     const temp = prev
@@ -175,12 +175,18 @@ function levenshteinDistance(s1: string, s2: string): number {
   return prev[len2]
 }
 
-function findClosestMatch(params: {
+function findClosestMatches(params: {
   initialContent: string
   oldStr: string
-}): { closestBlock: string; startLine: number; similarity: number } | null {
-  const { initialContent, oldStr } = params
-  if (!oldStr || !initialContent) return null
+  limit?: number
+}): {
+  closestBlock: string
+  startLine: number
+  endLine: number
+  similarity: number
+}[] {
+  const { initialContent, oldStr, limit = 3 } = params
+  if (!oldStr || !initialContent) return []
 
   const fileLines = initialContent.split('\n')
   const oldLines = oldStr.split('\n')
@@ -188,7 +194,9 @@ function findClosestMatch(params: {
 
   // 1. Tokenize/Word frequency representation for fast screening
   // Extract alphanumeric words/tokens (length >= 3)
-  const oldWords = Array.from(new Set(oldStr.toLowerCase().match(/[a-zA-Z0-9_]{3,}/g) || []))
+  const oldWords = Array.from(
+    new Set(oldStr.toLowerCase().match(/[a-zA-Z0-9_]{3,}/g) || []),
+  )
 
   if (oldWords.length === 0) {
     // Fall back to unique non-whitespace characters if no words
@@ -199,7 +207,7 @@ function findClosestMatch(params: {
   }
 
   // If we still have nothing, we can't search
-  if (oldWords.length === 0) return null
+  if (oldWords.length === 0) return []
 
   // 2. Score each line in fileLines by number of word/token matches
   const lineScores = new Float32Array(fileLines.length)
@@ -229,26 +237,36 @@ function findClosestMatch(params: {
       currentWindowScore += lineScores[i]
     }
 
-    candidates.push({ startLine: 0, endLine: K - 1, score: currentWindowScore })
+    candidates.push({
+      startLine: 0,
+      endLine: K - 1,
+      score: currentWindowScore,
+    })
 
     for (let i = 1; i <= fileLines.length - K; i++) {
-      currentWindowScore = currentWindowScore - lineScores[i - 1] + lineScores[i + K - 1]
-      candidates.push({ startLine: i, endLine: i + K - 1, score: currentWindowScore })
+      currentWindowScore =
+        currentWindowScore - lineScores[i - 1] + lineScores[i + K - 1]
+      candidates.push({
+        startLine: i,
+        endLine: i + K - 1,
+        score: currentWindowScore,
+      })
     }
   }
 
   // Sort candidates by score descending
   candidates.sort((a, b) => b.score - a.score)
 
-  // Keep top 12 candidates to perform the precise Levenshtein distance on
-  const topCandidates = candidates.slice(0, 12)
-  if (topCandidates.length === 0) return null
+  // Keep top candidates to perform the precise Levenshtein distance on.
+  const topCandidates = candidates.slice(0, Math.max(12, limit * 6))
+  if (topCandidates.length === 0) return []
 
-  let bestMatch: {
+  const matches: {
     closestBlock: string
     startLine: number
+    endLine: number
     similarity: number
-  } | null = null
+  }[] = []
 
   // We want to avoid evaluating near-identical overlapping ranges repeatedly if they are just 1 line off
   const evaluatedRanges = new Set<string>()
@@ -265,16 +283,88 @@ function findClosestMatch(params: {
     const maxLen = Math.max(candidateText.length, oldStr.length)
     const similarity = maxLen === 0 ? 0 : 1 - dist / maxLen
 
-    if (bestMatch === null || similarity > bestMatch.similarity) {
-      bestMatch = {
-        closestBlock: candidateText,
-        startLine: cand.startLine + 1, // 1-indexed for humans/models
-        similarity,
-      }
-    }
+    matches.push({
+      closestBlock: candidateText,
+      startLine: cand.startLine + 1, // 1-indexed for humans/models
+      endLine: cand.endLine + 1,
+      similarity,
+    })
   }
 
-  return bestMatch
+  return matches
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit)
+}
+
+function formatClosestMatchDiagnostics(
+  matches: {
+    closestBlock: string
+    startLine: number
+    endLine: number
+    similarity: number
+  }[],
+): string {
+  const usefulMatches = matches.filter((match) => match.similarity >= 0.2)
+  if (usefulMatches.length === 0) return ''
+
+  return usefulMatches
+    .map(
+      (match, index) =>
+        [
+          `Candidate ${index + 1}: lines ${match.startLine}-${match.endLine} (similarity ${Math.round(match.similarity * 100)}%)`,
+          `Recovery read: read_files ranges: [{ path, startLine: ${match.startLine}, endLine: ${match.endLine} }]`,
+          '```',
+          match.closestBlock,
+          '```',
+        ].join('\n'),
+    )
+    .join('\n\n')
+}
+
+function getLineNumberAtIndex(content: string, index: number): number {
+  let line = 1
+  const end = Math.min(index, content.length)
+  for (let i = 0; i < end; i++) {
+    if (content.charCodeAt(i) === 10) {
+      line++
+    }
+  }
+  return line
+}
+
+function getOccurrenceLineRanges(params: {
+  initialContent: string
+  oldStr: string
+  limit?: number
+}): { startLine: number; endLine: number }[] {
+  const { initialContent, oldStr, limit = 8 } = params
+  const ranges: { startLine: number; endLine: number }[] = []
+  let index = initialContent.indexOf(oldStr)
+
+  while (index !== -1 && ranges.length < limit) {
+    const startLine = getLineNumberAtIndex(initialContent, index)
+    const endLine = getLineNumberAtIndex(initialContent, index + oldStr.length)
+    ranges.push({ startLine, endLine })
+    index = initialContent.indexOf(oldStr, index + Math.max(1, oldStr.length))
+  }
+
+  return ranges
+}
+
+function formatOccurrenceDiagnostics(
+  occurrences: { startLine: number; endLine: number }[],
+): string {
+  if (occurrences.length === 0) return ''
+
+  return (
+    '\n\nOccurrence ranges for read_files.ranges recovery:\n' +
+    occurrences
+      .map(
+        (occurrence, index) =>
+          `Occurrence ${index + 1}: lines ${occurrence.startLine}-${occurrence.endLine} (read_files ranges: [{ path, startLine: ${occurrence.startLine}, endLine: ${occurrence.endLine} }])`,
+      )
+      .join('\n')
+  )
 }
 
 const tryMatchOldStr = (params: {
@@ -291,9 +381,13 @@ const tryMatchOldStr = (params: {
     return { success: true, oldStr }
   }
   if (!allowMultiple && count > 1) {
+    const occurrences = getOccurrenceLineRanges({ initialContent, oldStr })
+    const occurrenceDiagnostics = formatOccurrenceDiagnostics(occurrences)
     return {
       success: false,
-      error: `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string or set allowMultiple to true.`,
+      error:
+        `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string or set allowMultiple to true.` +
+        occurrenceDiagnostics,
     }
   }
   if (allowMultiple && count > 1) {
@@ -351,10 +445,11 @@ const tryMatchOldStr = (params: {
     }
   }
 
-  const closest = findClosestMatch({ initialContent, oldStr })
+  const closestMatches = findClosestMatches({ initialContent, oldStr })
   let errorMsg = `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`
-  if (closest && closest.similarity >= 0.2) {
-    errorMsg += `\n\nDid you mean to match this block around line ${closest.startLine}?\n\`\`\`\n${closest.closestBlock}\n\`\`\``
+  const diagnostics = formatClosestMatchDiagnostics(closestMatches)
+  if (diagnostics) {
+    errorMsg += `\n\nClosest candidate ranges for read_files.ranges recovery:\n${diagnostics}`
   }
 
   return {

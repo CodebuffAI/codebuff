@@ -117,6 +117,7 @@ export type CodebuffClientOptions = {
       // Include read_files separately, since it has a different signature.
       read_files: (input: {
         filePaths: string[]
+        ranges?: FileLineRange[]
       }) => Promise<Record<string, string | null>>
     }
   >
@@ -598,9 +599,7 @@ async function readFiles({
   fs: CodebuffFileSystem
 }) {
   if (override) {
-    // The public override signature only accepts { filePaths }, so ranged
-    // reads fall back to whole-file reads when a custom override is provided.
-    return await override({ filePaths })
+    return await override({ filePaths, ranges })
   }
   return getFiles({
     filePaths,

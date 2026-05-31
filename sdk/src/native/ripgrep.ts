@@ -1,10 +1,26 @@
-import { existsSync } from 'fs'
-import { join, dirname } from 'path'
+import { constants, existsSync, accessSync } from 'fs'
+import { join, dirname, delimiter } from 'path'
 import { fileURLToPath } from 'url'
 
 import { getSdkEnv } from '../env'
 
 import type { SdkEnv } from '../types/env'
+
+function findExecutableOnPath(binaryName: string, env: SdkEnv): string | null {
+  const pathEnv = env.PATH ?? process.env.PATH
+  if (!pathEnv) return null
+
+  for (const dir of pathEnv.split(delimiter)) {
+    if (!dir) continue
+    const candidate = join(dir, binaryName)
+    try {
+      accessSync(candidate, constants.X_OK)
+      return candidate
+    } catch {}
+  }
+
+  return null
+}
 
 /**
  * Get the path to the bundled ripgrep binary based on the current platform
@@ -15,8 +31,9 @@ export function getBundledRgPath(
   importMetaUrl?: string,
   env: SdkEnv = getSdkEnv(),
 ): string {
-  // Allow override via environment variable
-  if (env.CODEBUFF_RG_PATH) {
+  // Allow override via environment variable, but do not return a stale path.
+  // If the configured binary is missing, continue to bundled/PATH fallbacks.
+  if (env.CODEBUFF_RG_PATH && existsSync(env.CODEBUFF_RG_PATH)) {
     return env.CODEBUFF_RG_PATH
   }
 
@@ -116,6 +133,11 @@ export function getBundledRgPath(
     return vendorPath
   }
 
+  const pathRg = findExecutableOnPath(binaryName, env)
+  if (pathRg) {
+    return pathRg
+  }
+
   // Fallback: try to find in dist/vendor (for published package)
   const distVendorPath = join(
     process.cwd(),
@@ -132,10 +154,15 @@ export function getBundledRgPath(
     return distVendorPath
   }
 
+  const fallbackPathRg = findExecutableOnPath(binaryName, env)
+  if (fallbackPathRg) {
+    return fallbackPathRg
+  }
+
   // No fallback available - bundled binaries are required
   throw new Error(
     `Ripgrep binary not found for ${platform}-${arch}. ` +
-      `Expected at: ${vendorPath} or ${distVendorPath}. ` +
-      `Please run 'npm run fetch-ripgrep' or set CODEBUFF_RG_PATH environment variable.`,
+      `Expected at: ${vendorPath} or ${distVendorPath}, and no '${binaryName}' executable was found on PATH. ` +
+      `Please run 'npm run fetch-ripgrep', install ripgrep, or set CODEBUFF_RG_PATH environment variable.`,
   )
 }
