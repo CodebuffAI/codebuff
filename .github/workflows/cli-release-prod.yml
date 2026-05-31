@@ -125,10 +125,12 @@ jobs:
 
             ### Platform Binaries
             - `codebuff-linux-x64.tar.gz` - Linux x64
+            - `codebuff-linux-x64-baseline.tar.gz` - Linux x64 older CPUs
             - `codebuff-linux-arm64.tar.gz` - Linux ARM64
             - `codebuff-darwin-x64.tar.gz` - macOS Intel
             - `codebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
             - `codebuff-win32-x64.tar.gz` - Windows x64
+            - `codebuff-win32-x64-baseline.tar.gz` - Windows x64 older CPUs
           files: |
             binaries/*/codebuff-*
           repository: CodebuffAI/codebuff-community
