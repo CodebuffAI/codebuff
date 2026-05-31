@@ -42,7 +42,7 @@ export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
-export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = false
+export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
 /** UI-only rollout switch for the streak indicator in the waiting room. */
 export const FREEBUFF_ENABLE_STREAK_IN_UI = true
 /** Local/debug switch: force the localhost free-mode country bypass into
@@ -84,63 +84,71 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
-const FREEBUFF_CORE_MODELS = [
-  {
-    id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    displayName: 'DeepSeek V4 Pro',
-    tagline: 'Smartest',
-    availability: 'always',
-    warning: 'Collects data for training',
-  },
-  {
-    id: FREEBUFF_KIMI_MODEL_ID,
-    displayName: 'Kimi K2.6',
-    tagline: 'Balanced',
-    availability: 'always',
-  },
-  {
-    id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    displayName: 'DeepSeek V4 Flash',
-    tagline: 'Most efficient',
-    availability: 'always',
-    warning: 'Collects data for training',
-  },
-  {
-    id: FREEBUFF_MINIMAX_MODEL_ID,
-    displayName: 'MiniMax M2.7',
-    tagline: 'Fastest',
-    availability: 'always',
-  },
-] as const satisfies readonly FreebuffModelOption[]
+const DEEPSEEK_V4_PRO_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  displayName: 'DeepSeek V4 Pro',
+  tagline: 'Smartest',
+  availability: 'always',
+  warning: 'Collects data for training',
+} as const satisfies FreebuffModelOption
 
-const FREEBUFF_MIMO_MODELS = [
-  {
-    id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    displayName: 'MiMo 2.5 Pro',
-    tagline: 'Agentic',
-    availability: 'always',
-  },
-  {
-    id: FREEBUFF_MIMO_V25_MODEL_ID,
-    displayName: 'MiMo 2.5',
-    tagline: 'Multimodal',
-    availability: 'always',
-  },
-] as const satisfies readonly FreebuffModelOption[]
+const MIMO_V25_PRO_MODEL = {
+  id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  displayName: 'MiMo 2.5 Pro',
+  tagline: 'Smart multimodal',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const KIMI_MODEL = {
+  id: FREEBUFF_KIMI_MODEL_ID,
+  displayName: 'Kimi K2.6',
+  tagline: 'Balanced',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const MIMO_V25_MODEL = {
+  id: FREEBUFF_MIMO_V25_MODEL_ID,
+  displayName: 'MiMo 2.5',
+  tagline: 'Multimodal',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const DEEPSEEK_V4_FLASH_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  displayName: 'DeepSeek V4 Flash',
+  tagline: 'Most efficient',
+  availability: 'always',
+  warning: 'Collects data for training',
+} as const satisfies FreebuffModelOption
+
+const MINIMAX_MODEL = {
+  id: FREEBUFF_MINIMAX_MODEL_ID,
+  displayName: 'MiniMax M2.7',
+  tagline: 'Fastest',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
-  ...FREEBUFF_MIMO_MODELS,
-  ...FREEBUFF_CORE_MODELS,
+  DEEPSEEK_V4_PRO_MODEL,
+  MIMO_V25_PRO_MODEL,
+  KIMI_MODEL,
+  MIMO_V25_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
+  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_MODELS = [
-  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? FREEBUFF_MIMO_MODELS : []),
-  ...FREEBUFF_CORE_MODELS,
+  DEEPSEEK_V4_PRO_MODEL,
+  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
+  KIMI_MODEL,
+  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
+  DEEPSEEK_V4_FLASH_MODEL,
+  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
 

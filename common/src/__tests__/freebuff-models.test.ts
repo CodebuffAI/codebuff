@@ -85,6 +85,20 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
+  test('full access orders MiMo Pro immediately after DeepSeek Pro', () => {
+    const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
+    expect(fullModelIds.indexOf(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
+      fullModelIds.indexOf(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID) + 1,
+    )
+  })
+
+  test('MiMo Pro uses the smart multimodal tagline', () => {
+    const mimoPro = SUPPORTED_FREEBUFF_MODELS.find(
+      (model) => model.id === FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(mimoPro?.tagline).toBe('Smart multimodal')
+  })
+
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([

@@ -110,10 +110,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // Single-model limited states don't need comparative taglines. When limited
   // has multiple choices, keep the row shape aligned with the full picker.
   const showTagline = accessTier !== 'limited' || availableModels.length > 1
-  const availableModelIds = useMemo(
-    () => availableModels.map((m) => m.id),
-    [availableModels],
-  )
   const sections = useMemo(() => {
     if (accessTier === 'limited') {
       return [
@@ -141,13 +137,18 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       ] satisfies readonly Section[]
     ).filter((section) => section.models.length > 0)
   }, [accessTier, availableModels])
+  const renderedModelIds = useMemo(
+    () =>
+      sections.flatMap((section) => section.models.map((model) => model.id)),
+    [sections],
+  )
   useEffect(() => {
     setFocusedId(
-      availableModelIds.includes(selectedModel)
+      renderedModelIds.includes(selectedModel)
         ? selectedModel
-        : availableModelIds[0]!,
+        : renderedModelIds[0]!,
     )
-  }, [availableModelIds, selectedModel])
+  }, [renderedModelIds, selectedModel])
 
   useEffect(() => {
     // Landing-screen safety net: if the in-memory selection becomes
@@ -157,12 +158,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // preference (e.g. Kimi or DeepSeek) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
-      (!availableModelIds.includes(selectedModel) ||
+      (!renderedModelIds.includes(selectedModel) ||
         !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
-      setSelectedModel(availableModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
+      setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
     }
-  }, [availableModelIds, now, selectedModel, session, setSelectedModel])
+  }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
 
   const committedModelId = session?.status === 'queued' ? session.model : null
   const rateLimitsByModel = getRateLimitsByModel(session)
@@ -321,7 +322,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         }
         if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: availableModelIds,
+          modelIds: renderedModelIds,
           focusedId,
           direction,
         })
@@ -337,7 +338,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         focusedId,
         committedModelId,
         isJoinable,
-        availableModelIds,
+        renderedModelIds,
       ],
     ),
   )
