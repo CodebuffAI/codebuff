@@ -1,6 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Command } from 'commander'
 
+import { parseArgs } from '../cli-args'
+
 describe('CLI Argument Parsing', () => {
   let originalArgv: string[]
 
@@ -137,5 +139,43 @@ describe('CLI Argument Parsing', () => {
   test('handles -v flag', () => {
     const result = parseTestArgs(['-v'])
     expect(result.version).toBe(true)
+  })
+})
+
+describe('Freebuff CLI Argument Parsing', () => {
+  test('accepts login as a command, not an unexpected argument', () => {
+    const result = parseArgs({
+      argv: ['node', 'freebuff', 'login'],
+      isFreebuff: true,
+      version: '1.0.0',
+    })
+
+    expect(result.initialPrompt).toBeNull()
+    expect(result.command).toBe('login')
+    expect(result.initialMode).toBe('LITE')
+  })
+
+  test('allows cwd before the login command', () => {
+    const result = parseArgs({
+      argv: ['node', 'freebuff', '--cwd', '/tmp', 'login'],
+      isFreebuff: true,
+      version: '1.0.0',
+    })
+
+    expect(result.cwd).toBe('/tmp')
+    expect(result.command).toBe('login')
+    expect(result.initialPrompt).toBeNull()
+  })
+
+  test('allows cwd after the login command', () => {
+    const result = parseArgs({
+      argv: ['node', 'freebuff', 'login', '--cwd', '/tmp'],
+      isFreebuff: true,
+      version: '1.0.0',
+    })
+
+    expect(result.cwd).toBe('/tmp')
+    expect(result.command).toBe('login')
+    expect(result.initialPrompt).toBeNull()
   })
 })
