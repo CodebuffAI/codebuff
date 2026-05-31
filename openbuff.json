@@ -184,8 +184,8 @@
   "modes": {
     "default": "codex/gpt-5.5",
     "lite": "agent-platform/gemini-3.5-flash",
-    "max": "codex/gpt-5.5",
-    "plan": "codex/gpt-5.5"
+    "max": "pioneer/claude-opus-4-8",
+    "plan": "pioneer/claude-opus-4-8"
   },
   "modeReasoningEfforts": {},
   "agents": {
@@ -198,23 +198,23 @@
     "base2-max": "codex/gpt-5.5",
     "base2-plan": "codex/gpt-5.5",
     "base-deep": "codex/gpt-5.5",
-    "thinker": "codex/gpt-5.5",
+    "thinker": "pioneer/claude-opus-4-8",
     "thinker-gpt": "codex/gpt-5.5",
     "thinker-gemini": "agent-platform/gemini-3.1-pro",
     "thinker-with-files-gemini": "agent-platform/gemini-3.1-pro",
     "thinker-best-of-n": "codex/gpt-5.5",
-    "thinker-best-of-n-opus": "codex/gpt-5.5",
+    "thinker-best-of-n-opus": "pioneer/claude-opus-4-8",
     "thinker-selector": "codex/gpt-5.5",
-    "thinker-selector-opus": "codex/gpt-5.5",
-    "editor": "codex/gpt-5.5",
+    "thinker-selector-opus": "pioneer/claude-opus-4-8",
+    "editor": "pioneer/claude-opus-4-8",
     "editor-gpt-5": "codex/gpt-5.5",
-    "editor-implementor": "codex/gpt-5.5",
-    "editor-implementor-opus": "codex/gpt-5.5",
+    "editor-implementor": "pioneer/claude-opus-4-8",
+    "editor-implementor-opus": "pioneer/claude-opus-4-8",
     "editor-implementor-gpt-5": "codex/gpt-5.5",
     "editor-multi-prompt": "codex/gpt-5.5",
     "best-of-n-selector": "codex/gpt-5.5",
     "best-of-n-selector2": "codex/gpt-5.5",
-    "code-reviewer": "codex/gpt-5.5",
+    "code-reviewer": "pioneer/claude-opus-4-8",
     "code-reviewer-gpt": "codex/gpt-5.5",
     "code-reviewer-kimi": "codex/gpt-5.5",
     "code-reviewer-minimax": "codex/gpt-5.5",
@@ -239,7 +239,7 @@
     "librarian": "codex/gpt-5.5",
     "tmux-cli": "codex/gpt-5.5",
     "gpt-5-agent": "codex/gpt-5.5",
-    "opus-agent": "codex/gpt-5.5",
+    "opus-agent": "pioneer/claude-opus-4-8",
     "general-agent": "codex/gpt-5.5",
     "editor-implementor-proposal-1": "codex/gpt-5.5",
     "editor-implementor-proposal-2": "agentrouter/deepseek-v4-pro",
@@ -252,7 +252,7 @@
   },
   "editorMultiPrompt": {
     "proposalModels": [
-      "codex/gpt-5.5",
+      "pioneer/claude-opus-4-8",
       "agentrouter/deepseek-v4-pro",
       "codex/gpt-5.5",
       "agentrouter/glm-5.1",
@@ -265,6 +265,6 @@
       null,
       null
     ],
-    "selectorModel": "codex/gpt-5.5"
+    "selectorModel": "pioneer/claude-opus-4-8"
   }
 }
