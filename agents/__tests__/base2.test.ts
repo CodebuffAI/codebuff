@@ -56,6 +56,21 @@ describe('base2 context pruning', () => {
     return step.input.params
   }
 
+  const getSerializedContextPrunerParams = (
+    mode: Parameters<typeof createBase2>[0],
+    options?: Parameters<typeof createBase2>[1],
+  ) => {
+    const base2 = createBase2(mode, options)
+    const handleStepsString = base2.handleSteps!.toString()
+    expect(handleStepsString).toMatch(/^function\*\s*\(/)
+    const isolatedHandleSteps = new Function(
+      `return (${handleStepsString})`,
+    )() as NonNullable<typeof base2.handleSteps>
+    const generator = isolatedHandleSteps({ params: undefined } as any)
+    const step = generator.next().value as any
+    return step.input.params
+  }
+
   test('free MiniMax mode defaults context pruning to 200k tokens', () => {
     const base2 = createBase2('free')
     const generator = base2.handleSteps!({ params: undefined } as any)
@@ -127,6 +142,22 @@ describe('base2 context pruning', () => {
     'non-free model %p defaults context pruning to %p tokens',
     (model, maxContextLength) => {
       expect(getContextPrunerParams('default', { model })).toEqual({
+        maxContextLength,
+      })
+    },
+  )
+
+  test.each([
+    ['free', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
+    ['free', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
+    ['free', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
+    ['default', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
+    ['default', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
+    ['default', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
+  ] as const)(
+    'serialized %s handleSteps for model %p defaults to %p tokens',
+    (mode, options, maxContextLength) => {
+      expect(getSerializedContextPrunerParams(mode, options)).toMatchObject({
         maxContextLength,
       })
     },
