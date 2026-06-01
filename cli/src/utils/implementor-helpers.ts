@@ -18,10 +18,156 @@ const ALL_EDIT_TOOL_NAMES = [
   'write_file',
   'propose_str_replace',
   'propose_write_file',
+  'edit_transaction',
+  'propose_edit_transaction',
 ] as const
+
+/** Transaction tool names that return a multi-file `{ files: [...] }` result. */
+const TRANSACTION_TOOL_NAMES = [
+  'edit_transaction',
+  'propose_edit_transaction',
+] as const
+
+const isTransactionToolName = (
+  toolName: ToolContentBlock['toolName'],
+): boolean =>
+  TRANSACTION_TOOL_NAMES.includes(
+    getBaseToolName(toolName) as (typeof TRANSACTION_TOOL_NAMES)[number],
+  )
+
+/**
+ * Extract per-file { path, diff } entries from a transaction tool block.
+ * edit_transaction files carry { path, patch }; propose_edit_transaction files
+ * carry { file, unifiedDiff }. A failed transaction result has no files array.
+ */
+function extractTransactionFiles(
+  toolBlock: ToolContentBlock,
+): Array<{ path: string; diff: string | null }> {
+  const outputRaw = toolBlock.outputRaw as unknown
+  const value =
+    Array.isArray(outputRaw) && outputRaw[0]?.value
+      ? (outputRaw[0].value as Record<string, unknown>)
+      : typeof outputRaw === 'object' && outputRaw !== null
+        ? (outputRaw as Record<string, unknown>)
+        : null
+  if (!value || typeof value.errorMessage === 'string') return []
+  if (!Array.isArray(value.files)) return []
+
+  return value.files
+    .map((file) => {
+      const entry = file as Record<string, unknown>
+      const path =
+        typeof entry.path === 'string'
+          ? entry.path
+          : typeof entry.file === 'string'
+            ? entry.file
+            : ''
+      if (!path) return null
+      const diff =
+        typeof entry.patch === 'string'
+          ? entry.patch
+          : typeof entry.unifiedDiff === 'string'
+            ? entry.unifiedDiff
+            : null
+      return { path, diff }
+    })
+    .filter((entry): entry is { path: string; diff: string | null } =>
+      Boolean(entry),
+    )
+}
 
 const isProposedToolName = (toolName: ToolContentBlock['toolName']): boolean =>
   typeof toolName === 'string' && toolName.startsWith('propose_')
+
+/** Whether a content block is an edit tool block (direct or proposed). */
+export function isEditToolBlock(block: ContentBlock): boolean {
+  return (
+    block.type === 'tool' &&
+    ALL_EDIT_TOOL_NAMES.includes(
+      block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
+    )
+  )
+}
+
+/**
+ * Unwrap an editor proposal/implementor agent's structured set_output value to
+ * the object that actually carries `toolCalls`.
+ *
+ * The spawn result can arrive wrapped in several layers depending on the
+ * agent's output mode and runtime envelope, e.g.
+ *   { toolCalls, ... }                                 // direct
+ *   { value: { toolCalls, ... } }                      // one level deep
+ *   { type: 'structuredOutput', value: { toolCalls } } // structuredOutput mode
+ *   { type: 'structuredOutput', value: { value: {...} } }
+ *   { data: { toolCalls, ... } }                       // set_output data shape
+ * The live run showed proposal cards rendering "no changes" because the result
+ * arrived structuredOutput-wrapped and the single-level unwrap missed the
+ * nested toolCalls. Walk the common wrapper keys to a bounded depth so any of
+ * these shapes resolves to the object holding toolCalls.
+ */
+function unwrapStructuredProposalOutput(
+  resultValue: unknown,
+  depth = 0,
+): Record<string, unknown> | null {
+  if (depth > 4 || !resultValue || typeof resultValue !== 'object') return null
+  const obj = resultValue as Record<string, unknown>
+  if (Array.isArray(obj.toolCalls)) return obj
+
+  for (const key of ['value', 'data'] as const) {
+    if (obj[key] && typeof obj[key] === 'object') {
+      const nested = unwrapStructuredProposalOutput(obj[key], depth + 1)
+      if (nested) return nested
+    }
+  }
+  return null
+}
+
+/**
+ * Synthesize edit tool blocks from a proposal/implementor agent's structured
+ * output (`{ toolCalls, toolResults }`).
+ *
+ * Proposal agents can finish without ever streaming live tool blocks, so the
+ * card has nothing to render and falsely shows "no changes" even though the
+ * structured output already knows which files changed. This makes the card
+ * deterministic: if the structured result lists edits, the card shows them.
+ */
+export function synthesizeProposalToolBlocks(
+  resultValue: unknown,
+): ToolContentBlock[] {
+  const value = unwrapStructuredProposalOutput(resultValue)
+  if (!value) return []
+
+  const toolCalls = Array.isArray(value.toolCalls) ? value.toolCalls : []
+  if (toolCalls.length === 0) return []
+  const toolResults = Array.isArray(value.toolResults) ? value.toolResults : []
+
+  const blocks: ToolContentBlock[] = []
+  toolCalls.forEach((toolCall, index) => {
+    if (!toolCall || typeof toolCall !== 'object') return
+    const toolName = (toolCall as Record<string, unknown>).toolName
+    if (typeof toolName !== 'string') return
+    const input = (toolCall as Record<string, unknown>).input ?? {}
+
+    // toolResults entries are arrays of per-call result objects; wrap the first
+    // entry as the outputRaw json part shape that extractDiff/extractTransactionFiles expect.
+    const rawResult = toolResults[index]
+    const firstEntry = Array.isArray(rawResult) ? rawResult[0] : rawResult
+    const outputRaw =
+      firstEntry && typeof firstEntry === 'object'
+        ? [{ type: 'json', value: firstEntry }]
+        : undefined
+
+    blocks.push({
+      type: 'tool',
+      toolCallId: `synthetic-proposal-${index}`,
+      toolName: toolName as ToolContentBlock['toolName'],
+      input,
+      ...(outputRaw ? { outputRaw } : {}),
+    })
+  })
+
+  return blocks
+}
 
 const getBaseToolName = (toolName: ToolContentBlock['toolName']): string =>
   isProposedToolName(toolName) ? toolName.slice('propose_'.length) : toolName
@@ -588,6 +734,27 @@ export function getFileStatsFromBlocks(
 
   const fileMap = new Map<string, FileStats>()
 
+  const addFileStats = (
+    filePath: string,
+    diff: string | null,
+    changeType: FileChangeType,
+  ) => {
+    const stats = parseDiffStats(diff ?? undefined)
+    const existing = fileMap.get(filePath)
+    if (existing) {
+      // Aggregate stats for same file
+      existing.stats.linesAdded += stats.linesAdded
+      existing.stats.linesRemoved += stats.linesRemoved
+      existing.stats.hunks += stats.hunks
+    } else {
+      fileMap.set(filePath, {
+        path: filePath,
+        changeType,
+        stats,
+      })
+    }
+  }
+
   for (const block of blocks) {
     if (
       block.type === 'tool' &&
@@ -595,28 +762,24 @@ export function getFileStatsFromBlocks(
         block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
       )
     ) {
+      // Transaction tools change multiple files in one tool call; expand the
+      // result's files array into per-file stats so the card shows real diffs
+      // instead of "no changes". A failed/no-files transaction yields no
+      // entries (extractTransactionFiles excludes errorMessage results), so we
+      // check it before the single-file failed-edit heuristics.
+      if (isTransactionToolName(block.toolName)) {
+        for (const file of extractTransactionFiles(block)) {
+          addFileStats(file.path, file.diff, 'M')
+        }
+        continue
+      }
+
       if (isFailedEditToolBlock(block)) continue
 
       const filePath = extractFilePath(block)
       if (!filePath) continue
 
-      const diff = extractDiff(block)
-      const stats = parseDiffStats(diff ?? undefined)
-      const changeType = getFileChangeType(block)
-
-      const existing = fileMap.get(filePath)
-      if (existing) {
-        // Aggregate stats for same file
-        existing.stats.linesAdded += stats.linesAdded
-        existing.stats.linesRemoved += stats.linesRemoved
-        existing.stats.hunks += stats.hunks
-      } else {
-        fileMap.set(filePath, {
-          path: filePath,
-          changeType,
-          stats,
-        })
-      }
+      addFileStats(filePath, extractDiff(block), getFileChangeType(block))
     }
   }
 
@@ -647,6 +810,22 @@ export function buildActivityTimeline(
         block.toolName as (typeof ALL_EDIT_TOOL_NAMES)[number],
       )
     ) {
+      // Transaction tools change multiple files in one call; emit one timeline
+      // edit per changed file so each file's diff is viewable. Checked before
+      // the single-file failed-edit heuristics for the same reason as in
+      // getFileStatsFromBlocks.
+      if (isTransactionToolName(block.toolName)) {
+        for (const file of extractTransactionFiles(block)) {
+          timeline.push({
+            type: 'edit',
+            content: file.path,
+            diff: file.diff || undefined,
+            isCreate: false,
+          })
+        }
+        continue
+      }
+
       if (isFailedEditToolBlock(block)) continue
 
       const filePath = extractFilePath(block)

@@ -135,7 +135,7 @@ type ServerActionToolCallRequest = {
   userInputId: string
   requestId: string
   toolName: string
-  input: Record<string, any>
+  input: unknown
   timeout?: number
   mcpConfig?: MCPConfig
 }

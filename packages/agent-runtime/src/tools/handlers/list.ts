@@ -5,12 +5,14 @@ import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
+import { handleEditTransaction } from './tool/edit-transaction'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
 import { handleGravityIndex } from './tool/gravity-index'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
+import { handleProposeEditTransaction } from './tool/propose-edit-transaction'
 import { handleProposeStrReplace } from './tool/propose-str-replace'
 import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleReadDocs } from './tool/read-docs'
@@ -54,12 +56,14 @@ export const codebuffToolHandlers = {
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,
+  edit_transaction: handleEditTransaction,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   glob: handleGlob,
   gravity_index: handleGravityIndex,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
+  propose_edit_transaction: handleProposeEditTransaction,
   propose_str_replace: handleProposeStrReplace,
   propose_write_file: handleProposeWriteFile,
   read_docs: handleReadDocs,

@@ -4,6 +4,7 @@ import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
 import {
+  clearAllProposalLedgers,
   clearProposalLedgerForRun,
   getProposalLedger,
 } from './tools/handlers/tool/proposal-ledger-store'
@@ -53,6 +54,10 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
     clearProposalLedgerForRun(key)
     delete runIdToGenerator[key]
   }
+  // Standalone runProgrammaticStep tests do not execute loopAgentSteps' outer
+  // finally, which owns proposal-ledger teardown after snapshotting. Clear all
+  // ledgers here so those direct tests cannot leak run-scoped proposal state.
+  clearAllProposalLedgers()
   runIdToStepAll.clear()
   runIdToOwnerAgentId.clear()
 }
@@ -478,7 +483,15 @@ export async function runProgrammaticStep(
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)
       clearProposedContentForRun(agentState.runId)
-      clearProposalLedgerForRun(agentState.runId)
+      // NOTE: Do NOT clear the proposal ledger here. This inner finally runs on
+      // the endTurn step *during* loopAgentSteps' loop, i.e. before that outer
+      // run snapshots the ledger for subagent proposal recovery. Clearing it
+      // here emptied the ledger before the snapshot, which is exactly the
+      // "diffs generated, then proposal shows no changes" bug: the child
+      // completed, the transient diff tool-result was shown, but the
+      // recoverable artifacts were already gone. loopAgentSteps' outer finally
+      // is the single owner of ledger teardown (via clearAgentGeneratorForRun)
+      // and snapshots it first, so the artifacts survive across the boundary.
     }
   }
 }

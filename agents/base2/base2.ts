@@ -96,6 +96,7 @@ export function createBase2(
       !isFast && 'write_todos',
       !isFast && !noAskUser && 'suggest_followups',
       'str_replace',
+      'edit_transaction',
       'write_file',
       !isFree && 'propose_str_replace',
       !isFree && 'propose_write_file',
@@ -169,6 +170,7 @@ export function createBase2(
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.
 - **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
+- **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. Use structured operations like insert_import/remove_import for TypeScript import-only changes when available; use str_replace for simple one-file text changes.
 
 # Harness-enforced recovery workflow
 

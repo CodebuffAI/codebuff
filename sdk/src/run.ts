@@ -21,7 +21,7 @@ import { cloneDeep } from 'lodash'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
-import { changeFile } from './tools/change-file'
+import { changeFile, changeFiles } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
@@ -680,8 +680,11 @@ async function handleToolCall({
 
   try {
     let override = overrides[toolName as PublishedClientToolName]
-    if (!override && (toolName === 'str_replace' || toolName === 'apply_patch')) {
-      // Reuse the write_file override for file editing tools that send
+    if (
+      !override &&
+      (toolName === 'str_replace' || toolName === 'apply_patch')
+    ) {
+      // Reuse the write_file override for single-file editing tools that send
       // FileChange-shaped payloads to the client.
       override = overrides['write_file']
     }
@@ -695,6 +698,12 @@ async function handleToolCall({
       result = [{ type: 'json', value: { message: 'Turn ended.' } }]
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
       result = await changeFile({
+        parameters: input,
+        cwd: requireCwd(cwd, toolName),
+        fs,
+      })
+    } else if (toolName === 'edit_transaction') {
+      result = await changeFiles({
         parameters: input,
         cwd: requireCwd(cwd, toolName),
         fs,
@@ -713,16 +722,21 @@ async function handleToolCall({
       })
     } else if (toolName === 'run_terminal_command') {
       const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
+      const terminalInput = input as Parameters<typeof runTerminalCommand>[0]
       result = await runTerminalCommand({
-        ...input,
-        cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
+        ...terminalInput,
+        cwd: path.resolve(resolvedCwd, terminalInput.cwd ?? '.'),
         env,
-      } as Parameters<typeof runTerminalCommand>[0])
+      })
     } else if (toolName === 'code_search') {
+      const codeSearchInput = input as Omit<
+        Parameters<typeof codeSearch>[0],
+        'projectPath'
+      >
       result = await codeSearch({
+        ...codeSearchInput,
         projectPath: requireCwd(cwd, 'code_search'),
-        ...input,
-      } as Parameters<typeof codeSearch>[0])
+      })
     } else if (toolName === 'list_directory') {
       result = await listDirectory({
         directoryPath: (input as { path: string }).path,

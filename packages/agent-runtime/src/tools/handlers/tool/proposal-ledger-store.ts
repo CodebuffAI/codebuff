@@ -1,7 +1,8 @@
 /**
  * Deterministic per-run proposal artifact ledger.
  *
- * Proposal tools (`propose_str_replace`, `propose_write_file`) record one
+ * Proposal tools (`propose_str_replace`, `propose_write_file`,
+ * `propose_edit_transaction`) record one
  * complete, verbatim artifact here the moment they execute. This is the single
  * source of truth for what a proposal bundle contains — it does NOT depend on
  * the model's message history surviving truncation, retries, XML-vs-native tool
@@ -22,7 +23,10 @@ export type ProposalLedgerArtifact = {
   seq: number
   /** 0-based attempt index; bumped on each PROPOSAL_RETRY boundary. */
   attempt: number
-  toolName: 'propose_str_replace' | 'propose_write_file'
+  toolName:
+    | 'propose_str_replace'
+    | 'propose_write_file'
+    | 'propose_edit_transaction'
   /** The exact tool input, so the parent can always convert it to a real edit. */
   input: Record<string, any>
   result: {

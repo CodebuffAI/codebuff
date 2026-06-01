@@ -23,6 +23,7 @@ export const createBestOfNImplementor = (options: {
   const proposalToolNames: AllToolNames[] = [
     'propose_write_file',
     'propose_str_replace',
+    'propose_edit_transaction',
   ]
   const toolNames: AllToolNames[] = [
     ...(allowReadOnlyTools ? readOnlyToolNames : []),
@@ -399,10 +400,22 @@ Write out your complete implementation now. Do not write any final summary.`,
             ),
         )
 
-        const toolCalls = successful.map((artifact) => ({
-          toolName: artifact.toolName,
-          input: artifact.input,
-        }))
+        // propose_edit_transaction records ONE ledger artifact per changed
+        // file, each carrying the SAME full transaction input. The parent
+        // applies one real edit_transaction per tool call, so emitting one tool
+        // call per file would re-apply the same transaction N times — the first
+        // applies cleanly and the rest fail against the already-changed files
+        // (diffs appear generated, then lost, while the proposal still
+        // completes). Collapse duplicate transaction artifacts to one apply
+        // tool call. str_replace/write_file artifacts are intentionally NOT
+        // deduped: per-file str_replace edits chain in order and each is a
+        // distinct apply step.
+        const toolCalls = dedupeTransactionToolCalls(
+          successful.map((artifact) => ({
+            toolName: artifact.toolName,
+            input: artifact.input,
+          })),
+        )
 
         // Drop failures on files that ultimately succeeded; keep genuine
         // failures as telemetry for the parent's completion/repair path.
@@ -458,6 +471,37 @@ Write out your complete implementation now. Do not write any final summary.`,
           ...(message ? { message } : {}),
           ...(errorMessage ? { errorMessage } : {}),
         }
+      }
+
+      // Collapse the per-file duplicates a single propose_edit_transaction
+      // records (one ledger artifact per changed file, all sharing the same
+      // transaction input) down to one apply tool call per unique transaction,
+      // preserving first-seen order. propose_str_replace/propose_write_file
+      // calls are passed through untouched because their per-file ordering is
+      // load-bearing for sequential apply.
+      function dedupeTransactionToolCalls(
+        toolCalls: { toolName: string; input: any }[],
+      ): { toolName: string; input: any }[] {
+        const seenTransactionSignatures = new Set<string>()
+        const deduped: { toolName: string; input: any }[] = []
+        for (const toolCall of toolCalls) {
+          if (toolCall.toolName !== 'propose_edit_transaction') {
+            deduped.push(toolCall)
+            continue
+          }
+          let signature: string
+          try {
+            signature = JSON.stringify(toolCall.input)
+          } catch {
+            // Non-serializable input can't be safely deduped; keep it as-is.
+            deduped.push(toolCall)
+            continue
+          }
+          if (seenTransactionSignatures.has(signature)) continue
+          seenTransactionSignatures.add(signature)
+          deduped.push(toolCall)
+        }
+        return deduped
       }
 
       // ====================================================================
@@ -1321,7 +1365,10 @@ Emit valid XML proposal tool calls with no markdown fences:
 type LedgerArtifact = {
   seq: number
   attempt: number
-  toolName: 'propose_str_replace' | 'propose_write_file'
+  toolName:
+    | 'propose_str_replace'
+    | 'propose_write_file'
+    | 'propose_edit_transaction'
   input: Record<string, any>
   result: {
     file: string

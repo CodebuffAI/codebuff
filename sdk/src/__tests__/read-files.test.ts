@@ -409,7 +409,7 @@ describe('getFiles', () => {
       })
 
       expect(result['src/big.ts']).toMatch(
-        /^\[Lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 3\nline 4\nline 5$/,
+        /^\[Lines 3-5 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\n\[Copy-safe str_replace replacement template:\n  \{\n    oldString: <copy exact text from the range body below>,\n    newString: <replacement text>,\n    allowMultiple: false,\n    basedOnRead: "cap\.[A-Za-z0-9_-]+",\n  \}\n\]\nline 3\nline 4\nline 5$/,
       )
     })
 
@@ -443,9 +443,9 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts', startLine: 8, endLine: 9999 }],
       })
 
-      expect(result['src/big.ts']).toMatch(
-        /^\[Lines 8-10 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 8\nline 9\nline 10$/,
-      )
+      expect(result['src/big.ts']).toContain('[Lines 8-10 of 10 in src/big.ts; rangeHash=sha256:')
+      expect(result['src/big.ts']).toContain('Copy-safe str_replace replacement template')
+      expect(result['src/big.ts']).toContain('line 8\nline 9\nline 10')
     })
 
     test('should report when startLine is beyond the end of the file', async () => {
@@ -475,9 +475,9 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/big.ts', startLine: 1, endLine: 2 }],
       })
 
-      expect(result['src/big.ts']).toMatch(
-        /^\[Lines 1-2 of 10 in src\/big\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 1\nline 2$/,
-      )
+      expect(result['src/big.ts']).toContain('[Lines 1-2 of 10 in src/big.ts; rangeHash=sha256:')
+      expect(result['src/big.ts']).toContain('Copy-safe str_replace replacement template')
+      expect(result['src/big.ts']).toContain('line 1\nline 2')
     })
 
     test('returns every range when multiple ranges target the same file', async () => {
@@ -523,8 +523,18 @@ describe('getFiles', () => {
         ranges: [{ path: 'src/large.ts', startLine: 20_000, endLine: 20_002 }],
       })
 
-      expect(result['src/large.ts']).toMatch(
-        /^\[Lines 20000-20002 of 30,000 in src\/large\.ts; rangeHash=sha256:[a-f0-9]{64}; readCapability=cap\.[A-Za-z0-9_-]+\]\nline 20000\nline 20001\nline 20002$/,
+      expect(result['src/large.ts']).toContain(
+        '[Lines 20000-20002 of 30,000 in src/large.ts; rangeHash=sha256:',
+      )
+      expect(result['src/large.ts']).toContain(
+        'Copy-safe str_replace replacement template',
+      )
+      expect(result['src/large.ts']).toContain(
+        'oldString: <copy exact text from the range body below>',
+      )
+      expect(result['src/large.ts']).toContain('basedOnRead: "cap.')
+      expect(result['src/large.ts']).toContain(
+        'line 20000\nline 20001\nline 20002',
       )
     })
 

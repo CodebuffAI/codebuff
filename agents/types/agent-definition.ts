@@ -299,8 +299,8 @@ export interface AgentState {
   contextTokenCount: number
 
   /**
-   * Deterministic record of every propose_str_replace / propose_write_file call
-   * made during the CURRENT proposal attempt of this run, in execution order.
+   * Deterministic record of every proposal tool call made during the CURRENT
+   * proposal attempt of this run, in execution order.
    *
    * This is the single source of truth for proposal bundles: it is recorded by
    * the proposal tool handlers as they run, so it never depends on the model's
@@ -316,7 +316,10 @@ export type ProposalLedgerArtifact = {
   seq: number
   /** 0-based attempt index; bumped on each proposal retry boundary. */
   attempt: number
-  toolName: 'propose_str_replace' | 'propose_write_file'
+  toolName:
+    | 'propose_str_replace'
+    | 'propose_write_file'
+    | 'propose_edit_transaction'
   /** The exact tool input, so it can always be converted to a real edit. */
   input: Record<string, any>
   result: {

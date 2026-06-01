@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
+import { handleEditTransaction } from '../tools/handlers/tool/edit-transaction'
 import { handleReadFiles } from '../tools/handlers/tool/read-files'
 import { handleStrReplace } from '../tools/handlers/tool/str-replace'
 import { encodeReadCapabilityToken, getContentHash } from '../process-str-replace'
@@ -27,6 +28,495 @@ function createFileProcessingState(): FileProcessingState {
 }
 
 describe('read_files edit-state recovery', () => {
+  it('does not crash when str_replace client returns an empty result', async () => {
+    const path = 'src/helper.ts'
+    const diskContent = 'export const value = 1\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+
+    const result = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'empty-client-result-replace',
+        toolName: 'str_replace',
+        input: {
+          path,
+          replacements: [
+            {
+              oldString: 'export const value = 1',
+              newString: 'export const value = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return []
+      },
+      writeToClient: () => {},
+    } as any)
+
+    expect(appliedPatches).toHaveLength(1)
+    expect(result.output).toEqual([
+      {
+        type: 'json',
+        value: {
+          file: path,
+          message:
+            'Applied str_replace patch, but the client returned no tool result.',
+        },
+      },
+    ])
+  })
+
+  it('chains edit_transaction from prior same-step str_replace in-memory content', async () => {
+    const path = 'src/helper.ts'
+    const diskContent = 'export const value = 1\nexport const other = 1\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+
+    const strReplaceResult = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'replace-before-transaction',
+        toolName: 'str_replace',
+        input: {
+          path,
+          replacements: [
+            {
+              oldString: 'export const value = 1',
+              newString: 'export const value = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              file: toolCall.input.path,
+              message: 'applied str_replace patch',
+            },
+          },
+        ]
+      },
+      writeToClient: () => {},
+    } as any)
+
+    expect(strReplaceResult.output[0]?.type).toBe('json')
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'transaction-after-replace',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              id: 'update-value-again',
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: 'export const value = 2',
+                  newString: 'export const value = 3',
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input[0].content)
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              message: 'applied transaction batch',
+              files: toolCall.input.map((change: { path: string; content: string }) => ({
+                path: change.path,
+                patch: change.content,
+                messages: [],
+              })),
+            },
+          },
+        ]
+      },
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).not.toHaveProperty('errorMessage')
+      expect(appliedPatches[0]).toContain('+export const value = 2')
+      expect(appliedPatches[1]).toContain('-export const value = 2')
+      expect(appliedPatches[1]).toContain('+export const value = 3')
+    }
+  })
+
+  it('chains later str_replace calls from edit_transaction in-memory content', async () => {
+    const path = 'src/helper.ts'
+    const diskContent = 'export const value = 1\nexport const other = 1\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'transaction-1',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              id: 'update-value',
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: 'export const value = 1',
+                  newString: 'export const value = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input[0].content)
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              message: 'applied transaction batch',
+              files: toolCall.input.map((change: { path: string; content: string }) => ({
+                path: change.path,
+                patch: change.content,
+                messages: [],
+              })),
+            },
+          },
+        ]
+      },
+    } as any)
+
+    expect(transactionResult.output[0]?.type).toBe('json')
+    expect(fileProcessingState.promisesByPath[path]).toHaveLength(1)
+
+    const strReplaceResult = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'replace-after-transaction',
+        toolName: 'str_replace',
+        input: {
+          path,
+          replacements: [
+            {
+              oldString: 'export const value = 2',
+              newString: 'export const value = 3',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              file: toolCall.input.path,
+              message: 'applied str_replace patch',
+            },
+          },
+        ]
+      },
+      writeToClient: () => {},
+    } as any)
+
+    const output = strReplaceResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).not.toHaveProperty('errorMessage')
+      expect(appliedPatches[0]).toContain('+export const value = 2')
+      expect(appliedPatches[1]).toContain('-export const value = 2')
+      expect(appliedPatches[1]).toContain('+export const value = 3')
+    }
+  })
+
+  it('blocks later str_replace calls after edit_transaction preflight fails', async () => {
+    const path = 'src/helper.ts'
+    const diskContent = 'export const value = 1\n'
+    const fileProcessingState = createFileProcessingState()
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'transaction-preflight-failed',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: 'export const missing = 1',
+                  newString: 'export const missing = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async () => {
+        throw new Error('should not apply failed preflight')
+      },
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).toHaveProperty('errorMessage')
+    }
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+
+    const strReplaceResult = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'replace-after-failed-preflight',
+        toolName: 'str_replace',
+        input: {
+          path,
+          replacements: [
+            {
+              oldString: 'export const value = 1',
+              newString: 'export const value = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async () => {
+        throw new Error('should not apply blocked edit')
+      },
+      writeToClient: () => {},
+    } as any)
+
+    const replaceOutput = strReplaceResult.output[0]
+    expect(replaceOutput.type).toBe('json')
+    if (replaceOutput.type === 'json') {
+      expect(replaceOutput.value).toHaveProperty('errorMessage')
+      expect(String((replaceOutput.value as { errorMessage?: string }).errorMessage)).toContain(
+        'previous str_replace failed for this file',
+      )
+    }
+  })
+
+  it('marks all transaction paths as requiring re-read when client rejects a patch', async () => {
+    const path = 'src/helper.ts'
+    const otherPath = 'src/other.ts'
+    const diskContentByPath: Record<string, string> = {
+      [path]: 'export const value = 1\n',
+      [otherPath]: 'export const other = 1\n',
+    }
+    const fileProcessingState = createFileProcessingState()
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'transaction-rejected',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: 'export const value = 1',
+                  newString: 'export const value = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+            {
+              type: 'str_replace',
+              path: otherPath,
+              replacements: [
+                {
+                  oldString: 'export const other = 1',
+                  newString: 'export const other = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        diskContentByPath[filePath] ?? null,
+      requestClientToolCall: async (toolCall: any) => [
+        {
+          type: 'json' as const,
+          value: {
+            errorMessage: 'client rejected transaction',
+            failures: toolCall.input.map((change: { path: string }) => ({
+              editIndex: -1,
+              path: change.path,
+              errorMessage: 'client rejected patch',
+            })),
+          },
+        },
+      ],
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).toHaveProperty('errorMessage')
+    }
+    expect(fileProcessingState.promisesByPath[path]).toBeUndefined()
+    expect(fileProcessingState.promisesByPath[otherPath]).toBeUndefined()
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    expect(fileProcessingState.failedEditRequiresReadByPath[otherPath]).toBe(true)
+
+    const strReplaceResult = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'replace-after-rejected-transaction',
+        toolName: 'str_replace',
+        input: {
+          path,
+          replacements: [
+            {
+              oldString: 'export const value = 2',
+              newString: 'export const value = 3',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        diskContentByPath[filePath] ?? null,
+      requestClientToolCall: async () => {
+        throw new Error('should not apply blocked edit')
+      },
+      writeToClient: () => {},
+    } as any)
+
+    const replaceOutput = strReplaceResult.output[0]
+    expect(replaceOutput.type).toBe('json')
+    if (replaceOutput.type === 'json') {
+      expect(replaceOutput.value).toHaveProperty('errorMessage')
+      expect(String((replaceOutput.value as { errorMessage?: string }).errorMessage)).toContain(
+        'previous str_replace failed for this file',
+      )
+    }
+  })
+
+  it('marks all transaction paths as requiring re-read when client apply throws', async () => {
+    const path = 'src/helper.ts'
+    const otherPath = 'src/other.ts'
+    const diskContentByPath: Record<string, string> = {
+      [path]: 'export const value = 1\n',
+      [otherPath]: 'export const other = 1\n',
+    }
+    const fileProcessingState = createFileProcessingState()
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'transaction-throws',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: 'export const value = 1',
+                  newString: 'export const value = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+            {
+              type: 'str_replace',
+              path: otherPath,
+              replacements: [
+                {
+                  oldString: 'export const other = 1',
+                  newString: 'export const other = 2',
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        diskContentByPath[filePath] ?? null,
+      requestClientToolCall: async () => {
+        throw new Error('client apply threw')
+      },
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).toHaveProperty('errorMessage')
+      expect(String((output.value as { errorMessage?: string }).errorMessage)).toContain(
+        'client apply threw',
+      )
+    }
+    expect(fileProcessingState.promisesByPath[path]).toBeUndefined()
+    expect(fileProcessingState.promisesByPath[otherPath]).toBeUndefined()
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    expect(fileProcessingState.failedEditRequiresReadByPath[otherPath]).toBe(true)
+  })
+
   it('uses current disk content for basedOnRead even when stale per-path edit content remains', async () => {
     const path = 'agents/editor/best-of-n/editor-multi-prompt.ts'
     const staleContent = Array.from({ length: 2_889 }, (_, index) =>

@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { FileChangeSchema } from '../actions'
+import { CHANGES, FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
 import { applyPatchParams } from './params/tool/apply-patch'
@@ -8,12 +8,14 @@ import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
+import { editTransactionParams } from './params/tool/edit-transaction'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
 import { gravityIndexParams } from './params/tool/gravity-index'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
+import { proposeEditTransactionParams } from './params/tool/propose-edit-transaction'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
 import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
@@ -49,12 +51,14 @@ export const toolParams = {
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
   create_plan: createPlanParams,
+  edit_transaction: editTransactionParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
   glob: globParams,
   gravity_index: gravityIndexParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
+  propose_edit_transaction: proposeEditTransactionParams,
   propose_str_replace: proposeStrReplaceParams,
   propose_write_file: proposeWriteFileParams,
   read_docs: readDocsParams,
@@ -122,6 +126,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: FileChangeSchema,
   }),
   z.object({
+    toolName: z.literal('edit_transaction'),
+    input: CHANGES,
+  }),
+  z.object({
     toolName: z.literal('glob'),
     input: toolParams.glob.inputSchema,
   }),
@@ -161,6 +169,6 @@ export type ClientToolCall<T extends ClientToolName = ClientToolName> = Extract<
   z.infer<typeof clientToolCallSchema>,
   { toolName: T }
 > &
-  Pick<ToolCallPart, 'toolCallId' | 'toolName' | 'input' | 'providerOptions'>
+  Pick<ToolCallPart, 'toolCallId' | 'toolName' | 'providerOptions'>
 
 export type PublishedClientToolName = ClientToolName & PublishedToolName

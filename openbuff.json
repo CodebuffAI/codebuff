@@ -187,7 +187,9 @@
     "max": "pioneer/claude-opus-4-8",
     "plan": "pioneer/claude-opus-4-8"
   },
-  "modeReasoningEfforts": {},
+  "modeReasoningEfforts": {
+    "default": "high"
+  },
   "agents": {
     "editor-implementor-proposal-direct": "codex/gpt-5.5",
     "base": "codex/gpt-5.5",

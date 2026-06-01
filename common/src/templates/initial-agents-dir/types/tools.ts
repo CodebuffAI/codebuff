@@ -7,11 +7,13 @@ export type ToolName =
   | 'ask_user'
   | 'code_search'
   | 'end_turn'
+  | 'edit_transaction'
   | 'find_files'
   | 'glob'
   | 'gravity_index'
   | 'list_directory'
   | 'lookup_agent_info'
+  | 'propose_edit_transaction'
   | 'propose_str_replace'
   | 'propose_write_file'
   | 'read_docs'
@@ -41,11 +43,13 @@ export interface ToolParamsMap {
   ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
+  edit_transaction: EditTransactionParams
   find_files: FindFilesParams
   glob: GlobParams
   gravity_index: GravityIndexParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
+  propose_edit_transaction: ProposeEditTransactionParams
   propose_str_replace: ProposeStrReplaceParams
   propose_write_file: ProposeWriteFileParams
   read_docs: ReadDocsParams
@@ -143,6 +147,41 @@ export interface CodeSearchParams {
 export interface EndTurnParams {}
 
 /**
+ * Apply multiple related edits as one transaction after preflighting every edit.
+ */
+export interface EditTransactionParams {
+  /** All edits that must preflight together. If any edit fails during preflight, no files are changed. */
+  edits: (
+    | {
+        id?: string
+        type: 'str_replace'
+        path: string
+        replacements: StrReplaceParams['replacements']
+      }
+    | {
+        id?: string
+        type: 'structured'
+        path: string
+        operation:
+          | {
+              kind: 'insert_text'
+              position: { line: number; column: number }
+              text: string
+            }
+          | {
+              kind: 'insert_import'
+              importStatement: string
+            }
+          | {
+              kind: 'remove_import'
+              importStatement?: string
+              moduleSpecifier?: string
+            }
+      }
+  )[]
+}
+
+/**
  * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.
  */
 export interface FindFilesParams {
@@ -215,6 +254,14 @@ export interface ListDirectoryParams {
 export interface LookupAgentInfoParams {
   /** Agent ID (short local or full published format) */
   agentId: string
+}
+
+/**
+ * Propose an atomic multi-file edit transaction without applying the changes, returning preview diffs.
+ */
+export interface ProposeEditTransactionParams {
+  /** All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced. */
+  edits: EditTransactionParams['edits']
 }
 
 /**

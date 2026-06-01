@@ -14,7 +14,11 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
-type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
+type FileProcessingTools =
+  | 'write_file'
+  | 'str_replace'
+  | 'create_plan'
+  | 'edit_transaction'
 export type FileProcessing<
   T extends FileProcessingTools = FileProcessingTools,
 > = {
@@ -163,7 +167,9 @@ export const handleWriteFile = (async (
   }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
 
-export async function postStreamProcessing<T extends FileProcessingTools>(
+type PostStreamProcessingTools = Exclude<FileProcessingTools, 'edit_transaction'>
+
+export async function postStreamProcessing<T extends PostStreamProcessingTools>(
   toolCall: FileProcessing<T>,
   fileProcessingState: FileProcessingState,
   writeToClient: (chunk: string) => void,

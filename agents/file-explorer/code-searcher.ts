@@ -60,10 +60,93 @@ const codeSearcher: SecretAgentDefinition = {
   },
   outputMode: 'structured_output',
   handleSteps: function* ({ params }) {
-    const searchQueries: SearchQuery[] = params?.searchQueries ?? []
+    /** Short, safe description of an arbitrary value for diagnostic messages. */
+    function describeValue(value: unknown): string {
+      if (value === null) return 'null'
+      if (value === undefined) return 'undefined'
+      if (Array.isArray(value)) return `an array of length ${value.length}`
+      return `a value of type ${typeof value}`
+    }
+
+    /**
+     * A code_search JSON result counts as "non-empty" when it actually surfaced
+     * matches. ripgrep returns "Found 0 matches" stdout (or an errorMessage)
+     * when nothing matched, so we treat those as not-a-match for summary purposes.
+     */
+    function isNonEmptyResult(value: JSONValue): boolean {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return false
+      }
+      const record = value as Record<string, unknown>
+      if (typeof record.errorMessage === 'string') return false
+      const stdout = record.stdout
+      if (typeof stdout !== 'string') return false
+      return stdout.trim().length > 0 && !stdout.includes('Found 0 matches')
+    }
+
+    const rawQueries = params?.searchQueries
+
+    // Guard against malformed invocations that previously produced silent empty
+    // results. If searchQueries is missing or not an array, report exactly what
+    // was received and how to call this agent correctly instead of returning 0
+    // results with an empty message.
+    if (!Array.isArray(rawQueries)) {
+      yield {
+        toolName: 'set_output',
+        input: {
+          message:
+            `No search ran: "searchQueries" must be an array passed in params, but received ${describeValue(
+              rawQueries,
+            )}. ` +
+            `Call this agent like: { "params": { "searchQueries": [{ "pattern": "createUser", "flags": "-g *.ts" }] } }.`,
+          results: [],
+        },
+        includeToolCall: false,
+      }
+      return
+    }
+
+    // Partition into valid queries (non-empty string pattern) and invalid ones
+    // so we can run the good queries and still surface clear feedback about the
+    // bad ones rather than silently dropping them.
+    const validQueries: SearchQuery[] = []
+    const invalidQueries: string[] = []
+    rawQueries.forEach((query, index) => {
+      if (
+        query &&
+        typeof query === 'object' &&
+        typeof (query as SearchQuery).pattern === 'string' &&
+        (query as SearchQuery).pattern.trim().length > 0
+      ) {
+        validQueries.push(query as SearchQuery)
+      } else {
+        invalidQueries.push(
+          `query[${index}] is missing a non-empty string "pattern" (received ${describeValue(
+            query,
+          )})`,
+        )
+      }
+    })
+
+    if (validQueries.length === 0) {
+      yield {
+        toolName: 'set_output',
+        input: {
+          message:
+            `No search ran: none of the ${rawQueries.length} provided ` +
+            `quer${rawQueries.length === 1 ? 'y' : 'ies'} had a valid "pattern". ` +
+            (invalidQueries.length > 0 ? `${invalidQueries.join('; ')}. ` : '') +
+            `Each query needs a non-empty string "pattern".`,
+          results: [],
+        },
+        includeToolCall: false,
+      }
+      return
+    }
 
     const toolResults: JSONValue[] = []
-    for (const query of searchQueries) {
+    let matchedQueryCount = 0
+    for (const query of validQueries) {
       const { toolResult } = yield {
         toolName: 'code_search',
         input: {
@@ -74,18 +157,41 @@ const codeSearcher: SecretAgentDefinition = {
         },
       }
       if (toolResult) {
-        toolResults.push(
-          ...toolResult
-            .filter((result) => result.type === 'json')
-            .map((result) => result.value),
-        )
+        const jsonValues = toolResult
+          .filter((result) => result.type === 'json')
+          .map((result) => result.value)
+        toolResults.push(...jsonValues)
+        if (jsonValues.some(isNonEmptyResult)) {
+          matchedQueryCount++
+        }
       }
+    }
+
+    // Build a concise summary so an empty result set is always explained (no
+    // matches vs. an error like a malformed ripgrep flag), rather than handing
+    // back results with an empty message.
+    const summaryParts: string[] = [
+      `Ran ${validQueries.length} quer${
+        validQueries.length === 1 ? 'y' : 'ies'
+      }; ${matchedQueryCount} returned matches.`,
+    ]
+    if (invalidQueries.length > 0) {
+      summaryParts.push(
+        `Skipped ${invalidQueries.length} invalid quer${
+          invalidQueries.length === 1 ? 'y' : 'ies'
+        }: ${invalidQueries.join('; ')}.`,
+      )
+    }
+    if (matchedQueryCount === 0) {
+      summaryParts.push(
+        'No matches found. Check that the pattern is valid Rust-style regex and that any flags (e.g. -g globs, cwd) are correct.',
+      )
     }
 
     yield {
       toolName: 'set_output',
       input: {
-        message: '',
+        message: summaryParts.join(' '),
         results: toolResults,
       },
       includeToolCall: false,

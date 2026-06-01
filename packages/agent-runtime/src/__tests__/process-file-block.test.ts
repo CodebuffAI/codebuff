@@ -193,5 +193,85 @@ describe('processFileBlockModule', () => {
       }
     })
 
+    it('should block a large-file overwrite that drastically shrinks the file (truncated-context data loss)', async () => {
+      const oldContent =
+        Array.from(
+          { length: 1_200 },
+          (_, index) => `const value${index} = ${index};`,
+        ).join('\n') + '\n'
+      // Simulates the model only seeing/rewriting a small slice of the file.
+      const newContent = 'const value0 = 0;\nconst value1 = 1;\n'
+
+      const result = await processFileBlock({
+        path: 'big.ts',
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      expect('error' in value).toBe(true)
+      if ('error' in value) {
+        expect(value.error).toContain('write_file blocked for big.ts')
+        expect(value.error).toContain('truncated')
+        expect(value.error).toContain('str_replace')
+      }
+    })
+
+    it('should allow a legitimate large-file rewrite that keeps a similar size', async () => {
+      const oldContent =
+        Array.from(
+          { length: 1_200 },
+          (_, index) => `const value${index} = ${index};`,
+        ).join('\n') + '\n'
+      const newContent =
+        Array.from(
+          { length: 1_200 },
+          (_, index) => `const value${index} = ${index + 1};`,
+        ).join('\n') + '\n'
+
+      const result = await processFileBlock({
+        path: 'big.ts',
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      if ('error' in value) {
+        throw new Error(`Expected success but got error: ${value.error}`)
+      }
+      expect(value.content).toBe(newContent)
+    })
+
+    it('should allow shrinking a small file (guard only applies to large files)', async () => {
+      const oldContent = 'const a = 1;\nconst b = 2;\nconst c = 3;\n'
+      const newContent = 'const a = 1;\n'
+
+      const result = await processFileBlock({
+        path: 'small.ts',
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        logger: agentRuntimeImpl.logger,
+      })
+
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      if ('error' in value) {
+        throw new Error(`Expected success but got error: ${value.error}`)
+      }
+      expect(value.content).toBe(newContent)
+    })
   })
 })

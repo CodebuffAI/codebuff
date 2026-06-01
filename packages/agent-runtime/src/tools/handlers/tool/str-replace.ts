@@ -39,7 +39,7 @@ export const handleStrReplace = (async (
     requestOptionalFile,
     writeToClient,
   } = params
-  const { path, replacements } = toolCall.input
+  const { path, replacements, atomic } = toolCall.input
 
   await previousToolCallFinished
 
@@ -88,6 +88,7 @@ export const handleStrReplace = (async (
   const newPromise = processStrReplace({
     path,
     replacements,
+    atomic,
     initialContentPromise: latestContentPromise,
     logger,
   })
@@ -121,9 +122,39 @@ export const handleStrReplace = (async (
     requestClientToolCall,
   )
 
-  const value = clientToolResult[0].value
-  if ('messages' in strReplaceResult && 'message' in value) {
-    value.message = [...strReplaceResult.messages, value.message].join('\n\n')
+  const firstResult = clientToolResult[0]
+  if (!firstResult) {
+    logger.warn(
+      { path, toolCallId: toolCall.toolCallId, strReplaceResult },
+      'str_replace client returned an empty tool result; synthesizing a safe response',
+    )
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: path,
+            message: [
+              ...('messages' in strReplaceResult ? strReplaceResult.messages : []),
+              'Applied str_replace patch, but the client returned no tool result.',
+            ].join('\n\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  if (
+    firstResult.type === 'json' &&
+    firstResult.value &&
+    typeof firstResult.value === 'object' &&
+    'messages' in strReplaceResult &&
+    'message' in firstResult.value
+  ) {
+    firstResult.value.message = [
+      ...strReplaceResult.messages,
+      firstResult.value.message,
+    ].join('\n\n')
   }
 
   return { output: clientToolResult }

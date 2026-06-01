@@ -15,6 +15,7 @@ export interface CreateMockFsOptions {
     options?: { recursive?: boolean },
   ) => Promise<string | undefined>
   statImpl?: (path: string) => Promise<Stats>
+  unlinkImpl?: (path: string) => Promise<void>
 }
 
 export interface MockFs extends CodebuffFileSystem {}
@@ -32,6 +33,7 @@ export interface MockFsWithMocks {
     ) => Promise<string | undefined>
   >
   stat: Mock<(path: PathLike) => Promise<Stats>>
+  unlink: Mock<(path: PathLike) => Promise<void>>
 }
 
 /** Creates a mock filesystem compatible with CodebuffFileSystem. */
@@ -44,6 +46,7 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     writeFileImpl,
     mkdirImpl,
     statImpl,
+    unlinkImpl,
   } = options
 
   const writtenFiles: Record<string, string> = { ...files }
@@ -77,6 +80,14 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     const pathStr = String(path)
     createdDirs.add(pathStr)
     return undefined
+  }
+
+  const defaultUnlink = async (path: PathLike): Promise<void> => {
+    const pathStr = String(path)
+    if (!(pathStr in writtenFiles)) {
+      throw new Error(`File not found: ${pathStr}`)
+    }
+    delete writtenFiles[pathStr]
   }
 
   const defaultStat = async (path: PathLike): Promise<Stats> => {
@@ -138,12 +149,17 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     ? async (path: PathLike) => statImpl(String(path))
     : defaultStat
 
+  const unlinkFn = unlinkImpl
+    ? async (path: PathLike) => unlinkImpl(String(path))
+    : defaultUnlink
+
   return {
     readFile: mock(readFileFn),
     readdir: mock(readdirFn),
     writeFile: mock(writeFileFn),
     mkdir: mock(mkdirFn),
     stat: mock(statFn),
+    unlink: mock(unlinkFn),
   } as unknown as MockFs
 }
 
@@ -154,6 +170,7 @@ export function restoreMockFs(mockFs: MockFs): void {
   mocks.writeFile.mockRestore()
   mocks.mkdir.mockRestore()
   mocks.stat.mockRestore()
+  mocks.unlink.mockRestore()
 }
 
 export function clearMockFs(mockFs: MockFs): void {
@@ -163,4 +180,5 @@ export function clearMockFs(mockFs: MockFs): void {
   mocks.writeFile.mockClear()
   mocks.mkdir.mockClear()
   mocks.stat.mockClear()
+  mocks.unlink.mockClear()
 }

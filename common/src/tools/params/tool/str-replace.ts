@@ -29,6 +29,13 @@ const inputSchema = z
       .string()
       .min(1, 'Path cannot be empty')
       .describe(`The path to the file to edit.`),
+    atomic: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Whether to make the replacement batch all-or-nothing. If true, any failed replacement aborts the entire batch with no changes. Large-file edits are always atomic regardless of this setting.',
+      ),
     replacements: z
       .preprocess(
         coerceToArray,
@@ -89,7 +96,7 @@ const inputSchema = z
                     ])
                     .optional()
                     .describe(
-                      'Required for large-file edits. Either the readCapability token from a fresh read_files range header (preferred), or { startLine, endLine, hash } copied from that header. The runtime rejects stale/invalid anchors before applying.',
+                      'Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, the runtime falls back to full-file deterministic oldString matching when it can identify exactly one safe target.',
                     ),
                 }),
               )
@@ -114,7 +121,8 @@ Use this tool to make edits within existing files.
 
 Important:
 If you are making multiple edits in a row to a file, use only one str_replace call with multiple replacements instead of multiple str_replace tool calls.
-For large files, first use read_files with ranges to read the exact line window you intend to edit. Large-file replacements require basedOnRead: copy the single readCapability token from the read_files range header (preferred), or the { startLine, endLine, hash } values from that header. Naked str_replace is rejected before editing large files.
+Use atomic: true when replacements are one logical change and should be all-or-nothing; any failed replacement will abort the batch with no changes. Omit atomic (or set false) when independent small-file replacements may partially succeed. Large-file edits are always atomic.
+For large files, str_replace still applies against the full current file atomically. If oldString is unique, a naked str_replace can apply safely without basedOnRead. Use basedOnRead from read_files.ranges when oldString is ambiguous or you want to constrain the edit to a specific range; stale anchors fall back to deterministic full-file matching when possible.
 If a replacement fails, re-read the closest candidate range reported in the error before retrying.
 
 Example:
@@ -123,6 +131,7 @@ ${$getNativeToolCallExampleString({
   inputSchema,
   input: {
     path: 'path/to/file',
+    atomic: true,
     replacements: [
       {
         oldString: 'This is the old string',

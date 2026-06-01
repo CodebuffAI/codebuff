@@ -233,7 +233,7 @@ describe('processStrReplace', () => {
     }
   })
 
-  it('should continue processing other replacements even if one fails', async () => {
+  it('should continue processing other replacements even if one fails by default', async () => {
     const initialContent = 'const x = 1;\nconst y = 2;\nconst z = 3;\n'
     const replacements = [
       {
@@ -274,6 +274,44 @@ describe('processStrReplace', () => {
           ),
         ),
       ).toBe(true)
+    }
+  })
+
+  it('should abort an entire small-file batch when atomic is true', async () => {
+    const initialContent = 'const x = 1;\nconst y = 2;\nconst z = 3;\n'
+    const replacements = [
+      {
+        oldString: 'const x = 1;',
+        newString: 'const x = 10;',
+        allowMultiple: false,
+      },
+      {
+        oldString: 'const w = 4;',
+        newString: 'const w = 40;',
+        allowMultiple: false,
+      },
+      {
+        oldString: 'const z = 3;',
+        newString: 'const z = 30;',
+        allowMultiple: false,
+      },
+    ]
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements,
+      atomic: true,
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Atomic str_replace batch aborted')
+      expect(result.error).toContain('NO changes were made')
+      expect(result.error).toContain('const w = 4;')
+      expect(result.error).not.toContain('+const x = 10;')
+      expect(result.error).not.toContain('+const z = 30;')
     }
   })
 
@@ -528,9 +566,90 @@ function test3() {
     expect(successResult.content).toBe('line 1\nhello $$world!\nline 2\n')
   })
 
-  it('should provide fuzzy matching diagnostics when oldString has a typo', async () => {
+  it('should auto-correct a safe single-winner near match', async () => {
+    const initialContent = [
+      'export function calculateTotal(items: Item[]) {',
+      '  const subtotal = items.reduce((sum, item) => sum + item.price, 0)',
+      '  return subtotal',
+      '}',
+    ].join('\n')
+    const oldStr = [
+      'export function calculateTotal(items: Item[]) {',
+      '  const subTotal = items.reduce((sum, item) => sum + item.price, 0)',
+      '  return subtotal',
+      '}',
+    ].join('\n')
+    const newStr = [
+      'export function calculateTotal(items: Item[]) {',
+      '  const subtotal = items.reduce((sum, item) => sum + item.price, 0)',
+      '  return subtotal * 1.0825',
+      '}',
+    ].join('\n')
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe(newStr)
+      expect(
+        result.messages.some((msg) =>
+          msg.includes('auto-corrected a near-match edit'),
+        ),
+      ).toBe(true)
+    }
+  })
+
+  it('should fail safely when near matches are ambiguous', async () => {
+    const initialContent = [
+      'export function loadUtilityConfig() {',
+      '  const timeoutMs = readConfigNumber("timeoutMs", 5_000)',
+      '  return timeoutMs',
+      '}',
+      '',
+      'export function loadUtilityConfigTest() {',
+      '  const timeoutMs = readConfigNumber("timeoutMS", 5_000)',
+      '  return timeoutMs',
+      '}',
+    ].join('\n')
+    const oldStr = [
+      'export function loadUtilityConfig() {',
+      '  const timeoutMs = readConfigNumber("timeoutMX", 5_000)',
+      '  return timeoutMs',
+      '}',
+    ].join('\n')
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        {
+          oldString: oldStr,
+          newString: oldStr.replace('5_000', '10_000'),
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string')
+      expect(result.error).toContain('Closest candidate ranges')
+      expect(result.error).toContain('loadUtilityConfig')
+      expect(result.error).toContain('loadUtilityConfigTest')
+    }
+  })
+
+  it('should provide fuzzy matching diagnostics when no candidate is safe enough to auto-correct', async () => {
     const initialContent = 'const firstVar = 1;\nconst secondVar = 2;\nconst thirdVar = 3;\n'
-    const oldStr = 'const secondVarr = 2;' // Typo with extra 'r'
+    const oldStr = 'const completelyDifferentValue = 200;'
     const newStr = 'const secondVar = 20;'
 
     const result = await processStrReplace({
@@ -545,13 +664,11 @@ function test3() {
     expect(result).not.toBeNull()
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('The old string "const secondVarr = 2;" was not found')
-      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
-      expect(result.error).toContain('Candidate 1: lines 2-2')
       expect(result.error).toContain(
-        'Recovery read: read_files ranges: [{ path, startLine: 2, endLine: 2 }]',
+        'The old string "const completelyDifferentValue = 200;" was not found',
       )
-      expect(result.error).toContain('const secondVar = 2;')
+      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
+      expect(result.error).toContain('Candidate 1: lines')
     }
   })
 
@@ -586,9 +703,42 @@ function test3() {
     }
   })
 
-  it('should reject naked str_replace on large files before editing', async () => {
-    const initialContent = Array.from({ length: 1_001 }, (_, index) =>
+  it('should apply naked str_replace on large files when oldString is unique', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const target = 2;')
+      expect(result.content).not.toContain('const target = 1;')
+      expect(
+        result.messages.some((msg) =>
+          msg.includes('deterministic oldString match'),
+        ),
+      ).toBe(true)
+    }
+  })
+
+  it('should block naked str_replace on large files when oldString is ambiguous', async () => {
+    const initialContent = Array.from({ length: 1_001 }, (_, index) =>
+      index === 300 || index === 700
+        ? 'const target = 1;'
+        : `const filler${index} = ${index};`,
     ).join('\n')
 
     const result = await processStrReplace({
@@ -607,8 +757,7 @@ function test3() {
     expect('error' in result).toBe(true)
     if ('error' in result) {
       expect(result.error).toContain('Large-file edit blocked for large.ts')
-      expect(result.error).toContain('Do not use naked str_replace on large files')
-      expect(result.error).toContain('readCapability')
+      expect(result.error).toContain('oldString was not uniquely identifiable')
     }
   })
 
@@ -645,7 +794,7 @@ function test3() {
     }
   })
 
-  it('should reject a stale readCapability token on large files', async () => {
+  it('should ignore a stale readCapability token on large files when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
     )
@@ -670,9 +819,49 @@ function test3() {
       logger,
     })
 
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const target = 2;')
+      expect(result.content).not.toContain('const target = 1;')
+      expect(
+        result.messages.some((msg) =>
+          msg.includes('ignoring a stale basedOnRead anchor'),
+        ),
+      ).toBe(true)
+    }
+  })
+
+  it('should block a stale readCapability token on large files when oldString is ambiguous', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 300 || index === 700
+        ? 'const target = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const staleToken = encodeReadCapabilityToken({
+      startLine: 301,
+      endLine: 301,
+      hash: getContentHash('const target = 0;'),
+    })
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: staleToken,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
     expect('error' in result).toBe(true)
     if ('error' in result) {
-      expect(result.error).toContain('the basedOnRead range is stale')
+      expect(result.error).toContain('Large-file edit blocked for large.ts')
+      expect(result.error).toContain('basedOnRead anchor was stale')
     }
   })
 
@@ -807,6 +996,49 @@ function test3() {
     }
   })
 
+  it('should abort an entire large-file batch when one replacement fails', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500
+        ? 'const first = 1;\nconst second = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+    const basedOnRead = {
+      startLine: 501,
+      endLine: 502,
+      hash: getContentHash(rangeContent),
+    }
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const first = 1;',
+          newString: 'const first = 2;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+        {
+          oldString: 'const missing = 1;',
+          newString: 'const missing = 2;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Atomic str_replace batch aborted')
+      expect(result.error).toContain('NO changes were made')
+      expect(result.error).toContain('const missing = 1;')
+      expect(result.error).not.toContain('+const first = 2;')
+    }
+  })
+
   it('should allow line-count-changing basedOnRead replacements', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500
@@ -879,7 +1111,7 @@ function test3() {
     }
   })
 
-  it('should reject stale basedOnRead hashes before editing large files', async () => {
+  it('should ignore stale basedOnRead hashes on large files when oldString is unique', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
     )
@@ -903,11 +1135,15 @@ function test3() {
       logger,
     })
 
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('the basedOnRead range is stale')
-      expect(result.error).toContain('Expected sha256:')
-      expect(result.error).toContain('Re-read with read_files ranges')
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('const target = 2;')
+      expect(result.content).not.toContain('const target = 1;')
+      expect(
+        result.messages.some((msg) =>
+          msg.includes('ignoring a stale basedOnRead anchor'),
+        ),
+      ).toBe(true)
     }
   })
 
@@ -970,5 +1206,97 @@ function test3() {
     if ('content' in result) {
       expect(result.content).toBe('alpha\nbeta\ndelta\n')
     }
+  })
+
+  describe('bogus basedOnRead rejection', () => {
+    it('rejects a placeholder "dummy" anchor even on small files', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: 'dummy' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('placeholder')
+        expect(result.error).toContain(recoveryGuidance)
+      }
+    })
+
+    it('rejects other stub anchors regardless of case', async () => {
+      for (const stub of ['TODO', 'cap.DUMMY', 'placeholder', 'undefined']) {
+        const result = await processStrReplace({
+          path: 'test.ts',
+          replacements: [
+            {
+              oldString: 'const y = 2;',
+              newString: 'const y = 3;',
+              allowMultiple: false,
+              basedOnRead: stub as any,
+            },
+          ],
+          initialContentPromise: Promise.resolve(
+            'const x = 1;\nconst y = 2;\n',
+          ),
+          logger,
+        })
+        expect('error' in result).toBe(true)
+      }
+    })
+
+    it('rejects a malformed (non-cap) string anchor on small files', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: 'not-a-real-token' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('basedOnRead')
+      }
+    })
+
+    it('still accepts a valid cap token anchor on small files', async () => {
+      const initialContent = 'const x = 1;\nconst y = 2;\n'
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: encodeReadCapabilityToken({
+              startLine: 1,
+              endLine: 2,
+              hash: getContentHash(initialContent),
+            }),
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+      }
+    })
   })
 })

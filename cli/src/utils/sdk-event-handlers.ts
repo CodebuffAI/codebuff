@@ -19,6 +19,10 @@ import {
   updateToolBlockWithOutput,
 } from './message-block-helpers'
 import {
+  isEditToolBlock,
+  synthesizeProposalToolBlocks,
+} from './implementor-helpers'
+import {
   findMatchingSpawnAgent,
   resolveSpawnAgentToReal,
 } from './spawn-agent-matcher'
@@ -379,9 +383,23 @@ const updateSpawnAgentBlocks = (
         const hasStreamedTextContent = block.blocks.some(
           (b) => b.type === 'text' && b.textType === 'text'
         )
-        const finalBlocks = content && !hasStreamedTextContent
+        let finalBlocks = content && !hasStreamedTextContent
           ? [...block.blocks, { type: 'text', content } as ContentBlock]
           : block.blocks
+
+        // Proposal/implementor agents can finish without streaming live edit
+        // tool blocks. When that happens the card has nothing to render and
+        // falsely shows "no changes", so synthesize edit blocks from the
+        // structured { toolCalls, toolResults } output. Guarded so we never
+        // duplicate edits that already streamed.
+        const hasEditToolBlocks = finalBlocks.some(isEditToolBlock)
+        if (!hasEditToolBlocks) {
+          const synthesized = synthesizeProposalToolBlocks(result.value)
+          if (synthesized.length > 0) {
+            finalBlocks = [...finalBlocks, ...synthesized]
+          }
+        }
+
         if (hasError || finalBlocks.length > 0) {
           return {
             ...block,

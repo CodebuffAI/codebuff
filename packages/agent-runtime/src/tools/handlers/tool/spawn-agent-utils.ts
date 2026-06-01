@@ -675,6 +675,30 @@ export async function executeSubagent(
     timeoutSignal.cleanup()
   }
 
+  // Ledger-backed output contract: the deterministic proposal ledger — not
+  // set_output — is the source of truth for proposal bundles. If a proposal
+  // agent finishes "successfully" but its structured output is missing,
+  // malformed, or empty (e.g. set_output never ran or failed validation),
+  // rebuild the output from the recorded ledger artifacts. This is what
+  // prevents "diffs were generated, then lost, but the proposal completed":
+  // the edits survive even when the model's own output plumbing does not.
+  if (isProposalAgent && !outputHasUsableProposal(result.output)) {
+    const ledgerResult = buildRecoveredEditorProposalTimeoutResult({
+      agentTemplate,
+      agentState: result.agentState,
+      spawnParams,
+      timeoutConfig,
+      timeoutMessage:
+        'Recovered proposal edits from the deterministic proposal ledger because the agent did not return a usable structured proposal.',
+      recoveryReason: 'ledgerFallback',
+    })
+    if (ledgerResult) {
+      // Preserve the live agentState/childRunIds bookkeeping; only swap the
+      // output for the ledger-derived proposal bundle.
+      result = { ...result, output: ledgerResult.output }
+    }
+  }
+
   onResponseChunk({
     type: 'subagent_finish',
     agentId: result.agentState.agentId,
@@ -834,6 +858,30 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
   return { toolCalls, toolResults, unifiedDiffs }
 }
 
+/**
+ * A proposal agent's output is "usable" only when its structured output
+ * actually carries applyable proposal tool calls or a non-empty unified diff.
+ * A missing/non-structured/empty output means the parent has nothing to apply,
+ * so the ledger fallback should run.
+ */
+function outputHasUsableProposal(output: unknown): boolean {
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    (output as { type?: unknown }).type !== 'structuredOutput'
+  ) {
+    return false
+  }
+  const value = (output as { value?: unknown }).value
+  if (!value || typeof value !== 'object') return false
+  const toolCalls = (value as { toolCalls?: unknown }).toolCalls
+  const unifiedDiffs = (value as { unifiedDiffs?: unknown }).unifiedDiffs
+  const hasToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0
+  const hasDiffs =
+    typeof unifiedDiffs === 'string' && unifiedDiffs.trim().length > 0
+  return hasToolCalls || hasDiffs
+}
+
 function buildRecoveredEditorProposalTimeoutResult(params: {
   agentTemplate: AgentTemplate
   agentState: AgentState
@@ -844,7 +892,7 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
     hardTimeoutMs: number | undefined
   }
   timeoutMessage: string
-  recoveryReason?: 'timeout' | 'providerError'
+  recoveryReason?: 'timeout' | 'providerError' | 'ledgerFallback'
 }): Awaited<ReturnType<typeof loopAgentSteps>> | undefined {
   const {
     agentTemplate,
@@ -902,7 +950,9 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
           ...timeoutConfig,
           ...(recoveryReason === 'timeout'
             ? { recoveredFromTimeout: true }
-            : { recoveredFromProviderError: true }),
+            : recoveryReason === 'providerError'
+              ? { recoveredFromProviderError: true }
+              : { recoveredFromLedger: true }),
         },
         timeoutMessage,
         ...(toolCalls.length === 0 && !unifiedDiffs
@@ -917,7 +967,7 @@ function buildRecoveredProposalProgressTelemetry(params: {
   latestAttemptMessages: Message[]
   toolCalls: { toolName: string; input: any }[]
   toolResults: any[]
-  recoveryReason: 'timeout' | 'providerError'
+  recoveryReason: 'timeout' | 'providerError' | 'ledgerFallback'
 }): Record<string, unknown> {
   const { latestAttemptMessages, toolCalls, toolResults, recoveryReason } =
     params
@@ -940,6 +990,7 @@ function buildRecoveredProposalProgressTelemetry(params: {
     completionSignalSeen: hasProposalCompletionSignal(latestAttemptMessages),
     recoveredFromTimeout: recoveryReason === 'timeout',
     recoveredFromProviderError: recoveryReason === 'providerError',
+    recoveredFromLedger: recoveryReason === 'ledgerFallback',
   }
 }
 
@@ -1059,89 +1110,6 @@ function isReadOnlyToolName(toolName: any): boolean {
   )
 }
 
-function getProposalToolCallsFromMessages(
-  messages: Message[],
-): { toolName: string; input: any }[] {
-  const toolCalls: { toolName: string; input: any }[] = []
-  for (const message of messages) {
-    if (message.role !== 'assistant' || !Array.isArray(message.content)) {
-      continue
-    }
-    for (const part of message.content as any[]) {
-      if (part.type === 'tool-call') {
-        if (isProposalToolName(part.toolName)) {
-          toolCalls.push({
-            toolName: part.toolName,
-            input: part.input ?? part.args ?? {},
-          })
-        }
-      } else if (part.type === 'text' && typeof part.text === 'string') {
-        const matches = part.text.matchAll(
-          /<codebuff_tool_call>([\s\S]*?)<\/codebuff_tool_call>/g,
-        )
-        for (const match of matches) {
-          try {
-            const parsed = JSON.parse(match[1].trim())
-            const toolName = parsed.cb_tool_name
-            if (isProposalToolName(toolName)) {
-              const input = { ...parsed }
-              delete input.cb_tool_name
-              delete input.cb_easp
-              toolCalls.push({ toolName, input })
-            }
-          } catch {
-            // Ignore malformed proposal blocks during timeout recovery.
-          }
-        }
-      }
-    }
-  }
-  return dedupeProposalToolCalls(toolCalls)
-}
-
-function getProposalToolResults(messages: Message[]): any[] {
-  const results: any[] = []
-  for (const message of messages as any[]) {
-    if (
-      message.role !== 'tool' ||
-      !Array.isArray(message.content) ||
-      (message.toolName !== 'propose_str_replace' &&
-        message.toolName !== 'propose_write_file')
-    ) {
-      continue
-    }
-
-    results.push(...getProposalToolResultValues(message.content))
-  }
-  return results
-}
-
-function getProposalToolResultValues(toolResult: any): any[] {
-  if (!Array.isArray(toolResult)) return []
-  const results: any[] = []
-  for (const part of toolResult) {
-    if (part?.type === 'json' && 'value' in part) {
-      results.push(...flattenProposalToolResultValues(part.value))
-    }
-  }
-  return results
-}
-
-function flattenProposalToolResultValues(value: any): any[] {
-  if (Array.isArray(value)) {
-    return value.flatMap(flattenProposalToolResultValues)
-  }
-  if (
-    value &&
-    typeof value === 'object' &&
-    value.type === 'json' &&
-    'value' in value
-  ) {
-    return flattenProposalToolResultValues(value.value)
-  }
-  return value === undefined || value === null ? [] : [value]
-}
-
 function isSuccessfulProposalToolResult(result: any): boolean {
   return Boolean(
     result &&
@@ -1175,231 +1143,3 @@ function getProposalResultFailureMessage(result: any): string {
   return ''
 }
 
-function sanitizeRecoverableMixedProposalResults(results: any[]): any[] {
-  return results.map((result) =>
-    isRecoverableMixedProposalFailure(result)
-      ? {
-          ...result,
-          message:
-            'Proposed string replacement; unmatched replacement omitted from proposal.',
-        }
-      : result,
-  )
-}
-
-function isRecoverableMixedProposalFailure(result: any): boolean {
-  return Boolean(
-    result &&
-      typeof result === 'object' &&
-      typeof result.unifiedDiff === 'string' &&
-      result.unifiedDiff.trim().length > 0 &&
-      typeof result.message === 'string' &&
-      getFailedReplacementOldStrings(result.message).length > 0,
-  )
-}
-
-function sanitizeProposalToolCallsForRecoverableFailures(input: {
-  toolCalls: { toolName: string; input: any }[]
-  rawToolResults: any[]
-}): { toolName: string; input: any }[] {
-  const failedOldStringsByPath = getRecoverableFailedOldStringsByPath(
-    input.rawToolResults,
-  )
-  if (failedOldStringsByPath.size === 0) return input.toolCalls
-
-  return input.toolCalls
-    .map((toolCall) =>
-      sanitizeProposalToolCallForRecoverableFailures(
-        toolCall,
-        failedOldStringsByPath,
-      ),
-    )
-    .filter(
-      (
-        toolCall,
-      ): toolCall is {
-        toolName: string
-        input: any
-      } => Boolean(toolCall),
-    )
-}
-
-function sanitizeProposalToolCallForRecoverableFailures(
-  toolCall: { toolName: string; input: any },
-  failedOldStringsByPath: Map<string, Set<string>>,
-): { toolName: string; input: any } | undefined {
-  if (toolCall.toolName !== 'propose_str_replace') return toolCall
-
-  const path = getProposalToolCallPath(toolCall)
-  const failedOldStrings = failedOldStringsByPath.get(path)
-  if (!failedOldStrings || !Array.isArray(toolCall.input?.replacements)) {
-    return toolCall
-  }
-
-  const replacements = toolCall.input.replacements.filter(
-    (replacement: any) =>
-      !replacementMatchesFailedOldString(replacement, failedOldStrings),
-  )
-  if (replacements.length === 0) return undefined
-  if (replacements.length === toolCall.input.replacements.length) {
-    return toolCall
-  }
-
-  return {
-    ...toolCall,
-    input: {
-      ...toolCall.input,
-      replacements,
-    },
-  }
-}
-
-function getRecoverableFailedOldStringsByPath(
-  rawToolResults: any[],
-): Map<string, Set<string>> {
-  const byPath = new Map<string, Set<string>>()
-  for (const result of rawToolResults) {
-    if (!isRecoverableMixedProposalFailure(result)) continue
-
-    const path = getProposalToolResultPath(result)
-    if (!path) continue
-
-    const failedOldStrings = getFailedReplacementOldStrings(result.message)
-    if (failedOldStrings.length === 0) continue
-
-    const existing = byPath.get(path) ?? new Set<string>()
-    for (const oldString of failedOldStrings) {
-      existing.add(oldString)
-    }
-    byPath.set(path, existing)
-  }
-  return byPath
-}
-
-function replacementMatchesFailedOldString(
-  replacement: any,
-  failedOldStrings: Set<string>,
-): boolean {
-  const oldString = getReplacementOldString(replacement)
-  return Boolean(oldString && failedOldStrings.has(oldString))
-}
-
-function getReplacementOldString(replacement: any): string {
-  if (!replacement || typeof replacement !== 'object') return ''
-  if (typeof replacement.oldString === 'string') return replacement.oldString
-  return typeof replacement.old === 'string' ? replacement.old : ''
-}
-
-function getFailedReplacementOldStrings(message: string): string[] {
-  const failedOldStrings = new Set<string>()
-  const quotedPatterns = [
-    /old string\s+("(?:\\.|[^"\\])*")\s+was not found/gi,
-    /found \d+ occurrences of\s+("(?:\\.|[^"\\])*")/gi,
-  ]
-
-  for (const pattern of quotedPatterns) {
-    for (const match of message.matchAll(pattern)) {
-      const parsed = parseJsonQuotedString(match[1])
-      if (parsed) failedOldStrings.add(parsed)
-    }
-  }
-
-  return [...failedOldStrings]
-}
-
-function parseJsonQuotedString(value: string | undefined): string {
-  if (!value) return ''
-  try {
-    const parsed = JSON.parse(value)
-    return typeof parsed === 'string' ? parsed : ''
-  } catch {
-    return value.replace(/^"|"$/g, '')
-  }
-}
-
-function filterIgnorableNoOpProposalFailures(results: any[]): any[] {
-  const successfulPaths = new Set(
-    results
-      .filter(isSuccessfulProposalToolResult)
-      .map(getProposalToolResultPath)
-      .filter(Boolean),
-  )
-  if (successfulPaths.size === 0) return results
-
-  return results.filter(
-    (result) => !isIgnorableNoOpProposalFailure(result, successfulPaths),
-  )
-}
-
-function isIgnorableNoOpProposalFailure(
-  result: any,
-  successfulPaths: Set<string>,
-): boolean {
-  const failureMessage = getProposalResultFailureMessage(result)
-  if (
-    !/(?:no change to the file|same as the old content)/i.test(failureMessage)
-  ) {
-    return false
-  }
-
-  const path = getProposalToolResultPath(result)
-  return Boolean(path && successfulPaths.has(path))
-}
-
-function isProposalToolName(toolName: any): boolean {
-  return (
-    toolName === 'propose_str_replace' || toolName === 'propose_write_file'
-  )
-}
-
-function dedupeProposalToolResults(results: any[]): any[] {
-  const seen = new Set<string>()
-  const deduped: any[] = []
-  for (const result of results) {
-    const key = getProposalToolResultKey(result)
-    if (key && seen.has(key)) continue
-    if (key) seen.add(key)
-    deduped.push(result)
-  }
-  return deduped
-}
-
-function getProposalToolResultKey(result: any): string {
-  if (!result || typeof result !== 'object') return ''
-  const file = typeof result.file === 'string' ? result.file : ''
-  const unifiedDiff =
-    typeof result.unifiedDiff === 'string' ? result.unifiedDiff : ''
-  const errorMessage =
-    typeof result.errorMessage === 'string' ? result.errorMessage : ''
-  const error = typeof result.error === 'string' ? result.error : ''
-  const message = typeof result.message === 'string' ? result.message : ''
-  if (!file && !unifiedDiff && !errorMessage && !error && !message) {
-    return ''
-  }
-  return [file, unifiedDiff, errorMessage, error, message].join('\0')
-}
-
-function dedupeProposalToolCalls(
-  toolCalls: { toolName: string; input: any }[],
-): { toolName: string; input: any }[] {
-  const seen = new Set<string>()
-  const deduped: { toolName: string; input: any }[] = []
-  for (const toolCall of toolCalls) {
-    const key = getProposalToolCallKey(toolCall)
-    if (key && seen.has(key)) continue
-    if (key) seen.add(key)
-    deduped.push(toolCall)
-  }
-  return deduped
-}
-
-function getProposalToolCallKey(toolCall: {
-  toolName: string
-  input: any
-}): string {
-  try {
-    return `${toolCall.toolName}\0${JSON.stringify(toolCall.input)}`
-  } catch {
-    return toolCall.toolName
-  }
-}

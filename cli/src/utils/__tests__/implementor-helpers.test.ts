@@ -19,6 +19,8 @@ import {
   getMultiPromptProgress,
   getMultiPromptPreview,
   shouldShowEditDiff,
+  synthesizeProposalToolBlocks,
+  isEditToolBlock,
 } from '../implementor-helpers'
 
 import type {
@@ -526,6 +528,160 @@ describe('getFileStatsFromBlocks', () => {
     const stats = getFileStatsFromBlocks(blocks)
     expect(stats).toHaveLength(0)
   })
+
+  test('expands transaction file results into per-file stats', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'transaction-1',
+        toolName: 'propose_edit_transaction',
+        input: { edits: [] },
+        outputRaw: [
+          {
+            type: 'json',
+            value: {
+              message: 'Proposed transaction.',
+              files: [
+                { file: 'src/a.ts', unifiedDiff: '@@ -1 +1 @@\n-oldA\n+newA' },
+                { file: 'src/b.ts', unifiedDiff: '@@ -1 +1 @@\n-oldB\n+newB' },
+              ],
+            },
+          },
+        ],
+      },
+    ]
+
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(2)
+    expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
+    expect(stats[0].stats.linesAdded).toBe(1)
+    expect(stats[0].stats.linesRemoved).toBe(1)
+  })
+})
+
+describe('synthesizeProposalToolBlocks', () => {
+  test('returns empty when there are no structured tool calls', () => {
+    expect(synthesizeProposalToolBlocks(undefined)).toEqual([])
+    expect(synthesizeProposalToolBlocks({})).toEqual([])
+    expect(synthesizeProposalToolBlocks({ toolCalls: [] })).toEqual([])
+  })
+
+  test('synthesizes edit blocks from structured proposal output with file stats', () => {
+    const resultValue = {
+      toolCalls: [
+        {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'docs/agents-and-tools.md',
+            replacements: [{ oldString: 'old', newString: 'new' }],
+          },
+        },
+        {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'docs/local-mode.md',
+            replacements: [{ oldString: 'a', newString: 'b' }],
+          },
+        },
+      ],
+      toolResults: [
+        [{ file: 'docs/agents-and-tools.md', unifiedDiff: '@@ -1 +1 @@\n-old\n+new' }],
+        [{ file: 'docs/local-mode.md', unifiedDiff: '@@ -1 +1 @@\n-a\n+b' }],
+      ],
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(2)
+    expect(blocks.every(isEditToolBlock)).toBe(true)
+
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats.map((stat) => stat.path)).toEqual([
+      'docs/agents-and-tools.md',
+      'docs/local-mode.md',
+    ])
+    expect(stats[0].stats.linesAdded).toBe(1)
+    expect(stats[0].stats.linesRemoved).toBe(1)
+  })
+
+  test('unwraps output nested under a value property', () => {
+    const resultValue = {
+      value: {
+        toolCalls: [
+          {
+            toolName: 'propose_write_file',
+            input: { path: 'src/new.ts', content: 'line1\nline2' },
+          },
+        ],
+        toolResults: [],
+      },
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(1)
+    // Even without toolResults, proposed-tool input fallback yields file stats.
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0].path).toBe('src/new.ts')
+  })
+
+  test('unwraps structuredOutput-wrapped proposal output', () => {
+    const resultValue = {
+      type: 'structuredOutput',
+      value: {
+        value: {
+          toolCalls: [
+            {
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'docs/local-mode.md',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+          ],
+          toolResults: [
+            [
+              {
+                file: 'docs/local-mode.md',
+                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+              },
+            ],
+          ],
+        },
+      },
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(1)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0].path).toBe('docs/local-mode.md')
+    expect(stats[0].stats.linesAdded).toBe(1)
+  })
+
+  test('synthesizes a transaction block that expands into per-file stats', () => {
+    const resultValue = {
+      toolCalls: [
+        {
+          toolName: 'propose_edit_transaction',
+          input: { edits: [] },
+        },
+      ],
+      toolResults: [
+        {
+          message: 'Proposed transaction.',
+          files: [
+            { file: 'src/a.ts', unifiedDiff: '@@ -1 +1 @@\n-oldA\n+newA' },
+            { file: 'src/b.ts', unifiedDiff: '@@ -1 +1 @@\n-oldB\n+newB' },
+          ],
+        },
+      ],
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(1)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
+  })
 })
 
 describe('buildActivityTimeline', () => {
@@ -591,6 +747,46 @@ describe('buildActivityTimeline', () => {
     const timeline = buildActivityTimeline(blocks)
     expect(timeline).toHaveLength(1)
     expect(timeline[0].type).toBe('commentary')
+  })
+
+  test('expands transaction file results into timeline edits', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Applying transaction',
+      } as TextContentBlock,
+      {
+        type: 'tool',
+        toolCallId: 'transaction-1',
+        toolName: 'edit_transaction',
+        input: { edits: [] },
+        outputRaw: [
+          {
+            type: 'json',
+            value: {
+              message: 'Edit transaction applied successfully.',
+              files: [
+                { path: 'src/a.ts', patch: '@@ -1 +1 @@\n-oldA\n+newA' },
+                { path: 'src/b.ts', patch: '@@ -1 +1 @@\n-oldB\n+newB' },
+              ],
+            },
+          },
+        ],
+      },
+    ]
+
+    const timeline = buildActivityTimeline(blocks)
+    expect(timeline).toHaveLength(3)
+    expect(timeline[1]).toMatchObject({
+      type: 'edit',
+      content: 'src/a.ts',
+      diff: '@@ -1 +1 @@\n-oldA\n+newA',
+    })
+    expect(timeline[2]).toMatchObject({
+      type: 'edit',
+      content: 'src/b.ts',
+      diff: '@@ -1 +1 @@\n-oldB\n+newB',
+    })
   })
 })
 

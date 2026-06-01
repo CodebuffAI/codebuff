@@ -6,7 +6,7 @@ import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-p
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-type ReplacementReadCapability = {
+export type ReplacementReadCapability = {
   startLine: number
   endLine: number
   hash: string
@@ -84,6 +84,45 @@ function normalizeBasedOnRead(
   return basedOnRead
 }
 
+// Obvious placeholder/stub anchors that should never be accepted, even on small
+// files where basedOnRead is otherwise ignored. Silently ignoring these let bad
+// tool-call hygiene (e.g. an editor emitting basedOnRead: "dummy") look fine on
+// small files, then fail confusingly on the first large file. We reject them up
+// front everywhere so the mistake surfaces immediately and consistently.
+const BOGUS_READ_CAPABILITY_VALUES = new Set([
+  'dummy',
+  'todo',
+  'tbd',
+  'fixme',
+  'placeholder',
+  'none',
+  'null',
+  'undefined',
+  'cap.dummy',
+  'cap.todo',
+  'cap.placeholder',
+])
+
+/**
+ * Returns a recoverable error string when a string-form basedOnRead is clearly
+ * not a real read capability token (a stub/placeholder or anything that does not
+ * decode), otherwise null. Applied regardless of file size so bogus anchors are
+ * never silently ignored.
+ */
+function describeBogusReadCapability(
+  basedOnRead: ReplacementReadCapability | string | undefined,
+  decoded: ReplacementReadCapability | string | undefined,
+): string | null {
+  if (typeof basedOnRead !== 'string') return null
+  if (BOGUS_READ_CAPABILITY_VALUES.has(basedOnRead.trim().toLowerCase())) {
+    return `Invalid basedOnRead: ${JSON.stringify(basedOnRead)} is a placeholder, not a real read capability. Never pass a stub anchor. For small files omit basedOnRead entirely; for large files read the exact range with read_files and copy the readCapability token from the fresh header.`
+  }
+  // A string that fails to decode into a concrete { startLine, endLine, hash }
+  // is malformed; surface decodeReadCapabilityToken's targeted message.
+  if (typeof decoded === 'string') return decoded
+  return null
+}
+
 const LARGE_FILE_LINE_THRESHOLD = 1_000
 const LARGE_FILE_CHAR_THRESHOLD = 100_000
 
@@ -105,6 +144,11 @@ export async function processStrReplace(params: {
     allowMultiple: boolean
     basedOnRead?: ReplacementReadCapability | string
   }[]
+  /**
+   * When true, any failed replacement aborts the entire batch without applying
+   * partial edits. Large files are always atomic regardless of this flag.
+   */
+  atomic?: boolean
   initialContentPromise: Promise<string | null>
   logger: Logger
 }): Promise<
@@ -117,7 +161,7 @@ export async function processStrReplace(params: {
     }
   | { tool: 'str_replace'; path: string; error: string }
 > {
-  const { path, replacements, initialContentPromise, logger } = params
+  const { path, replacements, atomic = false, initialContentPromise, logger } = params
   const initialContent = await initialContentPromise
   if (initialContent === null) {
     return {
@@ -131,6 +175,11 @@ export async function processStrReplace(params: {
   // Process each oldString/newString pair
   let currentContent = initialContent
   let messages: string[] = []
+  // Atomic edits are all-or-nothing: if any replacement in the batch fails to
+  // match, NONE are applied. Large files are always atomic to prevent confusing
+  // partial-apply state that shifts line numbers and invalidates read anchors;
+  // small files can opt in with atomic: true for logically grouped edits.
+  const failures: string[] = []
   const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
   const initialContentLineCount = normalizeLineEndings({
     str: initialContent,
@@ -138,6 +187,7 @@ export async function processStrReplace(params: {
   const isLargeFile =
     initialContent.length > LARGE_FILE_CHAR_THRESHOLD ||
     initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
+  const useAtomicBatch = isLargeFile || atomic
   // basedOnRead is a large-file safety anchor only. Small files are edited by
   // exact oldString matching, which is already safe, so any basedOnRead supplied
   // on a small file is ignored rather than validated. This prevents repeated
@@ -146,6 +196,7 @@ export async function processStrReplace(params: {
   const enforceReadCapability = isLargeFile
   const normalizedInitialContent = normalizeLineEndings({ str: initialContent })
   const validatedReadRanges = new Map<string, ValidatedReadRange>()
+  const readCapabilityWarnings: string[] = []
   const preflightErrors: string[] = []
   let ignoredBasedOnReadOnSmallFile = false
 
@@ -155,6 +206,26 @@ export async function processStrReplace(params: {
     ...replacement,
     basedOnRead: normalizeBasedOnRead(replacement.basedOnRead),
   }))
+
+  // Reject obviously-bogus string anchors (stubs like "dummy", or anything that
+  // does not decode) on EVERY file, large or small. This is the only basedOnRead
+  // check that runs on small files; valid "cap...." tokens decode to objects and
+  // are unaffected, and object-form anchors stay ignored on small files.
+  for (let i = 0; i < replacements.length; i++) {
+    const bogus = describeBogusReadCapability(
+      replacements[i].basedOnRead,
+      normalizedReplacements[i].basedOnRead,
+    )
+    if (bogus) preflightErrors.push(bogus)
+  }
+
+  if (preflightErrors.length > 0) {
+    return {
+      tool: 'str_replace' as const,
+      path,
+      error: addFailedEditRecoveryGuidance(preflightErrors.join('\n\n')),
+    }
+  }
 
   if (enforceReadCapability) {
     for (const { basedOnRead } of normalizedReplacements) {
@@ -171,7 +242,7 @@ export async function processStrReplace(params: {
         basedOnRead,
       })
       if (typeof validatedRange === 'string') {
-        preflightErrors.push(validatedRange)
+        readCapabilityWarnings.push(validatedRange)
       } else if (validatedRange) {
         validatedReadRanges.set(key, validatedRange)
       }
@@ -199,9 +270,10 @@ export async function processStrReplace(params: {
   } of normalizedReplacements) {
     // Regular case: require oldStr for replacements
     if (!oldStr) {
-      messages.push(
-        'The old string was empty, which does not match any content, skipping.',
-      )
+      const emptyOldStrMessage =
+        'The old string was empty, which does not match any content, skipping.'
+      messages.push(emptyOldStrMessage)
+      failures.push(emptyOldStrMessage)
       continue
     }
 
@@ -211,24 +283,59 @@ export async function processStrReplace(params: {
     const normalizedOldStr = normalizeLineEndings({ str: oldStr })
     const normalizedNewStr = normalizeLineEndings({ str: newStr })
 
-    // A valid basedOnRead is the concrete capability object. (Malformed tokens
-    // on large files were already rejected in preflight; on small files any
-    // basedOnRead is ignored entirely.)
-    const validBasedOnRead =
-      basedOnRead && typeof basedOnRead === 'object' ? basedOnRead : undefined
+    // A fresh basedOnRead is a concrete capability object whose range hash still
+    // matched the current file during preflight. Stale or never-validated object
+    // anchors are treated exactly like a MISSING anchor here: large-file edits
+    // fall back to deterministic oldString matching rather than hard-failing, so
+    // an otherwise-safe unique edit is never blocked by stale range metadata.
+    // (Malformed/placeholder string anchors are still rejected in preflight.)
+    const freshValidatedRange =
+      basedOnRead && typeof basedOnRead === 'object'
+        ? validatedReadRanges.get(getReadCapabilityKey(basedOnRead))
+        : undefined
+    const hasFreshBasedOnRead = Boolean(freshValidatedRange)
+    const hasStaleBasedOnRead =
+      Boolean(basedOnRead && typeof basedOnRead === 'object') &&
+      !hasFreshBasedOnRead
 
-    if (isLargeFile && !validBasedOnRead) {
-      // Large files are strict: edits MUST be anchored to a freshly-read range.
-      // This guarantees deterministic, location-correct edits instead of
-      // "applies only if the string happens to be unique".
-      messages.push(
-        [
+    if (isLargeFile && !hasFreshBasedOnRead) {
+      const fallback = getDeterministicLargeFileFallbackRange({
+        content: normalizedCurrentContent,
+        oldStr: normalizedOldStr,
+        allowMultiple,
+      })
+
+      if (fallback) {
+        messages.push(
+          [
+            hasStaleBasedOnRead
+              ? `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}, ignoring a stale basedOnRead anchor because oldString was uniquely identifiable.`
+              : `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}; no basedOnRead anchor was needed because oldString was uniquely identifiable.`,
+            'This fallback is only allowed when oldString is uniquely identifiable (or allowMultiple is true with exact occurrences); ambiguous large-file edits still require read_files.ranges.',
+            hasStaleBasedOnRead && readCapabilityWarnings.length > 0
+              ? `Stale basedOnRead detail:\n${readCapabilityWarnings.join('\n')}`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        )
+      } else {
+        const largeFileBlockedMessage = [
           `Large-file edit blocked for ${path}: this file has ${initialContentLineCount.toLocaleString()} lines and ${initialContent.length.toLocaleString()} characters.`,
-          'Do not use naked str_replace on large files.',
-          'First read the exact target window with read_files.ranges, then retry with basedOnRead set to the readCapability token from that read header (or { startLine, endLine, hash: rangeHash }).',
-        ].join('\n'),
-      )
-      continue
+          hasStaleBasedOnRead
+            ? 'The supplied basedOnRead anchor was stale AND oldString was not uniquely identifiable, so the deterministic fallback could not pick a single safe target.'
+            : 'No basedOnRead anchor was supplied and oldString was not uniquely identifiable, so the deterministic fallback could not pick a single safe target.',
+          'First read the exact target window with read_files.ranges, then retry with a more specific oldString (or basedOnRead set to the readCapability token from that fresh read header).',
+          readCapabilityWarnings.length > 0
+            ? `basedOnRead detail:\n${readCapabilityWarnings.join('\n')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+        messages.push(largeFileBlockedMessage)
+        failures.push(largeFileBlockedMessage)
+        continue
+      }
     }
 
     if (basedOnRead && !enforceReadCapability) {
@@ -236,12 +343,10 @@ export async function processStrReplace(params: {
     }
 
     const validatedReadRange =
-      enforceReadCapability && validBasedOnRead
+      enforceReadCapability && freshValidatedRange
         ? getCurrentValidatedReadRange({
             content: normalizedCurrentContent,
-            validatedRange: validatedReadRanges.get(
-              getReadCapabilityKey(validBasedOnRead),
-            ),
+            validatedRange: freshValidatedRange,
           })
         : null
 
@@ -257,8 +362,12 @@ export async function processStrReplace(params: {
 
     if (match.success) {
       updatedOldStr = match.oldStr
+      if (match.message) {
+        messages.push(match.message)
+      }
     } else {
       messages.push(match.error)
+      failures.push(match.error)
       updatedOldStr = null
     }
 
@@ -276,6 +385,25 @@ export async function processStrReplace(params: {
               updatedOldStr,
               () => normalizedNewStr,
             )
+  }
+
+  // Atomic batch guarantee: abort the whole batch if any replacement failed so
+  // the file is never left half-edited. Large files always use this path;
+  // small files use it only when the caller opts in with atomic: true.
+  if (useAtomicBatch && failures.length > 0) {
+    return {
+      tool: 'str_replace' as const,
+      path,
+      error: addFailedEditRecoveryGuidance(
+        [
+          `Atomic str_replace batch aborted for ${path}: ${failures.length} of ${replacements.length} replacement(s) did not apply, so NO changes were made.`,
+          isLargeFile
+            ? 'Re-read the exact current ranges for the failed replacements, then resend the whole batch in one str_replace call (each replacement with its own basedOnRead).'
+            : 'Re-read the exact current file/range for the failed replacements, then retry the batch or omit atomic to allow partial success.',
+          ...failures,
+        ].join('\n\n'),
+      ),
+    }
   }
 
   currentContent = currentContent.replaceAll('\n', lineEnding)
@@ -573,9 +701,31 @@ function findClosestMatches(params: {
     })
   }
 
-  return matches
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit)
+  const sortedMatches = matches.sort((a, b) => b.similarity - a.similarity)
+  const selectedMatches: typeof matches = []
+
+  // Prefer showing distinct locations before overlapping windows from the same
+  // location. This makes diagnostics more useful for recovery (e.g. utility +
+  // test both look plausible) and lets the near-match ambiguity gate compare
+  // real alternate locations instead of only adjacent slices of the best block.
+  for (const match of sortedMatches) {
+    const overlapsSelected = selectedMatches.some(
+      (selected) =>
+        match.startLine <= selected.endLine && match.endLine >= selected.startLine,
+    )
+    if (!overlapsSelected) {
+      selectedMatches.push(match)
+      if (selectedMatches.length >= limit) return selectedMatches
+    }
+  }
+
+  for (const match of sortedMatches) {
+    if (selectedMatches.includes(match)) continue
+    selectedMatches.push(match)
+    if (selectedMatches.length >= limit) return selectedMatches
+  }
+
+  return selectedMatches
 }
 
 function formatClosestMatchDiagnostics(
@@ -649,13 +799,101 @@ function formatOccurrenceDiagnostics(
   )
 }
 
+function getDeterministicLargeFileFallbackRange(params: {
+  content: string
+  oldStr: string
+  allowMultiple: boolean
+}): { startLine: number; endLine: number } | null {
+  const { content, oldStr, allowMultiple } = params
+  if (!oldStr) return null
+  const occurrences = getOccurrenceLineRanges({
+    initialContent: content,
+    oldStr,
+    // Always look for at least two occurrences: for single-target edits this
+    // proves uniqueness, and for allowMultiple it proves at least one match.
+    limit: 2,
+  })
+  if (allowMultiple) {
+    return occurrences.length > 0
+      ? {
+          startLine: occurrences[0].startLine,
+          endLine: occurrences[occurrences.length - 1].endLine,
+        }
+      : null
+  }
+  return occurrences.length === 1 ? occurrences[0] : null
+}
+
+// Deterministic near-match constants. These gate when a drifted oldString
+// (changed comment, quote style, trailing space, reflowed line, or content
+// remembered from a slightly-stale read) may be auto-corrected to the real
+// current block. They are intentionally conservative: the goal is to land
+// legitimate one-target edits, never to guess on ambiguity.
+const NEAR_MATCH_MIN_SIMILARITY = 0.92
+// The winner must clearly beat the runner-up: either a similarity margin this
+// large, or a runner-up that is itself below NEAR_MATCH_AMBIGUOUS_SECOND.
+const NEAR_MATCH_MIN_MARGIN = 0.05
+const NEAR_MATCH_AMBIGUOUS_SECOND = 0.85
+// Short strings are too easy to match in the wrong place; require substance.
+const NEAR_MATCH_MIN_OLD_STR_LENGTH = 20
+
+/**
+ * After exact and indentation matching fail, decide whether the closest
+ * candidate is a safe single-winner auto-correction. Returns the candidate's
+ * real current block text (which occurs exactly once in the content) when ALL
+ * deterministic gates pass, otherwise null. Never guesses on ambiguity.
+ */
+function tryNearMatchAutoCorrect(params: {
+  initialContent: string
+  oldStr: string
+}): { oldStr: string; startLine: number; endLine: number; similarity: number } | null {
+  const { initialContent, oldStr } = params
+  if (oldStr.trim().length < NEAR_MATCH_MIN_OLD_STR_LENGTH) return null
+
+  const matches = findClosestMatches({ initialContent, oldStr, limit: 8 })
+  const best = matches[0]
+  if (!best) return null
+  if (best.similarity < NEAR_MATCH_MIN_SIMILARITY) return null
+
+  // findClosestMatches intentionally considers nearby window sizes (L-3..L+3),
+  // so the runner-up is often an overlapping slice of the SAME location. That
+  // should not make a clearly unique edit look ambiguous. Only a distinct,
+  // non-overlapping candidate can block auto-correction.
+  const second = matches.find(
+    (match) =>
+      match.startLine > best.endLine || match.endLine < best.startLine,
+  )
+  if (second) {
+    const margin = best.similarity - second.similarity
+    const ambiguous =
+      margin < NEAR_MATCH_MIN_MARGIN &&
+      second.similarity >= NEAR_MATCH_AMBIGUOUS_SECOND
+    if (ambiguous) return null
+  }
+
+  // The chosen block must be location-unique so replaceAll edits exactly the
+  // intended spot. (It is also necessarily different from oldStr, since an
+  // exact single match would have returned earlier.)
+  const occurrences = initialContent.split(best.closestBlock).length - 1
+  if (occurrences !== 1) return null
+
+  return {
+    oldStr: best.closestBlock,
+    startLine: best.startLine,
+    endLine: best.endLine,
+    similarity: best.similarity,
+  }
+}
+
 const tryMatchOldStr = (params: {
   initialContent: string
   oldStr: string
   newStr: string
   allowMultiple: boolean
   logger: Logger
-}): { success: true; oldStr: string } | { success: false; error: string } => {
+}):
+  | { success: true; oldStr: string; message?: string }
+  | { success: false; error: string } => {
   const { initialContent, oldStr, newStr, allowMultiple, logger } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
@@ -685,45 +923,26 @@ const tryMatchOldStr = (params: {
   if (newChange) {
     logger.debug('Matched with indentation modification')
     return { success: true, oldStr: newChange.searchContent }
-  } else {
-    // Try matching without any whitespace as a last resort
-    const noWhitespaceSearch = oldStr.replace(/\s+/g, '')
-    const noWhitespaceOld = initialContent.replace(/\s+/g, '')
-    const noWhitespaceIndex = noWhitespaceOld.indexOf(noWhitespaceSearch)
+  }
 
-    if (noWhitespaceIndex >= 0) {
-      // Count non-whitespace characters to find the real position
-      let realIndex = 0
-      let nonWhitespaceCount = 0
-      while (nonWhitespaceCount < noWhitespaceIndex) {
-        if (initialContent[realIndex].match(/\S/)) {
-          nonWhitespaceCount++
-        }
-        realIndex++
-      }
-
-      // Count non-whitespace characters in search content to find length
-      let searchLength = 0
-      let nonWhitespaceSearchCount = 0
-      while (
-        nonWhitespaceSearchCount < noWhitespaceSearch.length &&
-        realIndex + searchLength < initialContent.length
-      ) {
-        if (initialContent[realIndex + searchLength].match(/\S/)) {
-          nonWhitespaceSearchCount++
-        }
-        searchLength++
-      }
-
-      // Find the actual content with original whitespace
-      const actualContent = initialContent.slice(
-        realIndex,
-        realIndex + searchLength,
-      )
-      if (initialContent.includes(actualContent)) {
-        logger.debug('Matched with whitespace removed')
-        return { success: true, oldStr: actualContent }
-      }
+  // Safe deterministic near-match: when exact and indentation matching both
+  // fail, auto-correct only a single clear-winner candidate that is
+  // location-unique. This lands edits whose oldString drifted slightly (a
+  // changed comment, quote style, trailing whitespace, or a stale read) without
+  // the old all-whitespace-stripped fallback's risk of silently editing the
+  // wrong line (e.g. a utility and its test sharing a similar line). Genuine
+  // ambiguity falls through to the rich diagnostics below and fails cleanly.
+  const nearMatch = tryNearMatchAutoCorrect({ initialContent, oldStr })
+  if (nearMatch) {
+    logger.debug('Matched with near-match auto-correction')
+    return {
+      success: true,
+      oldStr: nearMatch.oldStr,
+      message: [
+        `Note: auto-corrected a near-match edit (${Math.round(nearMatch.similarity * 100)}% similar) at lines ${nearMatch.startLine}-${nearMatch.endLine}.`,
+        'Your oldString did not match exactly, but exactly one high-confidence block matched, so it was edited there.',
+        'If this is the wrong location, re-read the exact range with read_files and resend a precise oldString.',
+      ].join('\n'),
     }
   }
 

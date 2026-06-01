@@ -248,7 +248,22 @@ export async function getFiles(params: {
       const slice = lines.slice(start - 1, end).join('\n')
       const rangeHash = getContentHash(slice)
       const readCapability = encodeReadCapabilityToken(start, end, rangeHash)
-      const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}; readCapability=${readCapability}]\n`
+      // Surface a copy-safe edit snippet right under the header so the model
+      // can paste the exact basedOnRead value into a str_replace replacement
+      // without re-deriving startLine/endLine/hash (the historical source of
+      // mispaired/stale anchors). The oldString should be copied from the
+      // range body immediately below this snippet.
+      const editSnippet = [
+        '[Copy-safe str_replace replacement template:',
+        '  {',
+        '    oldString: <copy exact text from the range body below>,',
+        '    newString: <replacement text>,',
+        '    allowMultiple: false,',
+        `    basedOnRead: "${readCapability}",`,
+        '  }',
+        ']\n',
+      ].join('\n')
+      const header = `[Lines ${start}-${end} of ${fmtNum(totalLines)} in ${relativePath}; rangeHash=${rangeHash}; readCapability=${readCapability}]\n${editSnippet}`
       let body = slice
       if (body.length > MAX_CHARS) {
         body =

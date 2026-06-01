@@ -441,6 +441,151 @@ describe('sdk-event-handlers', () => {
     expect(getStreamingAgents().size).toBe(0)
   })
 
+  test('synthesizes edit blocks for proposal agents that streamed no tool blocks', () => {
+    const { ctx, getMessages } = createTestContext()
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'tool-1-0',
+        agentName: 'Proposal #2',
+        agentType: 'editor-implementor-proposal-2',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: 'Make the edits',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      } as any,
+    ])
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    const toolResultEvent: ToolResultEvent = {
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'editor-implementor-proposal-2',
+              value: {
+                toolCalls: [
+                  {
+                    toolName: 'propose_str_replace',
+                    input: {
+                      path: 'docs/agents-and-tools.md',
+                      replacements: [{ oldString: 'old', newString: 'new' }],
+                    },
+                  },
+                ],
+                toolResults: [
+                  [
+                    {
+                      file: 'docs/agents-and-tools.md',
+                      unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+                    },
+                  ],
+                ],
+                unifiedDiffs: '',
+              },
+            },
+          ],
+        },
+      ],
+    }
+    handleEvent(toolResultEvent)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    const toolBlocks = (agentBlock.blocks ?? []).filter(
+      (b) => b.type === 'tool',
+    )
+    expect(toolBlocks).toHaveLength(1)
+    expect(toolBlocks[0]).toMatchObject({
+      type: 'tool',
+      toolName: 'propose_str_replace',
+      input: { path: 'docs/agents-and-tools.md' },
+    })
+  })
+
+  test('synthesizes edit blocks from structuredOutput-wrapped proposal results', () => {
+    const { ctx, getMessages } = createTestContext()
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'tool-1-0',
+        agentName: 'Proposal #3',
+        agentType: 'editor-implementor-proposal-3',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: 'Make the edits',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      } as any,
+    ])
+    ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
+
+    const handleEvent = createEventHandler(ctx)
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentName: 'editor-implementor-proposal-3',
+              value: {
+                type: 'structuredOutput',
+                value: {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'docs/local-mode.md',
+                          replacements: [
+                            { oldString: 'old', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      [
+                        {
+                          file: 'docs/local-mode.md',
+                          unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+                        },
+                      ],
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    const toolBlocks = (agentBlock.blocks ?? []).filter(
+      (b) => b.type === 'tool',
+    )
+    expect(toolBlocks).toHaveLength(1)
+    expect(toolBlocks[0]).toMatchObject({
+      type: 'tool',
+      toolName: 'propose_str_replace',
+      input: { path: 'docs/local-mode.md' },
+    })
+  })
+
   test('preserves streamed text content and skips duplicate final content', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
 

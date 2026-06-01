@@ -664,6 +664,23 @@ function* handleStepsMultiPrompt({
     const finalAppliedResults =
       yield* applyImplementationEdits(chosenImplementation)
     if (hasCleanSuccessfulAppliedEdit(finalAppliedResults)) {
+      const coverageWarning = buildAppliedCoverageWarning({
+        appliedImplementation: chosenImplementation,
+        appliedToolResults: finalAppliedResults,
+      })
+      if (coverageWarning) {
+        // The apply cleanly touched fewer files than the request explicitly
+        // required. Reporting this as a success hallucinates completion, so
+        // surface it as a failure the parent must act on instead.
+        yield {
+          toolName: 'set_output',
+          input: {
+            error: buildIncompleteCoverageError(coverageWarning),
+          },
+          includeToolCall: false,
+        } satisfies ToolCall<'set_output'>
+        return
+      }
       yield {
         toolName: 'set_output',
         input: {
@@ -680,12 +697,16 @@ function* handleStepsMultiPrompt({
             selectorChoiceId,
           }),
           toolResults: getCleanAppliedToolResults(finalAppliedResults),
-          suggestedImprovements,
+          suggestedImprovements: appendDiagnosticMessage(
+            suggestedImprovements,
+            coverageWarning,
+          ),
           proposalSummary: buildProposalSummary({
             selectedImplementation: chosenImplementation,
             appliedImplementation: chosenImplementation,
             applyFailures: [],
             selectorNotes: suggestedImprovements,
+            coverageWarning,
           }),
         },
         includeToolCall: false,
@@ -1425,6 +1446,11 @@ function* handleStepsMultiPrompt({
         typeof toolCall.input.content === 'string'
       )
     }
+    if (toolCall.toolName === 'propose_edit_transaction') {
+      return (
+        Array.isArray(toolCall.input.edits) && toolCall.input.edits.length > 0
+      )
+    }
     return false
   }
 
@@ -1549,7 +1575,7 @@ function* handleStepsMultiPrompt({
   }
 
   function isFailureLikeEditResultMessage(message: string): boolean {
-    return /(?:old string[\s\S]*not found|was not found|no change to the file|skipping|found \d+ occurrences|failed|error|does not exist|same as the old content)/i.test(
+    return /(?:old string[\s\S]*not found|was not found|no changes? to (?:the file|existing files)|skipping|found \d+ occurrences|failed|error|does not exist|same as the old content|no tool result|returned no result)/i.test(
       message,
     )
   }
@@ -1580,7 +1606,9 @@ function* handleStepsMultiPrompt({
   }
 
   function isNoOpEditFailureMessage(message: string): boolean {
-    return /(?:no change to the file|same as the old content)/i.test(message)
+    return /(?:no changes? to (?:the file|existing files)|same as the old content)/i.test(
+      message,
+    )
   }
 
   function getEditResultPath(result: any): string {
@@ -3033,6 +3061,21 @@ function* handleStepsMultiPrompt({
       const appliedToolResults =
         yield* applyImplementationEdits(candidateToApply)
       if (hasCleanSuccessfulAppliedEdit(appliedToolResults)) {
+        const coverageWarning = buildAppliedCoverageWarning({
+          appliedImplementation: candidateToApply,
+          appliedToolResults,
+        })
+        if (coverageWarning) {
+          // Incomplete multi-file coverage is a failure, not a partial success.
+          yield {
+            toolName: 'set_output',
+            input: {
+              error: buildIncompleteCoverageError(coverageWarning),
+            },
+            includeToolCall: false,
+          } satisfies ToolCall<'set_output'>
+          return
+        }
         yield {
           toolName: 'set_output',
           input: {
@@ -3049,12 +3092,13 @@ function* handleStepsMultiPrompt({
               selectorChoiceId,
             }),
             toolResults: getCleanAppliedToolResults(appliedToolResults),
-            suggestedImprovements: '',
+            suggestedImprovements: coverageWarning,
             proposalSummary: buildProposalSummary({
               selectedImplementation,
               appliedImplementation: candidateToApply,
               applyFailures,
               selectorNotes: suggestedImprovements,
+              coverageWarning,
             }),
           },
           includeToolCall: false,
@@ -3076,10 +3120,40 @@ function* handleStepsMultiPrompt({
         continue
       }
 
+      // Loop guard: if the repair produced byte-identical tool calls to the
+      // candidate that just failed, re-applying them is guaranteed to reproduce
+      // the same failure (e.g. a repeated "No changes to existing files"/stale
+      // anchor no-op). Skip the redundant apply and move to the next candidate
+      // instead of spinning on the same edit.
+      if (
+        implementationToolCallSignature(repairedImplementation) ===
+        implementationToolCallSignature(candidateToApply)
+      ) {
+        applyFailures.push(
+          `${repairedImplementation.id}: repair produced no change from the failed proposal (identical edits); skipping redundant re-apply to avoid a no-op loop.`,
+        )
+        continue
+      }
+
       const repairedToolResults = yield* applyImplementationEdits(
         repairedImplementation,
       )
       if (hasCleanSuccessfulAppliedEdit(repairedToolResults)) {
+        const coverageWarning = buildAppliedCoverageWarning({
+          appliedImplementation: repairedImplementation,
+          appliedToolResults: repairedToolResults,
+        })
+        if (coverageWarning) {
+          // Incomplete multi-file coverage is a failure, not a partial success.
+          yield {
+            toolName: 'set_output',
+            input: {
+              error: buildIncompleteCoverageError(coverageWarning),
+            },
+            includeToolCall: false,
+          } satisfies ToolCall<'set_output'>
+          return
+        }
         yield {
           toolName: 'set_output',
           input: {
@@ -3096,12 +3170,13 @@ function* handleStepsMultiPrompt({
               selectorChoiceId,
             }),
             toolResults: getCleanAppliedToolResults(repairedToolResults),
-            suggestedImprovements: '',
+            suggestedImprovements: coverageWarning,
             proposalSummary: buildProposalSummary({
               selectedImplementation,
               appliedImplementation: repairedImplementation,
               applyFailures,
               selectorNotes: suggestedImprovements,
+              coverageWarning,
             }),
           },
           includeToolCall: false,
@@ -3216,10 +3291,45 @@ function* handleStepsMultiPrompt({
 
   function* applyImplementationEdits(
     chosenImplementation: Implementation,
-  ): Generator<ToolCall<'str_replace'> | ToolCall<'write_file'>, any[], any> {
+  ): Generator<
+    | ToolCall<'str_replace'>
+    | ToolCall<'write_file'>
+    | ToolCall<'edit_transaction'>,
+    any[],
+    any
+  > {
     // Apply the chosen implementation's tool calls as real edits
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
+      // propose_edit_transaction maps to the atomic edit_transaction tool, which
+      // carries an `edits` array (not a single `path`) and is applied as one
+      // client-side batch by the runtime.
+      if (toolCall.toolName === 'propose_edit_transaction') {
+        const input = isObject(toolCall.input)
+          ? {
+              ...toolCall.input,
+              ...(Array.isArray(toolCall.input.edits)
+                ? { edits: normalizeProposalTransactionEdits(toolCall.input.edits) }
+                : {}),
+            }
+          : toolCall.input
+        const { toolResult } = yield {
+          toolName: 'edit_transaction',
+          input,
+          includeToolCall: true,
+        } satisfies ToolCall<'edit_transaction'>
+
+        if (toolResult === undefined || toolResult === null) {
+          appliedToolResults.push({
+            errorMessage:
+              'edit_transaction did not return a tool result; no edit was recorded.',
+          })
+        } else {
+          appliedToolResults.push(toolResult)
+        }
+        continue
+      }
+
       // Convert propose_* tool calls to real edit tool calls
       const realToolName =
         toolCall.toolName === 'propose_str_replace'
@@ -3258,6 +3368,16 @@ function* handleStepsMultiPrompt({
     }
 
     return appliedToolResults
+  }
+
+  // Normalize the `path` of each transaction edit so it matches the same
+  // monorepo-aware path rewriting applied to single-file proposal edits.
+  function normalizeProposalTransactionEdits(edits: any[]): any[] {
+    return edits.map((edit) =>
+      isObject(edit) && typeof edit.path === 'string'
+        ? { ...edit, path: normalizeProposalPath(edit.path) }
+        : edit,
+    )
   }
 
   // Inlined dry-run validation helpers. These MUST live inside the serialized
@@ -3893,11 +4013,50 @@ function* handleStepsMultiPrompt({
   }
 
   function extractAppliedEditFilePaths(appliedToolResults: any[]): string[] {
-    return flattenToolResultValues(appliedToolResults)
-      .map((result) =>
-        isObject(result) && typeof result.file === 'string' ? result.file : '',
-      )
+    return getCleanAppliedToolResults(appliedToolResults)
+      .map((result) => getEditResultPath(result))
       .filter(Boolean)
+  }
+
+  function buildAppliedCoverageWarning(params: {
+    appliedImplementation: Implementation
+    appliedToolResults: any[]
+  }): string {
+    const { appliedImplementation, appliedToolResults } = params
+    const expectedTouchedFileCount =
+      appliedImplementation.proposalBudget?.expectedTouchedFileCount ??
+      proposalOrchestrationPlan.expectedTouchedFileCount
+    if (expectedTouchedFileCount <= 1) return ''
+
+    const appliedFiles = dedupeStrings(
+      extractAppliedEditFilePaths(appliedToolResults).map(normalizeProposalPath),
+    )
+    if (appliedFiles.length >= expectedTouchedFileCount) return ''
+
+    const plannedFiles = dedupeStrings(
+      extractImplementationFilePaths(appliedImplementation).map(
+        normalizeProposalPath,
+      ),
+    )
+    const missingKnownFiles = proposalOrchestrationPlan.targetFileHints.filter(
+      (path) => !appliedFiles.includes(path),
+    )
+    const plannedText =
+      plannedFiles.length > 0 ? ` Planned files: ${plannedFiles.join(', ')}.` : ''
+    const missingText =
+      missingKnownFiles.length > 0
+        ? ` Known requested files not applied: ${missingKnownFiles.join(', ')}.`
+        : ''
+
+    return `Coverage warning: applied ${appliedFiles.length} of ${expectedTouchedFileCount} expected file(s).${plannedText}${missingText}`
+  }
+
+  function appendDiagnosticMessage(...messages: string[]): string {
+    return messages.map((message) => message.trim()).filter(Boolean).join('\n')
+  }
+
+  function buildIncompleteCoverageError(coverageWarning: string): string {
+    return `Failed to fully apply the chosen implementation: it did not cover all explicitly requested files, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
   }
 
   function getInitialProposalLabel(index: number): string {
@@ -3947,12 +4106,14 @@ function* handleStepsMultiPrompt({
     appliedImplementation: Implementation
     applyFailures: string[]
     selectorNotes?: string
+    coverageWarning?: string
   }): Record<string, any> {
     const {
       selectedImplementation,
       appliedImplementation,
       applyFailures,
       selectorNotes,
+      coverageWarning,
     } = params
     const proposalEntries = implementations.map((implementation) => {
       const files = extractImplementationFilePaths(implementation)
@@ -4015,6 +4176,9 @@ function* handleStepsMultiPrompt({
       orchestration: proposalOrchestrationPlan,
       proposals: proposalEntries,
       applyFailures: applyFailures.slice(0, 8),
+      ...(coverageWarning?.trim()
+        ? { coverageWarning: coverageWarning.trim() }
+        : {}),
       ...(formatSelectorNotes(selectorNotes)
         ? { selectorNotes: formatSelectorNotes(selectorNotes) }
         : {}),
@@ -4058,6 +4222,30 @@ function* handleStepsMultiPrompt({
       return `${reason}\n\nThe selected implementation failed to apply cleanly, so it was repaired against current file context before applying.`
     }
     return `${reason}\n\nThe originally selected implementation failed to apply cleanly, so ${getImplementationLabel(appliedImplementation)} was applied instead.`
+  }
+
+  // Stable signature of an implementation's edit tool calls, used to detect when
+  // a repair pass produced edits identical to the proposal that just failed.
+  // Re-applying identical edits is a guaranteed no-op/stale-anchor loop, so the
+  // caller skips the redundant apply when two signatures match.
+  function implementationToolCallSignature(
+    implementation: Implementation,
+  ): string {
+    const toolCalls = Array.isArray(implementation.toolCalls)
+      ? implementation.toolCalls
+      : []
+    try {
+      return JSON.stringify(
+        toolCalls.map((toolCall) => ({
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        })),
+      )
+    } catch {
+      // Fall back to a length-based signature if the input is not serializable;
+      // worst case this just disables the optimization (never a false match).
+      return `unserializable:${toolCalls.length}`
+    }
   }
 
   function hasCleanSuccessfulAppliedEdit(appliedToolResults: any[]): boolean {
@@ -4122,7 +4310,76 @@ function* handleStepsMultiPrompt({
     if (isJsonToolResultPart(toolResult)) {
       return flattenToolResultValue(toolResult.value)
     }
-    return toolResult === undefined || toolResult === null ? [] : [toolResult]
+    if (toolResult === undefined || toolResult === null) return []
+    // A successful edit_transaction/propose_edit_transaction returns a single
+    // `{ message, files: [...] }` object rather than a per-file edit result.
+    // Expand it into one normalized per-file result so downstream success,
+    // coverage, and path logic (getEditResultPath / isSuccessfulAppliedEditResult
+    // / coverage counting) treats each changed file as a real applied edit
+    // instead of seeing one pathless object and reporting "no successful edit
+    // result" for an apply that actually persisted to disk.
+    if (isTransactionFilesResult(toolResult)) {
+      return expandTransactionFilesResult(toolResult)
+    }
+    return [toolResult]
+  }
+
+  function isTransactionFilesResult(
+    result: any,
+  ): result is { files: any[]; message?: string } {
+    return Boolean(
+      result &&
+      typeof result === 'object' &&
+      !Array.isArray(result) &&
+      Array.isArray(result.files) &&
+      typeof result.errorMessage !== 'string',
+    )
+  }
+
+  function expandTransactionFilesResult(result: {
+    files: any[]
+    message?: string
+  }): any[] {
+    const expanded = result.files
+      .map((file) => {
+        // edit_transaction files carry { path, patch }; propose_edit_transaction
+        // files carry { file, unifiedDiff }. Accept either shape.
+        const filePath =
+          typeof file?.path === 'string'
+            ? file.path
+            : typeof file?.file === 'string'
+              ? file.file
+              : ''
+        const unifiedDiff =
+          typeof file?.patch === 'string'
+            ? file.patch
+            : typeof file?.unifiedDiff === 'string'
+              ? file.unifiedDiff
+              : ''
+        if (!filePath) return undefined
+        const messages = Array.isArray(file?.messages)
+          ? file.messages.filter(
+              (message: unknown): message is string =>
+                typeof message === 'string',
+            )
+          : []
+        return {
+          file: filePath,
+          ...(unifiedDiff ? { unifiedDiff } : {}),
+          message:
+            messages.length > 0
+              ? messages.join('\n\n')
+              : (result.message ?? `Applied changes to ${filePath}`),
+        }
+      })
+      .filter(
+        (value): value is { file: string; unifiedDiff?: string; message: string } =>
+          Boolean(value),
+      )
+
+    // If the transaction reported files but none had a usable path, keep the
+    // original object so failure summarization still has something to report.
+    return expanded.length > 0 ? expanded : [result]
   }
 
   function safeJsonStringify(value: any): string {

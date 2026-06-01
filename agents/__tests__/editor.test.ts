@@ -13,6 +13,7 @@ describe('editor agent', () => {
   const PROPOSAL_TOOL_NAMES = new Set([
     'propose_str_replace',
     'propose_write_file',
+    'propose_edit_transaction',
   ])
 
   const createMockAgentState = (messageHistory: any[] = []): AgentState => ({
@@ -504,6 +505,7 @@ describe('editor agent', () => {
         'list_directory',
         'propose_write_file',
         'propose_str_replace',
+        'propose_edit_transaction',
       ])
     })
 
@@ -520,6 +522,7 @@ describe('editor agent', () => {
         'list_directory',
         'propose_write_file',
         'propose_str_replace',
+        'propose_edit_transaction',
       ])
     })
 
@@ -532,6 +535,7 @@ describe('editor agent', () => {
       expect(proposalImplementorDirect.toolNames).toEqual([
         'propose_write_file',
         'propose_str_replace',
+        'propose_edit_transaction',
       ])
     })
 
@@ -3164,6 +3168,110 @@ describe('editor agent', () => {
       expect((outputCall.input as any).chosenStrategy).toBe('minimal')
     })
 
+    test('treats client returned no tool result as apply failure, not success', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [{ oldString: 'old', newString: 'new' }],
+                        },
+                      },
+                    ],
+                    toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector quota reached' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector quota reached again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({ toolName: 'str_replace' })
+
+      const repairRead = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'src/a.ts',
+              message:
+                'Applied str_replace patch, but the client returned no tool result.',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'> | ToolCall<'set_output'>
+
+      expect(repairRead).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+      })
+    })
+
     test('objective pipeline verifies proposals in an isolated workspace before applying', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -4548,7 +4656,7 @@ describe('editor agent', () => {
       })
     })
 
-    test('falls back to the captured partial proposal when completion fails', () => {
+    test('reports failure when an applied proposal misses an explicitly required file', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         {
@@ -4699,6 +4807,30 @@ describe('editor agent', () => {
           replacements: [{ oldString: 'oldA', newString: 'newA' }],
         },
       })
+
+      const output = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      // Incomplete multi-file coverage must be reported as a hard failure, not
+      // a partial success with only a diagnostic note. Applying 1 of 2 required
+      // files used to be reported as success, which hallucinated completion.
+      const errorOutput = output.input as { error?: string }
+      expect(typeof errorOutput.error).toBe('string')
+      expect(errorOutput.error).toContain(
+        'Failed to fully apply the chosen implementation',
+      )
+      expect(errorOutput.error).toContain(
+        'Coverage warning: applied 1 of 2 expected file(s). Planned files: src/a.ts.',
+      )
+      expect(output.input).not.toHaveProperty('chosenStrategy')
     })
 
     test('applies a captured partial proposal directly when it already covers the expected file set', () => {
@@ -6400,6 +6532,76 @@ describe('editor agent', () => {
       )
     })
 
+    test('uses ledger-recovered proposal output from spawned implementor as a normal proposal', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal', 'modular'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const secondProposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                agentName: 'Implementation Proposal 1',
+                agentType: 'editor-implementor-proposal-1',
+                value: {
+                  type: 'structuredOutput',
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'old', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    proposalBudget: { recoveredFromLedger: true },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(secondProposalSpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-2',
+      )
+    })
+
     test('isUsableProposal accepts valid proposal tool calls without generated diffs', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -6750,6 +6952,280 @@ describe('editor agent', () => {
       expect(applyCall.input).toMatchObject({
         path: 'src/a.ts',
         replacements: [{ oldString: 'old', newString: 'new' }],
+      })
+    })
+
+    test('recognizes successful edit_transaction results as persisted per-file edits', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Update src/a.ts and src/b.ts together' },
+          ],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['transaction'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts', 'src/b.ts'] },
+      })
+
+      let proposalSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              { path: 'src/a.ts', content: 'oldA' },
+              { path: 'src/b.ts', content: 'oldB' },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'code_search'> | ToolCall<'spawn_agents'>
+
+      while (proposalSpawn.toolName === 'code_search') {
+        proposalSpawn = generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'code_search'> | ToolCall<'spawn_agents'>
+      }
+
+      expect(proposalSpawn).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_edit_transaction',
+                        input: {
+                          edits: [
+                            {
+                              id: 'a',
+                              type: 'str_replace',
+                              path: 'src/a.ts',
+                              replacements: [
+                                { oldString: 'oldA', newString: 'newA' },
+                              ],
+                            },
+                            {
+                              id: 'b',
+                              type: 'str_replace',
+                              path: 'src/b.ts',
+                              replacements: [
+                                { oldString: 'oldB', newString: 'newB' },
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                      { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                    ],
+                    unifiedDiffs:
+                      '--- src/a.ts ---\n@@ diff A\n\n--- src/b.ts ---\n@@ diff B',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  implementationId: 'A',
+                  reason: 'Transaction covers both files',
+                  suggestedImprovements: '',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'edit_transaction'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            expect.objectContaining({ path: 'src/a.ts' }),
+            expect.objectContaining({ path: 'src/b.ts' }),
+          ],
+        },
+      })
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              message: 'Edit transaction applied successfully.',
+              files: [
+                { path: 'src/a.ts', patch: '@@ diff A' },
+                { path: 'src/b.ts', patch: '@@ diff B' },
+              ],
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).toolResults).toEqual([
+        {
+          file: 'src/a.ts',
+          unifiedDiff: '@@ diff A',
+          message: 'Edit transaction applied successfully.',
+        },
+        {
+          file: 'src/b.ts',
+          unifiedDiff: '@@ diff B',
+          message: 'Edit transaction applied successfully.',
+        },
+      ])
+      expect((outputCall.input as any).error).toBeUndefined()
+    })
+
+    test('implementor dedupes transaction ledger artifacts into one apply tool call', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const mockAgentState = {
+        ...createMockAgentState([
+          { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+        ]),
+        proposalLedger: [
+          {
+            seq: 0,
+            attempt: 0,
+            toolName: 'propose_edit_transaction',
+            input: {
+              edits: [
+                {
+                  id: 'a',
+                  type: 'str_replace',
+                  path: 'src/a.ts',
+                  replacements: [{ oldString: 'oldA', newString: 'newA' }],
+                },
+                {
+                  id: 'b',
+                  type: 'str_replace',
+                  path: 'src/b.ts',
+                  replacements: [{ oldString: 'oldB', newString: 'newB' }],
+                },
+              ],
+            },
+            result: {
+              file: 'src/a.ts',
+              ok: true,
+              unifiedDiff: '@@ -1 +1 @@\n-oldA\n+newA',
+              message: 'Proposed changes to src/a.ts',
+            },
+          },
+          {
+            seq: 1,
+            attempt: 0,
+            toolName: 'propose_edit_transaction',
+            input: {
+              edits: [
+                {
+                  id: 'a',
+                  type: 'str_replace',
+                  path: 'src/a.ts',
+                  replacements: [{ oldString: 'oldA', newString: 'newA' }],
+                },
+                {
+                  id: 'b',
+                  type: 'str_replace',
+                  path: 'src/b.ts',
+                  replacements: [{ oldString: 'oldB', newString: 'newB' }],
+                },
+              ],
+            },
+            result: {
+              file: 'src/b.ts',
+              ok: true,
+              unifiedDiff: '@@ -1 +1 @@\n-oldB\n+newB',
+              message: 'Proposed changes to src/b.ts',
+            },
+          },
+        ],
+      } as AgentState
+      const generator = implementor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {},
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const result = generator.next({
+        agentState: mockAgentState,
+        toolResult: [],
+        stepsComplete: false,
+      })
+
+      expect(result.value).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          unifiedDiffs:
+            '--- src/a.ts ---\n@@ -1 +1 @@\n-oldA\n+newA\n\n--- src/b.ts ---\n@@ -1 +1 @@\n-oldB\n+newB',
+        },
+      })
+      const output = (result.value as ToolCall<'set_output'>).input as any
+      expect(output.toolCalls).toHaveLength(1)
+      expect(output.toolCalls[0]).toMatchObject({
+        toolName: 'propose_edit_transaction',
+        input: {
+          edits: expect.arrayContaining([
+            expect.objectContaining({ path: 'src/a.ts' }),
+          ]),
+        },
       })
     })
 

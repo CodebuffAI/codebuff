@@ -22,6 +22,10 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
+import {
+  appendProposalArtifact,
+  getProposalLedger,
+} from '../tools/handlers/tool/proposal-ledger-store'
 import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 
@@ -295,6 +299,58 @@ describe('runProgrammaticStep', () => {
         }),
       )
       expect(result.endTurn).toBe(true)
+    })
+
+    it('leaves proposal ledger available for outer loop snapshot after endTurn', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'test.txt',
+            replacements: [{ oldString: 'before', newString: 'after' }],
+          },
+        }
+        yield { toolName: 'end_turn', input: {} }
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['propose_str_replace', 'end_turn']
+
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'propose_str_replace') {
+            appendProposalArtifact(options.agentState.runId!, {
+              toolName: 'propose_str_replace',
+              input: options.input,
+              result: {
+                file: 'test.txt',
+                ok: true,
+                unifiedDiff: '--- test.txt\n+++ test.txt\n@@\n-before\n+after',
+              },
+            })
+          }
+        },
+      )
+
+      const result = await runProgrammaticStep(mockParams)
+
+      expect(result.endTurn).toBe(true)
+      expect(getProposalLedger(mockAgentState.runId!)).toEqual([
+        expect.objectContaining({
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'test.txt',
+            replacements: [{ oldString: 'before', newString: 'after' }],
+          },
+          result: expect.objectContaining({
+            file: 'test.txt',
+            ok: true,
+            unifiedDiff: expect.stringContaining('+after'),
+          }),
+        }),
+      ])
     })
 
     it('should serialize default programmatic tool results as neutral context before STEP', async () => {
