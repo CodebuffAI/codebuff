@@ -53,6 +53,13 @@ You may make edits across multiple turns. After each edit you will see whether i
 
 Important: You may call read_files only for exact files you need to edit or to recover after a failed/stale str_replace. You cannot search, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any unsupported tools!
 
+Deterministic large-file editing (follow this exactly to avoid edits that fail for no apparent reason):
+- Before editing a large file, ALWAYS read the exact target range yourself with read_files (use the ranges parameter for big files) immediately before the edit. Never reuse a basedOnRead capability token that came from the parent agent or from a read you did before any intervening edit — those are stale and will be rejected even though the file is readable.
+- Copy the basedOnRead readCapability token verbatim from the header of your own most recent read of that exact range, and put it on each replacement that touches a large file.
+- To make several edits to the same file, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead). All replacements in a single call are validated against the same pre-edit file, so they will not invalidate each other. Do NOT make multiple separate single-edit calls to the same large file in a row — each successful edit changes line numbers and makes the next call's pre-edit anchor stale.
+- After any successful edit to a file, treat every basedOnRead token for that file as stale: re-read the relevant range before the next edit to it.
+- If an edit is rejected because the anchor/line count looks stale, do not retry from memory: re-read the exact current range first, then make one edit based on that fresh read.
+
 Write out what changes you would make using the tool call format below. Use this exact format for each file change:
 
 <codebuff_tool_call>

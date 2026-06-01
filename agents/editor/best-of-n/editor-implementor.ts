@@ -55,7 +55,8 @@ export const createBestOfNImplementor = (options: {
 You may use read_files, code_search, glob, and list_directory only to gather exact current context.
 You draft edits only with propose_str_replace and propose_write_file.
 Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
-If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.`
+If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.
+For large-file propose_str_replace work, determinism matters: read the exact current target ranges yourself immediately before proposing edits, never reuse parent/old readCapability tokens in narration, and bundle all replacements for the same file into one propose_str_replace call so the parent can validate/apply them against one pre-edit file state.`
       : `You are a strict implementation proposal generator.
 
 You do not have repository exploration tools in this phase because the parent only uses this mode after supplying exact current file context.
@@ -82,6 +83,12 @@ IMPORTANT: Your response must progress toward at least one propose_str_replace o
 For multi-file implementations, return a complete proposal bundle. Use multiple propose_* tool calls when needed, one per file or one propose_str_replace with multiple replacements for the same file. Do not stop after the first file if the requested implementation needs additional files.
 After you have emitted every required proposal tool call, write the exact marker PROPOSAL_BUNDLE_COMPLETE. If you cannot finish, do not write that marker.
 The proposal collector tracks progress and completion, so emit all known file edits in the same response whenever possible instead of adding one file per turn indefinitely.
+
+Deterministic large-file proposal rules:
+- If you need to edit a large file, use read_files.ranges to read the exact current region yourself immediately before emitting the propose_str_replace. Do not rely on parent-provided snippets, old conversation reads, or copied basedOnRead tokens from another agent.
+- Do not include basedOnRead tokens in explanatory prose. If the proposal tool supports basedOnRead, copy only the fresh token from your own latest read into the replacement object; otherwise emit exact oldString/newString only and let the parent re-anchor during application.
+- Batch all replacements for the same file into one propose_str_replace call. Do not emit repeated one-change calls to the same large file; a successful earlier edit changes the file and makes later anchors/stale oldStrings fail.
+- After any proposal failure for a file, re-read the exact current range before proposing the repair. Never retry from memory.
 
 When using text/XML tool calling, every proposal must be a valid JSON object inside <codebuff_tool_call>...</codebuff_tool_call>. Do not wrap the JSON in markdown fences. Do not use trailing commas.
 
@@ -173,6 +180,13 @@ Write out your complete implementation now. Do not write any final summary.`,
 
       let agentState = initialAgentState
       let accumulatedProposalToolResults: any[] = []
+      // Accumulate proposal tool CALLS across steps too, not just results.
+      // Otherwise a multi-step bundle drops earlier steps' proposal tool calls
+      // at completion (they only live in that step's message slice), the parent
+      // sees toolResults/diffs but zero usable toolCalls, isUsableProposal
+      // discards it, and the visible diffs are thrown away before the selector
+      // ever runs. Existing sanitization still filters failed-only calls.
+      let accumulatedProposalToolCalls: { toolName: string; input: any }[] = []
       let readOnlyOnlySteps = 0
       let stopReason:
         | 'cleanProposal'
@@ -202,9 +216,11 @@ Write out your complete implementation now. Do not write any final summary.`,
         )
         const latestAttemptMessages =
           getMessagesSinceLastProposalRetry(postMessages)
-        const rawLatestProposalToolCalls = getProposalToolCallsFromMessages(
-          latestAttemptMessages,
-        )
+        const rawLatestProposalToolCalls = dedupeProposalToolCalls([
+          ...getProposalToolCallsFromMessages(latestAttemptMessages),
+          ...accumulatedProposalToolCalls,
+        ])
+        accumulatedProposalToolCalls = rawLatestProposalToolCalls
         const rawProposalToolResults = dedupeProposalToolResults([
           ...getProposalToolResults(latestAttemptMessages),
           ...getProposalToolResultValues(result.toolResult),
@@ -318,6 +334,8 @@ Write out your complete implementation now. Do not write any final summary.`,
             break
           }
           if (readOnlyOnlySteps === maxReadOnlyOnlySteps) {
+            accumulatedProposalToolCalls = []
+            accumulatedProposalToolResults = []
             yield {
               toolName: 'set_messages',
               input: {
@@ -342,6 +360,8 @@ Write out your complete implementation now. Do not write any final summary.`,
         }
         readOnlyOnlySteps = 0
 
+        accumulatedProposalToolCalls = []
+        accumulatedProposalToolResults = []
         yield {
           toolName: 'set_messages',
           input: {
@@ -369,10 +389,14 @@ Write out your complete implementation now. Do not write any final summary.`,
       const latestAttemptMessages =
         getMessagesSinceLastProposalRetry(postMessages)
 
-      // Extract tool calls from assistant messages (both native and XML-formatted)
-      const rawToolCalls = getProposalToolCallsFromMessages(
-        latestAttemptMessages,
-      )
+      // Extract tool calls from assistant messages (both native and XML-formatted),
+      // merged with calls accumulated across all prior proposal steps. Using only
+      // the latest attempt slice here drops earlier-step bundle calls and makes an
+      // otherwise-usable proposal look empty to the parent.
+      const rawToolCalls = dedupeProposalToolCalls([
+        ...getProposalToolCallsFromMessages(latestAttemptMessages),
+        ...accumulatedProposalToolCalls,
+      ])
 
       // Extract tool results (unified diffs) from tool messages. Include the
       // latest STEP toolResult too: in the live runtime, a successful proposal
@@ -1578,8 +1602,8 @@ Write out your complete implementation now. Do not write any final summary.`,
           ? 'Immediately gather exact context with read_files/code_search/glob/list_directory if needed, then emit every required file edit as valid XML proposal tool calls.'
           : 'Do not try to gather more context. Use the supplied proposalContext/current file context and emit every required file edit as valid XML proposal tool calls.'
         const staleTextInstruction = canUseReadOnlyTools
-          ? 'If a propose_str_replace oldString failed, inspect the current file and use exact current text. If the full target file content is available and exact replacement remains brittle, use propose_write_file with the complete updated file content.'
-          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. If exact replacement remains brittle, use propose_write_file with complete updated file content from the supplied context.'
+          ? 'If a propose_str_replace oldString failed, inspect the current file/range and use exact current text. For large files, re-read the exact range immediately before the repaired proposal and batch all replacements for that file into one propose_str_replace call. If the full target file content is available and exact replacement remains brittle, use propose_write_file with the complete updated file content.'
+          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. For large files, do not reuse old/parent readCapability tokens or stale snippets; if exact replacement remains brittle, use propose_write_file with complete updated file content from the supplied context.'
 
         return `Your previous response did not produce a clean proposal diff.${
           failureDetails

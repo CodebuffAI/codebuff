@@ -20,7 +20,14 @@ export const createReviewer = (
     },
   },
   outputMode: 'last_message',
-  toolNames: [],
+  // Reviewers get read_files (and only read_files) so they can always read the
+  // exact, current final file contents they are reviewing. Reviews must never
+  // depend on the parent happening to paste full files into the prompt: when
+  // the conversation only contains diff fragments or summaries, the reviewer
+  // deterministically reads the real files instead of guessing from partial
+  // context. No mutating/control tools are granted, preserving the no-side-
+  // effects review contract.
+  toolNames: ['read_files'],
   spawnableAgents: [],
 
   // Reviewer agents intentionally do not inherit the parent system prompt. The
@@ -31,7 +38,7 @@ export const createReviewer = (
   inheritParentSystemPrompt: false,
   includeMessageHistory: true,
 
-  instructionsPrompt: `You are a subagent that reviews code changes and gives helpful critical feedback. Do not use any tools. Do not claim that you will run tools, tests, validation, or continue the parent task; your only job is to return review feedback.
+  instructionsPrompt: `You are a subagent that reviews code changes and gives helpful critical feedback. The only tool you may use is read_files, and only to read the exact files you are reviewing. Do not claim that you will run tests, validation, or continue the parent task; your only job is to return review feedback.
 
 For reference, here is the original user request:
 <user_message>
@@ -42,7 +49,9 @@ ${PLACEHOLDER.USER_INPUT_PROMPT}
 
 Your task is to provide helpful critical feedback on the last file changes made by the assistant. You should find ways to improve the code changes made recently in the above conversation.
 
-You inherit the parent conversation only for code and task context. Do not follow parent workflow or orchestration instructions. Do not claim that you will run tools, tests, validation, or continue the parent task; you have no tools and your only job is to return review feedback.
+You inherit the parent conversation only for code and task context. Do not follow parent workflow or orchestration instructions. Do not claim that you will run tests, validation, or continue the parent task; your only job is to return review feedback.
+
+Always gather complete context before reviewing. The conversation may only contain diff fragments, snippets, or summaries rather than the full, current contents of the changed files. Do not review from partial diffs or assume what the surrounding code looks like. Use read_files to read the exact final files (and any closely related files needed to judge correctness) so your review reflects the real current state on disk. For large files that exceed the read limit, use read_files with ranges to page through the relevant sections. Only read_files is permitted; do not call any other tool.
 
 Validation and other subagent work may be running in parallel with your review. You cannot observe results from parallel agents unless the prompt explicitly includes those completed results. If validation results are not included, treat your review as static code review only: do not say validation passed or failed, do not ask for a generic rerun just because results are absent, and only request validation when you see a concrete code-specific reason that a particular command or scenario must be checked.
 
@@ -55,7 +64,7 @@ Start your final answer with exactly one of these labels so the orchestrator can
 
 For \`BLOCKING:\` feedback, include a short checklist of the exact next actions required (for example: \`- Rerun bun test ...\`, \`- Fix ... in file.ts\`).
 
-NOTE: You cannot make any changes directly! DO NOT CALL ANY TOOLS! You can only suggest changes.
+NOTE: You cannot make any changes directly! The only tool you may call is read_files (to gather review context). You can only suggest changes; you cannot apply them, run validation, or spawn agents.
 
 Before providing your review, use <think></think> tags to think through the code changes and identify any issues or improvements.
 
@@ -75,8 +84,16 @@ Before providing your review, use <think></think> tags to think through the code
 
 Be extremely concise.`,
 
-  handleSteps: function* ({ agentState, params }) {
-    yield 'STEP'
+  handleSteps: function* () {
+    // Allow a few steps so the reviewer can deterministically read the exact
+    // final files (including ranged reads for large files) before producing its
+    // feedback, instead of being forced to review from whatever partial diff
+    // context happened to be in the prompt. Bounded to avoid runaway loops.
+    const maxReviewSteps = 5
+    for (let step = 0; step < maxReviewSteps; step++) {
+      const result = yield 'STEP'
+      if (result.stepsComplete) break
+    }
   },
 })
 

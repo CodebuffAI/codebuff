@@ -940,6 +940,206 @@ describe('editor agent', () => {
       })
     })
 
+    test('bundle mode preserves proposal calls when completion marker arrives in a later step', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { allowReadOnlyTools: true, proposalBundleMode: true },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const firstProposalMessages = [
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/a.ts',
+                instructions: 'Add A',
+                content: 'export const a = 1\n',
+              },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_write_file',
+          content: [
+            {
+              type: 'json',
+              value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            },
+          ],
+        },
+      ]
+
+      expect(
+        generator.next({
+          agentState: createMockAgentState(firstProposalMessages),
+          toolResult: [],
+          stepsComplete: false,
+        }).value,
+      ).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...firstProposalMessages,
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'PROPOSAL_BUNDLE_COMPLETE' }],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'cleanProposal',
+          toolCalls: [
+            {
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/a.ts',
+                instructions: 'Add A',
+                content: 'export const a = 1\n',
+              },
+            },
+          ],
+          toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+          unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+        },
+        includeToolCall: false,
+      })
+    })
+
+    test('bundle mode does not leak stale proposal calls across retry boundaries', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { allowReadOnlyTools: true, proposalBundleMode: true },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const failedAttemptMessages = [
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/a.ts',
+                replacements: [{ oldString: 'stale', newString: 'new' }],
+              },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_str_replace',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: 'src/a.ts',
+                errorMessage: 'old string "stale" was not found',
+              },
+            },
+          ],
+        },
+      ]
+
+      const retry = generator.next({
+        agentState: createMockAgentState(failedAttemptMessages),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_messages'>
+
+      expect(retry.toolName).toBe('set_messages')
+
+      const retryMessages = retry.input.messages
+      const correctedAttemptMessages = [
+        ...retryMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/a.ts',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+            { type: 'text', text: 'PROPOSAL_BUNDLE_COMPLETE' },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_str_replace',
+          content: [
+            {
+              type: 'json',
+              value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            },
+          ],
+        },
+      ]
+
+      expect(generator.next().value).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState(correctedAttemptMessages),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'cleanProposal',
+          toolCalls: [
+            {
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/a.ts',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+          ],
+          toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+        },
+        includeToolCall: false,
+      })
+      expect((output.input as any).toolCalls).toHaveLength(1)
+    })
+
     test('bundle mode stops immediately when known multi-file scope is covered', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
@@ -6163,7 +6363,7 @@ describe('editor agent', () => {
       )
       expect(
         selectorSpawn.input.agents[0].params?.implementations[0].content,
-      ).toContain('Proposal tool calls were returned without generated diffs')
+      ).toContain('Proposal edit actions were returned without generated diffs')
     })
 
     test('isUsableProposal retries mixed success and failure toolResults', () => {
@@ -6779,6 +6979,31 @@ describe('editor agent', () => {
       )
       expect(secondProposalSpawn.input.agents[0].prompt).toBe(
         'Strategy: modular',
+      )
+    })
+  })
+
+  describe('multi-prompt serialization-scope safety', () => {
+    // handleSteps is serialized via .toString() and re-evaluated in a sandbox
+    // without module-level imports. Any helper it calls must be defined inside
+    // the function body, or it throws at runtime AFTER proposals are generated
+    // (so edits are computed but never applied — the 'changes don't persist'
+    // bug). These guards fail loudly if a ranking/validation helper regresses
+    // back to a module-scope import.
+    const serializedHandleSteps = String(createMultiPromptEditor().handleSteps)
+
+    test('inlines ranking/validation helpers inside the serialized handleSteps scope', () => {
+      expect(serializedHandleSteps).toContain('function sameVerificationTier')
+      expect(serializedHandleSteps).toContain('function rankVerifiedResults')
+      expect(serializedHandleSteps).toContain(
+        'function getImplementationDiffSize',
+      )
+      expect(serializedHandleSteps).toContain('function dryRunStrReplace')
+    })
+
+    test('does not reference removed module-scope ranking imports', () => {
+      expect(serializedHandleSteps).not.toContain(
+        'getRankedImplementationDiffSize',
       )
     })
   })

@@ -1,9 +1,4 @@
 import { publisher } from '../../constants'
-import {
-  getImplementationDiffSize as getRankedImplementationDiffSize,
-  rankVerifiedResults,
-  sameVerificationTier,
-} from './editor-multi-prompt-ranking'
 
 import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
 import type { CandidateVerificationResult } from './editor-multi-prompt-ranking'
@@ -3524,6 +3519,19 @@ function* handleStepsMultiPrompt({
           continue
         }
 
+        // Whole-file read_files truncates large files at 100k chars and appends
+        // a [FILE_TOO_LARGE: ...] marker, so the dry-run only sees the first
+        // slice. Validating replacements that target the rest of the file
+        // against that partial content produces false "could not find exact
+        // text" failures and blocks a perfectly valid edit. The real
+        // str_replace apply validates against full disk content (getFileForEdit),
+        // so defer to it for truncated files instead of failing here. This keeps
+        // dry-run validation deterministic: it never rejects an edit just
+        // because the parent-side read couldn't see the whole large file.
+        if (isTruncatedLargeFileContent(fileContent)) {
+          continue
+        }
+
         const replacements =
           isObject(toolCall.input) && Array.isArray(toolCall.input.replacements)
             ? toolCall.input.replacements
@@ -3571,6 +3579,18 @@ function* handleStepsMultiPrompt({
       content.startsWith('[FILE_OUTSIDE_PROJECT]') ||
       content.startsWith('[FILE_TOO_LARGE]') ||
       content.startsWith('[FILE_READ_ERROR]')
+    )
+  }
+
+  // True when whole-file read_files truncated this file at the 100k-char limit.
+  // The truncation marker is appended AFTER the (real) leading content, so it
+  // does not appear at the start of the string and isFileReadFailureContent
+  // (which only matches leading status markers) intentionally misses it. Match
+  // the exact rendered suffix shape to avoid skipping dry-run just because a
+  // source file literally contains the marker prefix in code or tests.
+  function isTruncatedLargeFileContent(content: string): boolean {
+    return /\n\n\[FILE_TOO_LARGE: This file is [\s\S]+? The content above has been truncated\./.test(
+      content,
     )
   }
 
@@ -4687,14 +4707,92 @@ try {
   }
 
 
-  function getImplementationDiffSize(implementation: Implementation): number {
-    return getRankedImplementationDiffSize({
-      content: implementation.content,
-      toolCalls: implementation.toolCalls,
-      isObject,
+  // Inlined ranking/selection helpers. These MUST live inside the serialized
+  // handleSteps scope (no module-level imports): the agent definition's
+  // handleSteps is serialized via .toString() and re-evaluated in a sandbox,
+  // where module imports like rankVerifiedResults/sameVerificationTier/
+  // getImplementationDiffSize would be undefined. A missing reference here
+  // throws AFTER proposals are generated, so the transient edits never get
+  // applied via the final set_output (the exact 'changes don't persist' bug).
+  // Keep these consistent with editor-multi-prompt-ranking.ts.
+  function sameVerificationTier(
+    a: CandidateVerificationResult<Implementation>,
+    b: CandidateVerificationResult<Implementation>,
+  ): boolean {
+    return (
+      a.verificationPassed === b.verificationPassed &&
+      a.verificationAttempted === b.verificationAttempted &&
+      (a.typecheckPassed === true) === (b.typecheckPassed === true) &&
+      (a.testsPassed === true) === (b.testsPassed === true) &&
+      a.appliedCleanly === b.appliedCleanly
+    )
+  }
+
+  function rankVerifiedResults(
+    results: CandidateVerificationResult<Implementation>[],
+  ): CandidateVerificationResult<Implementation>[] {
+    return [...results].sort((a, b) => {
+      if (a.verificationPassed !== b.verificationPassed) {
+        return a.verificationPassed ? -1 : 1
+      }
+      if (a.verificationAttempted !== b.verificationAttempted) {
+        return a.verificationAttempted ? -1 : 1
+      }
+      const aTypecheck = a.typecheckPassed === true
+      const bTypecheck = b.typecheckPassed === true
+      if (aTypecheck !== bTypecheck) {
+        return aTypecheck ? -1 : 1
+      }
+      const aTests = a.testsPassed === true
+      const bTests = b.testsPassed === true
+      if (aTests !== bTests) {
+        return aTests ? -1 : 1
+      }
+      if (a.appliedCleanly !== b.appliedCleanly) {
+        return a.appliedCleanly ? -1 : 1
+      }
+      if (a.repairRoundsUsed !== b.repairRoundsUsed) {
+        return a.repairRoundsUsed - b.repairRoundsUsed
+      }
+      if (a.diffSize !== b.diffSize) {
+        return a.diffSize - b.diffSize
+      }
+      return 0
     })
   }
 
+  function getImplementationDiffSize(implementation: Implementation): number {
+    const content = implementation.content
+    const toolCalls = implementation.toolCalls
+    if (content.trim()) {
+      return content.split('\n').length
+    }
+
+    return toolCalls.reduce((total, toolCall) => {
+      if (!isObject(toolCall.input)) return total + 1
+      const replacements = Array.isArray(toolCall.input.replacements)
+        ? toolCall.input.replacements
+        : []
+      const replacementSize = replacements.reduce(
+        (sum: number, replacement: any) => {
+          if (!isObject(replacement)) return sum + 1
+          return (
+            sum +
+            String(replacement.oldString ?? replacement.old ?? '').split('\n')
+              .length +
+            String(replacement.newString ?? replacement.new ?? '').split('\n')
+              .length
+          )
+        },
+        0,
+      )
+      const contentSize =
+        typeof toolCall.input.content === 'string'
+          ? toolCall.input.content.split('\n').length
+          : 0
+      return total + Math.max(1, replacementSize + contentSize)
+    }, 0)
+  }
 }
 
 const definition = {

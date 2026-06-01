@@ -7,8 +7,19 @@ describe('code-reviewer prompt isolation', () => {
     const reviewer = createReviewer('anthropic/claude-opus-4.7')
 
     expect(reviewer.inheritParentSystemPrompt).toBe(false)
-    expect(reviewer.toolNames).toEqual([])
+    // Reviewers may read files (only) so they can always gather full final-file
+    // context instead of reviewing from partial diff fragments. No mutating or
+    // control tools are granted.
+    expect(reviewer.toolNames).toEqual(['read_files'])
     expect(reviewer.spawnableAgents).toEqual([])
+  })
+
+  test('instructs reviewer to read exact final files instead of diff fragments', () => {
+    const reviewer = createReviewer('anthropic/claude-opus-4.7')
+
+    expect(reviewer.instructionsPrompt).toContain('Always gather complete context')
+    expect(reviewer.instructionsPrompt).toContain('diff fragments')
+    expect(reviewer.instructionsPrompt).toContain('read_files with ranges')
   })
 
   test('treats missing parallel validation output as unavailable', () => {
