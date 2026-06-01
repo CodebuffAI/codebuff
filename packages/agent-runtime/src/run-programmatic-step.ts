@@ -3,6 +3,10 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
+import {
+  clearProposalLedgerForRun,
+  getProposalLedger,
+} from './tools/handlers/tool/proposal-ledger-store'
 import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
@@ -46,6 +50,7 @@ const runIdToOwnerAgentId = new Map<string, string>()
 export function clearAgentGeneratorCache(params: { logger: Logger }) {
   for (const key in runIdToGenerator) {
     clearProposedContentForRun(key)
+    clearProposalLedgerForRun(key)
     delete runIdToGenerator[key]
   }
   runIdToStepAll.clear()
@@ -70,6 +75,7 @@ export function clearAgentGeneratorForRun(runId: string): void {
   runIdToStepAll.delete(runId)
   runIdToOwnerAgentId.delete(runId)
   clearProposedContentForRun(runId)
+  clearProposalLedgerForRun(runId)
 }
 
 // Safety bound on how many tool calls a single handleSteps invocation may
@@ -472,6 +478,7 @@ export async function runProgrammaticStep(
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)
       clearProposedContentForRun(agentState.runId)
+      clearProposalLedgerForRun(agentState.runId)
     }
   }
 }
@@ -498,6 +505,10 @@ export const getPublicAgentState = (
     systemPrompt,
     toolDefinitions,
     contextTokenCount,
+    // Surface the deterministic proposal ledger so programmatic agents (the
+    // best-of-N implementor) finalize their bundle from recorded artifacts
+    // instead of scanning mutable message history.
+    proposalLedger: getProposalLedger(runId),
   }
 }
 

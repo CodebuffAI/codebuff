@@ -10,6 +10,11 @@ import proposalImplementorDirect from '../editor/best-of-n/editor-implementor-pr
 import type { AgentState, ToolCall } from '../types/agent-definition'
 
 describe('editor agent', () => {
+  const PROPOSAL_TOOL_NAMES = new Set([
+    'propose_str_replace',
+    'propose_write_file',
+  ])
+
   const createMockAgentState = (messageHistory: any[] = []): AgentState => ({
     agentId: 'editor-test',
     runId: 'test-run',
@@ -19,7 +24,83 @@ describe('editor agent', () => {
     systemPrompt: '',
     toolDefinitions: {},
     contextTokenCount: 0,
-  })
+    // Programmatic implementors receive the runtime-recorded proposal ledger in
+    // PublicAgentState. Unit tests that simulate proposal tool messages must
+    // provide the same deterministic source of truth instead of relying on the
+    // implementor to reconstruct artifacts from message history.
+    proposalLedger: deriveProposalLedgerFromMessages(messageHistory),
+  } as AgentState)
+
+  function deriveProposalLedgerFromMessages(messageHistory: any[]): any[] {
+    let currentAttemptCalls: Array<{ toolName: string; input: any }> = []
+    let currentAttemptResults: any[] = []
+
+    for (const message of messageHistory) {
+      if (Array.isArray(message?.tags) && message.tags.includes('PROPOSAL_RETRY')) {
+        currentAttemptCalls = []
+        currentAttemptResults = []
+        continue
+      }
+
+      if (message?.role === 'assistant') {
+        for (const part of Array.isArray(message.content) ? message.content : []) {
+          if (
+            part?.type === 'tool-call' &&
+            typeof part.toolName === 'string' &&
+            PROPOSAL_TOOL_NAMES.has(part.toolName)
+          ) {
+            currentAttemptCalls.push({
+              toolName: part.toolName,
+              input: part.input,
+            })
+          }
+        }
+      }
+
+      if (
+        message?.role === 'tool' &&
+        typeof message.toolName === 'string' &&
+        PROPOSAL_TOOL_NAMES.has(message.toolName)
+      ) {
+        for (const part of Array.isArray(message.content) ? message.content : []) {
+          if (part?.type !== 'json') continue
+          const values = Array.isArray(part.value) ? part.value : [part.value]
+          for (const value of values) {
+            if (value && typeof value === 'object') {
+              currentAttemptResults.push(value)
+            }
+          }
+        }
+      }
+    }
+
+    return currentAttemptResults.map((result, index) => {
+      const call = currentAttemptCalls[index] ?? currentAttemptCalls.at(-1) ?? {
+        toolName: 'propose_write_file',
+        input: { path: result.file },
+      }
+      return {
+        seq: index,
+        attempt: 0,
+        toolName: call.toolName,
+        input: call.input,
+        result: {
+          file: result.file ?? call.input?.path ?? '',
+          ok:
+            typeof result.unifiedDiff === 'string' &&
+            result.unifiedDiff.trim().length > 0 &&
+            !result.errorMessage,
+          ...(typeof result.unifiedDiff === 'string'
+            ? { unifiedDiff: result.unifiedDiff }
+            : {}),
+          ...(typeof result.message === 'string' ? { message: result.message } : {}),
+          ...(typeof result.errorMessage === 'string'
+            ? { errorMessage: result.errorMessage }
+            : {}),
+        },
+      }
+    })
+  }
 
   describe('default editor definition', () => {
     test('has correct id', () => {
@@ -1618,14 +1699,18 @@ describe('editor agent', () => {
           ],
           toolResults: [
             {
+              file: 'cli/src/types/model-route.ts',
+              errorMessage:
+                'The file does not exist, skipping. Please use the write_file tool to create the file.',
+            },
+            {
               file: 'cli/src/types/reasoning-effort.ts',
               unifiedDiff:
                 '--- /dev/null\n+++ cli/src/types/reasoning-effort.ts\n@@\n+export type ReasoningEffort = ...',
             },
           ],
           proposalProgress: {
-            droppedFailedProposalResultCount: 1,
-            failedProposalResultCount: 0,
+            failedProposalResultCount: 1,
             successfulProposalResultCount: 1,
           },
         },
@@ -1676,21 +1761,24 @@ describe('editor agent', () => {
               { type: 'text', text: 'PROPOSAL_BUNDLE_COMPLETE' },
             ],
           },
+          {
+            role: 'tool',
+            toolName: 'propose_str_replace',
+            content: [
+              {
+                type: 'json',
+                value: {
+                  file: 'src/example.ts',
+                  unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+                },
+              },
+            ],
+          },
         ])
 
         const result = generator.next({
           agentState: updatedState,
-          toolResult: [
-            {
-              type: 'json',
-              value: [
-                {
-                  file: 'src/example.ts',
-                  unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
-                },
-              ],
-            },
-          ],
+          toolResult: [],
           stepsComplete: false,
         })
 
@@ -1986,7 +2074,10 @@ describe('editor agent', () => {
               toolName: 'propose_str_replace',
               input: {
                 path: 'src/example.ts',
-                replacements: [{ oldString: 'old', newString: 'newer' }],
+                replacements: [
+                  { oldString: 'stale', newString: 'new' },
+                  { oldString: 'old', newString: 'newer' },
+                ],
               },
             },
           ],
@@ -1994,7 +2085,7 @@ describe('editor agent', () => {
             {
               file: 'src/example.ts',
               message:
-                'Proposed string replacement; unmatched replacement omitted from proposal.',
+                'The old string "stale" was not found in the file, skipping.\n\nApplied another replacement.',
               unifiedDiff: '@@ -1 +1 @@\n-old\n+newer',
             },
           ],
@@ -2132,9 +2223,15 @@ describe('editor agent', () => {
               input: { path: 'src/a.ts' },
             },
           ],
-          toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+          toolResults: [
+            { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            {
+              file: 'src/b.ts',
+              errorMessage: 'The old string "stale" was not found',
+            },
+          ],
           proposalProgress: {
-            droppedFailedProposalResultCount: 1,
+            failedProposalResultCount: 1,
           },
         },
         includeToolCall: false,
@@ -6761,21 +6858,24 @@ describe('editor agent', () => {
             },
           ],
         },
+        {
+          role: 'tool',
+          toolName: 'propose_str_replace',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: 'src/example.ts',
+                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+              },
+            },
+          ],
+        },
       ])
 
       const result = generator.next({
         agentState: updatedState,
-        toolResult: [
-          {
-            type: 'json',
-            value: [
-              {
-                file: 'src/example.ts',
-                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
-              },
-            ],
-          },
-        ],
+        toolResult: [],
         stepsComplete: false,
       })
 
@@ -6819,8 +6919,29 @@ describe('editor agent', () => {
           role: 'assistant',
           content: [
             {
+              type: 'tool-call',
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'src/example.ts',
+                replacements: [{ oldString: 'old', newString: 'new' }],
+              },
+            },
+            {
               type: 'text',
               text: `Here is the proposed change:\n\n<codebuff_tool_call>\n{\n  "cb_tool_name": "propose_str_replace",\n  "path": "src/example.ts",\n  "replacements": [{"oldString": "old", "newString": "new"}],\n  "cb_easp": true\n}\n</codebuff_tool_call>`,
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_str_replace',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: 'src/example.ts',
+                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+              },
             },
           ],
         },
@@ -6828,17 +6949,7 @@ describe('editor agent', () => {
 
       const result = generator.next({
         agentState: updatedState,
-        toolResult: [
-          {
-            type: 'json',
-            value: [
-              {
-                file: 'src/example.ts',
-                unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
-              },
-            ],
-          },
-        ],
+        toolResult: [],
         stepsComplete: false,
       })
 
@@ -6858,7 +6969,7 @@ describe('editor agent', () => {
       })
     })
 
-    test('implementor returns XML proposal tool calls even without native tool results', () => {
+    test('implementor retries XML proposal text when no proposal tool result was recorded', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
         { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
@@ -6899,22 +7010,12 @@ describe('editor agent', () => {
       })
 
       expect(result.value).toMatchObject({
-        toolName: 'set_output',
-        input: {
-          toolCalls: [
-            {
-              toolName: 'propose_str_replace',
-              input: {
-                path: 'src/example.ts',
-                replacements: [{ oldString: 'old', newString: 'new' }],
-              },
-            },
-          ],
-          toolResults: [],
-          unifiedDiffs: '',
-        },
+        toolName: 'set_messages',
+        includeToolCall: false,
       })
-      expect((result.value as any).input.errorMessage).toBeUndefined()
+      expect((result.value as any).input.messages.at(-1).tags).toContain(
+        'PROPOSAL_RETRY',
+      )
     })
 
     test('multi-prompt does not retry when proposal toolResults are nested', () => {

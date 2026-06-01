@@ -1,5 +1,6 @@
 import { createPatch } from 'diff'
 
+import { appendProposalArtifact } from './proposal-ledger-store'
 import {
   getProposedContent,
   setProposedContent,
@@ -71,6 +72,18 @@ export const handleProposeWriteFile = (async (
 
   const isNewFile = initialContent === null
   const message = isNewFile ? `Proposed new file ${path}` : `Proposed changes to ${path}`
+
+  // Record the successful proposal artifact at the source of truth.
+  appendProposalArtifact(runId, {
+    toolName: 'propose_write_file',
+    input: toolCall.input,
+    result: {
+      file: path,
+      ok: true,
+      unifiedDiff: patch,
+      message,
+    },
+  })
 
   return {
     output: [

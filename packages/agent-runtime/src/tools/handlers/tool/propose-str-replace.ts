@@ -1,3 +1,4 @@
+import { appendProposalArtifact } from './proposal-ledger-store'
 import {
   getProposedContent,
   setProposedContent,
@@ -76,6 +77,17 @@ export const handleProposeStrReplace = (async (
   const strReplaceResult = await strReplaceResultPromise
 
   if ('error' in strReplaceResult) {
+    // Record the failed proposal in the deterministic ledger so the parent can
+    // see (and repair) it without reconstructing anything from message history.
+    appendProposalArtifact(runId, {
+      toolName: 'propose_str_replace',
+      input: toolCall.input,
+      result: {
+        file: path,
+        ok: false,
+        errorMessage: strReplaceResult.error,
+      },
+    })
     return {
       output: [
         {
@@ -92,6 +104,18 @@ export const handleProposeStrReplace = (async (
   const message = strReplaceResult.messages.length > 0
     ? strReplaceResult.messages.join('\n\n')
     : 'Proposed string replacement'
+
+  // Record the successful proposal artifact at the source of truth.
+  appendProposalArtifact(runId, {
+    toolName: 'propose_str_replace',
+    input: toolCall.input,
+    result: {
+      file: path,
+      ok: true,
+      unifiedDiff: strReplaceResult.patch,
+      message,
+    },
+  })
 
   return {
     output: [

@@ -21,6 +21,7 @@ import {
   clearAgentGeneratorForRun,
   runProgrammaticStep,
 } from './run-programmatic-step'
+import { getProposalLedger } from './tools/handlers/tool/proposal-ledger-store'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { buildAgentToolSet } from './templates/prompts'
@@ -1207,6 +1208,17 @@ export async function loopAgentSteps(
     }
     }
   } finally {
+    // Snapshot the current proposal ledger before teardown. Subagent timeout /
+    // provider-error recovery runs after this function settles, so the live
+    // per-run ledger will already be cleared by clearAgentGeneratorForRun. The
+    // snapshot preserves the deterministic proposal artifacts without keeping
+    // global run-scoped state alive. We snapshot onto initialAgentState (the
+    // object the caller holds and that loopAgentSteps returns as agentState),
+    // which is the same reference currentAgentState tracks; this also keeps the
+    // snapshot in scope on every exit path, including a throw during setup
+    // before currentAgentState would be reassigned.
+    ;(initialAgentState as any).proposalLedger = getProposalLedger(runId)
+
     // Always tear down this run's in-memory programmatic-step state. When a
     // generator yields STEP/STEP_ALL it is intentionally retained across loop
     // iterations; if a later LLM step throws or the run is aborted, control

@@ -171,22 +171,12 @@ More style notes:
 Write out your complete implementation now. Do not write any final summary.`,
 
     handleSteps: function* ({ agentState: initialAgentState, params }) {
-      const initialMessageHistoryLength =
-        initialAgentState.messageHistory.length
       const canUseReadOnlyTools = getCanUseReadOnlyTools({
         params,
         agentState: initialAgentState,
       })
 
       let agentState = initialAgentState
-      let accumulatedProposalToolResults: any[] = []
-      // Accumulate proposal tool CALLS across steps too, not just results.
-      // Otherwise a multi-step bundle drops earlier steps' proposal tool calls
-      // at completion (they only live in that step's message slice), the parent
-      // sees toolResults/diffs but zero usable toolCalls, isUsableProposal
-      // discards it, and the visible diffs are thrown away before the selector
-      // ever runs. Existing sanitization still filters failed-only calls.
-      let accumulatedProposalToolCalls: { toolName: string; input: any }[] = []
       let readOnlyOnlySteps = 0
       let stopReason:
         | 'cleanProposal'
@@ -211,55 +201,23 @@ Write out your complete implementation now. Do not write any final summary.`,
         completedProposalSteps = step + 1
         agentState = result.agentState
 
-        const postMessages = agentState.messageHistory.slice(
-          initialMessageHistoryLength,
-        )
-        const latestAttemptMessages =
-          getMessagesSinceLastProposalRetry(postMessages)
-        const rawLatestProposalToolCalls = dedupeProposalToolCalls([
-          ...getProposalToolCallsFromMessages(latestAttemptMessages),
-          ...accumulatedProposalToolCalls,
-        ])
-        accumulatedProposalToolCalls = rawLatestProposalToolCalls
-        const rawProposalToolResults = dedupeProposalToolResults([
-          ...getProposalToolResults(latestAttemptMessages),
-          ...getProposalToolResultValues(result.toolResult),
-          ...accumulatedProposalToolResults,
-        ])
-        const proposalArtifacts = sanitizeProposalArtifactsForCapturedBundle({
-          toolCalls: rawLatestProposalToolCalls,
-          rawToolResults: rawProposalToolResults,
-        })
-        const latestProposalToolCalls = proposalArtifacts.toolCalls
-        const proposalToolResults = proposalArtifacts.toolResults
-        accumulatedProposalToolResults = proposalToolResults
-        const hasSuccessfulProposalToolResult = proposalToolResults.some(
-          isSuccessfulProposalToolResult,
-        )
-        const hasFailedProposalToolResult = proposalToolResults.some(
-          isFailedProposalToolResult,
-        )
+        // Source of truth: the runtime-recorded ledger for the CURRENT attempt.
+        // No message-history scanning, no accumulators, no dedup/sanitize stack.
+        const summary = summarizeLedger(getLedgerArtifacts(agentState))
+        const latestProposalToolCalls = summary.toolCalls
+        const proposalToolResults = summary.toolResults
+        const hasSuccessfulProposalToolResult = summary.successfulCount > 0
+        const hasFailedProposalToolResult = summary.failedOnlyCount > 0
 
-        // If the model produced real proposal diffs and then made a bad extra
-        // proposal edit, preserve the useful captured bundle instead of
-        // feeding it a retry prompt that can erase or duplicate the work. The
-        // parent will treat this as partial and run the normal completion/
-        // repair path before applying anything.
-        if (
-          hasSuccessfulProposalToolResult &&
-          proposalArtifacts.droppedFailedProposalResultCount > 0
-        ) {
+        // Mixed result: real diffs were produced AND some file failed outright.
+        // Preserve the captured successful bundle and let the parent run its
+        // normal completion/repair path rather than feeding a retry that could
+        // erase or duplicate the good work.
+        if (hasSuccessfulProposalToolResult && hasFailedProposalToolResult) {
           stopReason = 'noCompletionSignal'
           break
         }
 
-        // Proposal agents need to draft edits, not apply them. In bundle mode,
-        // the completion marker is preferred, but it cannot be the only success
-        // signal: weaker/OpenAI-compatible models often emit a valid multi-file
-        // bundle and then finish without the exact marker. Keep collecting
-        // while proposal progress continues; once the proposal stream quiesces
-        // or the provider reports a complete multi-file step, classify the
-        // captured edit bundle from evidence instead of timing out forever.
         if (hasSuccessfulProposalToolResult && !hasFailedProposalToolResult) {
           const proposalSignalCount =
             latestProposalToolCalls.length + proposalToolResults.length
@@ -267,39 +225,11 @@ Write out your complete implementation now. Do not write any final summary.`,
             shouldStopAfterProposalSignal({
               proposalSignalCount,
               step,
-              latestAttemptMessages,
-              latestProposalToolCalls,
-              proposalToolResults,
-              stepsComplete: result.stepsComplete === true,
-              hasReadOnlyActivityThisStep: hasCurrentReadOnlyToolResult(
-                result.toolResult,
+              proposedFileCount: summary.proposedFiles.length,
+              hasAnyProposal: summary.successfulCount > 0,
+              completionSignalSeen: hasProposalCompletionSignal(
+                agentState.messageHistory ?? [],
               ),
-            })
-          ) {
-            break
-          }
-          readOnlyOnlySteps = 0
-          continue
-        }
-
-        // Some OpenAI-compatible providers/models do not consistently execute
-        // XML/text tool calls as native tool results. If the model emitted a
-        // syntactically valid proposal call and no proposal tool reported a
-        // failure, return that call to the parent so the real apply step can
-        // validate it instead of looping until the proposal budget is gone.
-        if (
-          latestProposalToolCalls.length > 0 &&
-          !hasFailedProposalToolResult
-        ) {
-          const proposalSignalCount =
-            latestProposalToolCalls.length + proposalToolResults.length
-          if (
-            shouldStopAfterProposalSignal({
-              proposalSignalCount,
-              step,
-              latestAttemptMessages,
-              latestProposalToolCalls,
-              proposalToolResults,
               stepsComplete: result.stepsComplete === true,
               hasReadOnlyActivityThisStep: hasCurrentReadOnlyToolResult(
                 result.toolResult,
@@ -317,16 +247,19 @@ Write out your complete implementation now. Do not write any final summary.`,
           break
         }
 
-        // Read-only exploration is now allowed so weaker/OpenAI-compatible
-        // proposal models can recover from context starvation. If this step
-        // only gathered context, let the model take another normal step instead
-        // of injecting an unnecessary "you failed" retry prompt.
+        // Read-only exploration is allowed so weaker/OpenAI-compatible proposal
+        // models can recover from context starvation. If this step only
+        // gathered context (no proposal artifacts at all), let the model take
+        // another normal step instead of injecting a "you failed" retry.
         if (
           canUseReadOnlyTools &&
           !hasSuccessfulProposalToolResult &&
           !hasFailedProposalToolResult &&
-          latestProposalToolCalls.length === 0 &&
-          hasReadOnlyToolActivity(latestAttemptMessages, result.toolResult)
+          summary.toolResults.length === 0 &&
+          hasReadOnlyToolActivity(
+            agentState.messageHistory ?? [],
+            result.toolResult,
+          )
         ) {
           readOnlyOnlySteps++
           if (readOnlyOnlySteps > maxReadOnlyOnlySteps) {
@@ -334,102 +267,41 @@ Write out your complete implementation now. Do not write any final summary.`,
             break
           }
           if (readOnlyOnlySteps === maxReadOnlyOnlySteps) {
-            accumulatedProposalToolCalls = []
-            accumulatedProposalToolResults = []
-            yield {
-              toolName: 'set_messages',
-              input: {
-                messages: [
-                  ...agentState.messageHistory,
-                  {
-                    role: 'user',
-                    content: [
-                      {
-                        type: 'text',
-                        text: buildStopExploringPrompt(),
-                      },
-                    ],
-                    tags: ['PROPOSAL_RETRY'],
-                  },
-                ],
-              },
-              includeToolCall: false,
-            }
+            // PROPOSAL_RETRY resets the ledger attempt at the runtime layer, so
+            // stale failed artifacts can never leak into the next attempt.
+            yield buildProposalRetryToolCall({
+              messageHistory: agentState.messageHistory ?? [],
+              text: buildStopExploringPrompt(),
+            })
           }
           continue
         }
         readOnlyOnlySteps = 0
 
-        accumulatedProposalToolCalls = []
-        accumulatedProposalToolResults = []
-        yield {
-          toolName: 'set_messages',
-          input: {
-            messages: [
-              ...agentState.messageHistory,
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'text',
-                    text: buildProposalRetryPrompt(proposalToolResults),
-                  },
-                ],
-                tags: ['PROPOSAL_RETRY'],
-              },
-            ],
-          },
-          includeToolCall: false,
-        }
+        // Pure failure (no usable diff anywhere): retry. The runtime starts a
+        // fresh ledger attempt when it applies this PROPOSAL_RETRY message.
+        yield buildProposalRetryToolCall({
+          messageHistory: agentState.messageHistory ?? [],
+          text: buildProposalRetryPrompt(proposalToolResults),
+        })
       }
 
-      const postMessages = agentState.messageHistory.slice(
-        initialMessageHistoryLength,
-      )
-      const latestAttemptMessages =
-        getMessagesSinceLastProposalRetry(postMessages)
-
-      // Extract tool calls from assistant messages (both native and XML-formatted),
-      // merged with calls accumulated across all prior proposal steps. Using only
-      // the latest attempt slice here drops earlier-step bundle calls and makes an
-      // otherwise-usable proposal look empty to the parent.
-      const rawToolCalls = dedupeProposalToolCalls([
-        ...getProposalToolCallsFromMessages(latestAttemptMessages),
-        ...accumulatedProposalToolCalls,
-      ])
-
-      // Extract tool results (unified diffs) from tool messages. Include the
-      // latest STEP toolResult too: in the live runtime, a successful proposal
-      // result can be available in the yielded STEP payload before it appears
-      // in messageHistory. If we used it to stop, we must also emit it.
-      const rawToolResults = dedupeProposalToolResults([
-        ...getProposalToolResults(latestAttemptMessages),
-        ...accumulatedProposalToolResults,
-      ])
-      const proposalArtifacts = sanitizeProposalArtifactsForCapturedBundle({
-        toolCalls: rawToolCalls,
-        rawToolResults,
-      })
-      const toolResults = proposalArtifacts.toolResults
-      const toolCalls = proposalArtifacts.toolCalls
-
-      // Concatenate all unified diffs for the selector to review
-      const unifiedDiffs = toolResults
-        .filter(isSuccessfulProposalToolResult)
-        .map((result: any) => `--- ${result.file} ---\n${result.unifiedDiff}`)
-        .join('\n\n')
+      const finalSummary = summarizeLedger(getLedgerArtifacts(agentState))
+      const toolCalls = finalSummary.toolCalls
+      const toolResults = finalSummary.toolResults
+      const unifiedDiffs = finalSummary.unifiedDiffs
 
       const finalStopReason =
         stopReason ??
-        (proposalArtifacts.droppedFailedProposalResultCount > 0 &&
+        (finalSummary.failedOnlyCount > 0 &&
         (toolCalls.length > 0 || unifiedDiffs.length > 0)
           ? 'noCompletionSignal'
           : undefined) ??
         inferProposalStopReason({
           toolCalls,
-          toolResults,
+          summary: finalSummary,
           unifiedDiffs,
-          latestAttemptMessages,
+          messageHistory: agentState.messageHistory ?? [],
         })
 
       yield {
@@ -438,28 +310,159 @@ Write out your complete implementation now. Do not write any final summary.`,
           toolCalls,
           toolResults,
           unifiedDiffs,
-          readOnlyContext: buildReadOnlyContextFromMessages(postMessages),
+          readOnlyContext: buildReadOnlyContextFromMessages(
+            agentState.messageHistory ?? [],
+          ),
           proposalBudget,
           proposalProgress: buildProposalProgressTelemetry({
-            latestAttemptMessages,
-            toolCalls,
-            toolResults,
+            messageHistory: agentState.messageHistory ?? [],
+            summary: finalSummary,
             stopReason: finalStopReason,
             stepsTaken: completedProposalSteps,
-            droppedFailedProposalResultCount:
-              proposalArtifacts.droppedFailedProposalResultCount,
           }),
           stopReason: finalStopReason,
           ...(toolCalls.length === 0 && !unifiedDiffs
             ? {
                 errorMessage: buildNoProposalErrorMessage(
-                  latestAttemptMessages,
+                  agentState.messageHistory ?? [],
                 ),
               }
             : {}),
         },
         includeToolCall: false,
       }
+
+      // ====================================================================
+      // Deterministic ledger access — the single source of proposal artifacts.
+      // ====================================================================
+
+      function getLedgerArtifacts(state: any): LedgerArtifact[] {
+        const ledger = state?.proposalLedger
+        return Array.isArray(ledger) ? (ledger as LedgerArtifact[]) : []
+      }
+
+      // Collapse multiple successful edits to the SAME file into the minimal
+      // deterministic set the parent can apply against disk, regardless of how
+      // many calls or files the attempt produced. A full propose_write_file is
+      // an absolute rewrite, so any earlier edits to that file (str_replace or
+      // an earlier write) are superseded and dropped. str_replace edits with no
+      // later full rewrite are kept in order: they were authored to chain
+      // against the proposed-content store, and both the parent's sequential
+      // apply and dry-run validation replay them in that same order.
+      function reconcileSuccessfulArtifactsByFile(
+        successfulInOrder: LedgerArtifact[],
+      ): LedgerArtifact[] {
+        const keptByFile = new Map<string, LedgerArtifact[]>()
+        for (const artifact of successfulInOrder) {
+          const file = artifact.result.file
+          if (!file) continue
+          if (artifact.toolName === 'propose_write_file') {
+            // Full rewrite resets this file's accumulated edits.
+            keptByFile.set(file, [artifact])
+            continue
+          }
+          const existing = keptByFile.get(file)
+          if (existing) {
+            existing.push(artifact)
+          } else {
+            keptByFile.set(file, [artifact])
+          }
+        }
+        // Preserve first-seen file order, then per-file edit order.
+        const seen = new Set<string>()
+        const ordered: LedgerArtifact[] = []
+        for (const artifact of successfulInOrder) {
+          const file = artifact.result.file
+          if (!file || seen.has(file)) continue
+          seen.add(file)
+          ordered.push(...(keptByFile.get(file) ?? []))
+        }
+        return ordered
+      }
+
+      function summarizeLedger(ledger: LedgerArtifact[]): LedgerSummary {
+        const successful = reconcileSuccessfulArtifactsByFile(
+          ledger.filter(isSuccessfulArtifact),
+        )
+        const successfulFiles = new Set(
+          successful.map((artifact) => artifact.result.file).filter(Boolean),
+        )
+
+        // A failed artifact only counts as a real failure when no later success
+        // covered the same file in this attempt (the model fixed it itself).
+        const failedOnly = ledger.filter(
+          (artifact) =>
+            !isSuccessfulArtifact(artifact) &&
+            !(
+              artifact.result.file &&
+              successfulFiles.has(artifact.result.file)
+            ),
+        )
+
+        const toolCalls = successful.map((artifact) => ({
+          toolName: artifact.toolName,
+          input: artifact.input,
+        }))
+
+        // Drop failures on files that ultimately succeeded; keep genuine
+        // failures as telemetry for the parent's completion/repair path.
+        const toolResults = ledger
+          .filter(
+            (artifact) =>
+              isSuccessfulArtifact(artifact) ||
+              !(
+                artifact.result.file &&
+                successfulFiles.has(artifact.result.file)
+              ),
+          )
+          .map(toToolResult)
+
+        const unifiedDiffs = successful
+          .map(
+            (artifact) =>
+              `--- ${artifact.result.file} ---\n${artifact.result.unifiedDiff}`,
+          )
+          .join('\n\n')
+
+        const proposedFiles = [
+          ...new Set(
+            [...successful, ...failedOnly]
+              .map((artifact) => artifact.result.file)
+              .filter(Boolean),
+          ),
+        ]
+
+        return {
+          toolCalls,
+          toolResults,
+          unifiedDiffs,
+          successfulCount: successful.length,
+          failedOnlyCount: failedOnly.length,
+          proposedFiles,
+        }
+      }
+
+      function isSuccessfulArtifact(artifact: LedgerArtifact): boolean {
+        return (
+          artifact?.result?.ok === true &&
+          typeof artifact.result.unifiedDiff === 'string' &&
+          artifact.result.unifiedDiff.trim().length > 0
+        )
+      }
+
+      function toToolResult(artifact: LedgerArtifact): any {
+        const { file, unifiedDiff, message, errorMessage } = artifact.result
+        return {
+          file,
+          ...(unifiedDiff ? { unifiedDiff } : {}),
+          ...(message ? { message } : {}),
+          ...(errorMessage ? { errorMessage } : {}),
+        }
+      }
+
+      // ====================================================================
+      // Stop / coverage policy (decides WHEN to stop; never WHAT survives).
+      // ====================================================================
 
       function getAdaptiveProposalBudget(params: {
         params: Record<string, any> | undefined
@@ -632,36 +635,33 @@ Write out your complete implementation now. Do not write any final summary.`,
       function shouldStopAfterProposalSignal(input: {
         proposalSignalCount: number
         step: number
-        latestAttemptMessages: any[]
-        latestProposalToolCalls: { toolName: string; input: any }[]
-        proposalToolResults: any[]
+        proposedFileCount: number
+        hasAnyProposal: boolean
+        completionSignalSeen: boolean
         stepsComplete: boolean
         hasReadOnlyActivityThisStep: boolean
       }): boolean {
         const {
           proposalSignalCount,
           step,
-          latestAttemptMessages,
-          latestProposalToolCalls,
-          proposalToolResults,
+          proposedFileCount,
+          hasAnyProposal,
+          completionSignalSeen,
           stepsComplete,
           hasReadOnlyActivityThisStep,
         } = input
-        const hasCompletionSignal = hasProposalCompletionSignal(
-          latestAttemptMessages,
-        )
         const hasNewProposalSignal =
           proposalSignalCount > lastProposalSignalCount
         const coverage = getProposalCoverageAssessment({
-          toolCalls: latestProposalToolCalls,
-          toolResults: proposalToolResults,
+          proposedFileCount,
+          hasAnyProposal,
         })
 
         if (!collectProposalBundle) {
           stopReason = 'cleanProposal'
           return true
         }
-        if (hasCompletionSignal) {
+        if (completionSignalSeen) {
           stopReason = 'cleanProposal'
           return true
         }
@@ -700,8 +700,8 @@ Write out your complete implementation now. Do not write any final summary.`,
         // Multi-file proposals should be bundled, but weak/OpenAI-compatible
         // models often emit one more proposal call every turn forever. Stop
         // after an adaptive number of proposal-bearing turns; the current
-        // turn's edits are already captured and will be returned to the
-        // selector instead of letting one candidate block the whole run.
+        // turn's edits are already captured in the ledger and will be returned
+        // to the selector instead of letting one candidate block the run.
         if (bundleProposalTurns >= maxBundleProposalTurns) {
           stopReason = coverage.canCleanAfterQuiescence
             ? 'cleanProposal'
@@ -713,29 +713,28 @@ Write out your complete implementation now. Do not write any final summary.`,
 
       function inferProposalStopReason(input: {
         toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
+        summary: LedgerSummary
         unifiedDiffs: string
-        latestAttemptMessages: any[]
+        messageHistory: any[]
       }):
         | 'cleanProposal'
         | 'bundleCap'
         | 'stepBudget'
         | 'noCompletionSignal'
         | 'noProposal' {
-        const { toolCalls, toolResults, unifiedDiffs, latestAttemptMessages } =
-          input
+        const { toolCalls, summary, unifiedDiffs, messageHistory } = input
         if (toolCalls.length === 0 && !unifiedDiffs) {
           return 'noProposal'
         }
         if (!collectProposalBundle) {
           return 'cleanProposal'
         }
-        if (hasProposalCompletionSignal(latestAttemptMessages)) {
+        if (hasProposalCompletionSignal(messageHistory)) {
           return 'cleanProposal'
         }
         return getProposalCoverageAssessment({
-          toolCalls,
-          toolResults,
+          proposedFileCount: summary.proposedFiles.length,
+          hasAnyProposal: summary.successfulCount > 0,
         }).canCleanAfterQuiescence
           ? 'cleanProposal'
           : 'noCompletionSignal'
@@ -750,31 +749,24 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         // If the task told us the expected scope (explicit paths/count, or an
         // explicit multi-file signal), stop as soon as that scope is covered.
-        // This is the key anti-hang path for local/OpenAI-compatible models
-        // that emit the whole bundle and then stall before writing the marker.
         if (coverage.satisfiesKnownScope) return true
 
         // If the model has not completed its turn/generation, do not cut it off
         // unless the known required scope above is already covered.
         if (!stepsComplete) return false
 
-        // Simple one-file work should not pay an extra model turn just to
-        // prove there are no more files.
+        // Simple one-file work should not pay an extra model turn just to prove
+        // there are no more files.
         if (coverage.satisfiesSimpleScope) return true
 
         // Ambiguous standard tasks can still finish cleanly when the provider
-        // naturally completes a multi-file bundle in the same step. Avoid doing
-        // this for complex/unknown tasks; those should either keep making
-        // progress, emit the marker, or be marked partial for a completion pass.
-        return (
-          coverage.proposedFileCount > 1 &&
-          coverage.canCleanAfterQuiescence
-        )
+        // naturally completes a multi-file bundle in the same step.
+        return coverage.proposedFileCount > 1 && coverage.canCleanAfterQuiescence
       }
 
       function getProposalCoverageAssessment(input: {
-        toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
+        proposedFileCount: number
+        hasAnyProposal: boolean
       }): {
         proposedFileCount: number
         requiredFileCount: number
@@ -783,9 +775,9 @@ Write out your complete implementation now. Do not write any final summary.`,
         satisfiesSimpleScope: boolean
         canCleanAfterQuiescence: boolean
       } {
-        const proposedFileCount = getUniqueProposedFilePaths(input).length
+        const proposedFileCount = input.proposedFileCount
         const requiredFileCount = getKnownRequiredProposalFileCount()
-        const hasAnyProposal = proposedFileCount > 0
+        const hasAnyProposal = input.hasAnyProposal
         const satisfiesKnownScope =
           requiredFileCount > 0 && proposedFileCount >= requiredFileCount
         const satisfiesSimpleScope =
@@ -815,83 +807,58 @@ Write out your complete implementation now. Do not write any final summary.`,
           return proposalBudget.expectedTouchedFileCount
         }
         if (proposalBudget.expectsMultipleFiles) {
-          // The request says multi-file but not how many files. Require at
-          // least two files before calling it clean; otherwise a one-file
-          // proposal is useful but partial and should go through completion.
           return 2
         }
         return 0
       }
 
-      function getUniqueProposedFilePaths(input: {
-        toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
-      }): string[] {
-        const paths = new Set<string>()
-        for (const toolCall of input.toolCalls) {
-          const path = getProposalToolCallPath(toolCall)
-          if (path) paths.add(path)
+      function buildProposalRetryToolCall(input: {
+        messageHistory: any[]
+        text: string
+      }): any {
+        return {
+          toolName: 'set_messages',
+          input: {
+            messages: [
+              ...input.messageHistory,
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: input.text,
+                  },
+                ],
+                tags: ['PROPOSAL_RETRY'],
+              },
+            ],
+          },
+          includeToolCall: false,
         }
-        for (const result of input.toolResults) {
-          const path = getProposalToolResultPath(result)
-          if (path) paths.add(path)
-        }
-        return [...paths]
-      }
-
-      function getProposalToolCallPath(toolCall: {
-        toolName: string
-        input: any
-      }): string {
-        return typeof toolCall.input?.path === 'string'
-          ? toolCall.input.path
-          : ''
-      }
-
-      function getProposalToolResultPath(result: any): string {
-        if (!result || typeof result !== 'object') return ''
-        if (typeof result.file === 'string') return result.file
-        return typeof result.path === 'string' ? result.path : ''
       }
 
       function buildProposalProgressTelemetry(input: {
-        latestAttemptMessages: any[]
-        toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
+        messageHistory: any[]
+        summary: LedgerSummary
         stopReason: string
         stepsTaken: number
-        droppedFailedProposalResultCount?: number
       }): Record<string, any> {
-        const { latestAttemptMessages, toolCalls, toolResults, stepsTaken } =
-          input
-        const proposedFiles = getUniqueProposedFilePaths({
-          toolCalls,
-          toolResults,
-        })
+        const { messageHistory, summary, stepsTaken } = input
         return {
           stepsTaken,
           readOnlyToolCallCount: countToolCallsInMessages(
-            latestAttemptMessages,
+            messageHistory,
             isReadOnlyToolName,
           ),
-          proposalToolCallCount: toolCalls.length,
-          successfulProposalResultCount: toolResults.filter(
-            isSuccessfulProposalToolResult,
-          ).length,
-          failedProposalResultCount: toolResults.filter(
-            isFailedProposalToolResult,
-          ).length,
-          proposedFileCount: proposedFiles.length,
-          proposedFiles: proposedFiles.slice(0, 20),
-          completionSignalSeen: hasProposalCompletionSignal(
-            latestAttemptMessages,
-          ),
+          proposalToolCallCount: summary.toolCalls.length,
+          successfulProposalResultCount: summary.successfulCount,
+          failedProposalResultCount: summary.failedOnlyCount,
+          proposedFileCount: summary.proposedFiles.length,
+          proposedFiles: summary.proposedFiles.slice(0, 20),
+          completionSignalSeen: hasProposalCompletionSignal(messageHistory),
           stopReason: input.stopReason,
-          ...(input.droppedFailedProposalResultCount
-            ? {
-                droppedFailedProposalResultCount:
-                  input.droppedFailedProposalResultCount,
-              }
+          ...(summary.failedOnlyCount
+            ? { droppedFailedProposalResultCount: summary.failedOnlyCount }
             : {}),
         }
       }
@@ -912,266 +879,6 @@ Write out your complete implementation now. Do not write any final summary.`,
           }
         }
         return count
-      }
-
-      function sanitizeRecoverableMixedProposalResults(results: any[]): any[] {
-        return results.map((result) =>
-          isRecoverableMixedProposalFailure(result)
-            ? {
-                ...result,
-                message:
-                  'Proposed string replacement; unmatched replacement omitted from proposal.',
-              }
-            : result,
-        )
-      }
-
-      function sanitizeProposalArtifactsForCapturedBundle(input: {
-        toolCalls: { toolName: string; input: any }[]
-        rawToolResults: any[]
-      }): {
-        toolCalls: { toolName: string; input: any }[]
-        toolResults: any[]
-        droppedFailedProposalResultCount: number
-      } {
-        const normalizedToolResults = filterIgnorableNoOpProposalFailures(
-          dedupeProposalToolResults(
-            sanitizeRecoverableMixedProposalResults(input.rawToolResults),
-          ),
-        )
-        const successfulToolResults = normalizedToolResults.filter(
-          isSuccessfulProposalToolResult,
-        )
-        const successfulPaths = new Set(
-          successfulToolResults
-            .map(getProposalToolResultPath)
-            .filter(Boolean),
-        )
-        const failedToolResults = normalizedToolResults
-          .filter(isFailedProposalToolResult)
-          .filter((result) => {
-            const path = getProposalToolResultPath(result)
-            return !path || !successfulPaths.has(path)
-          })
-        const shouldCaptureSuccessfulSubset =
-          successfulToolResults.length > 0 && failedToolResults.length > 0
-        const toolResults = shouldCaptureSuccessfulSubset
-          ? normalizedToolResults.filter(
-              (result) => !isFailedProposalToolResult(result),
-            )
-          : normalizedToolResults
-
-        const recoverableSanitizedToolCalls =
-          sanitizeProposalToolCallsForRecoverableFailures({
-            toolCalls: input.toolCalls,
-            rawToolResults: input.rawToolResults,
-          })
-        const toolCalls = shouldCaptureSuccessfulSubset
-          ? dropFailedOnlyProposalToolCalls({
-              toolCalls: recoverableSanitizedToolCalls,
-              successfulToolResults,
-              failedToolResults,
-            })
-          : recoverableSanitizedToolCalls
-
-        return {
-          toolCalls,
-          toolResults,
-          droppedFailedProposalResultCount: shouldCaptureSuccessfulSubset
-            ? failedToolResults.length
-            : 0,
-        }
-      }
-
-      function dropFailedOnlyProposalToolCalls(input: {
-        toolCalls: { toolName: string; input: any }[]
-        successfulToolResults: any[]
-        failedToolResults: any[]
-      }): { toolName: string; input: any }[] {
-        const successfulPaths = new Set(
-          input.successfulToolResults
-            .map(getProposalToolResultPath)
-            .filter(Boolean),
-        )
-        const failedOnlyPaths = new Set(
-          input.failedToolResults
-            .map(getProposalToolResultPath)
-            .filter(
-              (path): path is string =>
-                Boolean(path) && !successfulPaths.has(path),
-            ),
-        )
-        if (failedOnlyPaths.size === 0) return input.toolCalls
-
-        return input.toolCalls.filter((toolCall) => {
-          const path = getProposalToolCallPath(toolCall)
-          return !path || !failedOnlyPaths.has(path)
-        })
-      }
-
-      function isRecoverableMixedProposalFailure(result: any): boolean {
-        return Boolean(
-          result &&
-          typeof result === 'object' &&
-          typeof result.unifiedDiff === 'string' &&
-          result.unifiedDiff.trim().length > 0 &&
-          typeof result.message === 'string' &&
-          getFailedReplacementOldStrings(result.message).length > 0,
-        )
-      }
-
-      function sanitizeProposalToolCallsForRecoverableFailures(input: {
-        toolCalls: { toolName: string; input: any }[]
-        rawToolResults: any[]
-      }): { toolName: string; input: any }[] {
-        const failedOldStringsByPath = getRecoverableFailedOldStringsByPath(
-          input.rawToolResults,
-        )
-        if (failedOldStringsByPath.size === 0) return input.toolCalls
-
-        return input.toolCalls
-          .map((toolCall) =>
-            sanitizeProposalToolCallForRecoverableFailures(
-              toolCall,
-              failedOldStringsByPath,
-            ),
-          )
-          .filter(
-            (
-              toolCall,
-            ): toolCall is {
-              toolName: string
-              input: any
-            } => Boolean(toolCall),
-          )
-      }
-
-      function sanitizeProposalToolCallForRecoverableFailures(
-        toolCall: { toolName: string; input: any },
-        failedOldStringsByPath: Map<string, Set<string>>,
-      ): { toolName: string; input: any } | undefined {
-        if (toolCall.toolName !== 'propose_str_replace') return toolCall
-
-        const path = getProposalToolCallPath(toolCall)
-        const failedOldStrings = failedOldStringsByPath.get(path)
-        if (!failedOldStrings || !Array.isArray(toolCall.input?.replacements)) {
-          return toolCall
-        }
-
-        const replacements = toolCall.input.replacements.filter(
-          (replacement: any) =>
-            !replacementMatchesFailedOldString(replacement, failedOldStrings),
-        )
-        if (replacements.length === 0) return undefined
-        if (replacements.length === toolCall.input.replacements.length) {
-          return toolCall
-        }
-
-        return {
-          ...toolCall,
-          input: {
-            ...toolCall.input,
-            replacements,
-          },
-        }
-      }
-
-      function getRecoverableFailedOldStringsByPath(
-        rawToolResults: any[],
-      ): Map<string, Set<string>> {
-        const byPath = new Map<string, Set<string>>()
-        for (const result of rawToolResults) {
-          if (!isRecoverableMixedProposalFailure(result)) continue
-
-          const path = getProposalToolResultPath(result)
-          if (!path) continue
-
-          const failedOldStrings = getFailedReplacementOldStrings(
-            result.message,
-          )
-          if (failedOldStrings.length === 0) continue
-
-          const existing = byPath.get(path) ?? new Set<string>()
-          for (const oldString of failedOldStrings) {
-            existing.add(oldString)
-          }
-          byPath.set(path, existing)
-        }
-        return byPath
-      }
-
-      function replacementMatchesFailedOldString(
-        replacement: any,
-        failedOldStrings: Set<string>,
-      ): boolean {
-        const oldString = getReplacementOldString(replacement)
-        return Boolean(oldString && failedOldStrings.has(oldString))
-      }
-
-      function getReplacementOldString(replacement: any): string {
-        if (!replacement || typeof replacement !== 'object') return ''
-        if (typeof replacement.oldString === 'string') {
-          return replacement.oldString
-        }
-        return typeof replacement.old === 'string' ? replacement.old : ''
-      }
-
-      function getFailedReplacementOldStrings(message: string): string[] {
-        const failedOldStrings = new Set<string>()
-        const quotedPatterns = [
-          /old string\s+("(?:\\.|[^"\\])*")\s+was not found/gi,
-          /found \d+ occurrences of\s+("(?:\\.|[^"\\])*")/gi,
-        ]
-
-        for (const pattern of quotedPatterns) {
-          for (const match of message.matchAll(pattern)) {
-            const parsed = parseJsonQuotedString(match[1])
-            if (parsed) failedOldStrings.add(parsed)
-          }
-        }
-
-        return [...failedOldStrings]
-      }
-
-      function parseJsonQuotedString(value: string | undefined): string {
-        if (!value) return ''
-        try {
-          const parsed = JSON.parse(value)
-          return typeof parsed === 'string' ? parsed : ''
-        } catch {
-          return value.replace(/^"|"$/g, '')
-        }
-      }
-
-      function filterIgnorableNoOpProposalFailures(results: any[]): any[] {
-        const successfulPaths = new Set(
-          results
-            .filter(isSuccessfulProposalToolResult)
-            .map(getProposalToolResultPath)
-            .filter(Boolean),
-        )
-        if (successfulPaths.size === 0) return results
-
-        return results.filter(
-          (result) => !isIgnorableNoOpProposalFailure(result, successfulPaths),
-        )
-      }
-
-      function isIgnorableNoOpProposalFailure(
-        result: any,
-        successfulPaths: Set<string>,
-      ): boolean {
-        const failureMessage = getProposalResultFailureMessage(result)
-        if (!isNoOpProposalFailureMessage(failureMessage)) return false
-
-        const path = getProposalToolResultPath(result)
-        return Boolean(path && successfulPaths.has(path))
-      }
-
-      function isNoOpProposalFailureMessage(message: string): boolean {
-        return /(?:no change to the file|same as the old content)/i.test(
-          message,
-        )
       }
 
       function hasProposalCompletionSignal(messages: any[]): boolean {
@@ -1341,136 +1048,6 @@ Write out your complete implementation now. Do not write any final summary.`,
           .join('\n')
       }
 
-      function getProposalToolResults(messages: any[]): any[] {
-        const results: any[] = []
-        for (const message of messages) {
-          if (
-            message.role !== 'tool' ||
-            !Array.isArray(message.content) ||
-            (message.toolName !== 'propose_str_replace' &&
-              message.toolName !== 'propose_write_file')
-          ) {
-            continue
-          }
-
-          results.push(...getProposalToolResultValues(message.content))
-        }
-        return results
-      }
-
-      function getProposalToolCallsFromMessages(
-        messages: any[],
-      ): { toolName: string; input: any }[] {
-        const toolCalls: { toolName: string; input: any }[] = []
-        for (const message of messages) {
-          if (message.role !== 'assistant' || !Array.isArray(message.content)) {
-            continue
-          }
-          for (const part of message.content) {
-            if (part.type === 'tool-call') {
-              if (isProposalToolName(part.toolName)) {
-                toolCalls.push({
-                  toolName: part.toolName,
-                  input: part.input ?? (part as any).args ?? {},
-                })
-              }
-            } else if (part.type === 'text' && typeof part.text === 'string') {
-              // Extract XML-formatted <codebuff_tool_call> tool calls from text.
-              // This is the compatibility path for OpenAI-compatible providers
-              // that produce the documented XML form instead of native tool
-              // calls/results.
-              const matches = part.text.matchAll(
-                /<codebuff_tool_call>([\s\S]*?)<\/codebuff_tool_call>/g,
-              )
-              for (const match of matches) {
-                try {
-                  const parsed = JSON.parse(match[1].trim())
-                  const toolName = parsed.cb_tool_name
-                  if (isProposalToolName(toolName)) {
-                    const input = { ...parsed }
-                    delete input.cb_tool_name
-                    delete input.cb_easp
-                    toolCalls.push({
-                      toolName,
-                      input,
-                    })
-                  }
-                } catch {
-                  // Ignore malformed JSON in codebuff_tool_call blocks.
-                }
-              }
-            }
-          }
-        }
-        return dedupeProposalToolCalls(toolCalls)
-      }
-
-      function getProposalToolResultValues(toolResult: any): any[] {
-        if (!Array.isArray(toolResult)) return []
-        const results: any[] = []
-        for (const part of toolResult) {
-          if (part?.type === 'json' && 'value' in part) {
-            results.push(...flattenProposalToolResultValues(part.value))
-          }
-        }
-        return results
-      }
-
-      function isSuccessfulProposalToolResult(result: any): boolean {
-        return Boolean(
-          result &&
-          typeof result === 'object' &&
-          'unifiedDiff' in result &&
-          typeof result.unifiedDiff === 'string' &&
-          result.unifiedDiff.trim().length > 0 &&
-          !getProposalResultFailureMessage(result),
-        )
-      }
-
-      function isFailedProposalToolResult(result: any): boolean {
-        return Boolean(getProposalResultFailureMessage(result))
-      }
-
-      function getProposalResultFailureMessage(result: any): string {
-        if (!result || typeof result !== 'object') return ''
-        if (
-          typeof result.errorMessage === 'string' &&
-          result.errorMessage.trim().length > 0
-        ) {
-          return result.errorMessage.trim()
-        }
-        if (
-          typeof result.error === 'string' &&
-          result.error.trim().length > 0
-        ) {
-          return result.error.trim()
-        }
-        if (
-          typeof result.message === 'string' &&
-          isFailureLikeProposalMessage(result.message)
-        ) {
-          return result.message.trim()
-        }
-        return ''
-      }
-
-      function isFailureLikeProposalMessage(message: string): boolean {
-        return /(?:old string[\s\S]*not found|was not found|no change to the file|skipping|found \d+ occurrences|failed|error|does not exist|same as the old content)/i.test(
-          message,
-        )
-      }
-
-      function getMessagesSinceLastProposalRetry(messages: any[]): any[] {
-        const lastRetryIndex = messages.findLastIndex(
-          (message) =>
-            Array.isArray(message?.tags) &&
-            message.tags.includes('PROPOSAL_RETRY'),
-        )
-        return lastRetryIndex === -1
-          ? messages
-          : messages.slice(lastRetryIndex + 1)
-      }
-
       function hasReadOnlyToolActivity(
         messages: any[],
         toolResult: any,
@@ -1496,7 +1073,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         return toolResult.flatMap((part) => {
           const toolName = part?.toolName ?? part?.name
           return part?.type === 'json' && isReadOnlyToolName(toolName)
-            ? flattenProposalToolResultValues(part.value)
+            ? flattenToolResultValues(part.value)
             : []
         })
       }
@@ -1514,68 +1091,9 @@ Write out your complete implementation now. Do not write any final summary.`,
         )
       }
 
-      function isProposalToolName(toolName: any): boolean {
-        return (
-          toolName === 'propose_str_replace' ||
-          toolName === 'propose_write_file'
-        )
-      }
-
-      function dedupeProposalToolResults(results: any[]): any[] {
-        const seen = new Set<string>()
-        const deduped: any[] = []
-        for (const result of results) {
-          const key = getProposalToolResultKey(result)
-          if (key && seen.has(key)) continue
-          if (key) seen.add(key)
-          deduped.push(result)
-        }
-        return deduped
-      }
-
-      function getProposalToolResultKey(result: any): string {
-        if (!result || typeof result !== 'object') return ''
-        const file = typeof result.file === 'string' ? result.file : ''
-        const unifiedDiff =
-          typeof result.unifiedDiff === 'string' ? result.unifiedDiff : ''
-        const errorMessage =
-          typeof result.errorMessage === 'string' ? result.errorMessage : ''
-        const error = typeof result.error === 'string' ? result.error : ''
-        const message = typeof result.message === 'string' ? result.message : ''
-        if (!file && !unifiedDiff && !errorMessage && !error && !message) {
-          return ''
-        }
-        return [file, unifiedDiff, errorMessage, error, message].join('\0')
-      }
-
-      function dedupeProposalToolCalls(
-        toolCalls: { toolName: string; input: any }[],
-      ): { toolName: string; input: any }[] {
-        const seen = new Set<string>()
-        const deduped: { toolName: string; input: any }[] = []
-        for (const toolCall of toolCalls) {
-          const key = getProposalToolCallKey(toolCall)
-          if (key && seen.has(key)) continue
-          if (key) seen.add(key)
-          deduped.push(toolCall)
-        }
-        return deduped
-      }
-
-      function getProposalToolCallKey(toolCall: {
-        toolName: string
-        input: any
-      }): string {
-        try {
-          return `${toolCall.toolName}\0${JSON.stringify(toolCall.input)}`
-        } catch {
-          return toolCall.toolName
-        }
-      }
-
-      function flattenProposalToolResultValues(value: any): any[] {
+      function flattenToolResultValues(value: any): any[] {
         if (Array.isArray(value)) {
-          return value.flatMap(flattenProposalToolResultValues)
+          return value.flatMap(flattenToolResultValues)
         }
         if (
           value &&
@@ -1583,7 +1101,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           value.type === 'json' &&
           'value' in value
         ) {
-          return flattenProposalToolResultValues(value.value)
+          return flattenToolResultValues(value.value)
         }
         return value === undefined || value === null ? [] : [value]
       }
@@ -1592,7 +1110,9 @@ Write out your complete implementation now. Do not write any final summary.`,
         const failureDetails = proposalToolResults
           .map((result) =>
             result && typeof result === 'object'
-              ? getProposalResultFailureMessage(result)
+              ? typeof result.errorMessage === 'string'
+                ? result.errorMessage
+                : ''
               : '',
           )
           .filter(Boolean)
@@ -1796,6 +1316,31 @@ Emit valid XML proposal tool calls with no markdown fences:
     },
   }
 }
+
+/** A single recorded proposal artifact (mirrors ProposalLedgerArtifact). */
+type LedgerArtifact = {
+  seq: number
+  attempt: number
+  toolName: 'propose_str_replace' | 'propose_write_file'
+  input: Record<string, any>
+  result: {
+    file: string
+    ok: boolean
+    unifiedDiff?: string
+    message?: string
+    errorMessage?: string
+  }
+}
+
+type LedgerSummary = {
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+  unifiedDiffs: string
+  successfulCount: number
+  failedOnlyCount: number
+  proposedFiles: string[]
+}
+
 const definition = {
   ...createBestOfNImplementor({ model: 'opus' }),
   id: 'editor-implementor',

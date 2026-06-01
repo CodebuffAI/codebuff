@@ -14,6 +14,7 @@ import {
 
 import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
+import { appendProposalArtifact } from '../tools/handlers/tool/proposal-ledger-store'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import { getMatchingSpawn } from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
@@ -399,51 +400,55 @@ describe('Spawn Agents Permissions', () => {
       }
     })
 
-    it('should recover captured editor proposal diffs when timeout fires after progress', async () => {
+    it('should recover ledger-recorded editor proposal diffs when timeout fires after progress', async () => {
       const previousTimeout = process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS
       process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS = '5'
 
       mockLoopAgentSteps.mockImplementationOnce(
-        async (options: { signal: AbortSignal; agentState: any }) =>
+        async (options: {
+          signal: AbortSignal
+          agentState: any
+          onResponseChunk: (chunk: any) => void
+        }) =>
           new Promise((_, reject) => {
-            options.agentState.messageHistory = [
-              {
-                role: 'assistant',
-                content: [
-                  {
-                    type: 'tool-call',
-                    toolName: 'propose_write_file',
-                    input: {
-                      path: 'src/a.ts',
-                      instructions: 'Add A',
-                      content: 'export const a = 1\n',
-                    },
-                  },
-                  {
-                    type: 'tool-call',
-                    toolName: 'propose_write_file',
-                    input: {
-                      path: 'src/b.ts',
-                      instructions: 'Add B',
-                      content: 'export const b = 2\n',
-                    },
-                  },
-                ],
+            options.agentState.runId = 'ledger-timeout-child-run'
+            appendProposalArtifact(options.agentState.runId, {
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/a.ts',
+                instructions: 'Add A',
+                content: 'export const a = 1\n',
               },
-              {
-                role: 'tool',
-                toolName: 'propose_write_file',
-                content: [
-                  {
-                    type: 'json',
-                    value: [
-                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
-                      { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
-                    ],
-                  },
-                ],
+              result: {
+                file: 'src/a.ts',
+                ok: true,
+                unifiedDiff: '@@ diff A',
+                message: 'Proposed new file src/a.ts',
               },
-            ]
+            })
+            appendProposalArtifact(options.agentState.runId, {
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/b.ts',
+                instructions: 'Add B',
+                content: 'export const b = 2\n',
+              },
+              result: {
+                file: 'src/b.ts',
+                ok: true,
+                unifiedDiff: '@@ diff B',
+                message: 'Proposed new file src/b.ts',
+              },
+            })
+            options.onResponseChunk({
+              type: 'tool_result',
+              output: [
+                {
+                  type: 'json',
+                  value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                },
+              ],
+            })
             options.signal.addEventListener(
               'abort',
               () => reject(options.signal.reason ?? new Error('aborted')),

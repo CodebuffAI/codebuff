@@ -6,6 +6,7 @@ import {
 } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
+import { getProposalLedger } from './proposal-ledger-store'
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 import { formatValueForError } from '../../../util/format-value'
@@ -14,6 +15,7 @@ import {
   withSystemTags,
 } from '../../../util/messages'
 
+import type { ProposalLedgerArtifact } from './proposal-ledger-store'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
   AgentRuntimeDeps,
@@ -738,6 +740,100 @@ function isEditorProposalProgressChunk(
   return false
 }
 
+/**
+ * Deterministically summarize the proposal ledger into the parent-facing shape
+ * ({ toolCalls, toolResults, unifiedDiffs }). This MUST mirror the implementor's
+ * own `summarizeLedger` so a recovered (timeout/provider-error) bundle is byte
+ * identical to a normally-completed one for the same recorded artifacts. It is
+ * file-count and time agnostic: every successful artifact survives, failures on
+ * files that ultimately succeeded are dropped, and genuine failures are kept as
+ * telemetry for the parent's completion/repair path.
+ */
+// Collapse multiple successful edits to the SAME file into the minimal
+// deterministic set the parent can apply, regardless of file count or number of
+// calls. A full propose_write_file is an absolute rewrite, so earlier edits to
+// that file are superseded and dropped; str_replace edits with no later full
+// rewrite are kept in order (they chain against the proposed-content store and
+// the parent replays them in that same order). This MUST mirror the
+// implementor's reconcileSuccessfulArtifactsByFile so a recovered bundle is
+// byte-identical to a normally-completed one for the same artifacts.
+function reconcileSuccessfulProposalArtifactsByFile(
+  successfulInOrder: ProposalLedgerArtifact[],
+): ProposalLedgerArtifact[] {
+  const keptByFile = new Map<string, ProposalLedgerArtifact[]>()
+  for (const artifact of successfulInOrder) {
+    const file = artifact.result.file
+    if (!file) continue
+    if (artifact.toolName === 'propose_write_file') {
+      keptByFile.set(file, [artifact])
+      continue
+    }
+    const existing = keptByFile.get(file)
+    if (existing) {
+      existing.push(artifact)
+    } else {
+      keptByFile.set(file, [artifact])
+    }
+  }
+  const seen = new Set<string>()
+  const ordered: ProposalLedgerArtifact[] = []
+  for (const artifact of successfulInOrder) {
+    const file = artifact.result.file
+    if (!file || seen.has(file)) continue
+    seen.add(file)
+    ordered.push(...(keptByFile.get(file) ?? []))
+  }
+  return ordered
+}
+
+function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
+  toolCalls: { toolName: string; input: any }[]
+  toolResults: any[]
+  unifiedDiffs: string
+} {
+  const isSuccessful = (artifact: ProposalLedgerArtifact): boolean =>
+    artifact?.result?.ok === true &&
+    typeof artifact.result.unifiedDiff === 'string' &&
+    artifact.result.unifiedDiff.trim().length > 0
+
+  const successful = reconcileSuccessfulProposalArtifactsByFile(
+    ledger.filter(isSuccessful),
+  )
+  const successfulFiles = new Set(
+    successful.map((artifact) => artifact.result.file).filter(Boolean),
+  )
+
+  const toolCalls = successful.map((artifact) => ({
+    toolName: artifact.toolName,
+    input: artifact.input,
+  }))
+
+  const toolResults = ledger
+    .filter(
+      (artifact) =>
+        isSuccessful(artifact) ||
+        !(artifact.result.file && successfulFiles.has(artifact.result.file)),
+    )
+    .map((artifact) => {
+      const { file, unifiedDiff, message, errorMessage } = artifact.result
+      return {
+        file,
+        ...(unifiedDiff ? { unifiedDiff } : {}),
+        ...(message ? { message } : {}),
+        ...(errorMessage ? { errorMessage } : {}),
+      }
+    })
+
+  const unifiedDiffs = successful
+    .map(
+      (artifact) =>
+        `--- ${artifact.result.file} ---\n${artifact.result.unifiedDiff}`,
+    )
+    .join('\n\n')
+
+  return { toolCalls, toolResults, unifiedDiffs }
+}
+
 function buildRecoveredEditorProposalTimeoutResult(params: {
   agentTemplate: AgentTemplate
   agentState: AgentState
@@ -753,7 +849,6 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
   const {
     agentTemplate,
     agentState,
-    spawnParams,
     timeoutConfig,
     timeoutMessage,
     recoveryReason = 'timeout',
@@ -762,24 +857,23 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
     return undefined
   }
 
+  // Recovery is deterministic: read the same append-only proposal ledger the
+  // implementor finalizes from. Never reconstruct artifacts from message
+  // history, which can be truncated/aborted mid-stream — that fragile path is
+  // exactly what dropped long-running multi-file proposals on timeout.
+  const liveLedger = agentState.runId ? getProposalLedger(agentState.runId) : []
+  const snapshottedLedger = Array.isArray((agentState as any).proposalLedger)
+    ? ((agentState as any).proposalLedger as ProposalLedgerArtifact[])
+    : []
+  const ledgerSummary = summarizeProposalLedger(
+    liveLedger.length > 0 ? liveLedger : snapshottedLedger,
+  )
   const latestAttemptMessages = getMessagesSinceLastProposalRetry(
     agentState.messageHistory,
   )
-  const rawToolCalls = getProposalToolCallsFromMessages(latestAttemptMessages)
-  const rawToolResults = dedupeProposalToolResults(
-    getProposalToolResults(latestAttemptMessages),
-  )
-  const toolResults = filterIgnorableNoOpProposalFailures(
-    sanitizeRecoverableMixedProposalResults(rawToolResults),
-  )
-  const toolCalls = sanitizeProposalToolCallsForRecoverableFailures({
-    toolCalls: rawToolCalls,
-    rawToolResults,
-  })
-  const unifiedDiffs = toolResults
-    .filter(isSuccessfulProposalToolResult)
-    .map((result: any) => `--- ${result.file} ---\n${result.unifiedDiff}`)
-    .join('\n\n')
+  const toolCalls = ledgerSummary.toolCalls
+  const toolResults = ledgerSummary.toolResults
+  const unifiedDiffs = ledgerSummary.unifiedDiffs
 
   if (toolCalls.length === 0 && !unifiedDiffs) {
     return undefined
@@ -794,8 +888,6 @@ function buildRecoveredEditorProposalTimeoutResult(params: {
         toolResults,
         unifiedDiffs,
         stopReason: inferRecoveredProposalStopReason({
-          latestAttemptMessages,
-          spawnParams,
           toolCalls,
           toolResults,
           unifiedDiffs,
@@ -851,182 +943,26 @@ function buildRecoveredProposalProgressTelemetry(params: {
   }
 }
 
+/**
+ * Derive the recovered bundle's stop reason from the recorded artifacts only —
+ * never from prose, filename counting, or completion markers. The ledger is the
+ * single source of truth: whatever proposal calls actually executed and produced
+ * diffs are exactly what the parent receives, regardless of file count or time
+ * taken. Any genuine per-file failure (one no later success superseded) marks
+ * the bundle partial so the parent's completion/repair path runs; a fully
+ * successful set is clean; nothing at all is no-proposal.
+ */
 function inferRecoveredProposalStopReason(params: {
-  latestAttemptMessages: Message[]
-  spawnParams: unknown
   toolCalls: { toolName: string; input: any }[]
   toolResults: any[]
   unifiedDiffs: string
 }): 'cleanProposal' | 'noCompletionSignal' | 'noProposal' {
-  const {
-    latestAttemptMessages,
-    spawnParams,
-    toolCalls,
-    toolResults,
-    unifiedDiffs,
-  } = params
+  const { toolCalls, toolResults, unifiedDiffs } = params
   if (toolCalls.length === 0 && !unifiedDiffs) return 'noProposal'
-  if (!shouldCollectProposalBundle(spawnParams)) return 'cleanProposal'
-  if (hasProposalCompletionSignal(latestAttemptMessages)) {
-    return 'cleanProposal'
-  }
-  return getRecoveredProposalCoverageAssessment({
-    spawnParams,
-    toolCalls,
-    toolResults,
-  }).canReturnClean
-    ? 'cleanProposal'
-    : 'noCompletionSignal'
-}
-
-function shouldCollectProposalBundle(spawnParams: unknown): boolean {
-  if (!spawnParams || typeof spawnParams !== 'object') return false
-  const value = (spawnParams as Record<string, unknown>).proposalBundleMode
-  return value === true || value === 'true'
-}
-
-function getRecoveredProposalCoverageAssessment(params: {
-  spawnParams: unknown
-  toolCalls: { toolName: string; input: any }[]
-  toolResults: any[]
-}): {
-  proposedFileCount: number
-  requiredFileCount: number
-  canReturnClean: boolean
-} {
-  const proposedFileCount = getUniqueProposedFilePaths(params).length
-  if (proposedFileCount === 0) {
-    return {
-      proposedFileCount,
-      requiredFileCount: 0,
-      canReturnClean: false,
-    }
-  }
-
-  const expected = getExpectedProposalFileCount(params.spawnParams)
-  const expectsMultipleFiles = getProposalExpectsMultipleFiles(
-    params.spawnParams,
+  const hasGenuineFailure = toolResults.some((result) =>
+    Boolean(getProposalResultFailureMessage(result)),
   )
-  const isComplexUnknownScope = isComplexUnknownProposalScope(
-    params.spawnParams,
-  )
-  const requiredFileCount =
-    expected > 0 ? expected : expectsMultipleFiles ? 2 : 0
-  const canReturnClean =
-    requiredFileCount > 0
-      ? proposedFileCount >= requiredFileCount
-      : !isComplexUnknownScope && proposedFileCount >= 1
-
-  return {
-    proposedFileCount,
-    requiredFileCount,
-    canReturnClean,
-  }
-}
-
-function getExpectedProposalFileCount(spawnParams: unknown): number {
-  const context = collectProposalSpawnTaskText(spawnParams)
-  return Math.min(
-    20,
-    Math.max(
-      countUniqueMatches(
-        context,
-        /\b(?:\.\/)?[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt)\b/g,
-      ),
-      inferExpectedTouchedFileCountFromText(context),
-    ),
-  )
-}
-
-function getProposalExpectsMultipleFiles(spawnParams: unknown): boolean {
-  const context = collectProposalSpawnTaskText(spawnParams)
-  return (
-    getExpectedProposalFileCount(spawnParams) > 1 ||
-    /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i.test(
-      context,
-    )
-  )
-}
-
-function isComplexUnknownProposalScope(spawnParams: unknown): boolean {
-  const context = collectProposalSpawnTaskText(spawnParams)
-  if (getExpectedProposalFileCount(spawnParams) > 0) return false
-  const complexSignals = [
-    /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i,
-    /\b(create|add|wire|integrate|refactor|implement)\b/i,
-    /\b(component|screen|overlay|command|registry|schema|provider|routing|test|tests)\b/i,
-    /\bphase\s+\d+\b/i,
-    /\bfull[- ]screen\b/i,
-  ].filter((pattern) => pattern.test(context)).length
-
-  return complexSignals >= 3 || context.length > 8_000
-}
-
-function inferExpectedTouchedFileCountFromText(text: string): number {
-  const counts: number[] = []
-  const unit = String.raw`(?:files?|pages?|screens?|components?|modules?)`
-  const patterns: Array<{ pattern: RegExp; offset: number }> = [
-    {
-      pattern: new RegExp(
-        String.raw`\b(?:more\s+than|over)\s*(\d+)\s*${unit}\b`,
-        'gi',
-      ),
-      offset: 1,
-    },
-    {
-      pattern: new RegExp(
-        String.raw`\b(?:at\s+least|minimum\s+of)\s*(\d+)\s*${unit}\b`,
-        'gi',
-      ),
-      offset: 0,
-    },
-    {
-      pattern: new RegExp(String.raw`\b(\d+)\s*\+\s*${unit}\b`, 'gi'),
-      offset: 0,
-    },
-    {
-      pattern: new RegExp(
-        String.raw`\b(\d+)\s*${unit}(?:\s+or\s+more)?\b`,
-        'gi',
-      ),
-      offset: 0,
-    },
-  ]
-
-  for (const { pattern, offset } of patterns) {
-    for (const match of text.matchAll(pattern)) {
-      const parsed = Number(match[1])
-      if (Number.isFinite(parsed) && parsed > 0) {
-        counts.push(Math.min(20, Math.floor(parsed) + offset))
-      }
-    }
-  }
-
-  return counts.length === 0 ? 0 : Math.max(...counts)
-}
-
-function collectProposalSpawnTaskText(spawnParams: unknown): string {
-  if (!spawnParams || typeof spawnParams !== 'object') return ''
-  const params = spawnParams as Record<string, unknown>
-  return [
-    params.proposalStrategy,
-    extractTaskFacingProposalContext(params.proposalContext),
-    params.previousFailure,
-  ]
-    .filter((value): value is string => typeof value === 'string')
-    .join('\n')
-}
-
-function extractTaskFacingProposalContext(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  const contextMarker =
-    '\nCurrent file/search context already gathered by the parent agent:'
-  const markerIndex = value.indexOf(contextMarker)
-  return markerIndex === -1 ? value : value.slice(0, markerIndex)
-}
-
-function countUniqueMatches(text: string, pattern: RegExp): number {
-  return new Set(Array.from(text.matchAll(pattern), (match) => match[0])).size
+  return hasGenuineFailure ? 'noCompletionSignal' : 'cleanProposal'
 }
 
 function getUniqueProposedFilePaths(input: {
