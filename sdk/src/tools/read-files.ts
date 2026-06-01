@@ -39,6 +39,125 @@ function encodeReadCapabilityToken(
   )
 }
 
+// 10MB - skip reading entirely to avoid OOM.
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+
+type ReadOneFileResult = {
+  relativePath: string
+  content?: string
+  status?: string
+  isExampleFile: boolean
+}
+
+/**
+ * Reads a single file, applying the resolve -> filter -> gitignore -> stat ->
+ * read pipeline. Returns either the full file content or a FILE_READ_STATUS
+ * marker keyed by `relativePath`. The 100k truncation is NOT applied here so
+ * callers can slice/truncate as appropriate (or read full content for editing).
+ */
+async function readOneFile(params: {
+  filePath: string
+  cwd: string
+  fs: CodebuffFileSystem
+  fileFilter?: FileFilter
+}): Promise<ReadOneFileResult | null> {
+  const { filePath, cwd, fs, fileFilter } = params
+  const hasCustomFilter = fileFilter !== undefined
+
+  if (!filePath) {
+    return null
+  }
+
+  const resolvedPath = resolveFilePathWithinProject(cwd, filePath)
+  if (!resolvedPath) {
+    return {
+      relativePath: filePath,
+      status: FILE_READ_STATUS.OUTSIDE_PROJECT,
+      isExampleFile: false,
+    }
+  }
+  const { relativePath, fullPath } = resolvedPath
+
+  // Apply file filter if provided
+  const filterResult = fileFilter?.(relativePath)
+  if (filterResult?.status === 'blocked') {
+    return {
+      relativePath,
+      status: FILE_READ_STATUS.IGNORED,
+      isExampleFile: false,
+    }
+  }
+  const isExampleFile = filterResult?.status === 'allow-example'
+
+  // If no custom filter provided, apply default gitignore checking
+  // (allow-example files skip gitignore since they need to bypass .env.* patterns)
+  if (!hasCustomFilter && !isExampleFile) {
+    const ignored = await isFileIgnored({
+      filePath: relativePath,
+      projectRoot: cwd,
+      fs,
+    })
+    if (ignored) {
+      return { relativePath, status: FILE_READ_STATUS.IGNORED, isExampleFile }
+    }
+  }
+
+  try {
+    // Safety check: skip reading files over 10MB to avoid OOM
+    const stats = await fs.stat(fullPath)
+    if (stats.size > MAX_FILE_BYTES) {
+      return {
+        relativePath,
+        status:
+          FILE_READ_STATUS.TOO_LARGE +
+          ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content, then read exact sections with read_files.ranges.]`,
+        isExampleFile,
+      }
+    }
+
+    const content = await fs.readFile(fullPath, 'utf8')
+    return { relativePath, content, isExampleFile }
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
+      return {
+        relativePath,
+        status: FILE_READ_STATUS.DOES_NOT_EXIST,
+        isExampleFile,
+      }
+    }
+    return { relativePath, status: FILE_READ_STATUS.ERROR, isExampleFile }
+  }
+}
+
+/**
+ * Returns the FULL, untruncated content of a single file (or null when it does
+ * not exist / is blocked / errored). This is the correct source of truth for
+ * file-editing tools (str_replace / write_file / apply_patch): the regular
+ * `getFiles` rendering truncates large files at 100k chars for the model, which
+ * would corrupt edit validation (e.g. reporting far fewer lines than the file
+ * actually has and rejecting valid basedOnRead anchors).
+ */
+export async function getFileForEdit(params: {
+  filePath: string
+  cwd: string
+  fs: CodebuffFileSystem
+  fileFilter?: FileFilter
+}): Promise<string | null> {
+  const read = await readOneFile(params)
+  if (!read) {
+    return null
+  }
+  if (read.content === undefined) {
+    return read.status ?? FILE_READ_STATUS.ERROR
+  }
+  return read.content
+}
+
 export async function getFiles(params: {
   filePaths: string[]
   cwd: string
@@ -58,96 +177,15 @@ export async function getFiles(params: {
   ranges?: FileLineRange[]
 }) {
   const { filePaths, cwd, fs, fileFilter, ranges } = params
-  // If caller provides a filter, they own all filtering decisions
-  // If not, SDK applies default gitignore checking
-  const hasCustomFilter = fileFilter !== undefined
 
   const result: Record<string, string | null> = {}
   const wholeFileReadPaths = new Set<string>()
-  const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB - skip reading entirely
   const MAX_CHARS = 100_000 // 100k characters threshold
   const numFmt = new Intl.NumberFormat('en-US')
   const fmtNum = (n: number) => numFmt.format(n)
 
-  /**
-   * Reads a single file, applying the same resolve -> filter -> gitignore ->
-   * stat -> read pipeline used for every read. Returns either the file content
-   * or a FILE_READ_STATUS marker keyed by `relativePath`. The 100k truncation
-   * is NOT applied here so callers can slice/truncate as appropriate.
-   */
-  const readOne = async (
-    filePath: string,
-  ): Promise<{
-    relativePath: string
-    content?: string
-    status?: string
-    isExampleFile: boolean
-  } | null> => {
-    if (!filePath) {
-      return null
-    }
-
-    const resolvedPath = resolveFilePathWithinProject(cwd, filePath)
-    if (!resolvedPath) {
-      return {
-        relativePath: filePath,
-        status: FILE_READ_STATUS.OUTSIDE_PROJECT,
-        isExampleFile: false,
-      }
-    }
-    const { relativePath, fullPath } = resolvedPath
-
-    // Apply file filter if provided
-    const filterResult = fileFilter?.(relativePath)
-    if (filterResult?.status === 'blocked') {
-      return {
-        relativePath,
-        status: FILE_READ_STATUS.IGNORED,
-        isExampleFile: false,
-      }
-    }
-    const isExampleFile = filterResult?.status === 'allow-example'
-
-    // If no custom filter provided, apply default gitignore checking
-    // (allow-example files skip gitignore since they need to bypass .env.* patterns)
-    if (!hasCustomFilter && !isExampleFile) {
-      const ignored = await isFileIgnored({
-        filePath: relativePath,
-        projectRoot: cwd,
-        fs,
-      })
-      if (ignored) {
-        return { relativePath, status: FILE_READ_STATUS.IGNORED, isExampleFile }
-      }
-    }
-
-    try {
-      // Safety check: skip reading files over 10MB to avoid OOM
-      const stats = await fs.stat(fullPath)
-      if (stats.size > MAX_FILE_BYTES) {
-        return {
-          relativePath,
-          status:
-            FILE_READ_STATUS.TOO_LARGE +
-            ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content, then read exact sections with read_files.ranges.]`,
-          isExampleFile,
-        }
-      }
-
-      const content = await fs.readFile(fullPath, 'utf8')
-      return { relativePath, content, isExampleFile }
-    } catch (error) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
-        return { relativePath, status: FILE_READ_STATUS.DOES_NOT_EXIST, isExampleFile }
-      }
-      return { relativePath, status: FILE_READ_STATUS.ERROR, isExampleFile }
-    }
-  }
+  const readOne = (filePath: string) =>
+    readOneFile({ filePath, cwd, fs, fileFilter })
 
   // Loop 1: plain whole-file reads (unchanged behavior).
   for (const filePath of filePaths) {

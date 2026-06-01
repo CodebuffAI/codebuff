@@ -27,7 +27,7 @@ import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
-import { getFiles } from './tools/read-files'
+import { getFileForEdit, getFiles } from './tools/read-files'
 import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
@@ -436,18 +436,27 @@ async function runOnce({
         fs,
       }),
     requestOptionalFile: async ({ filePath }) => {
-      const files = await readFiles({
-        filePaths: [filePath],
-        override: overrideTools?.read_files,
-        fileFilter,
-        cwd,
+      // File-editing tools (str_replace / write_file / apply_patch) validate and
+      // apply against this content, so it MUST be the full, untruncated file. The
+      // regular read_files rendering truncates large files at 100k chars for the
+      // model; using that here corrupts edit validation (e.g. a 4,499-line file
+      // appears to have only ~2,889 lines, rejecting valid basedOnRead anchors).
+      const override = overrideTools?.read_files
+      if (override) {
+        const files = await override({ filePaths: [filePath] })
+        const lookupKeys = cwd
+          ? getProjectPathLookupKeys(cwd, filePath)
+          : [filePath]
+        const fileKey = lookupKeys.find((key) => key in files)
+        return toOptionalFile(fileKey === undefined ? null : files[fileKey]!)
+      }
+      const content = await getFileForEdit({
+        filePath,
+        cwd: requireCwd(cwd, 'read_files'),
         fs,
+        fileFilter,
       })
-      const lookupKeys = cwd
-        ? getProjectPathLookupKeys(cwd, filePath)
-        : [filePath]
-      const fileKey = lookupKeys.find((key) => key in files)
-      return toOptionalFile(fileKey === undefined ? null : files[fileKey]!)
+      return toOptionalFile(content)
     },
     sendAction: ({ action }) => {
       if (action.type === 'action-error') {

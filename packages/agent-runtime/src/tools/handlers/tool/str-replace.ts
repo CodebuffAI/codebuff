@@ -41,6 +41,8 @@ export const handleStrReplace = (async (
   } = params
   const { path, replacements } = toolCall.input
 
+  await previousToolCallFinished
+
   if (fileProcessingState.failedEditRequiresReadByPath[path]) {
     return {
       output: [
@@ -58,20 +60,30 @@ export const handleStrReplace = (async (
     }
   }
 
-  if (!fileProcessingState.promisesByPath[path]) {
+  const hasReadCapability = replacements.some((replacement) =>
+    Boolean(replacement.basedOnRead),
+  )
+
+  if (!fileProcessingState.promisesByPath[path] || hasReadCapability) {
     fileProcessingState.promisesByPath[path] = []
   }
 
   const previousPromises = fileProcessingState.promisesByPath[path]
   const previousEdit = previousPromises[previousPromises.length - 1]
 
-  const latestContentPromise = previousEdit
-    ? previousEdit.then((maybeResult) =>
-        maybeResult && 'content' in maybeResult
-          ? maybeResult.content
-          : requestOptionalFile({ ...params, filePath: path }),
-      )
-    : requestOptionalFile({ ...params, filePath: path })
+  // A basedOnRead anchor is minted from a fresh read_files disk read and must be
+  // validated against that same current disk content. Do not chain from an older
+  // in-memory edit promise here: a previous failed/partial edit can carry stale
+  // content with a different line count, causing fresh anchors to be rejected.
+  const latestContentPromise = hasReadCapability
+    ? requestOptionalFile({ ...params, filePath: path })
+    : previousEdit
+      ? previousEdit.then((maybeResult) =>
+          maybeResult && 'content' in maybeResult
+            ? maybeResult.content
+            : requestOptionalFile({ ...params, filePath: path }),
+        )
+      : requestOptionalFile({ ...params, filePath: path })
 
   const newPromise = processStrReplace({
     path,
@@ -94,8 +106,6 @@ export const handleStrReplace = (async (
 
   fileProcessingState.promisesByPath[path].push(newPromise)
   fileProcessingState.allPromises.push(newPromise)
-
-  await previousToolCallFinished
 
   const strReplaceResult = await newPromise
   if ('error' in strReplaceResult) {

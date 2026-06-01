@@ -35,6 +35,9 @@ export const handleReadFiles = (async (
 
   for (const path of new Set([...paths, ...(ranges ?? []).map((range) => range.path)])) {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
+    // A fresh read means the next edit should anchor to the same disk content
+    // the model just saw, not stale in-memory content from an earlier edit chain.
+    delete fileProcessingState.promisesByPath[path]
   }
 
   const addedFiles = await getFileReadingUpdates({
