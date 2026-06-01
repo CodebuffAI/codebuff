@@ -10,6 +10,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   MOONSHOT_API_KEY: z.string().min(1).optional(),
   CANOPYWAVE_API_KEY: z.string().min(1).optional(),
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
+  MINIMAX_API_KEY: z.string().min(1).optional(),
   MIMO_API_KEY: z.string().min(1).optional(),
   SILICONFLOW_API_KEY: z.string().min(1).optional(),
   OPENCODE_API_KEY: z.string().min(1).optional(),
@@ -75,7 +76,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .int()
     .positive()
     .default(60 * 60 * 1000),
-
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -101,6 +101,7 @@ export const serverProcessEnv: ServerInput = {
   MOONSHOT_API_KEY: process.env.MOONSHOT_API_KEY,
   CANOPYWAVE_API_KEY: process.env.CANOPYWAVE_API_KEY,
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+  MINIMAX_API_KEY: process.env.MINIMAX_API_KEY,
   MIMO_API_KEY: process.env.MIMO_API_KEY,
   SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   OPENCODE_API_KEY: process.env.OPENCODE_API_KEY,

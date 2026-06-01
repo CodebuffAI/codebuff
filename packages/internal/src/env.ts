@@ -20,6 +20,7 @@ if (isCI) {
   ensureEnvDefault('MOONSHOT_API_KEY', 'test')
   ensureEnvDefault('CANOPYWAVE_API_KEY', 'test')
   ensureEnvDefault('DEEPSEEK_API_KEY', 'test')
+  ensureEnvDefault('MINIMAX_API_KEY', 'test')
   ensureEnvDefault('MIMO_API_KEY', 'test')
   ensureEnvDefault('OPENCODE_API_KEY', 'test')
   ensureEnvDefault('SERPER_API_KEY', 'test')

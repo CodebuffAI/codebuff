@@ -7,6 +7,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
@@ -180,6 +181,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-free-deepseek-flash') {
         return {
           agent_id: 'base2-free-deepseek-flash',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-minimax-m3') {
+        return {
+          agent_id: 'base2-free-minimax-m3',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -1215,6 +1223,87 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(fetchedBodies[0].model).toBe(upstreamModel)
         expect(body.model).toBe(codebuffModel)
         expect(body.provider).toBe('DeepSeek')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'lets MiniMax M3 use the official MiniMax provider',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchedUrls: string[] = []
+        const fetchedHeaders: HeadersInit[] = []
+        const fetchViaMiniMax = mock(
+          async (url: string | URL | Request, init?: RequestInit) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
+            fetchedUrls.push(String(url))
+            fetchedHeaders.push(init?.headers ?? {})
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'MiniMax-M3',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  prompt_tokens_details: { cached_tokens: 4 },
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free-minimax-m3',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaMiniMax,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(fetchedUrls[0]).toBe(
+          'https://api.minimax.io/v1/chat/completions',
+        )
+        expect(fetchedHeaders[0]).toMatchObject({
+          Authorization: 'Bearer test',
+        })
+        expect(fetchedBodies[0].model).toBe('MiniMax-M3')
+        expect(fetchedBodies[0].reasoning_split).toBe(true)
+        expect(body.model).toBe(FREEBUFF_MINIMAX_M3_MODEL_ID)
+        expect(body.provider).toBe('MiniMax')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

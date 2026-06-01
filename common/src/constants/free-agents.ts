@@ -6,6 +6,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -30,6 +31,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-kimi',
   'base2-free-deepseek',
   'base2-free-deepseek-flash',
+  'base2-free-minimax-m3',
   'base2-free-mimo-pro',
   'base2-free-mimo',
 ] as const
@@ -40,6 +42,7 @@ const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
 export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free',
   [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
@@ -49,6 +52,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
   [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
@@ -74,12 +78,14 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
+    FREEBUFF_MINIMAX_M3_MODEL_ID,
     FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
   ]),
   'base2-free-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
+  'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
 
@@ -101,6 +107,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Code reviewer for free mode
   'code-reviewer-minimax': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
+  'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
@@ -115,6 +122,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    FREEBUFF_MINIMAX_M3_MODEL_ID,
     FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     FREEBUFF_MIMO_V25_MODEL_ID,
   ]),

@@ -4,7 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { mimoModels } from './model-config'
+import { minimaxModels, mimoModels } from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -38,6 +38,7 @@ export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
+export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
@@ -128,12 +129,20 @@ const MINIMAX_MODEL = {
   availability: 'always',
 } as const satisfies FreebuffModelOption
 
+const MINIMAX_M3_MODEL = {
+  id: FREEBUFF_MINIMAX_M3_MODEL_ID,
+  displayName: 'MiniMax M3',
+  tagline: 'Coding and agentic',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
   KIMI_MODEL,
   MIMO_V25_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
+  MINIMAX_M3_MODEL,
   MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -142,6 +151,7 @@ export const FREEBUFF_MODELS = [
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   KIMI_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
+  MINIMAX_M3_MODEL,
   MINIMAX_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
 ] as const satisfies readonly FreebuffModelOption[]
