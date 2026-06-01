@@ -107,6 +107,8 @@ export const StatusBar = ({
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
   const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+  const isUnlimited =
+    freebuffSession?.status === 'active' && !freebuffSession.rateLimit
 
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
@@ -162,9 +164,19 @@ export const StatusBar = ({
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
           return (
-            <span fg={isUrgent ? theme.warning : theme.secondary}>
+            <span
+              fg={
+                isUnlimited
+                  ? theme.secondary
+                  : isUrgent
+                    ? theme.warning
+                    : theme.secondary
+              }
+            >
               {modelName ? `${modelName} · ` : ''}
-              {formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
+              {isUnlimited
+                ? 'unlimited'
+                : formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
@@ -255,7 +267,8 @@ export const StatusBar = ({
           )}
         {sessionProgress !== null &&
           sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS &&
-          statusIndicatorState.kind !== 'idle' && (
+          statusIndicatorState.kind !== 'idle' &&
+          !isUnlimited && (
             <text style={{ wrapMode: 'none' }}>
               <span fg={theme.warning} attributes={TextAttributes.BOLD}>
                 {formatFreebuffSessionCountdown(sessionProgress.remainingMs)}
