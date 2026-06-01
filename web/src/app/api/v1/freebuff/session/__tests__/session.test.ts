@@ -9,6 +9,7 @@ import {
 } from '../_handlers'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -424,8 +425,8 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('queued')
-    expect(body.model).toBe('minimax/minimax-m2.7')
-    expect(sessionDeps.rows.get('u1')?.model).toBe('minimax/minimax-m2.7')
+    expect(body.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(sessionDeps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   // Banned bots with valid API keys were POSTing every few seconds and

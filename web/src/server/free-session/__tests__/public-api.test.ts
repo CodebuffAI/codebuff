@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
@@ -274,8 +275,8 @@ describe('requestSession', () => {
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
-    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   test('removed GLM 5.1 active session cannot be reclaimed', async () => {
@@ -299,8 +300,8 @@ describe('requestSession', () => {
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
-    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   test('queued response includes a per-model depth snapshot for the selector', async () => {
@@ -551,7 +552,7 @@ describe('requestSession', () => {
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   test("rate_limited: admits before today's Pacific reset do not count", async () => {
