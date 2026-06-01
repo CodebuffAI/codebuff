@@ -42,7 +42,7 @@ export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
-export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
+export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = false
 /** UI-only rollout switch for the streak indicator in the waiting room. */
 export const FREEBUFF_ENABLE_STREAK_IN_UI = true
 /** Local/debug switch: force the localhost free-mode country bypass into
@@ -140,7 +140,9 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
+  KIMI_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
+  MINIMAX_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
 ] as const satisfies readonly FreebuffModelOption[]
 

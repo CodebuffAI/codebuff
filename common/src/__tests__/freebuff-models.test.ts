@@ -59,7 +59,8 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiMo 2.5 Pro is premium and MiMo 2.5 is unlimited when the UI flag is enabled', () => {
+  test('MiMo models remain supported but hidden from the full picker when the UI flag is disabled', () => {
+    expect(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI).toBe(false)
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     )
@@ -87,11 +88,16 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('full access orders MiMo Pro immediately after DeepSeek Pro', () => {
+  test('full access restores Kimi as premium and MiniMax as unlimited', () => {
     const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
-    expect(fullModelIds.indexOf(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
-      fullModelIds.indexOf(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID) + 1,
-    )
+    expect(fullModelIds).toEqual([
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_KIMI_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MINIMAX_MODEL_ID,
+    ])
+    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
   })
 
   test('MiMo Pro uses the smart multimodal tagline', () => {
@@ -101,23 +107,21 @@ describe('freebuff model availability', () => {
     expect(mimoPro?.tagline).toBe('Smart multimodal')
   })
 
-  test('legacy models remain server-supported but are no longer selectable in full mode', () => {
-    for (const legacyModel of [
+  test('restored Kimi and MiniMax models are selectable in full mode', () => {
+    for (const restoredModel of [
       FREEBUFF_KIMI_MODEL_ID,
       FREEBUFF_MINIMAX_MODEL_ID,
     ]) {
       expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
-        legacyModel,
+        restoredModel,
       )
-      expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-        legacyModel,
+      expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(restoredModel)
+      expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+        restoredModel,
       )
-      expect(
-        getFreebuffModelsForAccessTier('full').map((m) => m.id),
-      ).not.toContain(legacyModel)
-      expect(isFreebuffModelId(legacyModel)).toBe(false)
-      expect(isSupportedFreebuffModelId(legacyModel)).toBe(true)
-      expect(isFreebuffModelAllowedForAccessTier(legacyModel, 'full')).toBe(
+      expect(isFreebuffModelId(restoredModel)).toBe(true)
+      expect(isSupportedFreebuffModelId(restoredModel)).toBe(true)
+      expect(isFreebuffModelAllowedForAccessTier(restoredModel, 'full')).toBe(
         true,
       )
     }

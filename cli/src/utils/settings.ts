@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -103,8 +103,12 @@ const validateSettings = (parsed: unknown): Settings => {
   }
 
   // Validate freebuffModel — drop unknown ids so a removed model doesn't
-  // strand the user on a non-existent queue.
-  if (typeof obj.freebuffModel === 'string' && isFreebuffModelId(obj.freebuffModel)) {
+  // strand the user on a non-existent queue. Hidden-but-supported models are
+  // kept; access-tier resolution decides whether they are selectable.
+  if (
+    typeof obj.freebuffModel === 'string' &&
+    isSupportedFreebuffModelId(obj.freebuffModel)
+  ) {
     settings.freebuffModel = obj.freebuffModel
   }
 
@@ -176,4 +180,3 @@ export const loadFreebuffModelPreference = (): string | undefined => {
 export const saveFreebuffModelPreference = (model: string): void => {
   saveSettings({ freebuffModel: model })
 }
-
