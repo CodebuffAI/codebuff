@@ -1297,8 +1297,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(fetchedUrls[0]).toBe(
           'https://api.minimax.io/v1/chat/completions',
         )
-        expect(fetchedHeaders[0]).toMatchObject({
+        expect(fetchedHeaders[0]).toEqual({
           Authorization: 'Bearer test',
+          'Content-Type': 'application/json',
         })
         expect(fetchedBodies[0].model).toBe('MiniMax-M3')
         expect(fetchedBodies[0].reasoning_split).toBe(true)
