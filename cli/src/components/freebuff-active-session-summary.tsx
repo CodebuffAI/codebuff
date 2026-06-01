@@ -4,7 +4,6 @@ import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progre
 import { useNow } from '../hooks/use-now'
 import { useTheme } from '../hooks/use-theme'
 import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
-import { formatFreebuffSessionRemaining } from '../utils/freebuff-session-display'
 import { formatSessionUnits } from '../utils/format-session-units'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
@@ -43,24 +42,18 @@ export const FreebuffActiveSessionSummary: React.FC<
       }}
     >
       <text style={{ wrapMode: 'word', fg: theme.muted }}>
-        <span fg={theme.secondary}>Current session</span>
-        <span fg={theme.muted}>
-          {' '}
-          {formatFreebuffSessionRemaining(progress.remainingMs)} ·{' '}
-        </span>
         {quota ? (
           <>
-            <span fg={theme.muted}>today </span>
             <span fg={theme.foreground}>
               {formatSessionUnits(quota.recentCount)} of {quota.limit}
             </span>
             <span fg={theme.muted}>
               {' '}
-              {label} used · resets in {resetCountdown}
+              {label} used today · resets in {resetCountdown}
             </span>
           </>
         ) : (
-          <span fg={theme.foreground}>unlimited sessions on this model</span>
+          null
         )}
       </text>
     </box>

@@ -8,7 +8,6 @@
 import './pre-init/tree-sitter-wasm'
 
 import fs from 'fs'
-import { createRequire } from 'module'
 import os from 'os'
 import path from 'path'
 
@@ -21,11 +20,11 @@ import {
   QueryClientProvider,
   focusManager,
 } from '@tanstack/react-query'
-import { Command } from 'commander'
 import { cyan, green, red, yellow } from 'picocolors'
 import React from 'react'
 
 import { App } from './app'
+import { loadPackageVersion, parseArgs } from './cli-args'
 import { handlePublish } from './commands/publish'
 import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
@@ -35,7 +34,6 @@ import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
 import { IS_FREEBUFF } from './utils/constants'
-import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
@@ -45,28 +43,7 @@ import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
 
-import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-
-const require = createRequire(import.meta.url)
-
-function loadPackageVersion(): string {
-  const env = getCliEnv()
-  if (env.CODEBUFF_CLI_VERSION) {
-    return env.CODEBUFF_CLI_VERSION
-  }
-
-  try {
-    const pkg = require('../package.json') as { version?: string }
-    if (pkg.version) {
-      return pkg.version
-    }
-  } catch {
-    // Continue to dev fallback
-  }
-
-  return 'dev'
-}
 
 // Configure TanStack Query's focusManager for terminal environments
 // This is required because there's no browser visibility API in terminal apps
@@ -93,96 +70,6 @@ function createQueryClient(): QueryClient {
       },
     },
   })
-}
-
-type ParsedArgs = {
-  initialPrompt: string | null
-  agent?: string
-  clearLogs: boolean
-  continue: boolean
-  continueId?: string | null
-  cwd?: string
-  initialMode?: AgentMode
-}
-
-function parseArgs(): ParsedArgs {
-  const program = new Command()
-
-  if (IS_FREEBUFF) {
-    // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
-    program
-      .name('freebuff')
-      .description('Freebuff - Free AI coding assistant')
-      .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
-      .option(
-        '--continue [conversation-id]',
-        'Continue from a previous conversation (optionally specify a conversation id)',
-      )
-      .option(
-        '--cwd <directory>',
-        'Set the working directory (default: current directory)',
-      )
-      .addHelpText('after', '\nCommands:\n  login                          Log in to your account')
-      .helpOption('-h, --help', 'Show this help message')
-      .parse(process.argv)
-  } else {
-    // Codebuff: full CLI with all options
-    program
-      .name('codebuff')
-      .description('Codebuff CLI - AI-powered coding assistant')
-      .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
-      .option(
-        '--agent <agent-id>',
-        'Run a specific agent id (skips loading local .agents overrides)',
-      )
-      .option('--clear-logs', 'Remove any existing CLI log files before starting')
-      .option(
-        '--continue [conversation-id]',
-        'Continue from a previous conversation (optionally specify a conversation id)',
-      )
-      .option(
-        '--cwd <directory>',
-        'Set the working directory (default: current directory)',
-      )
-      .option('--lite', 'Start in LITE mode')
-      .option('--free', 'Start in LITE mode (deprecated alias)')
-      .option('--max', 'Start in MAX mode')
-      .option('--plan', 'Start in PLAN mode')
-      .addHelpText('after', '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry')
-      .helpOption('-h, --help', 'Show this help message')
-      .argument('[prompt...]', 'Initial prompt to send to the agent')
-      .allowExcessArguments(true)
-      .parse(process.argv)
-  }
-
-  const options = program.opts()
-  const args = program.args
-
-  const continueFlag = options.continue
-
-  // Determine initial mode from flags (last flag wins if multiple specified)
-  // Freebuff always uses LITE mode
-  let initialMode: AgentMode | undefined
-  if (IS_FREEBUFF) {
-    initialMode = 'LITE'
-  } else {
-    if (options.free || options.lite) initialMode = 'LITE'
-    if (options.max) initialMode = 'MAX'
-    if (options.plan) initialMode = 'PLAN'
-  }
-
-  return {
-    initialPrompt: args.length > 0 ? args.join(' ') : null,
-    agent: options.agent,
-    clearLogs: options.clearLogs || false,
-    continue: Boolean(continueFlag),
-    continueId:
-      typeof continueFlag === 'string' && continueFlag.trim().length > 0
-        ? continueFlag.trim()
-        : null,
-    cwd: options.cwd,
-    initialMode,
-  }
 }
 
 async function main(): Promise<void> {
@@ -278,6 +165,7 @@ async function main(): Promise<void> {
 
   const {
     initialPrompt,
+    command,
     agent,
     clearLogs,
     continue: continueChat,
@@ -286,8 +174,8 @@ async function main(): Promise<void> {
     initialMode,
   } = parseArgs()
 
-  const isLoginCommand = process.argv[2] === 'login'
-  const isPublishCommand = process.argv[2] === 'publish'
+  const isLoginCommand = command === 'login'
+  const isPublishCommand = command === 'publish'
   const hasAgentOverride = Boolean(agent?.trim())
 
   await initializeApp({ cwd })
