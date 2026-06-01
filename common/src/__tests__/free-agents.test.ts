@@ -5,6 +5,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -18,9 +19,12 @@ import {
 } from '../constants/free-agents'
 
 describe('free mode agent model allowlist', () => {
-  test('maps selectable freebuff models to concrete root agents', () => {
+  test('maps supported freebuff models to concrete root agents', () => {
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       'base2-free',
+    )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_M3_MODEL_ID)).toBe(
+      'base2-free-minimax-m3',
     )
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
       'base2-free-kimi',
@@ -44,6 +48,9 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_MODEL_ID),
     ).toBe(true)
     expect(
+      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_M3_MODEL_ID),
+    ).toBe(true)
+    expect(
       isFreeModeAllowedAgentModel(
         'base2-free',
         FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -65,6 +72,12 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek-flash',
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-minimax-m3',
+        FREEBUFF_MINIMAX_M3_MODEL_ID,
       ),
     ).toBe(true)
     expect(
@@ -107,6 +120,12 @@ describe('free mode agent model allowlist', () => {
       ),
     ).toBe(false)
     expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax-m3',
+        FREEBUFF_MINIMAX_M3_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
       isFreeModeAllowedAgentModel('code-reviewer-kimi', FREEBUFF_KIMI_MODEL_ID),
     ).toBe(true)
     expect(
@@ -140,6 +159,12 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'code-reviewer-lite',
         FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-lite',
+        FREEBUFF_MINIMAX_M3_MODEL_ID,
       ),
     ).toBe(true)
     expect(

@@ -3,11 +3,14 @@ import { describe, expect, test } from 'bun:test'
 import {
   canFreebuffModelSpawnGeminiThinker,
   DEFAULT_FREEBUFF_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_IDS,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -24,8 +27,9 @@ import {
 } from '../constants/freebuff-models'
 
 describe('freebuff model availability', () => {
-  test('defaults to MiniMax M2.7 for base2-free', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MINIMAX_MODEL_ID)
+  test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
   test('DeepSeek Pro carries the data-collection warning so users see it before picking', () => {
@@ -56,7 +60,8 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiMo 2.5 Pro is premium and MiMo 2.5 is unlimited when the UI flag is enabled', () => {
+  test('MiMo models remain supported but hidden from the full picker when the UI flag is disabled', () => {
+    expect(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI).toBe(false)
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     )
@@ -84,10 +89,57 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('limited access exposes only DeepSeek V4 Flash', () => {
+  test('full access restores Kimi and MiniMax models', () => {
+    const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
+    expect(fullModelIds).toEqual([
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_KIMI_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MINIMAX_M3_MODEL_ID,
+      FREEBUFF_MINIMAX_MODEL_ID,
+    ])
+    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
+  })
+
+  test('MiMo Pro uses the smart multimodal tagline', () => {
+    const mimoPro = SUPPORTED_FREEBUFF_MODELS.find(
+      (model) => model.id === FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(mimoPro?.tagline).toBe('Smart multimodal')
+  })
+
+  test('restored Kimi and MiniMax models are selectable in full mode', () => {
+    for (const restoredModel of [
+      FREEBUFF_KIMI_MODEL_ID,
+      FREEBUFF_MINIMAX_M3_MODEL_ID,
+      FREEBUFF_MINIMAX_MODEL_ID,
+    ]) {
+      expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+        restoredModel,
+      )
+      expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(restoredModel)
+      expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+        restoredModel,
+      )
+      expect(isFreebuffModelId(restoredModel)).toBe(true)
+      expect(isSupportedFreebuffModelId(restoredModel)).toBe(true)
+      expect(isFreebuffModelAllowedForAccessTier(restoredModel, 'full')).toBe(
+        true,
+      )
+    }
+  })
+
+  test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
+    ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual([
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     ])
     expect(
       isFreebuffModelAllowedForAccessTier(
@@ -100,10 +152,25 @@ describe('freebuff model availability', () => {
     ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(
-        FREEBUFF_MIMO_V25_MODEL_ID,
+        FREEBUFF_MINIMAX_M3_MODEL_ID,
         'limited',
       ),
     ).toBe(false)
+    expect(
+      isFreebuffModelAllowedForAccessTier(
+        FREEBUFF_MIMO_V25_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(true)
+    expect(
+      isFreebuffModelAllowedForAccessTier(
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(false)
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_MIMO_V25_MODEL_ID, 'limited'),
+    ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
@@ -119,6 +186,9 @@ describe('freebuff model availability', () => {
     expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       false,
     )
+    expect(
+      canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_M3_MODEL_ID),
+    ).toBe(false)
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)

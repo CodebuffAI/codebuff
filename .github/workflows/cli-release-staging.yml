@@ -188,10 +188,12 @@ jobs:
 
             ### Included Binaries
             - `codecane-linux-x64.tar.gz`
+            - `codecane-linux-x64-baseline.tar.gz`
             - `codecane-linux-arm64.tar.gz`
             - `codecane-darwin-x64.tar.gz`
             - `codecane-darwin-arm64.tar.gz`
             - `codecane-win32-x64.tar.gz`
+            - `codecane-win32-x64-baseline.tar.gz`
 
             After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
           files: |

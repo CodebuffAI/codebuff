@@ -71,6 +71,7 @@ export const generateMetadata = (): Metadata => ({
     title: siteConfig.title,
     description: siteConfig.description,
     siteName: 'Freebuff',
+    images: [siteConfig.socialImage],
     type: 'website',
     locale: blogConfig.locale,
   },
@@ -79,6 +80,7 @@ export const generateMetadata = (): Metadata => ({
     title: siteConfig.title,
     description: siteConfig.description,
     site: `@${blogConfig.twitterHandle}`,
+    images: [siteConfig.socialImage],
   },
 })
 

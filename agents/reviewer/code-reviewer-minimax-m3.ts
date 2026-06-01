@@ -1,13 +1,13 @@
-import { deepseekModels } from '@codebuff/common/constants/model-config'
+import { FREEBUFF_MINIMAX_M3_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from '../constants'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import { createReviewer } from './code-reviewer'
 
 const definition: SecretAgentDefinition = {
-  id: 'code-reviewer-lite',
+  id: 'code-reviewer-minimax-m3',
   publisher,
-  ...createReviewer(deepseekModels.deepseekV4Flash),
+  ...createReviewer(FREEBUFF_MINIMAX_M3_MODEL_ID),
 }
 
 export default definition

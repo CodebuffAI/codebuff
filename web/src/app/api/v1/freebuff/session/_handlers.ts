@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { FREEBUFF_FORCE_LIMITED_MODE } from '@codebuff/common/constants/freebuff-models'
 import { formatFreebuffHardBlockedMessage } from '@codebuff/common/util/freebuff-privacy'
 import { env } from '@codebuff/internal/env'
 
@@ -45,9 +46,7 @@ async function getCountryAccess(
         scamalyticsApiKey: env.SCAMALYTICS_API_KEY,
         ipHashSecret: env.NEXTAUTH_SECRET,
         allowLocalhost: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev',
-        forceLimited:
-          env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-          env.FREEBUFF_DEV_FORCE_LIMITED,
+        forceLimited: FREEBUFF_FORCE_LIMITED_MODE,
       },
     })
   )

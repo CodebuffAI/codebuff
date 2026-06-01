@@ -2,7 +2,7 @@ import { env } from '@codebuff/common/env'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
-  resolveFreebuffModel,
+  resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
@@ -342,7 +342,10 @@ export function joinFreebuffQueue(model: string): Promise<void> {
   // click / Enter), so persistence belongs here — and ONLY here. Server-
   // driven flips (`model_locked`, `model_unavailable`, takeover) go
   // through `setSelectedModel` directly, which never writes to disk.
-  const resolved = resolveFreebuffModel(model)
+  const current = useFreebuffSessionStore.getState().session
+  const accessTier =
+    current && 'accessTier' in current ? current.accessTier : 'full'
+  const resolved = resolveFreebuffModelForAccessTier(model, accessTier)
   useFreebuffModelStore.getState().setSelectedModel(resolved)
   saveFreebuffModelPreference(resolved)
   return restartFreebuffSession('rejoin')

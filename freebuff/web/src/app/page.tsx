@@ -23,11 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       siteName: 'Freebuff',
       locale: 'en_US',
+      images: [siteConfig.socialImage],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: [siteConfig.socialImage],
     },
   }
 }

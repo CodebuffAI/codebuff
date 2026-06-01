@@ -36,4 +36,10 @@ export const siteConfig = {
     'open source coding agent',
   ],
   url: getFreebuffAppUrl,
+  socialImage: {
+    url: '/opengraph-image.png',
+    width: 1200,
+    height: 630,
+    alt: 'Freebuff install command: npm i -g freebuff',
+  },
 }

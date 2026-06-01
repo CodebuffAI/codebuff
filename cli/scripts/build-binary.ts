@@ -113,6 +113,13 @@ function getTargetInfo(): TargetInfo {
   return target
 }
 
+function getCliTargetLabel(targetInfo: TargetInfo): string {
+  const baseTarget = `${targetInfo.platform}-${targetInfo.arch}`
+  return targetInfo.bunTarget.endsWith('-baseline')
+    ? `${baseTarget}-baseline`
+    : baseTarget
+}
+
 async function main() {
   const [, , binaryNameArg, version] = process.argv
   const binaryName = binaryNameArg ?? 'codecane'
@@ -162,7 +169,7 @@ async function main() {
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
     [
       'process.env.CODEBUFF_CLI_TARGET',
-      `"${targetInfo.platform}-${targetInfo.arch}"`,
+      `"${getCliTargetLabel(targetInfo)}"`,
     ],
     ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
     ...nextPublicEnvVars,
@@ -210,7 +217,7 @@ async function main() {
   }
 
   logAlways(
-    `✅ Built ${outputFilename} (${targetInfo.platform}-${targetInfo.arch})`,
+    `✅ Built ${outputFilename} (${getCliTargetLabel(targetInfo)})`,
   )
 }
 

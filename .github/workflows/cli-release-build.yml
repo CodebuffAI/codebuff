@@ -38,6 +38,11 @@ jobs:
             platform: linux
             arch: x64
           - os: ubuntu-latest
+            target: linux-x64-baseline
+            bun_target: bun-linux-x64-baseline
+            platform: linux
+            arch: x64
+          - os: ubuntu-latest
             target: linux-arm64
             bun_target: bun-linux-arm64
             platform: linux
@@ -209,6 +214,13 @@ jobs:
           path: ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz
 
   build-windows-binary:
+    strategy:
+      matrix:
+        include:
+          - target: win32-x64
+            bun_target: bun-windows-x64
+          - target: win32-x64-baseline
+            bun_target: bun-windows-x64-baseline
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -318,7 +330,7 @@ jobs:
       - name: Prepare Windows Bun compile runtime
         uses: ./.github/actions/setup-bun-compile-runtime
         with:
-          target: bun-windows-x64
+          target: ${{ matrix.bun_target }}
 
       - name: Build binary
         run: bun run scripts/build-binary.ts ${{ inputs.binary-name }} ${{ inputs.new-version }}
@@ -326,7 +338,7 @@ jobs:
         shell: bash
         env:
           VERBOSE: true
-          OVERRIDE_TARGET: bun-windows-x64
+          OVERRIDE_TARGET: ${{ matrix.bun_target }}
           OVERRIDE_PLATFORM: win32
           OVERRIDE_ARCH: x64
 
@@ -350,10 +362,10 @@ jobs:
           BINARY_FILE="${{ inputs.binary-name }}.exe"
           # Bundle tree-sitter.wasm next to the binary; see the
           # equivalent matrix-job tar step for context.
-          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
+          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE" tree-sitter.wasm
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.binary-name }}-win32-x64
-          path: ${{ inputs.binary-name }}-win32-x64.tar.gz
+          name: ${{ inputs.binary-name }}-${{ matrix.target }}
+          path: ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz
