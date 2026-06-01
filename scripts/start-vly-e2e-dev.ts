@@ -236,12 +236,12 @@ async function main() {
     : await startTunnel('tunnel:3000', 3000)
 
   log(`Vly tunnel: ${vlyTunnelUrl}`)
-  log('Codebuff API: https://codebuff.com')
+  log('Codebuff API: https://www.codebuff.com')
 
   const convexEnv = {
     ...process.env,
     VLY_CONVEX_AUTH_ISSUER: vlyTunnelUrl,
-    NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://codebuff.com',
+    NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://www.codebuff.com',
   }
 
   runCommand('setting Convex VLY_CONVEX_AUTH_ISSUER', BUN_PATH, [
@@ -260,7 +260,7 @@ async function main() {
     'env',
     'set',
     'NEXT_PUBLIC_CODEBUFF_APP_URL',
-    'https://codebuff.com',
+    'https://www.codebuff.com',
   ])
 
   const optionalConvexEnvNames = ['CODEBUFF_API_KEY']
@@ -294,7 +294,7 @@ async function main() {
       ...process.env,
       PORT: '3000',
       NEXT_PUBLIC_WEB_PORT: '3000',
-      NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://codebuff.com',
+      NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://www.codebuff.com',
       NEXTAUTH_URL: 'http://localhost:3000',
       VLY_CONVEX_AUTH_ISSUER: vlyTunnelUrl,
     },
@@ -324,7 +324,7 @@ async function main() {
   log('ready')
   console.log(`  Local app:        http://localhost:3000/web`)
   console.log(`  Vly tunnel:       ${vlyTunnelUrl}`)
-  console.log(`  Codebuff API:     https://codebuff.com`)
+  console.log(`  Codebuff API:     https://www.codebuff.com`)
   console.log('')
   console.log('Press Ctrl-C to stop Next, Convex, and Cloudflare tunnel processes.')
 }
