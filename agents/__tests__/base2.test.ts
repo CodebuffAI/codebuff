@@ -47,15 +47,16 @@ describe('base2 reviewer selection', () => {
 describe('base2 context pruning', () => {
   const getContextPrunerParams = (
     mode: Parameters<typeof createBase2>[0],
+    options?: Parameters<typeof createBase2>[1],
     params?: Record<string, unknown>,
   ) => {
-    const base2 = createBase2(mode)
+    const base2 = createBase2(mode, options)
     const generator = base2.handleSteps!({ params } as any)
     const step = generator.next().value as any
     return step.input.params
   }
 
-  test('free mode defaults context pruning to 400k tokens', () => {
+  test('free MiniMax mode defaults context pruning to 200k tokens', () => {
     const base2 = createBase2('free')
     const generator = base2.handleSteps!({ params: undefined } as any)
 
@@ -64,11 +65,31 @@ describe('base2 context pruning', () => {
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 400_000,
+          maxContextLength: 200_000,
           cacheExpiryMs: 30 * 60 * 1000,
         },
       },
       includeToolCall: false,
+    })
+  })
+
+  test('free Kimi mode defaults context pruning to 250k tokens', () => {
+    expect(
+      getContextPrunerParams('free', { model: FREEBUFF_KIMI_MODEL_ID }),
+    ).toEqual({
+      maxContextLength: 250_000,
+      cacheExpiryMs: 30 * 60 * 1000,
+    })
+  })
+
+  test('free non-MiniMax/Kimi models default context pruning to 400k tokens', () => {
+    expect(
+      getContextPrunerParams('free', {
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      }),
+    ).toEqual({
+      maxContextLength: 400_000,
+      cacheExpiryMs: 30 * 60 * 1000,
     })
   })
 
@@ -98,12 +119,31 @@ describe('base2 context pruning', () => {
     },
   )
 
+  test.each([
+    [FREEBUFF_MINIMAX_MODEL_ID, 200_000],
+    [FREEBUFF_KIMI_MODEL_ID, 250_000],
+    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 400_000],
+  ] as const)(
+    'non-free model %p defaults context pruning to %p tokens',
+    (model, maxContextLength) => {
+      expect(getContextPrunerParams('default', { model })).toEqual({
+        maxContextLength,
+      })
+    },
+  )
+
   test('non-free mode preserves explicit context pruning params', () => {
     expect(
-      getContextPrunerParams('default', {
-        maxContextLength: 123_000,
-        assistantToolBudget: 10_000,
-      }),
+      getContextPrunerParams(
+        'default',
+        {
+          model: FREEBUFF_KIMI_MODEL_ID,
+        },
+        {
+          maxContextLength: 123_000,
+          assistantToolBudget: 10_000,
+        },
+      ),
     ).toEqual({
       maxContextLength: 123_000,
       assistantToolBudget: 10_000,
