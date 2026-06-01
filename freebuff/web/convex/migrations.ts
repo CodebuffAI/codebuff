@@ -383,6 +383,41 @@ export const runReferralSpinEmailBackfill = migrations.runner(
   internal.migrations.backfillReferralSpinEmails,
 );
 
+// Migrate every project's `pretty_preview_url` to the canonical
+// `https://<semantic_identifier>.freebuff.dev` form.
+//
+// History:
+//   - Old code wrote `https://<slug>.vly.sh` (legacy data still in DB).
+//   - Current `assignProxy` writes `https://<slug>.freebuff.dev`
+//     (createProject.ts:40), so newly-created projects are already correct.
+
+export const migratePrettyPreviewUrlToFreebuffDev = migrations.define({
+  table: "project",
+  batchSize: 200,
+  migrateOne: async (ctx, doc) => {
+    const desired = `https://${doc.semantic_identifier}.freebuff.dev`;
+    const current = doc.pretty_preview_url;
+
+    // case A: already the canonical .freebuff.dev URL — skip.
+    if (current === desired) return;
+
+    // case B/C: legacy .vly.sh URL or null/undefined — rewrite/backfill.
+    const isLegacyVlySh =
+      typeof current === "string" && current.endsWith(".vly.sh");
+    const isEmpty = current === undefined || current === null || current === "";
+
+    if (!isLegacyVlySh && !isEmpty) return;
+
+    await ctx.db.patch(doc._id, {
+      pretty_preview_url: desired,
+    });
+  },
+});
+
+export const runMigratePrettyPreviewUrlToFreebuffDev = migrations.runner(
+  internal.migrations.migratePrettyPreviewUrlToFreebuffDev,
+);
+
 // Backfill migration for users aggregate
 export const backfillUsersAggregate = migrations.define({
   table: "users",
