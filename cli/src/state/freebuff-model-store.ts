@@ -1,7 +1,7 @@
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
   resolveAvailableFreebuffModel,
-  resolveFreebuffModel,
+  resolveSupportedFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
 import { create } from 'zustand'
 
@@ -32,7 +32,7 @@ export const useFreebuffModelStore = create<FreebuffModelStore>((set) => ({
     loadFreebuffModelPreference() ?? DEFAULT_FREEBUFF_MODEL_ID,
   ),
   setSelectedModel: (model) =>
-    set({ selectedModel: resolveFreebuffModel(model) }),
+    set({ selectedModel: resolveSupportedFreebuffModel(model) }),
 }))
 
 /** Imperative read for non-React callers (the session hook's tick loop and

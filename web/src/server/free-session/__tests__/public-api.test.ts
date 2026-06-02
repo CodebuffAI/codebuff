@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
+  FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -86,14 +89,13 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return n
     },
-    listRecentPremiumAdmits: async ({ userId, models, since, accessTier }) => {
+    listRecentFreeSessionAdmits: async ({ userId, models, since }) => {
       return admits
         .filter(
           (a) =>
             a.user_id === userId &&
             models.includes(a.model) &&
-            a.admitted_at.getTime() >= since.getTime() &&
-            (!accessTier || (a.access_tier ?? 'full') === accessTier),
+            a.admitted_at.getTime() >= since.getTime(),
         )
         .sort((a, b) => a.admitted_at.getTime() - b.admitted_at.getTime())
         .map((a) => ({
@@ -272,8 +274,8 @@ describe('requestSession', () => {
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
-    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   test('removed GLM 5.1 active session cannot be reclaimed', async () => {
@@ -297,8 +299,8 @@ describe('requestSession', () => {
     })
     expect(state.status).toBe('queued')
     if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
-    expect(deps.rows.get('u1')?.model).toBe(DEFAULT_MODEL)
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   test('queued response includes a per-model depth snapshot for the selector', async () => {
@@ -426,7 +428,7 @@ describe('requestSession', () => {
     expect(s3.status).toBe('active')
   })
 
-  // Per-user premium session limit (5 units per Pacific day) — the wire
+  // Per-user Freebuff session limit (5 units per Pacific day) — the wire
   // limit is hard-coded in public-api.ts, so tests seed the fake admit log
   // directly rather than configuring it.
   const PREMIUM_MODEL = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
@@ -435,7 +437,7 @@ describe('requestSession', () => {
   const PREMIUM_WINDOW_HOURS = FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS
   const PREMIUM_OPEN_TIME = new Date('2026-04-17T16:00:00Z')
 
-  test('rate_limited: shared premium pool blocks the next premium session at 5 units', async () => {
+  test('rate_limited: shared free-session pool blocks the next session at 5 units', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     for (let i = 0; i < PREMIUM_LIMIT; i++) {
@@ -531,7 +533,7 @@ describe('requestSession', () => {
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rate_limited: removed GLM 5.1 request does not use the shared premium quota', async () => {
+  test('rate_limited: removed GLM 5.1 request falls back into the shared free quota', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     for (let i = 0; i < PREMIUM_LIMIT; i++) {
@@ -547,9 +549,10 @@ describe('requestSession', () => {
       model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.model).toBe(DEFAULT_MODEL)
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(state.recentCount).toBe(PREMIUM_LIMIT)
   })
 
   test("rate_limited: admits before today's Pacific reset do not count", async () => {
@@ -571,9 +574,9 @@ describe('requestSession', () => {
     expect(state.rateLimit?.recentCount).toBe(0)
   })
 
-  test('rate_limited: Minimax is unlimited even with many recent admits', async () => {
+  test('rate_limited: Minimax uses the shared free-session quota', async () => {
     const now = deps._now()
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < PREMIUM_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
         model: DEFAULT_MODEL,
@@ -585,13 +588,13 @@ describe('requestSession', () => {
       model: DEFAULT_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    // No rate-limit info for unrated models — the CLI skips the quota line.
-    expect(state.rateLimit).toBeUndefined()
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.model).toBe(DEFAULT_MODEL)
+    expect(state.recentCount).toBe(PREMIUM_LIMIT)
   })
 
-  test('limited access coerces any requested model to DeepSeek Flash', async () => {
+  test('limited access coerces unsupported requested models to DeepSeek Flash', async () => {
     const state = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
@@ -602,6 +605,20 @@ describe('requestSession', () => {
     if (state.status !== 'queued') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
     expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(deps.rows.get('u1')?.access_tier).toBe('limited')
+  })
+
+  test('limited access allows non-Pro MiMo 2.5', async () => {
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('queued')
+    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.accessTier).toBe('limited')
+    expect(state.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
   })
 
@@ -633,12 +650,15 @@ describe('requestSession', () => {
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
   })
 
-  test('rate_limited: limited access blocks the next Flash session at 5 units', async () => {
+  test('rate_limited: limited access blocks the next session at 5 units across Flash and MiMo', async () => {
     const now = deps._now()
     for (let i = 0; i < FREEBUFF_LIMITED_SESSION_LIMIT; i++) {
       deps.admits.push({
         user_id: 'u1',
-        model: 'deepseek/deepseek-v4-flash',
+        model:
+          i === 0
+            ? FREEBUFF_MIMO_V25_MODEL_ID
+            : FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
         access_tier: 'limited',
         admitted_at: new Date(now.getTime() - i * 60_000),
       })
@@ -646,20 +666,20 @@ describe('requestSession', () => {
 
     const state = await requestSession({
       userId: 'u1',
-      model: DEFAULT_MODEL,
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
       accessTier: 'limited',
       deps,
     })
     expect(state.status).toBe('rate_limited')
     if (state.status !== 'rate_limited') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
-    expect(state.model).toBe('deepseek/deepseek-v4-flash')
+    expect(state.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(state.limit).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(state.recentCount).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rate_limited: full Flash sessions do not consume the limited quota', async () => {
+  test('rate_limited: full Flash sessions consume the shared quota for limited access too', async () => {
     const now = deps._now()
     for (let i = 0; i < FREEBUFF_LIMITED_SESSION_LIMIT; i++) {
       deps.admits.push({
@@ -676,9 +696,9 @@ describe('requestSession', () => {
       accessTier: 'limited',
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit?.recentCount).toBe(0)
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.recentCount).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
   })
 
   test('queued DeepSeek response carries the current admit count', async () => {
@@ -704,7 +724,7 @@ describe('requestSession', () => {
     expect(state.rateLimit).toEqual(expectedRateLimit(PREMIUM_MODEL, 2))
   })
 
-  test('rate_limited: fractional premium usage under the cap can start another session', async () => {
+  test('rate_limited: fractional session usage under the cap can start another session', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     deps.admits.push({
@@ -732,8 +752,8 @@ describe('requestSession', () => {
     expect(state.rateLimit?.recentCount).toBe(4.9)
   })
 
-  test('rate_limited: takeover of an active premium row is allowed even when at cap', async () => {
-    // Reclaim path: user has an active+unexpired premium session and restarts
+  test('rate_limited: takeover of an active row is allowed even when at cap', async () => {
+    // Reclaim path: user has an active+unexpired free session and restarts
     // the CLI. POST must rotate their instance id (takeover) and NOT reject
     // with rate_limited — otherwise they'd be stranded with a live session
     // they can't reconnect to. The 5th admission is already in the log, so
@@ -777,7 +797,7 @@ describe('requestSession', () => {
     expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT)
   })
 
-  test('rate_limited: reclaim of a queued premium row is allowed even when at cap', async () => {
+  test('rate_limited: reclaim of a queued row is allowed even when at cap', async () => {
     // Same reclaim exception for queued rows: if a user has already queued
     // (say they slipped in just before their 5th admit landed), a subsequent
     // POST from the same CLI must preserve their queue position instead of
@@ -817,7 +837,7 @@ describe('requestSession', () => {
     expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT)
   })
 
-  test('rate_limited: expired premium row is not a reclaim — quota still applies', async () => {
+  test('rate_limited: expired row is not a reclaim — quota still applies', async () => {
     // The stored row's expires_at is in the past, so it doesn't represent
     // an in-flight session. This POST is effectively a fresh request and
     // must be blocked by the quota.
@@ -902,7 +922,7 @@ describe('getSessionState', () => {
     })
   })
 
-  test('no row surfaces used premium quota before joining', async () => {
+  test('no row surfaces used free-session quota before joining', async () => {
     const now = deps._now()
     deps.admits.push({
       user_id: 'u1',
@@ -1044,11 +1064,11 @@ describe('getSessionState', () => {
     )
   })
 
-  test('active session only fetches one shared premium quota snapshot', async () => {
+  test('active session only fetches one shared free-session quota snapshot', async () => {
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     let listRecentAdmitsCalls = 0
-    const originalListRecentAdmits = deps.listRecentPremiumAdmits
-    deps.listRecentPremiumAdmits = async (params) => {
+    const originalListRecentAdmits = deps.listRecentFreeSessionAdmits
+    deps.listRecentFreeSessionAdmits = async (params) => {
       listRecentAdmitsCalls++
       return originalListRecentAdmits(params)
     }
@@ -1105,9 +1125,9 @@ describe('getSessionState', () => {
     expect(state.gracePeriodRemainingMs).toBe(GRACE_MS - 60_000)
   })
 
-  test('ended view carries the full premium-quota snapshot', async () => {
+  test('ended view carries the full session-quota snapshot', async () => {
     // The post-session banner reads any entry from rateLimitsByModel since
-    // all premium models share one daily pool. Unlike queued/active, the
+    // all free models share one daily pool. Unlike queued/active, the
     // ended view ships the full unfiltered map so a single banner read is
     // always safe.
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
@@ -1130,10 +1150,13 @@ describe('getSessionState', () => {
     expect(
       state.rateLimitsByModel?.[FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID],
     ).toEqual(expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 1))
-    // Every premium model is present (sharing the same recentCount) so the
+    // Every free model is present (sharing the same recentCount) so the
     // banner can read any entry without caring which model the user was on.
     expect(state.rateLimitsByModel?.[FREEBUFF_KIMI_MODEL_ID]).toEqual(
       expectedRateLimit(FREEBUFF_KIMI_MODEL_ID, 1),
+    )
+    expect(state.rateLimitsByModel?.[FREEBUFF_MIMO_V25_PRO_MODEL_ID]).toEqual(
+      expectedRateLimit(FREEBUFF_MIMO_V25_PRO_MODEL_ID, 1),
     )
   })
 
@@ -1499,7 +1522,7 @@ describe('endUserSession', () => {
     expect(deps.rows.has('u1')).toBe(false)
   })
 
-  test('rounds active premium session usage up to nearest tenth on early end', async () => {
+  test('rounds active session usage up to nearest tenth on early end', async () => {
     const deps = makeDeps({ getInstantAdmitCapacity: () => 3 })
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     const state = await requestSession({

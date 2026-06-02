@@ -1,6 +1,6 @@
 {
   "name": "freebuff",
-  "version": "0.0.96",
+  "version": "0.0.100",
   "description": "The world's strongest free coding agent",
   "license": "MIT",
   "bin": {
@@ -33,10 +33,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CodebuffAI/codebuff.git"
+    "url": "git+https://github.com/CodebuffAI/freebuff-private.git"
   },
-  "homepage": "https://codebuff.com",
+  "homepage": "https://freebuff.com",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": false
   }
 }

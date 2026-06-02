@@ -1,7 +1,7 @@
 'use client'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import { Check, ChevronDown, Copy } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -27,7 +27,7 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- Kimi K2.6: balanced.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiniMax M2.7: fastest.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -418,7 +418,7 @@ function PhilosophySection() {
   )
 }
 
-const wordVariant = {
+const wordVariant: Variants = {
   initial: { opacity: 0, y: 30, filter: 'blur(8px)' },
   animate: {
     opacity: 1,
@@ -426,7 +426,7 @@ const wordVariant = {
     filter: 'blur(0px)',
     transition: {
       duration: 0.6,
-      ease: [0.165, 0.84, 0.44, 1],
+      ease: [0.165, 0.84, 0.44, 1] as [number, number, number, number],
     },
   },
 }
@@ -460,7 +460,7 @@ export default function HomeClient() {
               alt="Freebuff"
               width={28}
               height={28}
-              className="rounded-sm opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
+              className="opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
             />
             <span className="text-xl tracking-widest font-serif text-zinc-400 group-hover:text-white transition-colors duration-200">
               freebuff
@@ -468,6 +468,12 @@ export default function HomeClient() {
           </Link>
 
           <nav className="flex items-center space-x-1">
+            <Link
+              href="/blog"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm"
+            >
+              Blog
+            </Link>
             <Link
               href="https://github.com/CodebuffAI/codebuff"
               target="_blank"

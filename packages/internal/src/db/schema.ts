@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -836,6 +837,23 @@ export const agentStep = pgTable(
     // Performance indices
     index('idx_agent_step_run_id').on(table.agent_run_id),
     index('idx_agent_step_children_gin').using('gin', table.child_run_ids),
+  ],
+)
+
+export const freebuffDailyUsage = pgTable(
+  'freebuff_daily_usage',
+  {
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    usage_date: date('usage_date').notNull(),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.user_id, table.usage_date] }),
+    index('idx_freebuff_daily_usage_date').on(table.usage_date),
   ],
 )
 

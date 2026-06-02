@@ -2,7 +2,7 @@ import { env } from '@codebuff/common/env'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
-  resolveFreebuffModel,
+  resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
@@ -111,11 +111,11 @@ async function callSession(
       return body
     }
   }
-  // 429 from POST is the per-model session-quota reject (e.g. too many DeepSeek
-  // sessions in the last 12h). Terminal for the current poll — the CLI shows
-  // a screen explaining the limit and when the user can try again. The 429
-  // status (rather than 200) keeps older CLIs in their error path so they
-  // back off instead of tight-polling an unrecognized 200 body.
+  // 429 from POST is the shared session-quota reject (too many Freebuff
+  // sessions today). Terminal for the current poll — the CLI shows a screen
+  // explaining the limit and when the user can try again. The 429 status
+  // (rather than 200) keeps older CLIs in their error path so they back off
+  // instead of tight-polling an unrecognized 200 body.
   if (resp.status === 429 && method === 'POST') {
     const body = (await resp
       .json()
@@ -318,7 +318,7 @@ export function returnToFreebuffLanding(
 }
 
 /** Refresh picker-only metadata (quota and queue depths) while staying on the
- * model selection screen. Used when a midnight-Pacific premium quota reset
+ * model selection screen. Used when a midnight-Pacific session quota reset
  * passes while the landing screen is open. */
 export function refreshFreebuffLandingMetadata(): Promise<void> {
   return restartFreebuffSession('landing')
@@ -342,7 +342,10 @@ export function joinFreebuffQueue(model: string): Promise<void> {
   // click / Enter), so persistence belongs here — and ONLY here. Server-
   // driven flips (`model_locked`, `model_unavailable`, takeover) go
   // through `setSelectedModel` directly, which never writes to disk.
-  const resolved = resolveFreebuffModel(model)
+  const current = useFreebuffSessionStore.getState().session
+  const accessTier =
+    current && 'accessTier' in current ? current.accessTier : 'full'
+  const resolved = resolveFreebuffModelForAccessTier(model, accessTier)
   useFreebuffModelStore.getState().setSelectedModel(resolved)
   saveFreebuffModelPreference(resolved)
   return restartFreebuffSession('rejoin')
@@ -394,7 +397,7 @@ export function markFreebuffSessionCountryBlocked(params: {
 /** Flip into the local `ended` state without an instanceId (server has lost
  *  our row). The chat surface stays mounted with the rejoin banner.
  *  Preserves any `rateLimitsByModel` snapshot from the prior session so the
- *  banner can show today's premium-session count without an extra fetch. */
+ *  banner can show today's session count without an extra fetch. */
 export function markFreebuffSessionEnded(): void {
   if (!IS_FREEBUFF) return
   controller?.abort()

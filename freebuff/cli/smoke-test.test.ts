@@ -16,7 +16,7 @@
  *   bun test freebuff/cli/smoke-test.test.ts
  */
 
-import { execFileSync, execSync, spawn } from 'child_process'
+import { execFileSync, execSync, spawn, spawnSync } from 'child_process'
 import { existsSync } from 'fs'
 import path from 'path'
 
@@ -76,6 +76,27 @@ function runBinary(args: string[]): string {
   })
 }
 
+function runBinaryResult(args: string[]) {
+  return spawnSync(BINARY_PATH, args, {
+    encoding: 'utf-8',
+    timeout: 10_000,
+    env: {
+      ...process.env,
+      FREEBUFF_MODE: 'true',
+      NO_COLOR: '1',
+      NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
+      NEXT_PUBLIC_CODEBUFF_APP_URL: 'http://127.0.0.1:9',
+      NEXT_PUBLIC_FREEBUFF_APP_URL: 'http://127.0.0.1:9',
+      NEXT_PUBLIC_SUPPORT_EMAIL: 'test@example.com',
+      NEXT_PUBLIC_POSTHOG_API_KEY: 'test',
+      NEXT_PUBLIC_POSTHOG_HOST_URL: 'http://127.0.0.1:9',
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'test',
+      NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'http://127.0.0.1:9',
+      NEXT_PUBLIC_WEB_PORT: '3000',
+    },
+  })
+}
+
 const binaryExists = existsSync(BINARY_PATH)
 const tmuxAvailable = isTmuxAvailable()
 
@@ -124,6 +145,25 @@ describe.skipIf(!binaryExists)('Freebuff Binary Smoke Tests', () => {
       expect(output).not.toMatch(/--max\b/)
       expect(output).not.toMatch(/--plan\b/)
       expect(output).not.toMatch(/--lite\b/)
+    },
+    TIMEOUT_MS,
+  )
+
+  test(
+    'login command reaches the plain login flow',
+    () => {
+      const result = runBinaryResult(['login'])
+      const output = stripAnsiCodes(
+        `${result.stdout ?? ''}${result.stderr ?? ''}`,
+      )
+
+      // The local URL is intentionally unreachable; the smoke signal is that
+      // Commander accepted `login` and the CLI entered the login flow.
+      expect(result.status).not.toBe(0)
+      expect(output).toContain('Freebuff Login')
+      expect(output).toContain('Generating login URL')
+      expect(output).not.toContain('too many arguments')
+      expect(output).not.toContain('unknown command')
     },
     TIMEOUT_MS,
   )

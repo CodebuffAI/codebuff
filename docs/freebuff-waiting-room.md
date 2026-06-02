@@ -49,7 +49,7 @@ flowchart LR
 ### Components
 
 - **`free_session` table** (Postgres) — single source of truth for queue + active-session state. One row per user (PK on `user_id`), with a `model` column recording which queue the row belongs to.
-- **Model registry** (`common/src/constants/freebuff-models.ts`) — `FREEBUFF_MODELS` is the authoritative list of selectable models. Adding a new freebuff model means adding an entry here; the admission ticker iterates this list every tick.
+- **Model registry** (`common/src/constants/freebuff-models.ts`) — `FREEBUFF_MODELS` is the full-access selector list, `LIMITED_FREEBUFF_MODEL_IDS` is the limited-access selector list, and `SUPPORTED_FREEBUFF_MODELS` is the backend-supported superset. Adding a new freebuff model means adding an entry here; the admission ticker iterates the supported list every tick.
 - **Public API** (`web/src/server/free-session/public-api.ts`) — `requestSession`, `getSessionState`, `endUserSession`, `checkSessionAdmissible`. Pure business logic; DI-friendly. `requestSession` accepts the user's chosen `model` and can return `model_locked` when a session is already active on a different model.
 - **Store** (`web/src/server/free-session/store.ts`) — all DB ops. Transaction boundaries and per-model advisory locks live here.
 - **Fleet health probe** (`web/src/server/free-session/fireworks-health.ts`) — `getFleetHealth()` does a single HTTP GET against the Fireworks metrics endpoint and returns a `Record<modelId, 'healthy' | 'degraded' | 'unhealthy'>`. Cached ~25s (under the Fireworks 30s exporter cadence and 6 req/min rate limit). Models without a dedicated deployment in `FIREWORKS_DEPLOYMENT_MAP` (e.g. serverless) are absent from the map and treated as `healthy` at call sites.
@@ -145,7 +145,7 @@ Each tick does (in order):
 
 1. **Sweep expired.** `DELETE FROM free_session WHERE status='active' AND expires_at < now() - grace`. Runs once per tick regardless of upstream health so zombie sessions are cleaned up even during an outage.
 2. **Fleet health probe.** `getFleetHealth()` returns a `Record<modelId, 'healthy' | 'degraded' | 'unhealthy'>`. One HTTP call per tick (cached ~25s across pods) covers every model. Deployment absent from the fleet map (serverless) defaults to `healthy` at the call site.
-3. **Admit per model, in parallel.** For each model in `FREEBUFF_MODELS`, call `admitFromQueue({ model, health, sessionLengthMs, now })`:
+3. **Admit per model, in parallel.** For each model in `SUPPORTED_FREEBUFF_MODELS`, call `admitFromQueue({ model, health, sessionLengthMs, now })`:
    - If `health !== 'healthy'`, returns `{ admitted: [], skipped: health }` without touching Postgres — the model's queue pauses and grows until recovery.
    - Otherwise opens a transaction, takes the per-model advisory lock, and `SELECT ... WHERE status='queued' AND model=$1 ORDER BY queued_at, user_id LIMIT 1 FOR UPDATE SKIP LOCKED` → `UPDATE` the row to `status='active'` with `admitted_at=now()`, `expires_at=now()+sessionLength`. One admit per model per tick keeps Fireworks from a thundering herd of newly-admitted CLIs.
 
@@ -156,16 +156,18 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | Constant                     | Location                                  | Default                                                             | Purpose                                                                                                                                                                     |
 | ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ADMISSION_TICK_MS`          | `config.ts`                               | 15000                                                               | How often the ticker fires. Up to one user is admitted per model per tick.                                                                                                  |
-| `FREEBUFF_MODELS`            | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `minimax-m2.7`, `deepseek-v4-flash` | Selectable models; each gets its own queue and admission slot.                                                                                                              |
+| `FREEBUFF_MODELS`            | `common/src/constants/freebuff-models.ts` | `deepseek-v4-pro`, `kimi-k2.6`, `deepseek-v4-flash`, `minimax-m2.7` | Full-access selectable models.                                                                                                                                              |
+| `LIMITED_FREEBUFF_MODEL_IDS` | `common/src/constants/freebuff-models.ts` | `deepseek-v4-flash`, `mimo-v2.5`                                    | Limited-access selectable models.                                                                                                                                           |
+| `SUPPORTED_FREEBUFF_MODELS`  | `common/src/constants/freebuff-models.ts` | all full, limited, and backend-retained models                      | Models with server-side session/admission support; each gets its own queue and admission slot.                                                                              |
 | `FIREWORKS_DEPLOYMENT_MAP`   | `web/src/llm-api/fireworks-config.ts`     | none for current freebuff models                                    | Models with dedicated Fireworks deployments. Models not listed are treated as `healthy` (serverless fallback).                                                              |
 | `HEALTH_CACHE_TTL_MS`        | `fireworks-health.ts`                     | 25000                                                               | Fleet probe cache TTL. Sits just under the Fireworks 30s exporter cadence and 6 req/min rate limit.                                                                         |
 | `FREEBUFF_SESSION_LENGTH_MS` | env                                       | 3_600_000                                                           | Session lifetime                                                                                                                                                            |
 | `REDIS_URL`                  | env                                       | unset                                                               | Optional Redis/Valkey-compatible URL for distributed free-mode rate-limit counters. On Render, use the Key Value internal URL. Falls back to per-pod memory when unset.     |
 | `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
-### Premium Session Quota
+### Free Session Quota
 
-DeepSeek V4 Pro and Kimi share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax and DeepSeek V4 Flash remain unlimited.
+All supported Freebuff models share a per-user daily session quota. The server counts `free_session_admit` rows across `SUPPORTED_FREEBUFF_MODELS` from the last midnight in `America/Los_Angeles`; when the user reaches the applicable session limit, the next `POST /session` is rejected until the next Pacific midnight reset. Switching between models does not reset or bypass the quota.
 
 ## HTTP API
 

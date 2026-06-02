@@ -400,6 +400,13 @@
       "when": 1779667810810,
       "tag": "0056_simple_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1779861689539,
+      "tag": "0057_thin_captain_flint",
+      "breakpoints": true
     }
   ]
 }

@@ -536,26 +536,22 @@ export interface RecentSessionAdmit {
 }
 
 /**
- * List premium-model admissions for `userId` inside `[since, ∞)`, ordered
+ * List free-session admissions for `userId` inside `[since, ∞)`, ordered
  * oldest-first. Each row carries charged session units; manual early end can
  * revise a freshly written 1.0-unit admit down to a fractional value.
  */
-export async function listRecentPremiumAdmits(params: {
+export async function listRecentFreeSessionAdmits(params: {
   userId: string
   models: readonly string[]
   since: Date
-  accessTier?: FreebuffAccessTier
 }): Promise<RecentSessionAdmit[]> {
-  const { userId, models, since, accessTier } = params
+  const { userId, models, since } = params
   if (models.length === 0) return []
   const filters = [
     eq(schema.freeSessionAdmit.user_id, userId),
     inArray(schema.freeSessionAdmit.model, [...models]),
     gte(schema.freeSessionAdmit.admitted_at, since),
   ]
-  if (accessTier) {
-    filters.push(eq(schema.freeSessionAdmit.access_tier, accessTier))
-  }
   const rows = await db
     .select({
       admitted_at: schema.freeSessionAdmit.admitted_at,

@@ -42,7 +42,7 @@ export function SignInButton({
         if (authCode && isCliAuthCodeCandidate(authCode)) {
           callbackUrl = getCliAuthOnboardPath(searchParams, authCode)
         } else {
-          callbackUrl = '/'
+          callbackUrl = searchParams.get('callbackUrl') || '/'
         }
       }
 

@@ -1,7 +1,6 @@
 import * as os from 'os'
 import path from 'path'
 
-import { getFileTokenScores } from '@codebuff/code-map/parse'
 import { getSystemInfo } from '@codebuff/common/util/system-info'
 import {
   KNOWLEDGE_FILE_NAMES_LOWERCASE,
@@ -155,6 +154,7 @@ async function computeProjectIndex(params: ProjectIndexInput): Promise<{
 
   if (filePaths.length > 0) {
     try {
+      const { getFileTokenScores } = await import('@codebuff/code-map/parse')
       const tokenData = await getFileTokenScores(cwd, filePaths, readFile)
       fileTokenScores = tokenData.tokenScores
       tokenCallers = tokenData.tokenCallers

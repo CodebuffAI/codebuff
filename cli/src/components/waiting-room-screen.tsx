@@ -5,13 +5,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
-import { LimitedLandingPanel } from './limited-landing-panel'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
   takeOverFreebuffSession,
 } from '../hooks/use-freebuff-session'
 import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
+import { useFreebuffStreakQuery } from '../hooks/use-freebuff-streak-query'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
@@ -26,11 +26,13 @@ import {
 import { formatSessionUnits } from '../utils/format-session-units'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import {
+  FREEBUFF_ENABLE_STREAK_IN_UI,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
+import { pluralize } from '@codebuff/common/util/string'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -251,6 +253,34 @@ const TakeoverPrompt: React.FC = () => {
   )
 }
 
+/** Inline streak indicator rendered as the line immediately after the
+ *  sessions-used/title row. Shows "Streak: N days" when the user has a
+ *  streak; for streak === 0 the row is rendered blank so the picker
+ *  doesn't jump once they earn their first day. */
+const StreakInlineLine: React.FC<{
+  streak: number
+  marginBottom: number
+}> = ({ streak, marginBottom }) => {
+  const theme = useTheme()
+
+  if (streak <= 0) {
+    return <text style={{ marginBottom, flexShrink: 0 }}> </text>
+  }
+
+  return (
+    <text
+      style={{
+        fg: theme.muted,
+        marginBottom,
+        flexShrink: 0,
+        wrapMode: 'none',
+      }}
+    >
+      Streak: {pluralize(streak, 'day')}
+    </text>
+  )
+}
+
 export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   session,
   error,
@@ -269,10 +299,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   const logoMode: 'full' | 'text' | 'none' =
-    terminalHeight >= 26 ? 'full' : terminalHeight >= 19 ? 'text' : 'none'
+    terminalHeight >= 30 ? 'full' : ('none' as 'none' | 'text')
   const compact = terminalHeight < 22
-  const showAds = terminalHeight >= 16
-  const textMarginBottom = compact ? 0 : 1
+  const showAds = terminalHeight >= 18
+  const textMarginBottom = 1
   const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
@@ -320,9 +350,18 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
   // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
   const isLanding = session?.status === 'none'
+  const streakQuery = useFreebuffStreakQuery({
+    enabled: FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued),
+  })
+  const streak = streakQuery.data?.streak ?? 0
+  // Reserve the streak row whenever the feature could appear so the picker
+  // doesn't jump when the query resolves or the user crosses from 0 → 1.
+  // The component itself renders blank space when streak === 0.
+  const reserveStreakSlot =
+    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued) && !compact
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back. On the landing picker we tick once a
-  // minute so the premium reset countdown stays fresh.
+  // minute so the session reset countdown stays fresh.
   const queuedAtMs = useMemo(() => {
     if (session?.status === 'queued') return Date.parse(session.queuedAt)
     return null
@@ -330,42 +369,34 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const now = useNow(isQueued ? 1000 : 60_000, isQueued || isLanding)
   const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
-  // Premium quota counter for the title line. All premium models share one
-  // pool; the server replicates the same snapshot under each premium model
+  // Free-session quota counter for the title line. All free models share one
+  // pool; the server replicates the same snapshot under each free model
   // id, so any entry has the right count. Renders amber when exhausted so
   // the limit reads as "you've hit it" rather than just another count.
   const rateLimitsByModel = getRateLimitsByModel(session)
-  const premiumRateLimit = rateLimitsByModel
+  const sessionRateLimit = rateLimitsByModel
     ? Object.values(rateLimitsByModel)[0]
     : undefined
-  const sharedPremiumUsed = premiumRateLimit?.recentCount ?? 0
-  const isPremiumExhausted =
-    sharedPremiumUsed >=
+  const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
+  const isSessionExhausted =
+    sharedSessionUsed >=
     (accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT)
-  const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
-  // Pad the used count so the title's centered container doesn't shift width
-  // as the count ticks from "0" → "1.3" → "2" while loading.
+  const sessionUsedColor = isSessionExhausted ? theme.secondary : theme.muted
   const sessionLimit =
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
-  // Limited-tier users don't see any premium models, so calling these "limited
-  // sessions" leaks the tier name without informing the user — just "sessions"
-  // reads naturally next to the count and reset countdown.
-  const sessionLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
-  const sessionUnitWidth = String(sessionLimit).length + 2
-  const formattedSharedPremiumUsed =
-    formatSessionUnits(sharedPremiumUsed).padStart(sessionUnitWidth)
-  const premiumResetAt = getFreebuffPremiumResetAt({
+  const sessionLabel = 'sessions'
+  const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
+  const sessionResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
     nowMs: now,
   })
-  const premiumResetAtMs = premiumResetAt.getTime()
-  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
-    premiumResetAt,
+  const sessionResetAtMs = sessionResetAt.getTime()
+  const sessionResetCountdown = formatFreebuffPremiumResetCountdown(
+    sessionResetAt,
     now,
   )
 
@@ -383,44 +414,52 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const wrappedRows = (text: string) =>
     Math.max(1, Math.ceil(text.length / contentMaxWidth))
   const counterText =
-    `${formattedSharedPremiumUsed} of ${sessionLimit} ${sessionLabel} used, ` +
-    `resets in ${premiumResetCountdown}`
+    `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
+    `resets in ${sessionResetCountdown}`
   const logoBlockRows =
     logoMode === 'none'
       ? 0
       : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
   const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
   const adRows = showAds ? CHOICE_AD_BANNER_HEIGHT : 0
+  // Streak is rendered inline as a one-line row directly under the counter
+  // (landing) or title (queued), with the same bottom margin as its neighbor
+  // so the picker still sits flush below it.
+  const streakLandingRows = reserveStreakSlot ? 1 + textMarginBottom : 0
+  const streakQueuedRows = reserveStreakSlot ? 1 + 1 : 0
   const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
   const landingTextRows =
     wrappedRows('Pick a model to start') +
     textMarginBottom +
     wrappedRows(counterText) +
-    textMarginBottom
+    textMarginBottom +
+    streakLandingRows
+  const queuedTitleText =
+    session?.status === 'queued' && session.position === 1
+      ? "You're next in line"
+      : "You're in the waiting room"
   const queuedTextRows =
-    wrappedRows("You're in the waiting room") +
-    1 /* marginBottom */ +
-    4 /* position panel */
+    wrappedRows(queuedTitleText) +
+    1 +
+    4 /* position panel */ +
+    streakQueuedRows
   const selectorMaxHeight = Math.max(
     3,
     terminalHeight -
     reservedChrome -
     (isQueued ? queuedTextRows : landingTextRows),
   )
-  // The limited-tier panel owns its own title/counter, so the only chrome
-  // around it is the shared frame (no extra prompt rows to subtract).
-  const limitedPanelMaxHeight = Math.max(3, terminalHeight - reservedChrome)
 
   useEffect(() => {
-    if (!isLanding || !premiumRateLimit) return
+    if (!isLanding || !sessionRateLimit) return
 
-    const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
+    const delayMs = Math.max(0, sessionResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
       refreshFreebuffLandingMetadata().catch(() => { })
     }, delayMs)
 
     return () => clearTimeout(timer)
-  }, [isLanding, premiumRateLimit, premiumResetAtMs])
+  }, [isLanding, sessionRateLimit, sessionResetAtMs])
 
   return (
     <box
@@ -516,30 +555,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </text>
           )}
 
-          {isLanding && accessTier === 'limited' && (
-            <LimitedLandingPanel
-              isQuotaExhausted={isPremiumExhausted}
-              exhaustedMessageText={`You've used your ${sessionLimit} ${sessionLabel} for today. Resets in ${premiumResetCountdown}.`}
-              maxHeight={limitedPanelMaxHeight}
-              sessionCounterText={`${formatSessionUnits(
-                sharedPremiumUsed,
-              )} of ${sessionLimit} ${sessionLabel} used, resets in ${premiumResetCountdown}`}
-              sessionCounter={
-                <>
-                  <span fg={premiumUsedColor}>
-                    {formatSessionUnits(sharedPremiumUsed)} of {sessionLimit}{' '}
-                    {sessionLabel} used
-                  </span>
-                  <span fg={theme.muted}>
-                    {', '}
-                    resets in {premiumResetCountdown}
-                  </span>
-                </>
-              }
-            />
-          )}
-
-          {isLanding && accessTier !== 'limited' && (
+          {isLanding && (
             <box
               style={{
                 flexDirection: 'column',
@@ -548,7 +564,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               }}
             >
               <text
-                style={{ marginBottom: textMarginBottom, wrapMode: 'word' }}
+                style={{
+                  marginBottom: textMarginBottom,
+                  wrapMode: 'word',
+                }}
               >
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
                   Pick a model to start
@@ -561,15 +580,21 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   wrapMode: 'word',
                 }}
               >
-                <span fg={premiumUsedColor}>
-                  {formattedSharedPremiumUsed} of {sessionLimit} {sessionLabel}{' '}
+                <span fg={sessionUsedColor}>
+                  {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
                   used
                 </span>
                 <span fg={theme.muted}>
                   {', '}
-                  resets in {premiumResetCountdown}
+                  resets in {sessionResetCountdown}
                 </span>
               </text>
+              {reserveStreakSlot && !compact && (
+                <StreakInlineLine
+                  streak={streak}
+                  marginBottom={textMarginBottom}
+                />
+              )}
               <FreebuffModelSelector maxHeight={selectorMaxHeight} />
             </box>
           )}
@@ -585,13 +610,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               }}
             >
               <text
-                style={{ fg: theme.foreground, marginBottom: 1 }}
+                style={{
+                  fg: theme.foreground,
+                  marginBottom: 1,
+                }}
                 attributes={TextAttributes.BOLD}
               >
-                {session.position === 1
-                  ? "You're next in line"
-                  : "You're in the waiting room"}
+                {queuedTitleText}
               </text>
+              {reserveStreakSlot && (
+                <StreakInlineLine streak={streak} marginBottom={1} />
+              )}
 
               <FreebuffModelSelector maxHeight={selectorMaxHeight} />
 
@@ -693,7 +722,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </>
           )}
 
-          {/* Shared premium-session quota exhausted. Terminal for this run —
+          {/* Shared free-session quota exhausted. Terminal for this run —
               the user can exit and come
               back once the daily Pacific reset passes. */}
           {session?.status === 'rate_limited' && (
@@ -706,9 +735,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                {session.accessTier === 'limited'
-                  ? 'sessions'
-                  : 'premium sessions'}{' '}
+                sessions{' '}
                 today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}

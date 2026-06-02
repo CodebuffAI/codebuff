@@ -9,6 +9,11 @@ import { ShimmerText } from './shimmer-text'
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
+import {
+  FREEBUFF_COUNTDOWN_VISIBLE_MS,
+  formatFreebuffSessionCountdown,
+  formatFreebuffSessionRemaining,
+} from '../utils/freebuff-session-display'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { StatusIndicatorState } from '../utils/status-indicator-state'
@@ -44,27 +49,6 @@ const StatusActionButton = ({
 }
 
 const SHIMMER_INTERVAL_MS = 160
-
-/** Show the "X:XX left" urgency readout under this many ms remaining. */
-const COUNTDOWN_VISIBLE_MS = 5 * 60_000
-
-const formatCountdown = (ms: number): string => {
-  if (ms <= 0) return 'expiring…'
-  const totalSeconds = Math.ceil(ms / 1000)
-  const m = Math.floor(totalSeconds / 60)
-  const s = totalSeconds % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-const formatSessionRemaining = (ms: number): string => {
-  if (ms <= 0) return 'expiring…'
-  if (ms < COUNTDOWN_VISIBLE_MS) return `${formatCountdown(ms)} left`
-  const totalMinutes = Math.ceil(ms / 60_000)
-  if (totalMinutes < 60) return `${totalMinutes}m left`
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return minutes === 0 ? `${hours}h left` : `${hours}h ${minutes}m left`
-}
 
 interface StatusBarProps {
   timerStartTime: number | null
@@ -123,6 +107,8 @@ export const StatusBar = ({
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
   const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+  const isUnlimited =
+    freebuffSession?.status === 'active' && !freebuffSession.rateLimit
 
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
@@ -171,15 +157,26 @@ export const StatusBar = ({
 
       case 'idle':
         if (sessionProgress !== null) {
-          const isUrgent = sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS
+          const isUrgent =
+            sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS
           const modelName =
             freebuffSession?.status === 'active'
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
           return (
-            <span fg={isUrgent ? theme.warning : theme.secondary}>
+            <span
+              fg={
+                isUnlimited
+                  ? theme.secondary
+                  : isUrgent
+                    ? theme.warning
+                    : theme.secondary
+              }
+            >
               {modelName ? `${modelName} · ` : ''}
-              {formatSessionRemaining(sessionProgress.remainingMs)}
+              {isUnlimited
+                ? 'unlimited'
+                : formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
         }
@@ -269,11 +266,12 @@ export const StatusBar = ({
             </StatusActionButton>
           )}
         {sessionProgress !== null &&
-          sessionProgress.remainingMs < COUNTDOWN_VISIBLE_MS &&
-          statusIndicatorState.kind !== 'idle' && (
+          sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS &&
+          statusIndicatorState.kind !== 'idle' &&
+          !isUnlimited && (
             <text style={{ wrapMode: 'none' }}>
               <span fg={theme.warning} attributes={TextAttributes.BOLD}>
-                {formatCountdown(sessionProgress.remainingMs)}
+                {formatFreebuffSessionCountdown(sessionProgress.remainingMs)}
               </span>
             </text>
           )}

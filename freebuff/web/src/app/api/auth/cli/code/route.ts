@@ -13,7 +13,7 @@ import {
   getCliAuthCodeHashPrefix,
   getCliAuthCodeTokenIdentifier,
 } from '@/app/onboard/_helpers'
-import { getFreebuffServerAppUrl } from '@/lib/freebuff-server-env'
+import { getFreebuffServerAppUrl } from '../../../../../lib/freebuff-server-env'
 import { logger } from '@/util/logger'
 
 import { getLoginUrlOrigin } from './_origin'

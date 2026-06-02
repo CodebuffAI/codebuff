@@ -7,7 +7,11 @@ import {
   getFreebuffSession,
   postFreebuffSession,
 } from '../_handlers'
-import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
 
 import type { FreebuffSessionDeps } from '../_handlers'
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
@@ -131,7 +135,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     promoteQueuedUser: async () => null,
     // No admits in handler tests — the rate-limit check reads empty and
     // every request falls through to the queue.
-    listRecentPremiumAdmits: async () => [],
+    listRecentFreeSessionAdmits: async () => [],
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepthsByModel: async () => {
@@ -273,6 +277,23 @@ describe('POST /api/v1/freebuff/session', () => {
     })
   })
 
+  test('creates a limited MiMo 2.5 session for disallowed country when requested', async () => {
+    const sessionDeps = makeSessionDeps()
+    const resp = await postFreebuffSession(
+      makeReq('ok', { cfCountry: 'JP', model: FREEBUFF_MIMO_V25_MODEL_ID }),
+      makeDeps(sessionDeps, 'u1'),
+    )
+    expect(resp.status).toBe(200)
+    const body = await resp.json()
+    expect(body.status).toBe('queued')
+    expect(body.accessTier).toBe('limited')
+    expect(body.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(sessionDeps.rows.get('u1')).toMatchObject({
+      access_tier: 'limited',
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
+    })
+  })
+
   test('creates a limited DeepSeek Flash session when country is unknown', async () => {
     const sessionDeps = makeSessionDeps()
     const resp = await postFreebuffSession(
@@ -404,8 +425,8 @@ describe('POST /api/v1/freebuff/session', () => {
     expect(resp.status).toBe(200)
     const body = await resp.json()
     expect(body.status).toBe('queued')
-    expect(body.model).toBe('minimax/minimax-m2.7')
-    expect(sessionDeps.rows.get('u1')?.model).toBe('minimax/minimax-m2.7')
+    expect(body.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    expect(sessionDeps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
   // Banned bots with valid API keys were POSTing every few seconds and

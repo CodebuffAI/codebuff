@@ -91,6 +91,10 @@ async function build() {
     plugins: [],
   })
 
+  console.log('🩹 Patching broken export aliases (Bun bundler dedup workaround)...')
+  await fixBrokenExportAliases('dist/index.mjs')
+  await fixBrokenExportAliases('dist/index.cjs')
+
   console.log('📝 Generating and bundling TypeScript declarations...')
   try {
     const [bundle] = generateDtsBundle(
@@ -135,6 +139,133 @@ async function build() {
   console.log('  📄 dist/index.mjs (ESM)')
   console.log('  📄 dist/index.cjs (CJS)')
   console.log('  📄 dist/index.d.ts (Types)')
+}
+
+/**
+ * Workaround for a Bun.build (1.3.x) bundler bug.
+ *
+ * When the SDK's `src/index.ts` re-exports overlapping identifiers from many
+ * sub-modules (e.g. `run`, `validateAgents`, `runTerminalCommand`), Bun's
+ * deduplicator collapses duplicate copies in the body but emits an export
+ * block that references the suffixed/renamed names (`run2`, `validateAgents3`,
+ * `RETRYABLE_STATUS_CODES3`). The renamed identifiers don't exist in the
+ * file, so any downstream bundler (esbuild via Convex, esbuild via Vite, etc.)
+ * fails with "<name> is not declared in this file".
+ *
+ * This pass:
+ *   1. Scans the bundle for top-level declarations (var/let/const/function/class).
+ *   2. Walks the trailing `export { ... }` block.
+ *   3. For each `xxxN as yyy,` line, replaces `xxxN` with the highest-numbered
+ *      copy that actually exists in the body (or the unsuffixed `xxx` if that
+ *      is the only copy). Drops `xxx as yyy,` to `xxx,` when xxx === yyy.
+ *   4. For bare exports (`xxx,`) that aren't declared anywhere, drops them
+ *      entirely (the symbol was tree-shaken or never made it in).
+ *
+ * The patched bundle exports the exact same public names as the broken one
+ * would have if Bun had emitted it correctly. No SDK API change.
+ */
+async function fixBrokenExportAliases(filePath: string) {
+  let content
+  try {
+    content = await readFile(filePath, 'utf-8')
+  } catch (error) {
+    console.warn(`  ⚠ Skipping patch for missing ${filePath}`)
+    return
+  }
+
+  // Collect every top-level declaration's identifier.
+  const declared = new Set()
+  const declRegex =
+    /^(?:var|let|const|function|class|async\s+function)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/gm
+  for (const match of content.matchAll(declRegex)) {
+    declared.add(match[1])
+  }
+
+  // Given a name like "validateAgents3", find the closest declared identifier:
+  //   prefer the exact name; else walk down (validateAgents2, validateAgents); else null.
+  function findExisting(local) {
+    if (declared.has(local)) return local
+    const m = local.match(/^([A-Za-z_$][A-Za-z0-9_$]*?)(\d+)$/)
+    if (!m) return null
+    const base = m[1]
+    const num = parseInt(m[2], 10)
+    for (let i = num - 1; i >= 1; i--) {
+      const candidate = base + i
+      if (declared.has(candidate)) return candidate
+    }
+    if (declared.has(base)) return base
+    return null
+  }
+
+  let rewritten = 0
+  let removed = 0
+
+  // Only match the top-level ESM export block. We anchor to start of line with
+  // no leading whitespace and require `export {` (NOT `module.exports = {`,
+  // which would catch inline CJS-shim factories embedded inside the bundle).
+  const blockRegex = /^export\s*\{\s*\n([\s\S]*?)\n\s*\};?/gm
+  content = content.replace(blockRegex, (full, body) => {
+    const lines = body.split('\n')
+    const fixed = []
+    for (const rawLine of lines) {
+      const line = rawLine.trim()
+      if (!line) continue
+
+      // `xxx as yyy,` (with optional trailing comma)
+      const aliasMatch = line.match(
+        /^([A-Za-z_$][A-Za-z0-9_$]*)\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*,?$/,
+      )
+      if (aliasMatch) {
+        const local = aliasMatch[1]
+        const alias = aliasMatch[2]
+        const found = findExisting(local)
+        if (!found) {
+          removed++
+          continue
+        }
+        if (found !== local) rewritten++
+        if (found === alias) {
+          fixed.push(`  ${found},`)
+        } else {
+          fixed.push(`  ${found} as ${alias},`)
+        }
+        continue
+      }
+
+      // bare export: `xxx,`
+      const bareMatch = line.match(/^([A-Za-z_$][A-Za-z0-9_$]*)\s*,?$/)
+      if (bareMatch) {
+        const name = bareMatch[1]
+        if (declared.has(name)) {
+          fixed.push(`  ${name},`)
+        } else {
+          // Try recovering a suffixed copy (e.g. body has `name2` but body's
+          // export wrote `name` directly).
+          const found = findExisting(name)
+          if (found && found !== name) {
+            fixed.push(`  ${found} as ${name},`)
+            rewritten++
+          } else {
+            removed++
+          }
+        }
+        continue
+      }
+
+      // Unknown line shape (object spread, comment, etc.) — keep as-is.
+      fixed.push(rawLine)
+    }
+    return `export {\n${fixed.join('\n')}\n};`
+  })
+
+  if (rewritten > 0 || removed > 0) {
+    await writeFile(filePath, content)
+    console.log(
+      `  ✓ Patched ${filePath} — ${rewritten} aliases rewritten, ${removed} broken exports dropped`,
+    )
+  } else {
+    console.log(`  ✓ ${filePath} already clean (no broken aliases found)`)
+  }
 }
 
 /**

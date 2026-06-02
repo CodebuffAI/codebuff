@@ -127,10 +127,12 @@ jobs:
 
             ### Platform Binaries
             - `freebuff-linux-x64.tar.gz` - Linux x64
+            - `freebuff-linux-x64-baseline.tar.gz` - Linux x64 older CPUs
             - `freebuff-linux-arm64.tar.gz` - Linux ARM64
             - `freebuff-darwin-x64.tar.gz` - macOS Intel
             - `freebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
             - `freebuff-win32-x64.tar.gz` - Windows x64
+            - `freebuff-win32-x64-baseline.tar.gz` - Windows x64 older CPUs
           files: |
             binaries/*/freebuff-*
           repository: CodebuffAI/codebuff-community
@@ -158,6 +160,10 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Publish to npm
+        env:
+          # npm trusted publishing can authenticate from private repositories,
+          # but provenance statements are only supported for public sources.
+          NPM_CONFIG_PROVENANCE: 'false'
         run: |
           cd freebuff/cli/release
-          npm publish --access public --provenance
+          npm publish --access public

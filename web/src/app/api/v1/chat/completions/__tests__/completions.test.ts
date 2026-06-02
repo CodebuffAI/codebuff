@@ -7,8 +7,13 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
-import { openCodeZenModels } from '@codebuff/common/constants/model-config'
+import {
+  minimaxModels,
+  openCodeZenModels,
+} from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
 import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
 import { getFreeModeCountryAccess } from '@/server/free-mode-country'
@@ -26,6 +31,8 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { GetUserPreferencesFn } from '../_post'
+
+const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<string, { id: string; banned: boolean }> = {
@@ -178,6 +185,20 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-free-deepseek-flash') {
         return {
           agent_id: 'base2-free-deepseek-flash',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-mimo') {
+        return {
+          agent_id: 'base2-free-mimo',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
+      if (runId === 'run-free-mimo-pro') {
+        return {
+          agent_id: 'base2-free-mimo-pro',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -857,7 +878,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
-    it('limits unknown-location free-mode requests to DeepSeek Flash', async () => {
+    it('limits unknown-location free-mode requests to limited models', async () => {
       const checkSessionAdmissible = mock(async () => {
         throw new Error(
           'limited model enforcement should run before session gate',
@@ -916,6 +937,97 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         freebuff: true,
         accessTier: 'limited',
       })
+    })
+
+    it('allows non-Pro MiMo 2.5 in limited free mode', async () => {
+      const checkSessionAdmissible = mock(async (params) => {
+        expect(params.accessTier).toBe('limited')
+        expect(params.requestedModel).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+        return { ok: true, reason: 'active', remainingMs: 60_000 } as const
+      })
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-connecting-ip': '192.0.2.1',
+          },
+          body: JSON.stringify({
+            model: FREEBUFF_MIMO_V25_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free-mimo',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+              freebuff_instance_id: 'active-instance-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible,
+      })
+
+      expect(response.status).toBe(200)
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects MiMo 2.5 Pro in limited free mode before the session gate', async () => {
+      const checkSessionAdmissible = mock(async () => {
+        throw new Error(
+          'limited model enforcement should run before session gate',
+        )
+      })
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-new-free',
+            'cf-connecting-ip': '192.0.2.1',
+          },
+          body: JSON.stringify({
+            model: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-free-mimo-pro',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+              freebuff_instance_id: 'active-instance-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible,
+      })
+
+      expect(response.status).toBe(409)
+      const body = await response.json()
+      expect(body.error).toBe('session_model_mismatch')
+      expect(body.message).toContain('DeepSeek V4 Flash or MiMo 2.5')
+      expect(checkSessionAdmissible).toHaveBeenCalledTimes(0)
     })
 
     it('classifies anonymized Cloudflare country codes as limited access', async () => {
@@ -1028,6 +1140,53 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
+    it(
+      'rejects removed MiniMax M3 for free mode before provider calls',
+      async () => {
+        const fetchViaMiniMax = mock(
+          async (_url: string | URL | Request, _init?: RequestInit) => {
+            throw new Error('MiniMax provider should not be called')
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: MINIMAX_M3_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaMiniMax,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(403)
+        expect(fetchViaMiniMax).toHaveBeenCalledTimes(0)
+        expect(body.error).toBe('free_mode_invalid_agent_model')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
     it.each([
       {
         codebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -1108,6 +1267,85 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(fetchedBodies[0].model).toBe(upstreamModel)
         expect(body.model).toBe(codebuffModel)
         expect(body.provider).toBe('DeepSeek')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'lets MiniMax M3 use the official MiniMax provider outside free mode',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchedUrls: string[] = []
+        const fetchedHeaders: HeadersInit[] = []
+        const fetchViaMiniMax = mock(
+          async (url: string | URL | Request, init?: RequestInit) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
+            fetchedUrls.push(String(url))
+            fetchedHeaders.push(init?.headers ?? {})
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'MiniMax-M3',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  prompt_tokens_details: { cached_tokens: 4 },
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: MINIMAX_M3_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaMiniMax,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(fetchedUrls[0]).toBe(
+          'https://api.minimax.io/v1/chat/completions',
+        )
+        const minimaxHeaders = fetchedHeaders[0] as Record<string, string>
+        expect(minimaxHeaders.Authorization).toMatch(/^Bearer\s+\S+$/)
+        expect(minimaxHeaders['Content-Type']).toBe('application/json')
+        expect(fetchedBodies[0].model).toBe('MiniMax-M3')
+        expect(fetchedBodies[0].reasoning_split).toBe(true)
+        expect(body.model).toBe(MINIMAX_M3_MODEL_ID)
+        expect(body.provider).toBe('MiniMax')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
