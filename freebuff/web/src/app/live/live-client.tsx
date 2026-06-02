@@ -467,7 +467,6 @@ function InstallCallout() {
             alt="Freebuff"
             width={32}
             height={32}
-            className="rounded-sm"
           />
           <div>
             <div className="font-serif text-xl tracking-widest text-white transition-colors group-hover:text-acid-matrix">

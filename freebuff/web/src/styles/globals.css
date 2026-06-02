@@ -38,6 +38,41 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* ── Mobile hardening ────────────────────────────────────────────────
+     Lock the page width and prevent every input from triggering iOS's
+     auto-zoom. Inputs on iOS will only zoom when their computed font-size
+     is below 16px, so we floor mobile inputs at 16px regardless of what
+     Tailwind classes the component author applied. */
+  html,
+  body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Modern viewport units that respect the mobile URL bar. */
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Stop accidental double-tap zoom on tappable controls. */
+  button,
+  [role='button'],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* iOS will auto-zoom into any input/textarea/select whose computed
+   font-size is less than 16px on focus. Force 16px on small screens to
+   keep the layout stable while typing. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: 16px !important;
+  }
 }
 
 /* Hero heading styles */

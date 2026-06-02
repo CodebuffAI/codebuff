@@ -299,10 +299,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   const logoMode: 'full' | 'text' | 'none' =
-    terminalHeight >= 26 ? 'full' : terminalHeight >= 19 ? 'text' : 'none'
+    terminalHeight >= 30 ? 'full' : ('none' as 'none' | 'text')
   const compact = terminalHeight < 22
-  const showAds = terminalHeight >= 16
-  const textMarginBottom = compact ? 0 : 1
+  const showAds = terminalHeight >= 18
+  const textMarginBottom = 1
   const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
@@ -358,7 +358,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // doesn't jump when the query resolves or the user crosses from 0 → 1.
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
-    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued)
+    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued) && !compact
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back. On the landing picker we tick once a
   // minute so the session reset countdown stays fresh.
@@ -589,7 +589,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   resets in {sessionResetCountdown}
                 </span>
               </text>
-              {reserveStreakSlot && (
+              {reserveStreakSlot && !compact && (
                 <StreakInlineLine
                   streak={streak}
                   marginBottom={textMarginBottom}
