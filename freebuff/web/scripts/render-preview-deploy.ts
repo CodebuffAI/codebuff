@@ -90,19 +90,22 @@ function getRequiredEnv(name: string) {
 }
 
 async function writeConvexDeployEnvFile() {
-  const issuer = getRequiredEnv('VLY_CONVEX_AUTH_ISSUER')
   const deployKey = getRequiredEnv('CONVEX_DEPLOY_KEY')
+  const issuer = process.env.VLY_CONVEX_AUTH_ISSUER
+  const lines = [`CONVEX_DEPLOY_KEY=${deployKey}`]
+  if (issuer) {
+    lines.push(`VLY_CONVEX_AUTH_ISSUER=${issuer}`)
+  }
+
+  lines.push('')
   await writeFile(
     convexDeployEnvFile,
-    [
-      `CONVEX_DEPLOY_KEY=${deployKey}`,
-      `VLY_CONVEX_AUTH_ISSUER=${issuer}`,
-      '',
-    ].join('\n'),
+    lines.join('\n'),
   )
-  console.log(
-    `[render-preview] wrote Convex deploy env file with CONVEX_DEPLOY_KEY and VLY_CONVEX_AUTH_ISSUER=${issuer}`,
-  )
+  const issuerMessage = issuer
+    ? ` and VLY_CONVEX_AUTH_ISSUER=${issuer}`
+    : ''
+  console.log(`[render-preview] wrote Convex deploy env file with CONVEX_DEPLOY_KEY${issuerMessage}`)
 }
 
 const previewName =
