@@ -1,6 +1,17 @@
 import { mimoModels } from '@codebuff/common/constants/model-config'
 
-import type { ChatCompletionRequestBody } from './types'
+import type {
+  ChatCompletionContentPart,
+  ChatCompletionRequestBody,
+} from './types'
+
+type MiMoMessageContent = NonNullable<
+  ChatCompletionRequestBody['messages'][number]['content']
+>
+
+type MiMoCompatibleContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
 
 export const MIMO_MODEL_IDS: Record<string, string> = {
   [mimoModels.mimoV25Direct]: mimoModels.mimoV25Direct,
@@ -23,17 +34,32 @@ function unsupportedAttachmentNotice(kind: string, count: number): string {
   return `[${count} ${noun} ${verb} omitted because the MiMo API does not support ${kind} input.]`
 }
 
-function contentPartsToMiMoText(
-  content: NonNullable<
-    ChatCompletionRequestBody['messages'][number]['content']
-  >,
-): string {
+function getImageUrl(part: ChatCompletionContentPart): string | undefined {
+  const imageUrl = (part as Record<string, unknown>).image_url
+  if (typeof imageUrl === 'string') {
+    return imageUrl.length > 0 ? imageUrl : undefined
+  }
+  if (
+    imageUrl &&
+    typeof imageUrl === 'object' &&
+    typeof (imageUrl as Record<string, unknown>).url === 'string'
+  ) {
+    const url = (imageUrl as Record<string, unknown>).url as string
+    return url.length > 0 ? url : undefined
+  }
+
+  return undefined
+}
+
+function contentPartsToMiMoContent(
+  content: MiMoMessageContent,
+): MiMoMessageContent {
   if (!Array.isArray(content)) {
     return content
   }
 
   const textParts: string[] = []
-  let imageCount = 0
+  const compatibleParts: MiMoCompatibleContentPart[] = []
   let fileCount = 0
   let unsupportedCount = 0
 
@@ -42,11 +68,17 @@ function contentPartsToMiMoText(
       case 'text': {
         if (typeof part.text === 'string' && part.text.length > 0) {
           textParts.push(part.text)
+          compatibleParts.push({ type: 'text', text: part.text })
         }
         break
       }
       case 'image_url': {
-        imageCount += 1
+        const url = getImageUrl(part)
+        if (url) {
+          compatibleParts.push({ type: 'image_url', image_url: { url } })
+        } else {
+          unsupportedCount += 1
+        }
         break
       }
       case 'file': {
@@ -60,18 +92,24 @@ function contentPartsToMiMoText(
     }
   }
 
-  if (imageCount > 0) {
-    textParts.push(unsupportedAttachmentNotice('image', imageCount))
-  }
+  const notices: string[] = []
   if (fileCount > 0) {
-    textParts.push(unsupportedAttachmentNotice('file', fileCount))
+    notices.push(unsupportedAttachmentNotice('file', fileCount))
   }
   if (unsupportedCount > 0) {
-    textParts.push(
+    notices.push(
       unsupportedAttachmentNotice('unsupported content part', unsupportedCount),
     )
   }
 
+  if (compatibleParts.some((part) => part.type === 'image_url')) {
+    compatibleParts.push(
+      ...notices.map((text) => ({ type: 'text' as const, text })),
+    )
+    return compatibleParts
+  }
+
+  textParts.push(...notices)
   return textParts.join('\n\n')
 }
 
@@ -85,7 +123,7 @@ export function normalizeMiMoRequestBody(
         content:
           message.content === undefined || message.content === null
             ? message.content
-            : contentPartsToMiMoText(message.content),
+            : contentPartsToMiMoContent(message.content),
       }))
     : body.messages
 

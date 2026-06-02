@@ -32,9 +32,9 @@ describe('normalizeMiMoRequestBody', () => {
     })
   })
 
-  it('converts unsupported attachment parts into text notices', () => {
+  it('preserves image parts for MiMo vision requests without mutating input', () => {
     const body: ChatCompletionRequestBody = {
-      model: 'mimo/mimo-v2.5-pro',
+      model: 'mimo/mimo-v2.5',
       messages: [
         {
           role: 'user',
@@ -51,18 +51,63 @@ describe('normalizeMiMoRequestBody', () => {
 
     const normalized = normalizeMiMoRequestBody(body)
 
+    expect(normalized.messages[0].content).toEqual([
+      { type: 'text', text: 'Summarize this image.' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,AAECAw==' },
+      },
+    ])
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'Summarize this image.' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,AAECAw==' },
+      },
+    ])
+  })
+
+  it('converts unsupported non-image attachment parts into text notices', () => {
+    const body: ChatCompletionRequestBody = {
+      model: 'mimo/mimo-v2.5',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Summarize this file.' },
+            {
+              type: 'file',
+              file: { filename: 'notes.txt', file_data: 'Zm9v' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const normalized = normalizeMiMoRequestBody(body)
+
     expect(normalized.messages[0].content).toBe(
-      'Summarize this image.\n\n[1 image was omitted because the MiMo API does not support image input.]',
+      'Summarize this file.\n\n[1 file was omitted because the MiMo API does not support file input.]',
     )
-    expect(JSON.stringify(body)).toContain('image_url')
   })
 })
 
 describe('buildMiMoRequestBody', () => {
-  it('builds Xiaomi-compatible JSON and strips OpenRouter/internal fields', () => {
+  it('builds Xiaomi-compatible JSON with image content and strips OpenRouter/internal fields', () => {
     const body: ChatCompletionRequestBody = {
-      model: 'mimo/mimo-v2.5-pro',
-      messages: [{ role: 'user', content: 'Hello' }],
+      model: 'mimo/mimo-v2.5',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Describe this screenshot.' },
+            {
+              type: 'image_url',
+              image_url: 'https://example.com/screenshot.png',
+            },
+          ],
+        },
+      ],
       stream: true,
       max_tokens: 123,
       reasoning: { enabled: false, effort: 'medium' },
@@ -75,12 +120,24 @@ describe('buildMiMoRequestBody', () => {
     const sentBody = buildMiMoRequestBody(body, body.model)
 
     expect(sentBody).toMatchObject({
-      model: 'mimo-v2.5-pro',
+      model: 'mimo-v2.5',
       stream: true,
       stream_options: { include_usage: true },
       max_completion_tokens: 123,
       thinking: { type: 'disabled', reasoning_effort: 'high' },
     })
+    expect(sentBody.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this screenshot.' },
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/screenshot.png' },
+          },
+        ],
+      },
+    ])
     expect(sentBody).not.toHaveProperty('max_tokens')
     expect(sentBody).not.toHaveProperty('reasoning')
     expect(sentBody).not.toHaveProperty('provider')
