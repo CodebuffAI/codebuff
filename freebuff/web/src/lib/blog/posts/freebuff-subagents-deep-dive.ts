@@ -90,12 +90,6 @@ export const post: Post = {
       ],
     },
     {
-      type: 'callout',
-      tone: 'info',
-      title: 'Want to write your own?',
-      text: 'Freebuff inherits the Codebuff agent framework. Drop a `.agents/<name>.ts` file in your repo and Freebuff will pick it up. The framework supports prompt-based and fully programmatic (handleSteps generator) agents.',
-    },
-    {
       type: 'cta',
       title: 'See subagents in action',
       description: 'Install Freebuff and try `/interview` on any task.',
@@ -112,10 +106,6 @@ export const post: Post = {
         {
           q: 'Does each subagent use a different model?',
           a: 'Yes by default. File-picker uses Gemini Flash Lite for speed; thinker-gpt uses GPT-5.4 via BYOK; the rest pick the model that best matches the task shape.',
-        },
-        {
-          q: 'Can I write my own subagent?',
-          a: 'Yes. The Codebuff agent framework supports prompt-based templates and programmatic agents via `handleSteps` generators.',
         },
       ],
     },

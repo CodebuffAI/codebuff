@@ -107,10 +107,6 @@ export const post: Post = {
           q: 'Will Freebuff open a PR for me like Codex?',
           a: 'Yes. Run `/pr` and the agent will create a branch, write a commit message, push, and open a pull request with a summary.',
         },
-        {
-          q: 'Can I run Freebuff in CI like Codex?',
-          a: 'Yes. The `freebuff` CLI accepts non-interactive prompts and is safe to call from GitHub Actions. The Codebuff SDK gives you a programmatic interface.',
-        },
       ],
     },
   ],

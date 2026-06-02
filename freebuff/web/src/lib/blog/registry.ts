@@ -24,14 +24,12 @@ import { post as freebuffLaunch } from './posts/freebuff-launch'
 import { post as freebuffSubagentsDeepDive } from './posts/freebuff-subagents-deep-dive'
 import { post as freebuffWebLaunch } from './posts/freebuff-web-launch'
 import { post as freebuffWebVsLovableBoltReplit } from './posts/freebuff-web-vs-lovable-bolt-replit'
-import { post as runFreebuffInGithubActions } from './posts/run-freebuff-in-github-actions'
 import { post as sideIncomeWithFreebuffIndia } from './posts/side-income-with-freebuff-india'
 import { post as stateOfFreeAiCoding2026 } from './posts/state-of-free-ai-coding-2026'
 import { post as switchFromCursorToFreebuff } from './posts/switch-from-cursor-to-freebuff'
 import { post as vlyBecomesFreebuffWeb } from './posts/vly-becomes-freebuff-web'
 import { post as whatDevelopersAreSaying } from './posts/what-developers-are-saying'
 import { post as whyFreeCodingAgentsWon2026 } from './posts/why-free-coding-agents-won-2026'
-import { post as writingYourOwnFreebuffSubagent } from './posts/writing-your-own-freebuff-subagent'
 
 import type { Post } from './types'
 
@@ -75,8 +73,6 @@ const allPosts: Post[] = [
   bestFreeCliCodingAgents2026,
   switchFromCursorToFreebuff,
   byokChatgptWithFreebuff,
-  runFreebuffInGithubActions,
-  writingYourOwnFreebuffSubagent,
 
   // Research
   stateOfFreeAiCoding2026,
