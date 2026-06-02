@@ -3141,7 +3141,7 @@ describe('editor agent', () => {
 
       expect(retrySpawn.input.agents[0].prompt).toBe('Retry Strategy: minimal')
       expect(retrySpawn.input.agents[0].params?.previousFailure).toContain(
-        'previous proposal attempt did not return a usable diff',
+        'No ledger-generated proposal diffs were produced.',
       )
     })
 
@@ -4570,7 +4570,7 @@ describe('editor agent', () => {
         toolName: 'set_output',
         input: {
           error: expect.stringContaining(
-            'No proposal returned usable edit tool calls',
+            'No proposal returned ledger-generated edit diffs',
           ),
         },
       })
@@ -5425,7 +5425,7 @@ describe('editor agent', () => {
 
       expect(outputCall.toolName).toBe('set_output')
       expect((outputCall.input as any).error).toContain(
-        'No proposal returned usable edit tool calls',
+        'No proposal returned ledger-generated edit diffs',
       )
       expect((outputCall.input as any).error).toContain('A (minimal):')
       expect((outputCall.input as any).error).not.toContain(
@@ -6884,11 +6884,11 @@ describe('editor agent', () => {
       // usable candidate. It must be retried rather than sent into
       // selection/repair (which is what wasted tokens and "selected best out of
       // nothing").
-      const retrySpawn = generator.next({
+      const noDiffProposalResult = {
         agentState: mockAgentState,
         toolResult: [
           {
-            type: 'json',
+            type: 'json' as const,
             value: [
               {
                 value: {
@@ -6909,13 +6909,40 @@ describe('editor agent', () => {
           },
         ],
         stepsComplete: false,
-      }).value as ToolCall<'spawn_agents'>
+      }
+
+      const retrySpawn = generator.next(
+        noDiffProposalResult,
+      ).value as ToolCall<'spawn_agents'>
 
       expect(retrySpawn.toolName).toBe('spawn_agents')
       expect(retrySpawn.input.agents[0].agent_type).not.toBe(
         'best-of-n-selector2',
       )
       expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
+
+      const secondRetrySpawn = generator.next(
+        noDiffProposalResult,
+      ).value as ToolCall<'spawn_agents'>
+      expect(secondRetrySpawn.toolName).toBe('spawn_agents')
+      expect(secondRetrySpawn.input.agents[0].agent_type).not.toBe(
+        'best-of-n-selector2',
+      )
+      expect(secondRetrySpawn.input.agents[0].prompt).toContain(
+        'Retry Strategy',
+      )
+
+      const output = generator.next(
+        noDiffProposalResult,
+      ).value as ToolCall<'set_output'>
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          error: expect.stringContaining(
+            'No proposal returned ledger-generated edit diffs',
+          ),
+        },
+      })
     })
 
     test('isUsableProposal retries mixed success and failure toolResults', () => {

@@ -202,7 +202,7 @@
   },
   "defaultModel": "agentrouter/deepseek-v4-pro",
   "modes": {
-    "default": "agentrouter/deepseek-v4-pro",
+    "default": "agent-platform/gemini-3.5-flash",
     "lite": "agent-platform/gemini-3.5-flash",
     "max": "agentrouter/deepseek-v4-pro",
     "plan": "agentrouter/deepseek-v4-pro"

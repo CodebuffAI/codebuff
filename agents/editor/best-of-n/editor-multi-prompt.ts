@@ -175,6 +175,7 @@ function* handleStepsMultiPrompt({
     label: string
     content: string
     toolCalls: ProposedToolCall[]
+    toolResults?: any[]
     unverifiedPaths?: string[]
     stopReason?: string
     proposalProgress?: ProposalProgress
@@ -300,11 +301,7 @@ function* handleStepsMultiPrompt({
         ? {
             toolCalls: getUsableProposalToolCalls(lastResult),
             toolResults: getUsableProposalToolResultsFromResult(lastResult),
-            unifiedDiffs:
-              buildUsableUnifiedDiffs(lastResult) ||
-              (typeof lastResult.unifiedDiffs === 'string'
-                ? lastResult.unifiedDiffs
-                : ''),
+            unifiedDiffs: buildLedgerUnifiedDiffs(lastResult),
             stopReason: lastResult.stopReason,
             proposalProgress: lastResult.proposalProgress,
             proposalBudget: lastResult.proposalBudget,
@@ -315,37 +312,36 @@ function* handleStepsMultiPrompt({
             errorMessage:
               summarizeProposalFailure(lastResult) ||
               'Proposal failed to return a usable implementation',
-            unifiedDiffs:
-              summarizeProposalFailure(lastResult) ||
-              'Error: proposal failed to return a usable implementation',
           },
     )
   }
 
-  // Build implementations for selector using the unified diffs
+  // Build selector candidates from ledger-generated diffs only.
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const implementations: Implementation[] = spawnedImplementations.map(
     (result, index) => {
       const toolCalls = getUsableProposalToolCalls(result)
-      const hasUsableEdits = toolCalls.length > 0
+      const toolResults = getUsableProposalToolResultsFromResult(result)
+      const hasLedgerDiffs = getSuccessfulLedgerDiffResults(result).length > 0
       const proposalStatus = formatProposalStatus(result)
 
       return {
         id: letters[index],
         strategy: prompts[index] ?? 'unknown',
         label: getInitialProposalLabel(index),
-        content: hasUsableEdits
+        content: hasLedgerDiffs
           ? [
-              buildSelectorProposalContent(result, toolCalls),
+              buildLedgerUnifiedDiffs(result),
               proposalStatus,
             ]
               .filter(Boolean)
               .join('\n\n')
           : `Unusable proposal: ${
               summarizeProposalFailure(result) ||
-              'No applicable edit tool calls were produced.'
+              'No ledger-generated proposal diffs were produced.'
             }`,
         toolCalls,
+        toolResults,
         unverifiedPaths: getUnverifiedStrReplacePaths(result),
         stopReason: result.stopReason,
         proposalProgress: result.proposalProgress,
@@ -917,17 +913,12 @@ function* handleStepsMultiPrompt({
   function isUsableProposal(
     result: ProposalResult | ProposalFailure | undefined,
   ): result is ProposalResult {
-    if (
-      !isObject(result) ||
-      !('toolCalls' in result) ||
-      !Array.isArray(result.toolCalls) ||
-      result.toolCalls.length === 0
-    ) {
+    if (!isObject(result)) {
       return false
     }
 
-    const usableToolCalls = getUsableProposalToolCalls(result)
-    if (usableToolCalls.length === 0) {
+    const successfulLedgerDiffs = getSuccessfulLedgerDiffResults(result)
+    if (successfulLedgerDiffs.length === 0) {
       return false
     }
 
@@ -937,21 +928,12 @@ function* handleStepsMultiPrompt({
       return false
     }
 
-    // Ledger-only contract: a proposal is a candidate only when the runtime
-    // actually materialized at least one successful per-file edit result. Bare
-    // proposal tool calls, or free-floating diff text without ledger-style
-    // toolResults, never proved they went through deterministic proposal
-    // preflight, so they must NOT enter selection or burn repair attempts. This
-    // stops "selecting best out of nothing" and no-diff repair loops.
-    if (!proposalHasGeneratedDiffs(proposalToolResults)) {
+    const usableToolCalls = getUsableProposalToolCalls(result)
+    if (usableToolCalls.length === 0) {
       return false
     }
 
     return true
-  }
-
-  function proposalHasGeneratedDiffs(proposalToolResults: any[]): boolean {
-    return proposalToolResults.some(isSuccessfulEditResult)
   }
 
   function getUsableProposalToolCalls(
@@ -1186,7 +1168,10 @@ function* handleStepsMultiPrompt({
   }
 
   function isUsableImplementation(implementation: Implementation): boolean {
-    return implementation.toolCalls.some(isProposalEditToolCall)
+    return (
+      getSuccessfulLedgerDiffResults(implementation).length > 0 &&
+      implementation.toolCalls.some(isProposalEditToolCall)
+    )
   }
 
   function getSelectorCandidateImplementations(
@@ -1298,10 +1283,6 @@ function* handleStepsMultiPrompt({
     const changedFileCount = new Set(
       extractImplementationFilePaths(implementation),
     ).size
-    const editCallCount = implementation.toolCalls.filter(
-      isProposalEditToolCall,
-    ).length
-    const contentScore = Math.min(implementation.content.length, 20_000) / 100
     const expectedTouchedFileCount =
       implementation.proposalBudget?.expectedTouchedFileCount ??
       proposalOrchestrationPlan.expectedTouchedFileCount
@@ -1312,7 +1293,7 @@ function* handleStepsMultiPrompt({
         : changedFileCount * 650
     const statusScore = getImplementationStatusScore(implementation)
 
-    return statusScore + coverageScore + editCallCount * 25 + contentScore
+    return statusScore + coverageScore
   }
 
   function getImplementationStatusScore(
@@ -1538,11 +1519,22 @@ function* handleStepsMultiPrompt({
     })
   }
 
-  function buildUsableUnifiedDiffs(
+  function getSuccessfulLedgerDiffResults(
+    result:
+      | ProposalResult
+      | ProposalFailure
+      | Implementation
+      | undefined,
+  ): any[] {
+    return getUsableProposalToolResultsFromResult(result as any).filter(
+      isSuccessfulEditResult,
+    )
+  }
+
+  function buildLedgerUnifiedDiffs(
     result: ProposalResult | ProposalFailure | undefined,
   ): string {
-    return getUsableProposalToolResultsFromResult(result)
-      .filter(isSuccessfulEditResult)
+    return getSuccessfulLedgerDiffResults(result)
       .map((toolResult) => {
         const path = getEditResultPath(toolResult)
         return `--- ${path || 'unknown'} ---\n${toolResult.unifiedDiff}`
@@ -2560,92 +2552,6 @@ function* handleStepsMultiPrompt({
     return deduped
   }
 
-  function buildSelectorProposalContent(
-    result: ProposalResult,
-    toolCalls: ProposedToolCall[],
-  ): string {
-    const usableDiffs = buildUsableUnifiedDiffs(result)
-    if (usableDiffs.trim()) return usableDiffs
-
-    if (typeof result.unifiedDiffs === 'string' && result.unifiedDiffs.trim()) {
-      return result.unifiedDiffs
-    }
-
-    return summarizeProposalToolCalls(toolCalls)
-  }
-
-  function summarizeProposalToolCalls(toolCalls: ProposedToolCall[]): string {
-    if (toolCalls.length === 0) return 'No changes proposed'
-
-    return [
-      'Proposal edit actions were returned without generated diffs. Review these concrete actions instead:',
-      ...toolCalls.flatMap((toolCall, index) => {
-        const input = isObject(toolCall.input) ? toolCall.input : {}
-        const path =
-          typeof input.path === 'string' ? input.path : 'unknown path'
-        if (toolCall.toolName === 'propose_str_replace') {
-          const replacements = Array.isArray(input.replacements)
-            ? input.replacements
-            : []
-          const header = `${index + 1}. propose_str_replace ${path} (${replacements.length} replacement${replacements.length === 1 ? '' : 's'})`
-          return [
-            header,
-            ...replacements.map((replacement: any, replacementIndex: number) =>
-              formatReplacementSummary(replacement, replacementIndex),
-            ),
-          ]
-        }
-        if (toolCall.toolName === 'propose_write_file') {
-          const instructions =
-            typeof input.instructions === 'string'
-              ? ` - ${truncateText(input.instructions, 160)}`
-              : ''
-          const content =
-            typeof input.content === 'string'
-              ? `\n${truncateText(input.content, 2_000)}`
-              : ''
-          return [`${index + 1}. propose_write_file ${path}${instructions}${content}`]
-        }
-        return [`${index + 1}. ${toolCall.toolName} ${path}`]
-      }),
-    ].join('\n')
-  }
-
-  function formatReplacementSummary(
-    replacement: any,
-    replacementIndex: number,
-  ): string {
-    if (!isObject(replacement)) {
-      return `   ${replacementIndex + 1}. Invalid replacement payload`
-    }
-    const oldString =
-      typeof replacement.oldString === 'string'
-        ? replacement.oldString
-        : typeof replacement.old === 'string'
-          ? replacement.old
-          : ''
-    const newString =
-      typeof replacement.newString === 'string'
-        ? replacement.newString
-        : typeof replacement.new === 'string'
-          ? replacement.new
-          : ''
-    return [
-      `   ${replacementIndex + 1}. Replace:`,
-      '      --- oldString ---',
-      indentBlock(truncateText(oldString || '[missing oldString]', 1_200), '      '),
-      '      --- newString ---',
-      indentBlock(truncateText(newString, 1_200), '      '),
-    ].join('\n')
-  }
-
-  function indentBlock(text: string, indent: string): string {
-    return text
-      .split('\n')
-      .map((line) => `${indent}${line}`)
-      .join('\n')
-  }
-
   function buildNoUsableProposalError(
     implementations: Implementation[],
   ): string {
@@ -2659,7 +2565,7 @@ function* handleStepsMultiPrompt({
       )
       .join('\n\n')
 
-    return `No proposal returned usable edit tool calls. Proposal results:\n${proposalSummaries}`
+    return `No proposal returned ledger-generated edit diffs. Proposal results:\n${proposalSummaries}`
   }
 
   function summarizeProposalFailure(
@@ -2692,11 +2598,15 @@ function* handleStepsMultiPrompt({
       .filter(Boolean)
       .join('\n\n')
     if (resultErrors) return resultErrors
-    if (!('unifiedDiffs' in result) || !result.unifiedDiffs?.trim()) {
-      return 'No unified diff was produced.'
-    }
-    if (result.unifiedDiffs.trim().startsWith('Error:')) {
+    if (
+      'unifiedDiffs' in result &&
+      typeof result.unifiedDiffs === 'string' &&
+      result.unifiedDiffs.trim().startsWith('Error:')
+    ) {
       return result.unifiedDiffs.trim()
+    }
+    if (getSuccessfulLedgerDiffResults(result).length === 0) {
+      return 'No ledger-generated proposal diffs were produced.'
     }
     return ''
   }
@@ -3318,8 +3228,9 @@ function* handleStepsMultiPrompt({
       id: `${partialImplementation.id}-complete`,
       strategy: `${partialImplementation.strategy} (completed after partial proposal)`,
       label: `${getImplementationLabel(partialImplementation)} (completed)`,
-      content: completionResult.unifiedDiffs || partialImplementation.content,
+      content: buildLedgerUnifiedDiffs(completionResult),
       toolCalls: getUsableProposalToolCalls(completionResult),
+      toolResults: getUsableProposalToolResultsFromResult(completionResult),
       unverifiedPaths: getUnverifiedStrReplacePaths(completionResult),
       stopReason: completedStopReason,
       proposalProgress: completionResult.proposalProgress,
@@ -4033,8 +3944,9 @@ function* handleStepsMultiPrompt({
       id: `${failedImplementation.id}-repair`,
       strategy: `${failedImplementation.strategy} (repaired after apply failure)`,
       label: `${getImplementationLabel(failedImplementation)} (repaired)`,
-      content: repairResult.unifiedDiffs || failedImplementation.content,
+      content: buildLedgerUnifiedDiffs(repairResult),
       toolCalls: getUsableProposalToolCalls(repairResult),
+      toolResults: getUsableProposalToolResultsFromResult(repairResult),
       unverifiedPaths: getUnverifiedStrReplacePaths(repairResult),
       stopReason: repairResult.stopReason,
       proposalProgress: repairResult.proposalProgress,
@@ -4149,49 +4061,20 @@ function* handleStepsMultiPrompt({
   function extractImplementationFilePaths(
     implementation: Implementation,
   ): string[] {
-    return implementation.toolCalls
-      .flatMap((toolCall) => {
-        if (!isObject(toolCall.input)) return []
-        const directPath =
-          typeof toolCall.input.path === 'string' ? [toolCall.input.path] : []
-        const transactionPaths = Array.isArray(toolCall.input.edits)
-          ? toolCall.input.edits
-              .map((edit: any) =>
-                isObject(edit) && typeof edit.path === 'string'
-                  ? edit.path
-                  : '',
-              )
-              .filter(Boolean)
-          : []
-        return [...directPath, ...transactionPaths]
-      })
-      .filter(Boolean)
+    return dedupeStrings(
+      getSuccessfulLedgerDiffResults(implementation)
+        .map(getEditResultPath)
+        .filter(Boolean),
+    )
   }
 
   function extractProposalResultFilePaths(
     result: ProposalResult | ProposalFailure | undefined,
   ): string[] {
     return dedupeStrings(
-      [
-        ...getUsableProposalToolCalls(result).flatMap((toolCall) => {
-          if (!isObject(toolCall.input)) return []
-          const directPath =
-            typeof toolCall.input.path === 'string' ? [toolCall.input.path] : []
-          const transactionPaths = Array.isArray(toolCall.input.edits)
-            ? toolCall.input.edits
-                .map((edit: any) =>
-                  isObject(edit) && typeof edit.path === 'string'
-                    ? edit.path
-                    : '',
-                )
-                .filter(Boolean)
-            : []
-          return [...directPath, ...transactionPaths]
-        }),
-        ...getUsableProposalToolResultsFromResult(result).map(
-          getEditResultPath,
-        ),
-      ].filter(Boolean),
+      getSuccessfulLedgerDiffResults(result)
+        .map(getEditResultPath)
+        .filter(Boolean),
     )
   }
 
@@ -4399,7 +4282,7 @@ function* handleStepsMultiPrompt({
           : 'unusable',
         stopReason: implementation.stopReason ?? 'unknown',
         changedFileCount: new Set(files).size,
-        editCallCount: implementation.toolCalls.filter(isProposalEditToolCall)
+        applyCallCount: implementation.toolCalls.filter(isProposalEditToolCall)
           .length,
         files: dedupeStrings(files).slice(0, 12),
         ...(implementation.proposalProgress
@@ -5269,36 +5152,16 @@ try {
   }
 
   function getImplementationDiffSize(implementation: Implementation): number {
-    const content = implementation.content
-    const toolCalls = implementation.toolCalls
-    if (content.trim()) {
-      return content.split('\n').length
-    }
+    const ledgerDiffSize = getSuccessfulLedgerDiffResults(implementation)
+      .reduce((total, result) => {
+        const unifiedDiff =
+          typeof result.unifiedDiff === 'string' ? result.unifiedDiff : ''
+        return total + (unifiedDiff ? unifiedDiff.split('\n').length : 0)
+      }, 0)
+    if (ledgerDiffSize > 0) return ledgerDiffSize
 
-    return toolCalls.reduce((total, toolCall) => {
-      if (!isObject(toolCall.input)) return total + 1
-      const replacements = Array.isArray(toolCall.input.replacements)
-        ? toolCall.input.replacements
-        : []
-      const replacementSize = replacements.reduce(
-        (sum: number, replacement: any) => {
-          if (!isObject(replacement)) return sum + 1
-          return (
-            sum +
-            String(replacement.oldString ?? replacement.old ?? '').split('\n')
-              .length +
-            String(replacement.newString ?? replacement.new ?? '').split('\n')
-              .length
-          )
-        },
-        0,
-      )
-      const contentSize =
-        typeof toolCall.input.content === 'string'
-          ? toolCall.input.content.split('\n').length
-          : 0
-      return total + Math.max(1, replacementSize + contentSize)
-    }, 0)
+    const content = implementation.content
+    return content.trim() ? content.split('\n').length : 0
   }
 }
 
