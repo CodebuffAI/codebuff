@@ -11,10 +11,13 @@
  *
  * Usage:
  *   bun run multieditor-vs-default/run-comparison.ts [prompt]
+ *
+ * Artifacts are written to MULTIEDITOR_OUTPUT_DIR, or
+ * debug/multieditor-vs-default by default.
  */
 
-import { writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 
@@ -179,8 +182,14 @@ async function main() {
     process.argv[2] ??
     'Add a JSDoc comment to the createCodeEditor function in agents/editor/editor.ts describing its parameters and return type'
 
+  const outputDir = resolve(
+    process.env.MULTIEDITOR_OUTPUT_DIR ?? join(cwd, 'debug/multieditor-vs-default'),
+  )
+  mkdirSync(outputDir, { recursive: true })
+
   console.log(`CWD: ${cwd}`)
   console.log(`Prompt: "${prompt}"`)
+  console.log(`Output dir: ${outputDir}`)
 
   // BYOK/local mode — uses openbuff.json for provider routing
   const client = new CodebuffClient({ logger, localMode: true, cwd })
@@ -217,11 +226,6 @@ async function main() {
     'default',
   )
 
-  // Save default diff to /tmp for safekeeping
-  if (defaultResult.diff) {
-    writeFileSync('/tmp/editor-default.diff', defaultResult.diff)
-  }
-
   // --- Run MULTIEDITOR ---
   discardChanges()
   const multiResult = await runEditor(
@@ -232,11 +236,6 @@ async function main() {
     cwd,
     'multieditor',
   )
-
-  // Save multi diff to /tmp for safekeeping
-  if (multiResult.diff) {
-    writeFileSync('/tmp/editor-multi.diff', multiResult.diff)
-  }
 
   // Discard changes one final time (but not the eval files)
   discardChanges()
@@ -283,8 +282,19 @@ async function main() {
     console.log('\n--- Multi-prompt editor: NO DIFF PRODUCED ---')
   }
 
-  // Write results to /tmp to survive git clean
-  const resultsPath = `/tmp/multieditor-results-${Date.now()}.json`
+  // Write artifacts after the final git clean so repo-local output dirs are not
+  // removed mid-run.
+  const defaultDiffPath = join(outputDir, 'editor-default.diff')
+  if (defaultResult.diff) {
+    writeFileSync(defaultDiffPath, defaultResult.diff)
+  }
+
+  const multiDiffPath = join(outputDir, 'editor-multi.diff')
+  if (multiResult.diff) {
+    writeFileSync(multiDiffPath, multiResult.diff)
+  }
+
+  const resultsPath = join(outputDir, `multieditor-results-${Date.now()}.json`)
   writeFileSync(resultsPath, JSON.stringify(results, null, 2))
 
   const summary = {
@@ -308,9 +318,11 @@ async function main() {
     multieditorNotes: multi.notes,
   }
 
-  const summaryPath = `/tmp/multieditor-summary-${Date.now()}.json`
+  const summaryPath = join(outputDir, `multieditor-summary-${Date.now()}.json`)
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2))
-  console.log(`\nResults: ${resultsPath}`)
+  console.log(`\nDefault diff: ${defaultDiffPath}`)
+  console.log(`Multi diff: ${multiDiffPath}`)
+  console.log(`Results: ${resultsPath}`)
   console.log(`Summary: ${summaryPath}`)
 }
 
