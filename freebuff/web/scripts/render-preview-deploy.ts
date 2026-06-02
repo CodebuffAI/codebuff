@@ -15,12 +15,13 @@ function sanitizePreviewName(value: string) {
     .slice(0, 60)
 }
 
-async function runStep(label: string, command: string[]) {
+async function runStep(label: string, command: string[], cwd = webRoot) {
   console.log(`\n[render-preview] ${label}`)
+  console.log(`[render-preview] cwd ${cwd}`)
   console.log(`[render-preview] $ ${command.join(' ')}`)
 
   const proc = Bun.spawn(command, {
-    cwd: webRoot,
+    cwd,
     env: process.env,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -88,11 +89,9 @@ const previewName =
 
 await runStep('building @codebuff/sdk before Convex snapshots dependencies', [
   'bun',
-  '--cwd',
-  sdkRoot,
   'run',
   'build',
-])
+], sdkRoot)
 
 await syncSdkDistForPackageResolution()
 
