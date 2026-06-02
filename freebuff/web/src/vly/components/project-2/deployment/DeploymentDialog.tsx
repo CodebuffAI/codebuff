@@ -36,7 +36,7 @@ export function DeploymentDialog({
           <Badge className="mt-2 w-fit">
             If deployments are stuck, report it in our &nbsp;
             <a
-              href="https://discord.gg/2gSmB9DxJW"
+              href="https://discord.gg/yXG3w7wxfs"
               target="_blank"
               rel="noopener noreferrer"
               className="font-bold underline hover:text-red-300"

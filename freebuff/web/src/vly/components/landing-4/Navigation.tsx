@@ -61,7 +61,7 @@ export default function Navigation({
 
   const handleOpenDiscord = () => {
     setMenuOpen(false);
-    window.open("https://discord.gg/2gSmB9DxJW", "_blank");
+    window.open("https://discord.gg/yXG3w7wxfs", "_blank");
   };
 
   const toggleMenu = () => {

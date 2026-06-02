@@ -68,7 +68,7 @@ export default function CommunityHome() {
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="https://discord.gg/2gSmB9DxJW"
+            href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-4 py-2 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"

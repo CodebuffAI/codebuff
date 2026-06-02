@@ -734,7 +734,7 @@ export function Integrations({
                                 Get it fixed by reporting it in the Discord.
                               </p>
                               <a
-                                href="https://discord.gg/2gSmB9DxJW"
+                                href="https://discord.gg/yXG3w7wxfs"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="mt-2 inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"

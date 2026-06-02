@@ -129,7 +129,7 @@ export function ProjectStatusDialog({
                       size="sm"
                       className="mt-3 border-orange-300 text-orange-700 hover:bg-orange-100"
                       onClick={() =>
-                        window.open("https://discord.gg/2gSmB9DxJW", "_blank")
+                        window.open("https://discord.gg/yXG3w7wxfs", "_blank")
                       }
                     >
                       Join Discord

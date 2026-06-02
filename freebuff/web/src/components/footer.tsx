@@ -54,7 +54,7 @@ export function Footer() {
                 GitHub
               </Link>
               <Link
-                href="https://codebuff.com/discord"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 className="text-sm text-muted-foreground hover:text-primary"
               >

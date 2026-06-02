@@ -593,7 +593,7 @@ export function UpgradePrompt({
               💜 We don't profit from subscriptions—your support keeps vly
               alive.{' '}
               <a
-                href="https://discord.gg/2gSmB9DxJW"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline hover:text-purple-900"
@@ -903,7 +903,7 @@ export function TierUpgradePrompt({
               💜 We don't profit from subscriptions—your support keeps vly
               alive.{' '}
               <a
-                href="https://discord.gg/2gSmB9DxJW"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline hover:text-purple-900"
@@ -1186,7 +1186,7 @@ export function CollaboratorUpgradePrompt({
               💜 We don't profit from subscriptions—your support keeps vly
               alive.{' '}
               <a
-                href="https://discord.gg/2gSmB9DxJW"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline hover:text-purple-900"

@@ -24,7 +24,7 @@ export const Footer: React.FC<FooterProps> = ({
   const router = useRouter();
 
   const handleOpenDiscord = () => {
-    window.open("https://discord.gg/2gSmB9DxJW", "_blank");
+    window.open("https://discord.gg/yXG3w7wxfs", "_blank");
   };
 
   return (
@@ -152,7 +152,7 @@ export const Footer: React.FC<FooterProps> = ({
               </svg>
             </a>
             <a
-              href="https://discord.gg/2gSmB9DxJW"
+              href="https://discord.gg/yXG3w7wxfs"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground/70 transition-colors hover:text-primary"

@@ -63,7 +63,7 @@ export default function MigratingPage() {
             <p className="pt-2 text-xs text-muted-foreground">
               Need help?{" "}
               <a
-                href="https://discord.gg/2gSmB9DxJW"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"

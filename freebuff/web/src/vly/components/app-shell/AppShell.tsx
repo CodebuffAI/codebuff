@@ -8,7 +8,6 @@ import { useQuery } from 'convex/react'
 import {
   FolderKanban,
   Users,
-  CreditCard,
   Settings,
   LogOut,
   Menu,
@@ -48,7 +47,6 @@ export interface AppShellNavItem {
 const NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', Icon: FolderKanban, exact: true },
   { label: 'Community', href: '/web/community', Icon: Users },
-  { label: 'Pricing', href: '/web/pricing', Icon: CreditCard },
   { label: 'Account', href: '/web/dashboard/preferences', Icon: Settings },
 ]
 
@@ -63,7 +61,7 @@ function useIsActive() {
 
 /**
  * Consistent application shell for the Freebuff Web "logged-in app" surface:
- * Projects, Community, Pricing, Account. Uses a persistent sidebar on
+ * Projects, Community, Account. Uses a persistent sidebar on
  * desktop and a slide-out drawer on mobile so navigation feels identical to
  * the project page + settings dashboard — minimal, borderless, dark.
  */
@@ -232,7 +230,7 @@ function SidebarContent({
         <div className="my-3 h-px bg-border/50" />
 
         <a
-          href="https://discord.gg/2gSmB9DxJW"
+          href="https://discord.gg/yXG3w7wxfs"
           target="_blank"
           rel="noopener noreferrer"
           onClick={onNavigate}

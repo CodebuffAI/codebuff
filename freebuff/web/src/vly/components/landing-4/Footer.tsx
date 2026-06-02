@@ -176,7 +176,7 @@ export default function Footer() {
           </SignedIn>
           <motion.button
             onClick={() =>
-              window.open("https://discord.gg/2gSmB9DxJW", "_blank")
+              window.open("https://discord.gg/yXG3w7wxfs", "_blank")
             }
             className="rounded-[10px] bg-white/30 px-5 py-2.5 font-['Geist'] text-base font-semibold text-zinc-800 outline outline-[1px] outline-white backdrop-blur-lg"
             style={{ willChange: "transform" }}

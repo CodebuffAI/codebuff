@@ -30,7 +30,7 @@ function IntegrationsView({ semanticIdentifier }: IntegrationsViewProps) {
           This is a beta feature. We are making improvements. Please report your
           feedback in the{" "}
           <a
-            href="https://discord.gg/2gSmB9DxJW"
+            href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-blue-600 underline hover:text-blue-800"

@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [])
 
   const handleOpenDiscord = () => {
-    window.open('https://discord.gg/2gSmB9DxJW', '_blank')
+    window.open('https://discord.gg/yXG3w7wxfs', '_blank')
   }
 
   // Check if current path matches the nav item

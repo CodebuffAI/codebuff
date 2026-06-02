@@ -25,7 +25,7 @@ export function ContactPage() {
           Or join our discord server here:{" "}
           {/** highlighted text with a hover effect */}
           <a
-            href="https://discord.gg/2gSmB9DxJW"
+            href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-400 hover:underline"

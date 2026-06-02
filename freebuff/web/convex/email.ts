@@ -14,7 +14,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import React from 'react'
 
 const DEFAULT_APP_URL = 'https://vly.ai'
-const DISCORD_INVITE_URL = 'https://discord.gg/2gSmB9DxJW'
+const DISCORD_INVITE_URL = 'https://discord.gg/yXG3w7wxfs'
 const WELCOME_FROM_EMAIL = 'Victor Cheng <victor@vly.ai>'
 const WELCOME_REPLY_TO_EMAIL = 'victor@vly.ai'
 

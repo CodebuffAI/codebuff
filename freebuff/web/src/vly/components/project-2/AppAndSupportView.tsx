@@ -197,7 +197,7 @@ export default function AppAndSupportView({
                 This is a test feature and will soon only be available for
                 premium users. For most requests and support, please use our{" "}
                 <a
-                  href="https://discord.gg/2gSmB9DxJW"
+                  href="https://discord.gg/yXG3w7wxfs"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-orange-800 underline hover:text-orange-900"
