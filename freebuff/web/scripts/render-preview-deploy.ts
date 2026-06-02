@@ -109,11 +109,15 @@ async function writeConvexDeployEnvFile() {
 }
 
 const previewName =
-  sanitizePreviewName(
-    process.env.CONVEX_PREVIEW_NAME ??
-      process.env.RENDER_GIT_BRANCH ??
-      'freebuff-web-preview',
-  ) || 'freebuff-web-preview'
+  sanitizePreviewName(process.env.CONVEX_PREVIEW_NAME ?? 'freebuff-web-preview') ||
+  'freebuff-web-preview'
+
+if (!process.env.CONVEX_PREVIEW_NAME && process.env.RENDER_GIT_BRANCH) {
+  console.log(
+    `[render-preview] ignoring Render branch "${process.env.RENDER_GIT_BRANCH}" for Convex preview naming`,
+  )
+}
+console.log(`[render-preview] using Convex preview deployment "${previewName}"`)
 
 await runStep('building @codebuff/sdk before Convex snapshots dependencies', [
   'bun',
@@ -125,10 +129,11 @@ await syncSdkDistForPackageResolution()
 await writeConvexDeployEnvFile()
 
 await runStep('deploying Convex preview and building Next.js', [
-  'bunx',
+  'bun',
+  'x',
   'convex',
   'deploy',
-  '--preview-create',
+  '--preview-name',
   previewName,
   '--env-file',
   convexDeployEnvFile,
