@@ -1,8 +1,7 @@
-import { env } from '@codebuff/common/env'
-
 import { getAuthor } from '@/lib/blog/authors'
 import { blogConfig } from '@/lib/blog/config'
 import { getAllPosts } from '@/lib/blog/registry'
+import { siteConfig } from '@/lib/constant'
 
 export const dynamic = 'force-static'
 export const revalidate = 3600
@@ -17,7 +16,7 @@ function escapeXml(s: string): string {
 }
 
 export async function GET(): Promise<Response> {
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const posts = getAllPosts()
   const buildDate = new Date().toUTCString()
 
