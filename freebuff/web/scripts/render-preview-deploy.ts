@@ -1,10 +1,11 @@
-import { access, cp, mkdir, realpath } from 'fs/promises'
+import { access, cp, mkdir, realpath, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 const webRoot = join(import.meta.dir, '..')
 const repoRoot = join(webRoot, '..', '..')
 const sdkRoot = join(repoRoot, 'sdk')
 const sdkDist = join(sdkRoot, 'dist')
+const convexDeployEnvFile = join(webRoot, '.convex-deploy.env')
 
 function sanitizePreviewName(value: string) {
   return value
@@ -80,6 +81,22 @@ async function syncSdkDistForPackageResolution() {
   }
 }
 
+function getRequiredEnv(name: string) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required Render environment variable ${name}`)
+  }
+  return value
+}
+
+async function writeConvexDeployEnvFile() {
+  const issuer = getRequiredEnv('VLY_CONVEX_AUTH_ISSUER')
+  await writeFile(convexDeployEnvFile, `VLY_CONVEX_AUTH_ISSUER=${issuer}\n`)
+  console.log(
+    `[render-preview] wrote Convex deploy env file with VLY_CONVEX_AUTH_ISSUER=${issuer}`,
+  )
+}
+
 const previewName =
   sanitizePreviewName(
     process.env.CONVEX_PREVIEW_NAME ??
@@ -94,6 +111,7 @@ await runStep('building @codebuff/sdk before Convex snapshots dependencies', [
 ], sdkRoot)
 
 await syncSdkDistForPackageResolution()
+await writeConvexDeployEnvFile()
 
 await runStep('deploying Convex preview and building Next.js', [
   'bunx',
@@ -101,6 +119,8 @@ await runStep('deploying Convex preview and building Next.js', [
   'deploy',
   '--preview-create',
   previewName,
+  '--env-file',
+  convexDeployEnvFile,
   '--cmd',
   'bun run build:next',
 ])
