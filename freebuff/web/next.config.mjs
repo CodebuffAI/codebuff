@@ -1,6 +1,23 @@
 import { resolve } from 'path'
+import dotenv from 'dotenv'
 
-const FREEBUFF_PORT = 3002
+dotenv.config({
+  path: resolve(import.meta.dirname, '../../.env.local'),
+  override: false,
+})
+
+const FREEBUFF_PORT =
+  process.env.PORT || process.env.NEXT_PUBLIC_WEB_PORT || '3002'
+
+// Two forms of the autumn shim path are needed because Webpack and Turbopack
+// disagree on what a `resolveAlias` value can be:
+//   - Webpack happily accepts absolute paths.
+//   - Turbopack treats values that start with `/` as server-relative URLs and
+//     errors with "server relative imports are not implemented yet". It wants
+//     either a bare module specifier or a project-relative path beginning with
+//     `./`.
+const autumnShimRelative = './src/vly/lib/autumn-disabled-react.tsx'
+const autumnShimAbsolute = resolve(import.meta.dirname, autumnShimRelative)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -21,7 +38,31 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: [
+    'pino',
+    'thread-stream',
+    'pino-pretty',
+    '@codebuff/code-map',
+    '@codebuff/code-map/parse',
+    '@codebuff/code-map/languages',
+  ],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    serverComponentsHmrCache: true,
+  },
+  turbopack: {
+    // Keep Turbopack scoped to this Next app. Letting it infer the monorepo
+    // lockfile root makes local Vly dev crawl and cache the whole repo.
+    root: import.meta.dirname,
+    resolveAlias: {
+      'autumn-js/react': autumnShimRelative,
+    },
+  },
   webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      'autumn-js/react': autumnShimAbsolute,
+    }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
@@ -38,6 +79,18 @@ const nextConfig = {
     )
     config.infrastructureLogging = {
       level: 'error',
+    }
+    config.watchOptions = {
+      ...(config.watchOptions ?? {}),
+      ignored: [
+        '**/.git/**',
+        '**/.next/**',
+        '**/node_modules/**',
+        '../../debug/**',
+        '../../web/.next/**',
+        '../../cli/release/**',
+        '../../cli/release-staging/**',
+      ],
     }
     return config
   },
@@ -77,6 +130,56 @@ const nextConfig = {
       {
         source: '/b/:hash',
         destination: 'https://go.trybeluga.ai/:hash',
+        permanent: false,
+      },
+      {
+        source: '/project/:path*',
+        destination: '/web/project/:path*',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/:path*',
+        destination: '/web/dashboard/:path*',
+        permanent: false,
+      },
+      {
+        source: '/community/:path*',
+        destination: '/web/community/:path*',
+        permanent: false,
+      },
+      {
+        source: '/admin/:path*',
+        destination: '/web/admin/:path*',
+        permanent: false,
+      },
+      {
+        source: '/earn/:path*',
+        destination: '/web/earn/:path*',
+        permanent: false,
+      },
+      {
+        source: '/pricing',
+        destination: '/web/pricing',
+        permanent: false,
+      },
+      {
+        source: '/contact',
+        destination: '/web/contact',
+        permanent: false,
+      },
+      {
+        source: '/referrals',
+        destination: '/web/referrals',
+        permanent: false,
+      },
+      {
+        source: '/devtools',
+        destination: '/web/devtools',
+        permanent: false,
+      },
+      {
+        source: '/invite/:path*',
+        destination: '/web/invite/:path*',
         permanent: false,
       },
     ]
