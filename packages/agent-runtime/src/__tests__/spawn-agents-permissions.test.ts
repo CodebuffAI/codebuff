@@ -424,6 +424,9 @@ describe('Spawn Agents Permissions', () => {
                 ok: true,
                 unifiedDiff: '@@ diff A',
                 message: 'Proposed new file src/a.ts',
+                finalContent: 'export const a = 1\n',
+                baseContentHash: null,
+                baseContent: null,
               },
             })
             appendProposalArtifact(options.agentState.runId, {
@@ -438,6 +441,9 @@ describe('Spawn Agents Permissions', () => {
                 ok: true,
                 unifiedDiff: '@@ diff B',
                 message: 'Proposed new file src/b.ts',
+                finalContent: 'export const b = 2\n',
+                baseContentHash: null,
+                baseContent: null,
               },
             })
             options.onResponseChunk({
@@ -488,6 +494,9 @@ describe('Spawn Agents Permissions', () => {
         expect(serialized).toContain('cleanProposal')
         expect(serialized).toContain('@@ diff A')
         expect(serialized).toContain('@@ diff B')
+        expect(serialized).toContain('__proposalFinalContent')
+        expect(serialized).toContain('__proposalBaseContentHash')
+        expect(serialized).toContain('__proposalBaseContent')
       } finally {
         if (previousTimeout === undefined) {
           delete process.env.OPENBUFF_EDITOR_PROPOSAL_TIMEOUT_MS

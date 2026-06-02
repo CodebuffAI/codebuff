@@ -24,6 +24,9 @@ export const CHATGPT_BACKEND_BASE_URL = 'https://chatgpt.com/backend-api'
 /** Environment variable for OAuth token override. */
 export const CHATGPT_OAUTH_TOKEN_ENV_VAR = 'CODEBUFF_CHATGPT_OAUTH_TOKEN'
 
+/** Environment variable for Openbuff OAuth token alias. */
+export const OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR = 'OPENBUFF_CHATGPT_OAUTH_TOKEN'
+
 /**
  * OpenRouter-style model IDs that are allowed for ChatGPT OAuth direct routing.
  * This includes optimistic aliases requested by the user.

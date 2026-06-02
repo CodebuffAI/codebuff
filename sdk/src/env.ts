@@ -6,7 +6,7 @@
  */
 
 import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
-import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/chatgpt-oauth'
+import { CHATGPT_OAUTH_TOKEN_ENV_VAR, OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/chatgpt-oauth'
 import {
   CODEBUFF_LOCAL_MODE_ENV_VAR,
   OPENBUFF_LOCAL_MODE_ENV_VAR,
@@ -51,7 +51,7 @@ export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
  * Get ChatGPT OAuth token from environment variable.
  */
 export const getChatGptOAuthTokenFromEnv = (): string | undefined => {
-  return process.env[CHATGPT_OAUTH_TOKEN_ENV_VAR]
+  return process.env[CHATGPT_OAUTH_TOKEN_ENV_VAR] ?? process.env[OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR]
 }
 
 export const getLocalModeFromEnv = (): boolean => {

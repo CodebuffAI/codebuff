@@ -6708,6 +6708,149 @@ describe('editor agent', () => {
       )
     })
 
+    test('applies ledger-recovered final content instead of replaying stale anchors', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const selectorSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                agentName: 'Implementation Proposal 1',
+                agentType: 'editor-implementor-proposal-1',
+                value: {
+                  type: 'structuredOutput',
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            {
+                              oldString: 'stale anchor from proposal time',
+                              newString: 'anchor replay should not be used',
+                            },
+                          ],
+                          __proposalFile: 'src/a.ts',
+                          __proposalFinalContent:
+                            'fresh resolved proposal content\n',
+                          __proposalBaseContent: 'current disk content\n',
+                          __proposalBaseContentHash: 'unused-when-base-present',
+                        },
+                      },
+                    ],
+                    toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    proposalBudget: { recoveredFromLedger: true },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(selectorSpawn.input.agents[0].agent_type).toBe(
+        'best-of-n-selector2',
+      )
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector failed' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const readGuard = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector failed again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(readGuard).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+      })
+
+      const writeApply = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'current disk content\n' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(writeApply).toMatchObject({
+        toolName: 'write_file',
+        input: {
+          path: 'src/a.ts',
+          content: 'fresh resolved proposal content\n',
+        },
+      })
+      expect(JSON.stringify(writeApply.input)).not.toContain(
+        'stale anchor from proposal time',
+      )
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'src/a.ts', message: 'Wrote file' },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).error).toBeUndefined()
+    })
+
     test('retries proposal tool calls that produced no generated diffs', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([

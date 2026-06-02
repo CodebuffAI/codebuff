@@ -124,14 +124,27 @@ describe('sdk/env', () => {
       Object.assign(process.env, originalEnv)
     })
 
-    test('returns undefined when token env var is unset', () => {
+    test('returns undefined when token env vars are unset', () => {
       delete process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN
+      delete process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN
       expect(getChatGptOAuthTokenFromEnv()).toBeUndefined()
     })
 
     test('returns token from CODEBUFF_CHATGPT_OAUTH_TOKEN', () => {
       process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
       expect(getChatGptOAuthTokenFromEnv()).toBe('chatgpt-oauth-token')
+    })
+
+    test('falls back to OPENBUFF_CHATGPT_OAUTH_TOKEN when CODEBUFF_CHATGPT_OAUTH_TOKEN is unset', () => {
+      delete process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN
+      process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN = 'openbuff-oauth-token'
+      expect(getChatGptOAuthTokenFromEnv()).toBe('openbuff-oauth-token')
+    })
+
+    test('CODEBUFF_CHATGPT_OAUTH_TOKEN takes precedence over OPENBUFF_CHATGPT_OAUTH_TOKEN', () => {
+      process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'codebuff-token'
+      process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN = 'openbuff-token'
+      expect(getChatGptOAuthTokenFromEnv()).toBe('codebuff-token')
     })
   })
 })

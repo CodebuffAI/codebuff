@@ -41,6 +41,26 @@ describe('env-ci', () => {
       expect(env.CODEBUFF_GITHUB_TOKEN).toBe('ghp_test_token')
     })
 
+    test('returns current process.env values for CODEBUFF_CHATGPT_OAUTH_TOKEN', () => {
+      process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
+      const env = getCiEnv()
+      expect(env.CODEBUFF_CHATGPT_OAUTH_TOKEN).toBe('chatgpt-oauth-token')
+    })
+
+    test('falls back to OPENBUFF_CHATGPT_OAUTH_TOKEN for CODEBUFF_CHATGPT_OAUTH_TOKEN', () => {
+      delete process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN
+      process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN = 'openbuff-oauth-token'
+      const env = getCiEnv()
+      expect(env.CODEBUFF_CHATGPT_OAUTH_TOKEN).toBe('openbuff-oauth-token')
+    })
+
+    test('CODEBUFF_CHATGPT_OAUTH_TOKEN takes precedence over OPENBUFF_CHATGPT_OAUTH_TOKEN in CiEnv', () => {
+      process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'codebuff-token'
+      process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN = 'openbuff-token'
+      const env = getCiEnv()
+      expect(env.CODEBUFF_CHATGPT_OAUTH_TOKEN).toBe('codebuff-token')
+    })
+
     test('returns undefined for unset env vars', () => {
       delete process.env.RENDER
       const env = getCiEnv()
@@ -67,6 +87,8 @@ describe('env-ci', () => {
       expect('GITHUB_ACTIONS' in ciEnv).toBe(true)
       expect('CODEBUFF_API_KEY' in ciEnv).toBe(true)
       expect('CODEBUFF_GITHUB_TOKEN' in ciEnv).toBe(true)
+      expect('CODEBUFF_CHATGPT_OAUTH_TOKEN' in ciEnv).toBe(true)
+      expect('OPENBUFF_CHATGPT_OAUTH_TOKEN' in ciEnv).toBe(true)
     })
   })
 

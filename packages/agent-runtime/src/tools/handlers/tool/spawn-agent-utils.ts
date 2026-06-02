@@ -775,21 +775,48 @@ function isEditorProposalProgressChunk(
  */
 // Collapse multiple successful edits to the SAME file into the minimal
 // deterministic set the parent can apply, regardless of file count or number of
-// calls. A full propose_write_file is an absolute rewrite, so earlier edits to
-// that file are superseded and dropped; str_replace edits with no later full
-// rewrite are kept in order (they chain against the proposed-content store and
-// the parent replays them in that same order). This MUST mirror the
-// implementor's reconcileSuccessfulArtifactsByFile so a recovered bundle is
-// byte-identical to a normally-completed one for the same artifacts.
+// calls. When artifacts carry finalContent and are independent of a transaction,
+// the last successful artifact for that file is the resolved proposed-content
+// overlay state, so applying earlier intermediate edits is unnecessary and can
+// reintroduce anchor staleness. Files touched by propose_edit_transaction keep
+// their ordered artifacts so the transaction fallback and any later same-file
+// edits replay consistently. This MUST mirror the implementor's
+// reconcileSuccessfulArtifactsByFile so a recovered bundle is byte-identical to
+// a normally-completed one for the same artifacts.
 function reconcileSuccessfulProposalArtifactsByFile(
   successfulInOrder: ProposalLedgerArtifact[],
 ): ProposalLedgerArtifact[] {
+  const transactionTouchedFiles = new Set(
+    successfulInOrder
+      .filter((artifact) => artifact.toolName === 'propose_edit_transaction')
+      .map((artifact) => artifact.result.file)
+      .filter(Boolean),
+  )
   const keptByFile = new Map<string, ProposalLedgerArtifact[]>()
   for (const artifact of successfulInOrder) {
     const file = artifact.result.file
     if (!file) continue
-    if (artifact.toolName === 'propose_write_file') {
+    if (
+      typeof artifact.result.finalContent === 'string' &&
+      !transactionTouchedFiles.has(file)
+    ) {
       keptByFile.set(file, [artifact])
+      continue
+    }
+    if (artifact.toolName === 'propose_write_file') {
+      if (transactionTouchedFiles.has(file)) {
+        const existing = keptByFile.get(file)
+        const artifactForOrderedReplay =
+          stripProposalFinalContentMetadata(artifact)
+        if (existing) {
+          existing.push(artifactForOrderedReplay)
+        } else {
+          keptByFile.set(file, [artifactForOrderedReplay])
+        }
+      } else {
+        // Full rewrite resets this file's accumulated legacy edits.
+        keptByFile.set(file, [artifact])
+      }
       continue
     }
     const existing = keptByFile.get(file)
@@ -808,6 +835,14 @@ function reconcileSuccessfulProposalArtifactsByFile(
     ordered.push(...(keptByFile.get(file) ?? []))
   }
   return ordered
+}
+
+function stripProposalFinalContentMetadata(
+  artifact: ProposalLedgerArtifact,
+): ProposalLedgerArtifact {
+  if (typeof artifact.result.finalContent !== 'string') return artifact
+  const { finalContent: _finalContent, ...result } = artifact.result
+  return { ...artifact, result }
 }
 
 // Collapse the per-file duplicates a single propose_edit_transaction records
@@ -829,7 +864,7 @@ function dedupeProposalTransactionToolCalls(
     }
     let signature: string
     try {
-      signature = JSON.stringify(toolCall.input)
+      signature = JSON.stringify(sanitizeProposalMetadata(toolCall.input))
     } catch {
       // Non-serializable input can't be safely deduped; keep it as-is.
       deduped.push(toolCall)
@@ -840,6 +875,20 @@ function dedupeProposalTransactionToolCalls(
     deduped.push(toolCall)
   }
   return deduped
+}
+
+function sanitizeProposalMetadata(input: any): any {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return input
+  }
+  const {
+    __proposalFile: _proposalFile,
+    __proposalFinalContent: _finalContent,
+    __proposalBaseContentHash: _baseContentHash,
+    __proposalBaseContent: _baseContent,
+    ...rest
+  } = input
+  return rest
 }
 
 function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
@@ -869,7 +918,7 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
   const toolCalls = dedupeProposalTransactionToolCalls(
     successful.map((artifact) => ({
       toolName: artifact.toolName,
-      input: artifact.input,
+      input: buildApplyableProposalInput(artifact),
     })),
   )
 
@@ -897,6 +946,23 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
     .join('\n\n')
 
   return { toolCalls, toolResults, unifiedDiffs }
+}
+
+function buildApplyableProposalInput(artifact: ProposalLedgerArtifact): any {
+  const result = artifact.result
+  return {
+    ...artifact.input,
+    ...(result.file ? { __proposalFile: result.file } : {}),
+    ...(typeof result.finalContent === 'string'
+      ? { __proposalFinalContent: result.finalContent }
+      : {}),
+    ...('baseContentHash' in result
+      ? { __proposalBaseContentHash: result.baseContentHash ?? null }
+      : {}),
+    ...('baseContent' in result
+      ? { __proposalBaseContent: result.baseContent ?? null }
+      : {}),
+  }
 }
 
 /*
@@ -1194,4 +1260,3 @@ function getProposalResultFailureMessage(result: any): string {
   }
   return ''
 }
-
