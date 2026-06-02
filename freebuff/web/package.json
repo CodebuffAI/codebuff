@@ -8,6 +8,7 @@
     "dev:webpack": "next dev --webpack --port 3002",
     "build": "bun run prepare:workspace && bun run build:next",
     "build:next": "next build",
+    "deploy:render-preview": "bun run scripts/render-preview-deploy.ts",
     "prepare:workspace": "bun --cwd ../../sdk run build",
     "start": "next start",
     "typecheck": "tsc --noEmit -p .",
