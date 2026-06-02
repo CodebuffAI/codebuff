@@ -1,4 +1,3 @@
-import { env } from '@codebuff/common/env'
 import { Rss } from 'lucide-react'
 import Link from 'next/link'
 
@@ -16,6 +15,7 @@ import {
   getAllPosts,
   getFeaturedPosts,
 } from '@/lib/blog/registry'
+import { siteConfig } from '@/lib/constant'
 
 import type { Metadata } from 'next'
 
@@ -23,7 +23,7 @@ export const dynamic = 'force-static'
 export const revalidate = 3600
 
 export async function generateMetadata(): Promise<Metadata> {
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const title = `${blogConfig.brand} Blog — free coding agent guides, comparisons, and launches`
   const description =
     'The Freebuff blog: launches, deep dives, and head-to-head guides for the free alternative to Claude Code, Cursor, Codex, Lovable, Replit, Bolt, Windsurf, and every paid coding agent.'
@@ -79,7 +79,7 @@ function renderHeadline(headline: string) {
 }
 
 export default function BlogIndexPage() {
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const allPosts = getAllPosts()
   const featured = getFeaturedPosts(blogConfig.featuredCount)
   const inUseCategories = new Set(getAllCategoriesInUse())

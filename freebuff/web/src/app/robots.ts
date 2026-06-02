@@ -1,6 +1,6 @@
-import { env } from '@codebuff/common/env'
-
 import type { MetadataRoute } from 'next'
+
+import { siteConfig } from '@/lib/constant'
 
 /**
  * robots.txt.
@@ -11,7 +11,7 @@ import type { MetadataRoute } from 'next'
  * be indexed.
  */
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
 
   const disallow = [
     '/api/',
