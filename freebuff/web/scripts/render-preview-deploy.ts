@@ -1,3 +1,11 @@
+import { access, cp, mkdir, realpath } from 'fs/promises'
+import { join } from 'path'
+
+const webRoot = join(import.meta.dir, '..')
+const repoRoot = join(webRoot, '..', '..')
+const sdkRoot = join(repoRoot, 'sdk')
+const sdkDist = join(sdkRoot, 'dist')
+
 function sanitizePreviewName(value: string) {
   return value
     .trim()
@@ -12,7 +20,7 @@ async function runStep(label: string, command: string[]) {
   console.log(`[render-preview] $ ${command.join(' ')}`)
 
   const proc = Bun.spawn(command, {
-    cwd: import.meta.dir + '/..',
+    cwd: webRoot,
     env: process.env,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -21,6 +29,53 @@ async function runStep(label: string, command: string[]) {
   const exitCode = await proc.exited
   if (exitCode !== 0) {
     throw new Error(`${label} failed with exit code ${exitCode}`)
+  }
+}
+
+async function pathExists(path: string) {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function syncSdkDistForPackageResolution() {
+  const builtEntry = join(sdkDist, 'index.mjs')
+  if (!(await pathExists(builtEntry))) {
+    throw new Error(`Expected built SDK entrypoint at ${builtEntry}`)
+  }
+
+  const packageDirs = [
+    join(repoRoot, 'node_modules', '@codebuff', 'sdk'),
+    join(webRoot, 'node_modules', '@codebuff', 'sdk'),
+    join(repoRoot, 'freebuff', 'node_modules', '@codebuff', 'sdk'),
+  ]
+
+  for (const packageDir of packageDirs) {
+    if (!(await pathExists(join(packageDir, 'package.json')))) {
+      continue
+    }
+
+    const packageDist = join(packageDir, 'dist')
+    const [sourceDistPath, targetDistPath] = await Promise.all([
+      realpath(sdkDist),
+      realpath(packageDist).catch(() => packageDist),
+    ])
+    if (sourceDistPath === targetDistPath) {
+      console.log(`[render-preview] SDK dist already available at ${packageDist}`)
+      continue
+    }
+
+    await mkdir(packageDist, { recursive: true })
+    await cp(sdkDist, packageDist, { recursive: true, force: true })
+
+    const packageEntry = join(packageDist, 'index.mjs')
+    if (!(await pathExists(packageEntry))) {
+      throw new Error(`Failed to sync SDK dist entrypoint to ${packageEntry}`)
+    }
+    console.log(`[render-preview] synced SDK dist to ${packageDist}`)
   }
 }
 
@@ -34,10 +89,12 @@ const previewName =
 await runStep('building @codebuff/sdk before Convex snapshots dependencies', [
   'bun',
   '--cwd',
-  '../../sdk',
+  sdkRoot,
   'run',
   'build',
 ])
+
+await syncSdkDistForPackageResolution()
 
 await runStep('deploying Convex preview and building Next.js', [
   'bunx',
