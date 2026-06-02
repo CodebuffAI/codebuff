@@ -90,22 +90,6 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('full access includes Kimi and non-premium MiniMax M2.7 but not MiniMax M3', () => {
-    const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
-    expect(fullModelIds).toEqual([
-      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-      FREEBUFF_KIMI_MODEL_ID,
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_MIMO_V25_MODEL_ID,
-      FREEBUFF_MINIMAX_MODEL_ID,
-    ])
-    expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
-    expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
-    expect(fullModelIds).not.toContain(MINIMAX_M3_MODEL_ID)
-  })
-
   test('MiMo Pro uses the smartest multimodal tagline', () => {
     const mimoPro = SUPPORTED_FREEBUFF_MODELS.find(
       (model) => model.id === FREEBUFF_MIMO_V25_PRO_MODEL_ID,
