@@ -1,4 +1,3 @@
-import { env } from '@codebuff/common/env'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -18,6 +17,7 @@ import {
   getPostBySlug,
   getRelatedPosts,
 } from '@/lib/blog/registry'
+import { siteConfig } from '@/lib/constant'
 
 import type { Metadata } from 'next'
 
@@ -38,7 +38,7 @@ export async function generateMetadata({
   const post = getPostBySlug(slug)
   if (!post) return {}
 
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const canonical = post.canonical ?? `${siteUrl}${blogConfig.basePath}/${post.slug}`
   const image = post.ogImage
     ? `${siteUrl}${post.ogImage}`
@@ -84,7 +84,7 @@ export default async function BlogPostPage({
   const post = getPostBySlug(slug)
   if (!post) notFound()
 
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const related = getRelatedPosts(post.slug, 3)
   const author = getAuthor(post.authorId)
 

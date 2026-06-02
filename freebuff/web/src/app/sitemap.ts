@@ -1,7 +1,6 @@
-import { env } from '@codebuff/common/env'
-
 import { blogConfig } from '@/lib/blog/config'
 import { getAllPosts } from '@/lib/blog/registry'
+import { siteConfig } from '@/lib/constant'
 
 import type { MetadataRoute } from 'next'
 
@@ -13,7 +12,7 @@ import type { MetadataRoute } from 'next'
  * Search Console submissions; this one is the authoritative source.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const siteUrl = siteConfig.url()
   const now = new Date().toISOString()
 
   const staticEntries: MetadataRoute.Sitemap = [
@@ -23,12 +22,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.9,
-    },
-    {
-      url: `${siteUrl}${blogConfig.basePath}/rss.xml`,
-      lastModified: now,
-      changeFrequency: 'daily',
-      priority: 0.5,
     },
     { url: `${siteUrl}/web`, lastModified: now, changeFrequency: 'daily', priority: 0.95 },
     { url: `${siteUrl}/web/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
