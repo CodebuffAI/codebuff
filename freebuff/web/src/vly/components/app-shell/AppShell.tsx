@@ -35,6 +35,7 @@ import {
   SignInButton,
 } from '@/vly/components/auth/AuthComponents'
 import { FreebuffLogo } from './FreebuffLogo'
+import { BetaBadge } from './BetaBadge'
 
 export interface AppShellNavItem {
   label: string
@@ -190,6 +191,7 @@ function SidebarContent({
           <span className="font-['Geist'] text-sm font-semibold tracking-tight text-foreground">
             Freebuff Web
           </span>
+          <BetaBadge />
         </Link>
         {onClose && (
           <button

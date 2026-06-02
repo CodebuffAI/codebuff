@@ -26,6 +26,7 @@ import { InviteDialog } from './InviteDialog'
 import { DeploymentDialog } from './deployment/DeploymentDialog'
 import { FounderContactDialog } from './FounderContactDialog'
 import { EditableProjectName } from './EditableProjectName'
+import { BetaBadge } from '@/vly/components/app-shell/BetaBadge'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -141,6 +142,7 @@ export function TopBar({
                   alt="Freebuff"
                   className="h-6 w-6 flex-shrink-0 object-contain"
                 />
+                <BetaBadge className="hidden sm:inline-flex" />
                 <span className="min-w-0 truncate text-[13px] font-medium text-foreground/90">
                   {project.name || project.semantic_identifier || 'Untitled project'}
                 </span>
