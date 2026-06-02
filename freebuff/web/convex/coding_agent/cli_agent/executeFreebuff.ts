@@ -1,13 +1,13 @@
 'use node'
 
 import { Workpool } from '@convex-dev/workpool'
+import { run } from '@codebuff/sdk'
 import { applyPatch } from 'diff'
 import { v } from 'convex/values'
 
 import { components, internal } from '../../_generated/api'
 import { Id } from '!/_generated/dataModel'
 import { ActionCtx, internalAction } from '!/_generated/server'
-import { run } from '../../../../../sdk/src/run'
 import { DaytonaCodebase } from '../../../codebase-utils/codebase/DaytonaCodebase'
 import { initializeCodebase } from '../../../codebase-utils/codebase/initializeCodebase'
 import { bundledAgentDefinitions } from './freebuff_bundled_agents'
