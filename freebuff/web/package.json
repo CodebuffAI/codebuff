@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev --turbopack --port 3002",
     "dev:webpack": "next dev --webpack --port 3002",
-    "build": "next build",
+    "build": "bun run prepare:workspace && bun run build:next",
+    "build:next": "next build",
+    "prepare:workspace": "bun --cwd ../../sdk run build",
     "start": "next start",
     "typecheck": "tsc --noEmit -p .",
     "clean": "rm -rf .next"
