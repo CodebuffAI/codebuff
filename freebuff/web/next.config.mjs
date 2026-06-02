@@ -8,6 +8,7 @@ dotenv.config({
 
 const FREEBUFF_PORT =
   process.env.PORT || process.env.NEXT_PUBLIC_WEB_PORT || '3002'
+const monorepoRoot = resolve(import.meta.dirname, '../../')
 
 // Two forms of the autumn shim path are needed because Webpack and Turbopack
 // disagree on what a `resolveAlias` value can be:
@@ -21,7 +22,7 @@ const autumnShimAbsolute = resolve(import.meta.dirname, autumnShimRelative)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  outputFileTracingRoot: resolve(import.meta.dirname, '../../'),
+  outputFileTracingRoot: monorepoRoot,
   env: {
     // In development, point Freebuff-specific URLs at the Freebuff dev server.
     // In production, set these via deployment env vars.
@@ -49,11 +50,16 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
     serverComponentsHmrCache: true,
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
+    parallelServerCompiles: false,
+    parallelServerBuildTraces: false,
   },
   turbopack: {
     // Keep Turbopack scoped to this Next app. Letting it infer the monorepo
     // lockfile root makes local Vly dev crawl and cache the whole repo.
-    root: import.meta.dirname,
+    root:
+      process.env.NODE_ENV === 'production' ? monorepoRoot : import.meta.dirname,
     resolveAlias: {
       'autumn-js/react': autumnShimRelative,
     },
