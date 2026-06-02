@@ -1,2 +1,2 @@
 alpha=10
-beta=2
+beta=20

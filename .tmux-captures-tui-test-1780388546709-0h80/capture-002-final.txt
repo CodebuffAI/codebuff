@@ -1,0 +1,52 @@
+cd /home/ben/Code/CLI/codebuff && openbuffbash: autoload: command not found
+bash: ((: $+functions[_mise_hook_precmd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_
+hook_precmd] ")
+bash: ((: $+functions[_mise_hook_chpwd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_h
+ook_chpwd] ")
+bash: ((: $+functions[_mise_hook] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_hook] "
+)
+bash: ((: $+functions[mise] : arithmetic syntax error: operand expected (error token is "$+functions[mise] ")
+bash: autoload: command not found
+bash: add-zsh-hook: command not found
+bash: add-zsh-hook: command not found
+
+bash: autoload: command not found
+bash: ((: $+functions[_mise_hook_precmd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_
+hook_precmd] ")
+bash: ((: $+functions[_mise_hook_chpwd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_h
+ook_chpwd] ")
+bash: ((: $+functions[_mise_hook] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_hook] "
+)
+bash: ((: $+functions[mise] : arithmetic syntax error: operand expected (error token is "$+functions[mise] ")
+bash: autoload: command not found
+bash: add-zsh-hook: command not found
+bash: add-zsh-hook: command not found
+bash: autoload: command not found
+bash: ((: $+functions[_mise_hook_precmd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_
+hook_precmd] ")
+bash: ((: $+functions[_mise_hook_chpwd] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_h
+ook_chpwd] ")
+bash: ((: $+functions[_mise_hook] : arithmetic syntax error: operand expected (error token is "$+functions[_mise_hook] "
+)
+bash: ((: $+functions[mise] : arithmetic syntax error: operand expected (error token is "$+functions[mise] ")
+bash: autoload: command not found
+bash: add-zsh-hook: command not found
+bash: add-zsh-hook: command not found
+bash: e: command not found
+ ben   codebuff   main ↑26  ?3 ~13  CONFIG NOT FOUND  cd /home/ben/Code/CLI/codebuff && openbuff
+Using environment: dev
+Fatal error during startup: 14963 | function resolveRenderLib() {
+14964 |   if (!opentuiLib) {
+14965 |     try {
+14966 |       opentuiLib = new FFIRenderLib(opentuiLibPath);
+14967 |     } catch (error) {
+14968 |       throw new Error(`Failed to initialize OpenTUI render library: ${error instanceof Error ? error.message : "
+Unknown error"}`);
+                        ^
+error: Failed to initialize OpenTUI render library: Failed to open library "/$bunfs/root/libopentui-f2pw7exc.so": /$bunf
+s/root/libopentui-f2pw7exc.so: cannot open shared object file: No such file or directory
+      at Q1 (../node_modules/@opentui/core/index-jv9g79dk.js:14968:17)
+      at GC (../node_modules/@opentui/core/index-jv9g79dk.js:21460:18)
+      at GJ$ (src/index.tsx:437:26)
+
+ ben   codebuff   main ↑26  ?3 ~13  CONFIG NOT FOUND 
