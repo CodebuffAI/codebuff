@@ -7,11 +7,13 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
-import { openCodeZenModels } from '@codebuff/common/constants/model-config'
+import {
+  minimaxModels,
+  openCodeZenModels,
+} from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
 import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
 import { getFreeModeCountryAccess } from '@/server/free-mode-country'
@@ -29,6 +31,8 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { GetUserPreferencesFn } from '../_post'
+
+const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<string, { id: string; banned: boolean }> = {
@@ -181,13 +185,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       if (runId === 'run-free-deepseek-flash') {
         return {
           agent_id: 'base2-free-deepseek-flash',
-          ancestor_run_ids: [],
-          status: 'running',
-        }
-      }
-      if (runId === 'run-free-minimax-m3') {
-        return {
-          agent_id: 'base2-free-minimax-m3',
           ancestor_run_ids: [],
           status: 'running',
         }
@@ -1143,6 +1140,53 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       FETCH_PATH_TEST_TIMEOUT_MS,
     )
 
+    it(
+      'rejects removed MiniMax M3 for free mode before provider calls',
+      async () => {
+        const fetchViaMiniMax = mock(
+          async (_url: string | URL | Request, _init?: RequestInit) => {
+            throw new Error('MiniMax provider should not be called')
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: MINIMAX_M3_MODEL_ID,
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaMiniMax,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(403)
+        expect(fetchViaMiniMax).toHaveBeenCalledTimes(0)
+        expect(body.error).toBe('free_mode_invalid_agent_model')
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
     it.each([
       {
         codebuffModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -1228,7 +1272,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'lets MiniMax M3 use the official MiniMax provider',
+      'lets MiniMax M3 use the official MiniMax provider outside free mode',
       async () => {
         const fetchedBodies: Record<string, unknown>[] = []
         const fetchedUrls: string[] = []
@@ -1268,12 +1312,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             method: 'POST',
             headers: allowedFreeModeHeaders('test-api-key-new-free'),
             body: JSON.stringify({
-              model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+              model: MINIMAX_M3_MODEL_ID,
               stream: false,
               codebuff_metadata: {
-                run_id: 'run-free-minimax-m3',
+                run_id: 'run-123',
                 client_id: 'test-client-id-123',
-                cost_mode: 'free',
               },
             }),
           },
@@ -1289,7 +1332,6 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           fetch: fetchViaMiniMax,
           insertMessageBigquery: mockInsertMessageBigquery,
           loggerWithContext: mockLoggerWithContext,
-          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
         })
 
         const body = await response.json()
@@ -1302,7 +1344,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         expect(minimaxHeaders['Content-Type']).toBe('application/json')
         expect(fetchedBodies[0].model).toBe('MiniMax-M3')
         expect(fetchedBodies[0].reasoning_split).toBe(true)
-        expect(body.model).toBe(FREEBUFF_MINIMAX_M3_MODEL_ID)
+        expect(body.model).toBe(MINIMAX_M3_MODEL_ID)
         expect(body.provider).toBe('MiniMax')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,

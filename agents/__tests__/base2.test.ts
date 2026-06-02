@@ -4,7 +4,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -31,7 +30,6 @@ describe('base2 reviewer selection', () => {
 
   test.each([
     [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
-    [FREEBUFF_MINIMAX_M3_MODEL_ID, 'code-reviewer-minimax-m3'],
     [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
     [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
     [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],

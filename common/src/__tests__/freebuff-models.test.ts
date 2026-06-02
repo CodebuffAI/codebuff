@@ -10,7 +10,6 @@ import {
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -25,6 +24,9 @@ import {
   isSupportedFreebuffModelId,
   resolveFreebuffModelForAccessTier,
 } from '../constants/freebuff-models'
+import { minimaxModels } from '../constants/model-config'
+
+const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
   test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
@@ -60,8 +62,7 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('MiMo models remain supported but hidden from the full picker when the UI flag is disabled', () => {
-    expect(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI).toBe(false)
+  test('MiMo models remain supported and follow the UI rollout flag', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_MIMO_V25_PRO_MODEL_ID,
     )
@@ -89,24 +90,32 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('full access restores Kimi and MiniMax models', () => {
+  test('full access includes Kimi and MiniMax M2.7 but not MiniMax M3', () => {
     const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
     expect(fullModelIds).toEqual([
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
       FREEBUFF_KIMI_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-      FREEBUFF_MINIMAX_M3_MODEL_ID,
       FREEBUFF_MINIMAX_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
     ])
     expect(isFreebuffPremiumModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(isFreebuffPremiumModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
+    expect(fullModelIds).not.toContain(MINIMAX_M3_MODEL_ID)
   })
 
-  test('restored Kimi and MiniMax models are selectable in full mode', () => {
+  test('MiMo Pro uses the smartest multimodal tagline', () => {
+    const mimoPro = SUPPORTED_FREEBUFF_MODELS.find(
+      (model) => model.id === FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    )
+    expect(mimoPro?.tagline).toBe('Smartest multimodal')
+  })
+
+  test('Kimi and MiniMax M2.7 are selectable in full mode', () => {
     for (const restoredModel of [
       FREEBUFF_KIMI_MODEL_ID,
-      FREEBUFF_MINIMAX_M3_MODEL_ID,
       FREEBUFF_MINIMAX_MODEL_ID,
     ]) {
       expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
@@ -122,6 +131,20 @@ describe('freebuff model availability', () => {
         true,
       )
     }
+  })
+
+  test('MiniMax M3 is not supported for freebuff sessions', () => {
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      MINIMAX_M3_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      MINIMAX_M3_MODEL_ID,
+    )
+    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(
+      isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
+    ).toBe(false)
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
@@ -144,10 +167,7 @@ describe('freebuff model availability', () => {
       isFreebuffModelAllowedForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
     ).toBe(false)
     expect(
-      isFreebuffModelAllowedForAccessTier(
-        FREEBUFF_MINIMAX_M3_MODEL_ID,
-        'limited',
-      ),
+      isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
     ).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(
@@ -179,9 +199,7 @@ describe('freebuff model availability', () => {
     expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       false,
     )
-    expect(
-      canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_M3_MODEL_ID),
-    ).toBe(false)
+    expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)
