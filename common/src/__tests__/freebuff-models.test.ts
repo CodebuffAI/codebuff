@@ -49,7 +49,7 @@ describe('freebuff model availability', () => {
     )
   })
 
-  test('DeepSeek V4 Flash is selectable and unlimited', () => {
+  test('DeepSeek V4 Flash is selectable and non-premium', () => {
     expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
@@ -88,7 +88,7 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('full access restores Kimi as premium and MiniMax as unlimited', () => {
+  test('full access restores Kimi as premium and MiniMax as non-premium', () => {
     const fullModelIds = getFreebuffModelsForAccessTier('full').map((m) => m.id)
     expect(fullModelIds).toEqual([
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,

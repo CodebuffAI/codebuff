@@ -32,7 +32,8 @@ import {
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
-// Section grouping: premium models share one quota pool, unlimited has none.
+// Section grouping: model rows keep their product/availability tiers, but all
+// selectable Freebuff models share the same daily session quota.
 // Putting the tier on a section header lets each row drop its redundant
 // "Premium"/"Unlimited" chip. The shared 0/5 counter lives in the page title
 // (rendered by the parent), not the section header — this picker is purely a

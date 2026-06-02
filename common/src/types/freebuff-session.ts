@@ -11,7 +11,7 @@ import type { FreebuffAccessTier } from '../constants/freebuff-models'
 /**
  * Usage counter surfaced to the CLI so the waiting-room UI can render
  * "N of M sessions used" alongside queue/active state. Present when the
- * joined model consumes premium Freebuff sessions. `recentCount` is the
+ * joined model consumes Freebuff sessions. `recentCount` is the
  * rounded session units since the last midnight Pacific reset at the time
  * the response was produced — see also the standalone `rate_limited` status
  * for the reject path.
@@ -22,7 +22,7 @@ export interface FreebuffSessionRateLimit {
   period: 'pacific_day'
   resetTimeZone: string
   resetAt: string
-  /** Deprecated wire field kept for older clients. Premium usage now resets
+  /** Deprecated wire field kept for older clients. Session usage now resets
    *  at midnight Pacific time rather than using a rolling window. */
   windowHours: number
   recentCount: number
@@ -33,7 +33,7 @@ export type FreebuffSessionRateLimitByModel = Record<
   FreebuffSessionRateLimit
 >
 
-/** Pull the per-model premium quota snapshot off whichever session statuses
+/** Pull the per-model shared session-quota snapshot off whichever statuses
  *  carry it (queued, active, ended, none). Returns undefined for terminal /
  *  pre-join states that have no quota field. The parameter is intentionally
  *  loose so the CLI can pass its `FreebuffSessionResponse` (which adds the
@@ -127,8 +127,8 @@ export type FreebuffSessionServerResponse =
        *  Present on GET responses; not returned from POST (POST never
        *  produces `none`). */
       queueDepthByModel?: Record<string, number>
-      /** Current quota snapshots for premium models, keyed by model id. Lets
-       *  the picker show today's premium-session usage before the user commits
+      /** Current quota snapshots for free models, keyed by model id. Lets
+       *  the picker show today's session usage before the user commits
        *  to a queue. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
     } & FreebuffLimitedModeReason)
@@ -148,7 +148,7 @@ export type FreebuffSessionServerResponse =
       queueDepthByModel: Record<string, number>
       estimatedWaitMs: number
       queuedAt: string
-      /** Premium-session quota for this model. Absent for unlimited models. */
+      /** Shared free-session quota for this model. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
     } & FreebuffLimitedModeReason)
@@ -161,7 +161,7 @@ export type FreebuffSessionServerResponse =
       admittedAt: string
       expiresAt: string
       remainingMs: number
-      /** Premium-session quota for this model. Absent for unlimited models. */
+      /** Shared free-session quota for this model. */
       rateLimit?: FreebuffSessionRateLimit
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
     } & FreebuffLimitedModeReason)
@@ -182,9 +182,9 @@ export type FreebuffSessionServerResponse =
       expiresAt?: string
       gracePeriodEndsAt?: string
       gracePeriodRemainingMs?: number
-      /** Snapshot of the user's premium-session quota at the moment the
-       *  session ended. Lets the post-session banner show "N of M premium
-       *  sessions used today" without an extra round-trip. */
+      /** Snapshot of the user's free-session quota at the moment the
+       *  session ended. Lets the post-session banner show "N of M sessions
+       *  used today" without an extra round-trip. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
     } & FreebuffLimitedModeReason)
   | {
@@ -234,7 +234,7 @@ export type FreebuffSessionServerResponse =
       status: 'banned'
     }
   | {
-      /** User has used up their shared premium-session quota for the current
+      /** User has used up their shared free-session quota for the current
        *  Pacific day. Returned from POST /session before the user is placed in
        *  the queue. `retryAfterMs` is the time until the next midnight Pacific
        *  reset. Terminal for the CLI's current poll session; the user can exit
@@ -243,14 +243,14 @@ export type FreebuffSessionServerResponse =
       accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
-      /** Max premium session units permitted per Pacific day (e.g. 5). */
+      /** Max session units permitted per Pacific day (e.g. 5). */
       limit: number
       period: 'pacific_day'
       resetTimeZone: string
       resetAt: string
       /** Deprecated wire field kept for older clients. */
       windowHours: number
-      /** Premium session units since today's Pacific reset — will be ≥ limit. */
+      /** Session units since today's Pacific reset — will be ≥ limit. */
       recentCount: number
       /** Milliseconds from now until the next Pacific midnight reset. */
       retryAfterMs: number

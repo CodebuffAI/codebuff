@@ -32,10 +32,7 @@ export const FreebuffActiveSessionSummary: React.FC<
     new Date(quota.resetAt),
     now
   )
-  const label =
-    'accessTier' in session && session.accessTier === 'limited'
-      ? 'sessions'
-      : 'premium sessions'
+  const label = 'sessions'
 
   return (
     <box

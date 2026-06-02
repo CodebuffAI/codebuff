@@ -56,7 +56,7 @@ export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
-/** Deprecated wire compatibility field. Premium usage now resets at midnight
+/** Deprecated wire compatibility field. Session usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
 export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
