@@ -36,22 +36,17 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     'waiting-room' | 'same-chat' | null
   >(null)
 
-  // All premium models share one daily pool; the server replicates the same
-  // snapshot under each premium model id, so the first entry has the right
+  // All Freebuff models share one daily pool; the server replicates the same
+  // snapshot under each free model id, so the first entry has the right
   // count.
-  const premiumQuota = useFreebuffSessionStore(
+  const sessionQuota = useFreebuffSessionStore(
     (s) => Object.values(getRateLimitsByModel(s.session) ?? {})[0] ?? null,
   )
-  const isQuotaExhausted = premiumQuota
-    ? premiumQuota.recentCount >= premiumQuota.limit
+  const isQuotaExhausted = sessionQuota
+    ? sessionQuota.recentCount >= sessionQuota.limit
     : false
-  const accessTier = useFreebuffSessionStore((s) =>
-    s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
-  )
-  const quotaLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
-  const bannerTitle = premiumQuota
-    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
+  const bannerTitle = sessionQuota
+    ? `Session ended  ·  ${formatSessionUnits(sessionQuota.recentCount)} of ${sessionQuota.limit} sessions used today`
     : 'Session ended'
   const landingButtonLabel = 'Change model'
   const landingPendingLabel = 'Opening model selection…'

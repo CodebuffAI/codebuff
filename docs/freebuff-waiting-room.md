@@ -165,9 +165,9 @@ The final tick result carries a `queueDepthByModel` map and a single `skipped` r
 | `REDIS_URL`                  | env                                       | unset                                                               | Optional Redis/Valkey-compatible URL for distributed free-mode rate-limit counters. On Render, use the Key Value internal URL. Falls back to per-pod memory when unset.     |
 | `SESSION_GRACE_MS`           | `web/src/server/free-session/config.ts`   | 1_800_000                                                           | Drain window after expiry — gate still admits requests so an in-flight agent can finish, but the CLI is expected to block new prompts. Hard cutoff at `expires_at + grace`. |
 
-### Premium Session Quota
+### Free Session Quota
 
-DeepSeek V4 Pro and Kimi share a per-user premium quota. The server counts `free_session_admit` rows from the last midnight in `America/Los_Angeles`; when the user reaches `FREEBUFF_PREMIUM_SESSION_LIMIT`, the next premium `POST /session` is rejected until the next Pacific midnight reset. MiniMax and DeepSeek V4 Flash remain unlimited.
+All supported Freebuff models share a per-user daily session quota. The server counts `free_session_admit` rows across `SUPPORTED_FREEBUFF_MODELS` from the last midnight in `America/Los_Angeles`; when the user reaches the applicable session limit, the next `POST /session` is rejected until the next Pacific midnight reset. Switching between models does not reset or bypass the quota.
 
 ## HTTP API
 
