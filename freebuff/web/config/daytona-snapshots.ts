@@ -21,7 +21,7 @@ export interface DaytonaSnapshot {
  */
 export const DAYTONA_SNAPSHOTS: DaytonaSnapshot[] = [
   {
-    id: "vly-template-0-0-1-free",
+    id: "vly-template-0-0-5-free",
     name: "Small",
     tier: "small",
     specs: {
