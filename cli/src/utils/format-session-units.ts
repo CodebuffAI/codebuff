@@ -1,4 +1,4 @@
-/** Session counts come back from the server as `recentCount` units
+/** Premium-session counts come back from the server as `recentCount` units
  *  that may be fractional (a long agent run can consume 1.3 sessions). Render
  *  integers without a trailing `.0`, fractionals at one decimal — matches the
  *  `limit` field which is always integer. */

@@ -544,14 +544,18 @@ export async function listRecentFreeSessionAdmits(params: {
   userId: string
   models: readonly string[]
   since: Date
+  accessTier?: FreebuffAccessTier
 }): Promise<RecentSessionAdmit[]> {
-  const { userId, models, since } = params
+  const { userId, models, since, accessTier } = params
   if (models.length === 0) return []
   const filters = [
     eq(schema.freeSessionAdmit.user_id, userId),
     inArray(schema.freeSessionAdmit.model, [...models]),
     gte(schema.freeSessionAdmit.admitted_at, since),
   ]
+  if (accessTier) {
+    filters.push(eq(schema.freeSessionAdmit.access_tier, accessTier))
+  }
   const rows = await db
     .select({
       admitted_at: schema.freeSessionAdmit.admitted_at,
