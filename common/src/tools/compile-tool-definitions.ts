@@ -90,9 +90,23 @@ function jsonSchemaToTypeScript(schema: any): string {
         return `${comment}  "${key}"${isOptional ? '?' : ''}: ${propType}`
       },
     )
+    const additionalProperties = getAdditionalPropertiesType(schema)
+    if (additionalProperties) {
+      properties.push(`  [key: string]: ${additionalProperties}`)
+    }
     return `{\n${properties.join('\n')}\n}`
   }
   return getTypeFromJsonSchema(schema)
+}
+
+function getAdditionalPropertiesType(schema: any): string | null {
+  if (!('additionalProperties' in schema) || schema.additionalProperties === false) {
+    return null
+  }
+  if (schema.additionalProperties === true) {
+    return 'any'
+  }
+  return getTypeFromJsonSchema(schema.additionalProperties)
 }
 
 function canEmitInterface(schema: any): boolean {

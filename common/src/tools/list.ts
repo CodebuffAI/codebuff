@@ -20,6 +20,7 @@ import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
 import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
+import { readProposalWorkspaceParams } from './params/tool/read-proposal-workspace'
 import { readSubtreeParams } from './params/tool/read-subtree'
 import { replaceRangeParams } from './params/tool/replace-range'
 import { renderUIParams } from './params/tool/render-ui'
@@ -63,6 +64,7 @@ export const toolParams = {
   propose_write_file: proposeWriteFileParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
+  read_proposal_workspace: readProposalWorkspaceParams,
   read_subtree: readSubtreeParams,
   replace_range: replaceRangeParams,
   render_ui: renderUIParams,

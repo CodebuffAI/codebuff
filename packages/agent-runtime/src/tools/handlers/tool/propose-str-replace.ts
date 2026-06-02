@@ -1,9 +1,15 @@
-import { appendProposalArtifact } from './proposal-ledger-store'
+import {
+  appendProposalArtifact,
+  getOrCaptureOriginalBaseContent,
+} from './proposal-ledger-store'
 import {
   getProposedContent,
   setProposedContent,
 } from './proposed-content-store'
-import { processStrReplace } from '../../../process-str-replace'
+import {
+  getContentHash,
+  processStrReplace,
+} from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -38,16 +44,27 @@ export const handleProposeStrReplace = (async (
   } = params
   const { path, replacements } = toolCall.input
 
-  // Get content from proposed state first (by runId), then fall back to disk
+  const diskContentPromise = getOrCaptureOriginalBaseContent(runId, path, () =>
+    requestOptionalFile({ ...params, filePath: path }),
+  )
+
+  // Get content from proposed state first (by runId), then fall back to disk.
+  // The proposal may be chained on top of earlier same-file proposal edits, but
+  // the final apply guard must compare against the ORIGINAL real workspace base,
+  // not the intermediate overlay state.
   const getProposedOrDiskContent = async (): Promise<string | null> => {
     const proposedContent = getProposedContent(runId, path)
     if (proposedContent !== undefined) {
       return proposedContent
     }
-    return requestOptionalFile({ ...params, filePath: path })
+    return diskContentPromise
   }
 
   const latestContentPromise = getProposedOrDiskContent()
+  const baseContentPromise = diskContentPromise
+  const baseContentHashPromise = diskContentPromise.then((content) =>
+    content === null ? null : getContentHash(content),
+  )
 
   const strReplaceResultPromise = processStrReplace({
     path,
@@ -105,7 +122,8 @@ export const handleProposeStrReplace = (async (
     ? strReplaceResult.messages.join('\n\n')
     : 'Proposed string replacement'
 
-  // Record the successful proposal artifact at the source of truth.
+  // Record the successful proposal artifact at the source of truth. finalContent
+  // is the resolved overlay content the parent can write deterministically.
   appendProposalArtifact(runId, {
     toolName: 'propose_str_replace',
     input: toolCall.input,
@@ -114,6 +132,9 @@ export const handleProposeStrReplace = (async (
       ok: true,
       unifiedDiff: strReplaceResult.patch,
       message,
+      finalContent: strReplaceResult.content,
+      baseContentHash: await baseContentHashPromise,
+      baseContent: await baseContentPromise,
     },
   })
 

@@ -810,6 +810,38 @@ function reconcileSuccessfulProposalArtifactsByFile(
   return ordered
 }
 
+// Collapse the per-file duplicates a single propose_edit_transaction records
+// (one ledger artifact per changed file, all sharing the same transaction
+// input) down to one apply tool call per unique transaction, preserving
+// first-seen order. propose_str_replace/propose_write_file calls are passed
+// through untouched because their per-file ordering is load-bearing for
+// sequential apply. This MUST mirror the implementor's dedupeTransactionToolCalls
+// so a recovered bundle is byte-identical to a normally-completed one.
+function dedupeProposalTransactionToolCalls(
+  toolCalls: { toolName: string; input: any }[],
+): { toolName: string; input: any }[] {
+  const seenTransactionSignatures = new Set<string>()
+  const deduped: { toolName: string; input: any }[] = []
+  for (const toolCall of toolCalls) {
+    if (toolCall.toolName !== 'propose_edit_transaction') {
+      deduped.push(toolCall)
+      continue
+    }
+    let signature: string
+    try {
+      signature = JSON.stringify(toolCall.input)
+    } catch {
+      // Non-serializable input can't be safely deduped; keep it as-is.
+      deduped.push(toolCall)
+      continue
+    }
+    if (seenTransactionSignatures.has(signature)) continue
+    seenTransactionSignatures.add(signature)
+    deduped.push(toolCall)
+  }
+  return deduped
+}
+
 function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
   toolCalls: { toolName: string; input: any }[]
   toolResults: any[]
@@ -827,10 +859,19 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
     successful.map((artifact) => artifact.result.file).filter(Boolean),
   )
 
-  const toolCalls = successful.map((artifact) => ({
-    toolName: artifact.toolName,
-    input: artifact.input,
-  }))
+  // propose_edit_transaction records ONE ledger artifact per changed file,
+  // each carrying the SAME full transaction input. The parent applies one
+  // real edit_transaction per tool call, so emitting one tool call per file
+  // would re-apply the same transaction N times — the first applies cleanly
+  // and the rest fail against the already-changed files (diffs appear
+  // generated, then lost, while the proposal still completes). Collapse
+  // duplicate transaction artifacts to one apply tool call.
+  const toolCalls = dedupeProposalTransactionToolCalls(
+    successful.map((artifact) => ({
+      toolName: artifact.toolName,
+      input: artifact.input,
+    })),
+  )
 
   const toolResults = ledger
     .filter(
@@ -858,11 +899,11 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
   return { toolCalls, toolResults, unifiedDiffs }
 }
 
-/**
+/*
  * A proposal agent's output is "usable" only when its structured output
- * actually carries applyable proposal tool calls or a non-empty unified diff.
- * A missing/non-structured/empty output means the parent has nothing to apply,
- * so the ledger fallback should run.
+ * carries ledger-shaped per-file results with generated diffs. Bare tool calls
+ * or aggregate diff text are not enough; those should fall back to the live
+ * deterministic proposal ledger.
  */
 function outputHasUsableProposal(output: unknown): boolean {
   if (
@@ -874,12 +915,23 @@ function outputHasUsableProposal(output: unknown): boolean {
   }
   const value = (output as { value?: unknown }).value
   if (!value || typeof value !== 'object') return false
-  const toolCalls = (value as { toolCalls?: unknown }).toolCalls
-  const unifiedDiffs = (value as { unifiedDiffs?: unknown }).unifiedDiffs
-  const hasToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0
-  const hasDiffs =
-    typeof unifiedDiffs === 'string' && unifiedDiffs.trim().length > 0
-  return hasToolCalls || hasDiffs
+  // Bare proposal tool calls, or aggregate diff text without per-file tool
+  // results, are NOT usable. The proposal ledger is the single source of truth;
+  // the only structured output we trust is the ledger-shaped summary containing
+  // successful materialized edit results. If those are missing, fall back to the
+  // live ledger so the runtime either recovers the real artifacts or correctly
+  // reports no proposal.
+  const toolResults = (value as { toolResults?: unknown }).toolResults
+  return (
+    Array.isArray(toolResults) &&
+    toolResults.some(
+      (result) =>
+        Boolean(result) &&
+        typeof result === 'object' &&
+        typeof (result as { unifiedDiff?: unknown }).unifiedDiff === 'string' &&
+        (result as { unifiedDiff: string }).unifiedDiff.trim().length > 0,
+    )
+  )
 }
 
 function buildRecoveredEditorProposalTimeoutResult(params: {

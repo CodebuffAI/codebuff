@@ -17,7 +17,11 @@ import {
   runProgrammaticStep,
 } from '../run-programmatic-step'
 import { mockFileContext } from './test-utils'
-import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
+import { handleReadProposalWorkspace } from '../tools/handlers/tool/read-proposal-workspace'
+import {
+  clearAllProposedContent,
+  setProposedContent,
+} from '../tools/handlers/tool/proposed-content-store'
 import * as toolExecutor from '../tools/tool-executor'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
@@ -306,6 +310,50 @@ console.log(add(1, 2));
     mock.restore()
     clearAgentGeneratorCache({ logger })
     clearAllProposedContent()
+  })
+
+  describe('read_proposal_workspace', () => {
+    it('reads disk for untouched files and proposal content after a file is proposed', async () => {
+      const requestOptionalFile = mock(async ({ filePath }: { filePath: string }) =>
+        mockFiles[filePath] ?? null,
+      )
+
+      const readWorkspace = async (path: string) => {
+        const { output } = await handleReadProposalWorkspace({
+          ...mockParams,
+          previousToolCallFinished: Promise.resolve(),
+          toolCall: {
+            toolName: 'read_proposal_workspace',
+            input: { paths: [path] },
+            toolCallId: 'read-proposal-workspace-call-id',
+          } as any,
+          runId: mockAgentState.runId!,
+          requestOptionalFile: requestOptionalFile as any,
+        } as any)
+        return output[0].type === 'json' ? (output[0].value as any[])[0] : null
+      }
+
+      const diskResult = await readWorkspace('src/utils.ts')
+      expect(diskResult).toMatchObject({
+        path: 'src/utils.ts',
+        source: 'disk',
+      })
+      expect(diskResult.content).toContain('return a + b;')
+
+      setProposedContent(
+        mockAgentState.runId!,
+        'src/utils.ts',
+        Promise.resolve('draft content from proposal workspace'),
+      )
+
+      const proposalResult = await readWorkspace('src/utils.ts')
+      expect(proposalResult).toEqual({
+        path: 'src/utils.ts',
+        source: 'proposal',
+        content: 'draft content from proposal workspace',
+      })
+      expect(requestOptionalFile).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('propose_str_replace', () => {

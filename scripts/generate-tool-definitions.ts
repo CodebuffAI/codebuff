@@ -15,23 +15,34 @@ function main() {
 
   try {
     const content = compileToolDefinitions()
-    // Write to the templates path (common/src/templates/initial-agents-dir/types)
-    const outputPath = join(
-      process.cwd(),
-      'common/src/templates/initial-agents-dir/types/tools.ts',
+    const outputPaths = [
+      // Template copied into newly initialized agent directories.
+      join(
+        process.cwd(),
+        'common/src/templates/initial-agents-dir/types/tools.ts',
+      ),
+      // Local agent package types used by this repo's built-in agents/tests.
+      join(process.cwd(), 'agents/types/tools.ts'),
+    ]
+
+    for (const outputPath of outputPaths) {
+      // Create the directory if it does not exist
+      mkdirSync(dirname(outputPath), { recursive: true })
+
+      writeFileSync(outputPath, content, 'utf8')
+    }
+
+    // Format the generated files with prettier
+    console.log('🎨 Formatting generated files...')
+    execSync(
+      `npx prettier --write ${outputPaths.map((path) => `"${path}"`).join(' ')}`,
+      { stdio: 'inherit' },
     )
 
-    // Create the directory if it does not exist
-    mkdirSync(dirname(outputPath), { recursive: true })
-
-    writeFileSync(outputPath, content, 'utf8')
-
-    // Format the generated file with prettier
-    console.log('🎨 Formatting generated file...')
-    execSync(`npx prettier --write "${outputPath}"`, { stdio: 'inherit' })
-
     console.log('✅ Successfully generated tools.ts')
-    console.log(`📁 Output: ${outputPath}`)
+    for (const outputPath of outputPaths) {
+      console.log(`📁 Output: ${outputPath}`)
+    }
   } catch (error) {
     console.error('❌ Failed to generate tool definitions:', error)
     process.exit(1)

@@ -16,6 +16,7 @@ export const createBestOfNImplementor = (options: {
   const isGemini = model === 'gemini'
   const readOnlyToolNames: AllToolNames[] = [
     'read_files',
+    'read_proposal_workspace',
     'code_search',
     'glob',
     'list_directory',
@@ -54,6 +55,7 @@ export const createBestOfNImplementor = (options: {
       ? `You are a strict implementation proposal generator.
 
 You may use read_files, code_search, glob, and list_directory only to gather exact current context.
+After you have proposed any edit to a file, use read_proposal_workspace (NOT read_files) to re-read that file: it returns your own proposed changes for files you already edited, and the real disk content only for files you have not touched yet. This is how you avoid recreating edits you already made.
 You draft edits only with propose_str_replace and propose_write_file.
 Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
 If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.
@@ -344,22 +346,46 @@ Write out your complete implementation now. Do not write any final summary.`,
 
       // Collapse multiple successful edits to the SAME file into the minimal
       // deterministic set the parent can apply against disk, regardless of how
-      // many calls or files the attempt produced. A full propose_write_file is
-      // an absolute rewrite, so any earlier edits to that file (str_replace or
-      // an earlier write) are superseded and dropped. str_replace edits with no
-      // later full rewrite are kept in order: they were authored to chain
-      // against the proposed-content store, and both the parent's sequential
-      // apply and dry-run validation replay them in that same order.
+      // many calls or files the attempt produced. When artifacts carry
+      // finalContent and are independent of a transaction, the last successful
+      // artifact for that file is the resolved proposed-content overlay state,
+      // so applying earlier intermediate edits is unnecessary and can
+      // reintroduce anchor staleness. Files touched by propose_edit_transaction
+      // keep their ordered artifacts so the transaction fallback and any later
+      // same-file edits replay consistently.
       function reconcileSuccessfulArtifactsByFile(
         successfulInOrder: LedgerArtifact[],
       ): LedgerArtifact[] {
+        const transactionTouchedFiles = new Set(
+          successfulInOrder
+            .filter((artifact) => artifact.toolName === 'propose_edit_transaction')
+            .map((artifact) => artifact.result.file)
+            .filter(Boolean),
+        )
         const keptByFile = new Map<string, LedgerArtifact[]>()
         for (const artifact of successfulInOrder) {
           const file = artifact.result.file
           if (!file) continue
-          if (artifact.toolName === 'propose_write_file') {
-            // Full rewrite resets this file's accumulated edits.
+          if (
+            typeof artifact.result.finalContent === 'string' &&
+            !transactionTouchedFiles.has(file)
+          ) {
             keptByFile.set(file, [artifact])
+            continue
+          }
+          if (artifact.toolName === 'propose_write_file') {
+            if (transactionTouchedFiles.has(file)) {
+              const existing = keptByFile.get(file)
+              const artifactForOrderedReplay = stripProposalFinalContentMetadata(artifact)
+              if (existing) {
+                existing.push(artifactForOrderedReplay)
+              } else {
+                keptByFile.set(file, [artifactForOrderedReplay])
+              }
+            } else {
+              // Full rewrite resets this file's accumulated legacy edits.
+              keptByFile.set(file, [artifact])
+            }
             continue
           }
           const existing = keptByFile.get(file)
@@ -379,6 +405,14 @@ Write out your complete implementation now. Do not write any final summary.`,
           ordered.push(...(keptByFile.get(file) ?? []))
         }
         return ordered
+      }
+
+      function stripProposalFinalContentMetadata(
+        artifact: LedgerArtifact,
+      ): LedgerArtifact {
+        if (typeof artifact.result.finalContent !== 'string') return artifact
+        const { finalContent: _finalContent, ...result } = artifact.result
+        return { ...artifact, result }
       }
 
       function summarizeLedger(ledger: LedgerArtifact[]): LedgerSummary {
@@ -413,7 +447,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         const toolCalls = dedupeTransactionToolCalls(
           successful.map((artifact) => ({
             toolName: artifact.toolName,
-            input: artifact.input,
+            input: buildApplyableProposalInput(artifact),
           })),
         )
 
@@ -463,6 +497,23 @@ Write out your complete implementation now. Do not write any final summary.`,
         )
       }
 
+      function buildApplyableProposalInput(artifact: LedgerArtifact): any {
+        const result = artifact.result
+        return {
+          ...artifact.input,
+          ...(result.file ? { __proposalFile: result.file } : {}),
+          ...(typeof result.finalContent === 'string'
+            ? { __proposalFinalContent: result.finalContent }
+            : {}),
+          ...('baseContentHash' in result
+            ? { __proposalBaseContentHash: result.baseContentHash ?? null }
+            : {}),
+          ...('baseContent' in result
+            ? { __proposalBaseContent: result.baseContent ?? null }
+            : {}),
+        }
+      }
+
       function toToolResult(artifact: LedgerArtifact): any {
         const { file, unifiedDiff, message, errorMessage } = artifact.result
         return {
@@ -491,7 +542,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           }
           let signature: string
           try {
-            signature = JSON.stringify(toolCall.input)
+            signature = JSON.stringify(sanitizeProposalMetadata(toolCall.input))
           } catch {
             // Non-serializable input can't be safely deduped; keep it as-is.
             deduped.push(toolCall)
@@ -502,6 +553,20 @@ Write out your complete implementation now. Do not write any final summary.`,
           deduped.push(toolCall)
         }
         return deduped
+      }
+
+      function sanitizeProposalMetadata(input: any): any {
+        if (!input || typeof input !== 'object' || Array.isArray(input)) {
+          return input
+        }
+        const {
+          __proposalFile: _proposalFile,
+          __proposalFinalContent: _finalContent,
+          __proposalBaseContentHash: _baseContentHash,
+          __proposalBaseContent: _baseContent,
+          ...rest
+        } = input
+        return rest
       }
 
       // ====================================================================
@@ -516,6 +581,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         maxReadOnlyOnlySteps: number
         maxBundleProposalTurns: number
         expectedTouchedFileCount: number
+        hasExplicitExpectedTouchedFileCount: boolean
         expectsMultipleFiles: boolean
         complexity: 'simple' | 'standard' | 'complex'
         hasPrefetchedContext: boolean
@@ -538,15 +604,30 @@ Write out your complete implementation now. Do not write any final summary.`,
         const numericTouchedFileCount =
           inferExpectedTouchedFileCountFromText(taskText)
         const contextFileHeaderCount = countContextFileHeaders(text)
+        // The parent (editor-multi-prompt) computes an authoritative
+        // orchestrationPlan.expectedTouchedFileCount and passes it through as an
+        // explicit param. Honor it as a FLOOR over the fragile text-regex
+        // inference, which under-counts paths the implementor's own prompt does
+        // not spell out (e.g. leading-dot directories like .codebuff-smoke/...).
+        const explicitParamFileCount = coerceExplicitFileCount(
+          params.params?.expectedTouchedFileCount,
+        )
+        const regexDerivedFilePathCount = Math.max(
+          numericTouchedFileCount,
+          explicitTaskFilePathCount,
+          explicitBareTaskFileNameCount,
+        )
         const explicitFilePathCount = Math.min(
           20,
-          Math.max(
-            numericTouchedFileCount,
-            explicitTaskFilePathCount,
-            explicitBareTaskFileNameCount,
-          ),
+          Math.max(regexDerivedFilePathCount, explicitParamFileCount),
         )
         const expectedTouchedFileCount = Math.min(20, explicitFilePathCount)
+        if (
+          explicitParamFileCount > regexDerivedFilePathCount &&
+          explicitParamFileCount > 1
+        ) {
+          evidence.push(`paramFileCount:${explicitParamFileCount}`)
+        }
         if (numericTouchedFileCount > 1) {
           evidence.push(`numericFileCount:${numericTouchedFileCount}`)
         }
@@ -560,7 +641,11 @@ Write out your complete implementation now. Do not write any final summary.`,
           evidence.push(`contextFiles:${Math.min(contextFileHeaderCount, 12)}`)
         }
 
+        const hasExplicitMultiFileParam =
+          coerceExplicitBoolean(params.params?.expectsMultipleFiles) ||
+          explicitParamFileCount > 1
         const hasExplicitMultiFileSignal =
+          hasExplicitMultiFileParam ||
           numericTouchedFileCount > 1 ||
           /\b(multi[- ]file|multiple files|cross[- ]file|several files|many files|few files|multiple pages|several pages|many pages|few pages|multiple screens|several screens)\b/i.test(
             taskText,
@@ -628,6 +713,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           maxReadOnlyOnlySteps: canUseReadOnlyTools ? 3 : 0,
           maxBundleProposalTurns,
           expectedTouchedFileCount,
+          hasExplicitExpectedTouchedFileCount: explicitParamFileCount > 0,
           expectsMultipleFiles,
           complexity,
           hasPrefetchedContext,
@@ -639,6 +725,18 @@ Write out your complete implementation now. Do not write any final summary.`,
         params: Record<string, any> | undefined,
       ): boolean {
         const value = params?.proposalBundleMode
+        return value === true || value === 'true'
+      }
+
+      // Coerce an explicit expected-file-count param to a safe positive integer.
+      // Returns 0 when absent/invalid so it only ever raises the regex floor.
+      function coerceExplicitFileCount(value: unknown): number {
+        const n = Number(value)
+        if (!Number.isFinite(n) || n <= 0) return 0
+        return Math.min(20, Math.floor(n))
+      }
+
+      function coerceExplicitBoolean(value: unknown): boolean {
         return value === true || value === 'true'
       }
 
@@ -847,8 +945,14 @@ Write out your complete implementation now. Do not write any final summary.`,
       }
 
       function getKnownRequiredProposalFileCount(): number {
-        if (proposalBudget.expectedTouchedFileCount > 0) {
+        if (proposalBudget.expectedTouchedFileCount > 1) {
           return proposalBudget.expectedTouchedFileCount
+        }
+        if (proposalBudget.expectedTouchedFileCount === 1) {
+          return proposalBudget.hasExplicitExpectedTouchedFileCount ||
+            proposalBudget.complexity === 'simple'
+            ? 1
+            : 0
         }
         if (proposalBudget.expectsMultipleFiles) {
           return 2
@@ -1129,6 +1233,7 @@ Write out your complete implementation now. Do not write any final summary.`,
       function isReadOnlyToolName(toolName: any): boolean {
         return (
           toolName === 'read_files' ||
+          toolName === 'read_proposal_workspace' ||
           toolName === 'code_search' ||
           toolName === 'glob' ||
           toolName === 'list_directory'
@@ -1376,6 +1481,9 @@ type LedgerArtifact = {
     unifiedDiff?: string
     message?: string
     errorMessage?: string
+    finalContent?: string
+    baseContentHash?: string | null
+    baseContent?: string | null
   }
 }
 

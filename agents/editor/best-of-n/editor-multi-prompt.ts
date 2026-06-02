@@ -157,6 +157,7 @@ function* handleStepsMultiPrompt({
       maxReadOnlyOnlySteps: number
       maxBundleProposalTurns?: number
       expectedTouchedFileCount?: number
+      hasExplicitExpectedTouchedFileCount?: boolean
       complexity: string
       hasPrefetchedContext: boolean
       evidence: string[]
@@ -628,7 +629,7 @@ function* handleStepsMultiPrompt({
         }
       }
 
-      const fallbackImplementation = selectorImplementations[0]
+      const fallbackImplementation = getCoverageAwareFallbackImplementation(selectorImplementations)
 
       if (!selectorOutput) {
         chosenImplementation = fallbackImplementation
@@ -807,7 +808,7 @@ function* handleStepsMultiPrompt({
       }
     }
 
-    const fallbackImplementation = selectorImplementations[0]
+    const fallbackImplementation = getCoverageAwareFallbackImplementation(selectorImplementations)
     let chosenImplementation: Implementation
     let selectionReason = ''
     let selectionSource = 'selector'
@@ -936,7 +937,21 @@ function* handleStepsMultiPrompt({
       return false
     }
 
+    // Ledger-only contract: a proposal is a candidate only when the runtime
+    // actually materialized at least one successful per-file edit result. Bare
+    // proposal tool calls, or free-floating diff text without ledger-style
+    // toolResults, never proved they went through deterministic proposal
+    // preflight, so they must NOT enter selection or burn repair attempts. This
+    // stops "selecting best out of nothing" and no-diff repair loops.
+    if (!proposalHasGeneratedDiffs(proposalToolResults)) {
+      return false
+    }
+
     return true
+  }
+
+  function proposalHasGeneratedDiffs(proposalToolResults: any[]): boolean {
+    return proposalToolResults.some(isSuccessfulEditResult)
   }
 
   function getUsableProposalToolCalls(
@@ -1268,6 +1283,13 @@ function* handleStepsMultiPrompt({
       }))
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .map(({ implementation }) => implementation)
+  }
+
+  function getCoverageAwareFallbackImplementation(
+    implementations: Implementation[],
+  ): Implementation {
+    const ranked = rankImplementationsForSelection(implementations)
+    return ranked[0] ?? implementations[0]
   }
 
   function scoreImplementationForSelection(
@@ -1776,6 +1798,22 @@ function* handleStepsMultiPrompt({
     return `${attempt === 0 ? 'Strategy' : 'Retry Strategy'}: ${strategy}`
   }
 
+  // The implementor re-derives expected file count from its own prompt text via
+  // fragile regexes that under-count some paths (e.g. leading-dot directories).
+  // Pass the parent's authoritative scope explicitly so the implementor's
+  // multi-file completion gate is reliable. Only include the fields when the
+  // count is a positive finite number, to avoid passing 0/undefined.
+  function buildExpectedScopeParams(
+    expectedTouchedFileCount: number | undefined,
+  ): Record<string, any> {
+    const count = Number(expectedTouchedFileCount)
+    if (!Number.isFinite(count) || count <= 0) return {}
+    return {
+      expectedTouchedFileCount: Math.floor(count),
+      expectsMultipleFiles: count > 1,
+    }
+  }
+
   function buildProposalParams(params: {
     strategy: string
     requestContext: string
@@ -1815,6 +1853,7 @@ function* handleStepsMultiPrompt({
       proposalOrchestrationPlan: orchestrationPlan,
       allowReadOnlyTools,
       proposalBundleMode: true,
+      ...buildExpectedScopeParams(orchestrationPlan.expectedTouchedFileCount),
       proposalTimeoutMs: getProposalTimeoutMsForContext(proposalContext),
       ...buildProposalTimeoutParams(orchestrationPlan),
       ...(orchestrationPlan.maxBundleProposalTurns
@@ -3241,6 +3280,10 @@ function* handleStepsMultiPrompt({
                 'The previous proposal was marked partial by the proposal collector. Do not assume it will be applied. Re-emit the complete final edit proposal.',
               allowReadOnlyTools: true,
               proposalBundleMode: true,
+              ...buildExpectedScopeParams(
+                partialImplementation.proposalBudget?.expectedTouchedFileCount ||
+                  proposalOrchestrationPlan.expectedTouchedFileCount,
+              ),
               proposalTimeoutMs: getProposalTimeoutMsForContext(
                 buildCompletionProposalContext({
                   partialImplementation,
@@ -3292,27 +3335,40 @@ function* handleStepsMultiPrompt({
   function* applyImplementationEdits(
     chosenImplementation: Implementation,
   ): Generator<
+    | ToolCall<'read_files'>
     | ToolCall<'str_replace'>
     | ToolCall<'write_file'>
     | ToolCall<'edit_transaction'>,
     any[],
     any
   > {
-    // Apply the chosen implementation's tool calls as real edits
+    // Apply the chosen implementation's tool calls as real edits.
+    // When a proposal carries resolved overlay content, prefer a guarded
+    // write_file of that final content over replaying brittle str_replace
+    // anchors against disk. If the base-content guard fails, fall back to the
+    // original raw proposal edit so external drift is not overwritten blindly.
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
+      const finalApplyResult = yield* tryApplyProposalFinalContent(toolCall)
+      if (finalApplyResult.applied) {
+        appliedToolResults.push(finalApplyResult.toolResult)
+        continue
+      }
+
       // propose_edit_transaction maps to the atomic edit_transaction tool, which
       // carries an `edits` array (not a single `path`) and is applied as one
       // client-side batch by the runtime.
       if (toolCall.toolName === 'propose_edit_transaction') {
-        const input = isObject(toolCall.input)
-          ? {
-              ...toolCall.input,
-              ...(Array.isArray(toolCall.input.edits)
-                ? { edits: normalizeProposalTransactionEdits(toolCall.input.edits) }
-                : {}),
-            }
-          : toolCall.input
+        const input = sanitizeProposalApplyInput(
+          isObject(toolCall.input)
+            ? {
+                ...toolCall.input,
+                ...(Array.isArray(toolCall.input.edits)
+                  ? { edits: normalizeProposalTransactionEdits(toolCall.input.edits) }
+                  : {}),
+              }
+            : toolCall.input,
+        )
         const { toolResult } = yield {
           toolName: 'edit_transaction',
           input,
@@ -3339,14 +3395,16 @@ function* handleStepsMultiPrompt({
             : toolCall.toolName
 
       if (realToolName === 'str_replace' || realToolName === 'write_file') {
-        const input = isObject(toolCall.input)
-          ? {
-              ...toolCall.input,
-              ...(typeof toolCall.input.path === 'string'
-                ? { path: normalizeProposalPath(toolCall.input.path) }
-                : {}),
-            }
-          : toolCall.input
+        const input = sanitizeProposalApplyInput(
+          isObject(toolCall.input)
+            ? {
+                ...toolCall.input,
+                ...(typeof toolCall.input.path === 'string'
+                  ? { path: normalizeProposalPath(toolCall.input.path) }
+                  : {}),
+              }
+            : toolCall.input,
+        )
         const { toolResult } = yield {
           toolName: realToolName,
           input,
@@ -3369,6 +3427,159 @@ function* handleStepsMultiPrompt({
 
     return appliedToolResults
   }
+
+  function* tryApplyProposalFinalContent(
+    toolCall: ProposedToolCall,
+  ): Generator<
+    ToolCall<'read_files'> | ToolCall<'write_file'>,
+    { applied: true; toolResult: any } | { applied: false },
+    any
+  > {
+    if (!isObject(toolCall.input)) return { applied: false }
+    // Preserve propose_edit_transaction atomicity: transaction artifacts may
+    // carry per-file finalContent metadata, but applying those independently as
+    // write_file calls could partially apply a transaction. Let the sanitized
+    // edit_transaction fallback handle these atomically instead.
+    if (toolCall.toolName === 'propose_edit_transaction') return { applied: false }
+    const finalContent = toolCall.input.__proposalFinalContent
+    if (typeof finalContent !== 'string') return { applied: false }
+
+    const rawPath =
+      typeof toolCall.input.path === 'string'
+        ? toolCall.input.path
+        : typeof toolCall.input.__proposalFile === 'string'
+          ? toolCall.input.__proposalFile
+          : typeof toolCall.input.file === 'string'
+            ? toolCall.input.file
+            : ''
+    if (!rawPath) return { applied: false }
+
+    const path = normalizeProposalPath(rawPath)
+    const hasBaseContent = Object.prototype.hasOwnProperty.call(
+      toolCall.input,
+      '__proposalBaseContent',
+    )
+    const baseContent = hasBaseContent
+      ? toolCall.input.__proposalBaseContent
+      : undefined
+    const hasBaseContentHash = Object.prototype.hasOwnProperty.call(
+      toolCall.input,
+      '__proposalBaseContentHash',
+    )
+    const baseContentHash = hasBaseContentHash
+      ? toolCall.input.__proposalBaseContentHash
+      : undefined
+
+    const readFiles = yield* readFilesContent([path])
+    const currentContent = readFiles.find((file) => file.path === path)?.content
+    const guardPassed = finalContentGuardPassed({
+      currentContent,
+      baseContent,
+      baseContentHash,
+      hasBaseContent,
+      hasBaseContentHash,
+    })
+
+    if (!guardPassed) {
+      if (
+        toolCall.toolName === 'propose_write_file' ||
+        toolCall.toolName === 'propose_edit_transaction'
+      ) {
+        return {
+          applied: true,
+          toolResult: {
+            path,
+            errorMessage:
+              'Proposal final-content guard failed; refusing to overwrite current file content with a blind full-file write.',
+          },
+        }
+      }
+      return { applied: false }
+    }
+
+    const { toolResult } = yield {
+      toolName: 'write_file',
+      input: {
+        path,
+        instructions:
+          typeof toolCall.input.instructions === 'string'
+            ? toolCall.input.instructions
+            : `Apply resolved proposal content for ${path}`,
+        content: finalContent,
+      },
+      includeToolCall: true,
+    } satisfies ToolCall<'write_file'>
+
+    return {
+      applied: true,
+      toolResult:
+        toolResult === undefined || toolResult === null
+          ? {
+              path,
+              errorMessage:
+                'write_file did not return a tool result; no edit was recorded.',
+            }
+          : toolResult,
+    }
+  }
+
+  function sanitizeProposalApplyInput(input: any): any {
+    if (!isObject(input)) return input
+    const {
+      __proposalFile: _proposalFile,
+      __proposalFinalContent: _finalContent,
+      __proposalBaseContentHash: _baseContentHash,
+      __proposalBaseContent: _baseContent,
+      ...rest
+    } = input
+    return rest
+  }
+
+  function finalContentGuardPassed(params: {
+    currentContent: string | undefined
+    baseContent: any
+    baseContentHash: any
+    hasBaseContent: boolean
+    hasBaseContentHash: boolean
+  }): boolean {
+    const {
+      currentContent,
+      baseContent,
+      baseContentHash,
+      hasBaseContent,
+      hasBaseContentHash,
+    } = params
+
+    if (hasBaseContent) {
+      return baseContent === null
+        ? currentContent === undefined
+        : typeof baseContent === 'string' && currentContent === baseContent
+    }
+
+    if (hasBaseContentHash) {
+      if (baseContentHash === null) return currentContent === undefined
+      if (typeof baseContentHash !== 'string' || currentContent === undefined) {
+        return false
+      }
+      const currentHash = getFinalContentGuardHash(currentContent)
+      return currentHash !== null && currentHash === baseContentHash
+    }
+
+    return false
+  }
+
+  function getFinalContentGuardHash(content: string): string | null {
+    try {
+      const normalized = content.replace(/\r\n/g, '\n')
+      const requireFn = Function('return require')() as (moduleName: string) => any
+
+      const { createHash } = requireFn('crypto')
+      return `sha256:${createHash('sha256').update(normalized).digest('hex')}`
+    } catch {
+      return null
+    }
+  }
+
 
   // Normalize the `path` of each transaction edit so it matches the same
   // monorepo-aware path rewriting applied to single-file proposal edits.
@@ -3789,6 +4000,10 @@ function* handleStepsMultiPrompt({
               previousFailure: failureSummary,
               allowReadOnlyTools: true,
               proposalBundleMode: true,
+              ...buildExpectedScopeParams(
+                failedImplementation.proposalBudget?.expectedTouchedFileCount ||
+                  proposalOrchestrationPlan.expectedTouchedFileCount,
+              ),
               proposalTimeoutMs: getProposalTimeoutMsForContext(
                 buildRepairProposalContext({
                   failedImplementation,
@@ -3935,11 +4150,21 @@ function* handleStepsMultiPrompt({
     implementation: Implementation,
   ): string[] {
     return implementation.toolCalls
-      .map((toolCall) =>
-        isObject(toolCall.input) && typeof toolCall.input.path === 'string'
-          ? toolCall.input.path
-          : '',
-      )
+      .flatMap((toolCall) => {
+        if (!isObject(toolCall.input)) return []
+        const directPath =
+          typeof toolCall.input.path === 'string' ? [toolCall.input.path] : []
+        const transactionPaths = Array.isArray(toolCall.input.edits)
+          ? toolCall.input.edits
+              .map((edit: any) =>
+                isObject(edit) && typeof edit.path === 'string'
+                  ? edit.path
+                  : '',
+              )
+              .filter(Boolean)
+          : []
+        return [...directPath, ...transactionPaths]
+      })
       .filter(Boolean)
   }
 
@@ -3948,11 +4173,21 @@ function* handleStepsMultiPrompt({
   ): string[] {
     return dedupeStrings(
       [
-        ...getUsableProposalToolCalls(result).map((toolCall) =>
-          isObject(toolCall.input) && typeof toolCall.input.path === 'string'
-            ? toolCall.input.path
-            : '',
-        ),
+        ...getUsableProposalToolCalls(result).flatMap((toolCall) => {
+          if (!isObject(toolCall.input)) return []
+          const directPath =
+            typeof toolCall.input.path === 'string' ? [toolCall.input.path] : []
+          const transactionPaths = Array.isArray(toolCall.input.edits)
+            ? toolCall.input.edits
+                .map((edit: any) =>
+                  isObject(edit) && typeof edit.path === 'string'
+                    ? edit.path
+                    : '',
+                )
+                .filter(Boolean)
+            : []
+          return [...directPath, ...transactionPaths]
+        }),
         ...getUsableProposalToolResultsFromResult(result).map(
           getEditResultPath,
         ),
@@ -4023,32 +4258,44 @@ function* handleStepsMultiPrompt({
     appliedToolResults: any[]
   }): string {
     const { appliedImplementation, appliedToolResults } = params
-    const expectedTouchedFileCount =
-      appliedImplementation.proposalBudget?.expectedTouchedFileCount ??
-      proposalOrchestrationPlan.expectedTouchedFileCount
-    if (expectedTouchedFileCount <= 1) return ''
 
     const appliedFiles = dedupeStrings(
       extractAppliedEditFilePaths(appliedToolResults).map(normalizeProposalPath),
     )
-    if (appliedFiles.length >= expectedTouchedFileCount) return ''
-
-    const plannedFiles = dedupeStrings(
+    const proposedFiles = dedupeStrings(
       extractImplementationFilePaths(appliedImplementation).map(
         normalizeProposalPath,
       ),
     )
-    const missingKnownFiles = proposalOrchestrationPlan.targetFileHints.filter(
+    const expectedTouchedFileCount =
+      appliedImplementation.proposalBudget?.expectedTouchedFileCount ?? 0
+    const hasExplicitExpectedTouchedFileCount =
+      appliedImplementation.proposalBudget?.hasExplicitExpectedTouchedFileCount ===
+      true
+
+    // If the implementor had an explicit expected-file count and still proposed
+    // fewer files, a clean apply of that partial bundle is still incomplete.
+    // Non-explicit/fuzzy counts only influence candidate ranking, never a hard
+    // incomplete-coverage failure.
+    if (
+      hasExplicitExpectedTouchedFileCount &&
+      expectedTouchedFileCount > proposedFiles.length &&
+      proposedFiles.length > 0
+    ) {
+      return `Coverage warning: applied ${appliedFiles.length} of ${expectedTouchedFileCount} expected file(s). Planned files: ${proposedFiles.join(', ')}.`
+    }
+
+    // Otherwise coverage is measured against what THIS candidate actually
+    // proposed, not fuzzy targetFileHints, so unrelated context paths cannot
+    // turn a clean apply into a false failure.
+    if (proposedFiles.length <= 1) return ''
+
+    const missingProposedFiles = proposedFiles.filter(
       (path) => !appliedFiles.includes(path),
     )
-    const plannedText =
-      plannedFiles.length > 0 ? ` Planned files: ${plannedFiles.join(', ')}.` : ''
-    const missingText =
-      missingKnownFiles.length > 0
-        ? ` Known requested files not applied: ${missingKnownFiles.join(', ')}.`
-        : ''
+    if (missingProposedFiles.length === 0) return ''
 
-    return `Coverage warning: applied ${appliedFiles.length} of ${expectedTouchedFileCount} expected file(s).${plannedText}${missingText}`
+    return `Coverage warning: applied ${appliedFiles.length} of ${proposedFiles.length} proposed file(s). Proposed files: ${proposedFiles.join(', ')}. Proposed files not applied: ${missingProposedFiles.join(', ')}.`
   }
 
   function appendDiagnosticMessage(...messages: string[]): string {
@@ -4056,7 +4303,7 @@ function* handleStepsMultiPrompt({
   }
 
   function buildIncompleteCoverageError(coverageWarning: string): string {
-    return `Failed to fully apply the chosen implementation: it did not cover all explicitly requested files, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
+    return `Failed to fully apply the chosen implementation: it did not apply every file it proposed to edit, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
   }
 
   function getInitialProposalLabel(index: number): string {
@@ -4133,6 +4380,9 @@ function* handleStepsMultiPrompt({
                   expectedTouchedFileCount:
                     implementation.proposalBudget.expectedTouchedFileCount,
                 }
+              : {}),
+            ...(implementation.proposalBudget.hasExplicitExpectedTouchedFileCount
+              ? { hasExplicitExpectedTouchedFileCount: true }
               : {}),
             complexity: implementation.proposalBudget.complexity,
             evidence: implementation.proposalBudget.evidence,

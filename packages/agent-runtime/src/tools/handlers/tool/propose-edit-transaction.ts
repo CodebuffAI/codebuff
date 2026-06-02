@@ -1,5 +1,9 @@
 import { processEditTransaction } from '../../../process-edit-transaction'
-import { appendProposalArtifact } from './proposal-ledger-store'
+import { getContentHash } from '../../../process-str-replace'
+import {
+  appendProposalArtifact,
+  getOrCaptureOriginalBaseContent,
+} from './proposal-ledger-store'
 import {
   getProposedContent,
   setProposedContent,
@@ -44,20 +48,19 @@ export const handleProposeEditTransaction = (async (
 
   await previousToolCallFinished
 
-  const getProposedOrDiskContent = async (
-    path: string,
-  ): Promise<string | null> => {
-    const proposedContent = getProposedContent(runId, path)
-    if (proposedContent !== undefined) {
-      return proposedContent
-    }
-    return requestOptionalFile({ ...params, filePath: path })
-  }
-
   const uniquePaths = Array.from(new Set(edits.map((edit) => edit.path)))
   const initialContentByPath = new Map<string, string | null>()
+  const diskContentByPath = new Map<string, string | null>()
   for (const path of uniquePaths) {
-    initialContentByPath.set(path, await getProposedOrDiskContent(path))
+    const diskContent = await getOrCaptureOriginalBaseContent(runId, path, () =>
+      requestOptionalFile({ ...params, filePath: path }),
+    )
+    diskContentByPath.set(path, diskContent)
+    const proposedContent = await getProposedContent(runId, path)
+    initialContentByPath.set(
+      path,
+      proposedContent !== undefined ? proposedContent : diskContent,
+    )
   }
 
   const transactionResult = await processEditTransaction({
@@ -103,8 +106,11 @@ export const handleProposeEditTransaction = (async (
   }
 
   // Record one ledger artifact per changed file. The whole transaction input is
-  // stored on each so the parent can reconstruct and apply the bundle.
+  // stored on each so the parent can reconstruct and apply the bundle. Each
+  // artifact also carries the resolved finalContent + base hash so the parent
+  // can apply deterministically (and detect external drift) per file.
   for (const file of transactionResult.files) {
+    const baseContent = diskContentByPath.get(file.path)
     appendProposalArtifact(runId, {
       toolName: 'propose_edit_transaction',
       input: toolCall.input,
@@ -116,6 +122,12 @@ export const handleProposeEditTransaction = (async (
           file.messages.length > 0
             ? file.messages.join('\n\n')
             : `Proposed changes to ${file.path}`,
+        finalContent: file.content,
+        baseContentHash:
+          baseContent === null || baseContent === undefined
+            ? null
+            : getContentHash(baseContent),
+        baseContent: baseContent ?? null,
       },
     })
   }

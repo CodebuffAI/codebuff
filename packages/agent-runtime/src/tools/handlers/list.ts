@@ -17,6 +17,7 @@ import { handleProposeStrReplace } from './tool/propose-str-replace'
 import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
+import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
 import { handleReadSubtree } from './tool/read-subtree'
 import { handleReplaceRange } from './tool/replace-range'
 import { handleRenderUI } from './tool/render-ui'
@@ -68,6 +69,7 @@ export const codebuffToolHandlers = {
   propose_write_file: handleProposeWriteFile,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
+  read_proposal_workspace: handleReadProposalWorkspace,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,
   render_ui: handleRenderUI,

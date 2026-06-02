@@ -500,6 +500,7 @@ describe('editor agent', () => {
       expect(implementor.systemPrompt).toContain('Never call write_file')
       expect(implementor.toolNames).toEqual([
         'read_files',
+        'read_proposal_workspace',
         'code_search',
         'glob',
         'list_directory',
@@ -517,6 +518,7 @@ describe('editor agent', () => {
       )
       expect(proposalImplementor1.toolNames).toEqual([
         'read_files',
+        'read_proposal_workspace',
         'code_search',
         'glob',
         'list_directory',
@@ -1023,6 +1025,103 @@ describe('editor agent', () => {
         },
         includeToolCall: false,
       })
+    })
+
+    test('bundle mode honors explicit expected file count when task text does not expose paths', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          allowReadOnlyTools: true,
+          proposalBundleMode: true,
+          proposalContext: 'Apply the requested smoke edits.',
+          expectedTouchedFileCount: 2,
+          expectsMultipleFiles: true,
+        },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const firstProposalMessages = [
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_write_file',
+              input: {
+                path: '.codebuff-smoke/multi-a.txt',
+                instructions: 'Update A',
+                content: 'alpha: after\n',
+              },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_write_file',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: '.codebuff-smoke/multi-a.txt',
+                unifiedDiff: '@@ diff A',
+              },
+            },
+          ],
+        },
+      ]
+
+      expect(
+        generator.next({
+          agentState: createMockAgentState(firstProposalMessages),
+          toolResult: [],
+          stepsComplete: true,
+        }).value,
+      ).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...firstProposalMessages,
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Done.' }],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'noCompletionSignal',
+          toolResults: [
+            {
+              file: '.codebuff-smoke/multi-a.txt',
+              unifiedDiff: '@@ diff A',
+            },
+          ],
+          proposalBudget: {
+            expectedTouchedFileCount: 2,
+            expectsMultipleFiles: true,
+          },
+        },
+        includeToolCall: false,
+      })
+      expect((output.input as any).proposalBudget.evidence).toContain(
+        'paramFileCount:2',
+      )
     })
 
     test('bundle mode preserves proposal calls when completion marker arrives in a later step', () => {
@@ -4717,6 +4816,7 @@ describe('editor agent', () => {
                       maxReadOnlyOnlySteps: 3,
                       maxBundleProposalTurns: 5,
                       expectedTouchedFileCount: 2,
+                      hasExplicitExpectedTouchedFileCount: true,
                       complexity: 'complex',
                       hasPrefetchedContext: true,
                       evidence: ['filePaths:2'],
@@ -5074,7 +5174,9 @@ describe('editor agent', () => {
                       },
                     },
                   ],
-                  toolResults: [],
+                  toolResults: [
+                    { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+                  ],
                   unifiedDiffs: '--- src/b.ts ---\n@@ diff B',
                 },
               },
@@ -5106,7 +5208,9 @@ describe('editor agent', () => {
                       },
                     },
                   ],
-                  toolResults: [],
+                  toolResults: [
+                    { file: 'src/c.ts', unifiedDiff: '@@ diff C' },
+                  ],
                   unifiedDiffs: '--- src/c.ts ---\n@@ diff C',
                 },
               },
@@ -6469,7 +6573,7 @@ describe('editor agent', () => {
       expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
     })
 
-    test('isUsableProposal accepts valid proposal tool calls with diffs but missing toolResults', () => {
+    test('retries aggregate diffs that are missing ledger-style toolResults', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -6489,7 +6593,6 @@ describe('editor agent', () => {
         (generator.next().value as ToolCall<'set_messages'>).toolName,
       ).toBe('set_messages')
 
-      // First spawn for first prompt
       expect(
         generator.next({
           agentState: mockAgentState,
@@ -6498,8 +6601,10 @@ describe('editor agent', () => {
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({ toolName: 'spawn_agents' })
 
-      // Return proposal with valid unifiedDiffs but empty toolResults
-      const secondProposalSpawn = generator.next({
+      // Aggregate diff text alone is not a materialized proposal artifact. The
+      // parent contract requires ledger-style successful toolResults so raw
+      // model output cannot become a candidate without deterministic preflight.
+      const retrySpawn = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -6526,10 +6631,11 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
 
-      // Should move to the next prompt (not retry) because the diff is valid
-      expect(secondProposalSpawn.input.agents[0].agent_type).toBe(
-        'editor-implementor-proposal-2',
+      expect(retrySpawn.toolName).toBe('spawn_agents')
+      expect(retrySpawn.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
       )
+      expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
     })
 
     test('uses ledger-recovered proposal output from spawned implementor as a normal proposal', () => {
@@ -6602,7 +6708,7 @@ describe('editor agent', () => {
       )
     })
 
-    test('isUsableProposal accepts valid proposal tool calls without generated diffs', () => {
+    test('retries proposal tool calls that produced no generated diffs', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -6630,7 +6736,12 @@ describe('editor agent', () => {
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({ toolName: 'spawn_agents' })
 
-      const selectorSpawn = generator.next({
+      // Ledger-only contract: a structured output with bare proposal tool calls
+      // but no generated diff never materialized a real diff, so it is NOT a
+      // usable candidate. It must be retried rather than sent into
+      // selection/repair (which is what wasted tokens and "selected best out of
+      // nothing").
+      const retrySpawn = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -6657,12 +6768,11 @@ describe('editor agent', () => {
         stepsComplete: false,
       }).value as ToolCall<'spawn_agents'>
 
-      expect(selectorSpawn.input.agents[0].agent_type).toBe(
+      expect(retrySpawn.toolName).toBe('spawn_agents')
+      expect(retrySpawn.input.agents[0].agent_type).not.toBe(
         'best-of-n-selector2',
       )
-      expect(
-        selectorSpawn.input.agents[0].params?.implementations[0].content,
-      ).toContain('Proposal edit actions were returned without generated diffs')
+      expect(retrySpawn.input.agents[0].prompt).toContain('Retry Strategy')
     })
 
     test('isUsableProposal retries mixed success and failure toolResults', () => {

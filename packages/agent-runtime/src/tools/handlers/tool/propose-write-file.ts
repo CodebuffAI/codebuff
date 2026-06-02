@@ -1,10 +1,14 @@
 import { createPatch } from 'diff'
 
-import { appendProposalArtifact } from './proposal-ledger-store'
+import {
+  appendProposalArtifact,
+  getOrCaptureOriginalBaseContent,
+} from './proposal-ledger-store'
 import {
   getProposedContent,
   setProposedContent,
 } from './proposed-content-store'
+import { getContentHash } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -40,13 +44,20 @@ export const handleProposeWriteFile = (async (
   } = params
   const { path, content } = toolCall.input
 
-  // Get content from proposed state first (by runId), then fall back to disk
+  const diskContent = await getOrCaptureOriginalBaseContent(runId, path, () =>
+    requestOptionalFile({ ...params, filePath: path }),
+  )
+
+  // Get content from proposed state first (by runId), then fall back to disk.
+  // Keep the original disk content separately for the final-apply conflict
+  // guard; chained same-file proposals may use an intermediate overlay as their
+  // immediate edit base, but disk still contains the original content.
   const getProposedOrDiskContent = async (): Promise<string | null> => {
     const proposedContent = getProposedContent(runId, path)
     if (proposedContent !== undefined) {
       return proposedContent
     }
-    return requestOptionalFile({ ...params, filePath: path })
+    return diskContent
   }
 
   const initialContent = await getProposedOrDiskContent()
@@ -73,7 +84,8 @@ export const handleProposeWriteFile = (async (
   const isNewFile = initialContent === null
   const message = isNewFile ? `Proposed new file ${path}` : `Proposed changes to ${path}`
 
-  // Record the successful proposal artifact at the source of truth.
+  // Record the successful proposal artifact at the source of truth. finalContent
+  // is the exact bytes the parent can write deterministically at apply time.
   appendProposalArtifact(runId, {
     toolName: 'propose_write_file',
     input: toolCall.input,
@@ -82,6 +94,9 @@ export const handleProposeWriteFile = (async (
       ok: true,
       unifiedDiff: patch,
       message,
+      finalContent: newContent,
+      baseContentHash: diskContent === null ? null : getContentHash(diskContent),
+      baseContent: diskContent,
     },
   })
 

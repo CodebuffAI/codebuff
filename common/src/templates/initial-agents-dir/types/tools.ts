@@ -2,8 +2,8 @@
  * Union type of all available tool names
  */
 export type ToolName =
-  | 'add_message'
   | 'apply_patch'
+  | 'add_message'
   | 'ask_user'
   | 'code_search'
   | 'end_turn'
@@ -18,7 +18,9 @@ export type ToolName =
   | 'propose_write_file'
   | 'read_docs'
   | 'read_files'
+  | 'read_proposal_workspace'
   | 'read_subtree'
+  | 'replace_range'
   | 'render_ui'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
@@ -38,8 +40,8 @@ export type ToolName =
  * Map of tool names to their parameter types
  */
 export interface ToolParamsMap {
-  add_message: AddMessageParams
   apply_patch: ApplyPatchParams
+  add_message: AddMessageParams
   ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
@@ -54,7 +56,9 @@ export interface ToolParamsMap {
   propose_write_file: ProposeWriteFileParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
+  read_proposal_workspace: ReadProposalWorkspaceParams
   read_subtree: ReadSubtreeParams
+  replace_range: ReplaceRangeParams
   render_ui: RenderUiParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
@@ -72,6 +76,37 @@ export interface ToolParamsMap {
 }
 
 /**
+ * Apply a file operation (create, update, or delete).
+ */
+export interface ApplyPatchParams {
+  /** The file operation to perform. type is one of create_file, update_file, or delete_file. */
+  operation:
+    | {
+        type: 'create_file'
+        path: string
+        diff: string
+      }
+    | {
+        type: 'update_file'
+        path: string
+        diff: string
+        /** Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing. */
+        basedOnRead?: {
+          /** 1-indexed inclusive start line from the read_files.ranges result this patch hunk is based on. */
+          startLine: number
+          /** 1-indexed inclusive end line from the read_files.ranges result this patch hunk is based on. */
+          endLine: number
+          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+          hash: string
+        }[]
+      }
+    | {
+        type: 'delete_file'
+        path: string
+      }
+}
+
+/**
  * Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!
  */
 export interface AddMessageParams {
@@ -80,31 +115,16 @@ export interface AddMessageParams {
 }
 
 /**
- * Apply a file operation (create, update, or delete) using Codex-style apply_patch format.
- */
-export interface ApplyPatchParams {
-  /** The file operation to perform. */
-  operation: {
-    /** Operation type: create_file, update_file, or delete_file */
-    type: 'create_file' | 'update_file' | 'delete_file'
-    /** File path relative to project root */
-    path: string
-    /** Diff content. Required for create_file and update_file. Lines prefixed with + for creates, unified diff with @@ hunks for updates. */
-    diff?: string
-  }
-}
-
-/**
- * Ask the user multiple choice questions and pause execution until they respond.
+ * Ask the user a list of multiple choice questions. Each question must have at least 2 options. The agent execution will pause until the user submits their answers.
  */
 export interface AskUserParams {
   /** List of multiple choice questions to ask the user */
   questions: {
     /** The question to ask the user */
     question: string
-    /** Short label (max 12 chars) displayed as a chip/tag */
+    /** Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method" */
     header?: string
-    /** Array of answer options with label and optional description (minimum 2) */
+    /** Array of answer options with label and optional description. */
     options: {
       /** The display text for this option */
       label: string
@@ -147,38 +167,72 @@ export interface CodeSearchParams {
 export interface EndTurnParams {}
 
 /**
- * Apply multiple related edits as one transaction after preflighting every edit.
+ * Preflight related edits across one or more files as an atomic transaction, then apply the prepared file patches as one client-side batch.
  */
 export interface EditTransactionParams {
   /** All edits that must preflight together. If any edit fails during preflight, no files are changed. */
-  edits: (
+  edits:
     | {
+        /** Optional stable edit identifier echoed in diagnostics. */
         id?: string
-        type: 'str_replace'
+        /** The file to edit. */
         path: string
-        replacements: StrReplaceParams['replacements']
+        /** The edit operation type. */
+        type: 'str_replace'
+        /** String replacements to apply to this file. */
+        replacements: {
+          /** The string to replace. This must match the current file content exactly unless the deterministic near-match guard can prove one safe target. */
+          oldString: string
+          /** The string to replace the corresponding oldString with. Can be empty to delete. */
+          newString: string
+          /** Whether to allow multiple replacements of oldString. */
+          allowMultiple?: boolean
+          /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target. */
+          basedOnRead?:
+            | string
+            | {
+                startLine: number
+                endLine: number
+                hash: string
+              }
+        }[]
       }
     | {
+        /** Optional stable edit identifier echoed in diagnostics. */
         id?: string
-        type: 'structured'
+        /** The file to edit. */
         path: string
+        /** A structured edit dispatched by operation kind. */
+        type: 'structured'
+        /** Structured edit operation to apply to this file. */
         operation:
           | {
+              /** Deterministic text insertion. */
               kind: 'insert_text'
-              position: { line: number; column: number }
+              /** 1-indexed insertion position. */
+              position: {
+                /** 1-indexed target line. */
+                line: number
+                /** 1-indexed target column. */
+                column: number
+              }
               text: string
             }
           | {
+              /** TypeScript-aware import insertion. */
               kind: 'insert_import'
+              /** Complete TypeScript import statement to add, e.g. "import { foo } from 'bar'". */
               importStatement: string
             }
           | {
+              /** TypeScript-aware import removal. */
               kind: 'remove_import'
+              /** Complete TypeScript import statement to remove. Required unless moduleSpecifier is provided. */
               importStatement?: string
+              /** Module specifier to remove imports from, e.g. "react" or "./helper". */
               moduleSpecifier?: string
             }
-      }
-  )[]
+      }[]
 }
 
 /**
@@ -200,23 +254,23 @@ export interface GlobParams {
 }
 
 /**
- * Search, browse, inspect, or report integrations in the Gravity Index.
+ * Use the Gravity Index catalog and conversion API.
  */
 export type GravityIndexParams =
   | {
-      /** Search for the best service recommendation. */
+      /** Search for the best service. */
       action: 'search'
-      /** What the user needs, including stack, constraints, and required capabilities when known. */
+      /** What the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app". */
       query: string
       /** Continue a previous Gravity Index search as a follow-up. */
       search_id?: string
-      /** Optional structured context about the project, stack, or constraints. */
-      context?: Record<string, any>
+      /** Optional structured JSON context about the project, stack, or constraints. */
+      context?: any
     }
   | {
       /** Browse catalog services by category and/or keyword. */
       action: 'browse'
-      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, AI. */
+      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, Cache, Monitoring, Analytics, AI, Storage, CMS, Search, Realtime, Background Jobs, Infrastructure, CRM, Support, Productivity, Commerce, Video, Webhooks, SMS. */
       category?: string
       /** Optional keyword filter, e.g. sendgrid or postgres. */
       q?: string
@@ -232,7 +286,7 @@ export type GravityIndexParams =
       slug: string
     }
   | {
-      /** Report that an integration from a prior search was completed. */
+      /** Report that an integration from a prior search was done. */
       action: 'report_integration'
       /** search_id from the earlier search result. */
       search_id: string
@@ -257,11 +311,72 @@ export interface LookupAgentInfoParams {
 }
 
 /**
- * Propose an atomic multi-file edit transaction without applying the changes, returning preview diffs.
+ * Propose related edits across one or more files as an atomic transaction without applying them, returning preview diffs for review.
  */
 export interface ProposeEditTransactionParams {
   /** All edits that must preflight together. If any edit fails during preflight, no preview diffs are produced. */
-  edits: EditTransactionParams['edits']
+  edits:
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        /** The edit operation type. */
+        type: 'str_replace'
+        /** String replacements to apply to this file. */
+        replacements: {
+          /** The string to replace. This must match the current file content exactly unless the deterministic near-match guard can prove one safe target. */
+          oldString: string
+          /** The string to replace the corresponding oldString with. Can be empty to delete. */
+          newString: string
+          /** Whether to allow multiple replacements of oldString. */
+          allowMultiple?: boolean
+          /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target. */
+          basedOnRead?:
+            | string
+            | {
+                startLine: number
+                endLine: number
+                hash: string
+              }
+        }[]
+      }
+    | {
+        /** Optional stable edit identifier echoed in diagnostics. */
+        id?: string
+        /** The file to edit. */
+        path: string
+        /** A structured edit dispatched by operation kind. */
+        type: 'structured'
+        /** Structured edit operation to apply to this file. */
+        operation:
+          | {
+              /** Deterministic text insertion. */
+              kind: 'insert_text'
+              /** 1-indexed insertion position. */
+              position: {
+                /** 1-indexed target line. */
+                line: number
+                /** 1-indexed target column. */
+                column: number
+              }
+              text: string
+            }
+          | {
+              /** TypeScript-aware import insertion. */
+              kind: 'insert_import'
+              /** Complete TypeScript import statement to add, e.g. "import { foo } from 'bar'". */
+              importStatement: string
+            }
+          | {
+              /** TypeScript-aware import removal. */
+              kind: 'remove_import'
+              /** Complete TypeScript import statement to remove. Required unless moduleSpecifier is provided. */
+              importStatement?: string
+              /** Module specifier to remove imports from, e.g. "react" or "./helper". */
+              moduleSpecifier?: string
+            }
+      }[]
 }
 
 /**
@@ -278,6 +393,14 @@ export interface ProposeStrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
+    /** Required when proposing edits to large files. Either the readCapability token from a fresh read_files range header (preferred), or { startLine, endLine, hash } from that header. Carried through to the real str_replace when the proposal is applied. */
+    basedOnRead?:
+      | string
+      | {
+          startLine: number
+          endLine: number
+          hash: string
+        }
   }[]
 }
 
@@ -289,7 +412,7 @@ export interface ProposeWriteFileParams {
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string
-  /** Edit snippet to apply to the file. */
+  /** Complete file content to write to the file. */
   content: string
 }
 
@@ -306,10 +429,27 @@ export interface ReadDocsParams {
 }
 
 /**
- * Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
+ * Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
  */
 export interface ReadFilesParams {
   /** List of file paths to read. */
+  paths: string[]
+  /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. */
+  ranges?: {
+    /** File path to read a line range from, relative to the project root. */
+    path: string
+    /** 1-indexed inclusive start line. Defaults to 1. */
+    startLine?: number
+    /** 1-indexed inclusive end line. Defaults to the last line. */
+    endLine?: number
+  }[]
+}
+
+/**
+ * Read files from your in-progress proposal workspace (your own proposed changes), not the real on-disk workspace.
+ */
+export interface ReadProposalWorkspaceParams {
+  /** List of file paths to read from the proposal workspace. */
   paths: string[]
 }
 
@@ -324,7 +464,23 @@ export interface ReadSubtreeParams {
 }
 
 /**
- * Render a small interactive UI widget in the Codebuff CLI. Currently supports a button that opens a link.
+ * Replace a previously read line range only if its hash still matches.
+ */
+export interface ReplaceRangeParams {
+  /** The path to the file to edit. */
+  path: string
+  /** 1-indexed inclusive start line from a fresh read_files.ranges result. */
+  startLine: number
+  /** 1-indexed inclusive end line from a fresh read_files.ranges result. */
+  endLine: number
+  /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+  expectedHash: string
+  /** Complete replacement content for the selected line range. */
+  newContent: string
+}
+
+/**
+ * Render a small interactive UI widget in the Openbuff CLI. Currently supports a button that opens a link.
  */
 export interface RenderUiParams {
   /** The UI widget to render. */
@@ -370,12 +526,15 @@ export interface SetMessagesParams {
 }
 
 /**
- * JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.
+ * JSON object to set as the agent output. The shape of the parameters are specified dynamically further down in the conversation. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.
  */
-export interface SetOutputParams {}
+export interface SetOutputParams {
+  data?: Record<string, any>
+  [key: string]: any
+}
 
 /**
- * Load a skill's full instructions when relevant to the current task. Skills are loaded on-demand - only load them when you need their specific guidance.
+ * Load a skill by name to get its full instructions. Skills provide reusable behaviors and instructions.
  */
 export interface SkillParams {
   /** The name of the skill to load */
@@ -391,8 +550,35 @@ export interface SpawnAgentsParams {
     agent_type: string
     /** Prompt to send to the agent */
     prompt?: string
-    /** Parameters object for the agent (if any) */
-    params?: Record<string, any>
+    /** Parameters object for the agent */
+    params?: {
+      /** Terminal command to run (basher, tmux-cli) */
+      command?: string
+      /** What information from the command output is desired (basher) */
+      what_to_summarize?: string
+      /** Timeout for command. Set to -1 for no timeout. Default 30 (basher) */
+      timeout_seconds?: number
+      /** Array of code search queries (code-searcher) */
+      searchQueries?: {
+        /** The pattern to search for */
+        pattern: string
+        /** Optional ripgrep flags (e.g., "-i", "-g *.ts") */
+        flags?: string
+        /** Optional working directory relative to project root */
+        cwd?: string
+        /** Max results per file. Default 15 */
+        maxResults?: number
+      }[]
+      /** Relevant file paths to read (opus-agent, gpt-5-agent) */
+      filePaths?: string[]
+      /** Directories to search within (file-picker) */
+      directories?: string[]
+      /** Starting URL to navigate to (browser-use) */
+      url?: string
+      /** Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt) */
+      prompts?: string[]
+      [key: string]: any
+    }
   }[]
 }
 
@@ -402,6 +588,8 @@ export interface SpawnAgentsParams {
 export interface StrReplaceParams {
   /** The path to the file to edit. */
   path: string
+  /** Whether to make the replacement batch all-or-nothing. If true, any failed replacement aborts the entire batch with no changes. Large-file edits are always atomic regardless of this setting. */
+  atomic?: boolean
   /** Array of replacements to make. */
   replacements: {
     /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
@@ -410,11 +598,22 @@ export interface StrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
+    /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, the runtime falls back to full-file deterministic oldString matching when it can identify exactly one safe target. */
+    basedOnRead?:
+      | string
+      | {
+          /** 1-indexed inclusive start line from the read_files.ranges result this replacement is based on. */
+          startLine: number
+          /** 1-indexed inclusive end line from the read_files.ranges result this replacement is based on. */
+          endLine: number
+          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+          hash: string
+        }
   }[]
 }
 
 /**
- * Suggest clickable followup prompts to the user.
+ * Suggest clickable followup prompts to the user. Each followup becomes a card the user can click to send that prompt.
  */
 export interface SuggestFollowupsParams {
   /** List of suggested followup prompts the user can click to send */
@@ -455,14 +654,14 @@ export interface WebSearchParams {
 }
 
 /**
- * Create or edit a file with the given content.
+ * Create or overwrite a file with the given content.
  */
 export interface WriteFileParams {
   /** Path to the file relative to the **project root** */
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string
-  /** Edit snippet to apply to the file. */
+  /** Complete file content to write to the file. */
   content: string
 }
 

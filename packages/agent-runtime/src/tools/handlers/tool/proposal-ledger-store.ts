@@ -36,6 +36,23 @@ export type ProposalLedgerArtifact = {
     unifiedDiff?: string
     message?: string
     errorMessage?: string
+    /**
+     * The full resolved file content AFTER this proposal edit, taken from the
+     * per-run proposed-content overlay. This is the "isolated workspace" result
+     * the parent can apply deterministically via write_file, eliminating
+     * str_replace anchor staleness at final-apply time. Absent on failures.
+     */
+    finalContent?: string
+    /**
+     * Hash (getContentHash) of the original real workspace/disk content before
+     * this proposal attempt first touched the file. The parent uses this as a
+     * conflict guard: it only writes finalContent when the real file still
+     * matches this original base. null when the base file did not exist (new
+     * file).
+     */
+    baseContentHash?: string | null
+    /** Original real workspace/disk content for final-apply conflict detection. */
+    baseContent?: string | null
   }
 }
 
@@ -43,6 +60,7 @@ type RunLedger = {
   artifacts: ProposalLedgerArtifact[]
   currentAttempt: number
   nextSeq: number
+  originalBaseContentByAttemptAndPath: Map<string, Promise<string | null>>
 }
 
 const ledgerByRunId = new Map<string, RunLedger>()
@@ -50,10 +68,29 @@ const ledgerByRunId = new Map<string, RunLedger>()
 function getOrCreateRunLedger(runId: string): RunLedger {
   let ledger = ledgerByRunId.get(runId)
   if (!ledger) {
-    ledger = { artifacts: [], currentAttempt: 0, nextSeq: 0 }
+    ledger = {
+      artifacts: [],
+      currentAttempt: 0,
+      nextSeq: 0,
+      originalBaseContentByAttemptAndPath: new Map(),
+    }
     ledgerByRunId.set(runId, ledger)
   }
   return ledger
+}
+
+export async function getOrCaptureOriginalBaseContent(
+  runId: string,
+  path: string,
+  readOriginalBaseContent: () => Promise<string | null>,
+): Promise<string | null> {
+  const ledger = getOrCreateRunLedger(runId)
+  const key = `${ledger.currentAttempt}:${path}`
+  const existing = ledger.originalBaseContentByAttemptAndPath.get(key)
+  if (existing) return existing
+  const contentPromise = readOriginalBaseContent()
+  ledger.originalBaseContentByAttemptAndPath.set(key, contentPromise)
+  return contentPromise
 }
 
 /** Record one proposal artifact for a run, tagged with the current attempt. */
