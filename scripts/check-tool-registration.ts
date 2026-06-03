@@ -18,7 +18,7 @@ import { toolParams } from '@codebuff/common/tools/list'
  * before agent prompts are updated to recommend the tool.
  */
 
-const repoRoot = process.cwd()
+const repoRoot = join(import.meta.dir, '..')
 
 interface Check {
   label: string

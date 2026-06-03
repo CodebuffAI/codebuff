@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { handleEditTransaction } from '../tools/handlers/tool/edit-transaction'
 import { handleReadFiles } from '../tools/handlers/tool/read-files'
 import { handleStrReplace } from '../tools/handlers/tool/str-replace'
+import { handleWriteFile } from '../tools/handlers/tool/write-file'
 import { encodeReadCapabilityToken, getContentHash } from '../process-str-replace'
 import { mockFileContext } from './test-utils'
 
@@ -28,6 +29,57 @@ function createFileProcessingState(): FileProcessingState {
 }
 
 describe('read_files edit-state recovery', () => {
+  it('normalizes leading dot-slash paths before rendering read results', async () => {
+    const path = 'scripts/check-tool-registration.ts'
+    const diskContent = '#!/usr/bin/env bun\n'
+    const fileProcessingState = createFileProcessingState()
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+    fileProcessingState.promisesByPath[path] = [
+      Promise.resolve({
+        tool: 'write_file' as const,
+        path,
+        toolCallId: 'stale-write',
+        content: diskContent,
+        messages: [],
+      }),
+    ]
+
+    const result = await handleReadFiles({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'read-dot-slash',
+        toolName: 'read_files',
+        input: {
+          paths: [`./${path}`],
+        },
+      },
+      fileContext: mockFileContext,
+      fileProcessingState,
+      requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+        Object.fromEntries(
+          filePaths.map((filePath) => [
+            filePath,
+            filePath === path ? diskContent : null,
+          ]),
+        ),
+      logger,
+    } as any)
+
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
+    expect(fileProcessingState.promisesByPath[path]).toBeUndefined()
+
+    expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      expect(result.output[0].value).toEqual([
+        {
+          path,
+          content: diskContent,
+          referencedBy: {},
+        },
+      ])
+    }
+  })
+
   it('does not crash when str_replace client returns an empty result', async () => {
     const path = 'src/helper.ts'
     const diskContent = 'export const value = 1\n'
@@ -73,6 +125,58 @@ describe('read_files edit-state recovery', () => {
       expect(value.file).toBe(path)
       expect(value.message).toBe(
         'Applied str_replace patch; synthesized result because the client returned an empty response.',
+      )
+      expect(value.patch).toBe(appliedPatches[0])
+      expect(value.unifiedDiff).toBe(appliedPatches[0])
+    }
+  })
+
+  it('synthesizes a successful write_file result when the client returns empty after applying', async () => {
+    const path = 'packages/agent-runtime/src/util/render-read-files-result.ts'
+    const diskContent = 'export const value = 1\n'
+    const newContent = 'export const value = 2\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+
+    const result = await handleWriteFile({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'empty-client-result-write',
+        toolName: 'write_file',
+        input: {
+          path,
+          content: newContent,
+        },
+      },
+      agentState: { messageHistory: [] },
+      clientSessionId: 'test-session',
+      fileProcessingState,
+      fingerprintId: 'test-fingerprint',
+      logger,
+      prompt: undefined,
+      userId: undefined,
+      userInputId: 'test-input',
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return []
+      },
+      writeToClient: () => {},
+    } as any)
+
+    expect(appliedPatches).toHaveLength(1)
+    expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      const value = result.output[0].value as {
+        file?: string
+        message?: string
+        patch?: string
+        unifiedDiff?: string
+      }
+      expect(value.file).toBe(path)
+      expect(value.message).toBe(
+        'Applied write_file edit; synthesized result because the client returned an empty response.',
       )
       expect(value.patch).toBe(appliedPatches[0])
       expect(value.unifiedDiff).toBe(appliedPatches[0])

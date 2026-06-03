@@ -298,22 +298,6 @@ function* handleStepsMultiPrompt({
         bestResult = lastResult
       }
 
-      // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
-      console.log('[v0] proposal attempt', {
-        index,
-        attempt,
-        agentType: currentAgentType,
-        successfulDiffCount: getSuccessfulLedgerDiffResults(lastResult).length,
-        failedCount: getUsableProposalToolResultsFromResult(lastResult).filter(
-          isFailedEditResult,
-        ).length,
-        toolCallCount: getUsableProposalToolCalls(lastResult).length,
-        stopReason: isObject(lastResult)
-          ? (lastResult as ProposalResult).stopReason
-          : undefined,
-        errorMessage: summarizeProposalFailure(lastResult),
-      })
-
       // A clean, fully-usable proposal is good enough to stop early. Mixed
       // (success + failure) bundles intentionally keep retrying to try for a
       // cleaner result, but bestResult above guarantees the good diffs survive
@@ -340,14 +324,6 @@ function* handleStepsMultiPrompt({
       : undefined
     const hasUsableDiffs =
       getSuccessfulLedgerDiffResults(resultForPush).length > 0
-
-    // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
-    console.log('[v0] proposal push decision', {
-      index,
-      branch: hasUsableDiffs ? 'rich' : 'empty',
-      successfulDiffCount: getSuccessfulLedgerDiffResults(resultForPush).length,
-      toolCallCount: getUsableProposalToolCalls(resultForPush).length,
-    })
 
     spawnedImplementations.push(
       hasUsableDiffs
@@ -410,18 +386,6 @@ function* handleStepsMultiPrompt({
   const usableImplementations = rankImplementationsForSelection(
     implementations.filter(isUsableImplementation),
   )
-
-  // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
-  console.log('[v0] proposal candidates', {
-    total: implementations.length,
-    usable: usableImplementations.length,
-    statuses: implementations.map((impl) => ({
-      id: impl.id,
-      usable: isUsableImplementation(impl),
-      successfulDiffCount: getSuccessfulLedgerDiffResults(impl).length,
-      stopReason: impl.stopReason,
-    })),
-  })
 
   if (usableImplementations.length === 0) {
     yield {
@@ -721,7 +685,50 @@ function* handleStepsMultiPrompt({
       }
     }
 
-    // 5. Apply the chosen implementation once to the actual workspace. Candidate
+    // 5. Guard: refuse to apply proposals that failed verification. The ranker
+    // always produces a "winner" even when every candidate fails, so without
+    // this gate a broken proposal silently overwrites user code.
+    if (bestResult.verificationAttempted && !bestResult.verificationPassed) {
+      const diagnosticLines = [
+        `Best proposal (${getImplementationLabel(chosenImplementation)}) failed verification:`,
+        `  typecheckPassed: ${bestResult.typecheckPassed}`,
+        `  testsPassed: ${bestResult.testsPassed}`,
+        `  appliedCleanly: ${bestResult.appliedCleanly}`,
+        `  repairRoundsUsed: ${bestResult.repairRoundsUsed}`,
+      ]
+      if (bestResult.verificationErrors.length > 0) {
+        diagnosticLines.push('Verification errors:')
+        for (const err of bestResult.verificationErrors.slice(0, 10)) {
+          diagnosticLines.push(`  - ${err}`)
+        }
+      }
+      yield {
+        toolName: 'set_output',
+        input: {
+          error: diagnosticLines.join('\n'),
+          chosenStrategy: chosenImplementation.strategy,
+          ...buildSelectionOutputFields({
+            selectedImplementation: chosenImplementation,
+            appliedImplementation: chosenImplementation,
+            selectionSource,
+            selectorChoiceId,
+          }),
+          suggestedImprovements:
+            suggestedImprovements ||
+            'Proposal failed verification. Consider breaking the task into smaller changes or fixing the underlying issue before retrying.',
+          proposalSummary: buildProposalSummary({
+            selectedImplementation: chosenImplementation,
+            appliedImplementation: chosenImplementation,
+            applyFailures: bestResult.verificationErrors,
+            selectorNotes: suggestedImprovements,
+          }),
+        },
+        includeToolCall: false,
+      } satisfies ToolCall<'set_output'>
+      return
+    }
+
+    // 6. Apply the chosen implementation once to the actual workspace. Candidate
     // verification above runs in an isolated temp copy and must not reset user work.
     const finalAppliedResults =
       yield* applyImplementationEdits(chosenImplementation)
@@ -1664,13 +1671,21 @@ function* handleStepsMultiPrompt({
   }
 
   function isSuccessfulEditResult(result: any): boolean {
-    return Boolean(
-      result &&
-      typeof result === 'object' &&
-      typeof result.unifiedDiff === 'string' &&
-      result.unifiedDiff.trim().length > 0 &&
-      !getEditResultFailureMessage(result),
-    )
+    if (!result || typeof result !== 'object' || getEditResultFailureMessage(result)) {
+      return false
+    }
+
+    if (typeof result.unifiedDiff === 'string') {
+      return result.unifiedDiff.trim().length > 0
+    }
+    if (typeof result.patch === 'string') {
+      return result.patch.trim().length > 0
+    }
+    if (typeof result.content === 'string') {
+      return true
+    }
+
+    return false
   }
 
   function isFailedEditResult(result: any): boolean {
@@ -1762,14 +1777,26 @@ function* handleStepsMultiPrompt({
   }
 
   function isRecoverableMixedEditFailure(result: any): boolean {
-    return Boolean(
-      result &&
-      typeof result === 'object' &&
-      typeof result.unifiedDiff === 'string' &&
-      result.unifiedDiff.trim().length > 0 &&
-      typeof result.message === 'string' &&
-      getFailedReplacementOldStrings(result.message).length > 0,
-    )
+    if (
+      !result ||
+      typeof result !== 'object' ||
+      typeof result.message !== 'string' ||
+      getFailedReplacementOldStrings(result.message).length === 0
+    ) {
+      return false
+    }
+
+    if (typeof result.unifiedDiff === 'string') {
+      return result.unifiedDiff.trim().length > 0
+    }
+    if (typeof result.patch === 'string') {
+      return result.patch.trim().length > 0
+    }
+    if (typeof result.content === 'string') {
+      return true
+    }
+
+    return false
   }
 
   function sanitizeProposalToolCallsForRecoverableFailures(input: {
@@ -4365,6 +4392,12 @@ function* handleStepsMultiPrompt({
     if (typeof result.unifiedDiff === 'string') {
       return result.unifiedDiff.trim().length > 0
     }
+    if (typeof result.patch === 'string') {
+      return result.patch.trim().length > 0
+    }
+    if (typeof result.content === 'string') {
+      return true
+    }
     if (typeof result.message === 'string') {
       return !isFailureLikeEditResultMessage(result.message)
     }
@@ -4913,7 +4946,7 @@ function* handleStepsMultiPrompt({
   ): string {
     const quotedDir = shellSingleQuote(packageDir)
     if (packageManager === 'bun') {
-      return `bun --cwd ${quotedDir} run ${scriptName}`
+      return `cd ${quotedDir} && bun run ${scriptName}`
     }
     if (packageManager === 'pnpm') {
       return `pnpm --dir ${quotedDir} run ${scriptName}`

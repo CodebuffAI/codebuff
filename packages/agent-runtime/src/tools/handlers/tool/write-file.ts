@@ -243,7 +243,7 @@ export async function postStreamProcessing<T extends PostStreamProcessingTools>(
     )
   }
 
-  const { patch, content, path } = changes[0]
+  const { patch, content, path, messages } = changes[0]
   const clientToolCall: ClientToolCall<T> = {
     toolCallId: toolCall.toolCallId,
     toolName: toolCall.tool,
@@ -251,5 +251,27 @@ export async function postStreamProcessing<T extends PostStreamProcessingTools>(
       ? { type: 'patch' as const, path, content: patch }
       : { type: 'file' as const, path, content },
   } as ClientToolCall<T>
-  return await requestClientToolCall(clientToolCall)
+  const clientToolResult = await requestClientToolCall(clientToolCall)
+  if (clientToolResult.length > 0) {
+    return clientToolResult
+  }
+
+  const synthesizedMessage =
+    toolCall.tool === 'str_replace'
+      ? 'Applied str_replace patch; synthesized result because the client returned an empty response.'
+      : `Applied ${toolCall.tool} edit; synthesized result because the client returned an empty response.`
+
+  return [
+    {
+      type: 'json',
+      value: {
+        file: path,
+        ...(patch ? { unifiedDiff: patch, patch } : {}),
+        message: [
+          ...messages,
+          synthesizedMessage,
+        ].join('\n\n'),
+      },
+    },
+  ] as CodebuffToolOutput<T>
 }

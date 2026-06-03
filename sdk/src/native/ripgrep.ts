@@ -7,7 +7,7 @@ import { getSdkEnv } from '../env'
 import type { SdkEnv } from '../types/env'
 
 function findExecutableOnPath(binaryName: string, env: SdkEnv): string | null {
-  const pathEnv = env.PATH ?? process.env.PATH
+  const pathEnv = env.PATH
   if (!pathEnv) return null
 
   for (const dir of pathEnv.split(delimiter)) {

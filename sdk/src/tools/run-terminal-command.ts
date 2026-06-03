@@ -127,7 +127,7 @@ export function runTerminalCommand({
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
-  env?: NodeJS.ProcessEnv
+  env?: Record<string, string | undefined>
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')

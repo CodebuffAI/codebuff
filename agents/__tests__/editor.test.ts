@@ -3382,6 +3382,132 @@ describe('editor agent', () => {
       ])
     })
 
+    test('accepts synthesized write_file apply results after an empty client response', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['rewrite the helper'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_write_file',
+                        input: {
+                          path: 'scripts/check-tool-registration.ts',
+                          instructions: 'Rewrite the helper.',
+                          content: '#!/usr/bin/env bun\nconsole.log("ok")\n',
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      {
+                        file: 'scripts/check-tool-registration.ts',
+                        unifiedDiff: '@@ write diff',
+                      },
+                    ],
+                    unifiedDiffs:
+                      '--- scripts/check-tool-registration.ts ---\n@@ write diff',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector quota reached' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector quota reached again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'write_file',
+        input: {
+          path: 'scripts/check-tool-registration.ts',
+          content: '#!/usr/bin/env bun\nconsole.log("ok")\n',
+        },
+      })
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'scripts/check-tool-registration.ts',
+              unifiedDiff: '@@ write diff',
+              patch: '@@ write diff',
+              message:
+                'Applied write_file edit; synthesized result because the client returned an empty response.',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).error).toBeUndefined()
+      expect((outputCall.input as any).toolResults).toEqual([
+        {
+          file: 'scripts/check-tool-registration.ts',
+          unifiedDiff: '@@ write diff',
+          patch: '@@ write diff',
+          message:
+            'Applied write_file edit; synthesized result because the client returned an empty response.',
+        },
+      ])
+    })
+
     test('treats synthesized empty-client str_replace result without patch evidence as failure-like', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
@@ -3657,12 +3783,12 @@ describe('editor agent', () => {
         {
           kind: 'typecheck',
           label: 'Typecheck (agents)',
-          command: "bun --cwd 'agents' run typecheck",
+          command: "cd 'agents' && bun run typecheck",
         },
         {
           kind: 'test',
           label: 'Tests (agents)',
-          command: "bun --cwd 'agents' run test",
+          command: "cd 'agents' && bun run test",
         },
       ])
 

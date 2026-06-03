@@ -29,7 +29,11 @@ export const handleReadFiles = (async (
     fileContext,
     fileProcessingState,
   } = params
-  const { paths, ranges } = toolCall.input
+  const paths = toolCall.input.paths.map(normalizeReadFilesPath)
+  const ranges = toolCall.input.ranges?.map((range) => ({
+    ...range,
+    path: normalizeReadFilesPath(range.path),
+  }))
 
   await previousToolCallFinished
 
@@ -52,3 +56,7 @@ export const handleReadFiles = (async (
     ),
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
+
+function normalizeReadFilesPath(path: string): string {
+  return path.replace(/^(?:\.\/)+/, '')
+}
