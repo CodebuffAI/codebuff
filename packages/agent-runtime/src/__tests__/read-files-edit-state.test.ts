@@ -62,16 +62,21 @@ describe('read_files edit-state recovery', () => {
     } as any)
 
     expect(appliedPatches).toHaveLength(1)
-    expect(result.output).toEqual([
-      {
-        type: 'json',
-        value: {
-          file: path,
-          message:
-            'Applied str_replace patch, but the client returned no tool result.',
-        },
-      },
-    ])
+    expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      const value = result.output[0].value as {
+        file?: string
+        message?: string
+        patch?: string
+        unifiedDiff?: string
+      }
+      expect(value.file).toBe(path)
+      expect(value.message).toBe(
+        'Applied str_replace patch; synthesized result because the client returned an empty response.',
+      )
+      expect(value.patch).toBe(appliedPatches[0])
+      expect(value.unifiedDiff).toBe(appliedPatches[0])
+    }
   })
 
   it('chains edit_transaction from prior same-step str_replace in-memory content', async () => {

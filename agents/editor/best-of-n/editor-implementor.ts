@@ -59,7 +59,7 @@ After you have proposed any edit to a file, use read_proposal_workspace (NOT rea
 You draft edits only with propose_str_replace and propose_write_file.
 Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
 If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.
-For large-file propose_str_replace work, determinism matters: read the exact current target ranges yourself immediately before proposing edits, never reuse parent/old readCapability tokens in narration, and bundle all replacements for the same file into one propose_str_replace call so the parent can validate/apply them against one pre-edit file state.`
+For large-file propose_str_replace work, determinism matters: read the exact current target ranges yourself immediately before proposing edits, never reuse parent/old readCapability tokens in narration, and bundle all replacements for the same file into one propose_str_replace call so the parent can validate/apply them against one pre-edit file state. When a proposal failure or parent repair result includes a fresh echoed anchor for the edited region (shown as a concrete readCapability token), treat it as post-edit proof and reuse that exact echoed readCapability for the next nearby edit instead of re-reading the same region.`
       : `You are a strict implementation proposal generator.
 
 You do not have repository exploration tools in this phase because the parent only uses this mode after supplying exact current file context.
@@ -90,8 +90,10 @@ The proposal collector tracks progress and completion, so emit all known file ed
 Deterministic large-file proposal rules:
 - If you need to edit a large file, use read_files.ranges to read the exact current region yourself immediately before emitting the propose_str_replace. Do not rely on parent-provided snippets, old conversation reads, or copied basedOnRead tokens from another agent.
 - Do not include basedOnRead tokens in explanatory prose. If the proposal tool supports basedOnRead, copy only the fresh token from your own latest read into the replacement object; otherwise emit exact oldString/newString only and let the parent re-anchor during application.
-- Batch all replacements for the same file into one propose_str_replace call. Do not emit repeated one-change calls to the same large file; a successful earlier edit changes the file and makes later anchors/stale oldStrings fail.
-- After any proposal failure for a file, re-read the exact current range before proposing the repair. Never retry from memory.
+- Batch all replacements for the same file into one propose_str_replace call. Do not emit repeated one-change calls to the same large file using old pre-edit anchors.
+- Edit, get proof, edit again: after a successful large-file edit or repair, the result may include a fresh echoed anchor for the edited region (shown as a concrete readCapability token). For the next proposal near that changed region, copy that exact echoed readCapability as basedOnRead instead of re-reading; it was minted from the post-edit file contents.
+- Only re-read after a successful edit when there is no echoed anchor for the region you need, when you need a different region, or when a failure/stale-anchor error explicitly requires a fresh read. After any proposal failure for a file, re-read the exact current range before proposing the repair unless the failure result provides a fresh region anchor you can use directly.
+- If oldString appears multiple times, prefer occurrenceIndex (1-indexed) or a more specific oldString rather than re-reading solely to disambiguate; combine occurrenceIndex with a fresh basedOnRead when editing within an anchored large-file range.
 
 When using text/XML tool calling, every proposal must be a valid JSON object inside <codebuff_tool_call>...</codebuff_tool_call>. Do not wrap the JSON in markdown fences. Do not use trailing commas.
 
@@ -1271,8 +1273,8 @@ Write out your complete implementation now. Do not write any final summary.`,
           ? 'Immediately gather exact context with read_files/code_search/glob/list_directory if needed, then emit every required file edit as valid XML proposal tool calls.'
           : 'Do not try to gather more context. Use the supplied proposalContext/current file context and emit every required file edit as valid XML proposal tool calls.'
         const staleTextInstruction = canUseReadOnlyTools
-          ? 'If a propose_str_replace oldString failed, inspect the current file/range and use exact current text. For large files, re-read the exact range immediately before the repaired proposal and batch all replacements for that file into one propose_str_replace call. If the full target file content is available and exact replacement remains brittle, use propose_write_file with the complete updated file content.'
-          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. For large files, do not reuse old/parent readCapability tokens or stale snippets; if exact replacement remains brittle, use propose_write_file with complete updated file content from the supplied context.'
+          ? 'If a propose_str_replace oldString failed, inspect the current file/range and use exact current text. For large files, reuse any fresh echoed region anchor from the failure/repair result for the next nearby proposal; otherwise re-read the exact range immediately before the repaired proposal and batch all replacements for that file into one propose_str_replace call. If the full target file content is available and exact replacement remains brittle, use propose_write_file with the complete updated file content.'
+          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. For large files, do not reuse old/parent readCapability tokens or stale snippets; reuse a fresh echoed region anchor if one was supplied, otherwise prefer propose_write_file with complete updated file content from the supplied context when exact replacement remains brittle.'
 
         return `Your previous response did not produce a clean proposal diff.${
           failureDetails

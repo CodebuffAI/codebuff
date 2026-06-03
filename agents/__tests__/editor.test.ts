@@ -3267,7 +3267,7 @@ describe('editor agent', () => {
       expect((outputCall.input as any).chosenStrategy).toBe('minimal')
     })
 
-    test('treats client returned no tool result as apply failure, not success', () => {
+    test('accepts synthesized empty-client str_replace result when it includes patch evidence', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -3350,6 +3350,123 @@ describe('editor agent', () => {
 
       expect(applyCall).toMatchObject({ toolName: 'str_replace' })
 
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              file: 'src/a.ts',
+              unifiedDiff: '@@ diff A',
+              patch: '@@ diff A',
+              message:
+                'Applied str_replace patch; synthesized result because the client returned an empty response.',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall).toMatchObject({
+        toolName: 'set_output',
+      })
+      expect((outputCall.input as any).error).toBeUndefined()
+      expect((outputCall.input as any).toolResults).toEqual([
+        {
+          file: 'src/a.ts',
+          unifiedDiff: '@@ diff A',
+          patch: '@@ diff A',
+          message:
+            'Applied str_replace patch; synthesized result because the client returned an empty response.',
+        },
+      ])
+    })
+
+    test('treats synthesized empty-client str_replace result without patch evidence as failure-like', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'stale', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector quota reached' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector quota reached again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({ toolName: 'str_replace' })
+
       const repairRead = generator.next({
         agentState: mockAgentState,
         toolResult: [
@@ -3358,12 +3475,12 @@ describe('editor agent', () => {
             value: {
               file: 'src/a.ts',
               message:
-                'Applied str_replace patch, but the client returned no tool result.',
+                'The old string "stale" was not found. No change to the file',
             },
           },
         ],
         stepsComplete: false,
-      }).value as ToolCall<'read_files'> | ToolCall<'set_output'>
+      }).value as ToolCall<'read_files'>
 
       expect(repairRead).toMatchObject({
         toolName: 'read_files',

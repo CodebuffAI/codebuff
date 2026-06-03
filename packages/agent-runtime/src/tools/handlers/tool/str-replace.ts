@@ -126,17 +126,19 @@ export const handleStrReplace = (async (
   if (!firstResult) {
     logger.warn(
       { path, toolCallId: toolCall.toolCallId, strReplaceResult },
-      'str_replace client returned an empty tool result; synthesizing a safe response',
+      'str_replace client returned an empty tool result; synthesizing a successful patch response',
     )
+    const patch = 'patch' in strReplaceResult ? strReplaceResult.patch : ''
     return {
       output: [
         {
           type: 'json',
           value: {
             file: path,
+            ...(patch ? { unifiedDiff: patch, patch } : {}),
             message: [
               ...('messages' in strReplaceResult ? strReplaceResult.messages : []),
-              'Applied str_replace patch, but the client returned no tool result.',
+              'Applied str_replace patch; synthesized result because the client returned an empty response.',
             ].join('\n\n'),
           },
         },
