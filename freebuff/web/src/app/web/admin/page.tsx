@@ -273,13 +273,6 @@ export default function AdminDashboard() {
               <TrendingUp className="h-4 w-4" />
               Manage Referrals
             </a>
-            <a
-              href="/web/admin/email-blasts"
-              className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80"
-            >
-              <Zap className="h-4 w-4" />
-              Send Email Blasts
-            </a>
           </div>
           <div className="mt-4 flex justify-center">
             <TimeRangeSelector

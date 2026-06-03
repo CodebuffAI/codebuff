@@ -12,7 +12,7 @@ import {
 } from '@/vly/components/ui/dropdown-menu'
 import { Button } from '@/vly/components/ui/button'
 import { Badge } from '@/vly/components/ui/badge'
-import { LogOut, User, Settings } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useCreditsBalance } from '@/vly/hooks/useCreditCheck'
 
@@ -73,13 +73,6 @@ export function UserButton() {
         >
           <User className="mr-2 h-4 w-4" />
           <span>Dashboard</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => router.push('/web/dashboard/preferences')}
-          className="cursor-pointer"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

@@ -173,7 +173,7 @@ export default function GitHubCallbackPage() {
                 {!result?.success && (
                   <Button
                     variant="outline"
-                    onClick={() => router.push("/web/dashboard/preferences")}
+                    onClick={() => router.push("/web")}
                   >
                     Try Again
                   </Button>

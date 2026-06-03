@@ -8,7 +8,6 @@ import { useQuery } from 'convex/react'
 import {
   FolderKanban,
   Users,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -47,7 +46,6 @@ export interface AppShellNavItem {
 const NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', Icon: FolderKanban, exact: true },
   { label: 'Community', href: '/web/community', Icon: Users },
-  { label: 'Account', href: '/web/dashboard/preferences', Icon: Settings },
 ]
 
 function useIsActive() {
@@ -299,16 +297,7 @@ function UserBlock({ onNavigate }: { onNavigate?: () => void }) {
                 Profile
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-              onClick={() => {
-                onNavigate?.()
-                router.push('/web/dashboard/preferences')
-              }}
-            >
-              Account settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border/60" />
+            {currentUserId && <DropdownMenuSeparator className="bg-border/60" />}
             <DropdownMenuItem
               className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
               onClick={() => signOut({ callbackUrl: '/web' })}

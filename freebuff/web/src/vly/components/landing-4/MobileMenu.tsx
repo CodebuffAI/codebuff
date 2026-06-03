@@ -43,7 +43,7 @@ export default function MobileMenu({
 
   const handleOpenProfile = () => {
     onClose()
-    window.location.href = '/web/dashboard/preferences'
+    window.location.href = '/web'
   }
 
   if (!isOpen) return null

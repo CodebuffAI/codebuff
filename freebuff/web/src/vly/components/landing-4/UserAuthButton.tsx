@@ -102,10 +102,10 @@ export default function UserAuthButton({ mounted }: UserAuthButtonProps) {
               <DropdownMenuItem
                 className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
                 onClick={() => {
-                  window.location.href = '/web/dashboard/preferences'
+                  window.location.href = '/web'
                 }}
               >
-                Manage account
+                Dashboard
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

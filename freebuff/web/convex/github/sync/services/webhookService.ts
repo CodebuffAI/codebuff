@@ -245,12 +245,12 @@ export const handlePushWebhook = internalAction({
       return null;
     }
 
-    // // Check if push was made by vly.ai to prevent sync loop
+    // // Check if push was made by the Freebuff agent to prevent sync loop
     // if (payload.commits && Array.isArray(payload.commits)) {
     //   const allCommitsFromVly = payload.commits.every(
     //     (commit: any) =>
-    //       commit.author?.email === "agent@vly.ai" ||
-    //       commit.committer?.email === "agent@vly.ai",
+    //       commit.author?.email === "agent@mail.freebuff.app" ||
+    //       commit.committer?.email === "agent@mail.freebuff.app",
     //   );
 
     //   if (allCommitsFromVly && payload.commits.length > 0) {

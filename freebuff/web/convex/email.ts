@@ -3,7 +3,6 @@
 import { Resend } from 'resend'
 import {
   BountySubmissionResultEmail,
-  SendToComputerEmail,
   TicketReplyEmail,
 } from '../src/vly/components/emails/send-to-computer'
 import { action, internalAction } from './_generated/server'
@@ -13,10 +12,10 @@ import { v } from 'convex/values'
 import { renderToStaticMarkup } from 'react-dom/server'
 import React from 'react'
 
-const DEFAULT_APP_URL = 'https://vly.ai'
+const DEFAULT_APP_URL = 'https://freebuff.app'
 const DISCORD_INVITE_URL = 'https://discord.gg/yXG3w7wxfs'
-const WELCOME_FROM_EMAIL = 'Victor Cheng <victor@vly.ai>'
-const WELCOME_REPLY_TO_EMAIL = 'victor@vly.ai'
+const FREEBUFF_FROM_EMAIL = 'James from Freebuff <james@mail.freebuff.app>'
+const FREEBUFF_REPLY_TO_EMAIL = 'support@codebuff.com'
 
 function getAppBaseUrl(): string {
   const rawUrl =
@@ -35,28 +34,6 @@ function firstNameFromDisplayName(name?: string | null): string {
   }
   return trimmed.split(/\s+/)[0] ?? 'there'
 }
-
-export const sendMobileEmail = action({
-  args: {},
-  handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx)
-
-    if (!user) {
-      throw new Error('User not found')
-    }
-
-    const resend = new Resend(process.env.RESEND_API_KEY)
-
-    const { data, error } = await resend.emails.send({
-      from: 'vly.ai <no-reply@vly.ai>',
-      to: [user.email],
-      subject: 'Access your vly.ai account',
-      react: await SendToComputerEmail({ firstName: user.name }),
-    })
-
-    return true
-  },
-})
 
 export const sendTicketReplyEmail = action({
   args: {
@@ -87,7 +64,8 @@ export const sendTicketReplyEmail = action({
     )
 
     const { data, error } = await resend.emails.send({
-      from: 'vly.ai <no-reply@vly.ai>',
+      from: FREEBUFF_FROM_EMAIL,
+      replyTo: FREEBUFF_REPLY_TO_EMAIL,
       to: [args.recipientEmail],
       subject: emailSubject,
       html: emailHtml,
@@ -139,7 +117,8 @@ export const sendBountySubmissionResultEmail = internalAction({
     )
 
     const { error } = await resend.emails.send({
-      from: 'vly.ai <no-reply@vly.ai>',
+      from: FREEBUFF_FROM_EMAIL,
+      replyTo: FREEBUFF_REPLY_TO_EMAIL,
       to: [args.recipientEmail],
       subject,
       html: emailHtml,
@@ -183,42 +162,40 @@ export const sendWelcomeEmailInternal = internalAction({
     const earnPageUrl = getEarnPageUrl()
     const firstName = firstNameFromDisplayName(user.name)
 
-    const subject = '⚫ welcome to vly.ai'
+    const subject = 'Welcome to Freebuff'
     const text = [
       `Hi ${firstName},`,
       '',
-      `Welcome to vly.ai! My name is Victor, founder of vly.`,
+      `Welcome to Freebuff. My name is James, and I’ll be your point of contact here.`,
       '',
-      `I wanted to personally let you know that you can email me any time at ${WELCOME_REPLY_TO_EMAIL}.`,
+      `You can email me any time at ${FREEBUFF_REPLY_TO_EMAIL}.`,
       '',
       `You can also get live support from our team in our Discord: ${DISCORD_INVITE_URL}`,
       '',
-      `When you choose vly, you're choosing a superior platform with a backend that's built for AI, 1000+ integrations, and unlimited credits via our rewards: ${earnPageUrl}`,
+      `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more here: ${earnPageUrl}`,
       '',
-      'You can count on us to be partners with you for life.',
+      'If you get stuck, want help, or have feedback, just reply to this email.',
       '',
       'Excited to see what you build with us,',
-      'Victor',
-      'ceo',
+      'James',
     ].join('\n')
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
         <p>Hi ${firstName},</p>
-        <p>Welcome to vly.ai! My name is Victor, founder of vly.</p>
-        <p>I wanted to personally let you know that you can email me any time at <a href="mailto:${WELCOME_REPLY_TO_EMAIL}">${WELCOME_REPLY_TO_EMAIL}</a>.</p>
+        <p>Welcome to Freebuff. My name is James, and I’ll be your point of contact here.</p>
+        <p>You can email me any time at <a href="mailto:${FREEBUFF_REPLY_TO_EMAIL}">${FREEBUFF_REPLY_TO_EMAIL}</a>.</p>
         <p>You can also get live support from our team in our <a href="${DISCORD_INVITE_URL}">Discord</a>.</p>
-        <p>When you choose vly, you're choosing a superior platform with a backend that's built for AI, 1000+ integrations, and unlimited credits via our <a href="${earnPageUrl}">rewards</a>.</p>
-        <p>You can count on us to be partners with you for life.</p>
+        <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more <a href="${earnPageUrl}">here</a>.</p>
+        <p>If you get stuck, want help, or have feedback, just reply to this email.</p>
         <p>Excited to see what you build with us,</p>
-        <p>Victor</p>
-        <p>ceo</p>
+        <p>James</p>
       </div>
     `
 
     const { error } = await resend.emails.send({
-      from: WELCOME_FROM_EMAIL,
-      replyTo: WELCOME_REPLY_TO_EMAIL,
+      from: FREEBUFF_FROM_EMAIL,
+      replyTo: FREEBUFF_REPLY_TO_EMAIL,
       to: [user.email],
       subject,
       text,
@@ -258,30 +235,29 @@ export const sendCancellationEmail = action({
     const text = [
       `Hi ${firstName},`,
       '',
-      "Sorry to see you go. I'd love to know what we could have done better — just reply to this email. I personally read and respond to every message.",
+      "Sorry to see you go. I'd love to know what we could have done better. Just reply to this email.",
       '',
       `As a heads up, we're keeping your early-bird 50% discount available for a limited time. You can reactivate at half price here: ${reactivateUrl}`,
       '',
-      'Thanks for giving vly a try,',
-      'Victor Cheng',
-      'Founder, vly.ai',
+      'Thanks for giving Freebuff a try,',
+      'James from Freebuff',
     ].join('\n')
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
         <p>Hi ${firstName},</p>
-        <p>Sorry to see you go. I'd love to know what we could have done better — just reply to this email. I personally read and respond to every message.</p>
+        <p>Sorry to see you go. I'd love to know what we could have done better. Just reply to this email.</p>
         <p>As a heads up, we're keeping your early-bird 50% discount available for a limited time. You can reactivate at half price <a href="${reactivateUrl}">here</a>.</p>
-        <p>Thanks for giving vly a try,</p>
-        <p>Victor Cheng<br/>Founder, vly.ai</p>
+        <p>Thanks for giving Freebuff a try,</p>
+        <p>James from Freebuff</p>
       </div>
     `
 
     const { error } = await resend.emails.send({
-      from: WELCOME_FROM_EMAIL,
-      replyTo: WELCOME_REPLY_TO_EMAIL,
+      from: FREEBUFF_FROM_EMAIL,
+      replyTo: FREEBUFF_REPLY_TO_EMAIL,
       to: [user.email],
-      subject: "⚫ we're sorry to see you go",
+      subject: "We're sorry to see you go",
       text,
       html,
     })

@@ -12,6 +12,9 @@ import {
 import { getAuthUser } from "./users";
 import { getVerifiedAccessProject } from "./project";
 
+const FREEBUFF_FROM_EMAIL = "James from Freebuff <james@mail.freebuff.app>";
+const FREEBUFF_REPLY_TO_EMAIL = "support@codebuff.com";
+
 function generateInviteToken(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
@@ -27,7 +30,8 @@ async function sendEmail(to: string, subject: string, body: string) {
   console.log(body);
 
   const { data, error } = await resend.emails.send({
-    from: "vly.ai <no-reply@vly.ai>",
+    from: FREEBUFF_FROM_EMAIL,
+    replyTo: FREEBUFF_REPLY_TO_EMAIL,
     to: [to],
     subject: subject,
     html: body,

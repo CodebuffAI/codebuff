@@ -1347,8 +1347,8 @@ if (!hasIntegration) {
         await this.sandbox.git.commit(
           repoPath,
           message,
-          "vly.ai",
-          "agent@vly.ai",
+          "Freebuff Agent",
+          "agent@mail.freebuff.app",
           allowEmpty,
         );
         const commits = await this.getCommits();

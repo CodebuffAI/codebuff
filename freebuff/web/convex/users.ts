@@ -155,9 +155,6 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
       email?: string
       profile_image?: string
       freebuff_user_id?: string
-      resend_contact_last_synced_email?: string
-      resend_contact_synced_at?: number
-      resend_contact_sync_error?: string
     } = {}
 
     if (user.freebuff_user_id !== freebuffUserId) {
@@ -187,20 +184,11 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
       }
 
       patchData.email = normalizedEmail
-      patchData.resend_contact_last_synced_email = undefined
-      patchData.resend_contact_synced_at = undefined
-      patchData.resend_contact_sync_error = undefined
     }
 
     if (Object.keys(patchData).length > 0) {
       await ctx.db.patch(user._id, patchData)
     }
-
-    await ctx.scheduler.runAfter(
-      0,
-      internal.email_blasts_node.syncUserContactInternal,
-      { userId: user._id },
-    )
 
     return user._id
   }
@@ -261,12 +249,6 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
       referralCode: validReferralCode,
     })
   }
-
-  await ctx.scheduler.runAfter(
-    0,
-    internal.email_blasts_node.syncUserContactInternal,
-    { userId: newUserId },
-  )
 
   //return await ctx.db.get(newUserId);
   return newUserId
@@ -347,82 +329,6 @@ export const getUserByEmail = internalQuery({
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', normalizeEmail(args.email)))
       .unique()
-  },
-})
-
-export const listUsersForPromotionalEmailSync = internalQuery({
-  args: {
-    cursor: v.optional(v.string()),
-    numItems: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('users')
-      .withIndex('by_resend_contact_last_synced_email', (q) =>
-        q.eq('resend_contact_last_synced_email', undefined),
-      )
-      .paginate({
-        cursor: args.cursor ?? null,
-        numItems: args.numItems,
-      })
-
-    return {
-      users: page.page.map((user) => ({
-        userId: user._id,
-        email: user.email,
-        name: user.name,
-      })),
-      continueCursor: page.continueCursor,
-      isDone: page.isDone,
-    }
-  },
-})
-
-export const markResendContactSyncSuccessInternal = internalMutation({
-  args: {
-    userId: v.id('users'),
-    syncedEmail: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId)
-    if (!user) {
-      return { success: false }
-    }
-
-    const normalizedSyncedEmail = normalizeEmail(args.syncedEmail)
-    if (normalizeEmail(user.email) !== normalizedSyncedEmail) {
-      // User email changed while sync was in flight, keep as unsynced for retry.
-      return { success: false }
-    }
-
-    await ctx.db.patch(args.userId, {
-      resend_contact_last_synced_email: normalizedSyncedEmail,
-      resend_contact_synced_at: Date.now(),
-      resend_contact_sync_error: undefined,
-    })
-
-    return { success: true }
-  },
-})
-
-export const markResendContactSyncFailedInternal = internalMutation({
-  args: {
-    userId: v.id('users'),
-    error: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId)
-    if (!user) {
-      return { success: false }
-    }
-
-    await ctx.db.patch(args.userId, {
-      // Keep unsynced so sync jobs retry later.
-      resend_contact_last_synced_email: undefined,
-      resend_contact_sync_error: args.error.slice(0, 1000),
-    })
-
-    return { success: true }
   },
 })
 

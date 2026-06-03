@@ -1,30 +1,5 @@
 import React from "react";
 
-interface SendToComputerEmailProps {
-  firstName: string;
-}
-
-export const SendToComputerEmail: React.FC<
-  Readonly<SendToComputerEmailProps>
-> = ({ firstName }) => (
-  <div>
-    <p>Hello {firstName},</p>
-    <p>
-      Here is the email you requested containing our URL. Mobile support is
-      coming soon!
-    </p>
-
-    <p>
-      In the meantime, you can sign in to your account with the same email on a
-      computer here:
-    </p>
-
-    <a href="https://freebuff.com/login">Access Your Account</a>
-
-    <p>If you didn't request this email, you can safely ignore it.</p>
-  </div>
-);
-
 interface TicketReplyEmailProps {
   recipientName: string;
   ticketTitle: string;

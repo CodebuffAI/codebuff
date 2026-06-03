@@ -166,6 +166,6 @@ export const getProjectSemanticsIdentifier = internalQuery({
 });
 
 function getTicketUrl(projectSemanticsIdentifier: string): string {
-  const baseUrl = process.env.APP_URL || "https://vly.ai";
+  const baseUrl = process.env.APP_URL || "https://freebuff.app";
   return `${baseUrl}/project/${projectSemanticsIdentifier}`;
 }

@@ -18,7 +18,7 @@ export const autumn = new Autumn(components.autumn, {
         customerId: 'system',
         customerData: {
           name: 'System User',
-          email: 'system@vly.ai',
+          email: 'system@mail.freebuff.app',
         },
       }
     }

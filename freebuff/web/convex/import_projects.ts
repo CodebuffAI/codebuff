@@ -17,7 +17,8 @@ import { rateLimiter } from "./coding_agent/rateLimiter";
 
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_MAX_ATTEMPTS = 5;
-const OTP_FROM_EMAIL = "vly.ai <no-reply@vly.ai>";
+const FREEBUFF_FROM_EMAIL = "James from Freebuff <james@mail.freebuff.app>";
+const FREEBUFF_REPLY_TO_EMAIL = "support@codebuff.com";
 
 // =====================================================================
 // Helpers
@@ -228,7 +229,8 @@ export const requestImportOtp = action({
     const resend = new Resend(apiKey);
     const ttlMinutes = Math.round(OTP_TTL_MS / 60000);
     const { error } = await resend.emails.send({
-      from: OTP_FROM_EMAIL,
+      from: FREEBUFF_FROM_EMAIL,
+      replyTo: FREEBUFF_REPLY_TO_EMAIL,
       to: [normalized],
       subject: "Your Freebuff project-import code",
       text: buildOtpEmailText(code, ttlMinutes),

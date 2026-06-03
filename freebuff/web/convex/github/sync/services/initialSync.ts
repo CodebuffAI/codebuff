@@ -258,7 +258,7 @@ export const executeInitialSyncService = internalAction({
       // Step 4: Configure git user
       operations.push("Configuring git user");
       try {
-        await codebase.configureUser("vly.ai Agent", "agent@vly.ai");
+        await codebase.configureUser("Freebuff Agent", "agent@mail.freebuff.app");
         operations.push("Git user configured successfully");
       } catch (error) {
         const errorMsg = `Git user configuration failed: ${error instanceof Error ? error.message : String(error)}`;

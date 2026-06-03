@@ -8,7 +8,6 @@ import { cn } from "@/vly/lib/utils";
 import { Badge } from "@/vly/components/ui/badge";
 import {
   BarChart3,
-  Mail,
   Shield,
   TrendingUp,
   type LucideIcon,
@@ -36,11 +35,6 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     href: "/web/admin/referrals",
     label: "Referrals",
     icon: TrendingUp,
-  },
-  {
-    href: "/web/admin/email-blasts",
-    label: "Email Blasts",
-    icon: Mail,
   },
   {
     href: "/web/admin/resource-usage",

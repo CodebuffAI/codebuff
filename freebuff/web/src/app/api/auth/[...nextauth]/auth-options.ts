@@ -3,7 +3,6 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { SESSION_MAX_AGE_SECONDS } from '@codebuff/common/old-constants'
-import { loops } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
@@ -14,6 +13,7 @@ import GitHubProvider from 'next-auth/providers/github'
 
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
+import { Resend } from 'resend'
 
 import {
   getCliAuthCodeHashPrefix,
@@ -26,6 +26,100 @@ import { logger } from '@/util/logger'
 const useJwtOnlyAuth =
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
   process.env.FREEBUFF_DEV_AUTH_WITHOUT_DB === 'true'
+
+const FREEBUFF_FROM_EMAIL = 'James from Freebuff <james@mail.freebuff.app>'
+const FREEBUFF_REPLY_TO_EMAIL = 'support@codebuff.com'
+const DISCORD_INVITE_URL = 'https://discord.gg/yXG3w7wxfs'
+
+function getFreebuffAppUrl(): string {
+  const rawUrl =
+    process.env.NEXT_PUBLIC_FREEBUFF_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    'https://freebuff.app'
+  return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl
+}
+
+function firstNameFromDisplayName(name?: string | null): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) {
+    return 'there'
+  }
+  return trimmed.split(/\s+/)[0] ?? 'there'
+}
+
+async function sendFreebuffWelcomeEmail(params: {
+  userId: string
+  email: string | null
+  name: string | null
+}) {
+  if (!params.email) {
+    logger.warn(
+      { userId: params.userId },
+      'User email missing, cannot send welcome email.',
+    )
+    return
+  }
+
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    logger.warn(
+      { userId: params.userId },
+      'RESEND_API_KEY is not configured; skipping welcome email.',
+    )
+    return
+  }
+
+  const firstName = firstNameFromDisplayName(params.name)
+  const earnPageUrl = `${getFreebuffAppUrl()}/earn`
+  const subject = 'Welcome to Freebuff'
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    `Welcome to Freebuff. My name is James, and I’ll be your point of contact here.`,
+    '',
+    `You can email me any time at ${FREEBUFF_REPLY_TO_EMAIL}.`,
+    '',
+    `You can also get live support from our team in our Discord: ${DISCORD_INVITE_URL}`,
+    '',
+    `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more here: ${earnPageUrl}`,
+    '',
+    'If you get stuck, want help, or have feedback, just reply to this email.',
+    '',
+    'Excited to see what you build with us,',
+    'James',
+  ].join('\n')
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+      <p>Hi ${firstName},</p>
+      <p>Welcome to Freebuff. My name is James, and I’ll be your point of contact here.</p>
+      <p>You can email me any time at <a href="mailto:${FREEBUFF_REPLY_TO_EMAIL}">${FREEBUFF_REPLY_TO_EMAIL}</a>.</p>
+      <p>You can also get live support from our team in our <a href="${DISCORD_INVITE_URL}">Discord</a>.</p>
+      <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more <a href="${earnPageUrl}">here</a>.</p>
+      <p>If you get stuck, want help, or have feedback, just reply to this email.</p>
+      <p>Excited to see what you build with us,</p>
+      <p>James</p>
+    </div>
+  `
+
+  const resend = new Resend(apiKey)
+  const { error } = await resend.emails.send({
+    from: FREEBUFF_FROM_EMAIL,
+    replyTo: FREEBUFF_REPLY_TO_EMAIL,
+    to: [params.email],
+    subject,
+    text,
+    html,
+  })
+
+  if (error) {
+    logger.error(
+      { error, userId: params.userId, email: params.email },
+      'Failed to send Freebuff welcome email.',
+    )
+  }
+}
 
 async function getPrimaryGitHubEmail(accessToken?: string) {
   if (!accessToken) return null
@@ -252,11 +346,10 @@ export const authOptions: NextAuthOptions = {
 
           // Freebuff is free - new accounts do not receive any credit grant.
 
-          await loops.sendSignupEventToLoops({
-            ...userData,
+          await sendFreebuffWelcomeEmail({
             userId: userData.id,
-            logger,
-            signupSource: 'freebuff',
+            email: userData.email,
+            name: userData.name,
           })
 
           trackEvent({

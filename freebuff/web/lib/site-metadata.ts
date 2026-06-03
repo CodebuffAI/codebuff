@@ -82,7 +82,7 @@ export const brandStructuredData = {
       name: SITE_NAME,
       alternateName: SITE_DISPLAY_NAME,
       url: SITE_URL,
-      email: "team@vly.ai",
+      email: "james@mail.freebuff.app",
       logo: {
         "@type": "ImageObject",
         url: BRAND_LOGO_URL,

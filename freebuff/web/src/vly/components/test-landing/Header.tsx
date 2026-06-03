@@ -285,25 +285,9 @@ export const Header: React.FC<HeaderProps> = ({
                         ) : null}
                         <DropdownMenuItem
                           className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
-                          onClick={() =>
-                            router.push('/web/dashboard/preferences')
-                          }
-                        >
-                          Manage account
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
                           onClick={() => router.push('/web/dashboard')}
                         >
                           Dashboard
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="cursor-pointer px-4 py-2 text-sm text-foreground/85 focus:bg-accent/15 focus:text-foreground"
-                          onClick={() =>
-                            router.push('/web/dashboard/preferences')
-                          }
-                        >
-                          Email preferences
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -487,30 +471,12 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      router.push('/web/dashboard/preferences')
-                      setIsMobileMenuOpen(false)
-                    }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
-                  >
-                    Profile Settings
-                  </button>
-                  <button
-                    onClick={() => {
                       router.push('/web/dashboard')
                       setIsMobileMenuOpen(false)
                     }}
                     className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
                     Dashboard
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/web/dashboard/preferences')
-                      setIsMobileMenuOpen(false)
-                    }}
-                    className="w-full rounded-lg px-4 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-foreground/10 hover:text-foreground"
-                  >
-                    Email Preferences
                   </button>
                   <button
                     onClick={() => {
