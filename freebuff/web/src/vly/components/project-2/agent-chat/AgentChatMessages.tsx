@@ -305,8 +305,26 @@ function buildGravityMessagesForAgentAd(
 
 function fireAdImpressionOnce(ad: GravityAd) {
   if (typeof window === "undefined" || !ad.impUrl) return;
-  const pixel = new window.Image();
-  pixel.src = ad.impUrl;
+  void fetch("/api/ads/impression", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ impUrl: ad.impUrl }),
+    keepalive: true,
+  }).catch((error) => {
+    console.warn("[AgentChatMessages] Failed to record ad impression", error);
+  });
+}
+
+function recordAdClick(ad: { impUrl: string }) {
+  if (typeof window === "undefined" || !ad.impUrl) return;
+  void fetch("/api/ads/click", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ impUrl: ad.impUrl }),
+    keepalive: true,
+  }).catch((error) => {
+    console.warn("[AgentChatMessages] Failed to record ad click", error);
+  });
 }
 
 // Lightweight markdown renderer - optimized for performance
@@ -1052,6 +1070,7 @@ const AgentAdMessage: React.FC<{
           href={ad.clickUrl}
           target="_blank"
           rel="noopener noreferrer sponsored"
+          onClick={() => recordAdClick(ad)}
           className="inline-flex max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/70 px-3 py-2 text-left text-foreground transition-colors hover:bg-muted"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/50 bg-muted text-xs font-semibold text-muted-foreground">
@@ -1402,7 +1421,7 @@ export const AgentChatMessages = forwardRef<
         await persistAgentAdMessage({
           sourceMessageId,
           ad: {
-            provider: "gravity",
+            provider: ad.provider ?? "gravity",
             adText: ad.adText,
             title: ad.title,
             cta: ad.cta,
