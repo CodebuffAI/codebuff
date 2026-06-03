@@ -17,7 +17,7 @@ function DatabaseView({ project }: DatabaseViewProps) {
   const [deploymentType, setDeploymentType] = useState<"dev" | "prod">("dev");
 
   return (
-    <div className="flex min-h-[80vh] w-full flex-col">
+    <div className="flex h-full min-h-[640px] w-full flex-col">
       <FeatureGate
         featureId="database_preview"
         fallback={

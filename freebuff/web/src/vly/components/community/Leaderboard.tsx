@@ -9,10 +9,9 @@ import {
   Medal,
   Heart,
   Users,
-  Rocket,
+  Folder,
   ArrowLeft,
   TrendingUp,
-  Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
 import { Badge } from "@/vly/components/ui/badge";
@@ -38,13 +37,13 @@ const getRankIcon = (rank: number) => {
 const getRankStyle = (rank: number) => {
   switch (rank) {
     case 1:
-      return "border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50";
+      return "border-amber-400/35 bg-amber-500/10";
     case 2:
-      return "border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50";
+      return "border-border/70 bg-muted/25";
     case 3:
-      return "border-amber-200 bg-gradient-to-r from-amber-50/50 to-orange-50/50";
+      return "border-amber-600/35 bg-amber-700/10";
     default:
-      return "border-gray-100 bg-white";
+      return "border-border/50 bg-muted/15";
   }
 };
 
@@ -53,32 +52,27 @@ export default function Leaderboard() {
   const topCreators = useQuery(api.community.getTopCreators, { limit: 10 });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
+    <div className="min-h-full pb-20">
       {/* Header */}
-      <div className="relative overflow-hidden border-b border-gray-100">
-        <div className="absolute inset-0">
-          <div className="absolute left-1/4 top-0 h-[400px] w-[400px] rounded-full bg-amber-100/50 blur-[100px]" />
-          <div className="absolute right-1/4 top-0 h-[300px] w-[300px] rounded-full bg-violet-100/50 blur-[80px]" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="border-b border-border/50 bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
             href="/web/community"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Community
           </Link>
 
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-100">
-              <Trophy className="h-8 w-8 text-white" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border/60 bg-muted/25">
+              <Trophy className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                 Leaderboard
               </h1>
-              <p className="mt-1 text-gray-500">
+              <p className="mt-1 text-muted-foreground">
                 Top projects and creators in the Freebuff community
               </p>
             </div>
@@ -89,17 +83,17 @@ export default function Leaderboard() {
       {/* Content */}
       <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
         <Tabs defaultValue="projects" className="w-full">
-          <TabsList className="mb-8 inline-flex h-12 rounded-xl border border-gray-200 bg-gray-50 p-1">
+          <TabsList className="mb-8 inline-flex h-12 rounded-lg border border-border/60 bg-muted/20 p-1">
             <TabsTrigger
               value="projects"
-              className="gap-2 rounded-lg px-6 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-violet-600 data-[state=active]:shadow-sm"
+              className="gap-2 rounded-md px-6 text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-primary"
             >
               <TrendingUp className="h-4 w-4" />
               Top Projects
             </TabsTrigger>
             <TabsTrigger
               value="creators"
-              className="gap-2 rounded-lg px-6 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-violet-600 data-[state=active]:shadow-sm"
+              className="gap-2 rounded-md px-6 text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-primary"
             >
               <Users className="h-4 w-4" />
               Top Creators
@@ -111,19 +105,16 @@ export default function Leaderboard() {
             {topProjects === undefined ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 {[...Array(6)].map((_, i) => (
-                  <Skeleton key={i} className="h-80 rounded-2xl bg-gray-100" />
+                  <Skeleton key={i} className="h-80 rounded-lg bg-muted/35" />
                 ))}
               </div>
             ) : topProjects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-20 text-center shadow-sm">
-                <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-50">
-                  <Rocket className="h-10 w-10 text-violet-500" />
-                </div>
-                <h3 className="mb-2 text-xl font-medium text-gray-900">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-border/50 bg-muted/15 py-20 text-center">
+                <h3 className="mb-2 text-xl font-medium text-foreground">
                   No projects yet
                 </h3>
-                <p className="text-gray-500">
-                  Be the first to publish a project!
+                <p className="text-muted-foreground">
+                  Publish a deployed project to make it visible here.
                 </p>
               </div>
             ) : (
@@ -152,17 +143,17 @@ export default function Leaderboard() {
                         key={post._id}
                         href={`/web/community/project/${post._id}`}
                         className={cn(
-                          "group flex items-center gap-4 rounded-xl border p-4 shadow-sm transition-all hover:border-violet-200 hover:shadow-md",
+                          "group flex items-center gap-4 rounded-lg border p-4 transition-colors hover:border-primary/35 hover:bg-muted/30",
                           getRankStyle(post.rank),
                         )}
                       >
                         {/* Rank */}
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 font-mono text-lg font-bold text-gray-500">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border/50 bg-background/55 font-mono text-lg font-bold text-muted-foreground">
                           {post.rank}
                         </div>
 
                         {/* Thumbnail */}
-                        <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                        <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted/45">
                           {post.screenshotUrl ? (
                             <img
                               src={post.screenshotUrl}
@@ -170,18 +161,18 @@ export default function Leaderboard() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 to-fuchsia-50 text-xl">
-                              🚀
+                            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                              No preview
                             </div>
                           )}
                         </div>
 
                         {/* Info */}
                         <div className="min-w-0 flex-1">
-                          <h4 className="truncate font-medium text-gray-900 group-hover:text-violet-600">
+                          <h4 className="truncate font-medium text-foreground group-hover:text-primary">
                             {post.title}
                           </h4>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <span>by {post.userName}</span>
                             {(post as any).communityBadgeTier &&
                             (post as any).communityBadgeTier > 0 ? (
@@ -194,7 +185,7 @@ export default function Leaderboard() {
                             ) : post.isPaidUser ? (
                               <Badge
                                 variant="outline"
-                                className="h-4 border-violet-200 bg-violet-50 px-1 py-0 text-[10px] text-violet-600"
+                                className="h-4 border-border/60 bg-background/55 px-1 py-0 text-[10px] text-primary"
                               >
                                 PRO
                               </Badge>
@@ -203,7 +194,7 @@ export default function Leaderboard() {
                         </div>
 
                         {/* Stats */}
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Heart className="h-4 w-4" />
                             <span>{post.likesCount}</span>
@@ -222,19 +213,16 @@ export default function Leaderboard() {
             {topCreators === undefined ? (
               <div className="space-y-4">
                 {[...Array(10)].map((_, i) => (
-                  <Skeleton key={i} className="h-20 rounded-xl bg-gray-100" />
+                  <Skeleton key={i} className="h-20 rounded-lg bg-muted/35" />
                 ))}
               </div>
             ) : topCreators.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-20 text-center shadow-sm">
-                <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-50">
-                  <Users className="h-10 w-10 text-violet-500" />
-                </div>
-                <h3 className="mb-2 text-xl font-medium text-gray-900">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-border/50 bg-muted/15 py-20 text-center">
+                <h3 className="mb-2 text-xl font-medium text-foreground">
                   No creators yet
                 </h3>
-                <p className="text-gray-500">
-                  Be the first to join the community!
+                <p className="text-muted-foreground">
+                  Creators appear here after publishing community projects.
                 </p>
               </div>
             ) : (
@@ -244,7 +232,7 @@ export default function Leaderboard() {
                     key={creator._id}
                     href={`/web/community/profile/${creator._id}`}
                     className={cn(
-                      "group flex items-center gap-4 rounded-xl border p-4 shadow-sm transition-all hover:border-violet-200 hover:shadow-md",
+                      "group flex items-center gap-4 rounded-lg border p-4 transition-colors hover:border-primary/35 hover:bg-muted/30",
                       getRankStyle(creator.rank),
                     )}
                   >
@@ -252,6 +240,7 @@ export default function Leaderboard() {
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center">
                       {getRankIcon(creator.rank) || (
                         <span className="font-mono text-xl font-bold text-gray-400">
+                          #
                           {creator.rank}
                         </span>
                       )}
@@ -268,21 +257,16 @@ export default function Leaderboard() {
                         )}
                       >
                         <AvatarImage src={creator.profileImage} />
-                        <AvatarFallback className="bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-bold text-white">
+                        <AvatarFallback className="bg-background text-lg font-bold text-primary">
                           {creator.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      {creator.isPaidUser && (
-                        <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 ring-2 ring-white">
-                          <Sparkles className="h-3 w-3 text-white" />
-                        </div>
-                      )}
                     </div>
 
                     {/* Info */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="truncate font-medium text-gray-900 group-hover:text-violet-600">
+                        <h4 className="truncate font-medium text-foreground group-hover:text-primary">
                           {creator.name}
                         </h4>
                         {(creator as any).communityBadgeTier &&
@@ -294,14 +278,14 @@ export default function Leaderboard() {
                             size="sm"
                           />
                         ) : creator.isPaidUser ? (
-                          <Badge className="border-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1.5 py-0 text-[10px] text-white">
+                          <Badge className="border border-border/60 bg-background/55 px-1.5 py-0 text-[10px] text-primary">
                             PRO
                           </Badge>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Rocket className="h-3.5 w-3.5" />
+                          <Folder className="h-3.5 w-3.5" />
                           {creator.postsCount} projects
                         </span>
                         <span className="flex items-center gap-1">
@@ -313,11 +297,11 @@ export default function Leaderboard() {
 
                     {/* Total likes */}
                     <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                      <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                         <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
                         {creator.totalLikesReceived}
                       </div>
-                      <span className="text-xs text-gray-500">total likes</span>
+                      <span className="text-xs text-muted-foreground">total likes</span>
                     </div>
                   </Link>
                 ))}

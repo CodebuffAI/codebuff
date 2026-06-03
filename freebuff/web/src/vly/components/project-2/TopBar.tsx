@@ -7,11 +7,6 @@ import {
   Eye,
   Share2,
   Settings,
-  Activity,
-  LifeBuoy,
-  Phone,
-  Users as UsersIcon,
-  CreditCard,
   Home,
   FolderKanban,
   Globe,
@@ -24,7 +19,6 @@ import { FunctionReturnType } from 'convex/server'
 import { api } from '@/convex/_generated/api'
 import { InviteDialog } from './InviteDialog'
 import { DeploymentDialog } from './deployment/DeploymentDialog'
-import { FounderContactDialog } from './FounderContactDialog'
 import { EditableProjectName } from './EditableProjectName'
 import { BetaBadge } from '@/vly/components/app-shell/BetaBadge'
 import { toast } from 'sonner'
@@ -54,8 +48,8 @@ import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
  *  └──────────────────────────────────────────────────────────────────────┘
  *
  *  - Left: dropdown menu trigger containing the Freebuff terminal logo + the
- *    editable project name. The dropdown holds Settings, Usage, Support,
- *    Hire Developers, Contact Founder, Billing, navigation, sign out.
+ *    editable project name. The dropdown holds project actions, navigation,
+ *    and sign out.
  *  - Right: ghost icon buttons (Preview, Share) + a primary Publish button.
  *    No more Pricing / Earn Credits / sidebar hamburger.
  */
@@ -79,7 +73,6 @@ export function TopBar({
   )
   void _onMobileSidebarToggle
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
-  const [founderContactOpen, setFounderContactOpen] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const router = useRouter()
 
@@ -208,50 +201,6 @@ export function TopBar({
                 Version history
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=usage`,
-                  )
-                }
-              >
-                <Activity className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Usage
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=support`,
-                  )
-                }
-              >
-                <LifeBuoy className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                App &amp; Support
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=hire`,
-                  )
-                }
-              >
-                <UsersIcon className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Hire Developers
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() => setFounderContactOpen(true)}
-              >
-                <Phone className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Contact Founder
-              </DropdownMenuItem>
-
               <DropdownMenuSeparator className="bg-border/60" />
 
               <DropdownMenuItem
@@ -281,18 +230,6 @@ export function TopBar({
                   Profile
                 </DropdownMenuItem>
               )}
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=billing`,
-                  )
-                }
-              >
-                <CreditCard className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Plans &amp; Billing
-              </DropdownMenuItem>
 
               <DropdownMenuSeparator className="bg-border/60" />
 
@@ -344,12 +281,16 @@ export function TopBar({
           </Tooltip>
 
           {/* Publish - primary CTA */}
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DeploymentDialog
+            isOpen={deployDialogOpen}
+            onOpenChange={setDeployDialogOpen}
+            projectId={project._id}
+            settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
+            onDeployTriggered={handleDeployTriggered}
+            trigger={
               <button
                 type="button"
-                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)] disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
-                onClick={() => setDeployDialogOpen(true)}
+                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
                 disabled={isPublishing}
                 aria-label="Publish"
               >
@@ -362,29 +303,10 @@ export function TopBar({
                   {isPublishing ? 'Publishing…' : 'Publish'}
                 </span>
               </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              sideOffset={6}
-              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
-            >
-              Publish to community
-            </TooltipContent>
-          </Tooltip>
+            }
+          />
         </div>
       </div>
-
-      <DeploymentDialog
-        isOpen={deployDialogOpen}
-        onOpenChange={setDeployDialogOpen}
-        projectId={project._id}
-        className="glass-morphism"
-        onDeployTriggered={handleDeployTriggered}
-      />
-      <FounderContactDialog
-        open={founderContactOpen}
-        onOpenChange={setFounderContactOpen}
-      />
     </TooltipProvider>
   )
 }

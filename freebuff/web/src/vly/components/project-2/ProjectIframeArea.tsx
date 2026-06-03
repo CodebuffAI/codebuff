@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   Plug,
   Component,
+  Maximize2,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
@@ -136,33 +137,51 @@ export function ProjectIframeArea({
   openInNewTab,
 }: ProjectIframeAreaProps) {
   const isNonPreviewTab = activeTab !== 'preview'
+  const expandedSettingsHref =
+    activeTab === 'database'
+      ? `/web/project/${semanticIdentifier}/settings?section=database`
+      : activeTab === 'logs'
+        ? `/web/project/${semanticIdentifier}/settings?section=backend`
+        : null
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
       {!hideTabs && (
-        <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto bg-background px-3 py-1.5">
-          {TOP_TABS.map(({ id, label, Icon }) => {
-            const isActive = activeTab === id
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveTab(id)}
-                className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
-                }`}
-                aria-pressed={isActive}
-              >
-                <Icon className="h-4 w-4" />
-                <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
-                  {label}
-                </span>
-              </button>
-            )
-          })}
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 bg-background px-3 py-1.5">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+            {TOP_TABS.map(({ id, label, Icon }) => {
+              const isActive = activeTab === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
+                    isActive
+                      ? 'bg-muted text-foreground'
+                      : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
+                    {label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {expandedSettingsHref && (
+            <a
+              href={expandedSettingsHref}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
+              title={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </a>
+          )}
         </div>
       )}
 

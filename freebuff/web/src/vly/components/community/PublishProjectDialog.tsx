@@ -18,13 +18,14 @@ import { Textarea } from "@/vly/components/ui/textarea";
 import { Label } from "@/vly/components/ui/label";
 import { Badge } from "@/vly/components/ui/badge";
 import {
-  Rocket,
   Check,
   Loader2,
   X,
   ExternalLink,
-  Sparkles,
   AlertCircle,
+  UploadCloud,
+  Folder,
+  Globe2,
 } from "lucide-react";
 import { cn } from "@/vly/lib/utils";
 
@@ -169,15 +170,15 @@ export default function PublishProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-gray-200 bg-white text-gray-900 sm:max-w-xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card text-card-foreground sm:max-w-xl">
         {step === "select" && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
-                <Rocket className="h-5 w-5 text-violet-500" />
-                Launch Your Project
+                <UploadCloud className="h-5 w-5 text-primary" />
+                Publish project
               </DialogTitle>
-              <DialogDescription className="text-gray-500">
+              <DialogDescription className="text-muted-foreground">
                 Select a deployed project to share with the Freebuff community
               </DialogDescription>
             </DialogHeader>
@@ -185,22 +186,22 @@ export default function PublishProjectDialog({
             <div className="mt-4 space-y-3">
               {!projects ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : projects.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50">
-                    <Sparkles className="h-8 w-8 text-violet-500" />
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-border/60 bg-muted/25">
+                    <Folder className="h-7 w-7 text-muted-foreground" />
                   </div>
                   <h3 className="mb-2 text-lg font-medium">No projects yet</h3>
-                  <p className="mb-4 text-sm text-gray-500">
+                  <p className="mb-4 text-sm text-muted-foreground">
                     Create a project first to share it with the community
                   </p>
                   <Button
                     onClick={() => (window.location.href = "/web/dashboard")}
-                    className="bg-violet-600 hover:bg-violet-500"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    Create Project
+                    Go to dashboard
                   </Button>
                 </div>
               ) : (
@@ -212,26 +213,26 @@ export default function PublishProjectDialog({
                     className={cn(
                       "group flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
                       project.isPublished
-                        ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-50"
+                        ? "cursor-not-allowed border-border/40 bg-muted/15 opacity-70"
                         : !project.hasDeployment
-                          ? "border-amber-200 bg-amber-50/50"
-                          : "border-gray-200 bg-white hover:border-violet-300 hover:shadow-md",
+                          ? "border-amber-400/35 bg-amber-500/10"
+                          : "border-border/60 bg-background hover:border-primary/45 hover:bg-muted/25",
                     )}
                   >
                     {/* Preview thumbnail */}
-                    <div className="relative flex h-16 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-50 to-fuchsia-50">
-                      <span className="text-2xl">🚀</span>
+                    <div className="relative flex h-16 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/45">
+                      <Folder className="h-6 w-6 text-muted-foreground" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="truncate font-medium group-hover:text-violet-600">
+                        <h4 className="truncate font-medium text-foreground group-hover:text-primary">
                           {project.name || project.semanticIdentifier}
                         </h4>
                         {project.isPublished && (
                           <Badge
                             variant="outline"
-                            className="border-emerald-300 bg-emerald-50 text-emerald-600"
+                            className="border-emerald-400/35 bg-emerald-500/15 text-emerald-300"
                           >
                             <Check className="mr-1 h-3 w-3" />
                             Published
@@ -250,7 +251,7 @@ export default function PublishProjectDialog({
                       {project.hasDeployment &&
                         !project.isPublished &&
                         project.deployedUrl && (
-                          <p className="mt-1 truncate text-xs text-violet-500">
+                          <p className="mt-1 truncate text-xs text-primary">
                             {project.deployedUrl.replace("https://", "")}
                           </p>
                         )}
@@ -265,15 +266,15 @@ export default function PublishProjectDialog({
                           "_blank",
                         );
                       }}
-                      className="flex-shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                      className="flex-shrink-0 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <ExternalLink className="mr-1 inline h-3 w-3" />
                       Open
                     </button>
 
                     {!project.isPublished && project.hasDeployment && (
-                      <div className="text-gray-400 transition-colors group-hover:text-violet-500">
-                        <Rocket className="h-5 w-5" />
+                      <div className="text-muted-foreground transition-colors group-hover:text-primary">
+                        <UploadCloud className="h-5 w-5" />
                       </div>
                     )}
                   </button>
@@ -287,10 +288,10 @@ export default function PublishProjectDialog({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
-                <Rocket className="h-5 w-5 text-violet-500" />
+                <UploadCloud className="h-5 w-5 text-primary" />
                 Project Details
               </DialogTitle>
-              <DialogDescription className="text-gray-500">
+              <DialogDescription className="text-muted-foreground">
                 Add a title, description, and tags to help others discover your
                 project
               </DialogDescription>
@@ -298,16 +299,16 @@ export default function PublishProjectDialog({
 
             {/* Preview - show deployed URL link */}
             {previewUrl && (
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-fuchsia-100">
-                    <span className="text-lg">🌐</span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 bg-background">
+                    <Globe2 className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground">
                       Live Site
                     </p>
-                    <p className="max-w-xs truncate text-xs text-gray-500">
+                    <p className="max-w-xs truncate text-xs text-muted-foreground">
                       {previewUrl}
                     </p>
                   </div>
@@ -316,7 +317,7 @@ export default function PublishProjectDialog({
                   href={previewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-100"
+                  className="flex items-center gap-1 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Open
@@ -326,7 +327,7 @@ export default function PublishProjectDialog({
 
             <div className="mt-4 space-y-4">
               <div>
-                <Label htmlFor="title" className="text-gray-900">
+                <Label htmlFor="title" className="text-foreground">
                   Title <span className="text-rose-500">*</span>
                 </Label>
                 <Input
@@ -334,13 +335,13 @@ export default function PublishProjectDialog({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="My Awesome Project"
-                  className="mt-1.5 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-violet-400"
+                  className="mt-1.5 border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40"
                   maxLength={100}
                 />
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-gray-900">
+                <Label htmlFor="description" className="text-foreground">
                   Description <span className="text-rose-500">*</span>
                 </Label>
                 <Textarea
@@ -348,17 +349,17 @@ export default function PublishProjectDialog({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe what your project does, the technologies used, and what makes it special..."
-                  className="mt-1.5 min-h-24 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-violet-400"
+                  className="mt-1.5 min-h-24 border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40"
                   maxLength={500}
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {description.length}/500 characters
                 </p>
               </div>
 
               <div>
-                <Label className="text-gray-900">
-                  Tags <span className="text-gray-500">(up to 5)</span>
+                <Label className="text-foreground">
+                  Tags <span className="text-muted-foreground">(up to 5)</span>
                 </Label>
 
                 {/* Selected tags */}
@@ -368,12 +369,12 @@ export default function PublishProjectDialog({
                       <Badge
                         key={tag}
                         variant="outline"
-                        className="border-violet-200 bg-violet-50 text-violet-600"
+                        className="border-primary/35 bg-primary/10 text-primary"
                       >
                         {tag}
                         <button
                           onClick={() => handleRemoveTag(tag)}
-                          className="ml-1.5 hover:text-violet-800"
+                          className="ml-1.5 hover:text-primary/80"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -389,14 +390,14 @@ export default function PublishProjectDialog({
                     onChange={(e) => setCustomTag(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddCustomTag()}
                     placeholder="Add custom tag..."
-                    className="border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-violet-400"
+                    className="border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40"
                     maxLength={20}
                   />
                   <Button
                     onClick={handleAddCustomTag}
                     variant="outline"
                     size="sm"
-                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                    className="border-border/60 text-foreground hover:bg-muted disabled:border-border/60 disabled:bg-muted/25 disabled:text-muted-foreground"
                     disabled={!customTag.trim() || tags.length >= 5}
                   >
                     Add
@@ -411,7 +412,7 @@ export default function PublishProjectDialog({
                         key={tag}
                         onClick={() => handleAddTag(tag)}
                         disabled={tags.length >= 5}
-                        className="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-md border border-border/50 bg-muted/20 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:bg-muted/10 disabled:text-muted-foreground/70"
                       >
                         {tag}
                       </button>
@@ -425,7 +426,7 @@ export default function PublishProjectDialog({
               <Button
                 onClick={() => setStep("select")}
                 variant="outline"
-                className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+                className="flex-1 border-border/60 text-foreground hover:bg-muted disabled:bg-muted/20 disabled:text-muted-foreground"
                 disabled={!!preselectedProjectId}
               >
                 Back
@@ -433,7 +434,7 @@ export default function PublishProjectDialog({
               <Button
                 onClick={handlePublish}
                 disabled={isPublishing || !title.trim() || !description.trim()}
-                className="flex-1 gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-200 hover:from-violet-500 hover:to-fuchsia-500"
+                className="flex-1 gap-2 bg-primary text-primary-foreground shadow-none hover:bg-primary/90 disabled:border disabled:border-border/60 disabled:bg-muted/30 disabled:text-muted-foreground"
               >
                 {isPublishing ? (
                   <>
@@ -442,8 +443,8 @@ export default function PublishProjectDialog({
                   </>
                 ) : (
                   <>
-                    <Rocket className="h-4 w-4" />
-                    Launch
+                    <UploadCloud className="h-4 w-4" />
+                    Publish
                   </>
                 )}
               </Button>
@@ -453,26 +454,26 @@ export default function PublishProjectDialog({
 
         {step === "success" && (
           <div className="flex flex-col items-center py-8 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100">
-              <Check className="h-10 w-10 text-emerald-500" />
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-lg border border-emerald-400/35 bg-emerald-500/15">
+              <Check className="h-8 w-8 text-emerald-300" />
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-gray-900">
-              🎉 Project Launched!
+            <h3 className="mb-2 text-2xl font-bold text-foreground">
+              Project published
             </h3>
-            <p className="mb-6 text-gray-500">
+            <p className="mb-6 text-muted-foreground">
               Your project is now live on the Freebuff Community
             </p>
             <div className="flex gap-3">
               <Button
                 onClick={handleClose}
                 variant="outline"
-                className="border-gray-200 text-gray-700 hover:bg-gray-50"
+                className="border-border/60 text-foreground hover:bg-muted"
               >
                 Close
               </Button>
               <Button
                 onClick={handleViewPost}
-                className="gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-200 hover:from-violet-500 hover:to-fuchsia-500"
+                className="gap-2 bg-primary text-primary-foreground shadow-none hover:bg-primary/90"
               >
                 View Project
                 <ExternalLink className="h-4 w-4" />

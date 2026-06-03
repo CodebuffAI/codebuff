@@ -2,11 +2,27 @@
 
 import { api } from "@/convex/_generated/api";
 import { FunctionReturnType } from "convex/server";
-import { CheckCircle2, ChevronDown, Loader } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Loader,
+  TriangleAlert,
+  Undo,
+} from "lucide-react";
 import React, { useImperativeHandle, useMemo, forwardRef } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 import { useMutation, useQuery } from "convex/react";
 import { GravityAdSlot } from "./agent-chat/GravityAdSlot";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/vly/components/ui/dialog";
+import { Button } from "@/vly/components/ui/button";
 
 const ChatMessage = React.lazy(() =>
   import("@/vly/components/project-2/ChatMessage").then((m) => ({
@@ -163,6 +179,8 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
     const deactivateMessageMutation = useMutation(
       api.messages.deactivateMessageAndAfter,
     );
+    const [isRevertDialogOpen, setIsRevertDialogOpen] =
+      React.useState(false);
 
     const latestExternalChangeTimestamp = useQuery(
       api.thread.getLatestExternalChangeTimestamp,
@@ -277,8 +295,104 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
       latestExternalChangeTimestamp,
     ]);
 
+    const latestRollbackTarget = useMemo(() => {
+      for (let i = sortedMessages.length - 1; i >= 0; i--) {
+        const message = sortedMessages[i];
+        if (message.role !== "user") continue;
+        const onRollback = rollbackCallbacks.get(message._id);
+        if (!onRollback) continue;
+        return {
+          message,
+          onRollback,
+          hasCheckpoint:
+            !!message.commit_hash &&
+            message.commit_hash !== "creating" &&
+            message.commit_hash !== "failed",
+        };
+      }
+      return null;
+    }, [rollbackCallbacks, sortedMessages]);
+
     return (
       <>
+        {latestRollbackTarget && (
+          <div className="pointer-events-none absolute right-4 top-14 z-30">
+            <Dialog
+              open={isRevertDialogOpen}
+              onOpenChange={setIsRevertDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm shadow-black/20 hover:bg-muted hover:text-foreground"
+                  title="Restore latest checkpoint"
+                  aria-label="Restore latest checkpoint"
+                >
+                  <Undo className="h-4 w-4" />
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Restore to checkpoint</DialogTitle>
+                  <div className="space-y-3 pt-2">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                        <div className="space-y-1 text-sm text-amber-900">
+                          <div className="font-medium">
+                            This will revert your project
+                          </div>
+                          <div className="text-xs">
+                            {latestRollbackTarget.hasCheckpoint
+                              ? "All code changes, file edits, and modifications made after the latest checkpoint will be undone."
+                              : "The latest user message and all messages after it will be removed from the chat."}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                        <div>Your chat history will be preserved</div>
+                      </div>
+                      {latestRollbackTarget.hasCheckpoint && (
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                          <div>
+                            You can re-apply reverted changes from the Versions
+                            page
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button
+                    variant="destructive"
+                    onClick={async (e) => {
+                      const button = e.currentTarget;
+                      button.disabled = true;
+                      button.textContent = "Restoring...";
+                      try {
+                        await latestRollbackTarget.onRollback();
+                        setIsRevertDialogOpen(false);
+                      } finally {
+                        button.disabled = false;
+                        button.textContent = "Restore";
+                      }
+                    }}
+                  >
+                    Restore
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
           <div ref={contentRef} className="px-4 py-4">
             {isLoading ? (

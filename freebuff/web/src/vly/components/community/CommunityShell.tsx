@@ -3,11 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Compass, Sparkles, Trophy } from 'lucide-react'
+import { Compass, Star, Trophy } from 'lucide-react'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 
 const SUBNAV = [
-  { label: 'Featured', href: '/web/community', Icon: Sparkles, exact: true },
+  { label: 'Featured', href: '/web/community', Icon: Star, exact: true },
   { label: 'Explore', href: '/web/community/explore', Icon: Compass },
   { label: 'Leaderboard', href: '/web/community/leaderboard', Icon: Trophy },
 ]

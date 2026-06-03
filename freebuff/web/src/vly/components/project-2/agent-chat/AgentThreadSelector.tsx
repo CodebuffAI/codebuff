@@ -118,7 +118,7 @@ export const AgentThreadSelector = ({
   };
 
   return (
-    <div className="flex items-center justify-between border-b bg-white px-4 py-2">
+    <div className="flex items-center justify-between border-b border-border/50 bg-background px-4 py-2 text-foreground">
       <div className="flex items-center gap-2">
         {editingThreadId === activeThreadId ? (
           <div className="flex items-center gap-2">
@@ -187,14 +187,14 @@ export const AgentThreadSelector = ({
               size="sm"
               onClick={handleCreateNewThread}
               disabled={isProcessing || creatingThread}
-              className="h-7 gap-2 px-3"
+              className="h-7 w-7 px-0"
+              aria-label="New thread"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span className="text-xs">New</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Create New Agent Thread (Claude Code or Codex)</p>
+            <p>New thread</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

@@ -88,8 +88,6 @@ interface ChatInputProps {
   // Context length selection (Freebuff agent only)
   selectedContextLength?: ContextLength;
   onContextLengthChange?: (length: ContextLength) => void;
-  // Switch agent callback - opens model selection to create new thread
-  onSwitchAgent?: () => void;
   syncStatus?: FunctionReturnType<
     typeof api.github.repositories.getProjectSyncStatus
   >;
@@ -125,7 +123,6 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     onAgentModeChange,
     selectedContextLength = DEFAULT_CONTEXT_LENGTH,
     onContextLengthChange,
-    onSwitchAgent,
     syncStatus,
     activeEntryPointId,
     restoreMessage,
@@ -904,33 +901,6 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                           onLengthChange={onContextLengthChange}
                           disabled={isProcessing}
                         />
-                      )}
-                      {onSwitchAgent && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={onSwitchAgent}
-                              disabled={isProcessing}
-                              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${
-                                compactMode ? "text-[10px]" : "text-xs"
-                              }`}
-                            >
-                              <Sparkles className="h-3 w-3" />
-                              <span>Agent</span>
-                              <span className="rounded-full bg-primary/15 px-1.5 py-0 text-[10px] font-medium text-primary">
-                                New
-                              </span>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {isProcessing
-                                ? "Wait for processing to complete"
-                                : "Start a new thread with a different agent"}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
                       )}
                     </div>
 
