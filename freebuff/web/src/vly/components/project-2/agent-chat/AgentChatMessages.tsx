@@ -1031,13 +1031,16 @@ const CompactPaywallBump: React.FC = () => {
 
 type PersistedAgentAd = NonNullable<AgentMessageForAd["ad_payload"]>;
 
-const AgentAdMessage: React.FC<{ ad: PersistedAgentAd }> = ({ ad }) => {
+const AgentAdMessage: React.FC<{
+  ad: PersistedAgentAd;
+  className?: string;
+}> = ({ ad, className }) => {
   const imageUrl = ad.imageUrl || ad.favicon;
   const title = ad.title || ad.brandName || "Sponsored recommendation";
   const cta = ad.cta || "Learn more";
 
   return (
-    <div className="mb-6 w-full max-w-full overflow-hidden">
+    <div className={cn("mb-6 w-full max-w-full overflow-hidden", className)}>
       <div className="max-w-[min(100%,760px)] rounded-xl bg-muted/60 px-4 py-3 text-sm leading-relaxed text-foreground">
         <p className="mb-1.5 text-foreground">
           Quick sponsor recommendation:
@@ -1086,8 +1089,9 @@ const AgentMessageCard: React.FC<{
     | FunctionReturnType<
         typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
       >[0];
+  adAfterUser?: PersistedAgentAd;
   onRollback?: () => Promise<void>;
-}> = ({ message, onRollback }) => {
+}> = ({ message, adAfterUser, onRollback }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   if (message.ad_payload) {
@@ -1206,6 +1210,10 @@ const AgentMessageCard: React.FC<{
             </Dialog>
           )}
         </div>
+      )}
+
+      {adAfterUser && (
+        <AgentAdMessage ad={adAfterUser} className="-mt-1 mb-4" />
       )}
 
       {/* Assistant Stream Content - text rendered inline (with show more for
@@ -1331,7 +1339,28 @@ export const AgentChatMessages = forwardRef<
   );
   const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set());
 
-  const completedSourceMessageForAd = useMemo(() => {
+  const adBySourceMessageId = useMemo(() => {
+    const ads = new Map<string, PersistedAgentAd>();
+    sortedMessages.forEach((message) => {
+      if (message.ad_source_message_id && message.ad_payload) {
+        ads.set(message.ad_source_message_id, message.ad_payload);
+      }
+    });
+    return ads;
+  }, [sortedMessages]);
+
+  const messagesForRendering = useMemo(() => {
+    const visibleMessageIds = new Set(
+      sortedMessages.map((message) => message._id),
+    );
+
+    return sortedMessages.filter((message) => {
+      if (!message.ad_payload || !message.ad_source_message_id) return true;
+      return !visibleMessageIds.has(message.ad_source_message_id);
+    });
+  }, [sortedMessages]);
+
+  const sourceMessageForAd = useMemo(() => {
     const sourceIdsWithAds = new Set(
       sortedMessages
         .map((message) => message.ad_source_message_id)
@@ -1342,8 +1371,6 @@ export const AgentChatMessages = forwardRef<
       const message = sortedMessages[i];
       if (message.ad_payload) continue;
       if (!message.user_message) continue;
-      if (message.isStreaming) continue;
-      if (message.state !== "Completed") continue;
       if (sourceIdsWithAds.has(message._id)) continue;
       return message;
     }
@@ -1352,14 +1379,12 @@ export const AgentChatMessages = forwardRef<
   }, [sortedMessages]);
 
   useEffect(() => {
-    if (!project?.active_agent_thread || !completedSourceMessageForAd) return;
+    if (!project?.active_agent_thread || !sourceMessageForAd) return;
 
-    const sourceMessageId = completedSourceMessageForAd._id;
+    const sourceMessageId = sourceMessageForAd._id;
     if (attemptedAdSourceIdsRef.current.has(sourceMessageId)) return;
 
-    const gravityMessages = buildGravityMessagesForAgentAd(
-      completedSourceMessageForAd,
-    );
+    const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd);
     if (gravityMessages.length === 0) return;
 
     attemptedAdSourceIdsRef.current.add(sourceMessageId);
@@ -1402,9 +1427,9 @@ export const AgentChatMessages = forwardRef<
       cancelled = true;
     };
   }, [
-    completedSourceMessageForAd,
     persistAgentAdMessage,
     project?.active_agent_thread,
+    sourceMessageForAd,
   ]);
   // Rollback functionality
   const revertToCommit = useAction(api.codesandbox.versionControl.revert);
@@ -1633,10 +1658,11 @@ export const AgentChatMessages = forwardRef<
                 </div>
               ) : (
                 <>
-                  {sortedMessages.map((message) => (
+                  {messagesForRendering.map((message) => (
                     <AgentMessageCard
                       key={message._id}
                       message={message}
+                      adAfterUser={adBySourceMessageId.get(message._id)}
                       onRollback={rollbackCallbacks.get(message._id)}
                     />
                   ))}
