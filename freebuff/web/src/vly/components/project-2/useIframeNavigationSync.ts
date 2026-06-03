@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { FunctionReturnType } from "convex/server";
 import { Id } from "@/convex/_generated/dataModel";
+import { getDirectPreviewUrl } from "@/vly/lib/project-preview-url";
 
 export interface UseIframeNavigationSyncProps {
   project: FunctionReturnType<any> | null;
@@ -15,7 +16,8 @@ export function useIframeNavigationSync({
   activeEntryPoint,
   setActiveEntryPoint,
 }: UseIframeNavigationSyncProps) {
-  // Compute initial values from entry point - uses pretty_preview_url only
+  // Compute initial values from entry point. Daytona projects use the direct
+  // public sandbox URL to avoid the pretty-domain proxy delay.
   const finalUrl = useMemo(() => {
     if (
       !project ||
@@ -24,7 +26,7 @@ export function useIframeNavigationSync({
     ) {
       return null;
     }
-    const baseUrl = project.pretty_preview_url ?? project.preview_url;
+    const baseUrl = getDirectPreviewUrl(project);
     if (!baseUrl) return null;
     try {
       return new URL(activeEntryPoint.page.page_display_url, baseUrl).href;

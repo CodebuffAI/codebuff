@@ -38,6 +38,7 @@ import {
   StarterUpgradePopup,
   useStarterUpgradePopup,
 } from "@/vly/components/project-2/StarterUpgradePopup";
+import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
 import {
   ProjectIframeArea,
   type IframeTab,
@@ -864,8 +865,7 @@ function ProjectWrapper({
               }}
               hideTabs={isMobile}
               openInNewTab={() => {
-                const url =
-                  project?.pretty_preview_url ?? project?.preview_url ?? "";
+                const url = getExternalPreviewUrl(project) ?? "";
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
             />

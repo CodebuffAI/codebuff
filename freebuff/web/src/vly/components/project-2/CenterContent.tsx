@@ -18,6 +18,7 @@ import styles from "./CenterContent.module.css";
 import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
+import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
 import {
   Tooltip,
   TooltipContent,
@@ -376,9 +377,9 @@ export function CenterContent({
   const { isConnecting, checkProjectConnection } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
     onSuccess: () => {
-      // Force refresh the iframe content after successful connection (dev preview only).
-      // Skip for freebuff.dev - any programmatic reload breaks styles (initial load works, reload doesn't).
-      if (project?.pretty_preview_url?.includes("freebuff.dev")) return;
+      // Force refresh the iframe content after successful connection. Only
+      // skip pretty-domain previews because programmatic reloads break styles.
+      if (baseUrl.includes("freebuff.dev")) return;
       setTimeout(() => {
         handleRefresh();
       }, 1000); // Small delay to ensure connection is fully established
@@ -476,8 +477,9 @@ export function CenterContent({
   };
 
   const handleOpenInNewTab = () => {
-    if (navState.iframeSrc) {
-      window.open(navState.iframeSrc, "_blank", "noopener,noreferrer");
+    const externalPreviewUrl = getExternalPreviewUrl(project);
+    if (externalPreviewUrl) {
+      window.open(externalPreviewUrl, "_blank", "noopener,noreferrer");
     }
   };
 

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { TopBar } from "@/vly/components/project-2/TopBar";
+import { getDirectPreviewUrl } from "@/vly/lib/project-preview-url";
 
 const Monitoring = lazy(() => import("@/vly/components/project-2/Monitoring"));
 const BackendManagement = lazy(
@@ -310,7 +311,7 @@ function GeneralSection({
       <Field label="Identifier" value={project.semantic_identifier ?? "—"} />
       <Field
         label="Preview URL"
-        value={project.pretty_preview_url ?? project.preview_url ?? "—"}
+        value={getDirectPreviewUrl(project) ?? "—"}
       />
       <Field
         label="Created"

@@ -506,8 +506,8 @@ export function AgentChatShell({
                 inline switcher, no Codex chips). The Pencil edit affordance
                 stays subtle and only appears on hover.
               */}
-              <div className="group flex-shrink-0 border-b border-border/40 bg-transparent px-4 py-3">
-                <div className="flex items-center gap-2">
+              <div className="group flex-shrink-0 border-b border-border/40 bg-transparent px-3 py-3 sm:px-4">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -532,7 +532,7 @@ export function AgentChatShell({
                     </TooltipContent>
                   </Tooltip>
                   {activeThread && (
-                    <div className="flex flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
                       {isEditingTitle ? (
                         <Input
                           value={editingTitle}
@@ -597,32 +597,34 @@ export function AgentChatShell({
                       )}
                     </div>
                   )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (!isProcessing) {
-                            void handleCreateNewThread();
-                          }
-                        }}
-                        type="button"
-                        aria-label="New thread"
-                        disabled={isProcessing}
-                        className="ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 lg:h-7 lg:w-7"
+                  <div className="ml-1 flex shrink-0 items-center sm:ml-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!isProcessing) {
+                              void handleCreateNewThread();
+                            }
+                          }}
+                          type="button"
+                          aria-label="New thread"
+                          disabled={isProcessing}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="bottom"
+                        sideOffset={6}
+                        className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
                       >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="bottom"
-                      sideOffset={6}
-                      className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
-                    >
-                      New thread
-                    </TooltipContent>
-                  </Tooltip>
+                        New thread
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
 
