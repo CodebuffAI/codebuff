@@ -35,7 +35,11 @@ import type { AgentMode } from './constants'
 import type { MessageUpdater } from './message-updater'
 import type { StreamController } from '../hooks/stream-state'
 import type { StreamStatus } from '../hooks/use-message-queue'
-import type { ContentBlock, ToolContentBlock } from '../types/chat'
+import type {
+  AgentContentBlock,
+  ContentBlock,
+  ToolContentBlock,
+} from '../types/chat'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeEvent as SDKEvent,
@@ -360,7 +364,74 @@ const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
 }
 
 /**
- * Recursively finds and updates agent blocks that match a spawn_agents tool call.
+ * Extracts the exact runtime child agent id from a spawn_agents report when
+ * available. Older reports only had spawn index metadata; current reports carry
+ * this id so out-of-order subagent_start blocks can still receive final output.
+ */
+const getSpawnResultAgentId = (result: any): string | undefined =>
+  typeof result?.agentId === 'string' && result.agentId.trim()
+    ? result.agentId
+    : undefined
+
+const getSpawnResultForBlock = (
+  block: AgentContentBlock,
+  toolCallId: string,
+  results: any[],
+): any | undefined => {
+  if (block.spawnToolCallId === toolCallId && block.spawnIndex !== undefined) {
+    return results[block.spawnIndex]
+  }
+
+  return results.find((result) => getSpawnResultAgentId(result) === block.agentId)
+}
+
+const applySpawnAgentResultToBlock = (
+  block: AgentContentBlock,
+  result: any,
+): ContentBlock => {
+  if (!result?.value) {
+    return block
+  }
+
+  const existingBlocks = block.blocks ?? []
+  const { content, hasError } = extractSpawnAgentResultContent(result.value)
+  // Check if the agent already streamed text content (e.g., basher).
+  // Agents like thinker return all output at the end via lastMessage,
+  // so we should add final content even if they have tool blocks.
+  const hasStreamedTextContent = existingBlocks.some(
+    (b) => b.type === 'text' && b.textType === 'text',
+  )
+  let finalBlocks =
+    content && !hasStreamedTextContent
+      ? [...existingBlocks, { type: 'text', content } as ContentBlock]
+      : existingBlocks
+
+  // Proposal/implementor agents can finish without streaming live edit
+  // tool blocks. When that happens the card has nothing to render and
+  // falsely shows "no changes", so synthesize edit blocks from the
+  // structured { toolCalls, toolResults } output. Guarded so we never
+  // duplicate edits that already streamed.
+  const hasEditToolBlocks = finalBlocks.some(isEditToolBlock)
+  if (!hasEditToolBlocks) {
+    const synthesized = synthesizeProposalToolBlocks(result.value)
+    if (synthesized.length > 0) {
+      finalBlocks = [...finalBlocks, ...synthesized]
+    }
+  }
+
+  if (hasError || finalBlocks.length > 0) {
+    return {
+      ...block,
+      blocks: finalBlocks,
+      status: hasError ? ('failed' as const) : ('complete' as const),
+    }
+  }
+
+  return block
+}
+
+/**
+ * Recursively finds and updates agent blocks that match a spawn_agents result.
  */
 const updateSpawnAgentBlocks = (
   blocks: ContentBlock[],
@@ -372,47 +443,18 @@ const updateSpawnAgentBlocks = (
       return block
     }
 
-    if (block.spawnToolCallId === toolCallId && block.spawnIndex !== undefined && block.blocks) {
-      const result = results[block.spawnIndex]
-
-      if (result?.value) {
-        const { content, hasError } = extractSpawnAgentResultContent(result.value)
-        // Check if the agent already streamed text content (e.g., basher).
-        // Agents like thinker return all output at the end via lastMessage,
-        // so we should add final content even if they have tool blocks.
-        const hasStreamedTextContent = block.blocks.some(
-          (b) => b.type === 'text' && b.textType === 'text'
-        )
-        let finalBlocks = content && !hasStreamedTextContent
-          ? [...block.blocks, { type: 'text', content } as ContentBlock]
-          : block.blocks
-
-        // Proposal/implementor agents can finish without streaming live edit
-        // tool blocks. When that happens the card has nothing to render and
-        // falsely shows "no changes", so synthesize edit blocks from the
-        // structured { toolCalls, toolResults } output. Guarded so we never
-        // duplicate edits that already streamed.
-        const hasEditToolBlocks = finalBlocks.some(isEditToolBlock)
-        if (!hasEditToolBlocks) {
-          const synthesized = synthesizeProposalToolBlocks(result.value)
-          if (synthesized.length > 0) {
-            finalBlocks = [...finalBlocks, ...synthesized]
-          }
-        }
-
-        if (hasError || finalBlocks.length > 0) {
-          return {
-            ...block,
-            blocks: finalBlocks,
-            status: hasError ? ('failed' as const) : ('complete' as const),
-          }
-        }
-      }
+    const result = getSpawnResultForBlock(block, toolCallId, results)
+    if (result) {
+      return applySpawnAgentResultToBlock(block, result)
     }
 
     // Recursively process nested agent blocks
     if (block.blocks?.length) {
-      const updatedNestedBlocks = updateSpawnAgentBlocks(block.blocks, toolCallId, results)
+      const updatedNestedBlocks = updateSpawnAgentBlocks(
+        block.blocks,
+        toolCallId,
+        results,
+      )
       if (updatedNestedBlocks !== block.blocks) {
         return { ...block, blocks: updatedNestedBlocks }
       }

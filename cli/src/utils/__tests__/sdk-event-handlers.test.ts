@@ -586,6 +586,91 @@ describe('sdk-event-handlers', () => {
     })
   })
 
+  test('attaches proposal results to real subagent blocks by agent id', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'agent-real',
+      agentType: 'editor-implementor-proposal-1',
+      displayName: 'Proposal #1',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: { proposalLabel: 'Proposal #1' },
+      prompt: 'Make the edits',
+    })
+
+    handleEvent({
+      type: 'subagent_finish',
+      agentId: 'agent-real',
+      agentType: 'editor-implementor-proposal-1',
+      displayName: 'Proposal #1',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: { proposalLabel: 'Proposal #1' },
+      prompt: 'Make the edits',
+    })
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentId: 'agent-real',
+              agentName: 'Proposal #1',
+              agentType: 'editor-implementor-proposal-1',
+              value: {
+                type: 'structuredOutput',
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'cli/src/utils/arrays.ts',
+                        replacements: [
+                          { oldString: 'old queue', newString: 'new queue' },
+                        ],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    [
+                      {
+                        file: 'cli/src/utils/arrays.ts',
+                        unifiedDiff:
+                          '@@ -1 +1 @@\n-old queue\n+new queue',
+                      },
+                    ],
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.agentId).toBe('agent-real')
+    expect(agentBlock.spawnToolCallId).toBeUndefined()
+    expect(agentBlock.status).toBe('complete')
+
+    const toolBlocks = (agentBlock.blocks ?? []).filter(
+      (b) => b.type === 'tool',
+    )
+    expect(toolBlocks).toHaveLength(1)
+    expect(toolBlocks[0]).toMatchObject({
+      type: 'tool',
+      toolName: 'propose_str_replace',
+      input: { path: 'cli/src/utils/arrays.ts' },
+    })
+  })
+
   test('preserves streamed text content and skips duplicate final content', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
 

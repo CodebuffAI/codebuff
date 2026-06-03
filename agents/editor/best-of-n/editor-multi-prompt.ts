@@ -3253,19 +3253,14 @@ function* handleStepsMultiPrompt({
     any[],
     any
   > {
-    // Apply the chosen implementation's tool calls as real edits.
-    // When a proposal carries resolved overlay content, prefer a guarded
-    // write_file of that final content over replaying brittle str_replace
-    // anchors against disk. If the base-content guard fails, fall back to the
-    // original raw proposal edit so external drift is not overwritten blindly.
+    // Proposals draft into an in-memory overlay during the proposal phase; this
+    // apply phase is the single place edits are persisted to disk. We convert
+    // each propose_* tool call into its real edit-tool equivalent and replay it
+    // against current disk content (matching upstream): the chosen proposal is
+    // always written. Any __proposal* metadata on the input is stripped by
+    // sanitizeProposalApplyInput before applying.
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
-      const finalApplyResult = yield* tryApplyProposalFinalContent(toolCall)
-      if (finalApplyResult.applied) {
-        appliedToolResults.push(finalApplyResult.toolResult)
-        continue
-      }
-
       // propose_edit_transaction maps to the atomic edit_transaction tool, which
       // carries an `edits` array (not a single `path`) and is applied as one
       // client-side batch by the runtime.
@@ -3339,101 +3334,6 @@ function* handleStepsMultiPrompt({
     return appliedToolResults
   }
 
-  function* tryApplyProposalFinalContent(
-    toolCall: ProposedToolCall,
-  ): Generator<
-    ToolCall<'read_files'> | ToolCall<'write_file'>,
-    { applied: true; toolResult: any } | { applied: false },
-    any
-  > {
-    if (!isObject(toolCall.input)) return { applied: false }
-    // Preserve propose_edit_transaction atomicity: transaction artifacts may
-    // carry per-file finalContent metadata, but applying those independently as
-    // write_file calls could partially apply a transaction. Let the sanitized
-    // edit_transaction fallback handle these atomically instead.
-    if (toolCall.toolName === 'propose_edit_transaction') return { applied: false }
-    const finalContent = toolCall.input.__proposalFinalContent
-    if (typeof finalContent !== 'string') return { applied: false }
-
-    const rawPath =
-      typeof toolCall.input.path === 'string'
-        ? toolCall.input.path
-        : typeof toolCall.input.__proposalFile === 'string'
-          ? toolCall.input.__proposalFile
-          : typeof toolCall.input.file === 'string'
-            ? toolCall.input.file
-            : ''
-    if (!rawPath) return { applied: false }
-
-    const path = normalizeProposalPath(rawPath)
-    const hasBaseContent = Object.prototype.hasOwnProperty.call(
-      toolCall.input,
-      '__proposalBaseContent',
-    )
-    const baseContent = hasBaseContent
-      ? toolCall.input.__proposalBaseContent
-      : undefined
-    const hasBaseContentHash = Object.prototype.hasOwnProperty.call(
-      toolCall.input,
-      '__proposalBaseContentHash',
-    )
-    const baseContentHash = hasBaseContentHash
-      ? toolCall.input.__proposalBaseContentHash
-      : undefined
-
-    const readFiles = yield* readFilesContent([path])
-    const currentContent = readFiles.find((file) => file.path === path)?.content
-    const guardPassed = finalContentGuardPassed({
-      currentContent,
-      baseContent,
-      baseContentHash,
-      hasBaseContent,
-      hasBaseContentHash,
-    })
-
-    if (!guardPassed) {
-      if (
-        toolCall.toolName === 'propose_write_file' ||
-        toolCall.toolName === 'propose_edit_transaction'
-      ) {
-        return {
-          applied: true,
-          toolResult: {
-            path,
-            errorMessage:
-              'Proposal final-content guard failed; refusing to overwrite current file content with a blind full-file write.',
-          },
-        }
-      }
-      return { applied: false }
-    }
-
-    const { toolResult } = yield {
-      toolName: 'write_file',
-      input: {
-        path,
-        instructions:
-          typeof toolCall.input.instructions === 'string'
-            ? toolCall.input.instructions
-            : `Apply resolved proposal content for ${path}`,
-        content: finalContent,
-      },
-      includeToolCall: true,
-    } satisfies ToolCall<'write_file'>
-
-    return {
-      applied: true,
-      toolResult:
-        toolResult === undefined || toolResult === null
-          ? {
-              path,
-              errorMessage:
-                'write_file did not return a tool result; no edit was recorded.',
-            }
-          : toolResult,
-    }
-  }
-
   function sanitizeProposalApplyInput(input: any): any {
     if (!isObject(input)) return input
     const {
@@ -3445,52 +3345,6 @@ function* handleStepsMultiPrompt({
     } = input
     return rest
   }
-
-  function finalContentGuardPassed(params: {
-    currentContent: string | undefined
-    baseContent: any
-    baseContentHash: any
-    hasBaseContent: boolean
-    hasBaseContentHash: boolean
-  }): boolean {
-    const {
-      currentContent,
-      baseContent,
-      baseContentHash,
-      hasBaseContent,
-      hasBaseContentHash,
-    } = params
-
-    if (hasBaseContent) {
-      return baseContent === null
-        ? currentContent === undefined
-        : typeof baseContent === 'string' && currentContent === baseContent
-    }
-
-    if (hasBaseContentHash) {
-      if (baseContentHash === null) return currentContent === undefined
-      if (typeof baseContentHash !== 'string' || currentContent === undefined) {
-        return false
-      }
-      const currentHash = getFinalContentGuardHash(currentContent)
-      return currentHash !== null && currentHash === baseContentHash
-    }
-
-    return false
-  }
-
-  function getFinalContentGuardHash(content: string): string | null {
-    try {
-      const normalized = content.replace(/\r\n/g, '\n')
-      const requireFn = Function('return require')() as (moduleName: string) => any
-
-      const { createHash } = requireFn('crypto')
-      return `sha256:${createHash('sha256').update(normalized).digest('hex')}`
-    } catch {
-      return null
-    }
-  }
-
 
   // Normalize the `path` of each transaction edit so it matches the same
   // monorepo-aware path rewriting applied to single-file proposal edits.
@@ -5008,7 +4862,73 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const root = process.cwd()
+
+// Isolated verification scratch dir. We prefer a git worktree of a snapshot of
+// the CURRENT working tree (committed + uncommitted + untracked, .gitignore
+// respected so node_modules is excluded) so verification reflects exactly what
+// the proposals were authored against — without ever mutating the user's real
+// working tree or index. node_modules is symlinked in so typecheck/test can
+// resolve dependencies (the old recursive copy excluded node_modules, which
+// made verification meaningless). Falls back to a recursive copy for non-git
+// repos. The scratch dir is always removed in finally.
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-verify-'))
+let worktreeAdded = false
+
+function git(args, opts) {
+  return cp.spawnSync('git', args, { cwd: root, encoding: 'utf8', ...(opts || {}) })
+}
+function isGitRepo() {
+  const r = git(['rev-parse', '--is-inside-work-tree'])
+  return r.status === 0 && String(r.stdout).trim() === 'true'
+}
+// Reclaim disk from worktrees orphaned by previously killed verification runs.
+function sweepStaleWorktrees() {
+  try {
+    git(['worktree', 'prune'])
+    const listed = git(['worktree', 'list', '--porcelain'])
+    if (listed.status !== 0) return
+    for (const line of String(listed.stdout).split('\\n')) {
+      if (!line.startsWith('worktree ')) continue
+      const wt = line.slice('worktree '.length).trim()
+      if (path.basename(wt).startsWith('codebuff-verify-') && wt !== scratch) {
+        git(['worktree', 'remove', '--force', wt])
+      }
+    }
+  } catch {}
+}
+// Snapshot the live working tree (tracked + untracked, .gitignore respected)
+// into a dangling commit using a throwaway index, without touching the user's
+// real index or working tree. Returns a commit-ish to check out.
+function snapshotLiveTree() {
+  const tmpIndex = path.join(scratch, '.codebuff-verify-index')
+  const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+  const read = git(['read-tree', 'HEAD'], { env })
+  if (read.status !== 0) return 'HEAD'
+  git(['add', '-A'], { env })
+  const writeTree = git(['write-tree'], { env })
+  const treeSha = String(writeTree.stdout).trim()
+  if (writeTree.status !== 0 || !treeSha) return 'HEAD'
+  const commit = git(['commit-tree', treeSha, '-p', 'HEAD', '-m', 'codebuff verify snapshot'])
+  const commitSha = String(commit.stdout).trim()
+  try { fs.rmSync(tmpIndex, { force: true }) } catch {}
+  return commit.status === 0 && commitSha ? commitSha : 'HEAD'
+}
+// Symlink node_modules from the real repo into the scratch dir (root + any
+// workspace package dirs) so dependency resolution works during verification.
+function linkNodeModules(touchedDirs) {
+  const dirs = new Set([''])
+  for (const d of touchedDirs || []) dirs.add(d)
+  for (const dir of dirs) {
+    const realNm = path.join(root, dir, 'node_modules')
+    if (!fs.existsSync(realNm)) continue
+    const linkNm = path.join(scratch, dir, 'node_modules')
+    if (fs.existsSync(linkNm)) continue
+    try {
+      fs.mkdirSync(path.dirname(linkNm), { recursive: true })
+      fs.symlinkSync(realNm, linkNm, 'dir')
+    } catch {}
+  }
+}
 const excludedDirs = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage'])
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true })
@@ -5051,9 +4971,28 @@ function applyToolCall(toolCall) {
   }
 }
 try {
-  copyDir(root, scratch)
   const toolCalls = JSON.parse(Buffer.from(process.argv[1], 'base64').toString('utf8'))
   const commands = JSON.parse(Buffer.from(process.argv[2], 'base64').toString('utf8'))
+  const touchedDirs = Array.from(new Set(
+    toolCalls
+      .map((tc) => (tc && tc.input && typeof tc.input.path === 'string' ? path.dirname(tc.input.path) : ''))
+      .filter((d) => d && d !== '.')
+  ))
+  if (isGitRepo()) {
+    sweepStaleWorktrees()
+    const snapshot = snapshotLiveTree()
+    fs.rmSync(scratch, { recursive: true, force: true })
+    const add = git(['worktree', 'add', '--detach', scratch, snapshot])
+    if (add.status !== 0) {
+      fs.mkdirSync(scratch, { recursive: true })
+      copyDir(root, scratch)
+    } else {
+      worktreeAdded = true
+    }
+  } else {
+    copyDir(root, scratch)
+  }
+  linkNodeModules(touchedDirs)
   for (const toolCall of toolCalls) applyToolCall(toolCall)
   const outputs = []
   let ok = true

@@ -6708,7 +6708,7 @@ describe('editor agent', () => {
       )
     })
 
-    test('applies ledger-recovered final content instead of replaying stale anchors', () => {
+    test('applies the chosen proposal via a plain str_replace remap', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -6798,7 +6798,11 @@ describe('editor agent', () => {
         input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
       })
 
-      const readGuard = generator.next({
+      // The apply phase replays the chosen proposal's propose_str_replace as a
+      // real str_replace against current disk content (the upstream behavior).
+      // The __proposal* metadata is stripped before applying, so the real edit
+      // carries only the original path/replacements.
+      const strReplaceApply = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -6807,33 +6811,25 @@ describe('editor agent', () => {
           },
         ],
         stepsComplete: false,
-      }).value as ToolCall<'read_files'>
+      }).value as ToolCall<'str_replace'>
 
-      expect(readGuard).toMatchObject({
-        toolName: 'read_files',
-        input: { paths: ['src/a.ts'] },
-      })
-
-      const writeApply = generator.next({
-        agentState: mockAgentState,
-        toolResult: [
-          {
-            type: 'json',
-            value: [{ path: 'src/a.ts', content: 'current disk content\n' }],
-          },
-        ],
-        stepsComplete: false,
-      }).value as ToolCall<'write_file'>
-
-      expect(writeApply).toMatchObject({
-        toolName: 'write_file',
+      expect(strReplaceApply).toMatchObject({
+        toolName: 'str_replace',
         input: {
           path: 'src/a.ts',
-          content: 'fresh resolved proposal content\n',
+          replacements: [
+            {
+              oldString: 'stale anchor from proposal time',
+              newString: 'anchor replay should not be used',
+            },
+          ],
         },
       })
-      expect(JSON.stringify(writeApply.input)).not.toContain(
-        'stale anchor from proposal time',
+      expect(JSON.stringify(strReplaceApply.input)).not.toContain(
+        '__proposalFinalContent',
+      )
+      expect(JSON.stringify(strReplaceApply.input)).not.toContain(
+        '__proposalBaseContent',
       )
 
       const outputCall = generator.next({
@@ -6841,7 +6837,7 @@ describe('editor agent', () => {
         toolResult: [
           {
             type: 'json',
-            value: { file: 'src/a.ts', message: 'Wrote file' },
+            value: { path: 'src/a.ts', unifiedDiff: '@@ applied' },
           },
         ],
         stepsComplete: false,

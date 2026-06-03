@@ -125,6 +125,10 @@ function describeBogusReadCapability(
 
 const LARGE_FILE_LINE_THRESHOLD = 1_000
 const LARGE_FILE_CHAR_THRESHOLD = 100_000
+// Skip minting a single union regionAnchor when the edited hunks span more than
+// this many lines: the slice (and its hash) would be huge and low-value. The
+// per-hunk anchors still cover each edit site in that case.
+const REGION_ANCHOR_MAX_SPAN = 400
 
 const FAILED_EDIT_RECOVERY_GUIDANCE = [
   'Recovery required: stop retrying this edit from memory.',
@@ -142,6 +146,7 @@ export async function processStrReplace(params: {
     oldString: string
     newString: string
     allowMultiple: boolean
+    occurrenceIndex?: number
     basedOnRead?: ReplacementReadCapability | string
   }[]
   /**
@@ -266,6 +271,7 @@ export async function processStrReplace(params: {
     oldString: oldStr,
     newString: newStr,
     allowMultiple,
+    occurrenceIndex,
     basedOnRead,
   } of normalizedReplacements) {
     // Regular case: require oldStr for replacements
@@ -282,6 +288,58 @@ export async function processStrReplace(params: {
     })
     const normalizedOldStr = normalizeLineEndings({ str: oldStr })
     const normalizedNewStr = normalizeLineEndings({ str: newStr })
+
+    // occurrenceIndex: the caller asserts EXACTLY which repeated occurrence to
+    // edit (1-indexed). This is a fully-specified target, so it bypasses the
+    // ambiguity gate AND the near-match auto-correction in tryMatchOldStr: it
+    // requires an exact literal match and fails cleanly if fewer than N exist.
+    // It is its own complete path — no basedOnRead anchor is required even on
+    // large files, because the index itself disambiguates. When a fresh
+    // basedOnRead range is also present, we count occurrences WITHIN that range
+    // slice so the anchor scopes the region and the index picks within it.
+    if (occurrenceIndex !== undefined) {
+      const freshValidatedRangeForIndex =
+        basedOnRead && typeof basedOnRead === 'object'
+          ? validatedReadRanges.get(getReadCapabilityKey(basedOnRead))
+          : undefined
+      const validatedRangeForIndex =
+        enforceReadCapability && freshValidatedRangeForIndex
+          ? getCurrentValidatedReadRange({
+              content: normalizedCurrentContent,
+              validatedRange: freshValidatedRangeForIndex,
+            })
+          : null
+      const searchContent =
+        validatedRangeForIndex?.content ?? normalizedCurrentContent
+      const at = getNthOccurrenceIndex(
+        searchContent,
+        normalizedOldStr,
+        occurrenceIndex,
+      )
+      if (at === -1) {
+        const totalOccurrences =
+          searchContent.split(normalizedOldStr).length - 1
+        const occurrenceFailure = [
+          `Could not apply occurrenceIndex ${occurrenceIndex} for ${path}: only ${totalOccurrences} exact occurrence(s) of the oldString exist${validatedRangeForIndex ? ' within the anchored range' : ''}.`,
+          'Re-read the file/range to confirm how many occurrences exist, then pass a valid 1-indexed occurrenceIndex.',
+        ].join('\n')
+        messages.push(occurrenceFailure)
+        failures.push(occurrenceFailure)
+        continue
+      }
+      const updatedSearchContent =
+        searchContent.slice(0, at) +
+        normalizedNewStr +
+        searchContent.slice(at + normalizedOldStr.length)
+      currentContent = validatedRangeForIndex
+        ? [
+            ...normalizedCurrentContent.split('\n').slice(0, validatedRangeForIndex.startLine - 1),
+            ...updatedSearchContent.split('\n'),
+            ...normalizedCurrentContent.split('\n').slice(validatedRangeForIndex.endLine),
+          ].join('\n')
+        : updatedSearchContent
+      continue
+    }
 
     // A fresh basedOnRead is a concrete capability object whose range hash still
     // matched the current file during preflight. Stale or never-validated object
@@ -433,16 +491,46 @@ export async function processStrReplace(params: {
   }
   const finalPatch = patch
 
+  // Echo fresh post-edit read anchors so the next edit to this region needs no
+  // re-read. Computed from the NEW-side hunk ranges of the final patch (the
+  // single source of truth for what changed) over the LF-normalized post-edit
+  // content, matching how read_files mints tokens.
+  const normalizedFinalContent = normalizeLineEndings({ str: currentContent })
+  const hunkRanges = parseNewSideHunkRanges(finalPatch)
+  const anchors = hunkRanges.map((range) =>
+    mintAnchorForRange({ content: normalizedFinalContent, ...range }),
+  )
+  const unionStart = hunkRanges.length
+    ? Math.min(...hunkRanges.map((range) => range.startLine))
+    : 0
+  const unionEnd = hunkRanges.length
+    ? Math.max(...hunkRanges.map((range) => range.endLine))
+    : 0
+  const regionAnchor =
+    hunkRanges.length && unionEnd - unionStart <= REGION_ANCHOR_MAX_SPAN
+      ? mintAnchorForRange({
+          content: normalizedFinalContent,
+          startLine: unionStart,
+          endLine: unionEnd,
+        })
+      : undefined
+
   if (isLargeFile) {
-    const newLineCount = normalizeLineEndings({ str: currentContent }).split(
-      '\n',
-    ).length
+    const newLineCount = normalizedFinalContent.split('\n').length
     messages.push(
       [
         `Note: ${path} changed (now ${newLineCount.toLocaleString()} lines).`,
-        'Any basedOnRead rangeHash you read BEFORE this edit is now stale.',
-        'To make several edits to this file, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead); they are all validated against the pre-edit file, so they will not invalidate each other.',
-        'Otherwise, re-read with read_files.ranges to get a fresh rangeHash before the next edit.',
+        'Any basedOnRead token you read BEFORE this edit is now stale; use the fresh anchor below instead (it stays valid only until your next edit to this file).',
+        regionAnchor
+          ? `Fresh anchor for the edited region (lines ${regionAnchor.startLine}-${regionAnchor.endLine}) — pass as basedOnRead on your next edit to this region, no re-read needed:\nreadCapability=${regionAnchor.readCapability}`
+          : anchors.length > 0
+            ? `Edits were scattered; use these per-hunk anchors as basedOnRead for follow-up edits (no re-read needed):\n${anchors
+                .map(
+                  (anchor) =>
+                    `lines ${anchor.startLine}-${anchor.endLine}: readCapability=${anchor.readCapability}`,
+                )
+                .join('\n')}`
+          : 'To make several edits to this file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead).',
       ].join('\n'),
     )
   }
@@ -799,6 +887,76 @@ function formatOccurrenceDiagnostics(
   )
 }
 
+// Parses the NEW-file-side line ranges of each hunk in a unified diff patch
+// (the `+newStart,newCount` half of each `@@ -a,b +c,d @@` header). These
+// address the post-edit file, so they are the correct basis for minting a
+// fresh read anchor the model can reuse on its next edit without re-reading.
+function parseNewSideHunkRanges(
+  patch: string,
+): { startLine: number; endLine: number }[] {
+  const ranges: { startLine: number; endLine: number }[] = []
+  const headerRe = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/
+  for (const line of patch.split('\n')) {
+    const match = headerRe.exec(line)
+    if (!match) continue
+    const start = Number(match[1])
+    const count = match[2] === undefined ? 1 : Number(match[2])
+    if (count === 0) {
+      // Pure deletion: anchor the boundary line so a follow-up edit still has
+      // surrounding context to address.
+      const boundary = Math.max(1, start)
+      ranges.push({ startLine: boundary, endLine: boundary })
+    } else {
+      ranges.push({ startLine: start, endLine: start + count - 1 })
+    }
+  }
+  return ranges
+}
+
+// Mints a fresh read capability for a line range of the given content, using
+// the exact same LF normalization + hashing as read_files so a write-echoed
+// anchor validates identically to a read-minted one.
+function mintAnchorForRange(params: {
+  content: string
+  startLine: number
+  endLine: number
+}): {
+  startLine: number
+  endLine: number
+  readCapability: string
+  rangeHash: string
+} {
+  const lines = normalizeLineEndings({ str: params.content }).split('\n')
+  const startLine = Math.max(1, params.startLine)
+  const endLine = Math.min(lines.length, Math.max(startLine, params.endLine))
+  const slice = lines.slice(startLine - 1, endLine).join('\n')
+  const rangeHash = getContentHash(slice)
+  return {
+    startLine,
+    endLine,
+    rangeHash,
+    readCapability: encodeReadCapabilityToken({ startLine, endLine, hash: rangeHash }),
+  }
+}
+
+// Returns the character index of the Nth (1-indexed) exact occurrence of oldStr
+// in content, or -1 if fewer than N occurrences exist. Used by occurrenceIndex
+// to target one specific repeated block without a fresh read anchor.
+function getNthOccurrenceIndex(
+  content: string,
+  oldStr: string,
+  n: number,
+): number {
+  if (!oldStr) return -1
+  let index = content.indexOf(oldStr)
+  let count = 1
+  while (index !== -1 && count < n) {
+    index = content.indexOf(oldStr, index + Math.max(1, oldStr.length))
+    count++
+  }
+  return count === n ? index : -1
+}
+
 function getDeterministicLargeFileFallbackRange(params: {
   content: string
   oldStr: string
@@ -901,12 +1059,19 @@ const tryMatchOldStr = (params: {
     return { success: true, oldStr }
   }
   if (!allowMultiple && count > 1) {
-    const occurrences = getOccurrenceLineRanges({ initialContent, oldStr })
+    // List ALL candidate ranges (not just the first few) so a forced retry is
+    // one-shot: the model can either re-read one exact range, or disambiguate
+    // directly by passing occurrenceIndex (1-indexed) without any re-read.
+    const occurrences = getOccurrenceLineRanges({
+      initialContent,
+      oldStr,
+      limit: count,
+    })
     const occurrenceDiagnostics = formatOccurrenceDiagnostics(occurrences)
     return {
       success: false,
       error:
-        `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string or set allowMultiple to true.` +
+        `Found ${count} occurrences of ${JSON.stringify(oldStr)} in the file. Please try again with a longer (more specified) old string, set allowMultiple to true to replace all of them, or pass occurrenceIndex (1-indexed) to target exactly one.` +
         occurrenceDiagnostics,
     }
   }

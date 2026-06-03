@@ -598,6 +598,8 @@ export interface StrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
+    /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range. */
+    occurrenceIndex?: number
     /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, the runtime falls back to full-file deterministic oldString matching when it can identify exactly one safe target. */
     basedOnRead?:
       | string

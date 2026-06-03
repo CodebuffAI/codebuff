@@ -16,6 +16,7 @@ import type {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { JSONObject, JSONValue } from '@codebuff/common/types/json'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ToolSet } from 'ai'
@@ -30,6 +31,8 @@ export type SendSubagentChunk = (data: {
 }) => void
 
 type ToolName = 'spawn_agents'
+type SpawnAgentReport = { agentType: string } & JSONObject
+
 export const handleSpawnAgents = (async (
   params: {
     previousToolCallFinished: Promise<void>
@@ -188,14 +191,15 @@ export const handleSpawnAgents = (async (
     ),
   )
 
-  const reports = await Promise.all(
-    results.map(async (result, index) => {
+  const reports: SpawnAgentReport[] = await Promise.all(
+    results.map(async (result, index): Promise<SpawnAgentReport> => {
       if (result.status === 'fulfilled') {
-        const { output, agentType, agentName } = result.value
+        const { output, agentType, agentName, agentState } = result.value
         return {
+          agentId: agentState.agentId,
           agentName,
           agentType,
-          value: normalizeSpawnedAgentOutput(output),
+          value: normalizeSpawnedAgentOutput(output) as JSONValue,
         }
       } else {
         const agentTypeStr = agents[index].agent_type

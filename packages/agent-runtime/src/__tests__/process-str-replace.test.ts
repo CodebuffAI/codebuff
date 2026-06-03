@@ -1299,4 +1299,184 @@ function test3() {
       }
     })
   })
+
+  describe('echoed fresh anchors on write (large files)', () => {
+    it('echoes a reusable regionAnchor readCapability after a large-file edit', async () => {
+      const lines = Array.from({ length: 1_001 }, (_, index) =>
+        index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+      )
+      const initialContent = lines.join('\n')
+
+      const result = await processStrReplace({
+        path: 'large.ts',
+        replacements: [
+          {
+            oldString: 'const target = 1;',
+            newString: 'const target = 2;',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if (!('content' in result)) return
+
+      const anchorMessage = result.messages.find((msg) =>
+        msg.includes('readCapability='),
+      )
+      expect(anchorMessage).toBeDefined()
+
+      // The echoed token must validate against the POST-edit content exactly as
+      // a freshly-read anchor would: a second edit using it must apply.
+      const tokenMatch = anchorMessage!.match(/readCapability=(cap\.[A-Za-z0-9_-]+)/)
+      expect(tokenMatch).not.toBeNull()
+      const echoedToken = tokenMatch![1]
+
+      const followUp = await processStrReplace({
+        path: 'large.ts',
+        replacements: [
+          {
+            oldString: 'const target = 2;',
+            newString: 'const target = 3;',
+            allowMultiple: false,
+            basedOnRead: echoedToken,
+          },
+        ],
+        initialContentPromise: Promise.resolve(result.content),
+        logger,
+      })
+
+      expect('content' in followUp).toBe(true)
+      if ('content' in followUp) {
+        expect(followUp.content).toContain('const target = 3;')
+        expect(followUp.content).not.toContain('const target = 2;')
+      }
+    })
+
+    it('does not echo an anchor for small-file edits', async () => {
+      const initialContent = 'const x = 1;\nconst y = 2;\n'
+      const result = await processStrReplace({
+        path: 'small.ts',
+        replacements: [
+          { oldString: 'const y = 2;', newString: 'const y = 3;', allowMultiple: false },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(
+          result.messages.some((msg) => msg.includes('readCapability=')),
+        ).toBe(false)
+      }
+    })
+  })
+
+  describe('occurrenceIndex targeting', () => {
+    it('targets exactly the Nth occurrence on a small file', async () => {
+      const initialContent = 'foo\nbar\nfoo\nbaz\nfoo\n'
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'foo',
+            newString: 'FOO',
+            allowMultiple: false,
+            occurrenceIndex: 2,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('foo\nbar\nFOO\nbaz\nfoo\n')
+      }
+    })
+
+    it('disambiguates repeated text on a large file without basedOnRead', async () => {
+      const lines = Array.from({ length: 1_001 }, (_, index) =>
+        index === 300 || index === 700
+          ? 'const target = 1;'
+          : `const filler${index} = ${index};`,
+      )
+      const initialContent = lines.join('\n')
+
+      const result = await processStrReplace({
+        path: 'large.ts',
+        replacements: [
+          {
+            oldString: 'const target = 1;',
+            newString: 'const target = 2;',
+            allowMultiple: false,
+            occurrenceIndex: 2,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        // Only the SECOND occurrence (line 701) is changed; the first remains.
+        const out = result.content.split('\n')
+        expect(out[300]).toBe('const target = 1;')
+        expect(out[700]).toBe('const target = 2;')
+      }
+    })
+
+    it('fails cleanly when occurrenceIndex exceeds the number of matches', async () => {
+      const initialContent = 'foo\nbar\nfoo\n'
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'foo',
+            newString: 'FOO',
+            allowMultiple: false,
+            occurrenceIndex: 5,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('occurrenceIndex 5')
+        expect(result.error).toContain('only 2 exact occurrence(s)')
+      }
+    })
+  })
+
+  describe('ambiguous oldString lists all candidate ranges', () => {
+    it('reports every occurrence and suggests occurrenceIndex', async () => {
+      const initialContent = Array.from({ length: 30 }, (_, index) =>
+        index % 10 === 5 ? 'dup line' : `filler${index}`,
+      ).join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          { oldString: 'dup line', newString: 'changed', allowMultiple: false },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('Found 3 occurrences')
+        expect(result.error).toContain('occurrenceIndex')
+        // All three candidate occurrences are listed (not capped before 3).
+        expect(result.error).toContain('Occurrence 1:')
+        expect(result.error).toContain('Occurrence 2:')
+        expect(result.error).toContain('Occurrence 3:')
+      }
+    })
+  })
 })

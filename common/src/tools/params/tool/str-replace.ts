@@ -63,6 +63,14 @@ const inputSchema = z
                     .describe(
                       'Whether to allow multiple replacements of oldString.',
                     ),
+                  occurrenceIndex: z
+                    .number()
+                    .int()
+                    .min(1)
+                    .optional()
+                    .describe(
+                      'When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range.',
+                    ),
                   basedOnRead: z
                     .union([
                       z
@@ -124,6 +132,8 @@ If you are making multiple edits in a row to a file, use only one str_replace ca
 Use atomic: true when replacements are one logical change and should be all-or-nothing; any failed replacement will abort the batch with no changes. Omit atomic (or set false) when independent small-file replacements may partially succeed. Large-file edits are always atomic.
 For large files, str_replace still applies against the full current file atomically. If oldString is unique, a naked str_replace can apply safely without basedOnRead. Use basedOnRead from read_files.ranges when oldString is ambiguous or you want to constrain the edit to a specific range; stale anchors fall back to deterministic full-file matching when possible.
 If a replacement fails, re-read the closest candidate range reported in the error before retrying.
+When oldString appears multiple times and you want to change exactly one of them, pass occurrenceIndex (1-indexed) to target the Nth occurrence directly, instead of lengthening oldString or re-reading. The ambiguity error lists every occurrence's line range to help you pick.
+After a large-file edit, the success message returns a fresh basedOnRead readCapability for the edited region; pass it on your next edit to that region instead of re-reading.
 
 Example:
 ${$getNativeToolCallExampleString({
