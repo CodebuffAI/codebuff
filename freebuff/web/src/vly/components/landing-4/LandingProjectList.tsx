@@ -10,6 +10,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
 
 // Clean project item component with drop shadow borders
 const ProjectItem = React.memo(
@@ -70,8 +71,7 @@ const ProjectItem = React.memo(
             </button>
             <button
               onClick={() => {
-                const url =
-                  project?.pretty_preview_url ?? project?.preview_url ?? "";
+                const url = getExternalPreviewUrl(project) ?? "";
                 if (url) {
                   window.open(url, "_blank");
                 } else {

@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuPortal,
 } from "@/vly/components/ui/dropdown-menu";
+import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
 const CreateProjectModal = lazy(
   () => import("@/vly/components/CreateProjectModal"),
 );
@@ -372,9 +373,7 @@ export default function Dashboard() {
                                       error,
                                     );
                                   });
-                                  const url =
-                                    project.pretty_preview_url ||
-                                    project.preview_url;
+                                  const url = getExternalPreviewUrl(project);
                                   if (url) window.open(url, "_blank");
                                 }}
                               >
@@ -493,9 +492,7 @@ export default function Dashboard() {
                                       error,
                                     );
                                   });
-                                  const url =
-                                    project.pretty_preview_url ||
-                                    project.preview_url;
+                                  const url = getExternalPreviewUrl(project);
                                   if (url) window.open(url, "_blank");
                                 }}
                               >
@@ -628,8 +625,7 @@ export default function Dashboard() {
             <div className="grid w-full auto-rows-fr grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredProjects.map((project) => {
                 const isOpening = loadingProjectId === project._id;
-                const previewUrl =
-                  project.pretty_preview_url || project.preview_url;
+                const previewUrl = getExternalPreviewUrl(project);
                 const quotaCheck = checkProjectWorkspaceQuota(
                   project,
                   customer as AutumnCustomer | null | undefined,
@@ -1238,9 +1234,7 @@ export default function Dashboard() {
                                         error,
                                       );
                                     });
-                                    const url =
-                                      project.pretty_preview_url ||
-                                      project.preview_url;
+                                    const url = getExternalPreviewUrl(project);
                                     if (url) window.open(url, "_blank");
                                   }}
                                 >

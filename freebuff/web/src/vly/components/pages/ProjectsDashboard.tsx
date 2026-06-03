@@ -34,6 +34,7 @@ import {
 import { HeroStorageProvider } from '@/vly/hooks/useSharedHeroStorage'
 import { DocumentInput } from '@/vly/components/test-landing/DocumentInput'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
+import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
 
 const ThemePickerModal = lazy(
   () => import('@/vly/components/ThemePickerModal'),
@@ -223,8 +224,7 @@ export default function ProjectsDashboard() {
             <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filteredProjects.map((project) => {
                 const isOpening = loadingProjectId === project._id
-                const previewUrl =
-                  project.pretty_preview_url || project.preview_url
+                const previewUrl = getExternalPreviewUrl(project)
                 const quotaCheck = checkProjectWorkspaceQuota(
                   project,
                   customer as AutumnCustomer | null | undefined,

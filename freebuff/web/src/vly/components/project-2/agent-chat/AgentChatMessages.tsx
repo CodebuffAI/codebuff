@@ -1019,43 +1019,39 @@ const AgentAdMessage: React.FC<{
   const cta = ad.cta || "Learn more";
 
   return (
-    <div className={cn("mb-6 w-full max-w-full overflow-hidden", className)}>
-      <div className="max-w-[min(100%,760px)] rounded-xl bg-muted/60 px-4 py-3 text-sm leading-relaxed text-foreground">
-        <p className="mb-1.5 text-foreground">
-          Quick sponsor recommendation:
-        </p>
-        {ad.adText && (
-          <p className="mb-3 text-muted-foreground">{ad.adText}</p>
-        )}
-        <a
-          href={ad.clickUrl}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          onClick={() => recordAdClick(ad)}
-          className="inline-flex max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/70 px-3 py-2 text-left text-foreground transition-colors hover:bg-muted"
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/50 bg-muted text-xs font-semibold text-muted-foreground">
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              title.charAt(0).toUpperCase()
-            )}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-foreground">
-              {title}
-            </span>
-            <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
-              {cta}
-              <ExternalLink className="h-3 w-3" />
-            </span>
-          </span>
-        </a>
+    <div
+      className={cn(
+        "mb-4 w-full max-w-[min(100%,760px)] text-sm leading-relaxed",
+        className,
+      )}
+    >
+      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+        Sponsored
       </div>
+      {ad.adText && (
+        <p className="mb-1.5 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+          {ad.adText}
+        </p>
+      )}
+      <a
+        href={ad.clickUrl}
+        target="_blank"
+        rel="noopener noreferrer sponsored"
+        onClick={() => recordAdClick(ad)}
+        className="inline-flex max-w-full items-center gap-1.5 text-sm text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+      >
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+          {imageUrl ? (
+            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            title.charAt(0).toUpperCase()
+          )}
+        </span>
+        <span className="truncate font-medium">{title}</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="shrink-0 text-muted-foreground">{cta}</span>
+        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </a>
     </div>
   );
 };
@@ -1099,96 +1095,97 @@ const AgentMessageCard: React.FC<{
     <div className="mb-6 w-full max-w-full overflow-hidden">
       {/* User Message — softer, theme-aware bubble */}
       {message.user_message && (
-        <div className="group relative mb-4 flex items-center gap-2">
-          <div className="flex-1 rounded-xl bg-muted/60 px-4 py-2.5 transition-all duration-200 group-hover:mr-8">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-start gap-2 rounded-xl bg-muted/60 px-4 py-2.5">
             <p className="text-sm leading-relaxed text-foreground">
               {message.user_message}
             </p>
-          </div>
-          {/* Undo button - appears on hover, doesn't take width when hidden */}
-          {shouldShowUndo && (
-            <Dialog
-              open={isRevertDialogOpen}
-              onOpenChange={setIsRevertDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <button
-                  className="absolute right-0 top-1/2 w-0 shrink-0 -translate-y-1/2 overflow-hidden rounded p-1 transition-all duration-200 hover:bg-gray-100 hover:opacity-100 group-hover:w-auto group-hover:opacity-60"
-                  title="Restore to here"
-                >
-                  <Undo className="h-3.5 w-3.5 text-gray-600" />
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Restore to checkpoint</DialogTitle>
-                  <div className="space-y-3 pt-2">
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <div className="flex items-start gap-2">
-                        <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-                        <div className="space-y-1 text-sm text-amber-900">
-                          <div className="font-medium">
-                            This will revert your project
-                          </div>
-                          <div className="text-xs">
-                            {hasCheckpoint
-                              ? "All code changes, file edits, and modifications made after this checkpoint will be undone."
-                              : "This message and all messages after it will be removed from the chat."}
+            {/* Restore stays inside the user message; no hover width animation. */}
+            {shouldShowUndo && (
+              <Dialog
+                open={isRevertDialogOpen}
+                onOpenChange={setIsRevertDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <button
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                    title="Restore to here"
+                    aria-label="Restore to here"
+                  >
+                    <Undo className="h-3.5 w-3.5" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Restore to checkpoint</DialogTitle>
+                    <div className="space-y-3 pt-2">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <div className="flex items-start gap-2">
+                          <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                          <div className="space-y-1 text-sm text-amber-900">
+                            <div className="font-medium">
+                              This will revert your project
+                            </div>
+                            <div className="text-xs">
+                              {hasCheckpoint
+                                ? "All code changes, file edits, and modifications made after this checkpoint will be undone."
+                                : "This message and all messages after it will be removed from the chat."}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-start gap-2">
-                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                        <div>Your chat history will be preserved</div>
-                      </div>
-                      {hasCheckpoint && (
+                      <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-start gap-2">
                           <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                          <div>
-                            You can re-apply reverted changes from the Versions
-                            page
-                          </div>
+                          <div>Your chat history will be preserved</div>
                         </div>
-                      )}
+                        {hasCheckpoint && (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                            <div>
+                              You can re-apply reverted changes from the
+                              Versions page
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    variant="destructive"
-                    disabled={isRestoring}
-                    onClick={async () => {
-                      setIsRestoring(true);
-                      try {
-                        if (onRollback) {
-                          await onRollback();
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button
+                      variant="destructive"
+                      disabled={isRestoring}
+                      onClick={async () => {
+                        setIsRestoring(true);
+                        try {
+                          if (onRollback) {
+                            await onRollback();
+                          }
+                          setIsRevertDialogOpen(false);
+                        } catch (error) {
+                          console.error("Failed to restore:", error);
+                        } finally {
+                          setIsRestoring(false);
                         }
-                        setIsRevertDialogOpen(false);
-                      } catch (error) {
-                        console.error("Failed to restore:", error);
-                      } finally {
-                        setIsRestoring(false);
-                      }
-                    }}
-                  >
-                    {isRestoring ? (
-                      <>
-                        <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        Restoring...
-                      </>
-                    ) : (
-                      "Restore"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+                      }}
+                    >
+                      {isRestoring ? (
+                        <>
+                          <Loader className="mr-2 h-4 w-4 animate-spin" />
+                          Restoring...
+                        </>
+                      ) : (
+                        "Restore"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
       )}
 

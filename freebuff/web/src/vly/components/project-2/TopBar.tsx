@@ -44,6 +44,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQuery } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
+import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
 
 /**
  * Compact, Lovable-style top bar for the project page.
@@ -108,7 +109,7 @@ export function TopBar({
   }
 
   const openPreviewInNewTab = () => {
-    const url = project?.pretty_preview_url ?? project?.preview_url ?? ''
+    const url = getExternalPreviewUrl(project) ?? ''
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
