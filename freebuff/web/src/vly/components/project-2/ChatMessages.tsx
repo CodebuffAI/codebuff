@@ -12,7 +12,6 @@ import {
 import React, { useImperativeHandle, useMemo, forwardRef } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 import { useMutation, useQuery } from "convex/react";
-import { GravityAdSlot } from "./agent-chat/GravityAdSlot";
 import {
   Dialog,
   DialogClose,
@@ -471,45 +470,6 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                   <div className="flex justify-start">
                     <ChatProcessingIndicator />
                   </div>
-                )}
-                {/* Gravity contextual ad at the bottom of all messages */}
-                {sortedMessages.length > 0 && project?.active_thread && (
-                  <GravityAdSlot
-                    messages={(() => {
-                      // Build context from the last assistant message
-                      const msgs: { role: string; content: string }[] = [];
-                      // Find last user message
-                      for (let i = sortedMessages.length - 1; i >= 0; i--) {
-                        if (sortedMessages[i].role === "user") {
-                          const content =
-                            (sortedMessages[i] as { content?: string })
-                              .content ?? "";
-                          if (content) msgs.push({ role: "user", content });
-                          break;
-                        }
-                      }
-                      // Find last assistant message
-                      for (let i = sortedMessages.length - 1; i >= 0; i--) {
-                        if (sortedMessages[i].role === "assistant") {
-                          const assistantContent =
-                            (sortedMessages[i] as { content?: string })
-                              .content ?? "";
-                          if (assistantContent) {
-                            msgs.push({
-                              role: "assistant",
-                              content: assistantContent.slice(0, 500),
-                            });
-                          }
-                          break;
-                        }
-                      }
-                      return msgs;
-                    })()}
-                    sessionId={project.active_thread}
-                    slotKey="bottom-chat-ad"
-                    variant="featured"
-                    showDisclaimer
-                  />
                 )}
               </>
             )}

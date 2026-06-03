@@ -53,7 +53,6 @@ import { Button } from '@/vly/components/ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
 import { ActiveView } from '../pages/project-2'
 import { GodModeActions } from './GodModeActions'
-import { GravityAdSlot } from './agent-chat/GravityAdSlot'
 
 // Separate component for user section with badge sync
 function UserSectionWithBadge() {
@@ -359,18 +358,6 @@ export function LeftSidebar({
   return (
     <div className="h-full w-[200px] overflow-y-auto overflow-x-hidden bg-slate-50 shadow-[0_0_20px_0_rgba(45,45,45,0.18)] dark:border-r dark:border-[#343434] dark:bg-[linear-gradient(180deg,#1f2020_0%,#232323_48%,#1f2020_100%)] dark:shadow-[20px_0_44px_-14px_rgba(0,0,0,0.98)]">
       <div className="flex h-full w-full flex-col items-end justify-start gap-4 px-4 py-4">
-        {/* Gravity ad at top of sidebar */}
-        {project && (
-          <div className="w-full">
-            <GravityAdSlot
-              messages={[]}
-              sessionId={project._id}
-              slotKey="sidebar-top"
-              variant="compact"
-              placement="sidebar"
-            />
-          </div>
-        )}
         {/* Pages Section */}
         <div className="flex flex-col items-start justify-start gap-3 self-stretch">
           <div className="flex items-center justify-between self-stretch">

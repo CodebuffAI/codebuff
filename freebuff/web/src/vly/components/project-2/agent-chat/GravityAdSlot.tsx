@@ -9,7 +9,7 @@ const AD_DEBOUNCE_MS = 2_000;
 
 export type GravityAdMessage = { role: string; content: string };
 
-type GravityAd = {
+export type GravityAd = {
   adText: string;
   title: string;
   cta: string;
@@ -18,9 +18,8 @@ type GravityAd = {
   favicon?: string;
   impUrl: string;
   clickUrl: string;
+  provider?: string;
 };
-
-const GRAVITY_API_URL = "https://server.trygravity.ai/api/v1/ad";
 
 /** Placement ID sent to Gravity for reporting/targeting. */
 const PLACEMENT_CHAT = "agent-chat-below-response";
@@ -28,36 +27,22 @@ const PLACEMENT_CENTER = "project-center";
 const PLACEMENT_SIDEBAR = "project-sidebar";
 
 /**
- * Client-side fetch to Gravity API.
- * This avoids Convex action compute costs by calling Gravity directly from the browser.
+ * Client-side fetch to Freebuff's same-origin ads proxy.
+ * The route forwards to Codebuff's ads API so provider fallback and ad
+ * impression logging remain consistent with the CLI.
  */
-async function fetchGravityAd(
+export async function fetchGravityAd(
   messages: GravityAdMessage[],
   sessionId: string,
   testAd: boolean,
   placement?: "center" | "sidebar",
 ): Promise<GravityAd | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GRAVITY_API_KEY;
-  if (!apiKey) {
-    console.warn(
-      "[GravityAdSlot] NEXT_PUBLIC_GRAVITY_API_KEY is not set. Ads will not be displayed.",
-    );
-    return null;
-  }
-
   const placementId =
     placement === "center"
       ? PLACEMENT_CENTER
       : placement === "sidebar"
         ? PLACEMENT_SIDEBAR
         : PLACEMENT_CHAT;
-
-  const placementType =
-    placementId === PLACEMENT_CHAT
-      ? "below_response"
-      : placementId === PLACEMENT_CENTER
-        ? "inline_response"
-        : "left_response";
 
   // Use unique sessionId per placement to avoid Gravity's per-session deduplication
   // This allows multiple ad slots to each receive their own ad
@@ -66,12 +51,6 @@ async function fetchGravityAd(
   const body = {
     messages,
     sessionId: uniqueSessionId,
-    placements: [
-      {
-        placement: placementType,
-        placement_id: placementId,
-      },
-    ],
     testAd,
   };
 
@@ -84,10 +63,9 @@ async function fetchGravityAd(
       `[GravityAdSlot] Fetching ad for placement: ${placementId}, sessionId: ${uniqueSessionId}`,
     );
 
-    const res = await fetch(GRAVITY_API_URL, {
+    const res = await fetch("/api/ads", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -110,12 +88,17 @@ async function fetchGravityAd(
     const data = (await res.json()) as unknown;
     console.log(`[GravityAdSlot] Data for ${placementId}:`, data);
 
-    if (!Array.isArray(data) || data.length === 0) {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !Array.isArray((data as { ads?: unknown }).ads) ||
+      (data as { ads: unknown[] }).ads.length === 0
+    ) {
       console.log(`[GravityAdSlot] Empty or invalid data for ${placementId}`);
       return null;
     }
 
-    const first = data[0];
+    const first = (data as { ads: unknown[] }).ads[0];
     if (
       typeof first !== "object" ||
       first === null ||
@@ -135,6 +118,7 @@ async function fetchGravityAd(
       favicon: (first as { favicon?: string }).favicon,
       impUrl: (first as { impUrl: string }).impUrl,
       clickUrl: (first as { clickUrl: string }).clickUrl,
+      provider: (data as { provider?: string }).provider,
     };
   } catch {
     return null;

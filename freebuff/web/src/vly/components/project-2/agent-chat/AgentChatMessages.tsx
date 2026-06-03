@@ -10,6 +10,7 @@ import {
   TriangleAlert,
   Wrench,
   Sparkles as SparklesIcon,
+  ExternalLink,
 } from "lucide-react";
 import React, {
   useImperativeHandle,
@@ -20,7 +21,12 @@ import React, {
   useRef,
 } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
-import { useQuery, usePaginatedQuery, useAction } from "convex/react";
+import {
+  useQuery,
+  usePaginatedQuery,
+  useAction,
+  useMutation,
+} from "convex/react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -61,7 +67,11 @@ import {
   PopoverTrigger,
 } from "@/vly/components/ui/popover";
 import { toast } from "sonner";
-import { GravityAdSlot } from "./GravityAdSlot";
+import {
+  fetchGravityAd,
+  type GravityAd,
+  type GravityAdMessage,
+} from "./GravityAdSlot";
 
 // Helper function to format credits in thousands (10k, 100k, 1M)
 const formatCreditsDisplay = (credits: number): string => {
@@ -250,6 +260,72 @@ type AssistantStreamItemType = {
   status?: string;
   content: string;
 };
+
+type AgentMessageForAd =
+  | FunctionReturnType<
+      typeof api.coding_agent.cli_agent.queries.getAgentThreadMessages
+    >[0]
+  | FunctionReturnType<
+      typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
+    >[0];
+
+function getAssistantTextForAd(message: AgentMessageForAd): string {
+  return (message.assistant_stream ?? [])
+    .filter(
+      (item: AssistantStreamItemType) =>
+        item.type === "text" || item.type === "assistant",
+    )
+    .map((item: AssistantStreamItemType) => item.content)
+    .join("")
+    .trim()
+    .slice(0, 800);
+}
+
+function buildGravityMessagesForAgentAd(
+  message: AgentMessageForAd,
+): GravityAdMessage[] {
+  const messages: GravityAdMessage[] = [];
+  if (message.user_message?.trim()) {
+    messages.push({
+      role: "user",
+      content: message.user_message.trim(),
+    });
+  }
+
+  const assistantText = getAssistantTextForAd(message);
+  if (assistantText) {
+    messages.push({
+      role: "assistant",
+      content: assistantText,
+    });
+  }
+
+  return messages;
+}
+
+function fireAdImpressionOnce(ad: GravityAd) {
+  if (typeof window === "undefined" || !ad.impUrl) return;
+  void fetch("/api/ads/impression", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ impUrl: ad.impUrl }),
+    keepalive: true,
+  }).catch((error) => {
+    console.warn("[AgentChatMessages] Failed to record ad impression", error);
+  });
+}
+
+function recordAdClick(ad: { impUrl: string }) {
+  if (typeof window === "undefined" || !ad.impUrl) return;
+  void fetch("/api/ads/click", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ impUrl: ad.impUrl }),
+    keepalive: true,
+  }).catch((error) => {
+    console.warn("[AgentChatMessages] Failed to record ad click", error);
+  });
+}
 
 // Lightweight markdown renderer - optimized for performance
 const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
@@ -932,6 +1008,58 @@ const CompactPaywallBump: React.FC = () => {
   );
 };
 
+type PersistedAgentAd = NonNullable<AgentMessageForAd["ad_payload"]>;
+
+const AgentAdMessage: React.FC<{
+  ad: PersistedAgentAd;
+  className?: string;
+}> = ({ ad, className }) => {
+  const imageUrl = ad.imageUrl || ad.favicon;
+  const title = ad.title || ad.brandName || "Sponsored recommendation";
+  const cta = ad.cta || "Learn more";
+
+  return (
+    <div className={cn("mb-6 w-full max-w-full overflow-hidden", className)}>
+      <div className="max-w-[min(100%,760px)] rounded-xl bg-muted/60 px-4 py-3 text-sm leading-relaxed text-foreground">
+        <p className="mb-1.5 text-foreground">
+          Quick sponsor recommendation:
+        </p>
+        {ad.adText && (
+          <p className="mb-3 text-muted-foreground">{ad.adText}</p>
+        )}
+        <a
+          href={ad.clickUrl}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          onClick={() => recordAdClick(ad)}
+          className="inline-flex max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/70 px-3 py-2 text-left text-foreground transition-colors hover:bg-muted"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border/50 bg-muted text-xs font-semibold text-muted-foreground">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              title.charAt(0).toUpperCase()
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {title}
+            </span>
+            <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
+              {cta}
+              <ExternalLink className="h-3 w-3" />
+            </span>
+          </span>
+        </a>
+      </div>
+    </div>
+  );
+};
+
 // Agent Message Component - No card, just text with user message having google-doc outline
 const AgentMessageCard: React.FC<{
   message:
@@ -941,10 +1069,15 @@ const AgentMessageCard: React.FC<{
     | FunctionReturnType<
         typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
       >[0];
+  adAfterUser?: PersistedAgentAd;
   onRollback?: () => Promise<void>;
-}> = ({ message, onRollback }) => {
+}> = ({ message, adAfterUser, onRollback }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  if (message.ad_payload) {
+    return <AgentAdMessage ad={message.ad_payload} />;
+  }
+
   const isStreaming = message.isStreaming;
   const hasStream =
     message.assistant_stream && message.assistant_stream.length > 0;
@@ -1057,6 +1190,10 @@ const AgentMessageCard: React.FC<{
             </Dialog>
           )}
         </div>
+      )}
+
+      {adAfterUser && (
+        <AgentAdMessage ad={adAfterUser} className="-mt-1 mb-4" />
       )}
 
       {/* Assistant Stream Content - text rendered inline; tool calls /
@@ -1176,6 +1313,104 @@ export const AgentChatMessages = forwardRef<
     // Sort by _creationTime (oldest first for bottom-up rendering)
     return allMessages.sort((a, b) => a._creationTime - b._creationTime);
   }, [filteredThreadMessages, filteredStreamedMessages]);
+
+  const persistAgentAdMessage = useMutation(
+    api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
+  );
+  const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set());
+
+  const adBySourceMessageId = useMemo(() => {
+    const ads = new Map<string, PersistedAgentAd>();
+    sortedMessages.forEach((message) => {
+      if (message.ad_source_message_id && message.ad_payload) {
+        ads.set(message.ad_source_message_id, message.ad_payload);
+      }
+    });
+    return ads;
+  }, [sortedMessages]);
+
+  const messagesForRendering = useMemo(() => {
+    const visibleMessageIds = new Set(
+      sortedMessages.map((message) => message._id),
+    );
+
+    return sortedMessages.filter((message) => {
+      if (!message.ad_payload || !message.ad_source_message_id) return true;
+      return !visibleMessageIds.has(message.ad_source_message_id);
+    });
+  }, [sortedMessages]);
+
+  const sourceMessageForAd = useMemo(() => {
+    const sourceIdsWithAds = new Set(
+      sortedMessages
+        .map((message) => message.ad_source_message_id)
+        .filter(Boolean),
+    );
+
+    for (let i = sortedMessages.length - 1; i >= 0; i--) {
+      const message = sortedMessages[i];
+      if (message.ad_payload) continue;
+      if (!message.user_message) continue;
+      if (sourceIdsWithAds.has(message._id)) continue;
+      return message;
+    }
+
+    return null;
+  }, [sortedMessages]);
+
+  useEffect(() => {
+    if (!project?.active_agent_thread || !sourceMessageForAd) return;
+
+    const sourceMessageId = sourceMessageForAd._id;
+    if (attemptedAdSourceIdsRef.current.has(sourceMessageId)) return;
+
+    const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd);
+    if (gravityMessages.length === 0) return;
+
+    attemptedAdSourceIdsRef.current.add(sourceMessageId);
+    let cancelled = false;
+
+    void fetchGravityAd(
+      gravityMessages,
+      `${project.active_agent_thread}-${sourceMessageId}`,
+      false,
+    )
+      .then(async (ad) => {
+        if (cancelled || !ad) return;
+
+        fireAdImpressionOnce(ad);
+        await persistAgentAdMessage({
+          sourceMessageId,
+          ad: {
+            provider: ad.provider ?? "gravity",
+            adText: ad.adText,
+            title: ad.title,
+            cta: ad.cta,
+            ...(ad.brandName ? { brandName: ad.brandName } : {}),
+            url: ad.url,
+            ...(ad.favicon
+              ? { favicon: ad.favicon, imageUrl: ad.favicon }
+              : {}),
+            clickUrl: ad.clickUrl,
+            impUrl: ad.impUrl,
+            placementId: "agent-chat-below-response",
+            servedAt: Date.now(),
+          },
+        });
+      })
+      .catch((error) => {
+        attemptedAdSourceIdsRef.current.delete(sourceMessageId);
+        console.warn("[AgentChatMessages] Failed to persist Gravity ad", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    persistAgentAdMessage,
+    project?.active_agent_thread,
+    sourceMessageForAd,
+  ]);
   // Rollback functionality
   const revertToCommit = useAction(api.codesandbox.versionControl.revert);
   const deactivateAgentMessageMutation = useAction(
@@ -1403,65 +1638,14 @@ export const AgentChatMessages = forwardRef<
                 </div>
               ) : (
                 <>
-                  {sortedMessages.map((message) => (
+                  {messagesForRendering.map((message) => (
                     <AgentMessageCard
                       key={message._id}
                       message={message}
+                      adAfterUser={adBySourceMessageId.get(message._id)}
                       onRollback={rollbackCallbacks.get(message._id)}
                     />
                   ))}
-                  {/* Gravity contextual ad at the bottom of all messages */}
-                  {sortedMessages.length > 0 &&
-                    project?.active_agent_thread && (
-                      <GravityAdSlot
-                        messages={(() => {
-                          // Build context from the last message with content
-                          const msgs: { role: string; content: string }[] = [];
-                          const lastMessage =
-                            sortedMessages[sortedMessages.length - 1];
-                          if (lastMessage?.user_message) {
-                            msgs.push({
-                              role: "user",
-                              content: lastMessage.user_message,
-                            });
-                          }
-                          if (
-                            lastMessage?.assistant_stream &&
-                            lastMessage.assistant_stream.length > 0
-                          ) {
-                            const textParts = lastMessage.assistant_stream
-                              .filter(
-                                (item: AssistantStreamItemType) =>
-                                  item.type === "text" ||
-                                  item.type === "assistant",
-                              )
-                              .map(
-                                (item: AssistantStreamItemType) => item.content,
-                              );
-                            const assistantText = textParts
-                              .join("")
-                              .slice(0, 500);
-                            if (assistantText) {
-                              msgs.push({
-                                role: "assistant",
-                                content: assistantText,
-                              });
-                            }
-                          }
-                          return msgs;
-                        })()}
-                        sessionId={project.active_agent_thread}
-                        slotKey={(() => {
-                          for (let i = sortedMessages.length - 1; i >= 0; i--) {
-                            if (sortedMessages[i]?.user_message)
-                              return sortedMessages[i]._id;
-                          }
-                          return "bottom-ad";
-                        })()}
-                        variant="featured"
-                        showDisclaimer
-                      />
-                    )}
                 </>
               )}
 
