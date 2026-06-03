@@ -1,9 +1,30 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, action } from "!/_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  action,
+  mutation,
+} from "!/_generated/server";
 import { internal } from "!/_generated/api";
 import { getAuthUser } from "../../users";
+import { getVerifiedAccessProject } from "../../project";
 import { workflow } from "./workflow";
 import type { WorkflowId } from "@convex-dev/workflow";
+
+const agentAdPayloadValidator = v.object({
+  provider: v.string(),
+  adText: v.string(),
+  title: v.string(),
+  cta: v.string(),
+  brandName: v.optional(v.string()),
+  url: v.string(),
+  favicon: v.optional(v.string()),
+  imageUrl: v.optional(v.string()),
+  clickUrl: v.string(),
+  impUrl: v.string(),
+  placementId: v.optional(v.string()),
+  servedAt: v.number(),
+});
 
 // Create a new agent message
 export const createAgentMessage = internalMutation({
@@ -26,6 +47,86 @@ export const createAgentMessage = internalMutation({
     });
 
     return messageId;
+  },
+});
+
+export const persistAgentAdMessage = mutation({
+  args: {
+    sourceMessageId: v.id("agent_message"),
+    ad: agentAdPayloadValidator,
+  },
+  returns: v.object({
+    created: v.boolean(),
+    messageId: v.id("agent_message"),
+  }),
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const sourceMessage = await ctx.db.get(args.sourceMessageId);
+    if (!sourceMessage) {
+      throw new Error("Source message not found");
+    }
+    if (sourceMessage.ad_payload) {
+      throw new Error("Cannot attach an ad to another ad message");
+    }
+
+    const thread = await ctx.db.get(sourceMessage.thread_id);
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+
+    const project = await getVerifiedAccessProject(
+      ctx,
+      user._id,
+      undefined,
+      thread.project_id,
+    );
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+
+    const existing = await ctx.db
+      .query("agent_message")
+      .withIndex("by_thread_and_ad_source", (q) =>
+        q
+          .eq("thread_id", sourceMessage.thread_id)
+          .eq("ad_source_message_id", args.sourceMessageId),
+      )
+      .filter((q) => q.neq(q.field("deactivated"), true))
+      .first();
+
+    if (existing) {
+      return { created: false, messageId: existing._id };
+    }
+
+    const title = args.ad.title || args.ad.brandName || "Sponsored";
+    const cta = args.ad.cta || "Learn more";
+    const messageId = await ctx.db.insert("agent_message", {
+      thread_id: sourceMessage.thread_id,
+      session_id: sourceMessage.session_id,
+      assistant_stream: [
+        {
+          type: "text",
+          content: "Quick sponsor recommendation:",
+        },
+        {
+          type: "ad",
+          title,
+          content: args.ad.adText,
+          description: `${cta} · ${args.ad.url}`,
+        },
+      ],
+      ad_source_message_id: args.sourceMessageId,
+      ad_payload: args.ad,
+      isStreaming: false,
+      state: "Completed",
+      deactivated: false,
+    });
+
+    return { created: true, messageId };
   },
 });
 

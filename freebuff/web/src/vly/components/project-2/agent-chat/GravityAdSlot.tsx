@@ -9,7 +9,7 @@ const AD_DEBOUNCE_MS = 2_000;
 
 export type GravityAdMessage = { role: string; content: string };
 
-type GravityAd = {
+export type GravityAd = {
   adText: string;
   title: string;
   cta: string;
@@ -31,7 +31,7 @@ const PLACEMENT_SIDEBAR = "project-sidebar";
  * Client-side fetch to Gravity API.
  * This avoids Convex action compute costs by calling Gravity directly from the browser.
  */
-async function fetchGravityAd(
+export async function fetchGravityAd(
   messages: GravityAdMessage[],
   sessionId: string,
   testAd: boolean,

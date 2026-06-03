@@ -496,9 +496,34 @@ export default defineSchema(
 
       // Images associated with the message
       images: v.optional(v.array(v.id('_storage'))), // Storage IDs for images
+
+      // Persisted ad message payload. These rows render like assistant
+      // messages, but are deduped against the agent message that triggered
+      // the ad.
+      ad_source_message_id: v.optional(v.id('agent_message')),
+      ad_payload: v.optional(
+        v.object({
+          provider: v.string(),
+          adText: v.string(),
+          title: v.string(),
+          cta: v.string(),
+          brandName: v.optional(v.string()),
+          url: v.string(),
+          favicon: v.optional(v.string()),
+          imageUrl: v.optional(v.string()),
+          clickUrl: v.string(),
+          impUrl: v.string(),
+          placementId: v.optional(v.string()),
+          servedAt: v.number(),
+        }),
+      ),
     })
       .index('by_thread', ['thread_id'])
       .index('by_thread_active', ['thread_id', 'isStreaming', 'deactivated'])
+      .index('by_thread_and_ad_source', [
+        'thread_id',
+        'ad_source_message_id',
+      ])
       .index('by_thread_and_commit', [
         'thread_id',
         'commit_hash',
