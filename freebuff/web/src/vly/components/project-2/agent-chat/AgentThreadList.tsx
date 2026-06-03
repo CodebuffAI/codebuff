@@ -4,8 +4,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ChevronLeft, Plus, Loader2 } from "lucide-react";
-import { Button } from "@/vly/components/ui/button";
 import { cn } from "@/vly/lib/utils";
+import type { MouseEvent } from "react";
 
 interface AgentThreadListProps {
   projectSemanticIdentifier: string;
@@ -102,11 +102,86 @@ export function AgentThreadList({
   }
 
   const categories = categorizeThreads(threadsWithPreview);
+  const sections = [
+    { label: "Today", items: categories.today },
+    { label: "Yesterday", items: categories.yesterday },
+    { label: "This week", items: categories.thisWeek },
+    { label: "Earlier", items: categories.before },
+  ].filter((section) => section.items.length > 0);
+
+  type ThreadPreviewItem = (typeof threadsWithPreview)[number];
+
+  const handleCreateClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isProcessing) {
+      onCreateNewThread();
+    }
+  };
+
+  const renderThreadRow = (item: ThreadPreviewItem) => {
+    const isActive = activeThreadId === item.thread._id;
+    const title = item.thread.title || "Untitled Thread";
+    const preview = item.latestUserMessage?.trim();
+    const agentLabel =
+      item.thread.threadType === "agent_thread"
+        ? item.thread.agent_type || "Freebuff"
+        : "Classic";
+    const processing =
+      "isProcessing" in item.thread && Boolean(item.thread.isProcessing);
+
+    return (
+      <button
+        key={item.thread._id}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelectThread(item.thread._id, item.thread.threadType);
+        }}
+        type="button"
+        className={cn(
+          "group w-full rounded-md border border-transparent px-3 py-3 text-left transition-colors",
+          "hover:border-border/70 hover:bg-muted/45",
+          isActive && "border-border/70 bg-muted/60",
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className={cn(
+              "mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-muted-foreground/30",
+              isActive && "bg-primary",
+              processing && "animate-pulse bg-primary",
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium text-foreground">
+                {title}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {agentLabel}
+              </span>
+              {processing && (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+              )}
+            </div>
+            {preview && (
+              <div className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
+                {preview}
+              </div>
+            )}
+          </div>
+          <time className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+            {formatTime(item.thread.last_edited_timestamp)}
+          </time>
+        </div>
+      </button>
+    );
+  };
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b bg-white px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+      <div className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-border/50 px-4">
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -114,245 +189,68 @@ export function AgentThreadList({
             onBack();
           }}
           type="button"
-          className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-zinc-100"
+          aria-label="Back to thread"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <ChevronLeft className="h-4 w-4 text-zinc-600" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
-        <h2 className="flex-1 text-sm font-semibold text-zinc-900">Threads</h2>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!isProcessing) {
-                onCreateNewThread();
-              }
-            }}
-            type="button"
-            size="sm"
-            className="h-7 gap-1.5 px-2.5 text-xs"
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" />
-            )}
-            New
-          </Button>
-        </div>
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+          Threads
+        </h2>
+        <button
+          onClick={handleCreateClick}
+          type="button"
+          aria-label="New thread"
+          disabled={isProcessing}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isProcessing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
-      {/* Thread List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         {threadsWithPreview.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4">
-            <div className="text-center">
-              <p className="mb-2 text-sm font-medium text-zinc-700">
+            <div className="max-w-xs text-center">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 No threads yet
               </p>
-              <p className="mb-4 text-xs text-zinc-500">
-                Create a new thread to get started
+              <p className="mb-4 text-sm text-muted-foreground">
+                Start a thread when you want Freebuff to work on a new task.
               </p>
-              <Button onClick={onCreateNewThread} size="sm" className="text-xs">
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                New Thread
-              </Button>
+              <button
+                onClick={handleCreateClick}
+                type="button"
+                disabled={isProcessing}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-border/70 px-3 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                New thread
+              </button>
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-100">
-            {/* Today */}
-            {categories.today.length > 0 && (
-              <div>
-                <div className="px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                  Today
+          <div className="space-y-5">
+            {sections.map((section, index) => (
+              <section key={section.label}>
+                <div
+                  className={cn(
+                    "mb-2 flex items-center gap-3 px-1",
+                    index > 0 && "border-t border-border/40 pt-4",
+                  )}
+                >
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {section.label}
+                  </h3>
+                  <div className="h-px flex-1 bg-border/30" />
                 </div>
-                {categories.today.map((item) => (
-                  <button
-                    key={item.thread._id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSelectThread(item.thread._id, item.thread.threadType);
-                    }}
-                    type="button"
-                    className={cn(
-                      "w-full px-4 py-3 text-left transition-colors hover:bg-zinc-50",
-                      activeThreadId === item.thread._id && "bg-zinc-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="text-xs font-medium text-zinc-900">
-                            {item.thread.title || "Untitled Thread"}
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {item.thread.agent_type}
-                          </span>
-                          {"isProcessing" in item.thread &&
-                            item.thread.isProcessing && (
-                              <Loader2 className="h-3 w-3 animate-spin text-zinc-400" />
-                            )}
-                        </div>
-                        {item.latestUserMessage && (
-                          <div className="truncate text-xs text-zinc-600">
-                            {item.latestUserMessage}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-[10px] text-zinc-400">
-                        {formatTime(item.thread.last_edited_timestamp)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Yesterday */}
-            {categories.yesterday.length > 0 && (
-              <div>
-                <div className="px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                  Yesterday
-                </div>
-                {categories.yesterday.map((item) => (
-                  <button
-                    key={item.thread._id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSelectThread(item.thread._id, item.thread.threadType);
-                    }}
-                    type="button"
-                    className={cn(
-                      "w-full px-4 py-3 text-left transition-colors hover:bg-zinc-50",
-                      activeThreadId === item.thread._id && "bg-zinc-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="text-xs font-medium text-zinc-900">
-                            {item.thread.title || "Untitled Thread"}
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {item.thread.agent_type}
-                          </span>
-                          {"isProcessing" in item.thread &&
-                            item.thread.isProcessing && (
-                              <Loader2 className="h-3 w-3 animate-spin text-zinc-400" />
-                            )}
-                        </div>
-                        {item.latestUserMessage && (
-                          <div className="truncate text-xs text-zinc-600">
-                            {item.latestUserMessage}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-[10px] text-zinc-400">
-                        {formatTime(item.thread.last_edited_timestamp)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* This Week */}
-            {categories.thisWeek.length > 0 && (
-              <div>
-                <div className="px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                  This Week
-                </div>
-                {categories.thisWeek.map((item) => (
-                  <button
-                    key={item.thread._id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSelectThread(item.thread._id, item.thread.threadType);
-                    }}
-                    type="button"
-                    className={cn(
-                      "w-full px-4 py-3 text-left transition-colors hover:bg-zinc-50",
-                      activeThreadId === item.thread._id && "bg-zinc-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="text-xs font-medium text-zinc-900">
-                            {item.thread.title || "Untitled Thread"}
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {item.thread.agent_type}
-                          </span>
-                          {"isProcessing" in item.thread &&
-                            item.thread.isProcessing && (
-                              <Loader2 className="h-3 w-3 animate-spin text-zinc-400" />
-                            )}
-                        </div>
-                        {item.latestUserMessage && (
-                          <div className="truncate text-xs text-zinc-600">
-                            {item.latestUserMessage}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-[10px] text-zinc-400">
-                        {formatTime(item.thread.last_edited_timestamp)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Before */}
-            {categories.before.length > 0 && (
-              <div>
-                <div className="px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                  Earlier
-                </div>
-                {categories.before.map((item) => (
-                  <button
-                    key={item.thread._id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSelectThread(item.thread._id, item.thread.threadType);
-                    }}
-                    type="button"
-                    className={cn(
-                      "w-full px-4 py-3 text-left transition-colors hover:bg-zinc-50",
-                      activeThreadId === item.thread._id && "bg-zinc-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="text-xs font-medium text-zinc-900">
-                            {item.thread.title || "Untitled Thread"}
-                          </span>
-                          <span className="text-[10px] text-zinc-500">
-                            {item.thread.agent_type}
-                          </span>
-                        </div>
-                        {item.latestUserMessage && (
-                          <div className="truncate text-xs text-zinc-600">
-                            {item.latestUserMessage}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-[10px] text-zinc-400">
-                        {formatTime(item.thread.last_edited_timestamp)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+                <div className="space-y-1">{section.items.map(renderThreadRow)}</div>
+              </section>
+            ))}
           </div>
         )}
       </div>

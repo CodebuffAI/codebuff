@@ -265,10 +265,7 @@ export class DaytonaCodebase
         await this.sandbox.setAutoArchiveInterval(desiredAutoArchiveInterval);
       }
     } catch {
-      console.warn(
-        "[DaytonaCodebase] Failed to configure sandbox settings (non-critical)",
-      );
-      // Don't throw - this is a configuration nicety, not a blocker
+
     }
   }
 
@@ -282,10 +279,6 @@ export class DaytonaCodebase
         return;
       }
 
-      console.log(
-        "[DaytonaCodebase] Checking if stats daemon scripts are installed",
-      );
-
       const currentSnapshot = process.env.DAYTONA_SNAPSHOT_ID || "no-snapshot";
 
       // Load version from IntegrityManager state if this instance doesn't have it yet
@@ -296,9 +289,6 @@ export class DaytonaCodebase
           const lastValue = state["ensureStatsScripts"]?.lastValue;
           if (lastValue && state["ensureStatsScripts"]?.success) {
             this.statsScriptsVersion = lastValue;
-            console.log(
-              `[DaytonaCodebase] Loaded stats scripts version from state: ${lastValue}`,
-            );
           }
         } catch {
           // State file doesn't exist yet, that's fine - first installation
@@ -320,18 +310,8 @@ export class DaytonaCodebase
         scriptsExist &&
         this.statsScriptsVersion?.endsWith(`-${currentSnapshot}`)
       ) {
-        console.log(
-          "[DaytonaCodebase] Stats daemon scripts already installed and snapshot unchanged - skipping",
-        );
         return;
       }
-
-      // Scripts missing OR snapshot changed - fetch S3 version
-      console.log(
-        scriptsExist
-          ? "[DaytonaCodebase] Snapshot changed, checking S3 version..."
-          : "[DaytonaCodebase] Scripts not found, fetching from S3...",
-      );
 
       // Default S3 URL - can be overridden via environment variable
       const scriptsUrl =
@@ -356,17 +336,9 @@ export class DaytonaCodebase
       // If scripts exist and version matches (snapshot changed but same S3 version)
       // just update our tracking
       if (scriptsExist && this.statsScriptsVersion === versionKey) {
-        console.log(
-          "[DaytonaCodebase] Scripts exist and S3 version matches - no reinstall needed",
-        );
         this.statsScriptsVersion = versionKey;
         return;
       }
-
-      // Need to install (either missing or version changed)
-      console.log(
-        "[DaytonaCodebase] Installing stats daemon scripts from S3...",
-      );
 
       // Install to user-writable directory ($HOME/.local/bin)
       // Using tar (always available) instead of unzip (requires installation)
@@ -384,24 +356,13 @@ export class DaytonaCodebase
       const installResult = await this.runCommand(installCommands, 30000); // 30 second timeout
 
       if (installResult.exitCode === 0) {
-        console.log(
-          "[DaytonaCodebase] Stats daemon scripts installed successfully to $HOME/.local/bin",
-        );
         // ONLY set version after successful installation to prove we fetched them
         this.statsScriptsVersion = versionKey;
       } else {
-        console.warn(
-          "[DaytonaCodebase] Failed to install stats daemon scripts:",
-          installResult.output,
-        );
         // Don't set version on failure
       }
     } catch (error) {
       // Non-critical failure - log but don't block initialization
-      console.warn(
-        "[DaytonaCodebase] Could not install stats daemon scripts (non-critical):",
-        error,
-      );
       // Don't throw - if scripts are in the snapshot, workspace will still work
     }
   }
@@ -416,8 +377,6 @@ export class DaytonaCodebase
         return;
       }
 
-      console.log("[DaytonaCodebase] Checking stats monitoring daemon status");
-
       // Check if daemon processes are already running by looking for PIDs
       const pidCheckResult = await this.runCommand(
         "pgrep -f 'vly-stats-stream.sh|vly-stats-sync.sh' > /dev/null 2>&1 && echo 'RUNNING' || echo 'STOPPED'",
@@ -427,14 +386,8 @@ export class DaytonaCodebase
       const isRunning = pidCheckResult.output?.trim() === "RUNNING";
 
       if (isRunning) {
-        console.log(
-          "[DaytonaCodebase] Stats monitoring daemon is already running",
-        );
         return;
       }
-
-      // Try multiple locations for the script
-      console.log("[DaytonaCodebase] Starting stats monitoring daemon");
 
       // First try to find the script location
       const findScriptResult = await this.runCommand(
@@ -464,20 +417,12 @@ export class DaytonaCodebase
         ? `VLY_API_ENDPOINT="${sandboxUsageEndpoint}" VLY_API_KEY="${sandboxUsageApiKey}" ${scriptPath} start`
         : `VLY_API_ENDPOINT="${sandboxUsageEndpoint}" ${scriptPath} start`;
 
-      console.log(
-        `[DaytonaCodebase] Starting daemon with endpoint: ${sandboxUsageEndpoint}`,
-      );
       const startResult = await this.runCommand(startCommand, 10000);
 
-      // Check if start was successful or if daemon was already running
-      if (
+      const startedOk =
         startResult.exitCode === 0 ||
-        startResult.output?.includes("already running")
-      ) {
-        console.log(
-          "[DaytonaCodebase] Stats monitoring daemon started successfully",
-        );
-      } else {
+        startResult.output?.includes("already running");
+      if (!startedOk) {
         console.warn(
           "[DaytonaCodebase] Failed to start stats monitoring daemon:",
           startResult.output,
@@ -552,11 +497,7 @@ export class DaytonaCodebase
           60000,
         );
 
-        if (updateResult.exitCode === 0) {
-          console.log(
-            "[DaytonaCodebase] @vly-ai/integrations updated successfully",
-          );
-        } else {
+        if (updateResult.exitCode !== 0) {
           console.warn(
             "[DaytonaCodebase] Failed to update @vly-ai/integrations:",
             updateResult.output,
@@ -571,11 +512,7 @@ export class DaytonaCodebase
         60000,
       );
 
-      if (installResult.exitCode === 0) {
-        console.log(
-          "[DaytonaCodebase] @vly-ai/integrations installed successfully",
-        );
-      } else {
+      if (installResult.exitCode !== 0) {
         console.warn(
           "[DaytonaCodebase] Failed to install @vly-ai/integrations:",
           installResult.output,
@@ -611,7 +548,6 @@ export class DaytonaCodebase
 
       // 2. Check if vlyPlugin already exists
       if (viteConfig.includes("vlyPlugin")) {
-        await this.removeVlyImportFromMainTsx();
         return;
       }
 
@@ -627,36 +563,9 @@ export class DaytonaCodebase
 
       // 5. Write updated config
       await this.writeFile("vite.config.ts", updatedConfig);
-      console.log("[DaytonaCodebase] Added vlyPlugin to vite.config.ts");
-
-      // 6. Remove old import from main.tsx
-      await this.removeVlyImportFromMainTsx();
     } catch (error) {
       console.warn(
         "[DaytonaCodebase] Could not ensure vlyPlugin in vite.config (non-critical):",
-        error,
-      );
-    }
-  }
-
-  /**
-   * Remove the old @vly-ai/integrations import from main.tsx
-   */
-  private async removeVlyImportFromMainTsx(): Promise<void> {
-    try {
-      const mainTsxPath = "src/main.tsx";
-      const mainTsx = await this.readFile(mainTsxPath);
-
-      if (mainTsx.includes("@vly-ai/integrations")) {
-        const updatedMain = mainTsx.replace(
-          /import ['"]@vly-ai\/integrations['"];\n?/g,
-          "",
-        );
-        await this.writeFile(mainTsxPath, updatedMain);
-      }
-    } catch (error) {
-      console.warn(
-        "[DaytonaCodebase] Could not remove import from main.tsx:",
         error,
       );
     }
@@ -673,19 +582,13 @@ export class DaytonaCodebase
         return;
       }
 
-      console.log("[DaytonaCodebase] Ensuring integration setup...");
-
       // Step 1: Check if integration files exist
       let filesExist = true;
       try {
         await this.readFile("src/lib/vly-integrations.ts");
-        console.log("[DaytonaCodebase] Integration files exist");
       } catch (error: any) {
         if (error?.message?.includes("File not found")) {
           filesExist = false;
-          console.log(
-            "[DaytonaCodebase] Integration files missing, will create",
-          );
         } else {
           throw error; // Re-throw non-file-not-found errors
         }
@@ -709,7 +612,6 @@ export const vly = createVlyIntegrations({
           "src/lib/vly-integrations.ts",
           vlyIntegrationsContent,
         );
-        console.log("[DaytonaCodebase] Created src/lib/vly-integrations.ts");
 
         // Create integrations.md
         const integrationsMdContent = `# VLY Integrations
@@ -860,7 +762,6 @@ if (!hasIntegration) {
 `;
 
         await this.writeFile("integrations.md", integrationsMdContent);
-        console.log("[DaytonaCodebase] Created integrations.md");
       }
 
       // Note: @vly-ai/integrations is now loaded via vlyPlugin() in vite.config.ts
@@ -868,10 +769,6 @@ if (!hasIntegration) {
 
       // Step 3: Check and set backend environment variables if integrationKey provided
       if (integrationKey) {
-        console.log(
-          "[DaytonaCodebase] Checking integration environment variables...",
-        );
-
         // Check if VLY_INTEGRATION_KEY exists
         const envListResult = await this.runCommand(
           this.packageManager.run("convex env list"),
@@ -886,50 +783,21 @@ if (!hasIntegration) {
 
         if (!hasIntegrationKey) {
           envVarsToSet.VLY_INTEGRATION_KEY = integrationKey;
-          console.log(
-            "[DaytonaCodebase] VLY_INTEGRATION_KEY not found, will set",
-          );
-        } else {
-          console.log("[DaytonaCodebase] VLY_INTEGRATION_KEY already exists");
         }
 
         if (!hasIntegrationBaseUrl) {
           envVarsToSet.VLY_INTEGRATION_BASE_URL =
             "https://integrations.vly.ai/";
-          console.log(
-            "[DaytonaCodebase] VLY_INTEGRATION_BASE_URL not found, will set",
-          );
-        } else {
-          console.log(
-            "[DaytonaCodebase] VLY_INTEGRATION_BASE_URL already exists",
-          );
         }
 
-        // Set environment variables if needed
         if (Object.keys(envVarsToSet).length > 0) {
-          console.log(
-            `[DaytonaCodebase] Setting ${Object.keys(envVarsToSet).length} environment variable(s)...`,
-          );
           await this.setEnvVars({
             frontend: {},
             backend: envVarsToSet,
           });
-          console.log(
-            "[DaytonaCodebase] Environment variables set successfully",
-          );
         }
-      } else {
-        console.log(
-          "[DaytonaCodebase] No integration key provided, skipping env var setup",
-        );
       }
-
-      console.log("[DaytonaCodebase] Integration setup complete");
     } catch (error) {
-      console.warn(
-        "[DaytonaCodebase] Could not ensure integrations (non-critical):",
-        error,
-      );
       // Don't throw - template should have files anyway, and env vars can be set later
     }
   }
@@ -1354,7 +1222,7 @@ if (!hasIntegration) {
         const commits = await this.getCommits();
         return commits[0];
       } catch (e) {
-        console.log("ERROR: " + e);
+        console.error("[DaytonaCodebase] commit failed:", e);
         throw e;
       }
     } else {
@@ -1478,30 +1346,12 @@ if (!hasIntegration) {
     // Try to get frontend env vars
     let frontendEnv: Record<string, string> = {};
     try {
-      console.log(
-        "[DaytonaCodebase] Getting frontend env vars with dotenvx...",
-      );
       const frontendEnvResult = await this.runCommand(
         this.packageManager.run("@dotenvx/dotenvx get -f .env.local"),
       );
 
-      console.log(
-        `[DaytonaCodebase] dotenvx exitCode: ${frontendEnvResult.exitCode}`,
-      );
-
       if (frontendEnvResult.exitCode === 0) {
-        // Log raw output for debugging
-        console.log(
-          `[DaytonaCodebase] dotenvx raw output (first 200 chars): ${frontendEnvResult.output.substring(0, 200)}`,
-        );
-
-        // Sanitize the output
         const sanitized = this.sanitizeJsonOutput(frontendEnvResult.output);
-        console.log(
-          `[DaytonaCodebase] dotenvx sanitized output (first 200 chars): ${sanitized.substring(0, 200)}`,
-        );
-
-        // Parse JSON
         const parsed = JSON.parse(sanitized);
 
         // Validate that the result is an object (not an array)
@@ -1515,18 +1365,11 @@ if (!hasIntegration) {
           );
           frontendEnv = await this.readEnvFileDirect(".env.local");
         } else {
-          // Use the parsed object
           frontendEnv = parsed as Record<string, string>;
-          console.log(
-            `[DaytonaCodebase] Successfully parsed ${Object.keys(frontendEnv).length} frontend env vars`,
-          );
         }
       } else {
         console.warn(
           `[DaytonaCodebase] dotenvx command failed with exit code ${frontendEnvResult.exitCode}. Output: ${frontendEnvResult.output.substring(0, 200)}`,
-        );
-        console.log(
-          "[DaytonaCodebase] Falling back to direct .env.local file read",
         );
         frontendEnv = await this.readEnvFileDirect(".env.local");
       }
@@ -1537,21 +1380,8 @@ if (!hasIntegration) {
         `[DaytonaCodebase] Error getting frontend env vars: ${errorMessage}`,
       );
 
-      // Log the actual output that caused the error if available
-      if (error instanceof Error && "output" in error) {
-        console.warn(
-          `[DaytonaCodebase] Problematic output: ${(error as any).output}`,
-        );
-      }
-
-      console.log(
-        "[DaytonaCodebase] Attempting fallback to direct .env.local file read",
-      );
       try {
         frontendEnv = await this.readEnvFileDirect(".env.local");
-        console.log(
-          `[DaytonaCodebase] Fallback successful, got ${Object.keys(frontendEnv).length} env vars`,
-        );
       } catch (fallbackError) {
         console.warn(
           "[DaytonaCodebase] Fallback also failed, using empty object:",
@@ -1618,7 +1448,6 @@ if (!hasIntegration) {
   async setEnvVars(envVars: EnvVars) {
     // set frontend env vars
     for (const [key, value] of Object.entries(envVars.frontend)) {
-      console.log(`Setting frontend env var: ${key} = ${value}`);
       try {
         await this.runCommandThrow("[ -f .env.local ] || touch .env.local");
         await this.runCommandThrow(
@@ -1884,92 +1713,30 @@ if (!hasIntegration) {
     const session = sessions.find((s) => s.sessionId === sessionId);
 
     if (!session || session.commands.length === 0) {
-      console.log(
-        `[checkSessionHealth] '${sessionId}': ${!session ? "session not found" : "no commands"}`,
-      );
       return "missing";
     }
-
-    // Debug: Log all commands in the session
-    console.log(
-      `[checkSessionHealth] '${sessionId}' commands:`,
-      session.commands.map((c) => ({
-        cmd: c.command,
-        exitCode: c.exitCode,
-      })),
-    );
-
-    // Get the expected main command for this session
-    const expectedCommand =
-      this.DEV_SERVER_COMMANDS[
-        sessionId as (typeof DaytonaCodebase.DEV_SESSIONS)[number]
-      ].start;
-    console.log(
-      `[checkSessionHealth] '${sessionId}' expected command: ${expectedCommand}`,
-    );
 
     // Strictly match the exact expected command
     // This ensures sessions with wrong package manager commands (e.g., npx instead of bunx)
     // are properly detected as unhealthy and recreated with the correct command
+    const expectedCommand =
+      this.DEV_SERVER_COMMANDS[
+        sessionId as (typeof DaytonaCodebase.DEV_SESSIONS)[number]
+      ].start;
     const devCommand = session.commands.find(
       (cmd) => cmd.command === expectedCommand,
     );
 
     if (!devCommand) {
-      console.log(
-        `[checkSessionHealth] '${sessionId}': expected command not found (strict match required)`,
-      );
       return "missing";
     }
 
-    console.log(`[checkSessionHealth] '${sessionId}' found dev command:`, {
-      cmd: devCommand.command,
-      exitCode: devCommand.exitCode,
-    });
-
     // null/undefined exitCode = still running
     if (devCommand.exitCode === null || devCommand.exitCode === undefined) {
-      console.log(
-        `[checkSessionHealth] '${sessionId}': running (exitCode is ${devCommand.exitCode})`,
-      );
       return "running";
     }
 
-    // Command has exited - fetch and log failure details
-    console.error(
-      `[checkSessionHealth] '${sessionId}': FAILED (exitCode = ${devCommand.exitCode})`,
-    );
-
-    // Try to fetch command logs if we have the command ID
-    if (this.sandbox && devCommand.id) {
-      try {
-        const logs = await this.sandbox.process.getSessionCommandLogs(
-          sessionId,
-          devCommand.id,
-        );
-        if (logs.stderr) {
-          console.error(
-            `[checkSessionHealth] '${sessionId}' STDERR:\n${logs.stderr}`,
-          );
-        }
-        if (logs.stdout) {
-          console.error(
-            `[checkSessionHealth] '${sessionId}' STDOUT:\n${logs.stdout}`,
-          );
-        }
-      } catch (logError) {
-        console.error(
-          `[checkSessionHealth] Failed to fetch logs for '${sessionId}':`,
-          logError,
-        );
-      }
-    } else {
-      console.error(
-        `[checkSessionHealth] Cannot fetch logs - ${!this.sandbox ? "sandbox not initialized" : "no command ID"}`,
-      );
-    }
-
-    return "failed"; // Any exit code = not running
+    return "failed";
   }
 
   /**
@@ -2076,34 +1843,19 @@ if (!hasIntegration) {
         error.message?.includes("already exists");
 
       if (is409) {
-        console.log(
-          `[ensureSingleSession] Session '${sessionId}' already exists, checking health...`,
-        );
-
         // Re-check health (might have recovered)
         const sessions = await this.sandbox.process.listSessions();
         const health = await this.checkSessionHealth(sessions, sessionId);
 
         if (health === "running") {
-          console.log(
-            `[ensureSingleSession] Session '${sessionId}' is healthy, skipping`,
-          );
           return; // Already healthy
         }
 
         // Unhealthy but exists - delete and recreate
-        console.log(
-          `[ensureSingleSession] Session '${sessionId}' is ${health}, recreating...`,
-        );
         await this.sandbox.process.deleteSession(sessionId);
         await this.waitForSessionDeletion([sessionId], 5000);
         await this.sandbox.process.createSession(sessionId);
       } else {
-        // Only log non-409 errors
-        console.error(
-          `[ensureSingleSession] Unexpected error creating session '${sessionId}':`,
-          error.message,
-        );
         throw error;
       }
     }
@@ -2144,16 +1896,9 @@ if (!hasIntegration) {
       }
 
       // Only restart unhealthy/missing sessions
-      console.log(
-        `[ensureDevServers] Session '${sessionId}' is ${health}, restarting...`,
-      );
       try {
         await this.ensureSingleSessionRunning(sessionId);
-      } catch (error: any) {
-        console.error(
-          `[ensureDevServers] Failed to restart '${sessionId}':`,
-          error.message,
-        );
+      } catch {
         // Continue with other sessions even if one fails
       }
     }
@@ -2168,9 +1913,6 @@ if (!hasIntegration) {
   }
 
   async installDependencies(): Promise<void> {
-    console.log(
-      `[DaytonaCodebase] Installing dependencies with ${this.packageManager.name}...`,
-    );
     try {
       const command = this.packageManager.install();
       const result = await this.runCommand(command, 300000); // 5 minute timeout
@@ -2183,7 +1925,6 @@ if (!hasIntegration) {
           `${this.packageManager.name} install failed: ${result.output}`,
         );
       }
-      console.log("[DaytonaCodebase] Dependencies installed successfully");
     } catch (error) {
       console.error("[DaytonaCodebase] Failed to install dependencies:", error);
       throw error;
@@ -2701,7 +2442,6 @@ if (!hasIntegration) {
 
       // If already at target commit, nothing to do
       if (currentHash === targetHash) {
-        console.log(`Already at target commit ${targetHash}`);
         return currentHash;
       }
 
@@ -2711,11 +2451,8 @@ if (!hasIntegration) {
       );
 
       if (!commitsResult.output.trim()) {
-        console.log(`No commits to revert between ${targetHash} and HEAD`);
         return currentHash;
       }
-
-      console.log(`Reverting commits to restore state at ${targetHash}`);
 
       // Get the target commit message
       const targetMsgResult = await this.runCommandThrow(
@@ -2745,19 +2482,13 @@ if (!hasIntegration) {
 
       // Return the final commit hash
       const finalHashResult = await this.runCommandThrow("git rev-parse HEAD");
-      const finalHash = finalHashResult.output.trim();
-
-      console.log(
-        `Successfully reverted to ${targetHash}, new HEAD is ${finalHash}`,
-      );
-      return finalHash;
+      return finalHashResult.output.trim();
     } catch (error) {
       console.error(`Failed to revert to commit ${targetHash}:`, error);
 
       // Try to abort any ongoing revert operation
       try {
         await this.runCommandThrow("git revert --abort");
-        console.log("Aborted incomplete revert operation");
       } catch {
         // Ignore abort errors - there might not be an ongoing revert
       }
@@ -2771,11 +2502,8 @@ if (!hasIntegration) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupBranch = `backup-${operation}-${timestamp}`;
 
-    console.log(`[DaytonaCodebase] Creating backup branch: ${backupBranch}`);
-
     // Get current branch
     const originalBranch = await this.getCurrentBranch();
-    console.log(`[DaytonaCodebase] Current branch: '${originalBranch}'`);
 
     // Check for uncommitted work
     const status = await this.getStatus();
@@ -2791,14 +2519,11 @@ if (!hasIntegration) {
 
     // If we're on a backup branch, switch to main to leave a clean state for subsequent operations
     if (originalBranch.startsWith("backup-")) {
-      console.log(
-        `[DaytonaCodebase] Switching from backup branch '${originalBranch}' to main`,
-      );
       try {
         await this.checkoutBranch("main");
       } catch (error) {
-        console.log(
-          "[DaytonaCodebase] Warning: Failed to switch to main branch:",
+        console.warn(
+          "[DaytonaCodebase] Failed to switch to main branch:",
           error,
         );
       }
@@ -2811,51 +2536,34 @@ if (!hasIntegration) {
     let commitHash: string | undefined;
     try {
       commitHash = await this.getCommitHash("HEAD");
-    } catch (error) {
-      console.log("[DaytonaCodebase] Could not get commit hash:", error);
+    } catch {
+      // Non-fatal: hash is best-effort metadata
     }
 
-    const backupInfo = {
+    return {
       branchName: backupBranch,
       timestamp,
       commitHash,
       originalBranch,
       hasUncommittedWork,
     };
-
-    console.log(
-      `[DaytonaCodebase] Backup branch created successfully:`,
-      backupInfo,
-    );
-    return backupInfo;
   }
 
   async restoreFromBackup(backupInfo: BackupInfo): Promise<void> {
-    console.log(
-      `[DaytonaCodebase] Restoring from backup branch: ${backupInfo.branchName}`,
-    );
-
     // Switch to original branch
     await this.checkoutBranch(backupInfo.originalBranch);
 
     // Reset to backup state
     await this.resetHard(backupInfo.branchName);
-
-    console.log("[DaytonaCodebase] Successfully restored from backup");
   }
 
   async cleanupOldBackups(keepCount: number = 5): Promise<void> {
-    console.log(
-      `[DaytonaCodebase] Cleaning up old local backup branches, keeping ${keepCount} recent ones`,
-    );
-
     // Get all local backup branches sorted by creation time
     const branchListResult = await this.runCommand(
       "git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/heads/backup-*",
     );
 
     if (branchListResult.exitCode !== 0 || !branchListResult.output?.trim()) {
-      console.log("[DaytonaCodebase] No local backup branches found");
       return;
     }
 
@@ -2870,20 +2578,13 @@ if (!hasIntegration) {
       for (const branch of branchesToDelete) {
         try {
           await this.deleteBranch(branch.trim(), true);
-          console.log(
-            `[DaytonaCodebase] Deleted old local backup branch: ${branch.trim()}`,
-          );
         } catch (deleteError) {
-          console.log(
+          console.warn(
             `[DaytonaCodebase] Failed to delete local backup branch ${branch}:`,
             deleteError,
           );
         }
       }
-
-      console.log(
-        `[DaytonaCodebase] Local cleanup complete, removed ${branchesToDelete.length} old backup branches`,
-      );
     }
   }
 
@@ -2958,27 +2659,16 @@ if (!hasIntegration) {
     remote: string = "github",
   ): Promise<{ hasConflicts: boolean; errorMessage?: string }> {
     try {
-      console.log(
-        "[DaytonaCodebase] Performing dry-run conflict detection using git merge-tree",
-      );
-
       // Fetch latest changes from GitHub using authenticated fetch
-      console.log("[DaytonaCodebase] Fetching latest changes from GitHub");
       await this.fetch(remote, token, repoOwner, repoName);
 
       // Check what files would conflict using git diff
-      console.log(
-        "[DaytonaCodebase] Checking for conflicting files using git diff",
-      );
       const diffFilesResult = await this.runCommand(
         `git --no-pager diff --name-only HEAD ${remote}/main`,
         15000,
       );
 
       if (diffFilesResult.exitCode !== 0 || !diffFilesResult.output.trim()) {
-        console.log(
-          "[DaytonaCodebase] No file differences detected - no conflicts possible",
-        );
         return { hasConflicts: false };
       }
 
@@ -3023,14 +2713,7 @@ if (!hasIntegration) {
             file.trim() && !file.includes("\x1B") && isMeaningfulFile(file),
         );
 
-      console.log(
-        `[DaytonaCodebase] Found ${cleanDiffFiles.split("\n").length} total changed files, ${changedFiles.length} meaningful files`,
-      );
-
       if (changedFiles.length === 0) {
-        console.log(
-          "[DaytonaCodebase] Only build artifacts changed - proceeding with sync",
-        );
         return {
           hasConflicts: false,
           errorMessage:
@@ -3039,16 +2722,12 @@ if (!hasIntegration) {
       }
 
       // Use git merge-tree to simulate merge without affecting working directory
-      console.log("[DaytonaCodebase] Simulating merge using git merge-tree");
       const mergeSimulationResult = await this.runCommand(
         `git merge-tree $(git merge-base HEAD ${remote}/main) HEAD ${remote}/main`,
         20000,
       );
 
       if (mergeSimulationResult.exitCode !== 0) {
-        console.log(
-          "[DaytonaCodebase] Merge-tree failed, assuming no conflicts",
-        );
         return { hasConflicts: false };
       }
 
@@ -3060,10 +2739,6 @@ if (!hasIntegration) {
         mergeSimulation.includes("=======") ||
         mergeSimulation.includes(">>>>>>>")
       ) {
-        console.log(
-          "[DaytonaCodebase] Conflicts detected in merge-tree simulation",
-        );
-
         // Extract conflicted files from conflict markers
         const conflictLines = mergeSimulation.split("\n");
         const conflictedFiles = new Set<string>();
@@ -3081,19 +2756,12 @@ if (!hasIntegration) {
         const meaningfulConflictedFiles =
           Array.from(conflictedFiles).filter(isMeaningfulFile);
 
-        console.log(
-          `[DaytonaCodebase] Found ${meaningfulConflictedFiles.length} meaningful conflicted files from ${conflictedFiles.size} total`,
-        );
-
         if (meaningfulConflictedFiles.length > 0) {
           return {
             hasConflicts: true,
             errorMessage: `Repository divergence detected with conflicts in ${meaningfulConflictedFiles.length} source files: ${meaningfulConflictedFiles.join(", ")}`,
           };
         } else {
-          console.log(
-            "[DaytonaCodebase] Only build artifact conflicts detected - proceeding with sync",
-          );
           return {
             hasConflicts: false,
             errorMessage:
@@ -3103,9 +2771,6 @@ if (!hasIntegration) {
       }
 
       // No conflicts detected - safe to proceed
-      console.log(
-        "[DaytonaCodebase] No conflicts detected in merge-tree simulation",
-      );
       return { hasConflicts: false };
     } catch (error: any) {
       console.error(
@@ -3125,52 +2790,37 @@ if (!hasIntegration) {
     const totalChanges =
       status.staged.length + status.unstaged.length + status.untracked.length;
 
-    if (totalChanges > 0) {
-      console.log(
-        `[DaytonaCodebase] Found ${totalChanges} uncommitted changes, auto-committing as WIP`,
-      );
-      try {
-        await this.addAll();
-        await this.commit("WIP: Auto-commit to ensure clean working directory");
-        console.log("[DaytonaCodebase] Working directory is now clean");
-      } catch (error: any) {
-        const errorMessage = error?.message || String(error);
-        // If the error is about a clean working tree, it means the tree became clean
-        // between our status check and the commit attempt - this is fine
-        if (
-          errorMessage.includes("clean working tree") ||
-          errorMessage.includes("nothing to commit")
-        ) {
-          console.log(
-            "[DaytonaCodebase] Working tree became clean before commit - no action needed",
-          );
-        } else {
-          // Re-throw actual errors
-          throw error;
-        }
+    if (totalChanges === 0) {
+      return;
+    }
+
+    try {
+      await this.addAll();
+      await this.commit("WIP: Auto-commit to ensure clean working directory");
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      // If the error is about a clean working tree, it means the tree became clean
+      // between our status check and the commit attempt - this is fine
+      if (
+        !errorMessage.includes("clean working tree") &&
+        !errorMessage.includes("nothing to commit")
+      ) {
+        throw error;
       }
-    } else {
-      console.log(
-        "[DaytonaCodebase] Working directory is clean, safe to proceed",
-      );
     }
   }
 
   async abortMerge(): Promise<void> {
     try {
-      console.log("[DaytonaCodebase] Attempting to abort any ongoing merge");
       await this.runCommand("git merge --abort", 10000);
-      console.log("[DaytonaCodebase] Successfully aborted merge");
     } catch (error: any) {
       // Ignore errors - there might not be an ongoing merge
       const errorMessage = error?.message || String(error);
-      if (
+      const isNoMerge =
         errorMessage.includes("no merge in progress") ||
-        errorMessage.includes("There is no merge to abort")
-      ) {
-        console.log("[DaytonaCodebase] No merge in progress to abort");
-      } else {
-        console.log(
+        errorMessage.includes("There is no merge to abort");
+      if (!isNoMerge) {
+        console.warn(
           "[DaytonaCodebase] Error aborting merge (non-critical):",
           error,
         );
@@ -3179,41 +2829,24 @@ if (!hasIntegration) {
   }
 
   async cleanupConflictedState(): Promise<void> {
-    console.log("[DaytonaCodebase] Cleaning up conflicted git state");
-
     // Step 1: Abort any ongoing merge
     await this.abortMerge();
 
     // Step 2: Reset to HEAD (removes all uncommitted changes)
     try {
-      console.log("[DaytonaCodebase] Resetting to HEAD");
       await this.runCommand("git reset --hard HEAD", 10000);
-      console.log("[DaytonaCodebase] Reset complete");
     } catch (error) {
-      console.log("[DaytonaCodebase] Error resetting to HEAD:", error);
+      console.warn("[DaytonaCodebase] Error resetting to HEAD:", error);
     }
 
     // Step 3: Clean untracked files and directories
     try {
-      console.log("[DaytonaCodebase] Cleaning untracked files");
       await this.runCommand("git clean -fd", 10000);
-      console.log("[DaytonaCodebase] Cleanup complete");
     } catch (error) {
-      console.log("[DaytonaCodebase] Error cleaning untracked files:", error);
-    }
-
-    // Step 4: Verify we're in a clean state
-    try {
-      const status = await this.getStatus();
-      const isClean =
-        status.staged.length === 0 &&
-        status.unstaged.length === 0 &&
-        status.untracked.length === 0;
-      console.log(
-        `[DaytonaCodebase] Git state cleanup complete - ${isClean ? "clean" : "still has changes"}`,
+      console.warn(
+        "[DaytonaCodebase] Error cleaning untracked files:",
+        error,
       );
-    } catch (error) {
-      console.log("[DaytonaCodebase] Could not verify clean state:", error);
     }
   }
 
@@ -3271,7 +2904,6 @@ if (!hasIntegration) {
           rows: 30,
           onData: (data: Uint8Array) => {
             const text = new TextDecoder().decode(data);
-            console.log("[DaytonaCodebase] PTY output chunk:", text);
             void onStdout(text);
           },
         });
@@ -3331,8 +2963,6 @@ async function openDaytonaSandboxWithRetry(sandboxId: string) {
   let lastError: Error | null = null;
   let retryCount = 0;
 
-  console.log("Attempting to open Daytona sandbox:", sandboxId);
-
   // Get the singleton SDK instance
   const sdk = DaytonaSdkManager.getDaytonaSDK();
 
@@ -3349,10 +2979,7 @@ async function openDaytonaSandboxWithRetry(sandboxId: string) {
       if (sandbox.state !== "started") {
         // Start the sandbox with explicit timeout (60 seconds)
         // This internally uses waitUntilStarted() which polls the API
-        console.log(`Sandbox state: ${sandbox.state}, calling start()`);
         await sdk.start(sandbox, 60);
-      } else {
-        console.log("Daytona sandbox already running, validating target");
       }
 
       // Re-fetch after start to avoid stale sandbox metadata in long-lived objects.
@@ -3360,7 +2987,6 @@ async function openDaytonaSandboxWithRetry(sandboxId: string) {
 
       // Handle transitional states by waiting explicitly, then re-fetch again.
       if ((sandbox.state as string) === "starting") {
-        console.log("Sandbox is still starting, waiting for ready state");
         await sandbox.waitUntilStarted(60);
         sandbox = await sdk.get(sandboxId);
       }
@@ -3387,15 +3013,10 @@ async function openDaytonaSandboxWithRetry(sandboxId: string) {
         );
       }
 
-      console.log(
-        `Successfully opened sandbox ${sandboxId}, state: ${sandbox.state}`,
-      );
       return sandbox;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.log("Daytona sandbox open failed, retrying...");
-      console.error("Error details:", error);
       lastError = error as Error;
       retryCount++;
 
@@ -3412,9 +3033,6 @@ async function openDaytonaSandboxWithRetry(sandboxId: string) {
         ? 1000 + retryCount * 2000
         : Math.pow(2, retryCount) * 1000;
 
-      console.log(
-        `Sandbox open attempt ${retryCount}/${maxRetries} failed${isStateChangeInProgress ? " (state change in progress)" : ""}, retrying in ${backoffTime}ms`,
-      );
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
   }

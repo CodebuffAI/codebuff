@@ -74,7 +74,6 @@ export async function checkUserRateLimit(
   ctx: MutationCtx,
   userId: string,
 ): Promise<RateLimitResult> {
-  console.log(`[RateLimit] Checking limits for user ${userId}`);
 
   const status = await rateLimiter.limit(ctx, "userMessages", {
     key: userId,

@@ -72,7 +72,8 @@ const CopyButton = ({ text }: { text: string }) => {
   return (
     <Button
       variant="ghost"
-      className="px-1"
+      size="icon"
+      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
       onClick={() => {
         navigator.clipboard.writeText(text);
         setIsCopied(true);
@@ -81,7 +82,7 @@ const CopyButton = ({ text }: { text: string }) => {
         }, 2000);
       }}
     >
-      {isCopied ? <Check /> : <Copy />}
+      {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </Button>
   );
 };
@@ -93,7 +94,7 @@ const DNSRecordTable = ({
 }) => {
   return (
     <div className="w-full overflow-x-auto">
-      <Table className="table-fixed">
+      <Table className="min-w-[560px] table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[100px]">Type</TableHead>
@@ -109,7 +110,7 @@ const DNSRecordTable = ({
               <TableCell className="overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <div className="flex items-center gap-1">
                   <CopyButton text={record.name} />
-                  <span className="rounded-md bg-neutral-300 p-1 text-xs">
+                  <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground">
                     {record.name}
                   </span>
                 </div>
@@ -117,7 +118,7 @@ const DNSRecordTable = ({
               <TableCell className="overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <div className="flex items-center gap-1">
                   <CopyButton text={record.value} />
-                  <span className="rounded-md bg-neutral-300 p-1 text-xs">
+                  <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground">
                     {record.value}
                   </span>
                 </div>
@@ -146,8 +147,8 @@ const NumberedStep = ({
 }) => {
   return (
     <div>
-      <span className="flex items-baseline gap-2 text-sm font-bold">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white px-3 py-2">
+      <span className="flex items-center gap-2 text-sm font-semibold">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted/30 text-foreground">
           <span>{number}</span>
         </div>
         {children}
@@ -329,12 +330,12 @@ const SetRecordsPage = ({
       <NumberedStep number={2}>
         <span>Set DNS records</span>
       </NumberedStep>
-      <div className="my-2">
+      <div className="my-2 text-sm text-foreground/90">
         Set the following DNS records on your domain{" "}
         <span className="font-bold">{getRootDomain(domain)}</span>:
       </div>
-      <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
-        <p className="text-sm text-blue-800">
+      <div className="mb-4 rounded-md border border-border bg-muted/25 p-3">
+        <p className="text-sm leading-6 text-muted-foreground">
           <strong>Note:</strong> DNS changes can take up to 48 hours to
           propagate globally, though most changes are visible within a few
           minutes to an hour. If verification fails, please wait a few minutes
@@ -360,7 +361,7 @@ const SetRecordsPage = ({
       </div>
 
       {generateError && (
-        <span className="mt-8 text-right text-sm text-red-500">
+        <span className="mt-8 block text-right text-sm text-red-400">
           {generateError}
         </span>
       )}
@@ -402,10 +403,10 @@ export const NewDomainWorkflow = ({
 
   return (
     <div className="max-w-full">
-      <Button variant="ghost" className="px-1 py-2" onClick={() => onFinish()}>
-        <ArrowLeft /> Domains
+      <Button variant="ghost" className="px-1 py-2 text-foreground" onClick={() => onFinish()}>
+        <ArrowLeft className="h-4 w-4" /> Domains
       </Button>
-      <div id="workflow-container" className="max-w-full p-4">
+      <div id="workflow-container" className="max-w-full px-0 py-4 sm:p-4">
         {page === "new" && (
           <NewDomainPage onNext={handleNextFromNew} projectId={projectId} />
         )}

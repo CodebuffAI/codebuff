@@ -30,6 +30,8 @@ import {
   ArrowLeft,
   Plug,
   Component,
+  Maximize2,
+  History,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
@@ -47,6 +49,7 @@ const EnvVarsView = lazy(() => import('./EnvVarsView'))
 const IntegrationsView = lazy(() => import('./IntegrationsView'))
 const UiIntegrationView = lazy(() => import('./UiIntegrationView'))
 const BackendManagement = lazy(() => import('./BackendManagement'))
+const GitCommitsView = lazy(() => import('./GitCommitsView'))
 
 // Tab IDs shown in the iframe area. These are deliberately a subset of the
 // older `ActiveView` union — see project-2.tsx for the full set.
@@ -55,6 +58,7 @@ export type IframeTab =
   | 'database'
   | 'logs'
   | 'editor'
+  | 'versions'
   | 'keys'
   | 'integrations'
   | 'ui-components'
@@ -113,6 +117,7 @@ const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'database', label: 'Data', Icon: Database },
   { id: 'logs', label: 'Logs', Icon: ScrollText },
   { id: 'editor', label: 'Editor', Icon: Code2 },
+  { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'ui-components', label: 'UI', Icon: Component },
@@ -136,33 +141,51 @@ export function ProjectIframeArea({
   openInNewTab,
 }: ProjectIframeAreaProps) {
   const isNonPreviewTab = activeTab !== 'preview'
+  const expandedSettingsHref =
+    activeTab === 'database'
+      ? `/web/project/${semanticIdentifier}/settings?section=database`
+      : activeTab === 'logs'
+        ? `/web/project/${semanticIdentifier}/settings?section=backend`
+        : null
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
       {!hideTabs && (
-        <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto bg-background px-3 py-1.5">
-          {TOP_TABS.map(({ id, label, Icon }) => {
-            const isActive = activeTab === id
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveTab(id)}
-                className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
-                }`}
-                aria-pressed={isActive}
-              >
-                <Icon className="h-4 w-4" />
-                <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
-                  {label}
-                </span>
-              </button>
-            )
-          })}
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 bg-background px-3 py-1.5">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+            {TOP_TABS.map(({ id, label, Icon }) => {
+              const isActive = activeTab === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
+                    isActive
+                      ? 'bg-muted text-foreground'
+                      : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
+                    {label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {expandedSettingsHref && (
+            <a
+              href={expandedSettingsHref}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
+              title={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </a>
+          )}
         </div>
       )}
 
@@ -358,6 +381,12 @@ function ActiveSurface({
             <EditorView projectId={project._id} />
           </FeatureGate>
         </ViewSurface>
+      )}
+
+      {activeTab === 'versions' && (
+        <div className="h-full w-full overflow-hidden bg-background pt-12">
+          <GitCommitsView project={project} />
+        </div>
       )}
 
       {activeTab === 'keys' && (

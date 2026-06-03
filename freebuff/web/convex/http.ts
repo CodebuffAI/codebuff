@@ -20,6 +20,10 @@ function getAllowedOrigin(request: Request): string {
   const allowedOrigins = [
     'https://vly.ai',
     'https://www.vly.ai',
+    "freebuff.com",
+    "www.freebuff.com",
+    "freebuff.dev",
+    "www.freebuff.dev",
     ...(process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()) || []),
   ]
 
@@ -28,7 +32,7 @@ function getAllowedOrigin(request: Request): string {
   }
 
   // Fallback to primary domain
-  return 'https://vly.ai'
+  return 'https://freebuff.com'
 }
 
 const http = httpRouter()

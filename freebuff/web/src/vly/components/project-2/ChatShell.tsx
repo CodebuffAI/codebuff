@@ -26,7 +26,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { insertAtTop, useAction, useMutation, useQuery } from "convex/react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import { FunctionReturnType } from "convex/server";
-import { X, ChevronLeft, Pencil, Loader } from "lucide-react";
+import { X, ChevronLeft, Pencil, Loader, Plus } from "lucide-react";
 import { Input } from "@/vly/components/ui/input";
 import {
   Dialog,
@@ -837,9 +837,10 @@ ${message}`;
                     setShowThreadList(true);
                   }}
                   type="button"
-                  className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-zinc-100"
+                  aria-label="All threads"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <ChevronLeft className="h-4 w-4 text-zinc-600" />
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
                 {activeThread && (
                   <div className="flex flex-1 items-center gap-2">
@@ -877,14 +878,11 @@ ${message}`;
                       />
                     ) : (
                       <>
-                        <span className="flex-1 text-xs font-medium text-zinc-900">
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/90">
                           {activeThread.title || "Untitled Thread"}
                         </span>
-                        <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-700">
+                        <span className="hidden items-center rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-flex">
                           freebuff agent 2.0
-                        </span>
-                        <span className="rounded-full border border-[#7CFF3F]/30 bg-[#7CFF3F]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#7CFF3F]">
-                          New
                         </span>
                         <button
                           onClick={() => {
@@ -893,15 +891,28 @@ ${message}`;
                             );
                             setIsEditingTitle(true);
                           }}
-                          className="flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100"
+                          className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
                           title="Edit title"
                         >
-                          <Pencil className="h-3 w-3 text-zinc-500" />
+                          <Pencil className="h-3 w-3" />
                         </button>
                       </>
                     )}
                   </div>
                 )}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCreateNewThread();
+                  }}
+                  type="button"
+                  aria-label="New thread"
+                  disabled={isProcessing}
+                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -1158,7 +1169,6 @@ ${message}`;
                 onAgentModeChange={setSelectedAgentMode}
                 selectedContextLength={selectedContextLength}
                 onContextLengthChange={setSelectedContextLength}
-                onSwitchAgent={handleCreateNewThread}
                 syncStatus={syncStatus}
                 activeEntryPointId={activeEntryPointId}
               />

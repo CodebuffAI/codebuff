@@ -1,90 +1,118 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { Loader } from "lucide-react";
+import { Spinner3D } from "./Spinner3D";
 
-const THINKING_STAGES = {
-  initial: {
-    messages: [
-      "Thinking...",
-      "Analyzing...",
-      "Processing...",
-      "Understanding...",
-    ],
-    duration: 5000, // 5 seconds
+const THINKING_STAGES = [
+  {
+    label: "Reading your request",
+    detail: "Checking the project context and recent changes.",
+    startsAt: 0,
   },
-  deep: {
-    messages: [
-      "Thinking deeply...",
-      "Analyzing complex patterns...",
-      "Processing intricate details...",
-      "Deep reasoning in progress...",
-      "Carefully considering options...",
-    ],
-    duration: 5000, // 5 seconds (5-10 total)
+  {
+    label: "Planning the change",
+    detail: "Choosing the smallest implementation path.",
+    startsAt: 3000,
   },
-  advanced: {
-    messages: [
-      "Using high-end thinking model, this may take a while",
-      "Advanced reasoning in progress...",
-      "Leveraging sophisticated analysis...",
-      "High-performance thinking engaged...",
-      "Complex problem-solving mode active...",
-    ],
-    duration: null, // No time limit for final stage
+  {
+    label: "Working through the code",
+    detail: "Inspecting files and preparing edits.",
+    startsAt: 7000,
   },
-};
+  {
+    label: "Verifying the result",
+    detail: "Looking for errors and edge cases.",
+    startsAt: 13000,
+  },
+  {
+    label: "Still working",
+    detail: "This is taking longer, but progress is continuing.",
+    startsAt: 22000,
+  },
+] as const;
+
+function formatElapsed(ms: number) {
+  if (ms < 10000) {
+    return `${Math.floor(ms / 100) / 10}s`;
+  }
+  return `${Math.floor(ms / 1000)}s`;
+}
+
+function getSoftProgress(elapsedMs: number) {
+  const seconds = elapsedMs / 1000;
+  return Math.min(96, Math.round(12 + (1 - Math.exp(-seconds / 14)) * 84));
+}
 
 export const ThinkingState: React.FC = React.memo(() => {
-  const [currentStage, setCurrentStage] =
-    useState<keyof typeof THINKING_STAGES>("initial");
-  const [messageIndex, setMessageIndex] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
+    const startedAt = Date.now();
     const timer = setInterval(() => {
-      setElapsedTime((prev) => prev + 1000);
-    }, 1000);
+      setElapsedTime(Date.now() - startedAt);
+    }, 250);
 
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    // Stage progression logic
-    if (elapsedTime >= 10000 && currentStage !== "advanced") {
-      setCurrentStage("advanced");
-      setMessageIndex(0);
-    } else if (elapsedTime >= 5000 && currentStage === "initial") {
-      setCurrentStage("deep");
-      setMessageIndex(0);
-    }
-  }, [elapsedTime, currentStage]);
-
-  useEffect(() => {
-    // Message rotation within current stage (but not for advanced stage)
-    const stage = THINKING_STAGES[currentStage];
-    if (stage.messages.length <= 1 || currentStage === "advanced") return;
-
-    const messageTimer = setInterval(() => {
-      setMessageIndex((prev) => (prev + 1) % stage.messages.length);
-    }, 2000); // Change message every 2 seconds
-
-    return () => clearInterval(messageTimer);
-  }, [currentStage]);
-
-  const currentMessages = useMemo(
-    () => THINKING_STAGES[currentStage].messages,
-    [currentStage],
+  const currentStageIndex = useMemo(
+    () =>
+      THINKING_STAGES.findLastIndex((stage) => elapsedTime >= stage.startsAt),
+    [elapsedTime],
   );
-  const currentMessage = useMemo(
-    () => currentMessages[messageIndex],
-    [currentMessages, messageIndex],
-  );
+  const currentStage = THINKING_STAGES[Math.max(0, currentStageIndex)];
+  const progress = useMemo(() => getSoftProgress(elapsedTime), [elapsedTime]);
+  const completedStageCount = Math.max(0, currentStageIndex);
 
   return (
-    <div className="flex items-center space-x-2">
-      <Loader className="h-3 w-3 animate-spin text-zinc-500" />
-      <div className="text-xs leading-relaxed text-zinc-500 transition-opacity duration-300">
-        {currentMessage}
+    <div className="my-3 w-full max-w-xl">
+      <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
+        <div className="mb-3">
+          <div className="text-sm font-medium text-foreground">
+            {currentStage.label}
+          </div>
+          <div className="mt-1 text-xs leading-5 text-muted-foreground">
+            {currentStage.detail}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-background/60">
+            <Spinner3D size={42} />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>Thinking</span>
+              <span className="font-mono">{formatElapsed(elapsedTime)}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {THINKING_STAGES.slice(0, 4).map((stage, index) => {
+                const isActive = index === currentStageIndex;
+                const isComplete = index < completedStageCount;
+                return (
+                  <span
+                    key={stage.label}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                      isActive
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : isComplete
+                          ? "border-border bg-muted/50 text-foreground/70"
+                          : "border-border/70 text-muted-foreground"
+                    }`}
+                  >
+                    {stage.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

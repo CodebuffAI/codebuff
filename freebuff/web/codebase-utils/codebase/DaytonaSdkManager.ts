@@ -34,9 +34,6 @@ class DaytonaSdkManager {
         );
       }
 
-      console.log(
-        "[DaytonaSdkManager] Initializing Daytona SDK singleton instance",
-      );
       DaytonaSdkManager.instance = new Daytona({ apiKey });
     }
 
@@ -48,7 +45,6 @@ class DaytonaSdkManager {
    * In production, the instance should persist for the lifetime of the process.
    */
   public static clearInstance(): void {
-    console.log("[DaytonaSdkManager] Clearing Daytona SDK singleton instance");
     DaytonaSdkManager.instance = null;
   }
 }

@@ -95,7 +95,7 @@ export function BackendLogs({
   }, [deploymentUrl, deploymentDetails]);
 
   return (
-    <div className="m-0 flex h-full w-full flex-grow flex-col p-0">
+    <div className="m-0 flex min-h-0 w-full flex-grow flex-col p-0">
       {!deploymentDetails && (
         <div className="m-0 flex h-full w-full flex-col items-center justify-center p-0">
           <div className="relative">
@@ -108,7 +108,7 @@ export function BackendLogs({
         <iframe
           ref={iframeRef}
           className={cn(
-            "h-screen min-h-0 w-full min-w-0 flex-grow border-0",
+            "h-full min-h-0 w-full min-w-0 flex-grow border-0",
             !authenticated && "hidden",
           )}
           src={"https://dashboard-embedded.convex.dev/logs"}

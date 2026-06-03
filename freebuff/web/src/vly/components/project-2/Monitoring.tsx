@@ -62,9 +62,6 @@ export default function Monitoring({ project }: MonitoringProps) {
       <MonitoringHeader
         deploymentType={deploymentType}
         setDeploymentType={setDeploymentType}
-        metrics={metrics}
-        loading={loading.metrics}
-        error={errors.metrics}
         timeRange={timeRangeHook.timeRange}
         setTimeRange={timeRangeHook.setTimeRange}
         customStartDate={timeRangeHook.customStartDate}
@@ -81,45 +78,35 @@ export default function Monitoring({ project }: MonitoringProps) {
 
         {!loading.metrics && !errors.metrics && metrics && (
           <div
-            className={`grid gap-3 ${sandboxStats ? "xl:grid-cols-2" : "xl:grid-cols-1"}`}
+            className={`grid gap-4 ${sandboxStats ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "xl:grid-cols-1"}`}
           >
             {sandboxStats && (
-              <SandboxResourcesSection
-                sandboxStats={sandboxStats}
-                project={project}
-                selectedSnapshotId={migration.selectedSnapshotId}
-                setSelectedSnapshotId={migration.setSelectedSnapshotId}
-                isMigrating={migration.isMigrating}
-                setIsMigrating={migration.setIsMigrating}
-                handleMigrateWorkspace={migration.migrate}
-                timeRange={timeRangeHook.timeRange}
-                setTimeRange={timeRangeHook.setTimeRange}
-                customStartDate={timeRangeHook.customStartDate}
-                setCustomStartDate={timeRangeHook.setCustomStartDate}
-                customEndDate={timeRangeHook.customEndDate}
-                setCustomEndDate={timeRangeHook.setCustomEndDate}
-                metricsHistory={metricsHistory}
-                metricsLoading={loading.metricsHistory}
-                metricsError={errors.metricsHistory}
-                setPaywallOpen={setPaywallOpen}
-                setPaywallFeatureId={setPaywallFeatureId}
-                customer={customer}
-                allProjects={allProjects}
-              />
+              <div className="min-w-0">
+                <SandboxResourcesSection
+                  sandboxStats={sandboxStats}
+                  project={project}
+                  selectedSnapshotId={migration.selectedSnapshotId}
+                  setSelectedSnapshotId={migration.setSelectedSnapshotId}
+                  isMigrating={migration.isMigrating}
+                  handleMigrateWorkspace={migration.migrate}
+                  metricsHistory={metricsHistory}
+                  metricsLoading={loading.metricsHistory}
+                  metricsError={errors.metricsHistory}
+                  customer={customer}
+                  allProjects={allProjects}
+                />
+              </div>
             )}
 
-            <ConvexUsageSection
-              metrics={metrics}
-              showAllTimeSeries={showAllTimeSeries}
-              setShowAllTimeSeries={setShowAllTimeSeries}
-              timeRange={timeRangeHook.timeRange}
-              setTimeRange={timeRangeHook.setTimeRange}
-              customStartDate={timeRangeHook.customStartDate}
-              setCustomStartDate={timeRangeHook.setCustomStartDate}
-              customEndDate={timeRangeHook.customEndDate}
-              setCustomEndDate={timeRangeHook.setCustomEndDate}
-              timeRangeValues={timeRangeHook.timeRangeValues}
-            />
+            <div className="min-w-0">
+              <ConvexUsageSection
+                metrics={metrics}
+                showAllTimeSeries={showAllTimeSeries}
+                setShowAllTimeSeries={setShowAllTimeSeries}
+                timeRange={timeRangeHook.timeRange}
+                timeRangeValues={timeRangeHook.timeRangeValues}
+              />
+            </div>
           </div>
         )}
       </div>

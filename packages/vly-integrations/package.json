@@ -1,7 +1,7 @@
 {
   "name": "@vly-ai/integrations",
-  "version": "0.6.6",
-  "description": "Access AI models, email services, and project thumbnail capture through vly.ai without managing multiple API keys or accounts",
+  "version": "0.6.9",
+  "description": "Access AI models, email services, and project thumbnail capture through vly.ai and freebuff.com without managing multiple API keys or accounts",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

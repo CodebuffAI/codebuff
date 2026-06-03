@@ -2,10 +2,7 @@
 
 import React from "react";
 import { Activity, Zap, Cpu, Database, FileText } from "lucide-react";
-import type {
-  UsageMetricsResponse,
-  TimeRange,
-} from "@/vly/lib/monitoring/monitoring-types";
+import type { UsageMetricsResponse, TimeRange } from "@/vly/lib/monitoring/monitoring-types";
 import {
   formatBytes,
   formatTime,
@@ -25,11 +22,6 @@ interface ConvexUsageSectionProps {
   showAllTimeSeries: boolean;
   setShowAllTimeSeries: (show: boolean) => void;
   timeRange: TimeRange;
-  setTimeRange: (range: TimeRange) => void;
-  customStartDate: string;
-  setCustomStartDate: (date: string) => void;
-  customEndDate: string;
-  setCustomEndDate: (date: string) => void;
   timeRangeValues: { startTime: string; endTime: string } | null;
 }
 
@@ -38,8 +30,6 @@ export default function ConvexUsageSection({
   showAllTimeSeries,
   setShowAllTimeSeries,
   timeRange,
-  customStartDate,
-  customEndDate,
   timeRangeValues,
 }: ConvexUsageSectionProps) {
   return (

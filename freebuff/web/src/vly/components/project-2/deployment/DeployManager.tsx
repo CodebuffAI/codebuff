@@ -35,7 +35,7 @@ export const DeployManager = ({
   });
 
   return (
-    <div className="h-[90%]">
+    <div className="min-h-0">
       {(!projectDeployments || projectDeployments.length === 0) && (
         <FirstDeploymentView
           projectId={projectId}
@@ -119,13 +119,13 @@ const FirstDeploymentView = ({
   }, [deploy, projectId, slug, onDeployTriggered]);
 
   return (
-    <div>
-      <span className="text-sm font-bold text-muted-foreground">Domain</span>
+    <div className="space-y-3">
+      <span className="text-sm font-medium text-muted-foreground">Domain</span>
 
       <div className="flex items-center">
         <Input
           placeholder="myapp"
-          className="rounded-r-none border-neutral-200 bg-slate-100 text-right font-mono text-sm"
+          className="rounded-r-none border-border bg-background text-right font-mono text-sm text-foreground"
           disabled={isDeploying}
           value={slug}
           onChange={(e) => {
@@ -136,11 +136,11 @@ const FirstDeploymentView = ({
             checkIfDomainValid(validatedSlug);
           }}
         />
-        <div className="flex h-9 items-center rounded-r-md pl-2 pr-1 font-mono text-sm">
+        <div className="flex h-9 items-center rounded-r-md border border-l-0 border-border bg-muted/40 pl-2 pr-2 font-mono text-sm text-muted-foreground">
           .freebuff.app
         </div>
       </div>
-      <div>
+      <div className="min-h-5">
         {slug && !isSlugFormatValid && (
           <span className="text-sm font-bold text-red-500">
             Must start with a letter
@@ -173,7 +173,7 @@ const FirstDeploymentView = ({
               }
             }}
           >
-            Remove vly Branding
+            Add custom domain
           </Button>
         )}
         <Button
@@ -285,12 +285,15 @@ const DeploymentManager = ({
   });
 
   return (
-    <div className="flex h-full flex-col justify-between">
-      <div className="flex flex-col gap-2 overflow-y-auto">
-        <span className="text-sm font-bold">Latest Deployment</span>
+    <div className="flex min-h-0 flex-col justify-between">
+      <div className="flex flex-col gap-3 overflow-y-auto">
+        <span className="text-sm font-semibold">Latest deployment</span>
         {deployments.map((deployment) => (
-          <div className="flex flex-col rounded-md p-2" key={deployment._id}>
-            <div className="flex items-center justify-between gap-2">
+          <div
+            className="flex flex-col rounded-md border border-border/70 bg-muted/20 p-3"
+            key={deployment._id}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 {deployment.state === "active" && (
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -310,12 +313,12 @@ const DeploymentManager = ({
                 {deployment.state === "obsolete" && (
                   <XCircle className="h-4 w-4 text-neutral-400" />
                 )}
-                <span className="text-md font-mono font-bold">
+                <span className="font-mono text-sm font-semibold text-foreground">
                   {deployment._id.trim().slice(0, 8)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {/* Cancel button for deploying deployments */}
                 {deployment.state === "deploying" && (
                   <Button
@@ -353,18 +356,18 @@ const DeploymentManager = ({
               </div>
             </div>
 
-            <div className="ml-6 flex flex-col">
+            <div className="mt-2 flex flex-col gap-1 sm:ml-6">
               {deployment.state === "active" && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {[
                     ...(activeProjectDomains ?? []),
-                    { domain: `${prodSlug}.freebuff.app`, _id: "vly-site" },
+                    { domain: `${prodSlug}.freebuff.app`, _id: "freebuff-site" },
                   ].map((domain) => (
                     <a
                       href={`https://${domain.domain}`}
                       target="_blank"
                       key={domain._id}
-                      className="flex items-center gap-1 text-sm font-bold text-neutral-400 underline"
+                      className="flex min-w-0 items-center gap-1 break-all text-sm font-medium text-foreground underline decoration-border underline-offset-2 hover:text-primary"
                     >
                       {domain.domain} <ExternalLink className="h-4 w-4" />
                     </a>
@@ -372,7 +375,7 @@ const DeploymentManager = ({
                 </div>
               )}
 
-              <span className="text-sm text-neutral-400">
+              <span className="text-sm text-muted-foreground">
                 {deployment.state === "deploying" ? (
                   <span className="animate-pulse">
                     {deployment.deploy_status_text}
@@ -431,21 +434,21 @@ const DeploymentManager = ({
 
       {/* Build error indicator */}
       {unresolvedBuildErrors && unresolvedBuildErrors.length > 0 && (
-        <div className="mt-4 rounded-md border border-orange-300 bg-orange-100 p-3">
+        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
           <div className="mb-2 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <span className="text-sm font-semibold text-orange-800">
-              Build Errors Detected
+            <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <span className="text-sm font-semibold text-amber-200">
+              Build errors detected
             </span>
           </div>
-          <p className="mb-2 text-xs text-orange-700">
+          <p className="mb-2 text-xs text-amber-100/80">
             {unresolvedBuildErrors.length} unresolved build error
             {unresolvedBuildErrors.length > 1 ? "s" : ""} found. These can be
             automatically fixed by the AI agent.
           </p>
-          <p className="text-xs font-medium text-orange-600">
-            💡 Check the chat panel for error details and click "Fix" to resolve
-            automatically.
+          <p className="text-xs font-medium text-amber-100/80">
+            Check the chat panel for error details and click "Fix" to resolve
+            them.
           </p>
         </div>
       )}
@@ -456,7 +459,7 @@ const DeploymentManager = ({
           onClick={() =>
             window.open(`/web/community/project/${communityPost._id}`, "_blank")
           }
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
         >
           <Globe className="h-3.5 w-3.5" />
           View Community Listing

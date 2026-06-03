@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from "react";
 import Image from "next/image";
 import { ThemeBadge } from "../ui/ThemeBadge";
-import { Loader, ArrowRight, Sparkles, ImagePlus } from "lucide-react";
+import { Loader, ArrowRight, Palette, ImagePlus } from "lucide-react";
 // Suggestions can be added if needed in the future
 // import { allSuggestions, getRandomSuggestions, getDefaultSuggestions } from "../landing-4/suggestions";
 import { useSharedHeroStorage } from "@/vly/hooks/useSharedHeroStorage";
@@ -506,13 +506,13 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsThemePickerOpen(true)}
-                  className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all hover:border-[#7CFF3F] hover:bg-purple-50 ${
+                  className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-primary/70 hover:bg-primary/10 ${
                     selectedTheme
-                      ? "border-[#7CFF3F] bg-purple-50 text-[#7CFF3F]"
+                      ? "border-primary/70 bg-primary/10 text-primary"
                       : "border-gray-300 text-gray-600"
                   }`}
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <Palette className="h-4 w-4" />
                   <span className="hidden sm:inline">
                     {selectedTheme ? "Theme applied" : "Add theme"}
                   </span>
@@ -534,10 +534,10 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 type="button"
                 onClick={handleStartProject}
                 disabled={isLoading || !userInput.trim()}
-                className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium text-white transition-all ${
+                className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
                   isLoading || !userInput.trim()
-                    ? "cursor-not-allowed bg-gray-300"
-                    : "bg-[#1a73e8] hover:bg-[#1557b0] hover:shadow-md"
+                    ? "cursor-not-allowed border border-gray-500 bg-gray-200 text-gray-700"
+                    : "bg-[#1a73e8] text-white hover:bg-[#1557b0]"
                 }`}
               >
                 {isLoading ? (
@@ -566,8 +566,6 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
           </div>
         </div>
 
-        {/* Page shadow effect */}
-        <div className="pointer-events-none absolute -bottom-1 left-2 right-2 h-2 rounded-b-lg bg-gradient-to-b from-transparent to-black/5" />
       </div>
 
       {/* Hidden file input */}

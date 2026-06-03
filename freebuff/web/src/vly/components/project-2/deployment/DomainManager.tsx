@@ -81,7 +81,7 @@ export const DomainManager = ({ projectId }: { projectId: Id<"project"> }) => {
     <div className="max-w-full">
       {!addDomainConfirmation && (
         <>
-          <div className="flex flex-row-reverse">
+          <div className="flex justify-end">
             <FeatureGate
               featureId="custom_domains"
               fallback={
@@ -102,15 +102,16 @@ export const DomainManager = ({ projectId }: { projectId: Id<"project"> }) => {
                   });
                 }}
                 variant="secondary"
+                className="bg-background text-foreground hover:bg-muted"
               >
-                <PlusCircle className="mr-1 h-3 w-3 text-zinc-800" /> Add Domain
+                <PlusCircle className="mr-1 h-3 w-3" /> Add domain
               </Button>
             </FeatureGate>
           </div>
-          <div className="mt-4 flex flex-col gap-4">
+          <div className="mt-4 flex flex-col gap-3">
             {(domains ?? []).map((d) => (
               <div
-                className="flex items-center justify-between rounded-md bg-neutral-300 p-2"
+                className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 p-3 text-foreground sm:flex-row sm:items-center sm:justify-between"
                 key={d._id}
               >
                 {fullyVerified(d) && (
@@ -132,17 +133,18 @@ export const DomainManager = ({ projectId }: { projectId: Id<"project"> }) => {
                       <Button
                         onClick={() => handleFinishSetup(d)}
                         variant="secondary"
+                        className="bg-background text-foreground hover:bg-muted"
                       >
-                        Finish Setup{" "}
-                        <ChevronRight className="ml-1 h-3 w-3 text-zinc-800" />
+                        Finish setup{" "}
+                        <ChevronRight className="ml-1 h-3 w-3" />
                       </Button>
                       <Button
                         onClick={() => setDomainToDelete(d)}
                         variant="ghost"
                         size="icon"
-                        className="hover:bg-red-100"
+                        className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
                       >
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </>
@@ -154,9 +156,9 @@ export const DomainManager = ({ projectId }: { projectId: Id<"project"> }) => {
                       onClick={() => setDomainToDelete(d)}
                       variant="ghost"
                       size="icon"
-                      className="hover:bg-red-100"
+                      className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
                     >
-                      <Trash2 className="h-4 w-4 text-red-600" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 )}
@@ -164,7 +166,7 @@ export const DomainManager = ({ projectId }: { projectId: Id<"project"> }) => {
             ))}
 
             {domains !== undefined && domains.length === 0 && (
-              <div className="text-italic text-center text-sm text-neutral-400">
+              <div className="rounded-md border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
                 No domains added yet
               </div>
             )}

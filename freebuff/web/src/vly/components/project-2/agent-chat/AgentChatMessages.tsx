@@ -629,16 +629,13 @@ const AssistantStreamItem: React.FC<{
 
 // ─── Cursor-style turn rendering ─────────────────────────────────────────────
 // Stream items split into two visual lanes:
-//   • text/assistant items render inline with a "Show more" toggle when long.
+//   • text/assistant items render inline in full.
 //   • everything else (tool_use, tool_result, thinking, system, result, error)
 //     groups into one collapsed Activity block per consecutive run.
 // Inside an expanded Activity, items still use AssistantStreamItem so each
 // individual entry stays expandable too.
 
 const TEXT_TYPES = new Set(["text", "assistant"]);
-
-const TEXT_TRUNCATE_LINE_LIMIT = 12;
-const TEXT_TRUNCATE_CHAR_LIMIT = 600;
 
 type StreamGroup =
   | { kind: "text"; items: AssistantStreamItemType[] }
@@ -662,34 +659,13 @@ const groupStreamItems = (
   return groups;
 };
 
-// Truncated text: joins assistant/text items into one markdown block, then
-// hides the tail behind a "Show more" toggle when it exceeds the line/char
-// thresholds. Keeps SimpleMarkdown rendering once expanded.
-const TruncatedTextGroup: React.FC<{
+const TextGroup: React.FC<{
   items: AssistantStreamItemType[];
 }> = React.memo(({ items }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const fullText = useMemo(
     () => items.map((item) => item.content ?? "").join(""),
     [items],
   );
-
-  const lineCount = useMemo(() => fullText.split("\n").length, [fullText]);
-
-  const isLong =
-    lineCount > TEXT_TRUNCATE_LINE_LIMIT ||
-    fullText.length > TEXT_TRUNCATE_CHAR_LIMIT;
-
-  const visibleText = useMemo(() => {
-    if (!isLong || isExpanded) return fullText;
-    const lines = fullText.split("\n").slice(0, TEXT_TRUNCATE_LINE_LIMIT);
-    let trimmed = lines.join("\n");
-    if (trimmed.length > TEXT_TRUNCATE_CHAR_LIMIT) {
-      trimmed = trimmed.slice(0, TEXT_TRUNCATE_CHAR_LIMIT);
-    }
-    return `${trimmed}…`;
-  }, [fullText, isExpanded, isLong]);
 
   const firstTitle = items.find((item) => item.title)?.title;
 
@@ -700,26 +676,11 @@ const TruncatedTextGroup: React.FC<{
           {firstTitle}
         </div>
       )}
-      <SimpleMarkdown text={visibleText} />
-      {isLong && (
-        <button
-          type="button"
-          onClick={() => setIsExpanded((prev) => !prev)}
-          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <span>{isExpanded ? "Show less" : "Show more"}</span>
-          <ChevronDown
-            className={cn(
-              "h-3 w-3 transition-transform",
-              isExpanded ? "rotate-180" : "",
-            )}
-          />
-        </button>
-      )}
+      <SimpleMarkdown text={fullText} />
     </div>
   );
 });
-TruncatedTextGroup.displayName = "TruncatedTextGroup";
+TextGroup.displayName = "TextGroup";
 
 // Build a one-line summary describing a run of activity items so the user
 // knows what's hidden inside the collapsed group without expanding.
@@ -1235,14 +1196,14 @@ const AgentMessageCard: React.FC<{
         <AgentAdMessage ad={adAfterUser} className="-mt-1 mb-4" />
       )}
 
-      {/* Assistant Stream Content - text rendered inline (with show more for
-          long blocks); tool calls / thinking / system items group into a
+      {/* Assistant Stream Content - text rendered inline; tool calls /
+          thinking / system items group into a
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-1.5">
           {groupStreamItems(message.assistant_stream!).map((group, index) =>
             group.kind === "text" ? (
-              <TruncatedTextGroup key={index} items={group.items} />
+              <TextGroup key={index} items={group.items} />
             ) : (
               <ActivityGroup key={index} items={group.items} />
             ),
