@@ -233,6 +233,10 @@ function* handleStepsMultiPrompt({
       proposalAgentTypes[index] ??
       proposalAgentTypes[proposalAgentTypes.length - 1]
     let lastResult: ProposalResult | ProposalFailure | undefined
+    // Keep the best attempt across retries, not merely the last one. A good
+    // (possibly mixed) bundle from an early attempt must never be lost to a
+    // worse/empty later attempt.
+    let bestResult: ProposalResult | ProposalFailure | undefined
     let forceDirectRetry = false
 
     for (let attempt = 0; attempt < maxProposalAttempts; attempt++) {
@@ -287,6 +291,33 @@ function* handleStepsMultiPrompt({
         implementorResults,
       )[0]
 
+      // Track the best attempt across retries so a good (possibly mixed)
+      // bundle from an early attempt is never lost when a later retry comes
+      // back worse or empty. This is what makes retrying non-destructive.
+      if (isBetterProposalAttempt(lastResult, bestResult)) {
+        bestResult = lastResult
+      }
+
+      // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
+      console.log('[v0] proposal attempt', {
+        index,
+        attempt,
+        agentType: currentAgentType,
+        successfulDiffCount: getSuccessfulLedgerDiffResults(lastResult).length,
+        failedCount: getUsableProposalToolResultsFromResult(lastResult).filter(
+          isFailedEditResult,
+        ).length,
+        toolCallCount: getUsableProposalToolCalls(lastResult).length,
+        stopReason: isObject(lastResult)
+          ? (lastResult as ProposalResult).stopReason
+          : undefined,
+        errorMessage: summarizeProposalFailure(lastResult),
+      })
+
+      // A clean, fully-usable proposal is good enough to stop early. Mixed
+      // (success + failure) bundles intentionally keep retrying to try for a
+      // cleaner result, but bestResult above guarantees the good diffs survive
+      // even if no clean attempt ever materializes.
       if (isUsableProposal(lastResult)) {
         break
       }
@@ -296,21 +327,43 @@ function* handleStepsMultiPrompt({
       }
     }
 
+    // Preserve any proposal that produced real ledger diffs - including mixed
+    // success+failure bundles. Gating this push on the strict isUsableProposal
+    // (which rejects ANY bundle containing a failed edit) was discarding good
+    // diffs that had already streamed in the UI, leaving the proposal looking
+    // like it "completed with no changes." Use the same criterion the
+    // downstream apply-verify-repair pipeline uses: at least one successful
+    // ledger diff. Truly empty proposals still fall through to the error branch.
+    const resultForPush = bestResult ?? lastResult
+    const pushedProposalResult = isObject(resultForPush)
+      ? (resultForPush as ProposalResult)
+      : undefined
+    const hasUsableDiffs =
+      getSuccessfulLedgerDiffResults(resultForPush).length > 0
+
+    // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
+    console.log('[v0] proposal push decision', {
+      index,
+      branch: hasUsableDiffs ? 'rich' : 'empty',
+      successfulDiffCount: getSuccessfulLedgerDiffResults(resultForPush).length,
+      toolCallCount: getUsableProposalToolCalls(resultForPush).length,
+    })
+
     spawnedImplementations.push(
-      isUsableProposal(lastResult)
+      hasUsableDiffs
         ? {
-            toolCalls: getUsableProposalToolCalls(lastResult),
-            toolResults: getUsableProposalToolResultsFromResult(lastResult),
-            unifiedDiffs: buildLedgerUnifiedDiffs(lastResult),
-            stopReason: lastResult.stopReason,
-            proposalProgress: lastResult.proposalProgress,
-            proposalBudget: lastResult.proposalBudget,
+            toolCalls: getUsableProposalToolCalls(resultForPush),
+            toolResults: getUsableProposalToolResultsFromResult(resultForPush),
+            unifiedDiffs: buildLedgerUnifiedDiffs(resultForPush),
+            stopReason: pushedProposalResult?.stopReason,
+            proposalProgress: pushedProposalResult?.proposalProgress,
+            proposalBudget: pushedProposalResult?.proposalBudget,
           }
         : {
             toolCalls: [],
             toolResults: [],
             errorMessage:
-              summarizeProposalFailure(lastResult) ||
+              summarizeProposalFailure(resultForPush) ||
               'Proposal failed to return a usable implementation',
           },
     )
@@ -357,6 +410,18 @@ function* handleStepsMultiPrompt({
   const usableImplementations = rankImplementationsForSelection(
     implementations.filter(isUsableImplementation),
   )
+
+  // [v0] temporary diagnostic - remove once the proposal stage is confirmed.
+  console.log('[v0] proposal candidates', {
+    total: implementations.length,
+    usable: usableImplementations.length,
+    statuses: implementations.map((impl) => ({
+      id: impl.id,
+      usable: isUsableImplementation(impl),
+      successfulDiffCount: getSuccessfulLedgerDiffResults(impl).length,
+      stopReason: impl.stopReason,
+    })),
+  })
 
   if (usableImplementations.length === 0) {
     yield {
@@ -1354,6 +1419,50 @@ function* handleStepsMultiPrompt({
   ): boolean {
     const failure = summarizeProposalFailure(result).toLowerCase()
     return failure.includes('run cancelled by user')
+  }
+
+  /**
+   * Returns true when `candidate` is a strictly better proposal attempt than
+   * the current `incumbent`. Ranking is: (1) more successful ledger diffs wins,
+   * (2) on a tie, fewer failed edits wins, (3) still tied, a non-partial
+   * (cleanly completed) bundle wins over a partial one. This lets the retry
+   * loop keep the best work produced across attempts instead of blindly
+   * overwriting it with whatever the final attempt returned.
+   */
+  function isBetterProposalAttempt(
+    candidate: ProposalResult | ProposalFailure | undefined,
+    incumbent: ProposalResult | ProposalFailure | undefined,
+  ): boolean {
+    if (!isObject(candidate)) return false
+    if (!isObject(incumbent)) return true
+
+    const candidateDiffs = getSuccessfulLedgerDiffResults(candidate).length
+    const incumbentDiffs = getSuccessfulLedgerDiffResults(incumbent).length
+    if (candidateDiffs !== incumbentDiffs) {
+      return candidateDiffs > incumbentDiffs
+    }
+
+    const candidateFailures = getUsableProposalToolResultsFromResult(
+      candidate,
+    ).filter(isFailedEditResult).length
+    const incumbentFailures = getUsableProposalToolResultsFromResult(
+      incumbent,
+    ).filter(isFailedEditResult).length
+    if (candidateFailures !== incumbentFailures) {
+      return candidateFailures < incumbentFailures
+    }
+
+    const candidatePartial = isPartialStopReason(
+      (candidate as ProposalResult).stopReason,
+    )
+    const incumbentPartial = isPartialStopReason(
+      (incumbent as ProposalResult).stopReason,
+    )
+    if (candidatePartial !== incumbentPartial) {
+      return !candidatePartial
+    }
+
+    return false
   }
 
   function getProposalAttemptAgentType(params: {

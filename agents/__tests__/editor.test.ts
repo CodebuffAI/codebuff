@@ -7242,6 +7242,114 @@ describe('editor agent', () => {
       expect(JSON.stringify(applyCall.input)).not.toContain('oldString":"stale')
     })
 
+    test('keeps a mixed-bundle proposal whose retries never produce a clean result', () => {
+      // Regression: a proposal that returns a mixed (success + hard failure)
+      // bundle on every attempt was previously discarded entirely, so the run
+      // reported "no usable proposal" even though a real diff had streamed.
+      // It must now retry (to try for a clean result) but still keep the good
+      // diff and reach the selector instead of erroring out.
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      const mixedBundleResult: any[] = [
+        {
+          type: 'json',
+          value: [
+            {
+              value: {
+                toolCalls: [
+                  {
+                    toolName: 'propose_str_replace',
+                    input: {
+                      path: 'src/a.ts',
+                      replacements: [{ oldString: 'old', newString: 'new' }],
+                    },
+                  },
+                  {
+                    toolName: 'propose_str_replace',
+                    input: {
+                      path: 'src/missing.ts',
+                      replacements: [{ oldString: 'gone', newString: 'new' }],
+                    },
+                  },
+                ],
+                toolResults: [
+                  { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                  {
+                    file: 'src/missing.ts',
+                    errorMessage: 'The file does not exist.',
+                  },
+                ],
+                unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+              },
+            },
+          ],
+        },
+      ]
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      // First proposal spawn.
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      // Attempt 0 returns mixed → retry (attempt 1).
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: mixedBundleResult,
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      // Attempt 1 returns mixed → retry (attempt 2).
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: mixedBundleResult,
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      // Attempt 2 (final) returns mixed. Retries are exhausted, but the good
+      // diff must be preserved and the run must advance to the selector rather
+      // than yielding a "no usable proposal" error.
+      const afterProposals = generator.next({
+        agentState: mockAgentState,
+        toolResult: mixedBundleResult,
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents' | 'set_output'>
+
+      expect(afterProposals.toolName).not.toBe('set_output')
+      expect(afterProposals).toMatchObject({
+        toolName: 'spawn_agents',
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+    })
+
     test('selector succeeds on retry after first attempt fails', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
