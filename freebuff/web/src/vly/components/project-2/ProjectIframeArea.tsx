@@ -31,6 +31,7 @@ import {
   Plug,
   Component,
   Maximize2,
+  History,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
@@ -48,6 +49,7 @@ const EnvVarsView = lazy(() => import('./EnvVarsView'))
 const IntegrationsView = lazy(() => import('./IntegrationsView'))
 const UiIntegrationView = lazy(() => import('./UiIntegrationView'))
 const BackendManagement = lazy(() => import('./BackendManagement'))
+const GitCommitsView = lazy(() => import('./GitCommitsView'))
 
 // Tab IDs shown in the iframe area. These are deliberately a subset of the
 // older `ActiveView` union — see project-2.tsx for the full set.
@@ -56,6 +58,7 @@ export type IframeTab =
   | 'database'
   | 'logs'
   | 'editor'
+  | 'versions'
   | 'keys'
   | 'integrations'
   | 'ui-components'
@@ -114,6 +117,7 @@ const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'database', label: 'Data', Icon: Database },
   { id: 'logs', label: 'Logs', Icon: ScrollText },
   { id: 'editor', label: 'Editor', Icon: Code2 },
+  { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'ui-components', label: 'UI', Icon: Component },
@@ -377,6 +381,12 @@ function ActiveSurface({
             <EditorView projectId={project._id} />
           </FeatureGate>
         </ViewSurface>
+      )}
+
+      {activeTab === 'versions' && (
+        <div className="h-full w-full overflow-hidden bg-background pt-12">
+          <GitCommitsView project={project} />
+        </div>
       )}
 
       {activeTab === 'keys' && (

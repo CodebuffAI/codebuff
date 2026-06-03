@@ -110,11 +110,20 @@ async function fetchDeploymentMetrics(
   if (options?.startTime || options?.endTime) {
     const conditions = [];
     if (options.startTime) {
-      // APL datetime comparison uses ISO 8601 string literals
-      conditions.push(`aggregated_at >= '${options.startTime}'`);
+      const startTime = new Date(options.startTime);
+      if (!Number.isNaN(startTime.getTime())) {
+        conditions.push(
+          `todatetime(aggregated_at) >= datetime('${startTime.toISOString()}')`,
+        );
+      }
     }
     if (options.endTime) {
-      conditions.push(`aggregated_at <= '${options.endTime}'`);
+      const endTime = new Date(options.endTime);
+      if (!Number.isNaN(endTime.getTime())) {
+        conditions.push(
+          `todatetime(aggregated_at) <= datetime('${endTime.toISOString()}')`,
+        );
+      }
     }
     timeFilter =
       conditions.length > 0 ? `| where ${conditions.join(" and ")}` : "";
@@ -132,7 +141,17 @@ async function fetchDeploymentMetrics(
     async () => await axiom.query(apl),
     3, // max 3 retries
     1000, // start with 1 second delay
-  );
+  ).catch((error) => {
+    if (isAxiomMissingDatasetError(error)) {
+      console.warn(
+        "[Monitoring] Dataset 'convex-user-usage' not found; returning empty metrics.",
+      );
+      return {
+        matches: [],
+      };
+    }
+    throw error;
+  });
   const matches = result.matches || [];
 
   // Calculate aggregated metrics for this deployment
@@ -460,18 +479,63 @@ export const getUsageMetrics = action({
             type: "dev",
           },
         );
-        const prodDeploymentName = await ctx.runAction(
-          api.database.convex.getConvexDeploymentName,
-          {
-            projectId: args.projectId,
-            type: "prod",
-          },
-        );
+        const convexInstance = await ctx.runQuery(internal.convex_instance.get, {
+          projectId: args.projectId,
+        });
+
+        if (!convexInstance) {
+          throw new Error("Convex instance not found");
+        }
+
+        const prodDeploymentName = convexInstance.prodDeploymentName;
 
         const timeOptions =
           args.startTime || args.endTime
             ? { startTime: args.startTime, endTime: args.endTime }
             : undefined;
+
+        if (!prodDeploymentName) {
+          const devMetrics = await fetchDeploymentMetrics(
+            axiom,
+            devDeploymentName,
+            timeOptions,
+          );
+
+          const totalCosts = calculateCosts({
+            executionCount: devMetrics.totalExecutions,
+            executionTimeMs: devMetrics.totalExecutionTime,
+            actionMemoryUsedMb: devMetrics.maxActionMemory,
+            dbReadBytes: devMetrics.totalDbReadBytes,
+            dbWriteBytes: devMetrics.totalDbWriteBytes,
+            fileStorageReadBytes: devMetrics.totalFileStorageReadBytes,
+            fileStorageWriteBytes: devMetrics.totalFileStorageWriteBytes,
+          } satisfies UsageMetrics);
+
+          return {
+            deploymentName: "All Deployments",
+            deploymentType: "all",
+            devDeploymentName,
+            summary: {
+              totalExecutions: devMetrics.totalExecutions,
+              avgExecutionTimeMs:
+                devMetrics.totalExecutions > 0
+                  ? devMetrics.totalExecutionTime / devMetrics.totalExecutions
+                  : 0,
+              totalActionMemoryMb: devMetrics.maxActionMemory,
+              totalDbReadBytes: devMetrics.totalDbReadBytes,
+              totalDbReadDocuments: devMetrics.totalDbReadDocuments,
+              totalDbWriteBytes: devMetrics.totalDbWriteBytes,
+              totalFileStorageReadBytes: devMetrics.totalFileStorageReadBytes,
+              totalFileStorageWriteBytes: devMetrics.totalFileStorageWriteBytes,
+            },
+            costs: totalCosts,
+            timeSeries: devMetrics.timeSeriesData.map((point) => ({
+              ...point,
+              deploymentType: "dev" as const,
+            })),
+            lastUpdated: devMetrics.lastUpdated,
+          };
+        }
 
         const [devMetrics, prodMetrics] = await Promise.all([
           fetchDeploymentMetrics(axiom, devDeploymentName, timeOptions),
@@ -654,10 +718,6 @@ export const ensureProjectWebhooks = internalAction({
     projectId: v.id("project"),
   },
   handler: async (ctx, args) => {
-    console.log(
-      `[WebhookValidator] Starting webhook validation for project ${args.projectId}`,
-    );
-
     try {
       // Get the project's convex instance info
       const convexInstance = await ctx.runQuery(internal.convex_instance.get, {
@@ -665,9 +725,6 @@ export const ensureProjectWebhooks = internalAction({
       });
 
       if (!convexInstance) {
-        console.log(
-          `[WebhookValidator] No convex instance found for project ${args.projectId}`,
-        );
         return {
           success: false,
           message: "No convex instance found",
@@ -685,10 +742,6 @@ export const ensureProjectWebhooks = internalAction({
 
       // Validate dev deployment webhook
       try {
-        console.log(
-          `[WebhookValidator] Checking dev deployment: ${convexInstance.devDeploymentName}`,
-        );
-
         // Create a temporary deploy key for validation
         const devDeployKey = await createDeployKey(
           convexInstance.devDeploymentName,
@@ -706,9 +759,6 @@ export const ensureProjectWebhooks = internalAction({
             projectId: args.projectId,
             devLogStreamId: devResult.logStreamId,
           });
-          console.log(
-            `[WebhookValidator] Stored dev log stream ID: ${devResult.logStreamId}`,
-          );
         }
 
         results.push({
@@ -716,10 +766,6 @@ export const ensureProjectWebhooks = internalAction({
           deploymentName: convexInstance.devDeploymentName,
           ...devResult,
         });
-
-        console.log(
-          `[WebhookValidator] Dev deployment result: ${devResult.action} - ${devResult.message}`,
-        );
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -739,10 +785,6 @@ export const ensureProjectWebhooks = internalAction({
       // Validate prod deployment webhook if it exists
       if (convexInstance.prodDeploymentName) {
         try {
-          console.log(
-            `[WebhookValidator] Checking prod deployment: ${convexInstance.prodDeploymentName}`,
-          );
-
           // Create a temporary deploy key for validation
           const prodDeployKey = await createDeployKey(
             convexInstance.prodDeploymentName,
@@ -760,9 +802,6 @@ export const ensureProjectWebhooks = internalAction({
               projectId: args.projectId,
               prodLogStreamId: prodResult.logStreamId,
             });
-            console.log(
-              `[WebhookValidator] Stored prod log stream ID: ${prodResult.logStreamId}`,
-            );
           }
 
           results.push({
@@ -770,10 +809,6 @@ export const ensureProjectWebhooks = internalAction({
             deploymentName: convexInstance.prodDeploymentName,
             ...prodResult,
           });
-
-          console.log(
-            `[WebhookValidator] Prod deployment result: ${prodResult.action} - ${prodResult.message}`,
-          );
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
@@ -790,9 +825,6 @@ export const ensureProjectWebhooks = internalAction({
           });
         }
       } else {
-        console.log(
-          `[WebhookValidator] No prod deployment exists for project ${args.projectId}`,
-        );
         results.push({
           deploymentType: "prod",
           deploymentName: "N/A",
@@ -803,9 +835,6 @@ export const ensureProjectWebhooks = internalAction({
       }
 
       const allSuccessful = results.every((r) => r.success);
-      console.log(
-        `[WebhookValidator] Completed webhook validation for project ${args.projectId}. Success: ${allSuccessful}`,
-      );
 
       return {
         success: allSuccessful,
@@ -857,9 +886,6 @@ export const getSandboxStats = action({
 
       // Check if this codebase supports stats
       if (!hasSandboxStats(codebase)) {
-        console.log(
-          `[SandboxStats] Sandbox ${project.sandbox_id} does not support stats`,
-        );
         return null;
       }
 
@@ -929,18 +955,10 @@ export const getSandboxMetricsHistory = action({
 
       sandboxId = project.sandbox_id;
 
-      console.log(
-        `[SandboxMetricsHistory] Fetching metrics for sandbox: ${sandboxId}`,
-      );
-
       // Strip the "daytona:" prefix if present, as Axiom logs use just the UUID
       const sandboxUuid = sandboxId.startsWith("daytona:")
         ? sandboxId.replace("daytona:", "")
         : sandboxId;
-
-      console.log(
-        `[SandboxMetricsHistory] Using sandbox UUID for query: ${sandboxUuid}`,
-      );
 
       // Build APL query for sandbox metrics
       const apl = `
@@ -950,8 +968,6 @@ export const getSandboxMetricsHistory = action({
         | limit 1000
       `;
 
-      console.log(`[SandboxMetricsHistory] Running query:`, apl);
-
       const result = await retryWithBackoff(
         async () => await axiom.query(apl),
         3,
@@ -959,13 +975,6 @@ export const getSandboxMetricsHistory = action({
       );
 
       const matches = result.matches || [];
-      console.log(
-        `[SandboxMetricsHistory] Found ${matches.length} raw matches`,
-      );
-
-      if (matches.length > 0) {
-        console.log(`[SandboxMetricsHistory] Sample data:`, matches[0]?.data);
-      }
 
       // Transform and filter the data into time series format
       const timeSeries = matches
@@ -997,10 +1006,6 @@ export const getSandboxMetricsHistory = action({
           (a, b) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         );
-
-      console.log(
-        `[SandboxMetricsHistory] After filtering: ${timeSeries.length} points from ${startTime.toISOString()} to ${endTime.toISOString()}`,
-      );
 
       return {
         sandboxId,

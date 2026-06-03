@@ -27,9 +27,6 @@ export async function openSandboxWithRetry(
       }
 
       const backoffTime = Math.pow(2, retryCount) * 1000;
-      console.log(
-        `Sandbox open attempt ${retryCount} failed, retrying in ${backoffTime}ms`,
-      );
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
   }

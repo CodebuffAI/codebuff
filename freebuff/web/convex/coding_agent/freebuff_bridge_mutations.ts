@@ -150,11 +150,16 @@ export const recordRunEvent = internalMutation({
       patch.state = "Error";
       patch.state_message = String(event.message ?? "Freebuff run failed");
       patch.isStreaming = false;
-      await ctx.db.patch(threadId, {
+      const threadPatch: Record<string, any> = {
         isProcessing: false,
         workflow_id: undefined,
         last_edited_timestamp: Date.now(),
-      });
+      };
+      if (args.runStateStorageId) {
+        threadPatch.active_freebuff_run_state_storage_id =
+          args.runStateStorageId;
+      }
+      await ctx.db.patch(threadId, threadPatch as any);
       await ctx.db.patch(thread.project_id, { state: "active" });
     }
 

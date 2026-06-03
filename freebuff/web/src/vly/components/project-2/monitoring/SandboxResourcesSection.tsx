@@ -3,10 +3,7 @@
 import React from "react";
 import { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
-import type {
-  SandboxMetricsHistory,
-  TimeRange,
-} from "@/vly/lib/monitoring/monitoring-types";
+import type { SandboxMetricsHistory } from "@/vly/lib/monitoring/monitoring-types";
 import type { SandboxStats } from "@/vly/codebase-utils/codebase/Codebase";
 import type { Customer } from "autumn-js";
 import MonitoringSectionAccordion from "./shared/MonitoringSectionAccordion";
@@ -22,19 +19,10 @@ interface SandboxResourcesSectionProps {
   selectedSnapshotId: string;
   setSelectedSnapshotId: (id: string) => void;
   isMigrating: boolean;
-  setIsMigrating: (migrating: boolean) => void;
   handleMigrateWorkspace: () => Promise<void>;
-  timeRange: TimeRange;
-  setTimeRange: (range: TimeRange) => void;
-  customStartDate: string;
-  setCustomStartDate: (date: string) => void;
-  customEndDate: string;
-  setCustomEndDate: (date: string) => void;
   metricsHistory: SandboxMetricsHistory | null | undefined;
   metricsLoading: boolean;
   metricsError: string | null;
-  setPaywallOpen: (open: boolean) => void;
-  setPaywallFeatureId: (featureId: string) => void;
   customer: Customer | null | undefined;
   allProjects:
     | FunctionReturnType<typeof api.project.getUserProjects>
@@ -63,15 +51,9 @@ export default function SandboxResourcesSection({
       title="Workspace Resources"
       badge={getSizeDisplayName(project?.sandbox_size)}
     >
-      {/* Responsive Grid: Left (Resources) + Right (Upgrade Workspace) */}
-      <div className="space-y-5 xl:grid xl:grid-cols-[1fr,1fr] xl:items-start xl:gap-5 xl:space-y-0">
-        {/* Left Column: Resource Stats */}
-        <div className="space-y-5">
-          {/* Resource Stats */}
-          <SandboxResourceStats sandboxStats={sandboxStats} />
-        </div>
+      <div className="space-y-5">
+        <SandboxResourceStats sandboxStats={sandboxStats} />
 
-        {/* Right Column: Workspace Upgrade Panel */}
         <WorkspaceUpgradePanel
           project={project}
           sandboxStats={sandboxStats}

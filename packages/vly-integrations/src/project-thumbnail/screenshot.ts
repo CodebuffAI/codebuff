@@ -12,7 +12,7 @@ export function initScreenshotListener() {
   // Load html2canvas-pro from CDN (supports modern CSS like oklch)
   if (typeof (window as any).html2canvas === 'undefined') {
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.8/dist/html2canvas-pro.min.js';
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas-pro@2.0.4/dist/html2canvas-pro.min.js';
     script.async = true;
     document.head.appendChild(script);
   }
