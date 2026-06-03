@@ -734,6 +734,7 @@ function ProjectWrapper({
           isOpen={showDeploymentDialog}
           onOpenChange={setShowDeploymentDialog}
           projectId={project._id}
+          settingsHref={`/web/project/${semanticIdentifier}/settings?section=deployments`}
         />
       </Suspense>
 

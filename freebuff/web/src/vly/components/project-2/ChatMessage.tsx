@@ -3,11 +3,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import { FunctionReturnType } from "convex/server";
 import { getImageUrl } from "@/vly/lib/image-utils";
 import {
-  Undo,
   Code,
   ChevronsUpDown,
   Loader,
-  TriangleAlert,
   CheckCircle,
   X,
   Download,
@@ -15,22 +13,9 @@ import {
 import React from "react";
 import { ThinkingState } from "./ThinkingState";
 import {
-  ToolComponentSelector,
-  LegacyToolComponentSelector,
-} from "./ToolComponentSelector";
-import { AllToolCalls } from "@/convex/coding_agent/agent/tools";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/vly/components/ui/accordion";
-import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/vly/components/ui/dialog";
@@ -593,41 +578,94 @@ const getMessageUsageSummary = (message: {
   );
 };
 
-const hasMeaningfulJsonPayload = (
-  value: string | undefined | null,
-): boolean => {
-  if (!value) {
-    return false;
+const hasMeaningfulText = (value: string | undefined | null): boolean =>
+  !!value?.trim();
+
+const getActivityToolNames = (details: ExecutionDetails | undefined) => {
+  const names: string[] = [];
+
+  const addName = (name: unknown) => {
+    if (typeof name !== "string") return;
+    const trimmed = name.trim();
+    if (trimmed && !names.includes(trimmed)) {
+      names.push(trimmed);
+    }
+  };
+
+  if (details?.tool_call) {
+    addName(details.tool_call);
   }
 
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  if (trimmed === "[]" || trimmed === "{}" || trimmed === '""') {
-    return false;
+  if (!details?.object) {
+    return names;
   }
 
   try {
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) {
-      return parsed.length > 0;
+    const parsed = JSON.parse(details.object);
+    const objects = Array.isArray(parsed) ? parsed : [parsed];
+
+    for (const item of objects) {
+      if (item && typeof item === "object" && "toolName" in item) {
+        addName((item as { toolName?: unknown }).toolName);
+      }
     }
-    if (parsed && typeof parsed === "object") {
-      return Object.keys(parsed).length > 0;
-    }
-    if (typeof parsed === "string") {
-      return parsed.trim().length > 0;
-    }
-    return parsed !== null && parsed !== undefined;
   } catch {
-    return true;
+    // Legacy tool payloads are not always JSON. details.tool_call covers those.
   }
+
+  return names;
 };
 
-const hasMeaningfulText = (value: string | undefined | null): boolean =>
-  !!value?.trim();
+const ActivitySummary: React.FC<{
+  details: ExecutionDetails | undefined;
+  isActive: boolean;
+}> = ({ details, isActive }) => {
+  const toolNames = React.useMemo(() => getActivityToolNames(details), [details]);
+  const statusItems = [
+    details?.error_check ? "error check" : null,
+    details?.result ? "result" : null,
+  ].filter(Boolean) as string[];
+  const stepCount = Math.max(toolNames.length + statusItems.length, 1);
+
+  return (
+    <div className="mt-2 flex max-w-full items-center gap-2 overflow-hidden text-xs text-zinc-500">
+      <Code className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+      <span className="shrink-0 font-medium text-zinc-500">
+        Activity ({stepCount})
+      </span>
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-hide">
+        {!details && (
+          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-500">
+            loading details
+          </span>
+        )}
+        {toolNames.map((name, index) => (
+          <span
+            key={`${name}-${index}`}
+            className={`rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-600 ${
+              isActive && index === toolNames.length - 1 ? "animate-pulse" : ""
+            }`}
+          >
+            {name}
+          </span>
+        ))}
+        {statusItems.map((item) => (
+          <span
+            key={item}
+            className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600"
+          >
+            {item}
+          </span>
+        ))}
+        {details && toolNames.length === 0 && statusItems.length === 0 && (
+          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-500">
+            running
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const MessageStateDisplay: React.FC<{
   status: string;
@@ -812,13 +850,11 @@ const AssistantMessageContent: React.FC<{
     "checking_errors",
   ].includes(message.message_state?.status ?? "");
 
-  const [showExecutionDetails, setShowExecutionDetails] =
-    React.useState(isActiveState);
   const [showThinking, setShowThinking] = React.useState(false);
 
-  // Lazy-load heavy fields only when user expands thinking, execution details, or has usage
+  // Load details for compact activity/reasoning summaries as they stream in.
   const shouldLoadDetails =
-    showThinking || showExecutionDetails || hasUsage || isActiveState;
+    hasThinking || hasExecutionDetails || hasUsage || isActiveState;
   const details = useQuery(
     api.project.getMessageExecutionDetails,
     shouldLoadDetails && (hasThinking || hasExecutionDetails || hasUsage)
@@ -842,10 +878,6 @@ const AssistantMessageContent: React.FC<{
       : flatThinking;
   }, [hasThinking, details?.thinking]);
 
-  React.useEffect(() => {
-    setShowExecutionDetails(isActiveState);
-  }, [isActiveState, message._id]);
-
   if (shouldShowLoadingState) {
     return <ThinkingState />;
   }
@@ -859,11 +891,11 @@ const AssistantMessageContent: React.FC<{
       )}
       {hasThinking && (
         <Collapsible open={showThinking} onOpenChange={setShowThinking}>
-          <CollapsibleTrigger className="group mt-0.5 inline-flex max-w-full items-center gap-1.5 text-[10px] text-zinc-400 transition-colors hover:text-zinc-500">
-            <span className="max-w-[240px] truncate bg-gradient-to-r from-zinc-500 via-zinc-400 to-transparent bg-clip-text text-transparent">
-              {thinkingPreview || "Thinking"}
+          <CollapsibleTrigger className="group mt-1 inline-flex max-w-full items-center gap-2 text-left text-xs text-zinc-500 transition-colors hover:text-zinc-600">
+            <span className="shrink-0 font-medium">Reasoning</span>
+            <span className="min-w-0 truncate text-zinc-400">
+              {thinkingPreview || "Loading reasoning..."}
             </span>
-            <ChevronsUpDown className="h-3 w-3 opacity-50 transition-opacity group-hover:opacity-80" />
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-1 border-l border-zinc-200/80 pl-2.5 text-[11px] leading-relaxed text-zinc-500">
@@ -891,245 +923,7 @@ const AssistantMessageContent: React.FC<{
         </div>
       )}
       {hasExecutionDetails && (
-        <Collapsible
-          open={showExecutionDetails}
-          onOpenChange={setShowExecutionDetails}
-        >
-          <CollapsibleTrigger className="flex items-center gap-1.5 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-700">
-            <Code className="h-3 w-3" />
-            <span>Execution details</span>
-            <ChevronsUpDown className="h-3 w-3" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 pb-2">
-            {!details ? (
-              <div className="flex items-center gap-2 py-2 text-xs text-zinc-400">
-                <Loader className="h-3 w-3 animate-spin" />
-                Loading details...
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {details.object &&
-                  (() => {
-                    try {
-                      const parsedObject = JSON.parse(details.object!);
-
-                      if (Array.isArray(parsedObject)) {
-                        if (parsedObject.length === 0) {
-                          return null;
-                        }
-
-                        return parsedObject.map(
-                          (toolCall: AllToolCalls[0], index: number) => {
-                            if (
-                              toolCall.toolName &&
-                              (!toolCall.input ||
-                                Object.keys(toolCall.input || {}).length === 0)
-                            ) {
-                              return (
-                                <div
-                                  key={index}
-                                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Loader className="h-3 w-3 animate-spin" />
-                                    <div className="font-medium text-zinc-800">
-                                      Tool: {toolCall.toolName}
-                                    </div>
-                                  </div>
-                                  <div className="mt-1 text-xs text-zinc-600">
-                                    Writing...
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <Accordion
-                                key={index}
-                                type="single"
-                                collapsible
-                                className="w-full"
-                              >
-                                <AccordionItem value={`tool-${index}`}>
-                                  <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                                    <Code className="h-3 w-3" />
-                                    Tool: {toolCall.toolName}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <ToolComponentSelector
-                                      toolCall={toolCall}
-                                      isProcessing={
-                                        !details.result &&
-                                        !!shouldShowLoadingState
-                                      }
-                                      toolOutputs={[]}
-                                      result={details.result}
-                                      messageId={message._id}
-                                    />
-                                  </AccordionContent>
-                                </AccordionItem>
-                              </Accordion>
-                            );
-                          },
-                        );
-                      }
-
-                      if (
-                        parsedObject &&
-                        typeof parsedObject === "object" &&
-                        "toolName" in parsedObject
-                      ) {
-                        const toolCall = parsedObject as AllToolCalls[0];
-                        return (
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full"
-                          >
-                            <AccordionItem value="tool-0">
-                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                                <Code className="h-3 w-3" />
-                                Tool: {toolCall.toolName}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <ToolComponentSelector
-                                  toolCall={toolCall}
-                                  isProcessing={
-                                    !details.result && !!shouldShowLoadingState
-                                  }
-                                  toolOutputs={[]}
-                                  result={details.result}
-                                  messageId={message._id}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        );
-                      }
-
-                      if (details.tool_call) {
-                        return (
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full"
-                          >
-                            <AccordionItem value="item-1">
-                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                                <Code className="h-3 w-3" />
-                                Tool: {details.tool_call}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <LegacyToolComponentSelector
-                                  toolName={details.tool_call!}
-                                  toolArgs={details.object!}
-                                  isProcessing={false}
-                                  toolOutputs={[]}
-                                  result={details.result}
-                                  messageId={message._id}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        );
-                      }
-                    } catch {
-                      if (details.tool_call) {
-                        return (
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full"
-                          >
-                            <AccordionItem value="item-1">
-                              <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-zinc-500 hover:no-underline">
-                                <Code className="h-3 w-3" />
-                                Tool: {details.tool_call}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <LegacyToolComponentSelector
-                                  toolName={details.tool_call!}
-                                  toolArgs={details.object || "{}"}
-                                  isProcessing={false}
-                                  toolOutputs={[]}
-                                  result={details.result}
-                                  messageId={message._id}
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        );
-                      }
-                    }
-                    return null;
-                  })()}
-                {details.error_check && (
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="error-check">
-                      <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-yellow-600 hover:no-underline">
-                        <TriangleAlert className="h-3 w-3" />
-                        Error Check
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="mt-2 overflow-x-auto rounded-md border border-yellow-200 bg-yellow-50 text-xs">
-                          <CodeHighlighter
-                            language="json"
-                            customStyle={{
-                              padding: "0.5rem",
-                              margin: 0,
-                              background: "transparent",
-                            }}
-                          >
-                            {details.error_check}
-                          </CodeHighlighter>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                )}
-
-                {details.result && (
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="result">
-                      <AccordionTrigger className="flex items-center justify-start gap-2 text-xs text-green-600 hover:no-underline">
-                        <CheckCircle className="h-3 w-3" />
-                        Result
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="mt-2 overflow-x-auto rounded-md border border-green-200 bg-green-50 p-2 text-xs">
-                          {(() => {
-                            try {
-                              const parsed = JSON.parse(details.result!);
-                              if (
-                                Array.isArray(parsed) &&
-                                parsed.every((item) => typeof item === "string")
-                              ) {
-                                return (
-                                  <ul className="list-disc space-y-1 pl-5">
-                                    {parsed.map((item, index) => (
-                                      <li key={index}>{item}</li>
-                                    ))}
-                                  </ul>
-                                );
-                              }
-                            } catch {
-                              // fall through to raw text
-                            }
-                            return (
-                              <div className="whitespace-pre-wrap">
-                                {details.result}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                )}
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+        <ActivitySummary details={details} isActive={isActiveState} />
       )}
 
       {/* Message State Display - always visible when present, even during streaming */}
@@ -1193,104 +987,20 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   onSendMessage,
   projectSemanticIdentifier,
 }) => {
-  const [isRevertDialogOpen, setIsRevertDialogOpen] = React.useState(false);
   const isUserMessage = message.role === "user";
 
   if (isUserMessage) {
-    const hasCheckpoint =
-      message.commit_hash &&
-      message.commit_hash !== "creating" &&
-      message.commit_hash !== "failed";
     const fastReturnPreview =
       ((message as any).fast_return_preview as string | undefined)?.trim() ??
       "";
 
-    // Only show undo button if message has commit_hash (feature was added after some messages were created)
-    const shouldShowUndo = onRollback && message.commit_hash;
-
     return (
       <div className="mb-6 w-full">
-        <div className="flex w-full items-start justify-end gap-2">
-          {shouldShowUndo && (
-            <Dialog
-              open={isRevertDialogOpen}
-              onOpenChange={setIsRevertDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <button
-                  className="shrink-0 rounded p-1 opacity-60 transition-opacity hover:bg-gray-100 hover:opacity-100"
-                  title="Restore to here"
-                >
-                  <Undo className="h-4 w-4 text-gray-600" />
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Restore to checkpoint</DialogTitle>
-                  <div className="space-y-3 pt-2">
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <div className="flex items-start gap-2">
-                        <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-                        <div className="space-y-1 text-sm text-amber-900">
-                          <div className="font-medium">
-                            This will revert your project
-                          </div>
-                          <div className="text-xs">
-                            {hasCheckpoint
-                              ? "All code changes, file edits, and modifications made after this checkpoint will be undone."
-                              : "This message and all messages after it will be removed from the chat."}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-start gap-2">
-                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                        <div>Your chat history will be preserved</div>
-                      </div>
-                      {hasCheckpoint && (
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                          <div>
-                            You can re-apply reverted changes from the Versions
-                            page
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    variant="destructive"
-                    onClick={async (e) => {
-                      const button = e.currentTarget;
-                      button.disabled = true;
-                      button.textContent = "Restoring...";
-                      try {
-                        await onRollback();
-                        setIsRevertDialogOpen(false);
-                      } finally {
-                        button.disabled = false;
-                        button.textContent = "Restore";
-                      }
-                    }}
-                  >
-                    Restore
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-          <div className="flex flex-1 justify-end">
-            <UserMessageContent
-              message={message}
-              projectSemanticIdentifier={projectSemanticIdentifier}
-            />
-          </div>
+        <div className="flex w-full justify-end">
+          <UserMessageContent
+            message={message}
+            projectSemanticIdentifier={projectSemanticIdentifier}
+          />
         </div>
         {fastReturnPreview && (
           <FastReturnPreviewMessage

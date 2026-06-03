@@ -8,6 +8,7 @@ import { useQuery } from 'convex/react'
 import {
   FolderKanban,
   Users,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -46,6 +47,7 @@ export interface AppShellNavItem {
 const NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', Icon: FolderKanban, exact: true },
   { label: 'Community', href: '/web/community', Icon: Users },
+  { label: 'Settings', href: '/web/settings', Icon: Settings },
 ]
 
 function useIsActive() {
@@ -297,7 +299,16 @@ function UserBlock({ onNavigate }: { onNavigate?: () => void }) {
                 Profile
               </DropdownMenuItem>
             )}
-            {currentUserId && <DropdownMenuSeparator className="bg-border/60" />}
+            <DropdownMenuItem
+              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
+              onClick={() => {
+                onNavigate?.()
+                router.push('/web/settings')
+              }}
+            >
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border/60" />
             <DropdownMenuItem
               className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
               onClick={() => signOut({ callbackUrl: '/web' })}
@@ -310,7 +321,7 @@ function UserBlock({ onNavigate }: { onNavigate?: () => void }) {
       </SignedIn>
       <SignedOut>
         <SignInButton mode="modal" asChild>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)]">
+          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             Sign in
           </button>
         </SignInButton>

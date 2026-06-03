@@ -10,8 +10,6 @@ import { useState, Suspense, lazy } from 'react'
 import {
   Loader,
   AlertTriangle,
-  Plus,
-  Sparkles,
   ArrowUpRight,
   Trash2,
   ChevronDown,
@@ -39,9 +37,6 @@ import { AppShell } from '@/vly/components/app-shell/AppShell'
 
 const ThemePickerModal = lazy(
   () => import('@/vly/components/ThemePickerModal'),
-)
-const CreateProjectModal = lazy(
-  () => import('@/vly/components/CreateProjectModal'),
 )
 
 type AnyProject = NonNullable<
@@ -87,8 +82,6 @@ export default function ProjectsDashboard() {
   const [sortBy, setSortBy] = useState<'lastViewed' | 'alphabetical'>(
     'lastViewed',
   )
-  const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] =
-    useState(false)
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false)
   const [loadingProjectId, setLoadingProjectId] =
     useState<Id<'project'> | null>(null)
@@ -128,19 +121,7 @@ export default function ProjectsDashboard() {
   }
 
   return (
-    <AppShell
-      title="Projects"
-      actions={
-        <button
-          type="button"
-          onClick={() => setIsCreateProjectModalOpen(true)}
-          className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_18px_rgba(124,255,63,0.35)]"
-        >
-          <Plus className="h-4 w-4" />
-          New project
-        </button>
-      }
-    >
+    <AppShell title="Projects">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
         <section className="mb-10">
@@ -271,11 +252,8 @@ export default function ProjectsDashboard() {
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/30 to-muted/60">
-                          <div className="text-center">
-                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-background/40 backdrop-blur-sm">
-                              <Sparkles className="h-5 w-5 text-muted-foreground" />
-                            </div>
+                        <div className="flex h-full w-full items-center justify-center bg-muted/45">
+                          <div className="rounded-md bg-background/65 px-3 py-2 text-center">
                             <div className="text-xs font-medium text-muted-foreground">
                               Preview will appear after next deploy
                             </div>
@@ -290,7 +268,7 @@ export default function ProjectsDashboard() {
                       )}
 
                       {/* Action overlay — always visible on touch, hover on ≥lg */}
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-gradient-to-t from-background/85 via-background/40 to-transparent p-2 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-background/75 p-2 opacity-100 backdrop-blur-sm transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">
                         {previewUrl && (
                           <button
                             type="button"
@@ -378,27 +356,14 @@ export default function ProjectsDashboard() {
             </div>
           ) : (
             <div className="flex min-h-[260px] w-full items-center justify-center">
-              <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-muted/25 px-8 py-12 text-center">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/10 to-transparent" />
-                <div className="relative flex flex-col items-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                    <Sparkles className="h-6 w-6" />
-                  </div>
+              <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-muted/20 px-8 py-12 text-center">
+                <div className="flex flex-col items-center">
                   <h3 className="mt-5 font-['PP_Cirka'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
                     No projects yet
                   </h3>
                   <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-                    Use the composer above to describe your first app, or start
-                    from the full project composer.
+                    Use the composer above to describe your first app.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateProjectModalOpen(true)}
-                    className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-['Geist'] text-sm font-semibold text-primary-foreground transition-all hover:shadow-[0_0_24px_rgba(124,255,63,0.4)]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Open Composer
-                  </button>
                 </div>
               </div>
             </div>
@@ -447,16 +412,6 @@ export default function ProjectsDashboard() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* ── Create ───────────────────────────────────────────────────── */}
-      <Suspense fallback={null}>
-        {isCreateProjectModalOpen && (
-          <CreateProjectModal
-            isOpen={isCreateProjectModalOpen}
-            onClose={() => setIsCreateProjectModalOpen(false)}
-          />
-        )}
-      </Suspense>
     </AppShell>
   )
 }

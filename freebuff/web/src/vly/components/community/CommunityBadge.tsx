@@ -35,69 +35,63 @@ export function getBadgeInfo(communityBadgeTier: number): BadgeInfo | null {
     case 1: // Starter
       return {
         label: "Supporter",
-        colorClasses: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        colorClasses: "bg-emerald-500/15 text-emerald-300 border-emerald-400/35",
         icon: Star,
         priority: 1,
       };
     case 2: // Hobby
       return {
         label: "VIP",
-        colorClasses: "bg-blue-100 text-blue-700 border-blue-200",
+        colorClasses: "bg-primary/10 text-primary border-primary/35",
         icon: Award,
         priority: 2,
       };
     case 3: // Business
       return {
         label: "VIP+",
-        colorClasses: "bg-purple-100 text-purple-700 border-purple-200",
+        colorClasses: "bg-primary/10 text-primary border-primary/35",
         icon: Award,
         priority: 3,
       };
     case 4: // Scale
       return {
         label: "MVP",
-        colorClasses:
-          "bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border-amber-200",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 4,
       };
     case 5: // Priority
       return {
         label: "MVP+",
-        colorClasses:
-          "bg-gradient-to-r from-amber-200 to-orange-200 text-amber-800 border-amber-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 5,
       };
     case 6: // Ultra
       return {
         label: "MVP++",
-        colorClasses:
-          "bg-gradient-to-r from-orange-200 to-rose-200 text-orange-800 border-orange-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 6,
       };
     case 7: // Max
       return {
         label: "MVP+++",
-        colorClasses:
-          "bg-gradient-to-r from-rose-200 to-pink-200 text-rose-800 border-rose-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 7,
       };
     case 8: // Unlimited
       return {
         label: "MVP++++",
-        colorClasses:
-          "bg-gradient-to-r from-pink-200 to-fuchsia-200 text-pink-800 border-pink-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 8,
       };
     case 9: // Enterprise
       return {
         label: "MVP+++++",
-        colorClasses:
-          "bg-gradient-to-r from-fuchsia-200 to-violet-200 text-fuchsia-800 border-fuchsia-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: 9,
       };
@@ -106,8 +100,7 @@ export function getBadgeInfo(communityBadgeTier: number): BadgeInfo | null {
       const plusCount = communityBadgeTier - 4;
       return {
         label: `MVP${"+++++".slice(0, Math.min(plusCount, 10))}`,
-        colorClasses:
-          "bg-gradient-to-r from-violet-200 to-purple-200 text-violet-800 border-violet-300",
+        colorClasses: "bg-amber-500/15 text-amber-300 border-amber-400/35",
         icon: Crown,
         priority: communityBadgeTier,
       };

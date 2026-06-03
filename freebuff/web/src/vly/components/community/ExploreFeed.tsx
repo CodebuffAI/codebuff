@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Search, SlidersHorizontal, Rocket } from "lucide-react";
+import { Search, SlidersHorizontal, UploadCloud } from "lucide-react";
 import { Input } from "@/vly/components/ui/input";
 import { Button } from "@/vly/components/ui/button";
 import { Skeleton } from "@/vly/components/ui/skeleton";
@@ -67,24 +67,24 @@ export default function ExploreFeed() {
   const isLoading = !currentPosts;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
+    <div className="min-h-full pb-20">
       {/* Header */}
-      <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm">
+      <div className="border-b border-border/50 bg-background">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                 Explore Projects
               </h1>
-              <p className="mt-1 text-gray-500">
-                Discover amazing projects built by the Freebuff community
+              <p className="mt-1 text-muted-foreground">
+                Search public projects by name, creator, or tag.
               </p>
             </div>
             <Button
               onClick={() => setShowPublishDialog(true)}
-              className="gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-200 hover:from-violet-500 hover:to-fuchsia-500"
+              className="h-9 gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-none hover:bg-primary/90"
             >
-              <Rocket className="h-4 w-4" />
+              <UploadCloud className="h-4 w-4" />
               Create Listing
             </Button>
           </div>
@@ -92,12 +92,12 @@ export default function ExploreFeed() {
           {/* Search & Filters */}
           <div className="mt-6 flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects, tags, creators..."
-                className="h-12 border-gray-200 bg-white pl-12 text-gray-900 placeholder:text-gray-400 focus:border-violet-400 focus:ring-violet-200"
+                className="h-12 border-border/60 bg-muted/20 pl-12 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40"
               />
             </div>
 
@@ -105,11 +105,11 @@ export default function ExploreFeed() {
               value={sortBy}
               onValueChange={(v) => setSortBy(v as SortOption)}
             >
-              <SelectTrigger className="h-12 w-full border-gray-200 bg-white text-gray-900 sm:w-48">
-                <SlidersHorizontal className="mr-2 h-4 w-4 text-gray-400" />
+              <SelectTrigger className="h-12 w-full border-border/60 bg-muted/20 text-foreground sm:w-48">
+                <SlidersHorizontal className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-gray-200 bg-white text-gray-900">
+              <SelectContent className="border-border bg-popover text-popover-foreground">
                 <SelectItem value="recent">Most Recent</SelectItem>
                 <SelectItem value="trending">Most Popular</SelectItem>
               </SelectContent>
@@ -121,7 +121,7 @@ export default function ExploreFeed() {
       {/* Content */}
       <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
         {debouncedQuery && (
-          <p className="mb-6 text-sm text-gray-500">
+          <p className="mb-6 text-sm text-muted-foreground">
             {searchResults?.length || 0} results for "{debouncedQuery}"
           </p>
         )}
@@ -129,7 +129,7 @@ export default function ExploreFeed() {
         {isLoading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(9)].map((_, i) => (
-              <Skeleton key={i} className="h-80 rounded-2xl bg-gray-100" />
+              <Skeleton key={i} className="h-80 rounded-lg bg-muted/35" />
             ))}
           </div>
         ) : currentPosts && currentPosts.length > 0 ? (
@@ -140,22 +140,19 @@ export default function ExploreFeed() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-50">
-              <Search className="h-10 w-10 text-violet-500" />
-            </div>
-            <h3 className="mb-2 text-xl font-medium text-gray-900">
+            <h3 className="mb-2 text-xl font-medium text-foreground">
               {debouncedQuery ? "No projects found" : "No projects yet"}
             </h3>
-            <p className="mb-6 max-w-sm text-gray-500">
+            <p className="mb-6 max-w-sm text-muted-foreground">
               {debouncedQuery
                 ? "Try adjusting your search terms"
-                : "Be the first to share your creation with the community!"}
+                : "Publish a deployed project to make it visible here."}
             </p>
             <Button
               onClick={() => setShowPublishDialog(true)}
-              className="gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-200 hover:from-violet-500 hover:to-fuchsia-500"
+              className="h-9 gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-none hover:bg-primary/90"
             >
-              <Rocket className="h-4 w-4" />
+              <UploadCloud className="h-4 w-4" />
               Create Listing
             </Button>
           </div>

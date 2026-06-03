@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   ChevronDown,
   Pencil,
+  Plus,
 } from "lucide-react";
 import {
   Tooltip,
@@ -596,6 +597,32 @@ export function AgentChatShell({
                       )}
                     </div>
                   )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isProcessing) {
+                            void handleCreateNewThread();
+                          }
+                        }}
+                        type="button"
+                        aria-label="New thread"
+                        disabled={isProcessing}
+                        className="ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 lg:h-7 lg:w-7"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      sideOffset={6}
+                      className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                    >
+                      New thread
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -783,7 +810,6 @@ export function AgentChatShell({
                     onUserInputChange={() => {}}
                     selectedAgentMode="POWERFUL"
                     onAgentModeChange={undefined}
-                    onSwitchAgent={handleCreateNewThread}
                     syncStatus={undefined}
                     activeEntryPointId={undefined}
                     restoreMessage={messageToRestore}

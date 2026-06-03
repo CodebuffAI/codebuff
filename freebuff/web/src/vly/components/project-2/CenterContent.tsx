@@ -5,10 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ExternalLink,
   MousePointer,
-  RotateCcw,
   RotateCw,
   Github,
   Camera,
+  MonitorCog,
 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useIframeNavigationSync } from "./useIframeNavigationSync";
@@ -812,13 +812,11 @@ export function CenterContent({
               )}
             </span>
             <div className="flex items-center gap-0.5">
-              {/* Restart — wider button with visible label so it doesn't get
-                  mistaken for the refresh icon. */}
               <ToolbarTooltip
                 label={
                   isRestarting
-                    ? "Restarting dev server…"
-                    : "Restart dev server"
+                    ? "Restarting computer…"
+                    : "Restart computer"
                 }
               >
                 <button
@@ -827,16 +825,15 @@ export function CenterContent({
                     handleRestartDevServer();
                   }}
                   disabled={!project || isRestarting}
-                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground/75 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label={
-                    isRestarting ? "Restarting dev server" : "Restart dev server"
+                    isRestarting ? "Restarting computer" : "Restart computer"
                   }
                 >
-                  <RotateCcw
-                    className={`h-3.5 w-3.5 ${isRestarting ? "animate-spin" : ""}`}
+                  <MonitorCog
+                    className={`h-4 w-4 ${isRestarting ? "animate-pulse" : ""}`}
                     strokeWidth={1.5}
                   />
-                  <span>{isRestarting ? "Restarting…" : "Restart"}</span>
                 </button>
               </ToolbarTooltip>
               {isGodMode && (
@@ -987,6 +984,9 @@ export function CenterContent({
                       aria-label="Click to test"
                     >
                       <MousePointer className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">
+                        Click to test
+                      </span>
                     </div>
                     <button
                       onClick={(e) => {

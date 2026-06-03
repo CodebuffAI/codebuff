@@ -15,7 +15,7 @@ import {
   Share2,
   ArrowLeft,
   Trash2,
-  Sparkles,
+  Star,
   MoreHorizontal,
   Edit3,
   Check,
@@ -375,17 +375,17 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
   if (post === null) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-        <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-rose-50">
-          <Sparkles className="h-10 w-10 text-rose-500" />
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-lg border border-border/50 bg-muted/20">
+          <EyeOff className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h2 className="mb-2 text-2xl font-bold text-gray-900">
+        <h2 className="mb-2 text-2xl font-semibold text-foreground">
           Project Not Found
         </h2>
-        <p className="mb-6 text-gray-500">
+        <p className="mb-6 text-sm text-muted-foreground">
           This project may have been removed or doesn't exist
         </p>
         <Link href="/web/community">
-          <Button className="gap-2 bg-emerald-600 hover:bg-emerald-500">
+          <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
             <ArrowLeft className="h-4 w-4" />
             Back to Community
           </Button>
@@ -395,12 +395,12 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-12">
+    <div className="min-h-full bg-background pb-12">
       {/* Back button */}
       <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
         <Link
           href="/web/community"
-          className="inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Community
@@ -416,7 +416,7 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
             {post.previewUrl && (
               <div
                 ref={iframeContainerRef}
-                className="relative aspect-video w-full overflow-hidden rounded-xl bg-gray-100 shadow-lg"
+                className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/50 bg-muted/20"
               >
                 <iframe
                   src={post.previewUrl}
@@ -512,8 +512,8 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
                     </button>
                   )}
                   {post.featured && (
-                    <Badge className="ml-2 border-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white">
-                      <Sparkles className="mr-1 h-3 w-3" />
+                    <Badge className="ml-2 border border-amber-400/35 bg-amber-500/10 text-amber-200">
+                      <Star className="mr-1 h-3 w-3" />
                       Featured
                     </Badge>
                   )}
@@ -917,8 +917,8 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 to-fuchsia-50 text-xl">
-                          🚀
+                        <div className="flex h-full w-full items-center justify-center bg-muted/25 text-muted-foreground">
+                          <ImagePlus className="h-5 w-5" />
                         </div>
                       )}
                     </div>
