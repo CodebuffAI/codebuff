@@ -18,7 +18,7 @@ export const FREE_COST_MODE = 'free' as const
  */
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
-  'base2-free': new Set(['minimax/minimax-m2.7']),
+  'base2-free': new Set(['minimax/minimax-m3']),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -33,10 +33,10 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'basher': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Editor for free mode
-  'editor-lite': new Set(['minimax/minimax-m2.7']),
+  'editor-lite': new Set(['minimax/minimax-m3']),
 
   // Code reviewer for free mode
-  'code-reviewer-lite': new Set(['minimax/minimax-m2.7']),
+  'code-reviewer-lite': new Set(['minimax/minimax-m3']),
 }
 
 /**
@@ -103,7 +103,7 @@ export function isFreeModeAllowedAgentModel(
   // Exact match first
   if (allowedModels.has(model)) return true
 
-  // OpenRouter may return dated variants (e.g. "minimax/minimax-m2.7-20260318")
+  // OpenRouter may return dated variants (e.g. "minimax/minimax-m3-20260603")
   // so also check if the returned model starts with any allowed model prefix.
   for (const allowed of allowedModels) {
     if (model.startsWith(allowed + '-')) return true

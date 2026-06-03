@@ -429,9 +429,9 @@ export type ModelName =
   | 'z-ai/glm-4.7:nitro'
   | 'z-ai/glm-4.7-flash'
   | 'z-ai/glm-4.7-flash:nitro'
+  | 'minimax/minimax-m3'
   | 'minimax/minimax-m2.7'
   | 'minimax/minimax-m2.7-highspeed'
-  | 'minimax/minimax-m2.5'
   | (string & {})
 
 import type { ToolName, GetToolParams } from './tools'
