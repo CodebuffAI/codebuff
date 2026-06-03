@@ -93,6 +93,8 @@ function viewToTab(view: ActiveView): IframeTab {
       return "editor";
     case "keys":
       return "keys";
+    case "versions":
+      return "versions";
     case "integrations":
       return "integrations";
     case "ui components":
@@ -112,6 +114,8 @@ function tabToView(tab: IframeTab): ActiveView {
       return "editor";
     case "keys":
       return "keys";
+    case "versions":
+      return "versions";
     case "integrations":
       return "integrations";
     case "ui-components":
@@ -291,9 +295,7 @@ function ProjectWrapper({
           } else {
             console.error("allow_project failed:", response.status);
           }
-        } catch (error) {
-          console.error("Error calling allow_project:", error);
-        }
+        } catch (error) {        }
       };
 
       checkProjectAccess();
@@ -937,44 +939,6 @@ function ChatTopActions({
   void projectId;
   return (
     <div className="pointer-events-none absolute right-2 top-2 z-30 flex gap-0.5">
-      <button
-        onClick={() => {
-          if (syncStatus) {
-            window.open(
-              `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}/commits`,
-              "_blank",
-              "noopener,noreferrer",
-            );
-          } else {
-            router.push(
-              `/web/project/${semanticIdentifier}/settings?section=github`,
-            );
-          }
-        }}
-        title={
-          syncStatus
-            ? "Version history (open commits on GitHub)"
-            : "Connect GitHub to view version history"
-        }
-        aria-label="Version history"
-        className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-          <path d="M3 3v5h5" />
-          <path d="M12 7v5l3 2" />
-        </svg>
-      </button>
       <button
         onClick={() => {
           if (syncStatus) {

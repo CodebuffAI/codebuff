@@ -138,18 +138,9 @@ export const verifyProjectAccessAndConnect = action({
             WORKSPACE_INTEGRITY_TTL_MS;
 
         if (shouldEnsureWorkspaceIntegrity) {
-          console.log(
-            "[verifyProjectAccessAndConnect] Ensuring workspace integrity...",
-          );
-          console.log(
-            `[verifyProjectAccessAndConnect] Stats monitoring enabled`,
-          );
           await codebase.ensureWorkspaceIntegrity(true);
           warmState.workspaceIntegrityEnsuredAt = Date.now();
         } else {
-          console.log(
-            "[verifyProjectAccessAndConnect] Workspace integrity recently ensured, skipping",
-          );
         }
       }
 
@@ -162,9 +153,6 @@ export const verifyProjectAccessAndConnect = action({
 
       // Generate integration key if it doesn't exist
       if (!integrationKey) {
-        console.log(
-          "[verifyProjectAccessAndConnect] No integration key found, generating...",
-        );
         const crypto = await import("crypto");
         integrationKey = "sk_" + crypto.randomBytes(32).toString("hex");
 
@@ -176,9 +164,6 @@ export const verifyProjectAccessAndConnect = action({
           },
         );
         generatedIntegrationKey = true;
-        console.log(
-          "[verifyProjectAccessAndConnect] Generated and saved integration key",
-        );
       }
 
       // Ensure integration setup (files + env vars) - always enabled
@@ -189,15 +174,9 @@ export const verifyProjectAccessAndConnect = action({
           now - warmState.integrationsEnsuredAt > INTEGRATIONS_ENSURE_TTL_MS;
 
         if (shouldEnsureIntegrations) {
-          console.log(
-            "[verifyProjectAccessAndConnect] Ensuring integrations...",
-          );
           await codebase.ensureIntegrations(integrationKey);
           warmState.integrationsEnsuredAt = Date.now();
         } else {
-          console.log(
-            "[verifyProjectAccessAndConnect] Integrations recently ensured, skipping",
-          );
         }
       }
 
@@ -208,21 +187,9 @@ export const verifyProjectAccessAndConnect = action({
           now - warmState.devServersEnsuredAt > DEV_SERVER_ENSURE_TTL_MS;
 
         if (shouldEnsureDevServers) {
-          console.log(
-            "[verifyProjectAccessAndConnect] Ensuring dev servers are running...",
-          );
           await codebase.ensureDevServersRunning();
           warmState.devServersEnsuredAt = Date.now();
-          console.log("[verifyProjectAccessAndConnect] Dev servers ensured");
-        } else {
-          console.log(
-            "[verifyProjectAccessAndConnect] Dev servers were checked recently, skipping",
-          );
         }
-      } else {
-        console.log(
-          "[verifyProjectAccessAndConnect] Skipping dev server check (not DaytonaCodebase or no dev server support)",
-        );
       }
 
       projectConnectionWarmCache.set(projectCacheKey, warmState);

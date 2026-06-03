@@ -41,10 +41,8 @@ export async function initializeCodebase(
 ): Promise<Codebase> {
   // Check if the sandbox ID has a Daytona prefix
   if (sandboxId.startsWith("daytona:")) {
-    console.log("Initializing DaytonaCodebase");
     // Remove the prefix and create DaytonaCodebase
     const daytonaSandboxId = sandboxId.slice("daytona:".length);
-    console.log("Daytona sandbox ID:", daytonaSandboxId);
     return await DaytonaCodebase.create(daytonaSandboxId, packageManager);
   }
 

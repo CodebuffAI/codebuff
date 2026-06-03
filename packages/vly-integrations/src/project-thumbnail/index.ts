@@ -6,6 +6,8 @@ function isVlyPlatform(): boolean {
   const hostname = window.location.hostname;
   return (
     hostname.endsWith('.freebuff.com') ||
+    hostname.endsWith('.vly.ai') ||
+    hostname.endsWith('.vly.sh') ||
     hostname.endsWith('.freebuff.dev') ||
     hostname.includes('localhost') || // For dev
     hostname.includes('127.0.0.1')

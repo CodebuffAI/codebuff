@@ -29,9 +29,7 @@ export const create = mutation({
     console.log("Starting project creation action");
     try {
       // requires auth. will throw without auth
-      console.log("Getting user ID");
       const userId = await signedInUser(ctx);
-      console.log("Got user ID:", userId);
 
       // SECURITY FIX: Get organization context from JWT token
       const orgContext = await getOrganizationContext(ctx);
@@ -92,8 +90,6 @@ export const create = mutation({
       }
 
       // summarize and get name
-      console.log("Generating project name");
-      console.log("Checking for existing unassigned project");
 
       // get an existing project in the pool
       const project = await ctx.db

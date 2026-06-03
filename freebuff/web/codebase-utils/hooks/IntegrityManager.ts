@@ -54,10 +54,6 @@ export class IntegrityManager {
     try {
       await this.writeFile(this.stateFilePath, JSON.stringify(state, null, 2));
     } catch (error) {
-      console.warn(
-        `[IntegrityManager] Failed to save state (non-critical):`,
-        error,
-      );
       // Don't throw - saving state is nice-to-have, not critical
     }
   }
@@ -66,7 +62,6 @@ export class IntegrityManager {
    * Execute all integrity checks to ensure workspace is in expected state
    */
   async ensureAll(): Promise<void> {
-    console.log("[IntegrityManager] Loading integrity state");
     const state = await this.loadState();
     let stateChanged = false;
 
@@ -79,7 +74,6 @@ export class IntegrityManager {
         );
 
         if (shouldExecute) {
-          console.log(`[IntegrityManager] Executing check: ${checkName}`);
 
           try {
             await check.execute();
@@ -117,29 +111,17 @@ export class IntegrityManager {
               execCount: (state[checkName]?.execCount || 0) + 1,
               success: false,
             };
-            console.warn(
-              `[IntegrityManager] Check '${checkName}' failed (non-critical):`,
-              executeError,
-            );
             // Continue with other checks even if one fails
           }
         } else {
-          console.log(
-            `[IntegrityManager] Skipping check (already satisfied): ${checkName}`,
-          );
         }
       } catch (error) {
-        console.warn(
-          `[IntegrityManager] Error evaluating check '${checkName}':`,
-          error,
-        );
         // Continue with other checks even if evaluation fails
       }
     }
 
     // Save state if anything changed
     if (stateChanged) {
-      console.log("[IntegrityManager] Saving updated integrity state");
       await this.saveState(state);
     }
   }
@@ -162,9 +144,6 @@ export class IntegrityManager {
 
       // Dependency hasn't run yet or failed
       if (!depState || depState.success !== true) {
-        console.log(
-          `[IntegrityManager] Check '${checkName}' skipped: dependency '${dependency}' ${!depState ? "hasn't run" : "failed"}`,
-        );
         return false;
       }
     }
@@ -200,16 +179,10 @@ export class IntegrityManager {
         // 2. Current value is different from last value
         // 3. Current value is defined but last value was undefined
         if (!state[checkName]) {
-          console.log(
-            `[IntegrityManager] Check '${checkName}' will run (first time)`,
-          );
           return true;
         }
 
         if (currentValue !== lastValue) {
-          console.log(
-            `[IntegrityManager] Check '${checkName}' will run (value changed: '${lastValue}' -> '${currentValue}')`,
-          );
           return true;
         }
 
@@ -220,18 +193,11 @@ export class IntegrityManager {
         // Execute only if never executed before
         const hasRun = !!state[checkName]?.lastRun;
         if (!hasRun) {
-          console.log(
-            `[IntegrityManager] Check '${checkName}' will run (once, never executed)`,
-          );
         }
         return !hasRun;
       }
 
       default:
-        console.warn(
-          `[IntegrityManager] Unknown check frequency for '${checkName}':`,
-          (check as any).frequency,
-        );
         return false;
     }
   }

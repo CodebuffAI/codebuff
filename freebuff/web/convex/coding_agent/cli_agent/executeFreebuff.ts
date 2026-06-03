@@ -484,6 +484,30 @@ function buildFreebuffOverrideTools(codebase: DaytonaCodebase) {
   }
 }
 
+// Abort the SDK run a minute before the 10-minute cron sweep so the SDK has
+const FREEBUFF_RUN_TIMEOUT_MS = 9 * 60 * 1000
+
+async function persistRunState(
+  ctx: ActionCtx,
+  runState: unknown,
+): Promise<Id<'_storage'> | undefined> {
+  try {
+    const blob = new Blob([JSON.stringify(runState)], {
+      type: 'application/json',
+    })
+    return await ctx.storage.store(blob)
+  } catch (error) {
+    console.error('[vly-freebuff-workpool] failed to persist run state', error)
+    return undefined
+  }
+}
+
+function buildCommitMessage(userMessage: string): string {
+  const firstLine = userMessage.split(/\r?\n/)[0]?.trim() ?? ''
+  const trimmed = firstLine.length > 60 ? `${firstLine.slice(0, 57)}...` : firstLine
+  return trimmed ? `Freebuff: ${trimmed}` : 'Freebuff: update project files'
+}
+
 export const runFreebuffAgent = internalAction({
   args: {
     runId: v.string(),
@@ -502,6 +526,13 @@ export const runFreebuffAgent = internalAction({
 
     const eventBuffer = createRunEventBuffer({ ctx, ...args })
     await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
+
+    const abortController = new AbortController()
+    const timeoutHandle = setTimeout(() => {
+      abortController.abort(
+        new Error('Freebuff run exceeded 9-minute time limit'),
+      )
+    }, FREEBUFF_RUN_TIMEOUT_MS)
 
     try {
       installPromiseWithResolversPolyfill()
@@ -527,6 +558,7 @@ export const runFreebuffAgent = internalAction({
         prompt: args.userMessage,
         previousRun: await readStoredRunState(ctx, args.threadId),
         costMode: 'normal',
+        signal: abortController.signal,
         overrideTools: buildFreebuffOverrideTools(codebase) as any,
         handleEvent: async (event: any) => {
           if (event.type === 'tool_call') {
@@ -562,22 +594,39 @@ export const runFreebuffAgent = internalAction({
 
       await eventBuffer.flush()
 
+      // Always persist run state (success or error) when sessionState exists,
+      // so a follow-up "continue" prompt can resume from the same history.
+      const runStateStorageId = runState.sessionState
+        ? await persistRunState(ctx, runState)
+        : undefined
+
       if (runState.output?.type === 'error') {
+        const isLocalTimeout = abortController.signal.aborted
+        const message = isLocalTimeout
+          ? 'Freebuff stopped after 9 minutes. Type continue to resume from the current state.'
+          : runState.output.message
         await recordRunEvent({
           ctx,
           ...args,
-          event: {
-            type: 'error',
-            message: runState.output.message,
-          },
+          event: { type: 'error', message },
+          runStateStorageId,
         })
         return null
       }
 
-      const blob = new Blob([JSON.stringify(runState)], {
-        type: 'application/json',
-      })
-      const runStateStorageId = await ctx.storage.store(blob)
+      try {
+        await ctx.runAction(internal.codesandbox.versionControl.commit, {
+          projectId: args.projectId,
+          message: buildCommitMessage(args.userMessage),
+        })
+      } catch (commitError) {
+        console.warn(
+          '[vly-freebuff-workpool] post-run commit failed',
+          commitError,
+        )
+        // Non-fatal: still mark the run as completed.
+      }
+
       await recordRunEvent({
         ctx,
         ...args,
@@ -597,6 +646,8 @@ export const runFreebuffAgent = internalAction({
         },
       })
       throw error
+    } finally {
+      clearTimeout(timeoutHandle)
     }
   },
 })
