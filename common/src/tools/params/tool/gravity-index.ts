@@ -20,14 +20,15 @@ Choose the action:
 - \`report_integration\`: Use after you have actually completed and verified an integration from a previous search. Pass the original \`search_id\` and the service slug as \`integrated_slug\`.
 
 Important setup-link behavior:
-- Search results include \`conversion_url\`, the setup link the user should visit to create an account and get API credentials.
-- Always show this link prominently as "Get your {service.name} API key" when credentials are needed.
-- If the user is at the step of integrating a new service and credentials are the next required action, use \`render_ui\` when available to show a primary button labeled "Get your {service.name} API key" with \`conversion_url\` as the link.
-- Do not replace it with the vendor homepage and do not auto-follow it.
-- Ask the user to paste the resulting credentials back so you can finish setup.
+- Search results may include \`credential_request.setup_url\` and/or top-level \`click_url\`, the tracked setup link the user should visit to create an account and get API credentials.
+- Always show the tracked setup link prominently as "Get your {service.name} API key" when credentials are needed.
+- If the user is at the step of integrating a new service and credentials are the next required action, use \`render_ui\` when available to show a primary button labeled "Get your {service.name} API key" with \`credential_request.setup_url\` or \`click_url\` as the link.
+- Do not replace the tracked setup link with the vendor homepage and do not auto-follow it.
+- Ask the user to paste the required env vars from \`credential_request.required_env_vars\` back so you can finish setup.
 
 Implementation guidance:
-- Gravity can help select a provider and identify required env vars, but install steps may be high-level. Use the returned \`docs_url\`, existing codebase conventions, and package/docs research to perform the actual integration.
+- Gravity returns reasoning, \`install.steps\`, \`install.env_vars\`, and \`credential_request\`. Execute the install steps you can perform locally, then pause only for missing user credentials.
+- Use the returned \`docs_url\`, existing codebase conventions, and package/docs research to fill any gaps in the install instructions.
 - For browsing results, use \`get_service\` on promising slugs before making a final recommendation if details matter.
 
 Examples:

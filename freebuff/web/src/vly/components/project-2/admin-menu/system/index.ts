@@ -1,0 +1,1 @@
+export { SystemTabContent } from "./SystemTabContent";

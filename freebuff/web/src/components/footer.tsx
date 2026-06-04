@@ -20,7 +20,6 @@ export function Footer() {
                 alt="Freebuff"
                 width={24}
                 height={24}
-                className="rounded-sm"
               />
               <span className="text-lg tracking-widest font-serif text-white">
                 freebuff
@@ -34,6 +33,12 @@ export function Footer() {
           <div>
             <h3 className="font-semibold mb-3">Links</h3>
             <nav className="flex flex-col space-y-2">
+              <Link
+                href="/blog"
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
+                Blog
+              </Link>
               <Link
                 href="https://codebuff.com"
                 target="_blank"
@@ -49,7 +54,7 @@ export function Footer() {
                 GitHub
               </Link>
               <Link
-                href="https://codebuff.com/discord"
+                href="https://discord.gg/yXG3w7wxfs"
                 target="_blank"
                 className="text-sm text-muted-foreground hover:text-primary"
               >

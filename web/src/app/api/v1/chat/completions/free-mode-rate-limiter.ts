@@ -26,7 +26,7 @@ export const FREE_MODE_RATE_LIMITS = {
   /** Max requests per 5-hour window */
   PER_5_HOURS: 2_000,
   /** Max requests per 7-day window */
-  PER_7_DAYS: 20_000,
+  PER_7_DAYS: 10_000,
 } as const
 
 // ---------------------------------------------------------------------------

@@ -48,8 +48,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const accessTier = useFreebuffSessionStore((s) =>
     s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
   )
-  const quotaLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const quotaLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const bannerTitle = premiumQuota
     ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
     : 'Session ended'

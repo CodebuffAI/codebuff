@@ -1,0 +1,1040 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Performance optimized styles */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.glass-morphism {
+  background: rgba(20, 20, 22, 0.92) !important;
+  border-radius: 10px;
+  border: 1px solid rgba(124, 255, 63, 0.18) !important;
+  backdrop-filter: blur(14px);
+}
+.compact-dialog-text {
+  font-size: 12px !important;
+}
+.compact-dialog-text h3 {
+  font-size: 14px !important;
+}
+
+/* Fix Slate placeholder alignment */
+[data-slate-placeholder] {
+  position: absolute !important;
+  top: 12px !important;
+  left: 12px !important;
+  transform: none !important;
+}
+
+/* Ensure Slate editor caret is visible */
+[data-slate-editor] {
+  caret-color: #e2e8f0 !important;
+}
+
+@layer base {
+  /*
+   * Freebuff Web is dark-only.
+   * Palette inspired by Google Calendar dark mode:
+   *  - warm near-black background (#1F1F1F)
+   *  - softly elevated card / interactive surfaces via bg tint, not borders
+   *  - subtle low-contrast borders (#3C4043-ish)
+   *  - light grey body text (#E8EAED) / muted secondary (#9AA0A6)
+   *  - acid-green Codebuff accent (#7CFF3F) reserved for primary CTAs
+   */
+  :root,
+  .dark,
+  [data-project-theme="dark"] {
+    --background: 0 0% 12%;            /* #1F1F1F */
+    --foreground: 220 9% 92%;          /* #E8EAED */
+    --card: 220 3% 17%;                /* #2A2C2E elevated surface */
+    --card-foreground: 220 9% 92%;
+    --popover: 220 3% 17%;
+    --popover-foreground: 220 9% 92%;
+    /* Acid-matrix green (Codebuff brand): #7CFF3F */
+    --primary: 100 100% 62%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 220 4% 22%;           /* #363A3D for ghost/secondary buttons */
+    --secondary-foreground: 220 9% 92%;
+    --muted: 220 3% 19%;               /* #2F3134 */
+    --muted-foreground: 220 7% 64%;    /* #9AA0A6 */
+    --accent: 220 4% 24%;              /* hover scrim, NOT brand green */
+    --accent-foreground: 220 9% 92%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 5% 26%;              /* #3E4246 subtle hairline */
+    --input: 220 4% 22%;
+    --ring: 100 100% 62%;
+    --radius: 0.75rem;                 /* gentler, smoother corners */
+    /*
+     * IMPORTANT: do NOT redefine --font-sans / --font-mono / --font-serif
+     * here. The root /app/layout.tsx loads Inter and JetBrains Mono via
+     * `next/font/google` and exposes them as CSS variables on <body>.
+     * Re-declaring these on `:root, .dark` shadows the body-level values
+     * for every descendant of `<div class="dark">`, which collapses the
+     * font stack down to a missing literal ("Geist Sans") and the browser
+     * falls back to its default serif (Times New Roman).
+     */
+    --project-page-overlay:
+      linear-gradient(
+        to bottom,
+        #1F1F1F 0%,
+        transparent 14%,
+        transparent 86%,
+        #1F1F1F 100%
+      ),
+      linear-gradient(
+        to right,
+        #1F1F1F 0%,
+        transparent 14%,
+        transparent 86%,
+        #1F1F1F 100%
+      );
+    --project-selected-node-bg: #2A2C2E;
+    --project-selected-node-image-bg: #2A2C2E;
+  }
+
+  .theme {
+    --animate-shine: shine var(--duration) infinite linear;
+    --animate-shiny-text: shiny-text 8s infinite;
+    --animate-gradient: gradient 8s linear infinite;
+    --animate-meteor: meteor 5s linear infinite;
+    --animate-background-position-spin: background-position-spin 3000ms infinite
+      alternate;
+    --animate-aurora: aurora 8s ease-in-out infinite alternate;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    background-color: #1F1F1F !important;
+    color-scheme: dark;
+  }
+  body {
+    @apply text-foreground;
+    font-family: var(--font-sans);
+    background-color: #1F1F1F !important;
+    /* Smoother subpixel font rendering on dark surfaces (GCal feel) */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.005em;
+  }
+}
+
+/* Force overscroll background and prevent layout shifts */
+html,
+body {
+  background-color: #1F1F1F !important;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/*
+ * Tailwind utility overrides — the migrated Vly markup hardcodes light
+ * neutrals (`bg-white`, `bg-gray-50`, `text-gray-900`, `text-black`,
+ * literal hex `bg-[#F7F7F3]`, etc.) across hundreds of files. Until each
+ * component is rewritten to use semantic tokens (`bg-background`,
+ * `text-foreground`, `bg-card`, `text-primary`, …) the overrides below
+ * keep Freebuff Web visually consistent on its enforced dark theme.
+ *
+ * Rules of thumb:
+ *  - Never mutate `bg-background`, `bg-card`, `bg-popover`, etc. (semantic
+ *    classes already live in the dark palette).
+ *  - Map LIGHT shades (50–200) of neutral palettes to dark surfaces.
+ *  - Map LIGHT shades of warning/info palettes (amber/orange/red/blue/
+ *    yellow/emerald/green) to translucent tinted surfaces so badges keep
+ *    their meaning but stop blinding the user.
+ *  - Map `text-black` → foreground; `text-white` stays white.
+ *  - Map a known set of literal hex backgrounds (`#F7F7F3`, `#CBCFDA`,
+ *    `#E1DFF6`, `#D4D1F0`, `#D3C1E5`, `#1a1a1a`, …) so any leftover
+ *    `bg-[#hex]` / `text-[#hex]` calls render in the dark palette.
+ */
+
+/* --- Neutral light surfaces -> dark surfaces --- */
+body [class*="bg-white"]:not([class*="bg-white/"]),
+body [class*="bg-gray-50"],
+body [class*="bg-gray-100"],
+body [class*="bg-zinc-50"],
+body [class*="bg-zinc-100"],
+body [class*="bg-zinc-200"],
+body [class*="bg-slate-50"],
+body [class*="bg-slate-100"],
+body [class*="bg-slate-200"],
+body [class*="bg-stone-50"],
+body [class*="bg-stone-100"],
+body [class*="bg-stone-200"],
+body [class*="bg-neutral-50"],
+body [class*="bg-neutral-100"],
+body [class*="bg-neutral-200"],
+body [class*="bg-gray-200"] {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* `bg-white/X` opacity variants — keep them translucent on a dark scrim */
+body [class*="bg-white/10"],
+body [class*="bg-white/20"],
+body [class*="bg-white/25"],
+body [class*="bg-white/30"],
+body [class*="bg-white/40"],
+body [class*="bg-white/50"],
+body [class*="bg-white/60"],
+body [class*="bg-white/70"],
+body [class*="bg-white/75"],
+body [class*="bg-white/80"],
+body [class*="bg-white/90"] {
+  background-color: rgba(42, 44, 46, 0.85) !important;
+}
+
+/* `bg-black/X` light opacity is fine on a dark theme — leave alone */
+
+body [class*="from-white"],
+body [class*="from-gray-50"],
+body [class*="from-gray-100"],
+body [class*="from-zinc-50"],
+body [class*="from-zinc-100"],
+body [class*="from-slate-50"],
+body [class*="from-slate-100"],
+body [class*="from-stone-50"],
+body [class*="from-stone-100"],
+body [class*="from-neutral-50"],
+body [class*="from-neutral-100"] {
+  --tw-gradient-from: hsl(var(--card) / 0.95) var(--tw-gradient-from-position) !important;
+}
+
+body [class*="via-white"],
+body [class*="via-gray-50"],
+body [class*="via-gray-100"],
+body [class*="via-zinc-50"],
+body [class*="via-zinc-100"],
+body [class*="via-slate-50"],
+body [class*="via-slate-100"] {
+  --tw-gradient-via: hsl(var(--card) / 0.85) var(--tw-gradient-via-position) !important;
+}
+
+body [class*="to-zinc-50"],
+body [class*="to-zinc-100"],
+body [class*="to-gray-50"],
+body [class*="to-gray-100"],
+body [class*="to-slate-50"],
+body [class*="to-slate-100"],
+body [class*="to-stone-50"],
+body [class*="to-stone-100"],
+body [class*="to-white"] {
+  --tw-gradient-to: hsl(var(--secondary) / 0.95) var(--tw-gradient-to-position) !important;
+}
+
+/* --- Neutral light text -> light foreground --- */
+body [class*="text-black"],
+body [class*="text-zinc-900"],
+body [class*="text-zinc-800"],
+body [class*="text-gray-900"],
+body [class*="text-gray-800"],
+body [class*="text-slate-900"],
+body [class*="text-slate-800"],
+body [class*="text-stone-900"],
+body [class*="text-stone-800"],
+body [class*="text-neutral-900"],
+body [class*="text-neutral-800"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+body [class*="text-zinc-700"],
+body [class*="text-zinc-600"],
+body [class*="text-gray-700"],
+body [class*="text-gray-600"],
+body [class*="text-slate-700"],
+body [class*="text-slate-600"],
+body [class*="text-stone-700"],
+body [class*="text-stone-600"],
+body [class*="text-neutral-700"],
+body [class*="text-neutral-600"] {
+  color: hsl(var(--foreground) / 0.82) !important;
+}
+
+body [class*="text-zinc-500"],
+body [class*="text-zinc-400"],
+body [class*="text-gray-500"],
+body [class*="text-gray-400"],
+body [class*="text-slate-500"],
+body [class*="text-slate-400"],
+body [class*="text-stone-500"],
+body [class*="text-stone-400"],
+body [class*="text-neutral-500"],
+body [class*="text-neutral-400"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+body [class*="border-gray-"],
+body [class*="border-zinc-"],
+body [class*="border-slate-"],
+body [class*="border-stone-"],
+body [class*="border-neutral-"],
+body [class*="border-black/"],
+body [class*="border-white/"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+body [class*="outline-gray-"],
+body [class*="outline-zinc-"],
+body [class*="outline-slate-"],
+body [class*="outline-stone-"],
+body [class*="outline-neutral-"],
+body [class*="outline-white/"] {
+  outline-color: hsl(var(--border)) !important;
+}
+
+body [class*="hover:bg-gray-50"]:hover,
+body [class*="hover:bg-zinc-50"]:hover,
+body [class*="hover:bg-slate-50"]:hover,
+body [class*="hover:bg-stone-50"]:hover,
+body [class*="hover:bg-gray-100"]:hover,
+body [class*="hover:bg-zinc-100"]:hover,
+body [class*="hover:bg-slate-100"]:hover,
+body [class*="hover:bg-stone-100"]:hover,
+body [class*="hover:bg-neutral-100"]:hover,
+body [class*="hover:bg-slate-200"]:hover,
+body [class*="hover:bg-zinc-200"]:hover,
+body [class*="hover:bg-gray-200"]:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+/* --- Purple / violet / indigo / fuchsia vly brand -> Freebuff acid green --- */
+body [class*="bg-purple-"]:not([class*="/0"]),
+body [class*="bg-violet-"]:not([class*="/0"]),
+body [class*="bg-fuchsia-"]:not([class*="/0"]),
+body [class*="bg-indigo-"]:not([class*="/0"]) {
+  background-color: hsl(var(--card)) !important;
+}
+
+body [class*="text-purple-"],
+body [class*="text-violet-"],
+body [class*="text-fuchsia-"],
+body [class*="text-indigo-"] {
+  color: hsl(var(--primary)) !important;
+}
+
+body [class*="border-purple-"],
+body [class*="border-violet-"],
+body [class*="border-fuchsia-"],
+body [class*="border-indigo-"] {
+  border-color: hsl(var(--primary) / 0.4) !important;
+}
+
+body [class*="from-purple-"],
+body [class*="from-violet-"],
+body [class*="from-fuchsia-"],
+body [class*="from-indigo-"] {
+  --tw-gradient-from: #124921 var(--tw-gradient-from-position) !important;
+}
+
+body [class*="to-purple-"],
+body [class*="to-violet-"],
+body [class*="to-fuchsia-"],
+body [class*="to-indigo-"] {
+  --tw-gradient-to: hsl(var(--primary)) var(--tw-gradient-to-position) !important;
+}
+
+body [class*="hover:bg-purple-"]:hover,
+body [class*="hover:bg-violet-"]:hover,
+body [class*="hover:bg-fuchsia-"]:hover,
+body [class*="hover:bg-indigo-"]:hover {
+  background-color: hsl(var(--primary) / 0.12) !important;
+}
+
+/* --- Warning / status badge palettes (amber/orange/yellow/red/blue/green/
+ *     emerald/teal/cyan/sky/pink/rose) --- keep meaning but tint dark --- */
+body [class*="bg-amber-50"]:not([class*="/0"]),
+body [class*="bg-amber-100"]:not([class*="/0"]),
+body [class*="bg-amber-200"]:not([class*="/0"]),
+body [class*="bg-yellow-50"]:not([class*="/0"]),
+body [class*="bg-yellow-100"]:not([class*="/0"]),
+body [class*="bg-yellow-200"]:not([class*="/0"]),
+body [class*="bg-orange-50"]:not([class*="/0"]),
+body [class*="bg-orange-100"]:not([class*="/0"]),
+body [class*="bg-orange-200"]:not([class*="/0"]) {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+}
+body [class*="text-amber-600"],
+body [class*="text-amber-700"],
+body [class*="text-amber-800"],
+body [class*="text-amber-900"],
+body [class*="text-yellow-600"],
+body [class*="text-yellow-700"],
+body [class*="text-yellow-800"],
+body [class*="text-yellow-900"],
+body [class*="text-orange-600"],
+body [class*="text-orange-700"],
+body [class*="text-orange-800"],
+body [class*="text-orange-900"] {
+  color: #fbbf24 !important;
+}
+
+body [class*="bg-red-50"]:not([class*="/0"]),
+body [class*="bg-red-100"]:not([class*="/0"]),
+body [class*="bg-red-200"]:not([class*="/0"]),
+body [class*="bg-rose-50"]:not([class*="/0"]),
+body [class*="bg-rose-100"]:not([class*="/0"]),
+body [class*="bg-pink-50"]:not([class*="/0"]),
+body [class*="bg-pink-100"]:not([class*="/0"]) {
+  background-color: rgba(239, 68, 68, 0.16) !important;
+}
+body [class*="text-red-600"],
+body [class*="text-red-700"],
+body [class*="text-red-800"],
+body [class*="text-red-900"],
+body [class*="text-rose-600"],
+body [class*="text-rose-700"],
+body [class*="text-pink-600"],
+body [class*="text-pink-700"] {
+  color: #f87171 !important;
+}
+
+body [class*="bg-emerald-50"]:not([class*="/0"]),
+body [class*="bg-emerald-100"]:not([class*="/0"]),
+body [class*="bg-green-50"]:not([class*="/0"]),
+body [class*="bg-green-100"]:not([class*="/0"]),
+body [class*="bg-teal-50"]:not([class*="/0"]),
+body [class*="bg-teal-100"]:not([class*="/0"]) {
+  background-color: hsl(var(--primary) / 0.15) !important;
+}
+body [class*="text-emerald-600"],
+body [class*="text-emerald-700"],
+body [class*="text-emerald-800"],
+body [class*="text-green-600"],
+body [class*="text-green-700"],
+body [class*="text-green-800"],
+body [class*="text-teal-600"],
+body [class*="text-teal-700"] {
+  color: hsl(var(--primary)) !important;
+}
+
+body [class*="bg-blue-50"]:not([class*="/0"]),
+body [class*="bg-blue-100"]:not([class*="/0"]),
+body [class*="bg-sky-50"]:not([class*="/0"]),
+body [class*="bg-sky-100"]:not([class*="/0"]),
+body [class*="bg-cyan-50"]:not([class*="/0"]),
+body [class*="bg-cyan-100"]:not([class*="/0"]) {
+  background-color: rgba(59, 130, 246, 0.16) !important;
+}
+body [class*="text-blue-600"],
+body [class*="text-blue-700"],
+body [class*="text-blue-800"],
+body [class*="text-sky-600"],
+body [class*="text-sky-700"],
+body [class*="text-cyan-600"],
+body [class*="text-cyan-700"] {
+  color: #60a5fa !important;
+}
+
+/* --- Literal hex backgrounds that vly hardcoded throughout the app --- */
+/* Tailwind escapes arbitrary class names; selectors use the raw class string. */
+body [class*="bg-[#F7F7F3]"],
+body [class*="bg-[#f7f7f3]"],
+body [class*="bg-[#CBCFDA]"],
+body [class*="bg-[#cbcfda]"],
+body [class*="bg-[#D3C1E5]"],
+body [class*="bg-[#d3c1e5]"],
+body [class*="bg-[#E1DFF6]"],
+body [class*="bg-[#e1dff6]"],
+body [class*="bg-[#D4D1F0]"],
+body [class*="bg-[#d4d1f0]"],
+body [class*="bg-[#efede6]"],
+body [class*="bg-[#e9e6dd]"],
+body [class*="bg-[#e7e1f3]"],
+body [class*="bg-[#e6e0ef]"],
+body [class*="bg-[#F9FBFD]"],
+body [class*="bg-[#f9fbfd]"],
+body [class*="bg-[#f2e8fe]"],
+body [class*="bg-[#f1f1f1]"],
+body [class*="bg-[#e7e7e7]"] {
+  background-color: hsl(var(--card)) !important;
+}
+
+body [class*="hover:bg-[#D4D1F0]"]:hover,
+body [class*="hover:bg-[#d4d1f0]"]:hover,
+body [class*="hover:bg-[#bfa0d6]"]:hover,
+body [class*="hover:bg-[#e7e7e7]"]:hover,
+body [class*="hover:bg-[#1f2a1c]"]:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+body [class*="text-[#1a1a1a]"],
+body [class*="text-[#040404]"],
+body [class*="text-[#151512]"],
+body [class*="text-[#5c574b]"],
+body [class*="text-[#786f60]"],
+body [class*="text-[#7F7F88]"],
+body [class*="text-[#6B6B73]"],
+body [class*="text-[#6B5B95]"],
+body [class*="text-[#919193]"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+body [class*="border-[#d8d2c5]"],
+body [class*="border-[#d0d0d0]"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Lavender/cream/sky inline `style={{ backgroundColor: "#..." }}` is
+ * handled at the component level (PageLayout/Hero/Footer rewrites). */
+
+/* --- Font fallbacks for fonts vly referenced but never @font-face'd ---
+ *
+ * The vly markup uses Tailwind arbitrary font utilities like
+ * `font-['PP_Cirka']` and `font-['Geist']`, but those fonts are not
+ * registered via next/font or @font-face anywhere in this app. With no
+ * matching family the browser silently falls back to its default serif
+ * (Times New Roman), which is what was rendering everywhere.
+ *
+ * Map them to fonts we actually load:
+ *  - PP Cirka (display serif) → Domine (already imported in
+ *    src/styles/globals.css by the root layout)
+ *  - Geist / Geist Sans (UI sans) → next/font Inter (registered as
+ *    var(--font-sans) on <body> by /app/layout.tsx)
+ *  - Geist Mono → next/font JetBrains Mono via var(--font-mono)
+ */
+body [class*="font-['PP_Cirka']"],
+body [class*="font-['PP Cirka']"],
+body [class*='font-["PP_Cirka"]'],
+body [class*='font-["PP Cirka"]'] {
+  font-family: "Domine", "Playfair Display", Georgia, serif !important;
+}
+
+body [class*="font-['Geist']"],
+body [class*="font-['Geist_Sans']"],
+body [class*="font-['Geist Sans']"],
+body [class*='font-["Geist"]'],
+body [class*='font-["Geist_Sans"]'],
+body [class*='font-["Geist Sans"]'] {
+  font-family: var(--font-sans), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}
+
+body [class*="font-['Geist_Mono']"],
+body [class*="font-['Geist Mono']"],
+body [class*='font-["Geist_Mono"]'],
+body [class*='font-["Geist Mono"]'] {
+  font-family: var(--font-mono), "DM Mono", ui-monospace, SFMono-Regular, monospace !important;
+}
+
+/* Prevent layout shift on scroll position restore */
+html {
+  scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom styles for the editor */
+[contenteditable] {
+  line-height: 1.6;
+  font-size: 0.875rem;
+  font-family: inherit; /* inherit app font (var(--font-sans)) */
+}
+
+[contenteditable]:focus {
+  outline: none;
+  caret-color: #e2e8f0;
+}
+
+@theme inline {
+  @keyframes shine {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    to {
+      background-position: 0% 0%;
+    }
+  }
+  @keyframes shiny-text {
+    0%,
+    90%,
+    100% {
+      background-position: calc(-100% - var(--shiny-width)) 0;
+    }
+    30%,
+    60% {
+      background-position: calc(100% + var(--shiny-width)) 0;
+    }
+  }
+  @keyframes gradient {
+    to {
+      backgroundposition: var(--bg-size, 300%) 0;
+    }
+  }
+  @keyframes meteor {
+    0% {
+      transform: rotate(var(--angle)) translateX(0);
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(var(--angle)) translateX(-500px);
+      opacity: 0;
+    }
+  }
+  @keyframes background-position-spin {
+    0% {
+      backgroundposition: top center;
+    }
+    100% {
+      backgroundposition: bottom center;
+    }
+  }
+  @keyframes aurora {
+    0% {
+      backgroundposition: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
+    }
+    25% {
+      backgroundposition: 50% 100%;
+      transform: rotate(5deg) scale(1.1);
+    }
+    50% {
+      backgroundposition: 100% 50%;
+      transform: rotate(-3deg) scale(0.95);
+    }
+    75% {
+      backgroundposition: 50% 0%;
+      transform: rotate(3deg) scale(1.05);
+    }
+    100% {
+      backgroundposition: 0% 50%;
+      transform: rotate(-5deg) scale(0.9);
+    }
+  }
+}
+
+/* Add this to enable glow effect on hover */
+@layer utilities {
+  .drop-shadow-glow {
+    filter: drop-shadow(0 0 6px hsl(var(--primary)));
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .font-pp-cirka {
+    font-family: "Domine", "Playfair Display", Georgia, serif;
+  }
+  .shine-on-hover {
+    position: relative;
+    overflow: hidden;
+  }
+  .shine-on-hover::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(124, 255, 63, 0.25),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+  .shine-on-hover:hover::before {
+    left: 100%;
+  }
+  .hover-scale-width {
+    transition: transform 0.2s ease-in-out;
+  }
+  .hover-scale-width:hover {
+    transform: scale(1.05);
+  }
+  .suggestion-hover {
+    transition: all 0.2s ease-in-out;
+  }
+  .suggestion-hover:hover {
+    border-color: rgba(124, 255, 63, 0.55);
+  }
+  .suggestion-hover:hover svg {
+    stroke: #7CFF3F;
+  }
+  .suggestion-hover:hover .justify-center {
+    color: #7CFF3F !important;
+  }
+}
+
+.messages-stacked {
+  height: auto !important;
+  min-height: 150px;
+}
+
+.message-in-stack {
+  pointer-events: none;
+}
+
+.messages-stacked:hover .message-in-stack {
+  pointer-events: auto;
+}
+
+.pulse-select-btn {
+  animation: select-btn-pulse 1.2s infinite alternate;
+  box-shadow:
+    0 0 0 0 rgba(124, 255, 63, 0.7),
+    0 2px 8px rgba(124, 255, 63, 0.18);
+}
+@keyframes select-btn-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(124, 255, 63, 0.7),
+      0 2px 8px rgba(124, 255, 63, 0.18);
+  }
+  100% {
+    box-shadow:
+      0 0 0 8px rgba(124, 255, 63, 0.22),
+      0 2px 12px rgba(124, 255, 63, 0.2);
+  }
+}
+
+.pulse-select-btn-idle {
+  animation: select-btn-pulse-idle 2.2s infinite alternate;
+  box-shadow:
+    0 0 0 0 #ef4444,
+    0 2px 8px rgba(239, 68, 68, 0.08);
+}
+@keyframes select-btn-pulse-idle {
+  0% {
+    box-shadow:
+      0 0 0 0 #ef4444,
+      0 2px 8px rgba(239, 68, 68, 0.08);
+  }
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(248, 113, 113, 0.1),
+      0 2px 12px rgba(248, 113, 113, 0.1);
+  }
+}
+
+/* Dashboard-specific styles to avoid hydration errors */
+.dashboard-body {
+  background-color: #0a0a0b !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  position: relative !important;
+}
+
+.dashboard-html {
+  background-color: #0a0a0b !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Hero component animations to replace Framer Motion */
+@keyframes fadeInSlideRight {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInSlideLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes arrowFloat {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-fadeInSlideRight {
+  animation: fadeInSlideRight 0.8s ease-out 1.2s both;
+  will-change: opacity, transform;
+}
+
+.animate-fadeInSlideLeft {
+  animation: fadeInSlideLeft 0.5s ease-out 0.8s both;
+  will-change: opacity, transform;
+}
+
+.animate-fadeInSlideUp {
+  animation: fadeInSlideUp 0.5s ease-out 0.8s both;
+  will-change: opacity, transform;
+}
+
+.animate-arrowFloat {
+  animation: arrowFloat 1.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-fadeInSlideUpLate {
+  animation: fadeInSlideUp 0.5s ease-out 0.6s both;
+  will-change: opacity, transform;
+}
+
+/* Suggestion selection flourish animations */
+@keyframes suggestionFlourish {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes rippleEffect {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes textPopulate {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggestion-flourish {
+  animation: suggestionFlourish 0.6s ease-out;
+}
+
+.suggestion-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 255, 63, 0.4), transparent);
+  pointer-events: none;
+  animation: rippleEffect 0.8s ease-out;
+}
+
+.text-populate {
+  animation: textPopulate 0.4s ease-out;
+}
+
+@keyframes fadeInSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInSlideDown {
+  animation: fadeInSlideDown 0.5s ease-out 0.1s both;
+}
+
+/* Scroll-triggered fade-in animations */
+@keyframes fadeInSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scroll-fade-in {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.scroll-fade-in.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-fade-in-delay-1 {
+  transition-delay: 0.1s;
+}
+
+.scroll-fade-in-delay-2 {
+  transition-delay: 0.2s;
+}
+
+.scroll-fade-in-delay-3 {
+  transition-delay: 0.3s;
+}
+
+.animate-fadeInSlideUpHeadline {
+  animation: fadeInSlideUp 0.6s ease-out 0.3s both;
+  will-change: opacity, transform;
+}
+
+.animate-fadeInSlideUpSubtitle {
+  animation: fadeInSlideUp 0.5s ease-out 0.4s both;
+  will-change: opacity, transform;
+}
+
+/* Layout shift prevention utilities */
+.prevent-layout-shift {
+  contain: layout style;
+  content-visibility: auto;
+}
+
+.reserve-space {
+  min-height: 1px;
+  display: block;
+  contain: layout style;
+}
+
+/* Mention input placeholder styles */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(115 115 115); /* neutral-500 — better contrast on dark */
+  pointer-events: none;
+  position: absolute;
+}
+
+[contenteditable][data-placeholder]:empty:focus::before {
+  content: attr(data-placeholder);
+  color: rgb(115 115 115);
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Mention styles */
+.mention {
+  display: inline-flex !important;
+  align-items: center;
+  user-select: none;
+  cursor: default;
+}
+
+.mention:hover {
+  background-color: rgba(124, 255, 63, 0.18) !important;
+}
+
+/* 3D Cube Spinner - Performance optimized */
+.spinner-3d {
+  width: 44px;
+  height: 44px;
+  animation: spinner-cube-rotation 2s infinite ease;
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
+  position: relative;
+}
+
+.spinner-3d > div {
+  height: 100%;
+  position: absolute;
+  width: 100%;
+  border: 2px solid #7CFF3F;
+  backface-visibility: hidden;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.spinner-3d div:nth-of-type(1) {
+  transform: translateZ(-22px) rotateY(180deg);
+}
+
+.spinner-3d div:nth-of-type(2) {
+  transform: rotateY(-270deg) translateX(50%);
+  transform-origin: top right;
+}
+
+.spinner-3d div:nth-of-type(3) {
+  transform: rotateY(270deg) translateX(-50%);
+  transform-origin: center left;
+}
+
+.spinner-3d div:nth-of-type(4) {
+  transform: rotateX(90deg) translateY(-50%);
+  transform-origin: top center;
+}
+
+.spinner-3d div:nth-of-type(5) {
+  transform: rotateX(-90deg) translateY(50%);
+  transform-origin: bottom center;
+}
+
+.spinner-3d div:nth-of-type(6) {
+  transform: translateZ(22px);
+}
+
+@keyframes spinner-cube-rotation {
+  0% {
+    transform: rotate(45deg) rotateX(-25deg) rotateY(25deg);
+  }
+
+  50% {
+    transform: rotate(45deg) rotateX(-385deg) rotateY(25deg);
+  }
+
+  100% {
+    transform: rotate(45deg) rotateX(-385deg) rotateY(385deg);
+  }
+}

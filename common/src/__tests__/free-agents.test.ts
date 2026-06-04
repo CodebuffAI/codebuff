@@ -9,6 +9,7 @@ import {
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '../constants/freebuff-models'
+import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
   getFreebuffRootAgentIdForModel,
@@ -16,6 +17,8 @@ import {
   isFreeModeAllowedAgentModel,
   shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
+
+const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('free mode agent model allowlist', () => {
   test('maps supported freebuff models to concrete root agents', () => {
@@ -43,6 +46,9 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_MODEL_ID),
     ).toBe(true)
+    expect(isFreeModeAllowedAgentModel('base2-free', MINIMAX_M3_MODEL_ID)).toBe(
+      false,
+    )
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free',
@@ -142,6 +148,9 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_MINIMAX_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-lite', MINIMAX_M3_MODEL_ID),
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-lite', FREEBUFF_KIMI_MODEL_ID),
     ).toBe(true)

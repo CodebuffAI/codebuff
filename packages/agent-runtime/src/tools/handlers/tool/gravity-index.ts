@@ -8,8 +8,21 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
-import type { JSONObject } from '@codebuff/common/types/json'
+import type { JSONObject, JSONValue } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+const omitUndefined = (value: Record<string, JSONValue | undefined>) => {
+  const result: JSONObject = {}
+  for (const [key, field] of Object.entries(value)) {
+    if (field !== undefined) {
+      result[key] = field
+    }
+  }
+  return result
+}
+
+const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
 
 export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
@@ -64,8 +77,29 @@ export const handleGravityIndex = (async (params: {
 
   let creditsUsed = 0
   try {
+    const existingInput = toolCall.input as JSONObject
+    const existingMetadata = isJSONObject(existingInput.metadata)
+      ? existingInput.metadata
+      : {}
+    const metadata = {
+      ...existingMetadata,
+      ...omitUndefined({
+        surface: 'codebuff_cli',
+        tool_call_id: toolCall.toolCallId,
+        agent_step_id: agentStepId,
+        fingerprint_id: fingerprintId,
+        user_input_id: userInputId,
+        repo_id: repoId,
+      }),
+    }
+    const input = {
+      ...existingInput,
+      external_session_id: clientSessionId,
+      metadata,
+    } satisfies JSONObject
+
     const webApi = await callGravityIndexAPI({
-      input: toolCall.input as JSONObject,
+      input,
       fetch,
       logger,
       apiKey,

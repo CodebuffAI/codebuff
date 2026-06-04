@@ -3,7 +3,6 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { SESSION_MAX_AGE_SECONDS } from '@codebuff/common/old-constants'
-import { loops } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
@@ -14,14 +13,143 @@ import GitHubProvider from 'next-auth/providers/github'
 
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
+import { Resend } from 'resend'
 
 import {
   getCliAuthCodeHashPrefix,
   getCliAuthOnboardSearchParams,
   isCliAuthCodeCandidate,
 } from '@/app/onboard/_helpers'
-import { getFreebuffNextAuthUrl } from '@/lib/freebuff-server-env'
+import { getFreebuffNextAuthUrl } from '../../../../lib/freebuff-server-env'
 import { logger } from '@/util/logger'
+
+const useJwtOnlyAuth =
+  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
+  process.env.FREEBUFF_DEV_AUTH_WITHOUT_DB === 'true'
+
+const FREEBUFF_FROM_EMAIL = 'James from Freebuff <james@mail.freebuff.app>'
+const FREEBUFF_REPLY_TO_EMAIL = 'support@codebuff.com'
+const DISCORD_INVITE_URL = 'https://discord.gg/yXG3w7wxfs'
+
+function getFreebuffAppUrl(): string {
+  const rawUrl =
+    process.env.NEXT_PUBLIC_FREEBUFF_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    'https://freebuff.app'
+  return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl
+}
+
+function firstNameFromDisplayName(name?: string | null): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) {
+    return 'there'
+  }
+  return trimmed.split(/\s+/)[0] ?? 'there'
+}
+
+async function sendFreebuffWelcomeEmail(params: {
+  userId: string
+  email: string | null
+  name: string | null
+}) {
+  if (!params.email) {
+    logger.warn(
+      { userId: params.userId },
+      'User email missing, cannot send welcome email.',
+    )
+    return
+  }
+
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    logger.warn(
+      { userId: params.userId },
+      'RESEND_API_KEY is not configured; skipping welcome email.',
+    )
+    return
+  }
+
+  const firstName = firstNameFromDisplayName(params.name)
+  const earnPageUrl = `${getFreebuffAppUrl()}/earn`
+  const subject = 'Welcome to Freebuff'
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    `Welcome to Freebuff. My name is James, and I’ll be your point of contact here.`,
+    '',
+    `You can email me any time at ${FREEBUFF_REPLY_TO_EMAIL}.`,
+    '',
+    `You can also get live support from our team in our Discord: ${DISCORD_INVITE_URL}`,
+    '',
+    `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more here: ${earnPageUrl}`,
+    '',
+    'If you get stuck, want help, or have feedback, just reply to this email.',
+    '',
+    'Excited to see what you build with us,',
+    'James',
+  ].join('\n')
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+      <p>Hi ${firstName},</p>
+      <p>Welcome to Freebuff. My name is James, and I’ll be your point of contact here.</p>
+      <p>You can email me any time at <a href="mailto:${FREEBUFF_REPLY_TO_EMAIL}">${FREEBUFF_REPLY_TO_EMAIL}</a>.</p>
+      <p>You can also get live support from our team in our <a href="${DISCORD_INVITE_URL}">Discord</a>.</p>
+      <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more <a href="${earnPageUrl}">here</a>.</p>
+      <p>If you get stuck, want help, or have feedback, just reply to this email.</p>
+      <p>Excited to see what you build with us,</p>
+      <p>James</p>
+    </div>
+  `
+
+  const resend = new Resend(apiKey)
+  const { error } = await resend.emails.send({
+    from: FREEBUFF_FROM_EMAIL,
+    replyTo: FREEBUFF_REPLY_TO_EMAIL,
+    to: [params.email],
+    subject,
+    text,
+    html,
+  })
+
+  if (error) {
+    logger.error(
+      { error, userId: params.userId, email: params.email },
+      'Failed to send Freebuff welcome email.',
+    )
+  }
+}
+
+async function getPrimaryGitHubEmail(accessToken?: string) {
+  if (!accessToken) return null
+
+  try {
+    const response = await fetch('https://api.github.com/user/emails', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.github+json',
+      },
+    })
+
+    if (!response.ok) return null
+
+    const emails = (await response.json()) as Array<{
+      email?: string
+      primary?: boolean
+      verified?: boolean
+    }>
+
+    return (
+      emails.find((email) => email.primary && email.verified)?.email ??
+      emails.find((email) => email.verified)?.email ??
+      null
+    )
+  } catch (error) {
+    logger.warn({ error }, 'Failed to fetch primary GitHub email')
+    return null
+  }
+}
 
 async function createAndLinkStripeCustomer(params: {
   userId: string
@@ -78,12 +206,16 @@ async function createAndLinkStripeCustomer(params: {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db, {
-    usersTable: schema.user,
-    accountsTable: schema.account,
-    sessionsTable: schema.session,
-    verificationTokensTable: schema.verificationToken,
-  }) as Adapter,
+  ...(useJwtOnlyAuth
+    ? {}
+    : {
+        adapter: DrizzleAdapter(db, {
+          usersTable: schema.user,
+          accountsTable: schema.account,
+          sessionsTable: schema.session,
+          verificationTokensTable: schema.verificationToken,
+        }) as Adapter,
+      }),
   providers: [
     GitHubProvider({
       clientId: env.FREEBUFF_GITHUB_ID ?? env.CODEBUFF_GITHUB_ID,
@@ -91,17 +223,46 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   session: {
-    strategy: 'database',
+    strategy: useJwtOnlyAuth ? 'jwt' : 'database',
     maxAge: SESSION_MAX_AGE_SECONDS,
   },
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, account, profile }) {
+      if (useJwtOnlyAuth && account?.providerAccountId) {
+        token.sub = `github:${account.providerAccountId}`
+      }
+      if (useJwtOnlyAuth && profile) {
+        const githubProfile = profile as {
+          name?: string | null
+          email?: string | null
+          avatar_url?: string | null
+          picture?: string | null
+        }
+        token.name = githubProfile.name ?? token.name
+        token.email =
+          githubProfile.email ??
+          (await getPrimaryGitHubEmail(account?.access_token)) ??
+          token.email
+        token.picture =
+          githubProfile.avatar_url ?? githubProfile.picture ?? token.picture
+      }
+      return token
+    },
+    async session({ session, user, token }) {
       if (session.user) {
-        session.user.id = user.id
-        session.user.image = user.image
-        session.user.name = user.name
-        session.user.email = user.email
-        session.user.stripe_customer_id = user.stripe_customer_id
+        if (useJwtOnlyAuth) {
+          session.user.id = token.sub ?? ''
+          session.user.image = token.picture ?? null
+          session.user.name = token.name ?? null
+          session.user.email = token.email ?? null
+          session.user.stripe_customer_id = null
+        } else {
+          session.user.id = user.id
+          session.user.image = user.image
+          session.user.name = user.name
+          session.user.email = user.email
+          session.user.stripe_customer_id = user.stripe_customer_id
+        }
       }
       return session
     },
@@ -151,49 +312,53 @@ export const authOptions: NextAuthOptions = {
       return baseUrl
     },
   },
-  events: {
-    createUser: async ({ user }) => {
-      logger.info(
-        { userId: user.id, email: user.email },
-        'createUser event triggered',
-      )
+  events: useJwtOnlyAuth
+    ? {}
+    : {
+        createUser: async ({ user }) => {
+          logger.info(
+            { userId: user.id, email: user.email },
+            'createUser event triggered',
+          )
 
-      const userData = await db.query.user.findFirst({
-        where: eq(schema.user.id, user.id),
-        columns: {
-          id: true,
-          email: true,
-          name: true,
-          next_quota_reset: true,
+          const userData = await db.query.user.findFirst({
+            where: eq(schema.user.id, user.id),
+            columns: {
+              id: true,
+              email: true,
+              name: true,
+              next_quota_reset: true,
+            },
+          })
+
+          if (!userData) {
+            logger.error(
+              { userId: user.id },
+              'User data not found after creation',
+            )
+            return
+          }
+
+          await createAndLinkStripeCustomer({
+            ...userData,
+            userId: userData.id,
+          })
+
+          // Freebuff is free - new accounts do not receive any credit grant.
+
+          await sendFreebuffWelcomeEmail({
+            userId: userData.id,
+            email: userData.email,
+            name: userData.name,
+          })
+
+          trackEvent({
+            event: AnalyticsEvent.SIGNUP,
+            userId: userData.id,
+            logger,
+          })
+
+          logger.info({ user }, 'createUser event processing finished.')
         },
-      })
-
-      if (!userData) {
-        logger.error({ userId: user.id }, 'User data not found after creation')
-        return
-      }
-
-      await createAndLinkStripeCustomer({
-        ...userData,
-        userId: userData.id,
-      })
-
-      // Freebuff is free - new accounts do not receive any credit grant.
-
-      await loops.sendSignupEventToLoops({
-        ...userData,
-        userId: userData.id,
-        logger,
-        signupSource: 'freebuff',
-      })
-
-      trackEvent({
-        event: AnalyticsEvent.SIGNUP,
-        userId: userData.id,
-        logger,
-      })
-
-      logger.info({ user }, 'createUser event processing finished.')
-    },
-  },
+      },
 }

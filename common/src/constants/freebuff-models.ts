@@ -56,7 +56,7 @@ export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
-/** Deprecated wire compatibility field. Premium usage now resets at midnight
+/** Deprecated wire compatibility field. Session usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
 export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
@@ -95,7 +95,7 @@ const DEEPSEEK_V4_PRO_MODEL = {
 const MIMO_V25_PRO_MODEL = {
   id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   displayName: 'MiMo 2.5 Pro',
-  tagline: 'Smart multimodal',
+  tagline: 'Smartest & Slower',
   availability: 'always',
 } as const satisfies FreebuffModelOption
 
@@ -116,7 +116,7 @@ const MIMO_V25_MODEL = {
 const DEEPSEEK_V4_FLASH_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   displayName: 'DeepSeek V4 Flash',
-  tagline: 'Most efficient',
+  tagline: 'Smart & Fast',
   availability: 'always',
   warning: 'Collects data for training',
 } as const satisfies FreebuffModelOption
@@ -132,16 +132,18 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
   KIMI_MODEL,
-  MIMO_V25_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
+  MIMO_V25_MODEL,
   MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
+  KIMI_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
+  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [

@@ -1,6 +1,8 @@
 name: Sync Public Repo
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -34,22 +36,25 @@ jobs:
         with:
           bun-version-file: .bun-version
 
+      # Manual dry-run=false pushes require an explicit confirmation string.
+      # Pushes to main always sync for real and skip this gate.
       - name: Validate push confirmation
-        if: ${{ !inputs.dry_run && inputs.confirm_push != 'sync-public' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run && inputs.confirm_push != 'sync-public' }}
         run: |
           echo "Refusing to push: confirm_push must be sync-public when dry_run is false."
           exit 1
 
       - name: Export public snapshot
         env:
-          PUBLIC_SYNC_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          # Push events sync for real; manual runs honor the dry_run input.
+          PUBLIC_SYNC_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '1' || '0' }}
           PUBLIC_REPO: CodebuffAI/codebuff
-          PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.PUBLIC_REPO_PUSH_TOKEN }}
+          PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
           PUBLIC_BRANCH: main
         run: scripts/sync-public-repo.sh
 
       - name: Upload dry-run preview
-        if: ${{ inputs.dry_run }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         uses: actions/upload-artifact@v7
         with:
           name: public-export-preview

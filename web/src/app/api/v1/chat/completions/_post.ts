@@ -75,6 +75,12 @@ import {
   MiMoError,
 } from '@/llm-api/mimo'
 import {
+  handleMiniMaxNonStream,
+  handleMiniMaxStream,
+  isMiniMaxModel,
+  MiniMaxError,
+} from '@/llm-api/minimax'
+import {
   handleMoonshotNonStream,
   handleMoonshotStream,
   isMoonshotModel,
@@ -180,6 +186,34 @@ export type RecordFreebuffUsageDayFn = (params: {
 }) => Promise<void>
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
+const SILICONFLOW_DIRECT_ROUTING_ENABLED = false
+
+type ChatCompletionsProvider =
+  | 'siliconflow'
+  | 'opencodeZen'
+  | 'moonshot'
+  | 'canopywave'
+  | 'deepseek'
+  | 'mimo'
+  | 'minimax'
+  | 'fireworks'
+  | 'openai'
+  | 'openrouter'
+
+function getChatCompletionsProvider(model: string): ChatCompletionsProvider {
+  if (SILICONFLOW_DIRECT_ROUTING_ENABLED && isSiliconFlowModel(model)) {
+    return 'siliconflow'
+  }
+  if (isOpenCodeZenModel(model)) return 'opencodeZen'
+  if (isMoonshotModel(model)) return 'moonshot'
+  if (isCanopyWaveModel(model)) return 'canopywave'
+  if (isDeepSeekModel(model)) return 'deepseek'
+  if (isMiMoModel(model)) return 'mimo'
+  if (isMiniMaxModel(model)) return 'minimax'
+  if (isFireworksModel(model)) return 'fireworks'
+  if (isOpenAIDirectModel(model)) return 'openai'
+  return 'openrouter'
+}
 
 const defaultCheckFreeModeRateLimit: CheckFreeModeRateLimitFn = (userId) =>
   checkConfiguredFreeModeRateLimit(userId, { redisUrl: env.REDIS_URL })
@@ -862,37 +896,7 @@ export async function postChatCompletions(params: {
     try {
       if (bodyStream) {
         // Streaming request — route supported models to direct providers.
-        const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
-        const useOpenCodeZen = isOpenCodeZenModel(typedBody.model)
-        const useMoonshot = !useOpenCodeZen && isMoonshotModel(typedBody.model)
-        const useCanopyWave =
-          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(typedBody.model)
-        const useDeepSeek =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          isDeepSeekModel(typedBody.model)
-        const useMiMo =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          isMiMoModel(typedBody.model)
-        const useFireworks =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          !useMiMo &&
-          isFireworksModel(typedBody.model)
-        const useOpenAIDirect =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          !useMiMo &&
-          !useFireworks &&
-          isOpenAIDirectModel(typedBody.model)
+        const provider = getChatCompletionsProvider(typedBody.model)
         const baseArgs = {
           body: typedBody,
           userId,
@@ -902,26 +906,29 @@ export async function postChatCompletions(params: {
           logger: providerLogger,
           insertMessageBigquery,
         }
-        const stream = useSiliconFlow
-          ? await handleSiliconFlowStream(baseArgs)
-          : useMoonshot
-            ? await handleMoonshotStream(baseArgs)
-            : useOpenCodeZen
+        const stream =
+          provider === 'siliconflow'
+            ? await handleSiliconFlowStream(baseArgs)
+            : provider === 'opencodeZen'
               ? await handleOpenCodeZenStream(baseArgs)
-              : useCanopyWave
-                ? await handleCanopyWaveStream(baseArgs)
-                : useDeepSeek
-                  ? await handleDeepSeekStream(baseArgs)
-                  : useMiMo
-                    ? await handleMiMoStream(baseArgs)
-                    : useFireworks
-                      ? await handleFireworksStream(baseArgs)
-                      : useOpenAIDirect
-                        ? await handleOpenAIStream(baseArgs)
-                        : await handleOpenRouterStream({
-                            ...baseArgs,
-                            openrouterApiKey,
-                          })
+              : provider === 'moonshot'
+                ? await handleMoonshotStream(baseArgs)
+                : provider === 'canopywave'
+                  ? await handleCanopyWaveStream(baseArgs)
+                  : provider === 'deepseek'
+                    ? await handleDeepSeekStream(baseArgs)
+                    : provider === 'mimo'
+                      ? await handleMiMoStream(baseArgs)
+                      : provider === 'minimax'
+                        ? await handleMiniMaxStream(baseArgs)
+                        : provider === 'fireworks'
+                          ? await handleFireworksStream(baseArgs)
+                          : provider === 'openai'
+                            ? await handleOpenAIStream(baseArgs)
+                            : await handleOpenRouterStream({
+                                ...baseArgs,
+                                openrouterApiKey,
+                              })
 
         trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -943,38 +950,7 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request — route to direct providers for supported models
-        const model = typedBody.model
-        const useSiliconFlow = false // isSiliconFlowModel(model)
-        const useOpenCodeZen = isOpenCodeZenModel(model)
-        const useMoonshot = !useOpenCodeZen && isMoonshotModel(model)
-        const useCanopyWave =
-          !useMoonshot && !useOpenCodeZen && isCanopyWaveModel(model)
-        const useDeepSeek =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          isDeepSeekModel(model)
-        const useMiMo =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          isMiMoModel(model)
-        const useFireworks =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          !useMiMo &&
-          isFireworksModel(model)
-        const shouldUseOpenAIEndpoint =
-          !useMoonshot &&
-          !useOpenCodeZen &&
-          !useCanopyWave &&
-          !useDeepSeek &&
-          !useMiMo &&
-          !useFireworks &&
-          isOpenAIDirectModel(model)
+        const provider = getChatCompletionsProvider(typedBody.model)
 
         const baseArgs = {
           body: typedBody,
@@ -985,26 +961,29 @@ export async function postChatCompletions(params: {
           logger: providerLogger,
           insertMessageBigquery,
         }
-        const nonStreamRequest = useSiliconFlow
-          ? handleSiliconFlowNonStream(baseArgs)
-          : useMoonshot
-            ? handleMoonshotNonStream(baseArgs)
-            : useOpenCodeZen
+        const nonStreamRequest =
+          provider === 'siliconflow'
+            ? handleSiliconFlowNonStream(baseArgs)
+            : provider === 'opencodeZen'
               ? handleOpenCodeZenNonStream(baseArgs)
-              : useCanopyWave
-                ? handleCanopyWaveNonStream(baseArgs)
-                : useDeepSeek
-                  ? handleDeepSeekNonStream(baseArgs)
-                  : useMiMo
-                    ? handleMiMoNonStream(baseArgs)
-                    : useFireworks
-                      ? handleFireworksNonStream(baseArgs)
-                      : shouldUseOpenAIEndpoint
-                        ? handleOpenAINonStream(baseArgs)
-                        : handleOpenRouterNonStream({
-                            ...baseArgs,
-                            openrouterApiKey,
-                          })
+              : provider === 'moonshot'
+                ? handleMoonshotNonStream(baseArgs)
+                : provider === 'canopywave'
+                  ? handleCanopyWaveNonStream(baseArgs)
+                  : provider === 'deepseek'
+                    ? handleDeepSeekNonStream(baseArgs)
+                    : provider === 'mimo'
+                      ? handleMiMoNonStream(baseArgs)
+                      : provider === 'minimax'
+                        ? handleMiniMaxNonStream(baseArgs)
+                        : provider === 'fireworks'
+                          ? handleFireworksNonStream(baseArgs)
+                          : provider === 'openai'
+                            ? handleOpenAINonStream(baseArgs)
+                            : handleOpenRouterNonStream({
+                                ...baseArgs,
+                                openrouterApiKey,
+                              })
         const result = await nonStreamRequest
 
         trackSuccessEvent({
@@ -1043,6 +1022,10 @@ export async function postChatCompletions(params: {
       if (error instanceof MiMoError) {
         mimoError = error
       }
+      let minimaxError: MiniMaxError | undefined
+      if (error instanceof MiniMaxError) {
+        minimaxError = error
+      }
       let moonshotError: MoonshotError | undefined
       if (error instanceof MoonshotError) {
         moonshotError = error
@@ -1075,11 +1058,13 @@ export async function postChatCompletions(params: {
                 ? 'DeepSeek'
                 : mimoError
                   ? 'MiMo'
-                  : fireworksError
-                    ? 'Fireworks'
-                    : openaiError
-                      ? 'OpenAI'
-                      : 'OpenRouter'
+                  : minimaxError
+                    ? 'MiniMax'
+                    : fireworksError
+                      ? 'Fireworks'
+                      : openaiError
+                        ? 'OpenAI'
+                        : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -1101,6 +1086,7 @@ export async function postChatCompletions(params: {
             canopywaveError ??
             deepseekError ??
             mimoError ??
+            minimaxError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1112,6 +1098,7 @@ export async function postChatCompletions(params: {
             canopywaveError ??
             deepseekError ??
             mimoError ??
+            minimaxError ??
             siliconflowError ??
             openaiError ??
             opencodeZenError
@@ -1153,6 +1140,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof MiMoError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof MiniMaxError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {

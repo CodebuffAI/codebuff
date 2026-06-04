@@ -24,9 +24,14 @@ export const FreebuffActiveSessionSummary: React.FC<
     return null
   }
 
-  const resetCountdown = quota
-    ? formatFreebuffPremiumResetCountdown(new Date(quota.resetAt), now)
-    : null
+  if (!quota) {
+    return null
+  }
+
+  const resetCountdown = formatFreebuffPremiumResetCountdown(
+    new Date(quota.resetAt),
+    now
+  )
   const label =
     'accessTier' in session && session.accessTier === 'limited'
       ? 'sessions'
@@ -42,19 +47,13 @@ export const FreebuffActiveSessionSummary: React.FC<
       }}
     >
       <text style={{ wrapMode: 'word', fg: theme.muted }}>
-        {quota ? (
-          <>
-            <span fg={theme.foreground}>
-              {formatSessionUnits(quota.recentCount)} of {quota.limit}
-            </span>
-            <span fg={theme.muted}>
-              {' '}
-              {label} used today · resets in {resetCountdown}
-            </span>
-          </>
-        ) : (
-          null
-        )}
+        <span fg={theme.foreground}>
+          {formatSessionUnits(quota.recentCount)} of {quota.limit}
+        </span>
+        <span fg={theme.muted}>
+          {' '}
+          {label} used today · resets in {resetCountdown}
+        </span>
       </text>
     </box>
   )

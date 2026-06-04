@@ -536,11 +536,11 @@ export interface RecentSessionAdmit {
 }
 
 /**
- * List premium-model admissions for `userId` inside `[since, ∞)`, ordered
+ * List free-session admissions for `userId` inside `[since, ∞)`, ordered
  * oldest-first. Each row carries charged session units; manual early end can
  * revise a freshly written 1.0-unit admit down to a fractional value.
  */
-export async function listRecentPremiumAdmits(params: {
+export async function listRecentFreeSessionAdmits(params: {
   userId: string
   models: readonly string[]
   since: Date

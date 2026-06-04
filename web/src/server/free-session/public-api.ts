@@ -34,7 +34,7 @@ import {
   FreeSessionModelLockedError,
   getSessionRow,
   joinOrTakeOver,
-  listRecentPremiumAdmits,
+  listRecentFreeSessionAdmits,
   promoteQueuedUser,
   queueDepthsByModel,
   queuePositionFor,
@@ -76,6 +76,11 @@ interface SessionQuotaConfig {
   accessTier?: FreebuffAccessTier
 }
 
+/** Returns the session-quota config for `model`, or undefined when the model
+ *  is unlimited. Only premium models count against (and are gated by) the
+ *  shared daily session pool; full-tier non-premium ("Unlimited") models have
+ *  no session quota. The broader per-request abuse ceiling lives in the Redis
+ *  free-mode rate limiter, which spans every model. */
 function quotaConfigForModel(
   model: string,
   accessTier: FreebuffAccessTier,
@@ -91,10 +96,7 @@ function quotaConfigForAccessTier(
 ): SessionQuotaConfig {
   if (accessTier === 'limited') {
     return {
-      models: [
-        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-        FREEBUFF_MIMO_V25_MODEL_ID,
-      ],
+      models: [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, FREEBUFF_MIMO_V25_MODEL_ID],
       limit: FREEBUFF_LIMITED_SESSION_LIMIT,
       period: FREEBUFF_LIMITED_SESSION_PERIOD,
       resetTimeZone: FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
@@ -119,7 +121,7 @@ async function fetchSessionQuotaSnapshot(
 ): Promise<SessionQuotaSnapshot> {
   const now = nowOf(deps)
   const day = getZonedDayBounds(now, config.resetTimeZone)
-  const admits = await deps.listRecentPremiumAdmits({
+  const admits = await deps.listRecentFreeSessionAdmits({
     userId,
     since: day.startsAt,
     models: config.models,
@@ -230,9 +232,9 @@ export interface SessionDeps {
    *  bound to a given model. Compared against the model's configured
    *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
   activeCountForModel: (model: string) => Promise<number>
-  /** Rate-limit helper: oldest-first premium admissions since today's
+  /** Rate-limit helper: oldest-first free-session admissions since today's
    *  Pacific midnight reset. */
-  listRecentPremiumAdmits: (params: {
+  listRecentFreeSessionAdmits: (params: {
     userId: string
     models: readonly string[]
     since: Date
@@ -266,7 +268,7 @@ const defaultDeps: SessionDeps = {
   queueDepthsByModel,
   queuePositionFor,
   activeCountForModel,
-  listRecentPremiumAdmits,
+  listRecentFreeSessionAdmits,
   promoteQueuedUser,
   getInstantAdmitCapacity,
   isWaitingRoomEnabled,
@@ -329,8 +331,8 @@ export type RequestSessionResult =
       requestedModel: string
     }
   | {
-      /** User has hit the per-model admission quota for the current Pacific day.
-       *  See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
+      /** User has hit the premium-model admission quota for the current Pacific
+       *  day. See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
       status: 'rate_limited'
       accessTier?: FreebuffAccessTier
       model: string
@@ -394,7 +396,9 @@ export async function requestSession(params: {
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
   // create a queued row. Premium models share one daily Pacific-time
-  // session-unit pool; Minimax falls through unchanged as unlimited.
+  // session-unit pool; Unlimited models fall through unchanged (no session
+  // quota — only the Redis free-mode limiter, which spans all models, gates
+  // them).
   //
   // Takeover/reclaim exception: a user who already holds a queued or
   // active+unexpired row on this same model is re-anchoring (CLI restart,

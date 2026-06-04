@@ -1,15 +1,14 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import {
-  gravityIndexActionRequiresApiKey,
-  gravityIndexInputSchema,
-} from '@codebuff/common/types/gravity-index'
+import { gravityIndexApiInputSchema } from '@codebuff/common/types/gravity-index'
 import { NextResponse } from 'next/server'
 
 import { parseJsonBody, requireUserFromApiKey } from '../_helpers'
+import { sha256 } from '@/lib/crypto'
 
 import type { GravityIndexInput } from '@codebuff/common/types/gravity-index'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
+import type { JSONObject } from '@codebuff/common/types/json'
 import type {
   Logger,
   LoggerWithContextFn,
@@ -58,26 +57,56 @@ const requireGravityApiKey = (gravityApiKey: string | undefined) => {
   return gravityApiKey
 }
 
+const gravityHeaders = (gravityApiKey: string, hasBody = false) => ({
+  ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+  'X-API-Key': gravityApiKey,
+})
+
+const getAttributionFields = (params: {
+  input: GravityIndexInput
+  userId: string
+  email: string | undefined
+}) => {
+  const attribution: Record<string, unknown> = {
+    external_user_id_hash: sha256(params.userId),
+  }
+
+  if (
+    'external_session_id' in params.input &&
+    params.input.external_session_id
+  ) {
+    attribution.external_session_id = params.input.external_session_id
+  }
+  if ('metadata' in params.input && params.input.metadata) {
+    attribution.metadata = params.input.metadata
+  }
+  if (params.email) {
+    attribution.email_hash = sha256(params.email.trim().toLowerCase())
+  }
+
+  return attribution
+}
+
 const buildGravityIndexRequest = (
   input: GravityIndexInput,
   gravityApiKey: string | undefined,
   signal: AbortSignal,
+  attribution: Record<string, unknown>,
 ): Parameters<typeof fetch> => {
+  const apiKey = requireGravityApiKey(gravityApiKey)
+
   switch (input.action) {
     case 'search': {
-      const apiKey = requireGravityApiKey(gravityApiKey)
       return [
         `${GRAVITY_INDEX_BASE_URL}/search`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: gravityHeaders(apiKey, true),
           body: JSON.stringify({
             query: input.query,
             ...(input.search_id ? { search_id: input.search_id } : {}),
             ...(input.context ? { context: input.context } : {}),
-            platform_api_key: apiKey,
+            ...attribution,
           }),
           signal,
         },
@@ -89,28 +118,28 @@ const buildGravityIndexRequest = (
           category: input.category,
           q: input.q,
         })}`,
-        { signal },
+        { headers: gravityHeaders(apiKey), signal },
       ]
     case 'list_categories':
-      return [`${GRAVITY_INDEX_BASE_URL}/categories`, { signal }]
+      return [
+        `${GRAVITY_INDEX_BASE_URL}/categories`,
+        { headers: gravityHeaders(apiKey), signal },
+      ]
     case 'get_service':
       return [
         `${GRAVITY_INDEX_BASE_URL}/services/${encodeURIComponent(input.slug)}`,
-        { signal },
+        { headers: gravityHeaders(apiKey), signal },
       ]
     case 'report_integration': {
-      const apiKey = requireGravityApiKey(gravityApiKey)
       return [
         `${GRAVITY_INDEX_BASE_URL}/integrations/report`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: gravityHeaders(apiKey, true),
           body: JSON.stringify({
             search_id: input.search_id,
             integrated_slug: input.integrated_slug,
-            platform_api_key: apiKey,
+            ...attribution,
           }),
           signal,
         },
@@ -142,7 +171,7 @@ export async function postGravityIndex(params: {
 
   const parsedBody = await parseJsonBody({
     req,
-    schema: gravityIndexInputSchema,
+    schema: gravityIndexApiInputSchema,
     logger: baseLogger,
     trackEvent,
     validationErrorEvent: AnalyticsEvent.GRAVITY_INDEX_VALIDATION_ERROR,
@@ -159,7 +188,7 @@ export async function postGravityIndex(params: {
   })
   if (!authed.ok) return authed.response
 
-  const { userId, logger } = authed.data
+  const { userId, userInfo, logger } = authed.data
   const input = parsedBody.data
   const gravityApiKey = serverEnv.GRAVITY_API_KEY
 
@@ -170,7 +199,7 @@ export async function postGravityIndex(params: {
     logger,
   })
 
-  if (gravityIndexActionRequiresApiKey(input.action) && !gravityApiKey) {
+  if (!gravityApiKey) {
     logger.error('GRAVITY_API_KEY is not configured')
     trackEvent({
       event: AnalyticsEvent.GRAVITY_INDEX_ERROR,
@@ -186,10 +215,20 @@ export async function postGravityIndex(params: {
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const attribution = getAttributionFields({
+    input,
+    userId,
+    email: userInfo.email,
+  })
 
   try {
     const response = await fetch(
-      ...buildGravityIndexRequest(input, gravityApiKey, controller.signal),
+      ...buildGravityIndexRequest(
+        input,
+        gravityApiKey,
+        controller.signal,
+        attribution,
+      ),
     )
     const text = await response.text()
     const redactedText = redactGravityApiKey(text, gravityApiKey)
@@ -230,7 +269,7 @@ export async function postGravityIndex(params: {
     }
 
     return NextResponse.json({
-      ...(json as Record<string, unknown>),
+      ...(json as JSONObject),
       creditsUsed: 0,
     })
   } catch (error) {

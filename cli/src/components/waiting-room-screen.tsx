@@ -299,10 +299,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   const logoMode: 'full' | 'text' | 'none' =
-    terminalHeight >= 26 ? 'full' : terminalHeight >= 19 ? 'text' : 'none'
+    terminalHeight >= 30 ? 'full' : ('none' as 'none' | 'text')
   const compact = terminalHeight < 22
-  const showAds = terminalHeight >= 16
-  const textMarginBottom = compact ? 0 : 1
+  const showAds = terminalHeight >= 18
+  const textMarginBottom = 1
   const logoLines = logoMode === 'full' ? 6 : logoMode === 'text' ? 1 : 0
 
   const [sheenPosition, setSheenPosition] = useState(0)
@@ -358,10 +358,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // doesn't jump when the query resolves or the user crosses from 0 → 1.
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
-    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued)
+    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued) && !compact
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back. On the landing picker we tick once a
-  // minute so the premium reset countdown stays fresh.
+  // minute so the session reset countdown stays fresh.
   const queuedAtMs = useMemo(() => {
     if (session?.status === 'queued') return Date.parse(session.queuedAt)
     return null
@@ -369,38 +369,34 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const now = useNow(isQueued ? 1000 : 60_000, isQueued || isLanding)
   const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
 
-  // Premium quota counter for the title line. All premium models share one
-  // pool; the server replicates the same snapshot under each premium model
+  // Free-session quota counter for the title line. All free models share one
+  // pool; the server replicates the same snapshot under each free model
   // id, so any entry has the right count. Renders amber when exhausted so
   // the limit reads as "you've hit it" rather than just another count.
   const rateLimitsByModel = getRateLimitsByModel(session)
-  const premiumRateLimit = rateLimitsByModel
+  const sessionRateLimit = rateLimitsByModel
     ? Object.values(rateLimitsByModel)[0]
     : undefined
-  const sharedPremiumUsed = premiumRateLimit?.recentCount ?? 0
-  const isPremiumExhausted =
-    sharedPremiumUsed >=
+  const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
+  const isSessionExhausted =
+    sharedSessionUsed >=
     (accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT)
-  const premiumUsedColor = isPremiumExhausted ? theme.secondary : theme.muted
+  const sessionUsedColor = isSessionExhausted ? theme.secondary : theme.muted
   const sessionLimit =
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
-  // Limited-tier users don't see any premium models, so calling these "limited
-  // sessions" leaks the tier name without informing the user — just "sessions"
-  // reads naturally next to the count and reset countdown.
-  const sessionLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
-  const formattedSharedPremiumUsed = formatSessionUnits(sharedPremiumUsed)
-  const premiumResetAt = getFreebuffPremiumResetAt({
+  const sessionLabel = 'sessions'
+  const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
+  const sessionResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
     nowMs: now,
   })
-  const premiumResetAtMs = premiumResetAt.getTime()
-  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
-    premiumResetAt,
+  const sessionResetAtMs = sessionResetAt.getTime()
+  const sessionResetCountdown = formatFreebuffPremiumResetCountdown(
+    sessionResetAt,
     now,
   )
 
@@ -418,8 +414,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const wrappedRows = (text: string) =>
     Math.max(1, Math.ceil(text.length / contentMaxWidth))
   const counterText =
-    `${formattedSharedPremiumUsed} of ${sessionLimit} ${sessionLabel} used, ` +
-    `resets in ${premiumResetCountdown}`
+    `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
+    `resets in ${sessionResetCountdown}`
   const logoBlockRows =
     logoMode === 'none'
       ? 0
@@ -455,15 +451,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   )
 
   useEffect(() => {
-    if (!isLanding || !premiumRateLimit) return
+    if (!isLanding || !sessionRateLimit) return
 
-    const delayMs = Math.max(0, premiumResetAtMs - Date.now() + 1_000)
+    const delayMs = Math.max(0, sessionResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
       refreshFreebuffLandingMetadata().catch(() => { })
     }, delayMs)
 
     return () => clearTimeout(timer)
-  }, [isLanding, premiumRateLimit, premiumResetAtMs])
+  }, [isLanding, sessionRateLimit, sessionResetAtMs])
 
   return (
     <box
@@ -584,16 +580,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   wrapMode: 'word',
                 }}
               >
-                <span fg={premiumUsedColor}>
-                  {formattedSharedPremiumUsed} of {sessionLimit} {sessionLabel}{' '}
+                <span fg={sessionUsedColor}>
+                  {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
                   used
                 </span>
                 <span fg={theme.muted}>
                   {', '}
-                  resets in {premiumResetCountdown}
+                  resets in {sessionResetCountdown}
                 </span>
               </text>
-              {reserveStreakSlot && (
+              {reserveStreakSlot && !compact && (
                 <StreakInlineLine
                   streak={streak}
                   marginBottom={textMarginBottom}
@@ -726,7 +722,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
             </>
           )}
 
-          {/* Shared premium-session quota exhausted. Terminal for this run —
+          {/* Shared free-session quota exhausted. Terminal for this run —
               the user can exit and come
               back once the daily Pacific reset passes. */}
           {session?.status === 'rate_limited' && (
@@ -739,9 +735,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 <span fg={theme.foreground}>
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
-                {session.accessTier === 'limited'
-                  ? 'sessions'
-                  : 'premium sessions'}{' '}
+                sessions{' '}
                 today. Try again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
