@@ -1,7 +1,10 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { assistantMessage, jsonToolResult } from '@codebuff/common/util/messages'
+import {
+  assistantMessage,
+  jsonToolResult,
+} from '@codebuff/common/util/messages'
 import {
   afterAll,
   beforeAll,
@@ -17,7 +20,11 @@ import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
-import { appendProposalArtifact } from '../tools/handlers/tool/proposal-ledger-store'
+import {
+  appendProposalArtifact,
+  clearProposalLedgerForRun,
+  getProposalLedger,
+} from '../tools/handlers/tool/proposal-ledger-store'
 
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
@@ -45,8 +52,8 @@ describe('Subagent Streaming', () => {
       outputMode: 'last_message',
       inputSchema: {
         prompt: {
-        safeParse: () => ({ success: true }),
-      } as unknown as AgentTemplate['inputSchema']['prompt'],
+          safeParse: () => ({ success: true }),
+        } as unknown as AgentTemplate['inputSchema']['prompt'],
       },
       spawnerPrompt: '',
       model: '',
@@ -99,7 +106,10 @@ describe('Subagent Streaming', () => {
           ...options.agentState,
           messageHistory: [assistantMessage('Test response from subagent')],
         },
-        output: { type: 'lastMessage', value: [assistantMessage('Test response from subagent')] },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Test response from subagent')],
+        },
       }
     })
 
@@ -177,7 +187,79 @@ describe('Subagent Streaming', () => {
     return
   })
 
-  it('streams ledger-backed proposal tool events before proposal subagent finish', async () => {
+  it('expands a single editor-multi-prompt strategy before starting the child agent', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    const editorMultiPromptTemplate = {
+      ...mockAgentTemplate,
+      id: 'editor-multi-prompt',
+      displayName: 'Multi-Prompt Editor',
+      inputSchema: {
+        params: {
+          safeParse: (value: any) => ({
+            success:
+              Array.isArray(value?.prompts) && value.prompts.length === 3,
+          }),
+        } as unknown as AgentTemplate['inputSchema']['params'],
+      },
+    } as AgentTemplate
+    const parentTemplate = {
+      id: 'base',
+      spawnableAgents: ['editor-multi-prompt'],
+    } as unknown as AgentTemplate
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState,
+      agentTemplate: parentTemplate,
+      localAgentTemplates: {
+        [editorMultiPromptTemplate.id]: editorMultiPromptTemplate,
+      },
+      toolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'single-multi-prompt-spawn',
+        input: {
+          agents: [
+            {
+              agent_type: 'editor-multi-prompt',
+              prompt: 'Make the edit',
+              params: {
+                prompts: ['Add the requested comment'],
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    const spawnParams = mockLoopAgentSteps.mock.calls[0][0].spawnParams as any
+    expect(spawnParams.prompts).toHaveLength(3)
+    expect(spawnParams.prompts[0]).toContain('Add the requested comment')
+    expect(spawnParams.prompts[1]).toContain('re-anchor')
+    expect(spawnParams.prompts[2]).toContain('robust full-file')
+    expect(spawnParams.originalPromptCount).toBe(1)
+    expect(spawnParams.expandedPromptCount).toBe(3)
+
+    const startEvent = mockWriteToClient.mock.calls
+      .map((call) => call[0])
+      .find(
+        (event) => typeof event === 'object' && event.type === 'subagent_start',
+      )
+    expect(startEvent).toMatchObject({
+      type: 'subagent_start',
+      agentType: 'editor-multi-prompt',
+      params: {
+        prompts: expect.arrayContaining([
+          expect.stringContaining('smallest localized edit'),
+          expect.stringContaining('re-anchor'),
+          expect.stringContaining('robust full-file'),
+        ]),
+      },
+    })
+  })
+
+  it('streams snapshotted ledger-backed proposal tool events before proposal subagent finish', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const agentState = sessionState.mainAgentState
 
@@ -186,7 +268,7 @@ describe('Subagent Streaming', () => {
       id: 'editor-implementor-proposal-1',
       displayName: 'Proposal 1',
       includeMessageHistory: false,
-      toolNames: ['propose_str_replace'],
+      toolNames: ['propose_write_file'],
     } as AgentTemplate
     const parentTemplate = {
       id: 'base',
@@ -196,18 +278,25 @@ describe('Subagent Streaming', () => {
     mockLoopAgentSteps.mockImplementationOnce(async (options) => {
       options.agentState.runId = 'proposal-stream-test-run'
       appendProposalArtifact(options.agentState.runId, {
-        toolName: 'propose_str_replace',
+        toolName: 'propose_write_file',
         input: {
           path: 'tmp-multieditor-live/notes.ts',
-          replacements: [{ oldString: 'before', newString: 'after' }],
+          content: "export const status = 'after'\n",
         },
         result: {
           file: 'tmp-multieditor-live/notes.ts',
           ok: true,
           unifiedDiff: '@@\n-before\n+after',
-          message: 'Proposed string replacement.',
+          message: 'Proposed changes to tmp-multieditor-live/notes.ts',
+          finalContent: "export const status = 'after'\n",
+          baseContentHash: 'base-hash',
+          baseContent: "export const status = 'before'\n",
         },
       })
+      ;(options.agentState as any).proposalLedger = getProposalLedger(
+        options.agentState.runId,
+      )
+      clearProposalLedgerForRun(options.agentState.runId)
 
       return {
         agentState: {
@@ -216,16 +305,16 @@ describe('Subagent Streaming', () => {
             assistantMessage({
               type: 'tool-call',
               toolCallId: 'embedded-proposal-call',
-              toolName: 'propose_str_replace',
+              toolName: 'propose_write_file',
               input: {
                 path: 'tmp-multieditor-live/notes.ts',
-                replacements: [{ oldString: 'before', newString: 'after' }],
+                content: "export const status = 'after'\n",
               },
             }),
             {
               role: 'tool',
               toolCallId: 'embedded-proposal-call',
-              toolName: 'propose_str_replace',
+              toolName: 'propose_write_file',
               content: jsonToolResult({
                 file: 'tmp-multieditor-live/notes.ts',
                 unifiedDiff: '@@\n-before\n+after',
@@ -268,13 +357,13 @@ describe('Subagent Streaming', () => {
       (event) =>
         typeof event === 'object' &&
         event.type === 'tool_call' &&
-        event.toolName === 'propose_str_replace',
+        event.toolName === 'propose_write_file',
     )
     const toolResultEventIndex = events.findIndex(
       (event) =>
         typeof event === 'object' &&
         event.type === 'tool_result' &&
-        event.toolName === 'propose_str_replace',
+        event.toolName === 'propose_write_file',
     )
     const finishEventIndex = events.findIndex(
       (event) => typeof event === 'object' && event.type === 'subagent_finish',
@@ -301,6 +390,9 @@ describe('Subagent Streaming', () => {
       agentId: startEvent.agentId,
       parentAgentId: agentState.agentId,
       includeToolCall: false,
+      input: expect.objectContaining({
+        __proposalFinalContent: "export const status = 'after'\n",
+      }),
     })
     expect(toolResultEvent).toMatchObject({
       agentId: startEvent.agentId,
@@ -312,6 +404,106 @@ describe('Subagent Streaming', () => {
             file: 'tmp-multieditor-live/notes.ts',
             unifiedDiff: expect.stringContaining('+after'),
           }),
+        },
+      ],
+    })
+  })
+
+  it('streams transaction proposal ledger events with transaction-shaped output', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    const proposalTemplate = {
+      ...mockAgentTemplate,
+      id: 'editor-implementor-proposal-1',
+      displayName: 'Proposal 1',
+      includeMessageHistory: false,
+      toolNames: ['propose_edit_transaction'],
+    } as AgentTemplate
+    const parentTemplate = {
+      id: 'base',
+      spawnableAgents: ['editor-implementor-proposal-1'],
+    } as unknown as AgentTemplate
+
+    mockLoopAgentSteps.mockImplementationOnce(async (options) => {
+      options.agentState.runId = 'proposal-transaction-stream-test-run'
+      appendProposalArtifact(options.agentState.runId, {
+        toolName: 'propose_edit_transaction',
+        input: {
+          edits: [
+            {
+              id: 'update-notes',
+              type: 'str_replace',
+              path: 'tmp-multieditor-live/notes.ts',
+              replacements: [{ oldString: 'before', newString: 'after' }],
+            },
+          ],
+        },
+        result: {
+          file: 'tmp-multieditor-live/notes.ts',
+          ok: true,
+          unifiedDiff: '@@\n-before\n+after',
+          message: 'Proposed changes to tmp-multieditor-live/notes.ts',
+          finalContent: "export const status = 'after'\n",
+          baseContentHash: 'base-hash',
+          baseContent: "export const status = 'before'\n",
+        },
+      })
+      ;(options.agentState as any).proposalLedger = getProposalLedger(
+        options.agentState.runId,
+      )
+      clearProposalLedgerForRun(options.agentState.runId)
+
+      return {
+        agentState: options.agentState,
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('PROPOSAL_BUNDLE_COMPLETE')],
+        },
+      }
+    })
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState,
+      agentTemplate: parentTemplate,
+      localAgentTemplates: {
+        [proposalTemplate.id]: proposalTemplate,
+      },
+      toolCall: {
+        toolName: 'spawn_agents',
+        toolCallId: 'proposal-transaction-spawn-call-id',
+        input: {
+          agents: [
+            {
+              agent_type: 'editor-implementor-proposal-1',
+              prompt: 'Propose a transaction change',
+            },
+          ],
+        },
+      },
+    })
+
+    const events = mockWriteToClient.mock.calls.map((call) => call[0])
+    const toolResultEvent = events.find(
+      (event) =>
+        typeof event === 'object' &&
+        event.type === 'tool_result' &&
+        event.toolName === 'propose_edit_transaction',
+    )
+
+    expect(toolResultEvent).toMatchObject({
+      output: [
+        {
+          type: 'json',
+          value: {
+            files: [
+              {
+                file: 'tmp-multieditor-live/notes.ts',
+                unifiedDiff: expect.stringContaining('+after'),
+              },
+            ],
+          },
         },
       ],
     })

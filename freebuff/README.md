@@ -86,7 +86,7 @@ bun freebuff/cli/build.ts 1.0.0
 - [GitHub](https://github.com/CodebuffAI/codebuff) (upstream)
 - [Openbuff GitHub](https://github.com/nicholasgriffintn/openbuff)
 
-> Built on the [Codebuff](https://codebuff.com) platform (upstream). Openbuff adds custom-provider and BYOK support.
+> **About Openbuff & Freebuff:** Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. All existing technical compatibility aliases (such as the `@codebuff/sdk` package name, `codebuff.json` config paths, and `CODEBUFF_*` environment variables) remain fully explained and supported. Freebuff is a free, ad-supported variant of the CLI within this ecosystem.
 
 ## License
 

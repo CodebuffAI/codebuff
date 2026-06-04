@@ -144,7 +144,8 @@ function proposalToolCallFile(input: Record<string, unknown>): string | null {
 /** Whether a normalized result actually carries a renderable diff. */
 function resultHasDiff(value: Record<string, unknown>): boolean {
   return (
-    (typeof value.unifiedDiff === 'string' && value.unifiedDiff.trim() !== '') ||
+    (typeof value.unifiedDiff === 'string' &&
+      value.unifiedDiff.trim() !== '') ||
     (typeof value.patch === 'string' && value.patch.trim() !== '') ||
     Array.isArray(value.files)
   )
@@ -227,6 +228,28 @@ function parseUnifiedDiffsString(
   return entries
 }
 
+function unwrapStructuredObject(
+  resultValue: unknown,
+  depth = 0,
+): Record<string, unknown> | null {
+  if (depth > 4 || !resultValue || typeof resultValue !== 'object') return null
+  const obj = resultValue as Record<string, unknown>
+
+  if (obj.type === 'structuredOutput' && obj.value) {
+    return unwrapStructuredObject(obj.value, depth + 1)
+  }
+
+  if (
+    obj.value &&
+    typeof obj.value === 'object' &&
+    Object.keys(obj).every((key) => key === 'value' || key === 'type')
+  ) {
+    return unwrapStructuredObject(obj.value, depth + 1)
+  }
+
+  return obj
+}
+
 /**
  * Synthesize edit tool blocks from a proposal/implementor agent's structured
  * output (`{ toolCalls, toolResults, unifiedDiffs }`).
@@ -260,8 +283,10 @@ export function synthesizeProposalToolBlocks(
     const toolName = (toolCall as Record<string, unknown>).toolName
     if (typeof toolName !== 'string') return
     const input =
-      ((toolCall as Record<string, unknown>).input as Record<string, unknown>) ??
-      {}
+      ((toolCall as Record<string, unknown>).input as Record<
+        string,
+        unknown
+      >) ?? {}
 
     // Pair by file path so a successful call is never matched to a diff-less
     // failed result. Fall back to index pairing only when the call carries no
@@ -276,7 +301,13 @@ export function synthesizeProposalToolBlocks(
       }
     }
 
-    const outputRaw = matched ? [{ type: 'json', value: matched }] : undefined
+    const outputValue =
+      matched && isTransactionToolName(toolName as ToolContentBlock['toolName'])
+        ? normalizeTransactionResultForRendering(matched, file)
+        : matched
+    const outputRaw = outputValue
+      ? [{ type: 'json', value: outputValue }]
+      : undefined
     if (file) coveredFiles.add(file)
     if (matched && resultHasDiff(matched)) anyBlockHasDiff = true
 
@@ -307,6 +338,129 @@ export function synthesizeProposalToolBlocks(
   }
 
   return blocks
+}
+
+type MultiPromptProposalRenderEntry = {
+  id?: string
+  label?: string
+  strategy?: string
+  status?: string
+  toolCalls?: unknown[]
+  toolResults?: unknown[]
+  unifiedDiffs?: string
+}
+
+const getProposalRenderEntries = (
+  resultValue: unknown,
+): MultiPromptProposalRenderEntry[] => {
+  const value = unwrapStructuredObject(resultValue)
+  if (!value) return []
+
+  const proposalSummary =
+    value.proposalSummary &&
+    typeof value.proposalSummary === 'object' &&
+    !Array.isArray(value.proposalSummary)
+      ? (value.proposalSummary as Record<string, unknown>)
+      : null
+  const rawProposals = Array.isArray(proposalSummary?.proposals)
+    ? proposalSummary.proposals
+    : Array.isArray(value.proposals)
+      ? value.proposals
+      : []
+
+  return rawProposals
+    .filter(
+      (proposal): proposal is MultiPromptProposalRenderEntry =>
+        Boolean(proposal) &&
+        typeof proposal === 'object' &&
+        !Array.isArray(proposal),
+    )
+    .filter(
+      (proposal) =>
+        Array.isArray(proposal.toolCalls) ||
+        Array.isArray(proposal.toolResults) ||
+        (typeof proposal.unifiedDiffs === 'string' &&
+          proposal.unifiedDiffs.trim() !== ''),
+    )
+}
+
+export function synthesizeMultiPromptProposalAgentBlocks(
+  resultValue: unknown,
+): AgentContentBlock[] {
+  return getProposalRenderEntries(resultValue).flatMap((proposal, index) => {
+    const toolBlocks = synthesizeProposalToolBlocks({
+      toolCalls: Array.isArray(proposal.toolCalls) ? proposal.toolCalls : [],
+      toolResults: Array.isArray(proposal.toolResults)
+        ? proposal.toolResults
+        : [],
+      unifiedDiffs: proposal.unifiedDiffs,
+    })
+    if (toolBlocks.length === 0) return []
+
+    const label =
+      typeof proposal.label === 'string' && proposal.label.trim()
+        ? proposal.label.trim()
+        : `Proposal #${index + 1}`
+    const strategy =
+      typeof proposal.strategy === 'string' ? proposal.strategy : ''
+    const id =
+      typeof proposal.id === 'string' && proposal.id.trim()
+        ? proposal.id.trim()
+        : String(index + 1)
+
+    return [
+      {
+        type: 'agent',
+        agentId: `multi-prompt-proposal-${id}`,
+        agentName: label,
+        agentType: 'editor-implementor-proposal-direct',
+        content: '',
+        status: proposal.status === 'unusable' ? 'failed' : 'complete',
+        blocks: toolBlocks,
+        initialPrompt: strategy,
+        params: {
+          proposalLabel: label,
+          proposalOrdinal: index + 1,
+          proposalStrategy: strategy,
+          proposalPhase: 'initial',
+        },
+      },
+    ]
+  })
+}
+
+function normalizeTransactionResultForRendering(
+  result: Record<string, unknown>,
+  fallbackFile: string | null,
+): Record<string, unknown> {
+  if (Array.isArray(result.files) || !resultHasDiff(result)) return result
+
+  const file =
+    typeof result.file === 'string'
+      ? result.file
+      : typeof result.path === 'string'
+        ? result.path
+        : fallbackFile
+  if (!file) return result
+
+  return {
+    message:
+      typeof result.message === 'string'
+        ? result.message
+        : `Proposed changes to ${file}`,
+    files: [
+      {
+        file,
+        ...(typeof result.unifiedDiff === 'string'
+          ? { unifiedDiff: result.unifiedDiff }
+          : {}),
+        ...(typeof result.patch === 'string' ? { patch: result.patch } : {}),
+        ...(typeof result.message === 'string'
+          ? { messages: [result.message] }
+          : {}),
+      },
+    ],
+  }
 }
 
 const getBaseToolName = (toolName: ToolContentBlock['toolName']): string =>
@@ -359,6 +513,21 @@ export const getImplementorDisplayName = (
     return proposalLabel
   }
 
+  const proposalOrdinal = params?.proposalOrdinal
+  const proposalOrdinalNumber =
+    typeof proposalOrdinal === 'number'
+      ? proposalOrdinal
+      : typeof proposalOrdinal === 'string' && proposalOrdinal.trim()
+        ? Number(proposalOrdinal.trim())
+        : undefined
+  if (
+    proposalOrdinalNumber !== undefined &&
+    Number.isInteger(proposalOrdinalNumber) &&
+    proposalOrdinalNumber > 0
+  ) {
+    return `Proposal #${proposalOrdinalNumber}`
+  }
+
   const proposalMatch = agentType.match(/editor-implementor-proposal-(\d+)/)
   if (proposalMatch?.[1]) {
     return `Proposal #${proposalMatch[1]}`
@@ -379,6 +548,25 @@ export const getImplementorDisplayName = (
     return `${baseName} #${index + 1}`
   }
   return baseName
+}
+
+export function getImplementationIdIndex(
+  implementationId: string | undefined,
+): number | undefined {
+  if (!implementationId) return undefined
+
+  const trimmed = implementationId.trim()
+  if (/^[A-Z]$/.test(trimmed)) {
+    return trimmed.charCodeAt(0) - 65
+  }
+
+  const candidateMatch = trimmed.match(/^candidate-(\d+)$/i)
+  if (candidateMatch?.[1]) {
+    const index = Number(candidateMatch[1]) - 1
+    return Number.isInteger(index) && index >= 0 ? index : undefined
+  }
+
+  return undefined
 }
 
 /**
@@ -680,10 +868,24 @@ function isFailedEditToolBlock(toolBlock: ToolContentBlock): boolean {
   if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
     const value = outputRaw[0].value as Record<string, unknown>
     if (hasErrorMessage(value)) return true
+    if (
+      typeof value.unifiedDiff === 'string' ||
+      typeof value.patch === 'string' ||
+      isSuccessfulEditMessage(value.message)
+    ) {
+      return false
+    }
   }
   if (typeof outputRaw === 'object' && outputRaw !== null) {
     const rawObj = outputRaw as Record<string, unknown>
     if (hasErrorMessage(rawObj)) return true
+    if (
+      typeof rawObj.unifiedDiff === 'string' ||
+      typeof rawObj.patch === 'string' ||
+      isSuccessfulEditMessage(rawObj.message)
+    ) {
+      return false
+    }
   }
 
   const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''

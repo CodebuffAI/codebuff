@@ -1,13 +1,13 @@
 # Openbuff Local/BYOK Provider Mode
 
-Openbuff is the local-first fork of Codebuff. It does not require Codebuff auth,
-credits, hosted run tracking, or hosted model inference. Every LLM request must
-resolve to either:
+Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. You provide your own keys for user-configured providers (such as OpenAI, OpenRouter, or local models). Openbuff does not require Codebuff cloud authentication, credits, hosted run tracking, or hosted model inference.
+
+There is absolutely no backend fallback. Every LLM request must resolve to either:
 
 1. an OpenAI-compatible provider in `openbuff.json`, or
 2. an optional direct ChatGPT/Codex OAuth route for supported OpenAI models.
 
-There is no Codebuff backend fallback.
+To maintain seamless compatibility, all existing technical compatibility aliases remain fully supported and explained below.
 
 ## Start Openbuff
 

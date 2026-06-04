@@ -118,9 +118,7 @@ function getNumericSpawnParam(
     key in spawnParams &&
     (typeof (spawnParams as Record<string, unknown>)[key] === 'string' ||
       typeof (spawnParams as Record<string, unknown>)[key] === 'number')
-    ? ((spawnParams as Record<string, string | number>)[key] as
-        | string
-        | number)
+    ? ((spawnParams as Record<string, string | number>)[key] as string | number)
     : undefined
 }
 
@@ -595,7 +593,7 @@ export async function executeSubagent(
     }
     if (typeof chunk === 'string' || chunk.type !== 'tool_result') return
     if (!isProposalToolName(chunk.toolName)) return
-    for (const file of getProposalResultFiles(chunk.output)) {
+    for (const file of getProposalResultDiffFiles(chunk.output)) {
       streamedProposalResultFiles.add(file)
     }
   }
@@ -743,7 +741,7 @@ function isProposalToolName(
   )
 }
 
-function getProposalResultFiles(output: unknown): string[] {
+function getProposalResultDiffFiles(output: unknown): string[] {
   if (!Array.isArray(output)) return []
   const files = new Set<string>()
   for (const part of output) {
@@ -757,7 +755,13 @@ function getProposalResultFiles(output: unknown): string[] {
         : typeof record.path === 'string'
           ? record.path
           : ''
-    if (file) files.add(file)
+    if (
+      file &&
+      (typeof record.unifiedDiff === 'string' ||
+        typeof record.patch === 'string')
+    ) {
+      files.add(file)
+    }
     if (Array.isArray(record.files)) {
       for (const entry of record.files) {
         if (!entry || typeof entry !== 'object') continue
@@ -768,11 +772,28 @@ function getProposalResultFiles(output: unknown): string[] {
             : typeof fileEntry.path === 'string'
               ? fileEntry.path
               : ''
-        if (nestedFile) files.add(nestedFile)
+        if (
+          nestedFile &&
+          (typeof fileEntry.unifiedDiff === 'string' ||
+            typeof fileEntry.patch === 'string')
+        ) {
+          files.add(nestedFile)
+        }
       }
     }
   }
   return [...files]
+}
+
+function getAvailableProposalLedger(
+  agentState: AgentState,
+): ProposalLedgerArtifact[] {
+  const liveLedger = agentState.runId ? getProposalLedger(agentState.runId) : []
+  if (liveLedger.length > 0) return liveLedger
+
+  return Array.isArray((agentState as any).proposalLedger)
+    ? ((agentState as any).proposalLedger as ProposalLedgerArtifact[])
+    : []
 }
 
 function emitMissingProposalLedgerEvents(params: {
@@ -787,12 +808,44 @@ function emitMissingProposalLedgerEvents(params: {
     streamedProposalResultFiles,
     onResponseChunk,
   } = params
-  if (!agentState.runId) return
+  const ledger = getAvailableProposalLedger(agentState)
+  if (ledger.length === 0) return
 
-  for (const artifact of getProposalLedger(agentState.runId)) {
+  for (const artifact of ledger) {
     const file = artifact.result.file
     if (!file || streamedProposalResultFiles.has(file)) continue
     const toolCallId = `proposal-ledger-${agentState.runId}-${artifact.seq}`
+    const resultValue =
+      artifact.toolName === 'propose_edit_transaction'
+        ? {
+            message: artifact.result.message ?? `Proposed changes to ${file}`,
+            files: [
+              {
+                file,
+                ...(artifact.result.unifiedDiff
+                  ? { unifiedDiff: artifact.result.unifiedDiff }
+                  : {}),
+                ...(artifact.result.message
+                  ? { messages: [artifact.result.message] }
+                  : {}),
+              },
+            ],
+            ...(artifact.result.errorMessage
+              ? { errorMessage: artifact.result.errorMessage }
+              : {}),
+          }
+        : {
+            file,
+            ...(artifact.result.unifiedDiff
+              ? { unifiedDiff: artifact.result.unifiedDiff }
+              : {}),
+            ...(artifact.result.message
+              ? { message: artifact.result.message }
+              : {}),
+            ...(artifact.result.errorMessage
+              ? { errorMessage: artifact.result.errorMessage }
+              : {}),
+          }
     onResponseChunk({
       type: 'tool_call',
       toolCallId,
@@ -809,16 +862,7 @@ function emitMissingProposalLedgerEvents(params: {
       output: [
         {
           type: 'json',
-          value: {
-            file,
-            ...(artifact.result.unifiedDiff
-              ? { unifiedDiff: artifact.result.unifiedDiff }
-              : {}),
-            ...(artifact.result.message ? { message: artifact.result.message } : {}),
-            ...(artifact.result.errorMessage
-              ? { errorMessage: artifact.result.errorMessage }
-              : {}),
-          },
+          value: resultValue,
         },
       ],
       agentId: agentState.agentId,
@@ -1002,18 +1046,110 @@ function sanitizeProposalMetadata(input: any): any {
   return rest
 }
 
+function getProposalTransactionSignature(
+  artifact: ProposalLedgerArtifact,
+): string | undefined {
+  try {
+    return JSON.stringify(sanitizeProposalMetadata(artifact.input))
+  } catch {
+    return undefined
+  }
+}
+
+function isSuccessfulProposalArtifact(
+  artifact: ProposalLedgerArtifact,
+): boolean {
+  return (
+    artifact?.result?.ok === true &&
+    typeof artifact.result.unifiedDiff === 'string' &&
+    artifact.result.unifiedDiff.trim().length > 0
+  )
+}
+
+function toProposalToolResult(artifact: ProposalLedgerArtifact): any {
+  const { file, unifiedDiff, message, errorMessage } = artifact.result
+  return {
+    file,
+    ...(unifiedDiff ? { unifiedDiff } : {}),
+    ...(message ? { message } : {}),
+    ...(errorMessage ? { errorMessage } : {}),
+  }
+}
+
+function summarizeProposalToolResults(
+  artifacts: ProposalLedgerArtifact[],
+): any[] {
+  const seenTransactions = new Set<string>()
+
+  return artifacts.flatMap((artifact) => {
+    if (
+      artifact.toolName !== 'propose_edit_transaction' ||
+      !isSuccessfulProposalArtifact(artifact)
+    ) {
+      return [toProposalToolResult(artifact)]
+    }
+
+    const signature = getProposalTransactionSignature(artifact)
+    if (!signature) {
+      return [
+        {
+          message:
+            artifact.result.message ??
+            `Proposed changes to ${artifact.result.file}`,
+          files: [
+            {
+              file: artifact.result.file,
+              ...(artifact.result.unifiedDiff
+                ? { unifiedDiff: artifact.result.unifiedDiff }
+                : {}),
+              ...(artifact.result.message
+                ? { messages: [artifact.result.message] }
+                : {}),
+            },
+          ],
+        },
+      ]
+    }
+    if (seenTransactions.has(signature)) return []
+    seenTransactions.add(signature)
+
+    const files = artifacts
+      .filter(
+        (candidate) =>
+          candidate.toolName === 'propose_edit_transaction' &&
+          isSuccessfulProposalArtifact(candidate) &&
+          getProposalTransactionSignature(candidate) === signature,
+      )
+      .map((candidate) => ({
+        file: candidate.result.file,
+        ...(candidate.result.unifiedDiff
+          ? { unifiedDiff: candidate.result.unifiedDiff }
+          : {}),
+        ...(candidate.result.message
+          ? { messages: [candidate.result.message] }
+          : {}),
+      }))
+
+    return [
+      {
+        message:
+          artifact.result.message ??
+          `Proposed transaction changing ${files.length} file${
+            files.length === 1 ? '' : 's'
+          }`,
+        files,
+      },
+    ]
+  })
+}
+
 function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
   toolCalls: { toolName: string; input: any }[]
   toolResults: any[]
   unifiedDiffs: string
 } {
-  const isSuccessful = (artifact: ProposalLedgerArtifact): boolean =>
-    artifact?.result?.ok === true &&
-    typeof artifact.result.unifiedDiff === 'string' &&
-    artifact.result.unifiedDiff.trim().length > 0
-
   const successful = reconcileSuccessfulProposalArtifactsByFile(
-    ledger.filter(isSuccessful),
+    ledger.filter(isSuccessfulProposalArtifact),
   )
   const successfulFiles = new Set(
     successful.map((artifact) => artifact.result.file).filter(Boolean),
@@ -1033,21 +1169,12 @@ function summarizeProposalLedger(ledger: ProposalLedgerArtifact[]): {
     })),
   )
 
-  const toolResults = ledger
-    .filter(
-      (artifact) =>
-        isSuccessful(artifact) ||
-        !(artifact.result.file && successfulFiles.has(artifact.result.file)),
-    )
-    .map((artifact) => {
-      const { file, unifiedDiff, message, errorMessage } = artifact.result
-      return {
-        file,
-        ...(unifiedDiff ? { unifiedDiff } : {}),
-        ...(message ? { message } : {}),
-        ...(errorMessage ? { errorMessage } : {}),
-      }
-    })
+  const resultArtifacts = ledger.filter(
+    (artifact) =>
+      isSuccessfulProposalArtifact(artifact) ||
+      !(artifact.result.file && successfulFiles.has(artifact.result.file)),
+  )
+  const toolResults = summarizeProposalToolResults(resultArtifacts)
 
   const unifiedDiffs = successful
     .map(
@@ -1342,11 +1469,11 @@ function isReadOnlyToolName(toolName: any): boolean {
 function isSuccessfulProposalToolResult(result: any): boolean {
   return Boolean(
     result &&
-      typeof result === 'object' &&
-      'unifiedDiff' in result &&
-      typeof result.unifiedDiff === 'string' &&
-      result.unifiedDiff.trim().length > 0 &&
-      !getProposalResultFailureMessage(result),
+    typeof result === 'object' &&
+    'unifiedDiff' in result &&
+    typeof result.unifiedDiff === 'string' &&
+    result.unifiedDiff.trim().length > 0 &&
+    !getProposalResultFailureMessage(result),
   )
 }
 

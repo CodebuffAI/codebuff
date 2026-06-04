@@ -10,6 +10,7 @@ import {
   buildActivityTimeline,
   isImplementorAgent,
   getImplementorDisplayName,
+  getImplementationIdIndex,
   getImplementorPromptPreview,
   getImplementorIndex,
   groupConsecutiveBlocks,
@@ -19,6 +20,7 @@ import {
   getMultiPromptProgress,
   getMultiPromptPreview,
   shouldShowEditDiff,
+  synthesizeMultiPromptProposalAgentBlocks,
   synthesizeProposalToolBlocks,
   isEditToolBlock,
 } from '../implementor-helpers'
@@ -576,6 +578,42 @@ describe('getFileStatsFromBlocks', () => {
     expect(stats[0].stats.linesAdded).toBe(1)
     expect(stats[0].stats.linesRemoved).toBe(1)
   })
+
+  test('keeps live proposed write_file stats when outputRaw carries a diff', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'proposal-tool-1',
+        toolName: 'propose_write_file',
+        input: {
+          path: 'tmp-multieditor-live/notes.ts',
+          content:
+            "//Checking the proposal card display\nexport const status = 'before'\n",
+        },
+        output:
+          '[\n  {\n    "type": "json",\n    "value": {\n      "file": "tmp-multieditor-live/notes.ts",\n      "message": "Proposed changes to tmp-multieditor-live/notes.ts",\n      "unifiedDiff": "@@ -1,1 +1,2 @@\\n+//Checking the proposal card display\\n export const status = \'before\'"\n    }\n  }\n]',
+        outputRaw: [
+          {
+            type: 'json',
+            value: {
+              file: 'tmp-multieditor-live/notes.ts',
+              message: 'Proposed changes to tmp-multieditor-live/notes.ts',
+              unifiedDiff:
+                "@@ -1,1 +1,2 @@\n+//Checking the proposal card display\n export const status = 'before'",
+            },
+          },
+        ],
+      } as ToolContentBlock,
+    ]
+
+    expect(getFileStatsFromBlocks(blocks)).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
+  })
 })
 
 describe('synthesizeProposalToolBlocks', () => {
@@ -604,7 +642,12 @@ describe('synthesizeProposalToolBlocks', () => {
         },
       ],
       toolResults: [
-        [{ file: 'docs/agents-and-tools.md', unifiedDiff: '@@ -1 +1 @@\n-old\n+new' }],
+        [
+          {
+            file: 'docs/agents-and-tools.md',
+            unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        ],
         [{ file: 'docs/local-mode.md', unifiedDiff: '@@ -1 +1 @@\n-a\n+b' }],
       ],
     }
@@ -702,6 +745,33 @@ describe('synthesizeProposalToolBlocks', () => {
     expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
   })
 
+  test('wraps legacy single-file transaction results so cards show stats', () => {
+    const resultValue = {
+      toolCalls: [
+        {
+          toolName: 'propose_edit_transaction',
+          input: { edits: [] },
+        },
+      ],
+      toolResults: [
+        {
+          file: 'src/a.ts',
+          unifiedDiff: '@@ -1 +1 @@\n-oldA\n+newA',
+          message: 'Proposed changes to src/a.ts',
+        },
+      ],
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(1)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0]).toMatchObject({
+      path: 'src/a.ts',
+      stats: { linesAdded: 1, linesRemoved: 1, hunks: 1 },
+    })
+  })
+
   test('pairs results to calls by file path when arrays misalign', () => {
     // The implementor compiles `toolCalls` (successful only) and `toolResults`
     // (successful PLUS genuine failures) from different filters, so a
@@ -722,7 +792,11 @@ describe('synthesizeProposalToolBlocks', () => {
         // Failed-only result for a DIFFERENT file, first in the array.
         { file: 'src/other.ts', errorMessage: 'No change to the file' },
         // Successful result for the call's file, second in the array.
-        { file: 'src/good.ts', unifiedDiff: '@@ -1 +1 @@\n-a\n+b', message: 'Updated file' },
+        {
+          file: 'src/good.ts',
+          unifiedDiff: '@@ -1 +1 @@\n-a\n+b',
+          message: 'Updated file',
+        },
       ],
     }
 
@@ -776,6 +850,69 @@ describe('synthesizeProposalToolBlocks', () => {
     expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
     expect(stats[0].stats.linesAdded).toBe(1)
     expect(stats[1].stats.linesAdded).toBe(1)
+  })
+})
+
+describe('synthesizeMultiPromptProposalAgentBlocks', () => {
+  test('builds proposal cards from editor-multi-prompt summary render data', () => {
+    const agentBlocks = synthesizeMultiPromptProposalAgentBlocks({
+      type: 'structuredOutput',
+      value: {
+        proposalSummary: {
+          proposals: [
+            {
+              id: 'B',
+              label: 'Proposal #2',
+              strategy: 'Minimal edit',
+              status: 'usable',
+              toolCalls: [
+                {
+                  toolName: 'propose_str_replace',
+                  input: {
+                    path: 'tmp-multieditor-live/notes.ts',
+                    replacements: [
+                      {
+                        oldString: "export const status = 'before'",
+                        newString:
+                          "// multi editor smoke test\nexport const status = 'before'",
+                      },
+                    ],
+                  },
+                },
+              ],
+              toolResults: [
+                {
+                  file: 'tmp-multieditor-live/notes.ts',
+                  unifiedDiff:
+                    "@@ -1,4 +1,5 @@\n+// multi editor smoke test\n export const status = 'before'",
+                },
+              ],
+              unifiedDiffs:
+                '--- tmp-multieditor-live/notes.ts ---\n@@ -1,4 +1,5 @@\n+// multi editor smoke test\n export const status = \'before\'',
+            },
+          ],
+        },
+      },
+    })
+
+    expect(agentBlocks).toHaveLength(1)
+    expect(agentBlocks[0]).toMatchObject({
+      agentName: 'Proposal #2',
+      agentType: 'editor-implementor-proposal-direct',
+      status: 'complete',
+      params: {
+        proposalLabel: 'Proposal #2',
+        proposalStrategy: 'Minimal edit',
+      },
+    })
+    const stats = getFileStatsFromBlocks(agentBlocks[0].blocks)
+    expect(stats).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
   })
 })
 
@@ -936,6 +1073,13 @@ describe('getImplementorDisplayName', () => {
         proposalLabel: 'Proposal #7',
       }),
     ).toBe('Proposal #7')
+    expect(
+      getImplementorDisplayName(
+        'editor-implementor-proposal-direct',
+        undefined,
+        { proposalOrdinal: 2 },
+      ),
+    ).toBe('Proposal #2')
   })
 
   test('adds index when provided', () => {
@@ -943,6 +1087,17 @@ describe('getImplementorDisplayName', () => {
     expect(getImplementorDisplayName('editor-implementor-opus', 2)).toBe(
       'Opus #3',
     )
+  })
+})
+
+describe('getImplementationIdIndex', () => {
+  test('maps selector IDs to zero-based proposal indexes', () => {
+    expect(getImplementationIdIndex('A')).toBe(0)
+    expect(getImplementationIdIndex('C')).toBe(2)
+    expect(getImplementationIdIndex('candidate-1')).toBe(0)
+    expect(getImplementationIdIndex('candidate-3')).toBe(2)
+    expect(getImplementationIdIndex('candidate-0')).toBeUndefined()
+    expect(getImplementationIdIndex('unknown')).toBeUndefined()
   })
 })
 

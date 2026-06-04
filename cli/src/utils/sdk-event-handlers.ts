@@ -20,7 +20,12 @@ import {
   updateToolBlockWithOutput,
 } from './message-block-helpers'
 import {
+  extractDiff,
+  extractFilePath,
+  getImplementorDisplayName,
   isEditToolBlock,
+  isImplementorAgent,
+  synthesizeMultiPromptProposalAgentBlocks,
   synthesizeProposalToolBlocks,
 } from './implementor-helpers'
 import {
@@ -407,17 +412,21 @@ const applySpawnAgentResultToBlock = (
       ? [...existingBlocks, { type: 'text', content } as ContentBlock]
       : existingBlocks
 
-  // Proposal/implementor agents can finish without streaming live edit
-  // tool blocks. When that happens the card has nothing to render and
-  // falsely shows "no changes", so synthesize edit blocks from the
-  // structured { toolCalls, toolResults } output. Guarded so we never
-  // duplicate edits that already streamed.
-  const hasEditToolBlocks = finalBlocks.some(isEditToolBlock)
-  if (!hasEditToolBlocks) {
-    const synthesized = synthesizeProposalToolBlocks(result.value)
-    if (synthesized.length > 0) {
-      finalBlocks = [...finalBlocks, ...synthesized]
-    }
+  // Proposal/implementor agents can finish with incomplete live tool blocks:
+  // a tool call may be present on the card, while the diff-bearing result only
+  // survives in the final structured output. Merge those final blocks unless
+  // the same file already has a renderable diff, so the card cannot complete
+  // as "no changes" just because a partial edit block streamed first.
+  const synthesized = synthesizeProposalToolBlocks(result.value)
+  if (synthesized.length > 0) {
+    finalBlocks = mergeSynthesizedProposalToolBlocks(finalBlocks, synthesized)
+  }
+
+  if (block.agentType.includes('editor-multi-prompt')) {
+    finalBlocks = mergeSynthesizedMultiPromptProposalBlocks(
+      finalBlocks,
+      synthesizeMultiPromptProposalAgentBlocks(result.value),
+    )
   }
 
   if (hasError || finalBlocks.length > 0) {
@@ -429,6 +438,157 @@ const applySpawnAgentResultToBlock = (
   }
 
   return block
+}
+
+const mergeSynthesizedProposalToolBlocks = (
+  existingBlocks: ContentBlock[],
+  synthesizedBlocks: ToolContentBlock[],
+): ContentBlock[] => {
+  const existingFilesWithDiff = new Set<string>()
+
+  for (const block of existingBlocks) {
+    if (!isEditToolBlock(block)) continue
+    const toolBlock = block as ToolContentBlock
+    const file = extractFilePath(toolBlock)
+    const diff = extractDiff(toolBlock)
+    if (file && diff?.trim()) {
+      existingFilesWithDiff.add(file)
+    }
+  }
+
+  const blocksToAppend = synthesizedBlocks.filter((block) => {
+    const file = extractFilePath(block)
+    return !file || !existingFilesWithDiff.has(file)
+  })
+
+  return blocksToAppend.length > 0
+    ? [...existingBlocks, ...blocksToAppend]
+    : existingBlocks
+}
+
+const getProposalBlockLabel = (
+  block: AgentContentBlock,
+): string | undefined => {
+  const label = getImplementorDisplayName(
+    block.agentType,
+    undefined,
+    block.params,
+  ).trim()
+  return label || undefined
+}
+
+const getProposalBlockOrdinal = (
+  block: AgentContentBlock,
+): number | undefined => {
+  const ordinal = block.params?.proposalOrdinal
+  const ordinalNumber =
+    typeof ordinal === 'number'
+      ? ordinal
+      : typeof ordinal === 'string' && ordinal.trim()
+        ? Number(ordinal.trim())
+        : undefined
+
+  return ordinalNumber !== undefined &&
+    Number.isInteger(ordinalNumber) &&
+    ordinalNumber > 0
+    ? ordinalNumber
+    : undefined
+}
+
+const isInitialProposalBlock = (block: AgentContentBlock): boolean => {
+  const phase = block.params?.proposalPhase
+  return (
+    block.agentType.includes('editor-implementor-proposal') &&
+    (phase === undefined || phase === 'initial')
+  )
+}
+
+const mergeSynthesizedMultiPromptProposalBlocks = (
+  existingBlocks: ContentBlock[],
+  synthesizedAgents: AgentContentBlock[],
+): ContentBlock[] => {
+  if (synthesizedAgents.length === 0) return existingBlocks
+
+  const synthesizedByLabel = new Map<string, number>()
+  for (const [index, agent] of synthesizedAgents.entries()) {
+    const label = getProposalBlockLabel(agent)
+    if (label && !synthesizedByLabel.has(label)) {
+      synthesizedByLabel.set(label, index)
+    }
+  }
+  const consumedSynthesized = new Set<number>()
+
+  const takeSynthesized = (
+    index: number | undefined,
+  ): AgentContentBlock | undefined => {
+    if (
+      index === undefined ||
+      index < 0 ||
+      index >= synthesizedAgents.length ||
+      consumedSynthesized.has(index)
+    ) {
+      return undefined
+    }
+
+    consumedSynthesized.add(index)
+    return synthesizedAgents[index]
+  }
+
+  const takeSynthesizedForBlock = (
+    block: AgentContentBlock,
+    proposalOrderIndex: number | undefined,
+  ): AgentContentBlock | undefined => {
+    const label = getProposalBlockLabel(block)
+    const labeledMatch = label
+      ? takeSynthesized(synthesizedByLabel.get(label))
+      : undefined
+    if (labeledMatch) return labeledMatch
+
+    const ordinal = getProposalBlockOrdinal(block)
+    const ordinalMatch =
+      ordinal !== undefined ? takeSynthesized(ordinal - 1) : undefined
+    if (ordinalMatch) return ordinalMatch
+
+    return proposalOrderIndex !== undefined
+      ? takeSynthesized(proposalOrderIndex)
+      : undefined
+  }
+
+  let proposalOrderIndex = 0
+  const mergedBlocks = existingBlocks.map((block) => {
+    if (block.type !== 'agent' || !isImplementorAgent(block)) {
+      return block
+    }
+
+    const fallbackOrderIndex = isInitialProposalBlock(block)
+      ? proposalOrderIndex++
+      : undefined
+    const synthesized = takeSynthesizedForBlock(block, fallbackOrderIndex)
+    if (!synthesized) return block
+
+    return {
+      ...block,
+      agentName: synthesized.agentName || block.agentName,
+      status: block.status === 'failed' ? block.status : synthesized.status,
+      params: {
+        ...(synthesized.params ?? {}),
+        ...(block.params ?? {}),
+      },
+      blocks: mergeSynthesizedProposalToolBlocks(
+        block.blocks ?? [],
+        (synthesized.blocks ?? []).filter(
+          (child): child is ToolContentBlock => child.type === 'tool',
+        ),
+      ),
+    }
+  })
+
+  const remainingSynthesized = synthesizedAgents.filter(
+    (_, index) => !consumedSynthesized.has(index),
+  )
+  return remainingSynthesized.length > 0
+    ? [...mergedBlocks, ...remainingSynthesized]
+    : mergedBlocks
 }
 
 /**

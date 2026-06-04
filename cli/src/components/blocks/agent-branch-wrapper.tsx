@@ -34,6 +34,8 @@ import {
 import {
   isImplementorAgent,
   getImplementorIndex,
+  getImplementationIdIndex,
+  getImplementorPromptPreview,
   getMultiPromptPreview,
 } from '../../utils/implementor-helpers'
 import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
@@ -387,7 +389,7 @@ export const AgentBranchWrapper = memo(
           | string
           | undefined
         if (implementationId) {
-          const letterIndex = implementationId.charCodeAt(0) - 65
+          statusText = 'Selected'
           const implementors = siblingBlocks.filter(
             (b): b is AgentContentBlock =>
               b.type === 'agent' && isImplementorAgent(b),
@@ -395,7 +397,39 @@ export const AgentBranchWrapper = memo(
 
           reason = outputData?.reason as string | undefined
 
-          const selectedAgent = implementors[letterIndex]
+          const selectorCandidates = Array.isArray(
+            agentBlock.params?.implementations,
+          )
+            ? (agentBlock.params.implementations as Array<
+                Record<string, unknown>
+              >)
+            : []
+          const selectedCandidate = selectorCandidates.find(
+            (candidate) => candidate.id === implementationId,
+          )
+          const selectedStrategy =
+            typeof selectedCandidate?.strategy === 'string'
+              ? selectedCandidate.strategy
+              : undefined
+          const selectedByStrategy = selectedStrategy
+            ? implementors.find((implementor) => {
+                const proposalStrategy = implementor.params?.proposalStrategy
+                return (
+                  proposalStrategy === selectedStrategy ||
+                  getImplementorPromptPreview(implementor) === selectedStrategy
+                )
+              })
+            : undefined
+          const canUsePositionalFallback =
+            !/^candidate-\d+$/i.test(implementationId)
+          const implementationIndex = canUsePositionalFallback
+            ? getImplementationIdIndex(implementationId)
+            : undefined
+          const selectedAgent =
+            selectedByStrategy ??
+            (implementationIndex === undefined
+              ? undefined
+              : implementors[implementationIndex])
           if (selectedAgent) {
             const index = getImplementorIndex(selectedAgent, siblingBlocks)
             statusText =

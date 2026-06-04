@@ -379,7 +379,9 @@ Write out your complete implementation now. Do not write any final summary.`,
       ): LedgerArtifact[] {
         const transactionTouchedFiles = new Set(
           successfulInOrder
-            .filter((artifact) => artifact.toolName === 'propose_edit_transaction')
+            .filter(
+              (artifact) => artifact.toolName === 'propose_edit_transaction',
+            )
             .map((artifact) => artifact.result.file)
             .filter(Boolean),
         )
@@ -397,7 +399,8 @@ Write out your complete implementation now. Do not write any final summary.`,
           if (artifact.toolName === 'propose_write_file') {
             if (transactionTouchedFiles.has(file)) {
               const existing = keptByFile.get(file)
-              const artifactForOrderedReplay = stripProposalFinalContentMetadata(artifact)
+              const artifactForOrderedReplay =
+                stripProposalFinalContentMetadata(artifact)
               if (existing) {
                 existing.push(artifactForOrderedReplay)
               } else {
@@ -450,8 +453,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           (artifact) =>
             !isSuccessfulArtifact(artifact) &&
             !(
-              artifact.result.file &&
-              successfulFiles.has(artifact.result.file)
+              artifact.result.file && successfulFiles.has(artifact.result.file)
             ),
         )
 
@@ -474,16 +476,14 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         // Drop failures on files that ultimately succeeded; keep genuine
         // failures as telemetry for the parent's completion/repair path.
-        const toolResults = ledger
-          .filter(
-            (artifact) =>
-              isSuccessfulArtifact(artifact) ||
-              !(
-                artifact.result.file &&
-                successfulFiles.has(artifact.result.file)
-              ),
-          )
-          .map(toToolResult)
+        const resultArtifacts = ledger.filter(
+          (artifact) =>
+            isSuccessfulArtifact(artifact) ||
+            !(
+              artifact.result.file && successfulFiles.has(artifact.result.file)
+            ),
+        )
+        const toolResults = summarizeToolResults(resultArtifacts)
 
         const unifiedDiffs = successful
           .map(
@@ -543,6 +543,81 @@ Write out your complete implementation now. Do not write any final summary.`,
           ...(message ? { message } : {}),
           ...(errorMessage ? { errorMessage } : {}),
         }
+      }
+
+      function getTransactionSignature(
+        artifact: LedgerArtifact,
+      ): string | undefined {
+        try {
+          return JSON.stringify(sanitizeProposalMetadata(artifact.input))
+        } catch {
+          return undefined
+        }
+      }
+
+      function summarizeToolResults(artifacts: LedgerArtifact[]): any[] {
+        const seenTransactions = new Set<string>()
+
+        return artifacts.flatMap((artifact) => {
+          if (
+            artifact.toolName !== 'propose_edit_transaction' ||
+            !isSuccessfulArtifact(artifact)
+          ) {
+            return [toToolResult(artifact)]
+          }
+
+          const signature = getTransactionSignature(artifact)
+          if (!signature) {
+            return [
+              {
+                message:
+                  artifact.result.message ??
+                  `Proposed changes to ${artifact.result.file}`,
+                files: [
+                  {
+                    file: artifact.result.file,
+                    ...(artifact.result.unifiedDiff
+                      ? { unifiedDiff: artifact.result.unifiedDiff }
+                      : {}),
+                    ...(artifact.result.message
+                      ? { messages: [artifact.result.message] }
+                      : {}),
+                  },
+                ],
+              },
+            ]
+          }
+          if (seenTransactions.has(signature)) return []
+          seenTransactions.add(signature)
+
+          const files = artifacts
+            .filter(
+              (candidate) =>
+                candidate.toolName === 'propose_edit_transaction' &&
+                isSuccessfulArtifact(candidate) &&
+                getTransactionSignature(candidate) === signature,
+            )
+            .map((candidate) => ({
+              file: candidate.result.file,
+              ...(candidate.result.unifiedDiff
+                ? { unifiedDiff: candidate.result.unifiedDiff }
+                : {}),
+              ...(candidate.result.message
+                ? { messages: [candidate.result.message] }
+                : {}),
+            }))
+
+          return [
+            {
+              message:
+                artifact.result.message ??
+                `Proposed transaction changing ${files.length} file${
+                  files.length === 1 ? '' : 's'
+                }`,
+              files,
+            },
+          ]
+        })
       }
 
       // Collapse the per-file duplicates a single propose_edit_transaction
@@ -620,8 +695,7 @@ Write out your complete implementation now. Do not write any final summary.`,
           taskText,
           getFilePathPattern(),
         )
-        const explicitBareTaskFileNameCount =
-          countLikelyBareFileNames(taskText)
+        const explicitBareTaskFileNameCount = countLikelyBareFileNames(taskText)
         const numericTouchedFileCount =
           inferExpectedTouchedFileCountFromText(taskText)
         const contextFileHeaderCount = countContextFileHeaders(text)
@@ -924,7 +998,9 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         // Ambiguous standard tasks can still finish cleanly when the provider
         // naturally completes a multi-file bundle in the same step.
-        return coverage.proposedFileCount > 1 && coverage.canCleanAfterQuiescence
+        return (
+          coverage.proposedFileCount > 1 && coverage.canCleanAfterQuiescence
+        )
       }
 
       function getProposalCoverageAssessment(input: {
@@ -1056,7 +1132,9 @@ Write out your complete implementation now. Do not write any final summary.`,
             Array.isArray(message?.tags) &&
             message.tags.includes('PROPOSAL_RETRY'),
         )
-        return lastRetryIndex === -1 ? messages : messages.slice(lastRetryIndex + 1)
+        return lastRetryIndex === -1
+          ? messages
+          : messages.slice(lastRetryIndex + 1)
       }
 
       function hasProposalCompletionSignal(messages: any[]): boolean {
@@ -1195,7 +1273,11 @@ Write out your complete implementation now. Do not write any final summary.`,
 
         for (const match of text.matchAll(pattern)) {
           const fileName = match[1]
-          if (fileName && !fileName.includes('/') && !/\.mdx?$/.test(fileName)) {
+          if (
+            fileName &&
+            !fileName.includes('/') &&
+            !/\.mdx?$/.test(fileName)
+          ) {
             fileNames.add(fileName)
           }
         }

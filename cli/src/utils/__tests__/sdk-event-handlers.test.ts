@@ -672,6 +672,434 @@ describe('sdk-event-handlers', () => {
     })
   })
 
+  test('merges final proposal diffs when a partial live edit block already exists', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'proposal-agent-1',
+        agentName: 'Proposal #1',
+        agentType: 'editor-implementor-proposal-1',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'tool',
+            toolCallId: 'partial-live-proposal-tool',
+            toolName: 'propose_str_replace',
+            input: {},
+            agentId: 'proposal-agent-1',
+            includeToolCall: false,
+          },
+        ],
+        initialPrompt: 'Make the edits',
+      } as any,
+    ])
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'spawn-proposals',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentId: 'proposal-agent-1',
+              agentName: 'Proposal #1',
+              agentType: 'editor-implementor-proposal-1',
+              value: {
+                type: 'structuredOutput',
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'tmp-multieditor-live/notes.ts',
+                        replacements: [
+                          { oldString: 'before', newString: 'after' },
+                        ],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    [
+                      {
+                        file: 'tmp-multieditor-live/notes.ts',
+                        unifiedDiff: '@@ -1 +1 @@\n-before\n+after',
+                      },
+                    ],
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+
+    const toolBlocks = (agentBlock.blocks ?? []).filter(
+      (block) => block.type === 'tool',
+    )
+    expect(toolBlocks).toHaveLength(2)
+
+    const stats = getFileStatsFromBlocks(agentBlock.blocks)
+    expect(stats).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 1, hunks: 1 },
+      },
+    ])
+  })
+
+  test('repairs empty multi-prompt proposal cards from parent summary render data', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'multi-temp',
+        agentName: 'Multi-Prompt Editor',
+        agentType: 'editor-multi-prompt',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'proposal-real-2',
+            agentName: 'Proposal #2',
+            agentType: 'editor-implementor-proposal-direct',
+            content: '',
+            status: 'complete',
+            blocks: [],
+            initialPrompt: 'Minimal edit',
+            params: { proposalLabel: 'Proposal #2' },
+          },
+        ],
+        initialPrompt: 'Run best of N',
+        spawnToolCallId: 'root-spawn',
+        spawnIndex: 0,
+      } as any,
+    ])
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'root-spawn',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentId: 'multi-real',
+              agentName: 'Multi-Prompt Editor',
+              agentType: 'editor-multi-prompt',
+              value: {
+                type: 'structuredOutput',
+                value: {
+                  chosenStrategy: 'Minimal edit',
+                  reason: 'It prepends the requested comment.',
+                  proposalSummary: {
+                    selected: { id: 'B', label: 'Proposal #2' },
+                    applied: { id: 'B', label: 'Proposal #2' },
+                    proposals: [
+                      {
+                        id: 'B',
+                        label: 'Proposal #2',
+                        strategy: 'Minimal edit',
+                        status: 'usable',
+                        toolCalls: [
+                          {
+                            toolName: 'propose_str_replace',
+                            input: {
+                              path: 'tmp-multieditor-live/notes.ts',
+                              replacements: [
+                                {
+                                  oldString: "export const status = 'before'",
+                                  newString:
+                                    "// multi editor smoke test\nexport const status = 'before'",
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                        toolResults: [
+                          {
+                            file: 'tmp-multieditor-live/notes.ts',
+                            unifiedDiff:
+                              "@@ -1,4 +1,5 @@\n+// multi editor smoke test\n export const status = 'before'",
+                          },
+                        ],
+                        unifiedDiffs:
+                          "--- tmp-multieditor-live/notes.ts ---\n@@ -1,4 +1,5 @@\n+// multi editor smoke test\n export const status = 'before'",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    const multiPromptBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(multiPromptBlock.status).toBe('complete')
+
+    const proposalBlocks = (multiPromptBlock.blocks ?? []).filter(
+      (block): block is AgentContentBlock =>
+        block.type === 'agent' && block.agentName === 'Proposal #2',
+    )
+    expect(proposalBlocks).toHaveLength(1)
+    expect(getFileStatsFromBlocks(proposalBlocks[0].blocks)).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
+  })
+
+  test('repairs unlabeled direct proposal cards from parent summary order', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'multi-temp',
+        agentName: 'Multi-Prompt Editor',
+        agentType: 'editor-multi-prompt',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'proposal-real-1',
+            agentName: 'Sonnet',
+            agentType: 'editor-implementor-proposal-direct',
+            content: '',
+            status: 'complete',
+            blocks: [],
+            initialPrompt: 'Add first marker',
+          },
+          {
+            type: 'agent',
+            agentId: 'proposal-real-2',
+            agentName: 'Sonnet',
+            agentType: 'editor-implementor-proposal-direct',
+            content: '',
+            status: 'complete',
+            blocks: [],
+            initialPrompt: 'Add second marker',
+          },
+        ],
+        initialPrompt: 'Run best of N',
+        spawnToolCallId: 'root-spawn',
+        spawnIndex: 0,
+      } as any,
+    ])
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'root-spawn',
+      toolName: 'spawn_agents',
+      output: [
+        {
+          type: 'json',
+          value: [
+            {
+              agentId: 'multi-real',
+              agentName: 'Multi-Prompt Editor',
+              agentType: 'editor-multi-prompt',
+              value: {
+                type: 'structuredOutput',
+                value: {
+                  proposalSummary: {
+                    selected: { id: 'B', label: 'Proposal #2' },
+                    applied: { id: 'B', label: 'Proposal #2' },
+                    proposals: [
+                      {
+                        id: 'A',
+                        label: 'Proposal #1',
+                        strategy: 'Add first marker',
+                        status: 'usable',
+                        toolCalls: [
+                          {
+                            toolName: 'propose_str_replace',
+                            input: {
+                              path: 'tmp-multieditor-live/notes.ts',
+                              replacements: [
+                                {
+                                  oldString: "export const status = 'before'",
+                                  newString:
+                                    "// first proposal\nexport const status = 'before'",
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                        toolResults: [
+                          {
+                            file: 'tmp-multieditor-live/notes.ts',
+                            unifiedDiff:
+                              "@@ -1,4 +1,5 @@\n+// first proposal\n export const status = 'before'",
+                          },
+                        ],
+                        unifiedDiffs:
+                          "--- tmp-multieditor-live/notes.ts ---\n@@ -1,4 +1,5 @@\n+// first proposal\n export const status = 'before'",
+                      },
+                      {
+                        id: 'B',
+                        label: 'Proposal #2',
+                        strategy: 'Add second marker',
+                        status: 'usable',
+                        toolCalls: [
+                          {
+                            toolName: 'propose_str_replace',
+                            input: {
+                              path: 'tmp-multieditor-live/notes.ts',
+                              replacements: [
+                                {
+                                  oldString: "export const status = 'before'",
+                                  newString:
+                                    "// second proposal\nexport const status = 'before'",
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                        toolResults: [
+                          {
+                            file: 'tmp-multieditor-live/notes.ts',
+                            unifiedDiff:
+                              "@@ -1,4 +1,5 @@\n+// second proposal\n export const status = 'before'",
+                          },
+                        ],
+                        unifiedDiffs:
+                          "--- tmp-multieditor-live/notes.ts ---\n@@ -1,4 +1,5 @@\n+// second proposal\n export const status = 'before'",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    } as any)
+
+    const multiPromptBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    const proposalBlocks = (multiPromptBlock.blocks ?? []).filter(
+      (block): block is AgentContentBlock =>
+        block.type === 'agent' &&
+        block.agentType === 'editor-implementor-proposal-direct',
+    )
+
+    expect(proposalBlocks).toHaveLength(2)
+    expect(proposalBlocks.map((block) => block.agentName)).toEqual([
+      'Proposal #1',
+      'Proposal #2',
+    ])
+    expect(proposalBlocks.map((block) => block.params?.proposalOrdinal)).toEqual(
+      [1, 2],
+    )
+    expect(getFileStatsFromBlocks(proposalBlocks[0].blocks)).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
+    expect(getFileStatsFromBlocks(proposalBlocks[1].blocks)).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
+  })
+
+  test('shows live proposal diffs before the multi-prompt parent finishes', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'multi-real',
+        agentName: 'Multi-Prompt Editor',
+        agentType: 'editor-multi-prompt',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'proposal-real-1',
+            agentName: 'Proposal #1',
+            agentType: 'editor-implementor-proposal-direct',
+            content: '',
+            status: 'running',
+            blocks: [],
+            initialPrompt: 'Add marker',
+            params: { proposalLabel: 'Proposal #1', proposalOrdinal: 1 },
+          },
+        ],
+        initialPrompt: 'Run best of N',
+      } as any,
+    ])
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'proposal-tool-1',
+      toolName: 'propose_write_file',
+      agentId: 'proposal-real-1',
+      parentAgentId: 'multi-real',
+      includeToolCall: false,
+      input: {
+        path: 'tmp-multieditor-live/notes.ts',
+        content:
+          "//Checking the proposal card display\nexport const status = 'before'\n",
+      },
+    } as any)
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'proposal-tool-1',
+      toolName: 'propose_write_file',
+      agentId: 'proposal-real-1',
+      parentAgentId: 'multi-real',
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: 'tmp-multieditor-live/notes.ts',
+            message: 'Proposed changes to tmp-multieditor-live/notes.ts',
+            unifiedDiff:
+              "@@ -1,1 +1,2 @@\n+//Checking the proposal card display\n export const status = 'before'",
+          },
+        },
+      ],
+    } as any)
+
+    const multiPromptBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    const proposalBlock = (multiPromptBlock.blocks ?? [])[0] as AgentContentBlock
+    expect(getFileStatsFromBlocks(proposalBlock.blocks)).toEqual([
+      {
+        path: 'tmp-multieditor-live/notes.ts',
+        changeType: 'M',
+        stats: { linesAdded: 1, linesRemoved: 0, hunks: 1 },
+      },
+    ])
+  })
+
   test('attaches live result-only proposal edit blocks by agent id', () => {
     const { ctx, getMessages } = createTestContext()
     const handleEvent = createEventHandler(ctx)

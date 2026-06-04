@@ -32,6 +32,48 @@ export type SendSubagentChunk = (data: {
 
 type ToolName = 'spawn_agents'
 type SpawnAgentReport = { agentType: string } & JSONObject
+type SpawnAgentInput = CodebuffToolCall<ToolName>['input']['agents'][number]
+
+const DEFAULT_MULTI_PROMPT_PROPOSAL_COUNT = 3
+
+function normalizeSpawnAgentInput(agent: SpawnAgentInput): SpawnAgentInput {
+  if (!agent.agent_type.includes('editor-multi-prompt')) {
+    return agent
+  }
+
+  const spawnParams = agent.params
+  if (
+    !spawnParams ||
+    typeof spawnParams !== 'object' ||
+    Array.isArray(spawnParams)
+  ) {
+    return agent
+  }
+
+  const prompts = Array.isArray(spawnParams.prompts)
+    ? spawnParams.prompts
+        .map((prompt) => (typeof prompt === 'string' ? prompt.trim() : ''))
+        .filter(Boolean)
+    : []
+  if (prompts.length !== 1) {
+    return agent
+  }
+
+  const prompt = prompts[0]
+  return {
+    ...agent,
+    params: {
+      ...spawnParams,
+      prompts: [
+        `${prompt}\n\nStrategy: make the smallest localized edit that satisfies the request exactly.`,
+        `${prompt}\n\nStrategy: re-anchor the change against the current file context and preserve every unrelated line.`,
+        `${prompt}\n\nStrategy: use the most robust full-file or bundle edit available from the supplied context, while avoiding unrelated changes.`,
+      ].slice(0, DEFAULT_MULTI_PROMPT_PROPOSAL_COUNT),
+      originalPromptCount: prompts.length,
+      expandedPromptCount: DEFAULT_MULTI_PROMPT_PROPOSAL_COUNT,
+    },
+  }
+}
 
 export const handleSpawnAgents = (async (
   params: {
@@ -82,12 +124,13 @@ export const handleSpawnAgents = (async (
     writeToClient,
   } = params
   const { agents } = toolCall.input
+  const normalizedAgents = agents.map(normalizeSpawnAgentInput)
   const { logger } = params
 
   await previousToolCallFinished
 
   const results = await Promise.allSettled(
-    agents.map(
+    normalizedAgents.map(
       async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
           ...params,
@@ -119,7 +162,7 @@ export const handleSpawnAgents = (async (
           parentAgentState,
           agentState: subAgentState,
           fingerprintId,
-          isOnlyChild: agents.length === 1,
+          isOnlyChild: normalizedAgents.length === 1,
           excludeToolFromMessageHistory: false,
           fromHandleSteps: false,
           parentSystemPrompt,
@@ -202,7 +245,7 @@ export const handleSpawnAgents = (async (
           value: normalizeSpawnedAgentOutput(output) as JSONValue,
         }
       } else {
-        const agentTypeStr = agents[index].agent_type
+        const agentTypeStr = normalizedAgents[index].agent_type
         return {
           agentType: agentTypeStr,
           agentName: agentTypeStr,
@@ -214,7 +257,7 @@ export const handleSpawnAgents = (async (
 
   // Aggregate costs from subagents
   results.forEach((result, index) => {
-    const agentInfo = agents[index]
+    const agentInfo = normalizedAgents[index]
     let subAgentCredits = 0
 
     if (result.status === 'fulfilled') {

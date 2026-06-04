@@ -176,6 +176,7 @@ function* handleStepsMultiPrompt({
     content: string
     toolCalls: ProposedToolCall[]
     toolResults?: any[]
+    unifiedDiffs?: string
     unverifiedPaths?: string[]
     stopReason?: string
     proposalProgress?: ProposalProgress
@@ -352,6 +353,7 @@ function* handleStepsMultiPrompt({
       const toolCalls = getUsableProposalToolCalls(result)
       const toolResults = getUsableProposalToolResultsFromResult(result)
       const hasLedgerDiffs = getSuccessfulLedgerDiffResults(result).length > 0
+      const unifiedDiffs = buildLedgerUnifiedDiffs(result)
       const proposalStatus = formatProposalStatus(result)
 
       return {
@@ -360,7 +362,7 @@ function* handleStepsMultiPrompt({
         label: getInitialProposalLabel(index),
         content: hasLedgerDiffs
           ? [
-              buildLedgerUnifiedDiffs(result),
+              unifiedDiffs,
               proposalStatus,
             ]
               .filter(Boolean)
@@ -371,6 +373,7 @@ function* handleStepsMultiPrompt({
             }`,
         toolCalls,
         toolResults,
+        unifiedDiffs,
         unverifiedPaths: getUnverifiedStrReplacePaths(result),
         stopReason: result.stopReason,
         proposalProgress: result.proposalProgress,
@@ -766,10 +769,7 @@ function* handleStepsMultiPrompt({
             selectorChoiceId,
           }),
           toolResults: getCleanAppliedToolResults(finalAppliedResults),
-          suggestedImprovements: appendDiagnosticMessage(
-            suggestedImprovements,
-            coverageWarning,
-          ),
+          suggestedImprovements: coverageWarning,
           proposalSummary: buildProposalSummary({
             selectedImplementation: chosenImplementation,
             appliedImplementation: chosenImplementation,
@@ -1096,9 +1096,14 @@ function* handleStepsMultiPrompt({
   }
 
   function getProposalToolCallPath(toolCall: ProposedToolCall): string {
-    return isObject(toolCall.input) && typeof toolCall.input.path === 'string'
-      ? normalizePrefetchPath(toolCall.input.path)
-      : ''
+    if (!isObject(toolCall.input)) return ''
+    const rawPath =
+      typeof toolCall.input.__proposalFile === 'string'
+        ? toolCall.input.__proposalFile
+        : typeof toolCall.input.path === 'string'
+          ? toolCall.input.path
+          : ''
+    return rawPath ? normalizePrefetchPath(rawPath) : ''
   }
 
   function getUnanchoredForeignLanguageProposalPaths(
@@ -1385,8 +1390,28 @@ function* handleStepsMultiPrompt({
   function isPartialImplementation(implementation: Implementation): boolean {
     return (
       implementation.partial === true ||
-      isPartialStopReason(implementation.stopReason)
+      isPartialStopReason(implementation.stopReason) ||
+      hasExplicitCoverageShortfall(implementation)
     )
+  }
+
+  function hasExplicitCoverageShortfall(
+    implementation: Implementation,
+  ): boolean {
+    const expectedTouchedFileCount =
+      implementation.proposalBudget?.expectedTouchedFileCount ?? 0
+    if (
+      expectedTouchedFileCount <= 1 ||
+      implementation.proposalBudget?.hasExplicitExpectedTouchedFileCount !==
+        true
+    ) {
+      return false
+    }
+
+    const changedFileCount = new Set(
+      extractImplementationFilePaths(implementation),
+    ).size
+    return changedFileCount > 0 && changedFileCount < expectedTouchedFileCount
   }
 
   function isPartialStopReason(stopReason: unknown): boolean {
@@ -1402,6 +1427,18 @@ function* handleStepsMultiPrompt({
       typeof result.stopReason === 'string' ? result.stopReason : ''
     const recoveredFromTimeout =
       result.proposalProgress?.recoveredFromTimeout === true
+    const expectedTouchedFileCount =
+      result.proposalBudget?.expectedTouchedFileCount ?? 0
+    const changedFileCount = new Set(extractProposalResultFilePaths(result)).size
+
+    if (
+      result.proposalBudget?.hasExplicitExpectedTouchedFileCount === true &&
+      expectedTouchedFileCount > 1 &&
+      changedFileCount > 0 &&
+      changedFileCount < expectedTouchedFileCount
+    ) {
+      return `Proposal status: partial coverage; changed ${changedFileCount} of ${expectedTouchedFileCount} explicitly expected file(s). Treat this as incomplete unless a later completion/repair pass adds the missing files.`
+    }
 
     if (!isPartialStopReason(stopReason)) {
       return recoveredFromTimeout
@@ -1614,9 +1651,11 @@ function* handleStepsMultiPrompt({
     result: ProposalResult | ProposalFailure | undefined,
   ): any[] {
     return filterProposalToolResultsForContext(
-      filterIgnorableNoOpEditFailures(
-        sanitizeRecoverableMixedEditResults(
-          normalizeProposalResultPaths(getProposalResultToolResults(result)),
+      filterNonSubstantiveDiffResults(
+        filterIgnorableNoOpEditFailures(
+          sanitizeRecoverableMixedEditResults(
+            normalizeProposalResultPaths(getProposalResultToolResults(result)),
+          ),
         ),
       ),
     )
@@ -1676,10 +1715,10 @@ function* handleStepsMultiPrompt({
     }
 
     if (typeof result.unifiedDiff === 'string') {
-      return result.unifiedDiff.trim().length > 0
+      return hasSubstantiveDiff(result.unifiedDiff)
     }
     if (typeof result.patch === 'string') {
-      return result.patch.trim().length > 0
+      return hasSubstantiveDiff(result.patch)
     }
     if (typeof result.content === 'string') {
       return true
@@ -1756,11 +1795,21 @@ function* handleStepsMultiPrompt({
   }
 
   function isSuccessfulEditResultForNoOpFiltering(result: any): boolean {
+    if (
+      result &&
+      typeof result === 'object' &&
+      getEditResultPath(result) &&
+      !getEditResultFailureMessage(result) &&
+      typeof result.message === 'string'
+    ) {
+      return true
+    }
+
     return Boolean(
       result &&
       typeof result === 'object' &&
       getEditResultPath(result) &&
-      !getEditResultFailureMessage(result),
+      isSuccessfulEditResult(result),
     )
   }
 
@@ -1787,10 +1836,10 @@ function* handleStepsMultiPrompt({
     }
 
     if (typeof result.unifiedDiff === 'string') {
-      return result.unifiedDiff.trim().length > 0
+      return hasSubstantiveDiff(result.unifiedDiff)
     }
     if (typeof result.patch === 'string') {
-      return result.patch.trim().length > 0
+      return hasSubstantiveDiff(result.patch)
     }
     if (typeof result.content === 'string') {
       return true
@@ -2080,14 +2129,19 @@ function* handleStepsMultiPrompt({
   }): ProposalOrchestrationPlan {
     const { requestContext, prompts } = params
     const promptText = prompts.join('\n')
-    const taskText = extractTaskFacingProposalContext(
+    const taskFacingContext = extractTaskFacingProposalContext(
       `${promptText}\n${requestContext}`,
     )
+    const currentTaskText =
+      extractCurrentTaskText(taskFacingContext) || taskFacingContext
     const contextFileHints = extractContextFileHeaders(requestContext)
-    const explicitTaskPaths = extractLikelyFilePaths([promptText, taskText])
+    const explicitTaskPaths = extractLikelyFilePaths([
+      promptText,
+      currentTaskText,
+    ])
     const explicitBareTaskFileNames = extractLikelyBareFileNames([
       promptText,
-      taskText,
+      currentTaskText,
     ])
     const editableExplicitTaskPaths =
       explicitTaskPaths.filter(isLikelyEditablePath)
@@ -2100,10 +2154,13 @@ function* handleStepsMultiPrompt({
     const targetFileHints = dedupeStrings([
       ...bareMatchedContextFileHints,
       ...editableExplicitTaskPaths,
-      ...editableContextFileHints,
+      ...(editableExplicitTaskPaths.length === 0 &&
+      bareMatchedContextFileHints.length === 0
+        ? editableContextFileHints
+        : []),
     ]).slice(0, 18)
     const numericTouchedFileCount =
-      inferExpectedTouchedFileCountFromText(taskText)
+      inferExpectedTouchedFileCountFromText(currentTaskText)
     const expectedTouchedFileCount = Math.min(
       20,
       Math.max(
@@ -2114,9 +2171,11 @@ function* handleStepsMultiPrompt({
     )
     const searchPatternCount = extractLikelySearchPatterns([
       promptText,
-      taskText,
+      currentTaskText,
     ]).length
-    const complexSignals = countComplexTaskSignals(`${promptText}\n${taskText}`)
+    const complexSignals = countComplexTaskSignals(
+      `${promptText}\n${currentTaskText}`,
+    )
     const contextLength = requestContext.length
     const evidence: string[] = []
 
@@ -2289,7 +2348,7 @@ function* handleStepsMultiPrompt({
   }
 
   function isLikelyEditablePath(path: string): boolean {
-    return !/^docs\//.test(path) && !/\.mdx?$/.test(path)
+    return shouldPrefetchPath(path)
   }
 
   function extractTaskFacingProposalContext(value: unknown): string {
@@ -2298,6 +2357,22 @@ function* handleStepsMultiPrompt({
       '\nCurrent file/search context already gathered by the parent agent:'
     const markerIndex = value.indexOf(contextMarker)
     return markerIndex === -1 ? value : value.slice(0, markerIndex)
+  }
+
+  function extractCurrentTaskText(value: string): string {
+    const latestMarker = 'Latest user request:\n- '
+    const latestIndex = value.indexOf(latestMarker)
+    if (latestIndex === -1) return ''
+
+    const start = latestIndex + latestMarker.length
+    const nextSectionIndex = value.indexOf(
+      '\n\nRelevant earlier user requests',
+      start,
+    )
+    return (nextSectionIndex === -1
+      ? value.slice(start)
+      : value.slice(start, nextSectionIndex)
+    ).trim()
   }
 
   function inferExpectedTouchedFileCountFromText(text: string): number {
@@ -2897,11 +2972,18 @@ function* handleStepsMultiPrompt({
       .map((message) => formatToolContext(message, maxToolChars))
       .filter((text) => text.trim().length > 0)
 
+    const latestUserRequest = userRequests[userRequests.length - 1]
+    const earlierUserRequests = userRequests.slice(0, -1)
+
     const parts = [
-      userRequests.length > 0
-        ? ['User requests:', ...userRequests.map((text) => `- ${text}`)].join(
-            '\n',
-          )
+      latestUserRequest
+        ? ['Latest user request:', `- ${latestUserRequest}`].join('\n')
+        : '',
+      earlierUserRequests.length > 0
+        ? [
+            'Relevant earlier user requests (context only; do not treat these as required edits unless the latest request explicitly refers to them):',
+            ...earlierUserRequests.map((text) => `- ${text}`),
+          ].join('\n')
         : '',
       toolContexts.length > 0
         ? [
@@ -3367,6 +3449,7 @@ function* handleStepsMultiPrompt({
       content: buildLedgerUnifiedDiffs(completionResult),
       toolCalls: getUsableProposalToolCalls(completionResult),
       toolResults: getUsableProposalToolResultsFromResult(completionResult),
+      unifiedDiffs: buildLedgerUnifiedDiffs(completionResult),
       unverifiedPaths: getUnverifiedStrReplacePaths(completionResult),
       stopReason: completedStopReason,
       proposalProgress: completionResult.proposalProgress,
@@ -3787,6 +3870,33 @@ function* handleStepsMultiPrompt({
     { success: boolean; toolResults: any[] },
     any
   > {
+    const validationSuccessResults =
+      buildDryRunValidationSuccessResults(chosenImplementation)
+    const validationFailures: string[] = []
+
+    for (const toolCall of chosenImplementation.toolCalls) {
+      if (toolCall.toolName !== 'propose_write_file') continue
+
+      const rawPath = getProposalToolCallPath(toolCall)
+      if (!rawPath) {
+        validationFailures.push('write_file proposal is missing a target path.')
+        continue
+      }
+
+      const input = isObject(toolCall.input) ? toolCall.input : {}
+      const finalContent =
+        typeof input.__proposalFinalContent === 'string'
+          ? input.__proposalFinalContent
+          : typeof input.content === 'string'
+            ? input.content
+            : undefined
+      if (typeof finalContent !== 'string') {
+        validationFailures.push(
+          `write_file proposal for ${rawPath} is missing final file content.`,
+        )
+      }
+    }
+
     const strReplacePaths = dedupeStrings(
       chosenImplementation.toolCalls
         .filter((tc) => tc.toolName === 'propose_str_replace')
@@ -3808,7 +3918,6 @@ function* handleStepsMultiPrompt({
         }
       }
 
-      const validationFailures: string[] = []
       for (const toolCall of chosenImplementation.toolCalls) {
         if (toolCall.toolName !== 'propose_str_replace') continue
         const rawPath =
@@ -3861,28 +3970,61 @@ function* handleStepsMultiPrompt({
           validationFailures.push(...dryRunResult.failures)
         }
       }
+    }
 
-      if (validationFailures.length > 0) {
-        return {
-          success: false,
-          toolResults: [
-            {
-              toolName: 'str_replace',
-              errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
-            },
-          ],
-        }
+    if (validationFailures.length > 0) {
+      return {
+        success: false,
+        toolResults: [
+          {
+            toolName: 'str_replace',
+            errorMessage: `Dry-run validation failed:\n${validationFailures.join('\n')}`,
+          },
+        ],
       }
     }
 
     return {
       success: true,
-      toolResults: [
-        {
-          message: 'Dry-run validation passed',
-        },
-      ],
+      toolResults:
+        validationSuccessResults.length > 0
+          ? validationSuccessResults
+          : [
+              {
+                message: 'Dry-run validation passed',
+              },
+            ],
     }
+  }
+
+  function buildDryRunValidationSuccessResults(
+    chosenImplementation: Implementation,
+  ): any[] {
+    const ledgerResults = getSuccessfulLedgerDiffResults(chosenImplementation)
+    if (ledgerResults.length > 0) {
+      return ledgerResults.map((result) => {
+        const path = getEditResultPath(result)
+        return {
+          ...result,
+          ...(path ? { file: path } : {}),
+          message:
+            typeof result.message === 'string' && result.message.trim()
+              ? result.message
+              : path
+                ? `Dry-run validation passed for ${path}`
+                : 'Dry-run validation passed',
+        }
+      })
+    }
+
+    return dedupeStrings(
+      chosenImplementation.toolCalls
+        .map(getProposalToolCallPath)
+        .filter(Boolean),
+    ).map((path) => ({
+      file: normalizeProposalPath(path),
+      message: `Dry-run validation passed for ${normalizeProposalPath(path)}`,
+    }))
   }
 
   function isFileReadFailureContent(content: string): boolean {
@@ -4018,6 +4160,7 @@ function* handleStepsMultiPrompt({
       content: buildLedgerUnifiedDiffs(repairResult),
       toolCalls: getUsableProposalToolCalls(repairResult),
       toolResults: getUsableProposalToolResultsFromResult(repairResult),
+      unifiedDiffs: buildLedgerUnifiedDiffs(repairResult),
       unverifiedPaths: getUnverifiedStrReplacePaths(repairResult),
       stopReason: repairResult.stopReason,
       proposalProgress: repairResult.proposalProgress,
@@ -4051,7 +4194,7 @@ function* handleStepsMultiPrompt({
         'Failed proposal tool calls:',
         truncateText(safeJsonStringify(failedImplementation.toolCalls), 16_000),
         '',
-        'Apply failure details:',
+        'Apply/verification details:',
         failureSummary,
         '',
         'Repair goal: re-emit the complete corrected edit proposal against the supplied current files.',
@@ -4252,10 +4395,6 @@ function* handleStepsMultiPrompt({
     return `Coverage warning: applied ${appliedFiles.length} of ${proposedFiles.length} proposed file(s). Proposed files: ${proposedFiles.join(', ')}. Proposed files not applied: ${missingProposedFiles.join(', ')}.`
   }
 
-  function appendDiagnosticMessage(...messages: string[]): string {
-    return messages.map((message) => message.trim()).filter(Boolean).join('\n')
-  }
-
   function buildIncompleteCoverageError(coverageWarning: string): string {
     return `Failed to fully apply the chosen implementation: it did not apply every file it proposed to edit, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
   }
@@ -4342,6 +4481,16 @@ function* handleStepsMultiPrompt({
             evidence: implementation.proposalBudget.evidence,
           }
         : undefined
+      const renderToolCalls = implementation.toolCalls.filter(
+        isProposalEditToolCall,
+      )
+      const renderToolResults = Array.isArray(implementation.toolResults)
+        ? implementation.toolResults
+        : []
+      const renderUnifiedDiffs =
+        typeof implementation.unifiedDiffs === 'string'
+          ? implementation.unifiedDiffs.trim()
+          : ''
       return {
         id: implementation.id,
         label: getImplementationLabel(implementation),
@@ -4360,6 +4509,11 @@ function* handleStepsMultiPrompt({
           ? { progress: implementation.proposalProgress }
           : {}),
         ...(budget ? { budget } : {}),
+        ...(renderToolCalls.length > 0 ? { toolCalls: renderToolCalls } : {}),
+        ...(renderToolResults.length > 0
+          ? { toolResults: renderToolResults }
+          : {}),
+        ...(renderUnifiedDiffs ? { unifiedDiffs: renderUnifiedDiffs } : {}),
       }
     })
 
@@ -4471,10 +4625,10 @@ function* handleStepsMultiPrompt({
     // file edit. A bare object with no path/error can otherwise make the
     // multi-editor claim success even though no real change was recorded.
     if (typeof result.unifiedDiff === 'string') {
-      return result.unifiedDiff.trim().length > 0
+      return hasSubstantiveDiff(result.unifiedDiff)
     }
     if (typeof result.patch === 'string') {
-      return result.patch.trim().length > 0
+      return hasSubstantiveDiff(result.patch)
     }
     if (typeof result.content === 'string') {
       return true
@@ -4495,16 +4649,69 @@ function* handleStepsMultiPrompt({
           : '',
       )
       .filter(Boolean)
+    if (errors.length > 0) {
+      return errors.join('\n')
+    }
 
-    return errors.length > 0
-      ? errors.join('\n')
-      : 'No successful edit result was returned.'
+    const successes = values.filter(isSuccessfulAppliedEditResult)
+    if (successes.length > 0) {
+      const paths = dedupeStrings(
+        successes.map(getEditResultPath).filter(Boolean),
+      )
+      return paths.length > 0
+        ? `Edit validation/apply succeeded for: ${paths.join(', ')}`
+        : 'Edit validation/apply succeeded.'
+    }
+
+    return 'No successful edit result was returned.'
   }
 
   function getCleanAppliedToolResults(appliedToolResults: any[]): any[] {
-    return filterIgnorableNoOpEditFailures(
-      flattenToolResultValues(appliedToolResults),
+    return filterNonSubstantiveDiffResults(
+      filterIgnorableNoOpEditFailures(
+        flattenToolResultValues(appliedToolResults),
+      ),
     )
+  }
+
+  function filterNonSubstantiveDiffResults(results: any[]): any[] {
+    return results.filter((result) => !isNonSubstantiveDiffOnlyResult(result))
+  }
+
+  function isNonSubstantiveDiffOnlyResult(result: any): boolean {
+    if (!result || typeof result !== 'object') return false
+    if (getEditResultFailureMessage(result)) return false
+    if (typeof result.content === 'string') return false
+
+    const diff =
+      typeof result.unifiedDiff === 'string'
+        ? result.unifiedDiff
+        : typeof result.patch === 'string'
+          ? result.patch
+          : ''
+    return Boolean(diff.trim()) && !hasSubstantiveDiff(diff)
+  }
+
+  function hasSubstantiveDiff(diff: string): boolean {
+    const trimmed = diff.trim()
+    if (!trimmed) return false
+
+    const lines = trimmed.split('\n')
+    const hasContentChange = lines.some((line) => {
+      if (!line.startsWith('+') && !line.startsWith('-')) return false
+      if (line.startsWith('+++') || line.startsWith('---')) return false
+      return true
+    })
+    if (hasContentChange) return true
+
+    const hasDiffMetadata = lines.some((line) =>
+      /^(?:Index: |={3,}$|--- |\+\+\+ |diff --git )/.test(line),
+    )
+    if (hasDiffMetadata) return false
+
+    // Tests use abbreviated "@@ diff" fixtures. Real tool output includes file
+    // headers, so header-only production diffs are still rejected above.
+    return lines.some((line) => line.trim().startsWith('@@'))
   }
 
   function flattenToolResultValues(toolResults: any[]): any[] {
@@ -4990,6 +5197,13 @@ function* handleStepsMultiPrompt({
       return workspaceCommands
     }
 
+    if (
+      projectInfo.workspaces.length > 0 &&
+      !shouldUseRootVerificationCommands(implementation)
+    ) {
+      return []
+    }
+
     if (projectInfo.hasTypecheckScript) {
       commands.push({
         kind: 'typecheck',
@@ -5010,14 +5224,41 @@ function* handleStepsMultiPrompt({
     }
 
     if (projectInfo.hasTestScript) {
-      commands.push({
-        kind: 'test',
-        label: 'Tests',
-        command: pm === 'npm' ? 'npm test' : `${pm} test`,
-      })
+      // In a workspace monorepo, the root test script is usually an aggregate
+      // suite and can include unrelated e2e/API-key checks. If the touched file
+      // did not map to a workspace package with its own test script, do not let
+      // the broad root suite block a locally valid proposal. Root typecheck still
+      // runs above when available.
+      if (projectInfo.workspaces.length === 0) {
+        commands.push({
+          kind: 'test',
+          label: 'Tests',
+          command: pm === 'npm' ? 'npm test' : `${pm} test`,
+        })
+      }
     }
 
     return commands
+  }
+
+  function shouldUseRootVerificationCommands(
+    implementation: Implementation,
+  ): boolean {
+    return getImplementationTouchedPaths(implementation).some(
+      isRootVerificationPath,
+    )
+  }
+
+  function isRootVerificationPath(path: string): boolean {
+    const normalizedPath = normalizePrefetchPath(path)
+    if (!normalizedPath) return false
+    if (!normalizedPath.includes('/')) return true
+
+    return (
+      normalizedPath.startsWith('.github/') ||
+      normalizedPath.startsWith('scripts/') ||
+      normalizedPath.startsWith('config/')
+    )
   }
 
   function buildPackageManagerRunCommand(
@@ -5051,6 +5292,26 @@ function* handleStepsMultiPrompt({
       }
     | undefined {
     const lines = stdout.trim().split('\n').filter(Boolean)
+    const base64Prefix = 'CODEBUFF_VERIFY_RESULT_BASE64:'
+    const encodedLine = [...lines]
+      .reverse()
+      .find((line) => line.startsWith(base64Prefix))
+    if (encodedLine) {
+      try {
+        const parsed = JSON.parse(
+          Buffer.from(
+            encodedLine.slice(base64Prefix.length),
+            'base64',
+          ).toString('utf8'),
+        )
+        return isObject(parsed) && Array.isArray(parsed.outputs)
+          ? (parsed as any)
+          : undefined
+      } catch {
+        return undefined
+      }
+    }
+
     const lastLine = lines[lines.length - 1]
     if (!lastLine) return undefined
     try {
@@ -5241,7 +5502,8 @@ try {
       break
     }
   }
-  console.log(JSON.stringify({ outputs }))
+  const encodedOutputs = Buffer.from(JSON.stringify({ outputs }), 'utf8').toString('base64')
+  console.log('CODEBUFF_VERIFY_RESULT_BASE64:' + encodedOutputs)
   process.exit(ok ? 0 : 1)
 } catch (error) {
   console.error(error && error.stack ? error.stack : String(error))

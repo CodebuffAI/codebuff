@@ -2,11 +2,11 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-**Openbuff** is a local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible providers.
+**Openbuff** is an independent, local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible providers. It is focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions.
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
-> **Fork & compatibility note:** Openbuff is a fork of Codebuff focused on local-first, bring-your-own-key (BYOK) usage with user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
+> **Fork & compatibility note:** Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. You provide your own keys for user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
 
 <div align="center">
   <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
