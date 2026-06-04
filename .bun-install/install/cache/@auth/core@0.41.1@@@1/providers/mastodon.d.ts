@@ -8,25 +8,25 @@
  *
  * @module providers/mastodon
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface MastodonProfile extends Record<string, any> {
-    id: string;
-    username: string;
-    acct: string;
-    display_name: string;
-    locked: boolean;
-    bot: boolean;
-    created_at: string;
-    note: string;
-    url: string;
-    avatar: string;
-    avatar_static: string;
-    header: string;
-    header_static: string;
-    followers_count: number;
-    following_count: number;
-    statuses_count: number;
-    last_status_at: string | null;
+  id: string
+  username: string
+  acct: string
+  display_name: string
+  locked: boolean
+  bot: boolean
+  created_at: string
+  note: string
+  url: string
+  avatar: string
+  avatar_static: string
+  header: string
+  header_static: string
+  followers_count: number
+  following_count: number
+  statuses_count: number
+  last_status_at: string | null
 }
 /**
  * Add Mastodon login to your page.
@@ -84,7 +84,9 @@ export interface MastodonProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Mastodon<P extends MastodonProfile>(options: OAuthUserConfig<P> & {
-    issuer: string;
-}): OAuthConfig<P>;
+export default function Mastodon<P extends MastodonProfile>(
+  options: OAuthUserConfig<P> & {
+    issuer: string
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=mastodon.d.ts.map

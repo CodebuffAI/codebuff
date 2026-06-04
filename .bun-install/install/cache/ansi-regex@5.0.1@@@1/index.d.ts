@@ -1,12 +1,12 @@
 declare namespace ansiRegex {
-	interface Options {
-		/**
+  interface Options {
+    /**
 		Match only the first ANSI escape.
 
 		@default false
 		*/
-		onlyFirst: boolean;
-	}
+    onlyFirst: boolean
+  }
 }
 
 /**
@@ -32,6 +32,6 @@ ansiRegex().test('cake');
 //=> ['\u001B]8;;https://github.com\u0007', '\u001B]8;;\u0007']
 ```
 */
-declare function ansiRegex(options?: ansiRegex.Options): RegExp;
+declare function ansiRegex(options?: ansiRegex.Options): RegExp
 
-export = ansiRegex;
+export = ansiRegex

@@ -1,2 +1,2 @@
-import { multiply } from './index';
-export = multiply;
+import { multiply } from './index'
+export = multiply

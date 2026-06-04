@@ -1,2 +1,2 @@
-import { propertyOf } from "./index";
-export = propertyOf;
+import { propertyOf } from './index'
+export = propertyOf

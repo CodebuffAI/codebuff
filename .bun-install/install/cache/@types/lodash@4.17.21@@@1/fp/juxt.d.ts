@@ -1,2 +1,2 @@
-import { juxt } from "../fp";
-export = juxt;
+import { juxt } from '../fp'
+export = juxt

@@ -1,4 +1,4 @@
-import { Command } from '../command';
+import { Command } from '../command'
 /**
  * DocOpts - See http://docopt.org/.
  *
@@ -56,14 +56,18 @@ import { Command } from '../command';
  *
  */
 export declare class DocOpts {
-    private cmd;
-    private flagList;
-    private flagMap;
-    constructor(cmd: Command.Loadable);
-    static formatUsageType(flag: Command.Flag.Any, showFlagName: boolean, showOptions: boolean): string;
-    static generate(cmd: Command.Loadable): string;
-    toString(): string;
-    private combineElementsToFlag;
-    private generateElements;
-    private groupFlagElements;
+  private cmd
+  private flagList
+  private flagMap
+  constructor(cmd: Command.Loadable)
+  static formatUsageType(
+    flag: Command.Flag.Any,
+    showFlagName: boolean,
+    showOptions: boolean,
+  ): string
+  static generate(cmd: Command.Loadable): string
+  toString(): string
+  private combineElementsToFlag
+  private generateElements
+  private groupFlagElements
 }

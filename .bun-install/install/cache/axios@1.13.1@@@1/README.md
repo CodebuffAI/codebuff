@@ -1,4 +1,3 @@
-
 <h3 align="center"> 🥇 Gold sponsors <br> </h3> <table align="center" width="100%"><tr width="33.333333333333336%"><td align="center" width="33.333333333333336%"> <a href="https://stytch.com/?utm_source&#x3D;oss-sponsorship&amp;utm_medium&#x3D;paid_sponsorship&amp;utm_content&#x3D;website-link&amp;utm_campaign&#x3D;axios-http" style="padding: 10px; display: inline-block" target="_blank"> <picture> <source width="200px" height="38px" media="(prefers-color-scheme: dark)" srcset="https://axios-http.com/assets/sponsors/stytch_white.png"> <img width="200px" height="38px" src="https://axios-http.com/assets/sponsors/stytch.png" alt="Stytch"/> </picture> </a> <p align="center" title="API-first authentication, authorization, and fraud prevention">API-first authentication, authorization, and fraud prevention</p> <p align="center"> <a href="https://stytch.com/?utm_source&#x3D;oss-sponsorship&amp;utm_medium&#x3D;paid_sponsorship&amp;utm_content&#x3D;website-link&amp;utm_campaign&#x3D;axios-http" target="_blank"><b>Website</b></a> | <a href="https://stytch.com/docs?utm_source&#x3D;oss-sponsorship&amp;utm_medium&#x3D;paid_sponsorship&amp;utm_content&#x3D;docs-link&amp;utm_campaign&#x3D;axios-http" target="_blank"><b>Documentation</b></a> | <a href="https://github.com/stytchauth/stytch-node?utm_source&#x3D;oss-sponsorship&amp;utm_medium&#x3D;paid_sponsorship&amp;utm_content&#x3D;node-sdk&amp;utm_campaign&#x3D;axios-http" target="_blank"><b>Node.js</b></a> </p>
 </td><td align="center" width="33.333333333333336%"> <a href="https://www.principal.com/about-us?utm_source&#x3D;axios&amp;utm_medium&#x3D;sponsorlist&amp;utm_campaign&#x3D;sponsorship" style="padding: 10px; display: inline-block" target="_blank"> <img width="133px" height="43px" src="https://axios-http.com/assets/sponsors/principal.svg" alt="Principal Financial Group"/> </a> <p align="center" title="We’re bound by one common purpose: to give you the financial tools, resources and information you need to live your best life.">We’re bound by one common purpose: to give you the financial tools, resources and information you ne...</p> <p align="center"> <a href="https://www.principal.com/about-us?utm_source&#x3D;axios&amp;utm_medium&#x3D;readme_sponsorlist&amp;utm_campaign&#x3D;sponsorship" target="_blank"><b>www.principal.com</b></a> </p>
 </td><td align="center" width="33.333333333333336%"> <a href="https://twicsy.com/buy-instagram-followers?utm_source&#x3D;axios&amp;utm_medium&#x3D;sponsorlist&amp;utm_campaign&#x3D;sponsorship" style="padding: 10px; display: inline-block" target="_blank"> <img width="85px" height="70px" src="https://axios-http.com/assets/sponsors/opencollective/dfa9670ad5e66eea17315332453c7f4e3a3b5905.png" alt="Buy Instagram Followers Twicsy"/> </a> <p align="center" title="Buy real Instagram followers from Twicsy starting at only $2.97. Twicsy has been voted the best site to buy followers from the likes of US Magazine.">Buy real Instagram followers from Twicsy starting at only $2.97. Twicsy has been voted the best site...</p> <p align="center"> <a href="https://twicsy.com/buy-instagram-followers?utm_source&#x3D;axios&amp;utm_medium&#x3D;readme_sponsorlist&amp;utm_campaign&#x3D;sponsorship" target="_blank"><b>twicsy.com</b></a> </p>
@@ -14,7 +13,9 @@
 </td></tr></table>
 
 <!--<div>marker</div>-->
+
 <br><br>
+
 <div align="center">
    <a href="https://axios-http.com"><img src="https://axios-http.com/assets/logo.svg" alt="Axios" /></a><br>
 </div>
@@ -41,78 +42,75 @@
 [![Known Vulnerabilities](https://snyk.io/test/npm/axios/badge.svg)](https://snyk.io/test/npm/axios)
 [![Contributors](https://img.shields.io/github/contributors/axios/axios.svg?style=flat-square)](CONTRIBUTORS.md)
 
-
-
-
 </div>
 
 ## Table of Contents
 
-  - [Features](#features)
-  - [Browser Support](#browser-support)
-  - [Installing](#installing)
-    - [Package manager](#package-manager)
-    - [CDN](#cdn)
-  - [Example](#example)
-  - [Axios API](#axios-api)
-  - [Request method aliases](#request-method-aliases)
-  - [Concurrency 👎](#concurrency-deprecated)
-  - [Creating an instance](#creating-an-instance)
-  - [Instance methods](#instance-methods)
-  - [Request Config](#request-config)
-  - [Response Schema](#response-schema)
-  - [Config Defaults](#config-defaults)
-    - [Global axios defaults](#global-axios-defaults)
-    - [Custom instance defaults](#custom-instance-defaults)
-    - [Config order of precedence](#config-order-of-precedence)
-  - [Interceptors](#interceptors)
-    - [Multiple Interceptors](#multiple-interceptors)
-  - [Handling Errors](#handling-errors)
-  - [Cancellation](#cancellation)
-    - [AbortController](#abortcontroller)
-    - [CancelToken 👎](#canceltoken-deprecated)
-  - [Using application/x-www-form-urlencoded format](#using-applicationx-www-form-urlencoded-format)
-    - [URLSearchParams](#urlsearchparams)
-    - [Query string](#query-string-older-browsers)
-    - [🆕 Automatic serialization](#-automatic-serialization-to-urlsearchparams)
-  - [Using multipart/form-data format](#using-multipartform-data-format)
-    - [FormData](#formdata)
-    - [🆕 Automatic serialization](#-automatic-serialization-to-formdata)
-  - [Files Posting](#files-posting)
-  - [HTML Form Posting](#-html-form-posting-browser)
-  - [🆕 Progress capturing](#-progress-capturing)
-  - [🆕 Rate limiting](#-rate-limiting)
-  - [🆕 AxiosHeaders](#-axiosheaders)
-  - [🔥 Fetch adapter](#-fetch-adapter)
-    - [🔥 Custom fetch](#-custom-fetch)
-      - [🔥 Using with Tauri](#-using-with-tauri)
-      - [🔥 Using with SvelteKit](#-using-with-sveltekit-)
-  - [🔥 HTTP2](#-http2)
-  - [Semver](#semver)
-  - [Promises](#promises)
-  - [TypeScript](#typescript)
-  - [Resources](#resources)
-  - [Credits](#credits)
-  - [License](#license)
+- [Features](#features)
+- [Browser Support](#browser-support)
+- [Installing](#installing)
+  - [Package manager](#package-manager)
+  - [CDN](#cdn)
+- [Example](#example)
+- [Axios API](#axios-api)
+- [Request method aliases](#request-method-aliases)
+- [Concurrency 👎](#concurrency-deprecated)
+- [Creating an instance](#creating-an-instance)
+- [Instance methods](#instance-methods)
+- [Request Config](#request-config)
+- [Response Schema](#response-schema)
+- [Config Defaults](#config-defaults)
+  - [Global axios defaults](#global-axios-defaults)
+  - [Custom instance defaults](#custom-instance-defaults)
+  - [Config order of precedence](#config-order-of-precedence)
+- [Interceptors](#interceptors)
+  - [Multiple Interceptors](#multiple-interceptors)
+- [Handling Errors](#handling-errors)
+- [Cancellation](#cancellation)
+  - [AbortController](#abortcontroller)
+  - [CancelToken 👎](#canceltoken-deprecated)
+- [Using application/x-www-form-urlencoded format](#using-applicationx-www-form-urlencoded-format)
+  - [URLSearchParams](#urlsearchparams)
+  - [Query string](#query-string-older-browsers)
+  - [🆕 Automatic serialization](#-automatic-serialization-to-urlsearchparams)
+- [Using multipart/form-data format](#using-multipartform-data-format)
+  - [FormData](#formdata)
+  - [🆕 Automatic serialization](#-automatic-serialization-to-formdata)
+- [Files Posting](#files-posting)
+- [HTML Form Posting](#-html-form-posting-browser)
+- [🆕 Progress capturing](#-progress-capturing)
+- [🆕 Rate limiting](#-rate-limiting)
+- [🆕 AxiosHeaders](#-axiosheaders)
+- [🔥 Fetch adapter](#-fetch-adapter)
+  - [🔥 Custom fetch](#-custom-fetch)
+    - [🔥 Using with Tauri](#-using-with-tauri)
+    - [🔥 Using with SvelteKit](#-using-with-sveltekit-)
+- [🔥 HTTP2](#-http2)
+- [Semver](#semver)
+- [Promises](#promises)
+- [TypeScript](#typescript)
+- [Resources](#resources)
+- [Credits](#credits)
+- [License](#license)
 
 ## Features
 
-- **Browser Requests:** Make [XMLHttpRequests](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest) directly from the browser.  
-- **Node.js Requests:** Make [http](https://nodejs.org/api/http.html) requests from Node.js environments.  
-- **Promise-based:** Fully supports the [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) API for easier asynchronous code.  
-- **Interceptors:** Intercept requests and responses to add custom logic or transform data.  
-- **Data Transformation:** Transform request and response data automatically.  
-- **Request Cancellation:** Cancel requests using built-in mechanisms.  
-- **Automatic JSON Handling:** Automatically serializes and parses [JSON](https://www.json.org/json-en.html) data.  
-- **Form Serialization:** 🆕 Automatically serializes data objects to `multipart/form-data` or `x-www-form-urlencoded` formats.  
+- **Browser Requests:** Make [XMLHttpRequests](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest) directly from the browser.
+- **Node.js Requests:** Make [http](https://nodejs.org/api/http.html) requests from Node.js environments.
+- **Promise-based:** Fully supports the [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) API for easier asynchronous code.
+- **Interceptors:** Intercept requests and responses to add custom logic or transform data.
+- **Data Transformation:** Transform request and response data automatically.
+- **Request Cancellation:** Cancel requests using built-in mechanisms.
+- **Automatic JSON Handling:** Automatically serializes and parses [JSON](https://www.json.org/json-en.html) data.
+- **Form Serialization:** 🆕 Automatically serializes data objects to `multipart/form-data` or `x-www-form-urlencoded` formats.
 - **XSRF Protection:** Client-side support to protect against [Cross-Site Request Forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
 
 ## Browser Support
 
-| Chrome | Firefox | Safari | Opera | Edge |
-|:------:|:-------:|:------:|:-----:|:----:|
+|                                                     Chrome                                                     |                                                      Firefox                                                      |                                                     Safari                                                     |                                                    Opera                                                    |                                                   Edge                                                   |
+| :------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
 | ![Chrome browser logo](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_48x48.png) | ![Firefox browser logo](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox_48x48.png) | ![Safari browser logo](https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari_48x48.png) | ![Opera browser logo](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera_48x48.png) | ![Edge browser logo](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_48x48.png) |
-| Latest ✔ | Latest ✔ | Latest ✔ | Latest ✔ | Latest ✔ |
+|                                                    Latest ✔                                                    |                                                     Latest ✔                                                      |                                                    Latest ✔                                                    |                                                  Latest ✔                                                   |                                                 Latest ✔                                                 |
 
 [![Browser Matrix](https://saucelabs.com/open_sauce/build_matrix/axios.svg)](https://saucelabs.com/u/axios)
 
@@ -153,36 +151,36 @@ $ bun add axios
 Once the package is installed, you can import the library using `import` or `require` approach:
 
 ```js
-import axios, {isCancel, AxiosError} from 'axios';
+import axios, { isCancel, AxiosError } from 'axios'
 ```
 
 You can also use the default export, since the named export is just a re-export from the Axios factory:
 
 ```js
-import axios from 'axios';
+import axios from 'axios'
 
-console.log(axios.isCancel('something'));
-````
+console.log(axios.isCancel('something'))
+```
 
 If you use `require` for importing, **only default export is available**:
 
 ```js
-const axios = require('axios');
+const axios = require('axios')
 
-console.log(axios.isCancel('something'));
+console.log(axios.isCancel('something'))
 ```
 
 For some bundlers and some ES6 linters you may need to do the following:
 
 ```js
-import { default as axios } from 'axios';
+import { default as axios } from 'axios'
 ```
 
 For cases where something went wrong when trying to import a module into a custom or legacy environment,
 you can try importing the module package directly:
 
 ```js
-const axios = require('axios/dist/browser/axios.cjs'); // browser commonJS bundle (ES2017)
+const axios = require('axios/dist/browser/axios.cjs') // browser commonJS bundle (ES2017)
 // const axios = require('axios/dist/node/axios.cjs'); // node commonJS bundle (ES2017)
 ```
 
@@ -206,46 +204,48 @@ Using unpkg CDN:
 > In order to gain the TypeScript typings (for intellisense / autocomplete) while using CommonJS imports with `require()`, use the following approach:
 
 ```js
-import axios from 'axios';
+import axios from 'axios'
 //const axios = require('axios'); // legacy way
 
 // Make a request for a user with a given ID
-axios.get('/user?ID=12345')
+axios
+  .get('/user?ID=12345')
   .then(function (response) {
     // handle success
-    console.log(response);
+    console.log(response)
   })
   .catch(function (error) {
     // handle error
-    console.log(error);
+    console.log(error)
   })
   .finally(function () {
     // always executed
-  });
+  })
 
 // Optionally the request above could also be done as
-axios.get('/user', {
+axios
+  .get('/user', {
     params: {
-      ID: 12345
-    }
+      ID: 12345,
+    },
   })
   .then(function (response) {
-    console.log(response);
+    console.log(response)
   })
   .catch(function (error) {
-    console.log(error);
+    console.log(error)
   })
   .finally(function () {
     // always executed
-  });
+  })
 
 // Want to use async/await? Add the `async` keyword to your outer function/method.
 async function getUser() {
   try {
-    const response = await axios.get('/user?ID=12345');
-    console.log(response);
+    const response = await axios.get('/user?ID=12345')
+    console.log(response)
   } catch (error) {
-    console.error(error);
+    console.error(error)
   }
 }
 ```
@@ -256,34 +256,34 @@ async function getUser() {
 Performing a `POST` request
 
 ```js
-axios.post('/user', {
+axios
+  .post('/user', {
     firstName: 'Fred',
-    lastName: 'Flintstone'
+    lastName: 'Flintstone',
   })
   .then(function (response) {
-    console.log(response);
+    console.log(response)
   })
   .catch(function (error) {
-    console.log(error);
-  });
+    console.log(error)
+  })
 ```
 
 Performing multiple concurrent requests
 
 ```js
 function getUserAccount() {
-  return axios.get('/user/12345');
+  return axios.get('/user/12345')
 }
 
 function getUserPermissions() {
-  return axios.get('/user/12345/permissions');
+  return axios.get('/user/12345/permissions')
 }
 
-Promise.all([getUserAccount(), getUserPermissions()])
-  .then(function (results) {
-    const acct = results[0];
-    const perm = results[1];
-  });
+Promise.all([getUserAccount(), getUserPermissions()]).then(function (results) {
+  const acct = results[0]
+  const perm = results[1]
+})
 ```
 
 ## axios API
@@ -299,9 +299,9 @@ axios({
   url: '/user/12345',
   data: {
     firstName: 'Fred',
-    lastName: 'Flintstone'
-  }
-});
+    lastName: 'Flintstone',
+  },
+})
 ```
 
 ```js
@@ -309,18 +309,17 @@ axios({
 axios({
   method: 'get',
   url: 'https://bit.ly/2mTM3nY',
-  responseType: 'stream'
+  responseType: 'stream',
+}).then(function (response) {
+  response.data.pipe(fs.createWriteStream('ada_lovelace.jpg'))
 })
-  .then(function (response) {
-    response.data.pipe(fs.createWriteStream('ada_lovelace.jpg'))
-  });
 ```
 
 ##### axios(url[, config])
 
 ```js
 // Send a GET request (default method)
-axios('/user/12345');
+axios('/user/12345')
 ```
 
 ### Request method aliases
@@ -328,18 +327,27 @@ axios('/user/12345');
 For convenience, aliases have been provided for all common request methods.
 
 ##### axios.request(config)
+
 ##### axios.get(url[, config])
+
 ##### axios.delete(url[, config])
+
 ##### axios.head(url[, config])
+
 ##### axios.options(url[, config])
+
 ##### axios.post(url[, data[, config]])
+
 ##### axios.put(url[, data[, config]])
+
 ##### axios.patch(url[, data[, config]])
 
 ###### NOTE
+
 When using the alias methods `url`, `method`, and `data` properties don't need to be specified in config.
 
 ### Concurrency (Deprecated)
+
 Please use `Promise.all` to replace the below functions.
 
 Helper functions for dealing with concurrent requests.
@@ -357,8 +365,8 @@ You can create a new instance of axios with a custom config.
 const instance = axios.create({
   baseURL: 'https://some-domain.com/api/',
   timeout: 1000,
-  headers: {'X-Custom-Header': 'foobar'}
-});
+  headers: { 'X-Custom-Header': 'foobar' },
+})
 ```
 
 ### Instance methods
@@ -366,13 +374,21 @@ const instance = axios.create({
 The available instance methods are listed below. The specified config will be merged with the instance config.
 
 ##### axios#request(config)
+
 ##### axios#get(url[, config])
+
 ##### axios#delete(url[, config])
+
 ##### axios#head(url[, config])
+
 ##### axios#options(url[, config])
+
 ##### axios#post(url[, data[, config]])
+
 ##### axios#put(url[, data[, config]])
+
 ##### axios#patch(url[, data[, config]])
+
 ##### axios#getUri([config])
 
 ## Request Config
@@ -674,14 +690,13 @@ The response for a request contains the following information.
 When using `then`, you will receive the response as follows:
 
 ```js
-axios.get('/user/12345')
-  .then(function (response) {
-    console.log(response.data);
-    console.log(response.status);
-    console.log(response.statusText);
-    console.log(response.headers);
-    console.log(response.config);
-  });
+axios.get('/user/12345').then(function (response) {
+  console.log(response.data)
+  console.log(response.status)
+  console.log(response.statusText)
+  console.log(response.headers)
+  console.log(response.config)
+})
 ```
 
 When using `catch`, or passing a [rejection callback](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then) as second parameter of `then`, the response will be available through the `error` object as explained in the [Handling Errors](#handling-errors) section.
@@ -693,13 +708,14 @@ You can specify config defaults that will be applied to every request.
 ### Global axios defaults
 
 ```js
-axios.defaults.baseURL = 'https://api.example.com';
+axios.defaults.baseURL = 'https://api.example.com'
 
 // Important: If axios is used with multiple domains, the AUTH_TOKEN will be sent to all of them.
 // See below for an example using Custom instance defaults instead.
-axios.defaults.headers.common['Authorization'] = AUTH_TOKEN;
+axios.defaults.headers.common['Authorization'] = AUTH_TOKEN
 
-axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
+axios.defaults.headers.post['Content-Type'] =
+  'application/x-www-form-urlencoded'
 ```
 
 ### Custom instance defaults
@@ -707,11 +723,11 @@ axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded
 ```js
 // Set config defaults when creating the instance
 const instance = axios.create({
-  baseURL: 'https://api.example.com'
-});
+  baseURL: 'https://api.example.com',
+})
 
 // Alter defaults after instance has been created
-instance.defaults.headers.common['Authorization'] = AUTH_TOKEN;
+instance.defaults.headers.common['Authorization'] = AUTH_TOKEN
 ```
 
 ### Config order of precedence
@@ -721,16 +737,16 @@ Config will be merged with an order of precedence. The order is library defaults
 ```js
 // Create an instance using the config defaults provided by the library
 // At this point the timeout config value is `0` as is the default for the library
-const instance = axios.create();
+const instance = axios.create()
 
 // Override timeout default for the library
 // Now all requests using this instance will wait 2.5 seconds before timing out
-instance.defaults.timeout = 2500;
+instance.defaults.timeout = 2500
 
 // Override timeout for this request as it's known to take a long time
 instance.get('/longRequest', {
-  timeout: 5000
-});
+  timeout: 5000,
+})
 ```
 
 ## Interceptors
@@ -738,52 +754,66 @@ instance.get('/longRequest', {
 You can intercept requests or responses before they are handled by `then` or `catch`.
 
 ```js
-
-const instance = axios.create();
+const instance = axios.create()
 
 // Add a request interceptor
-instance.interceptors.request.use(function (config) {
+instance.interceptors.request.use(
+  function (config) {
     // Do something before request is sent
-    return config;
-  }, function (error) {
+    return config
+  },
+  function (error) {
     // Do something with request error
-    return Promise.reject(error);
-  });
+    return Promise.reject(error)
+  },
+)
 
 // Add a response interceptor
-instance.interceptors.response.use(function (response) {
+instance.interceptors.response.use(
+  function (response) {
     // Any status code that lie within the range of 2xx cause this function to trigger
     // Do something with response data
-    return response;
-  }, function (error) {
+    return response
+  },
+  function (error) {
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     // Do something with response error
-    return Promise.reject(error);
-  });
+    return Promise.reject(error)
+  },
+)
 ```
 
 If you need to remove an interceptor later you can.
 
 ```js
-const instance = axios.create();
-const myInterceptor = instance.interceptors.request.use(function () {/*...*/});
-axios.interceptors.request.eject(myInterceptor);
+const instance = axios.create()
+const myInterceptor = instance.interceptors.request.use(function () {
+  /*...*/
+})
+axios.interceptors.request.eject(myInterceptor)
 ```
 
 You can also clear all interceptors for requests or responses.
+
 ```js
-const instance = axios.create();
-instance.interceptors.request.use(function () {/*...*/});
-instance.interceptors.request.clear(); // Removes interceptors from requests
-instance.interceptors.response.use(function () {/*...*/});
-instance.interceptors.response.clear(); // Removes interceptors from responses
+const instance = axios.create()
+instance.interceptors.request.use(function () {
+  /*...*/
+})
+instance.interceptors.request.clear() // Removes interceptors from requests
+instance.interceptors.response.use(function () {
+  /*...*/
+})
+instance.interceptors.response.clear() // Removes interceptors from responses
 ```
 
 You can add interceptors to a custom instance of axios.
 
 ```js
-const instance = axios.create();
-instance.interceptors.request.use(function () {/*...*/});
+const instance = axios.create()
+instance.interceptors.request.use(function () {
+  /*...*/
+})
 ```
 
 When you add request interceptors, they are presumed to be asynchronous by default. This can cause a delay
@@ -792,10 +822,14 @@ the interceptor and your request gets put on the bottom of the call stack). If y
 to the options object that will tell axios to run the code synchronously and avoid any delays in request execution.
 
 ```js
-axios.interceptors.request.use(function (config) {
-  config.headers.test = 'I am only a header!';
-  return config;
-}, null, { synchronous: true });
+axios.interceptors.request.use(
+  function (config) {
+    config.headers.test = 'I am only a header!'
+    return config
+  },
+  null,
+  { synchronous: true },
+)
 ```
 
 If you want to execute a particular interceptor based on a runtime check,
@@ -806,12 +840,16 @@ asynchronous request interceptor that only needs to run at certain times.
 
 ```js
 function onGetCall(config) {
-  return config.method === 'get';
+  return config.method === 'get'
 }
-axios.interceptors.request.use(function (config) {
-  config.headers.test = 'special get headers';
-  return config;
-}, null, { runWhen: onGetCall });
+axios.interceptors.request.use(
+  function (config) {
+    config.headers.test = 'special get headers'
+    return config
+  },
+  null,
+  { runWhen: onGetCall },
+)
 ```
 
 > **Note:** options parameter(having `synchronous` and `runWhen` properties) is only supported for request interceptors at the moment.
@@ -820,14 +858,15 @@ axios.interceptors.request.use(function (config) {
 
 Given you add multiple response interceptors
 and when the response was fulfilled
+
 - then each interceptor is executed
 - then they are executed in the order they were added
 - then only the last interceptor's result is returned
 - then every interceptor receives the result of its predecessor
 - and when the fulfillment-interceptor throws
-    - then the following fulfillment-interceptor is not called
-    - then the following rejection-interceptor is called
-    - once caught, another following fulfill-interceptor is called again (just like in a promise chain).
+  - then the following fulfillment-interceptor is not called
+  - then the following rejection-interceptor is called
+  - once caught, another following fulfill-interceptor is called again (just like in a promise chain).
 
 Read [the interceptor tests](./test/specs/interceptors.spec.js) for seeing all this in code.
 
@@ -836,19 +875,19 @@ Read [the interceptor tests](./test/specs/interceptors.spec.js) for seeing all t
 There are many different axios error messages that can appear that can provide basic information about the specifics of the error and where opportunities may lie in debugging.
 
 The general structure of axios errors is as follows:
-| Property  | Definition  |
-| -------- | ----------  |
-| message  | A quick summary of the error message and the status it failed with. |
-| name     | This defines where the error originated from. For axios, it will always be an 'AxiosError'. |
-| stack    | Provides the stack trace of the error. |
-| config   | An axios config object with specific instance configurations defined by the user from when the request was made |
-| code     | Represents an axios identified error. The table below lists out specific definitions for internal axios error.  |
-| status   | HTTP response status code. See [here](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes) for common HTTP response status code meanings.
+| Property | Definition |
+| -------- | ---------- |
+| message | A quick summary of the error message and the status it failed with. |
+| name | This defines where the error originated from. For axios, it will always be an 'AxiosError'. |
+| stack | Provides the stack trace of the error. |
+| config | An axios config object with specific instance configurations defined by the user from when the request was made |
+| code | Represents an axios identified error. The table below lists out specific definitions for internal axios error. |
+| status | HTTP response status code. See [here](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes) for common HTTP response status code meanings.
 
 Below is a list of potential axios identified error:
 
 | Code                      | Definition                                                                                                                                                                                                                                                                                                                                                                                     |
-| --- | --- |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ERR_BAD_OPTION_VALUE      | Invalid value provided in axios configuration.                                                                                                                                                                                                                                                                                                                                                 |
 | ERR_BAD_OPTION            | Invalid option provided in axios configuration.                                                                                                                                                                                                                                                                                                                                                |
 | ERR_NOT_SUPPORT           | Feature or method not supported in the current axios environment.                                                                                                                                                                                                                                                                                                                              |
@@ -859,33 +898,32 @@ Below is a list of potential axios identified error:
 | ETIMEDOUT                 | Request timed out due to exceeding default axios timelimit. `transitional.clarifyTimeoutError` must be set to `true`, otherwise a generic `ECONNABORTED` error will be thrown instead.                                                                                                                                                                                                         |
 | ERR_NETWORK               | Network-related issue. In the browser, this error can also be caused by a [CORS](https://developer.mozilla.org/ru/docs/Web/HTTP/Guides/CORS) or [Mixed Content](https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content) policy violation. The browser does not allow the JS code to clarify the real reason for the error caused by security issues, so please check the console. |
 | ERR_FR_TOO_MANY_REDIRECTS | Request is redirected too many times; exceeds max redirects specified in axios configuration.                                                                                                                                                                                                                                                                                                  |
-| ERR_BAD_RESPONSE          | Response cannot be parsed properly or is in an unexpected format. Usually related to a response with `5xx` status code.                                                                                                                                                                                                                                                                          |
-| ERR_BAD_REQUEST           | The request has an unexpected format or is missing required parameters. Usually related to a response with `4xx` status code.                                                                                                                                                                                                                                                                    |
+| ERR_BAD_RESPONSE          | Response cannot be parsed properly or is in an unexpected format. Usually related to a response with `5xx` status code.                                                                                                                                                                                                                                                                        |
+| ERR_BAD_REQUEST           | The request has an unexpected format or is missing required parameters. Usually related to a response with `4xx` status code.                                                                                                                                                                                                                                                                  |
 
 ## Handling Errors
 
 the default behavior is to reject every response that returns with a status code that falls out of the range of 2xx and treat it as an error.
 
 ```js
-axios.get('/user/12345')
-  .catch(function (error) {
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.log(error.response.data);
-      console.log(error.response.status);
-      console.log(error.response.headers);
-    } else if (error.request) {
-      // The request was made but no response was received
-      // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-      // http.ClientRequest in node.js
-      console.log(error.request);
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.log('Error', error.message);
-    }
-    console.log(error.config);
-  });
+axios.get('/user/12345').catch(function (error) {
+  if (error.response) {
+    // The request was made and the server responded with a status code
+    // that falls out of the range of 2xx
+    console.log(error.response.data)
+    console.log(error.response.status)
+    console.log(error.response.headers)
+  } else if (error.request) {
+    // The request was made but no response was received
+    // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+    // http.ClientRequest in node.js
+    console.log(error.request)
+  } else {
+    // Something happened in setting up the request that triggered an Error
+    console.log('Error', error.message)
+  }
+  console.log(error.config)
+})
 ```
 
 Using the `validateStatus` config option, you can override the default condition (status >= 200 && status < 300) and define HTTP code(s) that should throw an error.
@@ -893,18 +931,17 @@ Using the `validateStatus` config option, you can override the default condition
 ```js
 axios.get('/user/12345', {
   validateStatus: function (status) {
-    return status < 500; // Resolve only if the status code is less than 500
-  }
+    return status < 500 // Resolve only if the status code is less than 500
+  },
 })
 ```
 
 Using `toJSON` you get an object with more information about the HTTP error.
 
 ```js
-axios.get('/user/12345')
-  .catch(function (error) {
-    console.log(error.toJSON());
-  });
+axios.get('/user/12345').catch(function (error) {
+  console.log(error.toJSON())
+})
 ```
 
 ## Cancellation
@@ -914,20 +951,22 @@ axios.get('/user/12345')
 Starting from `v0.22.0` Axios supports AbortController to cancel requests in fetch API way:
 
 ```js
-const controller = new AbortController();
+const controller = new AbortController()
 
-axios.get('/foo/bar', {
-   signal: controller.signal
-}).then(function(response) {
-   //...
-});
+axios
+  .get('/foo/bar', {
+    signal: controller.signal,
+  })
+  .then(function (response) {
+    //...
+  })
 // cancel the request
 controller.abort()
 ```
 
 ### CancelToken `👎deprecated`
 
-You can also cancel a request using a *CancelToken*.
+You can also cancel a request using a _CancelToken_.
 
 > The axios cancel token API is based on the withdrawn [cancellable promises proposal](https://github.com/tc39/proposal-cancelable-promises).
 
@@ -936,44 +975,50 @@ You can also cancel a request using a *CancelToken*.
 You can create a cancel token using the `CancelToken.source` factory as shown below:
 
 ```js
-const CancelToken = axios.CancelToken;
-const source = CancelToken.source();
+const CancelToken = axios.CancelToken
+const source = CancelToken.source()
 
-axios.get('/user/12345', {
-  cancelToken: source.token
-}).catch(function (thrown) {
-  if (axios.isCancel(thrown)) {
-    console.log('Request canceled', thrown.message);
-  } else {
-    // handle error
-  }
-});
+axios
+  .get('/user/12345', {
+    cancelToken: source.token,
+  })
+  .catch(function (thrown) {
+    if (axios.isCancel(thrown)) {
+      console.log('Request canceled', thrown.message)
+    } else {
+      // handle error
+    }
+  })
 
-axios.post('/user/12345', {
-  name: 'new name'
-}, {
-  cancelToken: source.token
-})
+axios.post(
+  '/user/12345',
+  {
+    name: 'new name',
+  },
+  {
+    cancelToken: source.token,
+  },
+)
 
 // cancel the request (the message parameter is optional)
-source.cancel('Operation canceled by the user.');
+source.cancel('Operation canceled by the user.')
 ```
 
 You can also create a cancel token by passing an executor function to the `CancelToken` constructor:
 
 ```js
-const CancelToken = axios.CancelToken;
-let cancel;
+const CancelToken = axios.CancelToken
+let cancel
 
 axios.get('/user/12345', {
   cancelToken: new CancelToken(function executor(c) {
     // An executor function receives a cancel function as a parameter
-    cancel = c;
-  })
-});
+    cancel = c
+  }),
+})
 
 // cancel the request
-cancel();
+cancel()
 ```
 
 > **Note:** you can cancel several requests with the same cancel token/abort controller.
@@ -988,9 +1033,9 @@ cancel();
 By default, axios serializes JavaScript objects to `JSON`. To send data in the [`application/x-www-form-urlencoded` format](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST) instead, you can use the [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) API, which is [supported](http://www.caniuse.com/#feat=urlsearchparams) in the vast majority of browsers,and [ Node](https://nodejs.org/api/url.html#url_class_urlsearchparams) starting with v10 (released in 2018).
 
 ```js
-const params = new URLSearchParams({ foo: 'bar' });
-params.append('extraparam', 'value');
-axios.post('/foo', params);
+const params = new URLSearchParams({ foo: 'bar' })
+params.append('extraparam', 'value')
+axios.post('/foo', params)
 ```
 
 ### Query string (Older browsers)
@@ -1000,22 +1045,22 @@ For compatibility with very old browsers, there is a [polyfill](https://github.c
 Alternatively, you can encode data using the [`qs`](https://github.com/ljharb/qs) library:
 
 ```js
-const qs = require('qs');
-axios.post('/foo', qs.stringify({ 'bar': 123 }));
+const qs = require('qs')
+axios.post('/foo', qs.stringify({ bar: 123 }))
 ```
 
 Or in another way (ES6),
 
 ```js
-import qs from 'qs';
-const data = { 'bar': 123 };
+import qs from 'qs'
+const data = { bar: 123 }
 const options = {
   method: 'POST',
   headers: { 'content-type': 'application/x-www-form-urlencoded' },
   data: qs.stringify(data),
   url,
-};
-axios(options);
+}
+axios(options)
 ```
 
 ### Older Node.js versions
@@ -1023,8 +1068,8 @@ axios(options);
 For older Node.js engines, you can use the [`querystring`](https://nodejs.org/api/querystring.html) module as follows:
 
 ```js
-const querystring = require('querystring');
-axios.post('https://something.com/', querystring.stringify({ foo: 'bar' }));
+const querystring = require('querystring')
+axios.post('https://something.com/', querystring.stringify({ foo: 'bar' }))
 ```
 
 You can also use the [`qs`](https://github.com/ljharb/qs) library.
@@ -1040,12 +1085,15 @@ const data = {
   x: 1,
   arr: [1, 2, 3],
   arr2: [1, [2], 3],
-  users: [{name: 'Peter', surname: 'Griffin'}, {name: 'Thomas', surname: 'Anderson'}],
-};
+  users: [
+    { name: 'Peter', surname: 'Griffin' },
+    { name: 'Thomas', surname: 'Anderson' },
+  ],
+}
 
-await axios.postForm('https://postman-echo.com/post', data,
-  {headers: {'content-type': 'application/x-www-form-urlencoded'}}
-);
+await axios.postForm('https://postman-echo.com/post', data, {
+  headers: { 'content-type': 'application/x-www-form-urlencoded' },
+})
 ```
 
 The server will handle it as:
@@ -1063,21 +1111,21 @@ The server will handle it as:
     'users[1][name]': 'Thomas',
     'users[1][surname]': 'Anderson'
   }
-````
+```
 
 If your backend body-parser (like `body-parser` of `express.js`) supports nested objects decoding, you will get the same object on the server-side automatically
 
 ```js
-  var app = express();
+var app = express()
 
-  app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
+app.use(bodyParser.urlencoded({ extended: true })) // support encoded bodies
 
-  app.post('/', function (req, res, next) {
-     // echo body as JSON
-     res.send(JSON.stringify(req.body));
-  });
+app.post('/', function (req, res, next) {
+  // echo body as JSON
+  res.send(JSON.stringify(req.body))
+})
 
-  server = app.listen(3000);
+server = app.listen(3000)
 ```
 
 ## Using `multipart/form-data` format
@@ -1088,21 +1136,21 @@ To send the data as a `multipart/formdata` you need to pass a formData instance 
 Setting the `Content-Type` header is not required as Axios guesses it based on the payload type.
 
 ```js
-const formData = new FormData();
-formData.append('foo', 'bar');
+const formData = new FormData()
+formData.append('foo', 'bar')
 
-axios.post('https://httpbin.org/post', formData);
+axios.post('https://httpbin.org/post', formData)
 ```
 
 In node.js, you can use the [`form-data`](https://github.com/form-data/form-data) library as follows:
 
 ```js
-const FormData = require('form-data');
+const FormData = require('form-data')
 
-const form = new FormData();
-form.append('my_field', 'my value');
-form.append('my_buffer', new Buffer(10));
-form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
+const form = new FormData()
+form.append('my_field', 'my value')
+form.append('my_buffer', new Buffer(10))
+form.append('my_file', fs.createReadStream('/foo/bar.jpg'))
 
 axios.post('https://example.com', form)
 ```
@@ -1115,13 +1163,19 @@ header is set to `multipart/form-data`.
 The following request will submit the data in a FormData format (Browser & Node.js):
 
 ```js
-import axios from 'axios';
+import axios from 'axios'
 
-axios.post('https://httpbin.org/post', {x: 1}, {
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-}).then(({data}) => console.log(data));
+axios
+  .post(
+    'https://httpbin.org/post',
+    { x: 1 },
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  )
+  .then(({ data }) => console.log(data))
 ```
 
 In the `node.js` build, the ([`form-data`](https://github.com/form-data/form-data)) polyfill is used by default.
@@ -1130,14 +1184,20 @@ You can overload the FormData class by setting the `env.FormData` config variabl
 but you probably won't need it in most cases:
 
 ```js
-const axios = require('axios');
-var FormData = require('form-data');
+const axios = require('axios')
+var FormData = require('form-data')
 
-axios.post('https://httpbin.org/post', {x: 1, buf: new Buffer(10)}, {
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-}).then(({data}) => console.log(data));
+axios
+  .post(
+    'https://httpbin.org/post',
+    { x: 1, buf: new Buffer(10) },
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  )
+  .then(({ data }) => console.log(data))
 ```
 
 Axios FormData serializer supports some special endings to perform the following operations:
@@ -1150,18 +1210,17 @@ Axios FormData serializer supports some special endings to perform the following
 FormData serializer supports additional options via `config.formSerializer: object` property to handle rare cases:
 
 - `visitor: Function` - user-defined visitor function that will be called recursively to serialize the data object
-to a `FormData` object by following custom rules.
+  to a `FormData` object by following custom rules.
 
 - `dots: boolean = false` - use dot notation instead of brackets to serialize arrays and objects;
 
 - `metaTokens: boolean = true` - add the special ending (e.g `user{}: '{"name": "John"}'`) in the FormData key.
-The back-end body-parser could potentially use this meta-information to automatically parse the value as JSON.
+  The back-end body-parser could potentially use this meta-information to automatically parse the value as JSON.
 
 - `indexes: null|false|true = false` - controls how indexes will be added to unwrapped keys of `flat` array-like objects.
-
-    - `null` - don't add brackets (`arr: 1`, `arr: 2`, `arr: 3`)
-    - `false`(default) - add empty brackets (`arr[]: 1`, `arr[]: 2`, `arr[]: 3`)
-    - `true` - add brackets with indexes  (`arr[0]: 1`, `arr[1]: 2`, `arr[2]: 3`)
+  - `null` - don't add brackets (`arr: 1`, `arr: 2`, `arr: 3`)
+  - `false`(default) - add empty brackets (`arr[]: 1`, `arr[]: 2`, `arr[]: 3`)
+  - `true` - add brackets with indexes (`arr[0]: 1`, `arr[1]: 2`, `arr[2]: 3`)
 
 Let's say we have an object like this one:
 
@@ -1170,27 +1229,30 @@ const obj = {
   x: 1,
   arr: [1, 2, 3],
   arr2: [1, [2], 3],
-  users: [{name: 'Peter', surname: 'Griffin'}, {name: 'Thomas', surname: 'Anderson'}],
-  'obj2{}': [{x:1}]
-};
+  users: [
+    { name: 'Peter', surname: 'Griffin' },
+    { name: 'Thomas', surname: 'Anderson' },
+  ],
+  'obj2{}': [{ x: 1 }],
+}
 ```
 
 The following steps will be executed by the Axios serializer internally:
 
 ```js
-const formData = new FormData();
-formData.append('x', '1');
-formData.append('arr[]', '1');
-formData.append('arr[]', '2');
-formData.append('arr[]', '3');
-formData.append('arr2[0]', '1');
-formData.append('arr2[1][0]', '2');
-formData.append('arr2[2]', '3');
-formData.append('users[0][name]', 'Peter');
-formData.append('users[0][surname]', 'Griffin');
-formData.append('users[1][name]', 'Thomas');
-formData.append('users[1][surname]', 'Anderson');
-formData.append('obj2{}', '[{"x":1}]');
+const formData = new FormData()
+formData.append('x', '1')
+formData.append('arr[]', '1')
+formData.append('arr[]', '2')
+formData.append('arr[]', '3')
+formData.append('arr2[0]', '1')
+formData.append('arr2[1][0]', '2')
+formData.append('arr2[2]', '3')
+formData.append('users[0][name]', 'Peter')
+formData.append('users[0][surname]', 'Griffin')
+formData.append('users[1][name]', 'Thomas')
+formData.append('users[1][surname]', 'Anderson')
+formData.append('obj2{}', '[{"x":1}]')
 ```
 
 Axios supports the following shortcut methods: `postForm`, `putForm`, `patchForm`
@@ -1202,23 +1264,26 @@ You can easily submit a single file:
 
 ```js
 await axios.postForm('https://httpbin.org/post', {
-  'myVar' : 'foo',
-  'file': document.querySelector('#fileInput').files[0]
-});
+  myVar: 'foo',
+  file: document.querySelector('#fileInput').files[0],
+})
 ```
 
 or multiple files as `multipart/form-data`:
 
 ```js
 await axios.postForm('https://httpbin.org/post', {
-  'files[]': document.querySelector('#fileInput').files
-});
+  'files[]': document.querySelector('#fileInput').files,
+})
 ```
 
 `FileList` object can be passed directly:
 
 ```js
-await axios.postForm('https://httpbin.org/post', document.querySelector('#fileInput').files)
+await axios.postForm(
+  'https://httpbin.org/post',
+  document.querySelector('#fileInput').files,
+)
 ```
 
 All files will be sent with the same field names: `files[]`.
@@ -1228,28 +1293,35 @@ All files will be sent with the same field names: `files[]`.
 Pass HTML Form element as a payload to submit it as `multipart/form-data` content.
 
 ```js
-await axios.postForm('https://httpbin.org/post', document.querySelector('#htmlForm'));
+await axios.postForm(
+  'https://httpbin.org/post',
+  document.querySelector('#htmlForm'),
+)
 ```
 
 `FormData` and `HTMLForm` objects can also be posted as `JSON` by explicitly setting the `Content-Type` header to `application/json`:
 
 ```js
-await axios.post('https://httpbin.org/post', document.querySelector('#htmlForm'), {
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
+await axios.post(
+  'https://httpbin.org/post',
+  document.querySelector('#htmlForm'),
+  {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  },
+)
 ```
 
 For example, the Form
 
 ```html
 <form id="form">
-  <input type="text" name="foo" value="1">
-  <input type="text" name="deep.prop" value="2">
-  <input type="text" name="deep prop spaced" value="3">
-  <input type="text" name="baz" value="4">
-  <input type="text" name="baz" value="5">
+  <input type="text" name="foo" value="1" />
+  <input type="text" name="deep.prop" value="2" />
+  <input type="text" name="deep prop spaced" value="3" />
+  <input type="text" name="baz" value="4" />
+  <input type="text" name="baz" value="5" />
 
   <select name="user.age">
     <option value="value1">Value 1</option>
@@ -1257,7 +1329,7 @@ For example, the Form
     <option value="value3">Value 3</option>
   </select>
 
-  <input type="submit" value="Save">
+  <input type="submit" value="Save" />
 </form>
 ```
 
@@ -1279,7 +1351,7 @@ will be submitted as the following JSON object:
     "age": "value2"
   }
 }
-````
+```
 
 Sending `Blobs`/`Files` as JSON (`base64`) is not currently supported.
 
@@ -1312,25 +1384,25 @@ await axios.post(url, data, {
       rate?: number; // download speed in bytes
       download: true; // download sign
     }*/
-  }
-});
+  },
+})
 ```
 
 You can also track stream upload/download progress in node.js:
 
 ```js
-const {data} = await axios.post(SERVER_URL, readableStream, {
-   onUploadProgress: ({progress}) => {
-     console.log((progress * 100).toFixed(2));
-   },
+const { data } = await axios.post(SERVER_URL, readableStream, {
+  onUploadProgress: ({ progress }) => {
+    console.log((progress * 100).toFixed(2))
+  },
 
-   headers: {
-    'Content-Length': contentLength
-   },
+  headers: {
+    'Content-Length': contentLength,
+  },
 
-   maxRedirects: 0 // avoid buffering the entire stream
-});
-````
+  maxRedirects: 0, // avoid buffering the entire stream
+})
+```
 
 > **Note:**
 > Capturing FormData upload progress is not currently supported in node.js environments.
@@ -1339,19 +1411,20 @@ const {data} = await axios.post(SERVER_URL, readableStream, {
 > It is recommended to disable redirects by setting maxRedirects: 0 to upload the stream in the **node.js** environment,
 > as follow-redirects package will buffer the entire stream in RAM without following the "backpressure" algorithm.
 
-
 ## 🆕 Rate limiting
 
 Download and upload rate limits can only be set for the http adapter (node.js):
 
 ```js
-const {data} = await axios.post(LOCAL_SERVER_URL, myBuffer, {
-  onUploadProgress: ({progress, rate}) => {
-    console.log(`Upload [${(progress*100).toFixed(2)}%]: ${(rate / 1024).toFixed(2)}KB/s`)
+const { data } = await axios.post(LOCAL_SERVER_URL, myBuffer, {
+  onUploadProgress: ({ progress, rate }) => {
+    console.log(
+      `Upload [${(progress * 100).toFixed(2)}%]: ${(rate / 1024).toFixed(2)}KB/s`,
+    )
   },
 
   maxRate: [100 * 1024], // 100KB/s limit
-});
+})
 ```
 
 ## 🆕 AxiosHeaders
@@ -1369,6 +1442,7 @@ The final headers object with string values is obtained by Axios by calling the 
 > Note: By JSON here we mean an object consisting only of string values intended to be sent over the network.
 
 The header value can be one of the following types:
+
 - `string` - normal string value that will be sent to the server
 - `null` - skip header when rendering to JSON
 - `false` - skip header when rendering to JSON, additionally indicates that `set` method must be called with `rewrite` option set to `true`
@@ -1380,42 +1454,41 @@ The header value can be one of the following types:
 The headers object is always initialized inside interceptors and transformers:
 
 ```ts
-  axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
-      request.headers.set('My-header', 'value');
+axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
+  request.headers.set('My-header', 'value')
 
-      request.headers.set({
-        "My-set-header1": "my-set-value1",
-        "My-set-header2": "my-set-value2"
-      });
+  request.headers.set({
+    'My-set-header1': 'my-set-value1',
+    'My-set-header2': 'my-set-value2',
+  })
 
-      request.headers.set('User-Agent', false); // disable subsequent setting the header by Axios
+  request.headers.set('User-Agent', false) // disable subsequent setting the header by Axios
 
-      request.headers.setContentType('text/plain');
+  request.headers.setContentType('text/plain')
 
-      request.headers['My-set-header2'] = 'newValue' // direct access is deprecated
+  request.headers['My-set-header2'] = 'newValue' // direct access is deprecated
 
-      return request;
-    }
-  );
-````
+  return request
+})
+```
 
 You can iterate over an `AxiosHeaders` instance using a `for...of` statement:
 
-````js
+```js
 const headers = new AxiosHeaders({
   foo: '1',
   bar: '2',
-  baz: '3'
-});
+  baz: '3',
+})
 
-for(const [header, value] of headers) {
-  console.log(header, value);
+for (const [header, value] of headers) {
+  console.log(header, value)
 }
 
 // foo 1
 // bar 2
 // baz 3
-````
+```
 
 ### new AxiosHeaders(headers?)
 
@@ -1427,20 +1500,20 @@ constructor(headers?: RawAxiosHeaders | AxiosHeaders | string);
 
 If the headers object is a string, it will be parsed as RAW HTTP headers.
 
-````js
+```js
 const headers = new AxiosHeaders(`
 Host: www.bing.com
 User-Agent: curl/7.54.0
-Accept: */*`);
+Accept: */*`)
 
-console.log(headers);
+console.log(headers)
 
 // Object [AxiosHeaders] {
 //   host: 'www.bing.com',
 //   'user-agent': 'curl/7.54.0',
 //   accept: '*/*'
 // }
-````
+```
 
 ### AxiosHeaders#set
 
@@ -1451,6 +1524,7 @@ set(headers?: RawAxiosHeaders | AxiosHeaders | string, rewrite?: boolean);
 ```
 
 The `rewrite` argument controls the overwriting behavior:
+
 - `false` - do not overwrite if header's value is set (is not `undefined`)
 - `undefined` (default) - overwrite the header unless its value is set to `false`
 - `true` - rewrite anyway
@@ -1464,34 +1538,34 @@ Returns `this`.
 ```
   get(headerName: string, matcher?: true | AxiosHeaderMatcher): AxiosHeaderValue;
   get(headerName: string, parser: RegExp): RegExpExecArray | null;
-````
+```
 
 Returns the internal value of the header. It can take an extra argument to parse the header's value with `RegExp.exec`,
 matcher function or internal key-value parser.
 
 ```ts
 const headers = new AxiosHeaders({
-  'Content-Type': 'multipart/form-data; boundary=Asrf456BGe4h'
-});
+  'Content-Type': 'multipart/form-data; boundary=Asrf456BGe4h',
+})
 
-console.log(headers.get('Content-Type'));
+console.log(headers.get('Content-Type'))
 // multipart/form-data; boundary=Asrf456BGe4h
 
-console.log(headers.get('Content-Type', true)); // parse key-value pairs from a string separated with \s,;= delimiters:
+console.log(headers.get('Content-Type', true)) // parse key-value pairs from a string separated with \s,;= delimiters:
 // [Object: null prototype] {
 //   'multipart/form-data': undefined,
 //    boundary: 'Asrf456BGe4h'
 // }
 
-
-console.log(headers.get('Content-Type', (value, name, headers) => {
-  return String(value).replace(/a/g, 'ZZZ');
-}));
+console.log(
+  headers.get('Content-Type', (value, name, headers) => {
+    return String(value).replace(/a/g, 'ZZZ')
+  }),
+)
 // multipZZZrt/form-dZZZtZZZ; boundZZZry=Asrf456BGe4h
 
-console.log(headers.get('Content-Type', /boundary=(\w+)/)?.[0]);
+console.log(headers.get('Content-Type', /boundary=(\w+)/)?.[0])
 // boundary=Asrf456BGe4h
-
 ```
 
 Returns the value of the header.
@@ -1523,14 +1597,14 @@ Unlike the `delete` method matcher, this optional matcher will be used to match 
 
 ```ts
 const headers = new AxiosHeaders({
-  'foo': '1',
+  foo: '1',
   'x-foo': '2',
   'x-bar': '3',
-});
+})
 
-console.log(headers.clear(/^x-/)); // true
+console.log(headers.clear(/^x-/)) // true
 
-console.log(headers.toJSON()); // [Object: null prototype] { foo: '1' }
+console.log(headers.toJSON()) // [Object: null prototype] { foo: '1' }
 ```
 
 Returns `true` if at least one header has been cleared.
@@ -1544,15 +1618,15 @@ Set `format` to true for converting headers name to lowercase and capitalize the
 
 ```js
 const headers = new AxiosHeaders({
-  'foo': '1',
-});
+  foo: '1',
+})
 
-headers.Foo = '2';
-headers.FOO = '3';
+headers.Foo = '2'
+headers.FOO = '3'
 
-console.log(headers.toJSON()); // [Object: null prototype] { foo: '1', Foo: '2', FOO: '3' }
-console.log(headers.normalize().toJSON()); // [Object: null prototype] { foo: '3' }
-console.log(headers.normalize(true).toJSON()); // [Object: null prototype] { Foo: '3' }
+console.log(headers.toJSON()) // [Object: null prototype] { foo: '1', Foo: '2', FOO: '3' }
+console.log(headers.normalize().toJSON()) // [Object: null prototype] { foo: '3' }
+console.log(headers.normalize(true).toJSON()) // [Object: null prototype] { Foo: '3' }
 ```
 
 Returns `this`.
@@ -1569,27 +1643,27 @@ Returns a new `AxiosHeaders` instance.
 
 ### AxiosHeaders#toJSON(asStrings?)
 
-````
+```
 toJSON(asStrings?: boolean): RawAxiosHeaders;
-````
+```
 
 Resolve all internal headers values into a new null prototype object.
 Set `asStrings` to true to resolve arrays as a string containing all elements, separated by commas.
 
 ### AxiosHeaders.from(thing?)
 
-````
+```
 from(thing?: AxiosHeaders | RawAxiosHeaders | string): AxiosHeaders;
-````
+```
 
 Returns a new `AxiosHeaders` instance created from the raw headers passed in,
 or simply returns the given headers object if it's an `AxiosHeaders` instance.
 
 ### AxiosHeaders.concat(...targets)
 
-````
+```
 concat(...targets: Array<AxiosHeaders | RawAxiosHeaders | string | undefined | null>): AxiosHeaders;
-````
+```
 
 Returns a new `AxiosHeaders` instance created by merging the target objects.
 
@@ -1614,8 +1688,8 @@ or not supported by the environment.
 To use it by default, it must be selected explicitly:
 
 ```js
-const {data} = axios.get(url, {
-  adapter: 'fetch' // by default ['xhr', 'http', 'fetch']
+const { data } = axios.get(url, {
+  adapter: 'fetch', // by default ['xhr', 'http', 'fetch']
 })
 ```
 
@@ -1623,10 +1697,10 @@ You can create a separate instance for this:
 
 ```js
 const fetchAxios = axios.create({
-  adapter: 'fetch'
-});
+  adapter: 'fetch',
+})
 
-const {data} = fetchAxios.get(url);
+const { data } = fetchAxios.get(url)
 ```
 
 The adapter supports the same functionality as `xhr` adapter, **including upload and download progress capturing**.
@@ -1647,19 +1721,19 @@ you must disable their use inside the fetch adapter by passing null.
 Basic example:
 
 ```js
-import customFetchFunction from 'customFetchModule';
+import customFetchFunction from 'customFetchModule'
 
 const instance = axios.create({
   adapter: 'fetch',
   onDownloadProgress(e) {
-    console.log('downloadProgress', e);
+    console.log('downloadProgress', e)
   },
   env: {
     fetch: customFetchFunction,
     Request: null, // undefined -> use the global constructor
-    Response: null
-  }
-});
+    Response: null,
+  },
+})
 ```
 
 #### 🔥 Using with Tauri
@@ -1667,20 +1741,20 @@ const instance = axios.create({
 A minimal example of setting up Axios for use in a [Tauri](https://tauri.app/plugin/http-client/) app with a platform fetch function that ignores CORS policy for requests.
 
 ```js
-import { fetch } from "@tauri-apps/plugin-http";
-import axios from "axios";
+import { fetch } from '@tauri-apps/plugin-http'
+import axios from 'axios'
 
 const instance = axios.create({
   adapter: 'fetch',
   onDownloadProgress(e) {
-    console.log('downloadProgress', e);
+    console.log('downloadProgress', e)
   },
   env: {
-    fetch
-  }
-});
+    fetch,
+  },
+})
 
- const {data} = await instance.get("https://google.com");
+const { data } = await instance.get('https://google.com')
 ```
 
 #### 🔥 Using with SvelteKit
@@ -1690,45 +1764,52 @@ which makes it incompatible with the standard URL API. So, Axios must be configu
 
 ```js
 export async function load({ fetch }) {
-  const {data: post} = await axios.get('https://jsonplaceholder.typicode.com/posts/1', {
-    adapter: 'fetch',
-    env: {
-      fetch,
-      Request: null,
-      Response: null
-    }
-  });
+  const { data: post } = await axios.get(
+    'https://jsonplaceholder.typicode.com/posts/1',
+    {
+      adapter: 'fetch',
+      env: {
+        fetch,
+        Request: null,
+        Response: null,
+      },
+    },
+  )
 
-  return { post };
+  return { post }
 }
 ```
 
 ## 🔥 HTTP2
 
-In version `1.13.0`, experimental `HTTP2` support was added to the `http` adapter. 
+In version `1.13.0`, experimental `HTTP2` support was added to the `http` adapter.
 The `httpVersion` option is now available to select the protocol version used.
 Additional native options for the internal `session.request()` call can be passed via the `http2Options` config.
 This config also includes the custom `sessionTimeout` parameter, which defaults to `1000ms`.
 
 ```js
-const form = new FormData();
+const form = new FormData()
 
-    form.append('foo', '123');
+form.append('foo', '123')
 
-    const {data, headers, status} = await axios.post('https://httpbin.org/post', form, {
-      httpVersion: 2,
-      http2Options: {
-        // rejectUnauthorized: false,
-        // sessionTimeout: 1000
-      },
-      onUploadProgress(e) {
-        console.log('upload progress', e);
-      },
-      onDownloadProgress(e) {
-        console.log('download progress', e);
-      },
-      responseType: 'arraybuffer'
-    });
+const { data, headers, status } = await axios.post(
+  'https://httpbin.org/post',
+  form,
+  {
+    httpVersion: 2,
+    http2Options: {
+      // rejectUnauthorized: false,
+      // sessionTimeout: 1000
+    },
+    onUploadProgress(e) {
+      console.log('upload progress', e)
+    },
+    onDownloadProgress(e) {
+      console.log('download progress', e)
+    },
+    responseType: 'arraybuffer',
+  },
+)
 ```
 
 ## Semver
@@ -1745,15 +1826,15 @@ If your environment doesn't support ES6 Promises, you can [polyfill](https://git
 axios includes [TypeScript](https://typescriptlang.org) definitions and a type guard for axios errors.
 
 ```typescript
-let user: User = null;
+let user: User = null
 try {
-  const { data } = await axios.get('/user?ID=12345');
-  user = data.userDetails;
+  const { data } = await axios.get('/user?ID=12345')
+  user = data.userDetails
 } catch (error) {
   if (axios.isAxiosError(error)) {
-    handleAxiosError(error);
+    handleAxiosError(error)
   } else {
-    handleUnexpectedError(error);
+    handleUnexpectedError(error)
   }
 }
 ```
@@ -1770,13 +1851,12 @@ You can use Gitpod, an online IDE(which is free for Open Source) for contributin
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/axios/axios/blob/main/examples/server.js)
 
-
 ## Resources
 
-* [Changelog](https://github.com/axios/axios/blob/v1.x/CHANGELOG.md)
-* [Ecosystem](https://github.com/axios/axios/blob/v1.x/ECOSYSTEM.md)
-* [Contributing Guide](https://github.com/axios/axios/blob/v1.x/CONTRIBUTING.md)
-* [Code of Conduct](https://github.com/axios/axios/blob/v1.x/CODE_OF_CONDUCT.md)
+- [Changelog](https://github.com/axios/axios/blob/v1.x/CHANGELOG.md)
+- [Ecosystem](https://github.com/axios/axios/blob/v1.x/ECOSYSTEM.md)
+- [Contributing Guide](https://github.com/axios/axios/blob/v1.x/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/axios/axios/blob/v1.x/CODE_OF_CONDUCT.md)
 
 ## Credits
 

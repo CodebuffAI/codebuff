@@ -1,2 +1,2 @@
-import { intersection } from "../fp";
-export = intersection;
+import { intersection } from '../fp'
+export = intersection

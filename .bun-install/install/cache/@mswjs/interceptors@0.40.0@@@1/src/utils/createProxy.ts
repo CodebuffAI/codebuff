@@ -6,17 +6,17 @@ export interface ProxyOptions<Target extends Record<string, any>> {
   methodCall?<F extends keyof Target>(
     this: Target,
     data: [methodName: F, args: Array<unknown>],
-    next: NextFunction<void>
+    next: NextFunction<void>,
   ): void
 
   setProperty?(
     data: [propertyName: string | symbol, nextValue: unknown],
-    next: NextFunction<boolean>
+    next: NextFunction<boolean>,
   ): boolean
 
   getProperty?(
     data: [propertyName: string | symbol, receiver: Target],
-    next: NextFunction<void>
+    next: NextFunction<void>,
   ): void
 }
 
@@ -24,7 +24,7 @@ export type NextFunction<ReturnType> = () => ReturnType
 
 export function createProxy<Target extends object>(
   target: Target,
-  options: ProxyOptions<Target>
+  options: ProxyOptions<Target>,
 ): Target {
   const proxy = new Proxy(target, optionsToProxyHandler(options))
 
@@ -32,7 +32,7 @@ export function createProxy<Target extends object>(
 }
 
 function optionsToProxyHandler<T extends Record<string, any>>(
-  options: ProxyOptions<T>
+  options: ProxyOptions<T>,
 ): ProxyHandler<T> {
   const { constructorCall, methodCall, getProperty, setProperty } = options
   const handler: ProxyHandler<T> = {}
@@ -49,7 +49,7 @@ function optionsToProxyHandler<T extends Record<string, any>>(
       const propertySource = findPropertySource(target, propertyName) || target
       const ownDescriptors = Reflect.getOwnPropertyDescriptor(
         propertySource,
-        propertyName
+        propertyName,
       )
 
       // Respect any custom setters present for this property.

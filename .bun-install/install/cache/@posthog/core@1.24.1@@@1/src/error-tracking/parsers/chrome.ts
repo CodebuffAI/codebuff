@@ -19,20 +19,26 @@ const chromeEvalRegex = /\((\S*)(?::(\d+))(?::(\d+))\)/
 // See: https://github.com/getsentry/sentry-javascript/issues/6880
 export const chromeStackLineParser: StackLineParser = (line, platform) => {
   // If the stack line has no function name, we need to parse it differently
-  const noFnParts = chromeRegexNoFnName.exec(line) as null | [string, string, string, string]
+  const noFnParts = chromeRegexNoFnName.exec(line) as
+    | null
+    | [string, string, string, string]
 
   if (noFnParts) {
     const [, filename, line, col] = noFnParts
     return createFrame(platform, filename, UNKNOWN_FUNCTION, +line, +col)
   }
 
-  const parts = chromeRegex.exec(line) as null | [string, string, string, string, string]
+  const parts = chromeRegex.exec(line) as
+    | null
+    | [string, string, string, string, string]
 
   if (parts) {
     const isEval = parts[2] && parts[2].indexOf('eval') === 0 // start of line
 
     if (isEval) {
-      const subMatch = chromeEvalRegex.exec(parts[2]) as null | [string, string, string, string]
+      const subMatch = chromeEvalRegex.exec(parts[2]) as
+        | null
+        | [string, string, string, string]
 
       if (subMatch) {
         // throw out eval line/column and use top-most line/column number
@@ -44,9 +50,18 @@ export const chromeStackLineParser: StackLineParser = (line, platform) => {
 
     // Kamil: One more hack won't hurt us right? Understanding and adding more rules on top of these regexps right now
     // would be way too time consuming. (TODO: Rewrite whole RegExp to be more readable)
-    const [func, filename] = extractSafariExtensionDetails(parts[1] || UNKNOWN_FUNCTION, parts[2])
+    const [func, filename] = extractSafariExtensionDetails(
+      parts[1] || UNKNOWN_FUNCTION,
+      parts[2],
+    )
 
-    return createFrame(platform, filename, func, parts[3] ? +parts[3] : undefined, parts[4] ? +parts[4] : undefined)
+    return createFrame(
+      platform,
+      filename,
+      func,
+      parts[3] ? +parts[3] : undefined,
+      parts[4] ? +parts[4] : undefined,
+    )
   }
 
   return

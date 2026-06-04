@@ -8,7 +8,7 @@
  *
  * @module providers/coinbase
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Coinbase login to your page.
@@ -67,16 +67,16 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Coinbase(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "coinbase",
-    name: "Coinbase",
-    type: "oauth",
+    id: 'coinbase',
+    name: 'Coinbase',
+    type: 'oauth',
     authorization:
-      "https://login.coinbase.com/oauth2/auth?scope=wallet:user:email+wallet:user:read",
-    token: "https://login.coinbase.com/oauth2/token",
-    userinfo: "https://api.coinbase.com/v2/user",
+      'https://login.coinbase.com/oauth2/auth?scope=wallet:user:email+wallet:user:read',
+    token: 'https://login.coinbase.com/oauth2/token',
+    userinfo: 'https://api.coinbase.com/v2/user',
     profile(profile) {
       return {
         id: profile.data.id,
@@ -86,7 +86,7 @@ export default function Coinbase(
       }
     },
     style: {
-      brandColor: "#0052ff",
+      brandColor: '#0052ff',
     },
     options,
   }

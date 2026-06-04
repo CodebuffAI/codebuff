@@ -20,14 +20,21 @@ import { UNKNOWN_FUNCTION } from './base'
  * Unfortunately "just" changing RegExp is too complicated now and making it pass all tests
  * and fix this case seems like an impossible, or at least way too time-consuming task.
  */
-export const extractSafariExtensionDetails = (func: string, filename: string): [string, string] => {
+export const extractSafariExtensionDetails = (
+  func: string,
+  filename: string,
+): [string, string] => {
   const isSafariExtension = func.indexOf('safari-extension') !== -1
   const isSafariWebExtension = func.indexOf('safari-web-extension') !== -1
 
   return isSafariExtension || isSafariWebExtension
     ? [
-        func.indexOf('@') !== -1 ? (func.split('@')[0] as string) : UNKNOWN_FUNCTION,
-        isSafariExtension ? `safari-extension:${filename}` : `safari-web-extension:${filename}`,
+        func.indexOf('@') !== -1
+          ? (func.split('@')[0] as string)
+          : UNKNOWN_FUNCTION,
+        isSafariExtension
+          ? `safari-extension:${filename}`
+          : `safari-web-extension:${filename}`,
       ]
     : [func, filename]
 }

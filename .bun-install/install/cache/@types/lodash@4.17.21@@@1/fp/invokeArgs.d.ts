@@ -1,2 +1,2 @@
-import { invokeArgs } from "../fp";
-export = invokeArgs;
+import { invokeArgs } from '../fp'
+export = invokeArgs

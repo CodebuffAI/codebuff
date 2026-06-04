@@ -1,2 +1,2 @@
-import { sampleSize } from "../fp";
-export = sampleSize;
+import { sampleSize } from '../fp'
+export = sampleSize

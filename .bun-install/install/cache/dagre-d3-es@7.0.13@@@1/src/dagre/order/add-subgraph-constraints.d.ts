@@ -1,1 +1,1 @@
-export function addSubgraphConstraints(g: any, cg: any, vs: any): void;
+export function addSubgraphConstraints(g: any, cg: any, vs: any): void

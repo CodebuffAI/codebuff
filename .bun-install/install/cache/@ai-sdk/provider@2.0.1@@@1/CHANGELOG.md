@@ -73,27 +73,27 @@
   Before
 
   ```ts
-  import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
+  import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils'
 
   // Had to manually convert binary data to base64
-  const fileData = new Uint8Array([0, 1, 2, 3]);
+  const fileData = new Uint8Array([0, 1, 2, 3])
   const filePart = {
     type: 'file',
     mediaType: 'application/pdf',
     data: convertUint8ArrayToBase64(fileData), // Required conversion
-  };
+  }
   ```
 
   After
 
   ```ts
   // Can use binary data directly
-  const fileData = new Uint8Array([0, 1, 2, 3]);
+  const fileData = new Uint8Array([0, 1, 2, 3])
   const filePart = {
     type: 'file',
     mediaType: 'application/pdf',
     data: fileData, // Direct Uint8Array support
-  };
+  }
   ```
 
 - 68ecf2f: release alpha.13
@@ -107,19 +107,19 @@
   The `experimental_generateImage` method from the `ai` package now returnes revised prompts for OpenAI's image models.
 
   ```js
-  const prompt = 'Santa Claus driving a Cadillac';
+  const prompt = 'Santa Claus driving a Cadillac'
 
   const { providerMetadata } = await experimental_generateImage({
     model: openai.image('dall-e-3'),
     prompt,
-  });
+  })
 
-  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt;
+  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt
 
   console.log({
     prompt,
     revisedPrompt,
-  });
+  })
   ```
 
 - 5c56081: release alpha.7
@@ -269,19 +269,19 @@
   The `experimental_generateImage` method from the `ai` package now returnes revised prompts for OpenAI's image models.
 
   ```js
-  const prompt = 'Santa Claus driving a Cadillac';
+  const prompt = 'Santa Claus driving a Cadillac'
 
   const { providerMetadata } = await experimental_generateImage({
     model: openai.image('dall-e-3'),
     prompt,
-  });
+  })
 
-  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt;
+  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt
 
   console.log({
     prompt,
     revisedPrompt,
-  });
+  })
   ```
 
 ## 2.0.0-canary.12

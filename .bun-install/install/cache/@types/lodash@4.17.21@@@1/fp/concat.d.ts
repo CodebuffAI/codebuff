@@ -1,2 +1,2 @@
-import { concat } from "../fp";
-export = concat;
+import { concat } from '../fp'
+export = concat

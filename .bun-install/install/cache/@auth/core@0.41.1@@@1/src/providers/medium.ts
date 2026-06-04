@@ -9,7 +9,7 @@
  * @module providers/medium
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Medium login to your page.
@@ -67,15 +67,15 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Medium(
-  config: OAuthUserConfig<Record<string, any>>
+  config: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "medium",
-    name: "Medium",
-    type: "oauth",
-    authorization: "https://medium.com/m/oauth/authorize?scope=basicProfile",
-    token: "https://api.medium.com/v1/tokens",
-    userinfo: "https://api.medium.com/v1/me",
+    id: 'medium',
+    name: 'Medium',
+    type: 'oauth',
+    authorization: 'https://medium.com/m/oauth/authorize?scope=basicProfile',
+    token: 'https://api.medium.com/v1/tokens',
+    userinfo: 'https://api.medium.com/v1/me',
     profile(profile) {
       return {
         id: profile.data.id,

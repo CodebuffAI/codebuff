@@ -8,7 +8,7 @@
  *
  * @module providers/box
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Box login to your page.
  *
@@ -59,5 +59,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Box(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Box(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=box.d.ts.map

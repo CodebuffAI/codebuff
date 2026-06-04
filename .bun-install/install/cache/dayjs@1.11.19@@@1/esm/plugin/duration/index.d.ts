@@ -1,8 +1,8 @@
 import { PluginFunc } from 'dayjs/esm'
-import { OpUnitType, UnitTypeLongPlural } from 'dayjs/esm';
+import { OpUnitType, UnitTypeLongPlural } from 'dayjs/esm'
 
 declare const plugin: PluginFunc
-export as namespace plugin;
+export as namespace plugin
 export = plugin
 
 declare namespace plugin {
@@ -14,19 +14,22 @@ declare namespace plugin {
    * @deprecated Please use more strict types
    */
   type DurationAddType = number | object | Duration
-  
+
   type DurationUnitsObjectType = Partial<{
-    [unit in Exclude<UnitTypeLongPlural, "dates"> | "weeks"]: number
-  }>;
-  type DurationUnitType = Exclude<OpUnitType, "date" | "dates">
-  type CreateDurationType = 
-    ((units: DurationUnitsObjectType) => Duration)
-    & ((time: number, unit?: DurationUnitType) => Duration)
-    & ((ISO_8601: string) => Duration)
+    [unit in Exclude<UnitTypeLongPlural, 'dates'> | 'weeks']: number
+  }>
+  type DurationUnitType = Exclude<OpUnitType, 'date' | 'dates'>
+  type CreateDurationType = ((units: DurationUnitsObjectType) => Duration) &
+    ((time: number, unit?: DurationUnitType) => Duration) &
+    ((ISO_8601: string) => Duration)
   type AddDurationType = CreateDurationType & ((duration: Duration) => Duration)
 
   interface Duration {
-    new (input: string | number | object, unit?: string, locale?: string): Duration
+    new (
+      input: string | number | object,
+      unit?: string,
+      locale?: string,
+    ): Duration
 
     clone(): Duration
 
@@ -61,7 +64,7 @@ declare namespace plugin {
     get(unit: DurationUnitType): number
 
     add: AddDurationType
-    
+
     subtract: AddDurationType
 
     toJSON(): string
@@ -83,6 +86,6 @@ declare module 'dayjs/esm' {
   /**
    * @param time If unit is not present, time treated as number of milliseconds
    */
-  export const duration: plugin.CreateDurationType;
+  export const duration: plugin.CreateDurationType
   export function isDuration(d: any): d is plugin.Duration
 }

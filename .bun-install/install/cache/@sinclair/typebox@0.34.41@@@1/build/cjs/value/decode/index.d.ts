@@ -1,1 +1,1 @@
-export * from './decode';
+export * from './decode'

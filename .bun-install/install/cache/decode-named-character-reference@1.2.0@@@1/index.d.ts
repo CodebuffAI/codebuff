@@ -9,5 +9,5 @@
  * @returns {string|false}
  *   Decoded reference.
  */
-export function decodeNamedCharacterReference(value: string): string | false;
+export function decodeNamedCharacterReference(value: string): string | false
 //# sourceMappingURL=index.d.ts.map

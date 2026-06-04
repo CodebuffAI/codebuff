@@ -10,7 +10,7 @@
  *
  * @module providers/kinde
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Kinde when using the profile callback. [Reference](https://kinde.com/api/docs/#get-user-profile). */
 export interface KindeProfile extends Record<string, any> {
@@ -72,14 +72,14 @@ export interface KindeProfile extends Record<string, any> {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Kinde(
-  config: OIDCUserConfig<KindeProfile>
+  config: OIDCUserConfig<KindeProfile>,
 ): OIDCConfig<KindeProfile> {
   return {
-    id: "kinde",
-    name: "Kinde",
-    type: "oidc",
-    style: { text: "#0F0F0F", bg: "#fff" },
+    id: 'kinde',
+    name: 'Kinde',
+    type: 'oidc',
+    style: { text: '#0F0F0F', bg: '#fff' },
     options: config,
-    checks: ["state", "pkce"],
+    checks: ['state', 'pkce'],
   }
 }

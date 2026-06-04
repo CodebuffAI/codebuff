@@ -1,1 +1,1 @@
-export function positionClusters(selection: any, g: any): void;
+export function positionClusters(selection: any, g: any): void

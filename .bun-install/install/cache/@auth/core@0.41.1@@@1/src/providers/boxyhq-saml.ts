@@ -8,7 +8,7 @@
  *
  * @module providers/boxyhq-saml
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface BoxyHQSAMLProfile extends Record<string, any> {
   id: string
@@ -120,15 +120,15 @@ export interface BoxyHQSAMLProfile extends Record<string, any> {
  * :::
  */
 export default function SAMLJackson<P extends BoxyHQSAMLProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "boxyhq-saml",
-    name: "BoxyHQ SAML",
-    type: "oauth",
+    id: 'boxyhq-saml',
+    name: 'BoxyHQ SAML',
+    type: 'oauth',
     authorization: {
       url: `${options.issuer}/api/oauth/authorize`,
-      params: { provider: "saml" },
+      params: { provider: 'saml' },
     },
     token: `${options.issuer}/api/oauth/token`,
     userinfo: `${options.issuer}/api/oauth/userinfo`,
@@ -136,12 +136,12 @@ export default function SAMLJackson<P extends BoxyHQSAMLProfile>(
       return {
         id: profile.id,
         email: profile.email,
-        name: [profile.firstName, profile.lastName].filter(Boolean).join(" "),
+        name: [profile.firstName, profile.lastName].filter(Boolean).join(' '),
         image: null,
       }
     },
     style: {
-      brandColor: "#25c2a0",
+      brandColor: '#25c2a0',
     },
     options,
   }

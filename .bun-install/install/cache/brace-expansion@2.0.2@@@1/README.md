@@ -1,6 +1,6 @@
 # brace-expansion
 
-[Brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html), 
+[Brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html),
 as known from sh/bash, in JavaScript.
 
 [![build status](https://secure.travis-ci.org/juliangruber/brace-expansion.svg)](http://travis-ci.org/juliangruber/brace-expansion)
@@ -12,7 +12,7 @@ as known from sh/bash, in JavaScript.
 ## Example
 
 ```js
-var expand = require('brace-expansion');
+var expand = require('brace-expansion')
 
 expand('file-{a,b,c}.jpg')
 // => ['file-a.jpg', 'file-b.jpg', 'file-c.jpg']
@@ -48,7 +48,7 @@ expand('ppp{,config,oe{,conf}}')
 ## API
 
 ```js
-var expand = require('brace-expansion');
+var expand = require('brace-expansion')
 ```
 
 ### var expanded = expand(str)
@@ -59,14 +59,14 @@ found, `[str]` is returned.
 Valid expansions are:
 
 ```js
-/^(.*,)+(.+)?$/
+;/^(.*,)+(.+)?$/
 // {a,b,...}
 ```
 
 A comma separated list of options, like `{a,b}` or `{a,{b,c}}` or `{,a,}`.
 
 ```js
-/^-?\d+\.\.-?\d+(\.\.-?\d+)?$/
+;/^-?\d+\.\.-?\d+(\.\.-?\d+)?$/
 // {x..y[..incr]}
 ```
 
@@ -75,7 +75,7 @@ If `x` or `y` start with a leading `0`, all the numbers will be padded
 to have equal length. Negative numbers and backwards iteration work too.
 
 ```js
-/^-?\d+\.\.-?\d+(\.\.-?\d+)?$/
+;/^-?\d+\.\.-?\d+(\.\.-?\d+)?$/
 // {x..y[..incr]}
 ```
 

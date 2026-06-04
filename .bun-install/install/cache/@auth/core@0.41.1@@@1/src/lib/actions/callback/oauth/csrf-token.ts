@@ -1,7 +1,7 @@
-import { createHash, randomString } from "../../../utils/web.js"
+import { createHash, randomString } from '../../../utils/web.js'
 
-import type { AuthAction, InternalOptions } from "../../../../types.js"
-import { MissingCSRF } from "../../../../errors.js"
+import type { AuthAction, InternalOptions } from '../../../../types.js'
+import { MissingCSRF } from '../../../../errors.js'
 interface CreateCSRFTokenParams {
   options: InternalOptions
   cookieValue?: string
@@ -30,10 +30,10 @@ export async function createCSRFToken({
   bodyValue,
 }: CreateCSRFTokenParams) {
   if (cookieValue) {
-    const [csrfToken, csrfTokenHash] = cookieValue.split("|")
+    const [csrfToken, csrfTokenHash] = cookieValue.split('|')
 
     const expectedCsrfTokenHash = await createHash(
-      `${csrfToken}${options.secret}`
+      `${csrfToken}${options.secret}`,
     )
 
     if (csrfTokenHash === expectedCsrfTokenHash) {

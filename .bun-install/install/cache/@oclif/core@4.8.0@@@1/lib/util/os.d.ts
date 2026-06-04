@@ -6,7 +6,7 @@
  *
  * @returns The user's home directory
  */
-export declare function getHomeDir(): string;
+export declare function getHomeDir(): string
 /**
  * Call os.platform() and return the result
  *
@@ -15,4 +15,4 @@ export declare function getHomeDir(): string;
  *
  * @returns The process' platform
  */
-export declare function getPlatform(): NodeJS.Platform;
+export declare function getPlatform(): NodeJS.Platform

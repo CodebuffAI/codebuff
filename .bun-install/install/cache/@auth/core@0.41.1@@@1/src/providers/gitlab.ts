@@ -8,7 +8,7 @@
  *
  * @module providers/gitlab
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface GitLabProfile extends Record<string, any> {
   id: number
@@ -114,15 +114,15 @@ export default function GitLab<P extends GitLabProfile>(
      * @default "https://gitlab.com"
      */
     baseUrl?: URL | string
-  }
+  },
 ): OAuthConfig<P> {
-  const baseUrl = options.baseUrl ?? "https://gitlab.com"
+  const baseUrl = options.baseUrl ?? 'https://gitlab.com'
   const url = new URL(baseUrl.toString())
 
   return {
-    id: "gitlab",
-    name: "GitLab",
-    type: "oauth",
+    id: 'gitlab',
+    name: 'GitLab',
+    type: 'oauth',
     authorization: `${url}oauth/authorize?scope=read_user`,
     token: `${url}oauth/token`,
     userinfo: `${url}api/v4/user`,
@@ -134,7 +134,7 @@ export default function GitLab<P extends GitLabProfile>(
         image: profile.avatar_url,
       }
     },
-    style: { bg: "#FC6D26", text: "#fff" },
+    style: { bg: '#FC6D26', text: '#fff' },
     options,
   }
 }

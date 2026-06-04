@@ -11,13 +11,13 @@
 Simply add `TypeScriptLoader` to the list of loaders for the `.ts` file type, and `await` loading:
 
 ```ts
-import { cosmiconfig } from "cosmiconfig";
-import { TypeScriptLoader } from "cosmiconfig-typescript-loader";
+import { cosmiconfig } from 'cosmiconfig'
+import { TypeScriptLoader } from 'cosmiconfig-typescript-loader'
 
-const moduleName = "module";
-const explorer = cosmiconfig("test", {
+const moduleName = 'module'
+const explorer = cosmiconfig('test', {
   searchPlaces: [
-    "package.json",
+    'package.json',
     `.${moduleName}rc`,
     `.${moduleName}rc.json`,
     `.${moduleName}rc.yaml`,
@@ -30,27 +30,27 @@ const explorer = cosmiconfig("test", {
     `${moduleName}.config.cjs`,
   ],
   loaders: {
-    ".ts": TypeScriptLoader(),
+    '.ts': TypeScriptLoader(),
   },
-});
+})
 
-const cfg = await explorer.load("./");
+const cfg = await explorer.load('./')
 ```
 
 Or more simply if you only support loading of a TypeScript based configuration file:
 
 ```ts
-import { cosmiconfig } from "cosmiconfig";
-import { TypeScriptLoader } from "cosmiconfig-typescript-loader";
+import { cosmiconfig } from 'cosmiconfig'
+import { TypeScriptLoader } from 'cosmiconfig-typescript-loader'
 
-const moduleName = "module";
-const explorer = cosmiconfig("test", {
+const moduleName = 'module'
+const explorer = cosmiconfig('test', {
   loaders: {
-    ".ts": TypeScriptLoader(),
+    '.ts': TypeScriptLoader(),
   },
-});
+})
 
-const cfg = await explorer.load("./amazing.config.ts");
+const cfg = await explorer.load('./amazing.config.ts')
 ```
 
 ### Synchronously loading
@@ -58,17 +58,17 @@ const cfg = await explorer.load("./amazing.config.ts");
 With the release of Jiti 2, the synchronous loader has now been deprecated. It can still be used by using the `TypeScriptLoaderSync` export:
 
 ```ts
-import { cosmiconfig } from "cosmiconfig";
-import { TypeScriptLoaderSync } from "cosmiconfig-typescript-loader";
+import { cosmiconfig } from 'cosmiconfig'
+import { TypeScriptLoaderSync } from 'cosmiconfig-typescript-loader'
 
-const moduleName = "module";
-const explorer = cosmiconfig("test", {
+const moduleName = 'module'
+const explorer = cosmiconfig('test', {
   loaders: {
-    ".ts": TypeScriptLoaderSync(),
+    '.ts': TypeScriptLoaderSync(),
   },
-});
+})
 
-const cfg = explorer.load("./amazing.config.ts");
+const cfg = explorer.load('./amazing.config.ts')
 ```
 
 ## `@endemolshinegroup/cosmiconfig-typescript-loader`

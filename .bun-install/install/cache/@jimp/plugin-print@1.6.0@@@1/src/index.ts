@@ -1,13 +1,13 @@
-import { HorizontalAlign, VerticalAlign } from "@jimp/core";
-import { JimpClass } from "@jimp/types";
-import { methods as blitMethods } from "@jimp/plugin-blit";
-import { z } from "zod";
+import { HorizontalAlign, VerticalAlign } from '@jimp/core'
+import { JimpClass } from '@jimp/types'
+import { methods as blitMethods } from '@jimp/plugin-blit'
+import { z } from 'zod'
 
-import { measureText, measureTextHeight, splitLines } from "./measure-text.js";
-import { BmCharacter, BmFont } from "./types.js";
+import { measureText, measureTextHeight, splitLines } from './measure-text.js'
+import { BmCharacter, BmFont } from './types.js'
 
-export { measureText, measureTextHeight } from "./measure-text.js";
-export * from "./types.js";
+export { measureText, measureTextHeight } from './measure-text.js'
+export * from './types.js'
 
 const PrintOptionsSchema = z.object({
   /** the x position to draw the image */
@@ -31,25 +31,25 @@ const PrintOptionsSchema = z.object({
   cb: z
     .function(z.tuple([z.object({ x: z.number(), y: z.number() })]))
     .optional(),
-});
+})
 
-export type PrintOptions = z.infer<typeof PrintOptionsSchema>;
+export type PrintOptions = z.infer<typeof PrintOptionsSchema>
 
 function xOffsetBasedOnAlignment<I extends JimpClass>(
   font: BmFont<I>,
   line: string,
   maxWidth: number,
-  alignment: HorizontalAlign
+  alignment: HorizontalAlign,
 ) {
   if (alignment === HorizontalAlign.LEFT) {
-    return 0;
+    return 0
   }
 
   if (alignment === HorizontalAlign.CENTER) {
-    return (maxWidth - measureText(font, line)) / 2;
+    return (maxWidth - measureText(font, line)) / 2
   }
 
-  return maxWidth - measureText(font, line);
+  return maxWidth - measureText(font, line)
 }
 
 function drawCharacter<I extends JimpClass>(
@@ -57,10 +57,10 @@ function drawCharacter<I extends JimpClass>(
   font: BmFont<I>,
   x: number,
   y: number,
-  char: BmCharacter
+  char: BmCharacter,
 ) {
   if (char.width > 0 && char.height > 0) {
-    const characterPage = font.pages[char.page];
+    const characterPage = font.pages[char.page]
 
     if (characterPage) {
       image = blitMethods.blit(image, {
@@ -71,11 +71,11 @@ function drawCharacter<I extends JimpClass>(
         srcY: char.y,
         srcW: char.width,
         srcH: char.height,
-      });
+      })
     }
   }
 
-  return image;
+  return image
 }
 
 function printText<I extends JimpClass>(
@@ -84,35 +84,35 @@ function printText<I extends JimpClass>(
   x: number,
   y: number,
   text: string,
-  defaultCharWidth: number
+  defaultCharWidth: number,
 ) {
   for (let i = 0; i < text.length; i++) {
-    const stringChar = text[i]!;
+    const stringChar = text[i]!
 
-    let char;
+    let char
 
     if (font.chars[stringChar]) {
-      char = stringChar;
+      char = stringChar
     } else if (/\s/.test(stringChar)) {
-      char = "";
+      char = ''
     } else {
-      char = "?";
+      char = '?'
     }
 
-    const fontChar = font.chars[char] || { xadvance: undefined };
-    const fontKerning = font.kernings[char];
+    const fontChar = font.chars[char] || { xadvance: undefined }
+    const fontKerning = font.kernings[char]
 
     if (fontChar) {
-      drawCharacter(image, font, x, y, fontChar as BmCharacter);
+      drawCharacter(image, font, x, y, fontChar as BmCharacter)
     }
 
-    const nextChar = text[i + 1];
+    const nextChar = text[i + 1]
     const kerning =
       fontKerning && nextChar && fontKerning[nextChar]
         ? fontKerning[nextChar] || 0
-        : 0;
+        : 0
 
-    x += kerning + (fontChar.xadvance || defaultCharWidth);
+    x += kerning + (fontChar.xadvance || defaultCharWidth)
   }
 }
 
@@ -140,8 +140,8 @@ export const methods = {
       ...options
     }: PrintOptions & {
       /** the BMFont instance */
-      font: BmFont<I>;
-    }
+      font: BmFont<I>
+    },
   ) {
     let {
       // eslint-disable-next-line prefer-const
@@ -154,53 +154,53 @@ export const methods = {
       maxHeight = Infinity,
       // eslint-disable-next-line prefer-const
       cb = () => {},
-    } = PrintOptionsSchema.parse(options);
+    } = PrintOptionsSchema.parse(options)
 
-    let alignmentX: HorizontalAlign;
-    let alignmentY: VerticalAlign;
+    let alignmentX: HorizontalAlign
+    let alignmentY: VerticalAlign
 
     if (
-      typeof text === "object" &&
+      typeof text === 'object' &&
       text.text !== null &&
       text.text !== undefined
     ) {
-      alignmentX = text.alignmentX || HorizontalAlign.LEFT;
-      alignmentY = text.alignmentY || VerticalAlign.TOP;
-      ({ text } = text);
+      alignmentX = text.alignmentX || HorizontalAlign.LEFT
+      alignmentY = text.alignmentY || VerticalAlign.TOP
+      ;({ text } = text)
     } else {
-      alignmentX = HorizontalAlign.LEFT;
-      alignmentY = VerticalAlign.TOP;
-      text = text.toString();
+      alignmentX = HorizontalAlign.LEFT
+      alignmentY = VerticalAlign.TOP
+      text = text.toString()
     }
 
-    if (typeof text === "number") {
-      text = text.toString();
+    if (typeof text === 'number') {
+      text = text.toString()
     }
 
     if (maxHeight !== Infinity && alignmentY === VerticalAlign.BOTTOM) {
-      y += maxHeight - measureTextHeight(font, text, maxWidth);
+      y += maxHeight - measureTextHeight(font, text, maxWidth)
     } else if (maxHeight !== Infinity && alignmentY === VerticalAlign.MIDDLE) {
-      y += maxHeight / 2 - measureTextHeight(font, text, maxWidth) / 2;
+      y += maxHeight / 2 - measureTextHeight(font, text, maxWidth) / 2
     }
 
     const defaultCharWidth = Object.entries(font.chars).find(
-      (c) => c[1].xadvance
-    )?.[1].xadvance;
+      (c) => c[1].xadvance,
+    )?.[1].xadvance
 
-    if (typeof defaultCharWidth !== "number") {
-      throw new Error("Could not find default character width");
+    if (typeof defaultCharWidth !== 'number') {
+      throw new Error('Could not find default character width')
     }
 
-    const { lines, longestLine } = splitLines(font, text, maxWidth);
+    const { lines, longestLine } = splitLines(font, text, maxWidth)
 
     lines.forEach((line) => {
-      const lineString = line.join(" ");
+      const lineString = line.join(' ')
       const alignmentWidth = xOffsetBasedOnAlignment(
         font,
         lineString,
         maxWidth,
-        alignmentX
-      );
+        alignmentX,
+      )
 
       printText(
         image,
@@ -208,13 +208,13 @@ export const methods = {
         x + alignmentWidth,
         y,
         lineString,
-        defaultCharWidth
-      );
-      y += font.common.lineHeight;
-    });
+        defaultCharWidth,
+      )
+      y += font.common.lineHeight
+    })
 
-    cb.bind(image)({ x: x + longestLine, y });
+    cb.bind(image)({ x: x + longestLine, y })
 
-    return image;
+    return image
   },
-};
+}

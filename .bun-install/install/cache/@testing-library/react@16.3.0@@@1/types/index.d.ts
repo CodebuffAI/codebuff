@@ -7,9 +7,9 @@ import {
   prettyFormat,
   Config as ConfigDTL,
 } from '@testing-library/dom'
-import {act as reactDeprecatedAct} from 'react-dom/test-utils'
+import { act as reactDeprecatedAct } from 'react-dom/test-utils'
 //@ts-ignore
-import {act as reactAct} from 'react'
+import { act as reactAct } from 'react'
 
 export * from '@testing-library/dom'
 
@@ -44,7 +44,7 @@ export type RenderResult<
   rerender: (ui: React.ReactNode) => void
   unmount: () => void
   asFragment: () => DocumentFragment
-} & {[P in keyof Q]: BoundFunction<Q[P]>}
+} & { [P in keyof Q]: BoundFunction<Q[P]> }
 
 /** @deprecated */
 export type BaseRenderOptions<
@@ -54,7 +54,9 @@ export type BaseRenderOptions<
 > = RenderOptions<Q, Container, BaseElement>
 
 type RendererableContainer = ReactDOMClient.Container
-type HydrateableContainer = Parameters<typeof ReactDOMClient['hydrateRoot']>[0]
+type HydrateableContainer = Parameters<
+  (typeof ReactDOMClient)['hydrateRoot']
+>[0]
 /** @deprecated */
 export interface ClientRenderOptions<
   Q extends Queries,
@@ -155,7 +157,9 @@ export interface RenderOptions<
    *
    *  @see https://testing-library.com/docs/react-testing-library/api/#wrapper
    */
-  wrapper?: React.JSXElementConstructor<{children: React.ReactNode}> | undefined
+  wrapper?:
+    | React.JSXElementConstructor<{ children: React.ReactNode }>
+    | undefined
   /**
    * When enabled, <StrictMode> is rendered around the inner element.
    * If defined, overrides the value of `reactStrictMode` set in `configure`.

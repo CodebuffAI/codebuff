@@ -19,7 +19,7 @@ const DEFAULT_HOSTNAME = 'localhost'
 const SSL_PORT = 443
 
 function getAgent(
-  options: ResolvedRequestOptions
+  options: ResolvedRequestOptions,
 ): Agent | HttpsAgent | undefined {
   return options.agent instanceof Agent ? options.agent : undefined
 }
@@ -43,7 +43,7 @@ function getProtocolByRequestOptions(options: ResolvedRequestOptions): string {
 }
 
 function getPortByRequestOptions(
-  options: ResolvedRequestOptions
+  options: ResolvedRequestOptions,
 ): number | undefined {
   // Use the explicitly provided port.
   if (options.port) {
@@ -72,7 +72,7 @@ interface RequestAuth {
 }
 
 function getAuthByRequestOptions(
-  options: ResolvedRequestOptions
+  options: ResolvedRequestOptions,
 ): RequestAuth | undefined {
   if (options.auth) {
     const [username, password] = options.auth.split(':')
@@ -94,7 +94,7 @@ function getHostname(options: ResolvedRequestOptions): string | undefined {
 
   if (host) {
     if (isRawIPv6Address(host)) {
-       host = `[${host}]`
+      host = `[${host}]`
     }
 
     // Check the presence of the port, and if it's present,
@@ -114,7 +114,7 @@ export function getUrlByRequestOptions(options: ResolvedRequestOptions): URL {
   if (options.uri) {
     logger.info(
       'constructing url from explicitly provided "options.uri": %s',
-      options.uri
+      options.uri,
     )
     return new URL(options.uri.href)
   }

@@ -8,7 +8,7 @@
  *
  * @module providers/battlenet
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface BattleNetProfile extends Record<string, any> {
   sub: string
@@ -17,10 +17,10 @@ export interface BattleNetProfile extends Record<string, any> {
 
 /** See the [available regions](https://develop.battle.net/documentation/guides/regionality-and-apis) */
 export type BattleNetIssuer =
-  | "https://oauth.battle.net"
-  | "https://oauth.battlenet.com.cn"
-  | "https://www.battlenet.com.cn/oauth"
-  | `https://${"us" | "eu" | "kr" | "tw"}.battle.net/oauth`
+  | 'https://oauth.battle.net'
+  | 'https://oauth.battlenet.com.cn'
+  | 'https://www.battlenet.com.cn/oauth'
+  | `https://${'us' | 'eu' | 'kr' | 'tw'}.battle.net/oauth`
 
 /**
  * Add Battle.net login to your page.
@@ -87,12 +87,12 @@ export type BattleNetIssuer =
  * :::
  */
 export default function BattleNet<P extends BattleNetProfile>(
-  options: OAuthUserConfig<P> & { issuer: BattleNetIssuer }
+  options: OAuthUserConfig<P> & { issuer: BattleNetIssuer },
 ): OAuthConfig<P> {
   return {
-    id: "battlenet",
-    name: "Battle.net",
-    type: "oidc",
+    id: 'battlenet',
+    name: 'Battle.net',
+    type: 'oidc',
     profile(profile) {
       return {
         id: profile.sub,
@@ -101,7 +101,7 @@ export default function BattleNet<P extends BattleNetProfile>(
         image: null,
       }
     },
-    style: { bg: "#148eff", text: "#fff" },
+    style: { bg: '#148eff', text: '#fff' },
     options,
   }
 }

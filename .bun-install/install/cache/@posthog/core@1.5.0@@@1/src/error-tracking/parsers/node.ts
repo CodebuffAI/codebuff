@@ -3,7 +3,8 @@ import { UNKNOWN_FUNCTION } from './base'
 
 /** Node Stack line parser */
 const FILENAME_MATCH = /^\s*[-]{4,}$/
-const FULL_MATCH = /at (?:async )?(?:(.+?)\s+\()?(?:(.+):(\d+):(\d+)?|([^)]+))\)?/
+const FULL_MATCH =
+  /at (?:async )?(?:(.+?)\s+\()?(?:(.+):(\d+):(\d+)?|([^)]+))\)?/
 
 export const nodeStackLineParser: StackLineParser = (line: string) => {
   const lineMatch = line.match(FULL_MATCH)
@@ -50,7 +51,9 @@ export const nodeStackLineParser: StackLineParser = (line: string) => {
       functionName = typeName ? `${typeName}.${methodName}` : methodName
     }
 
-    let filename = lineMatch[2]?.startsWith('file://') ? lineMatch[2].slice(7) : lineMatch[2]
+    let filename = lineMatch[2]?.startsWith('file://')
+      ? lineMatch[2].slice(7)
+      : lineMatch[2]
     const isNative = lineMatch[5] === 'native'
 
     // If it's a Windows path, trim the leading slash so that `/C:/foo` becomes `C:/foo`
@@ -103,7 +106,9 @@ function filenameIsInApp(filename: string, isNative: boolean = false): boolean {
   // note that isNative appears to return true even for node core libraries
   // see https://github.com/getsentry/raven-node/issues/176
 
-  return !isInternal && filename !== undefined && !filename.includes('node_modules/')
+  return (
+    !isInternal && filename !== undefined && !filename.includes('node_modules/')
+  )
 }
 
 function _parseIntOrUndefined(input: string | undefined): number | undefined {

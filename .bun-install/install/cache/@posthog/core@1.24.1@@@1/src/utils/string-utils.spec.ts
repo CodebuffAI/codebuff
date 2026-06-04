@@ -3,8 +3,14 @@ import { getPersonPropertiesHash } from './string-utils'
 describe('string-utils', () => {
   describe('getPersonPropertiesHash', () => {
     it('should return consistent hash regardless of top-level key order', () => {
-      const hash1 = getPersonPropertiesHash('user-1', { b: 'value-b', a: 'value-a' })
-      const hash2 = getPersonPropertiesHash('user-1', { a: 'value-a', b: 'value-b' })
+      const hash1 = getPersonPropertiesHash('user-1', {
+        b: 'value-b',
+        a: 'value-a',
+      })
+      const hash2 = getPersonPropertiesHash('user-1', {
+        a: 'value-a',
+        b: 'value-b',
+      })
       expect(hash1).toBe(hash2)
     })
 
@@ -95,8 +101,16 @@ describe('string-utils', () => {
     })
 
     it('should handle both userPropertiesToSet and userPropertiesToSetOnce', () => {
-      const hash1 = getPersonPropertiesHash('user-1', { nested: { z: 1, a: 2 } }, { other: { y: 3, b: 4 } })
-      const hash2 = getPersonPropertiesHash('user-1', { nested: { a: 2, z: 1 } }, { other: { b: 4, y: 3 } })
+      const hash1 = getPersonPropertiesHash(
+        'user-1',
+        { nested: { z: 1, a: 2 } },
+        { other: { y: 3, b: 4 } },
+      )
+      const hash2 = getPersonPropertiesHash(
+        'user-1',
+        { nested: { a: 2, z: 1 } },
+        { other: { b: 4, y: 3 } },
+      )
       expect(hash1).toBe(hash2)
     })
 

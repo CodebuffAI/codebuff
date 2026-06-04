@@ -1,7 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { assistantMessage } from '@codebuff/common/util/messages'
+import { assistantMessage, jsonToolResult } from '@codebuff/common/util/messages'
 import {
   afterAll,
   beforeAll,
@@ -17,6 +17,7 @@ import * as runAgentStep from '../run-agent-step'
 import { mockFileContext } from './test-utils'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
+import { appendProposalArtifact } from '../tools/handlers/tool/proposal-ledger-store'
 
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
@@ -119,6 +120,7 @@ describe('Subagent Streaming', () => {
   beforeEach(() => {
     mockSendSubagentChunk.mockClear()
     mockLoopAgentSteps.mockClear()
+    mockWriteToClient.mockClear()
   })
 
   afterAll(() => {
@@ -173,6 +175,146 @@ describe('Subagent Streaming', () => {
       expect.objectContaining({ type: 'subagent_finish' }),
     )
     return
+  })
+
+  it('streams ledger-backed proposal tool events before proposal subagent finish', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+
+    const proposalTemplate = {
+      ...mockAgentTemplate,
+      id: 'editor-implementor-proposal-1',
+      displayName: 'Proposal 1',
+      includeMessageHistory: false,
+      toolNames: ['propose_str_replace'],
+    } as AgentTemplate
+    const parentTemplate = {
+      id: 'base',
+      spawnableAgents: ['editor-implementor-proposal-1'],
+    } as unknown as AgentTemplate
+
+    mockLoopAgentSteps.mockImplementationOnce(async (options) => {
+      options.agentState.runId = 'proposal-stream-test-run'
+      appendProposalArtifact(options.agentState.runId, {
+        toolName: 'propose_str_replace',
+        input: {
+          path: 'tmp-multieditor-live/notes.ts',
+          replacements: [{ oldString: 'before', newString: 'after' }],
+        },
+        result: {
+          file: 'tmp-multieditor-live/notes.ts',
+          ok: true,
+          unifiedDiff: '@@\n-before\n+after',
+          message: 'Proposed string replacement.',
+        },
+      })
+
+      return {
+        agentState: {
+          ...options.agentState,
+          messageHistory: [
+            assistantMessage({
+              type: 'tool-call',
+              toolCallId: 'embedded-proposal-call',
+              toolName: 'propose_str_replace',
+              input: {
+                path: 'tmp-multieditor-live/notes.ts',
+                replacements: [{ oldString: 'before', newString: 'after' }],
+              },
+            }),
+            {
+              role: 'tool',
+              toolCallId: 'embedded-proposal-call',
+              toolName: 'propose_str_replace',
+              content: jsonToolResult({
+                file: 'tmp-multieditor-live/notes.ts',
+                unifiedDiff: '@@\n-before\n+after',
+              }),
+            },
+          ],
+        },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('PROPOSAL_BUNDLE_COMPLETE')],
+        },
+      }
+    })
+
+    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+      toolName: 'spawn_agents',
+      toolCallId: 'proposal-spawn-call-id',
+      input: {
+        agents: [
+          {
+            agent_type: 'editor-implementor-proposal-1',
+            prompt: 'Propose a change',
+          },
+        ],
+      },
+    }
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState,
+      agentTemplate: parentTemplate,
+      localAgentTemplates: {
+        [proposalTemplate.id]: proposalTemplate,
+      },
+      toolCall,
+    })
+
+    const events = mockWriteToClient.mock.calls.map((call) => call[0])
+    const toolCallEventIndex = events.findIndex(
+      (event) =>
+        typeof event === 'object' &&
+        event.type === 'tool_call' &&
+        event.toolName === 'propose_str_replace',
+    )
+    const toolResultEventIndex = events.findIndex(
+      (event) =>
+        typeof event === 'object' &&
+        event.type === 'tool_result' &&
+        event.toolName === 'propose_str_replace',
+    )
+    const finishEventIndex = events.findIndex(
+      (event) => typeof event === 'object' && event.type === 'subagent_finish',
+    )
+
+    expect(toolCallEventIndex).toBeGreaterThan(-1)
+    expect(toolResultEventIndex).toBeGreaterThan(toolCallEventIndex)
+    expect(finishEventIndex).toBeGreaterThan(toolResultEventIndex)
+
+    const toolCallEvent = events[toolCallEventIndex]
+    const toolResultEvent = events[toolResultEventIndex]
+    const startEvent = events.find(
+      (event) => typeof event === 'object' && event.type === 'subagent_start',
+    )
+    if (
+      typeof toolCallEvent !== 'object' ||
+      typeof toolResultEvent !== 'object' ||
+      typeof startEvent !== 'object'
+    ) {
+      throw new Error('Expected object events')
+    }
+
+    expect(toolCallEvent).toMatchObject({
+      agentId: startEvent.agentId,
+      parentAgentId: agentState.agentId,
+      includeToolCall: false,
+    })
+    expect(toolResultEvent).toMatchObject({
+      agentId: startEvent.agentId,
+      parentAgentId: agentState.agentId,
+      output: [
+        {
+          type: 'json',
+          value: expect.objectContaining({
+            file: 'tmp-multieditor-live/notes.ts',
+            unifiedDiff: expect.stringContaining('+after'),
+          }),
+        },
+      ],
+    })
   })
 
   it('should include correct agentId and agentType in streaming messages', async () => {

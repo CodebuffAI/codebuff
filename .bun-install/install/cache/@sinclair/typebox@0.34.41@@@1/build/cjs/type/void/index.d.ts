@@ -1,1 +1,1 @@
-export * from './void';
+export * from './void'

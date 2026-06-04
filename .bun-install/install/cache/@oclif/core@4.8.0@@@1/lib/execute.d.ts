@@ -1,4 +1,4 @@
-import { LoadOptions } from './interfaces';
+import { LoadOptions } from './interfaces'
 /**
  * Load and run oclif CLI
  *
@@ -37,8 +37,8 @@ import { LoadOptions } from './interfaces';
  * ```
  */
 export declare function execute(options: {
-    args?: string[];
-    development?: boolean;
-    dir?: string;
-    loadOptions?: LoadOptions;
-}): Promise<unknown>;
+  args?: string[]
+  development?: boolean
+  dir?: string
+  loadOptions?: LoadOptions
+}): Promise<unknown>

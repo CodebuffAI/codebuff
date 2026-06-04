@@ -6,7 +6,7 @@
 	</a>
 </div>
 
----   
+---
 
 <div align="center" style="margin-top: 30px;">
 <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=rq_dayjs_github">
@@ -20,7 +20,7 @@
 </a>
 </div>
 
----   
+---
 
 English | [简体中文](./docs/zh-cn/README.zh-CN.md) | [日本語](./docs/ja/README-ja.md) | [Português Brasileiro](./docs/pt-br/README-pt-br.md) | [한국어](./docs/ko/README-ko.md) | [Español (España)](./docs/es-es/README-es-es.md) | [Русский](./docs/ru/README-ru.md) | [Türkçe](./docs/tr/README-tr.md) | [සිංහල](./docs/si/README-si.md) | [עברית](./docs/he/README-he.md)
 
@@ -49,15 +49,19 @@ English | [简体中文](./docs/zh-cn/README.zh-CN.md) | [日本語](./docs/ja/R
 > Day.js is a minimalist JavaScript library that parses, validates, manipulates, and displays dates and times for modern browsers with a largely Moment.js-compatible API. If you use Moment.js, you already know how to use Day.js.
 
 ```js
-dayjs().startOf('month').add(1, 'day').set('year', 2018).format('YYYY-MM-DD HH:mm:ss');
+dayjs()
+  .startOf('month')
+  .add(1, 'day')
+  .set('year', 2018)
+  .format('YYYY-MM-DD HH:mm:ss')
 ```
 
-* 🕒 Familiar Moment.js API & patterns
-* 💪 Immutable
-* 🔥 Chainable
-* 🌐 I18n support
-* 📦 2kb mini library
-* 👫 All browsers supported
+- 🕒 Familiar Moment.js API & patterns
+- 💪 Immutable
+- 🔥 Chainable
+- 🌐 I18n support
+- 📦 2kb mini library
+- 👫 All browsers supported
 
 ---
 
@@ -180,7 +184,6 @@ Support this project by becoming a sponsor. Your logo will show up here with a l
 <a href="https://github.com/sentdm" target="_blank">
   <img width="70" src="https://avatars.githubusercontent.com/u/153308555?s=200&v=4">
 </a>
-
 
 ## Contributors
 

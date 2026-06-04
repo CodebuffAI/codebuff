@@ -1,2 +1,2 @@
-import { trimStart } from "../fp";
-export = trimStart;
+import { trimStart } from '../fp'
+export = trimStart

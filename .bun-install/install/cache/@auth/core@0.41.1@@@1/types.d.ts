@@ -50,18 +50,21 @@
  *
  * @module types
  */
-import type { SerializeOptions } from "./lib/vendored/cookie.js";
-import type { TokenEndpointResponse } from "oauth4webapi";
-import type { Cookie } from "./lib/utils/cookie.js";
-import type { LoggerInstance } from "./lib/utils/logger.js";
-import type { WarningCode } from "./warnings.js";
-import type { ProviderType } from "./providers/index.js";
-export type { WebAuthnOptionsResponseBody } from "./lib/utils/webauthn-utils.js";
-export type { AuthConfig } from "./index.js";
-export type { LoggerInstance, WarningCode };
-export type Awaitable<T> = T | PromiseLike<T>;
-export type Awaited<T> = T extends Promise<infer U> ? U : T;
-export type SemverString = `v${number}` | `v${number}.${number}` | `v${number}.${number}.${number}`;
+import type { SerializeOptions } from './lib/vendored/cookie.js'
+import type { TokenEndpointResponse } from 'oauth4webapi'
+import type { Cookie } from './lib/utils/cookie.js'
+import type { LoggerInstance } from './lib/utils/logger.js'
+import type { WarningCode } from './warnings.js'
+import type { ProviderType } from './providers/index.js'
+export type { WebAuthnOptionsResponseBody } from './lib/utils/webauthn-utils.js'
+export type { AuthConfig } from './index.js'
+export type { LoggerInstance, WarningCode }
+export type Awaitable<T> = T | PromiseLike<T>
+export type Awaited<T> = T extends Promise<infer U> ? U : T
+export type SemverString =
+  | `v${number}`
+  | `v${number}.${number}`
+  | `v${number}.${number}.${number}`
 /**
  * Change the theme of the built-in pages.
  *
@@ -69,10 +72,10 @@ export type SemverString = `v${number}` | `v${number}.${number}` | `v${number}.$
  * [Pages](https://authjs.dev/guides/pages/signin)
  */
 export interface Theme {
-    colorScheme?: "auto" | "dark" | "light";
-    logo?: string;
-    brandColor?: string;
-    buttonText?: string;
+  colorScheme?: 'auto' | 'dark' | 'light'
+  logo?: string
+  brandColor?: string
+  buttonText?: string
 }
 /**
  * Different tokens returned by OAuth Providers.
@@ -80,47 +83,47 @@ export interface Theme {
  * but they refer to the same value.
  */
 export type TokenSet = Partial<TokenEndpointResponse> & {
-    /**
-     * Date of when the `access_token` expires in seconds.
-     * This value is calculated from the `expires_in` value.
-     *
-     * @see https://www.ietf.org/rfc/rfc6749.html#section-4.2.2
-     */
-    expires_at?: number;
-};
+  /**
+   * Date of when the `access_token` expires in seconds.
+   * This value is calculated from the `expires_in` value.
+   *
+   * @see https://www.ietf.org/rfc/rfc6749.html#section-4.2.2
+   */
+  expires_at?: number
+}
 /**
  * Usually contains information about the provider being used
  * and also extends `TokenSet`, which is different tokens returned by OAuth Providers.
  */
 export interface Account extends Partial<TokenEndpointResponse> {
-    /** Provider's id for this account. E.g. "google". See the full list at https://authjs.dev/reference/core/providers */
-    provider: string;
-    /**
-     * This value depends on the type of the provider being used to create the account.
-     * - oauth/oidc: The OAuth account's id, returned from the `profile()` callback.
-     * - email: The user's email address.
-     * - credentials: `id` returned from the `authorize()` callback
-     */
-    providerAccountId: string;
-    /** Provider's type for this account */
-    type: ProviderType;
-    /**
-     * id of the user this account belongs to
-     *
-     * @see https://authjs.dev/reference/core/adapters#adapteruser
-     */
-    userId?: string;
-    /**
-     * Calculated value based on {@link TokenEndpointResponse.expires_in}.
-     *
-     * It is the absolute timestamp (in seconds) when the {@link TokenEndpointResponse.access_token} expires.
-     *
-     * This value can be used for implementing token rotation together with {@link TokenEndpointResponse.refresh_token}.
-     *
-     * @see https://authjs.dev/guides/refresh-token-rotation#database-strategy
-     * @see https://www.rfc-editor.org/rfc/rfc6749#section-5.1
-     */
-    expires_at?: number;
+  /** Provider's id for this account. E.g. "google". See the full list at https://authjs.dev/reference/core/providers */
+  provider: string
+  /**
+   * This value depends on the type of the provider being used to create the account.
+   * - oauth/oidc: The OAuth account's id, returned from the `profile()` callback.
+   * - email: The user's email address.
+   * - credentials: `id` returned from the `authorize()` callback
+   */
+  providerAccountId: string
+  /** Provider's type for this account */
+  type: ProviderType
+  /**
+   * id of the user this account belongs to
+   *
+   * @see https://authjs.dev/reference/core/adapters#adapteruser
+   */
+  userId?: string
+  /**
+   * Calculated value based on {@link TokenEndpointResponse.expires_in}.
+   *
+   * It is the absolute timestamp (in seconds) when the {@link TokenEndpointResponse.access_token} expires.
+   *
+   * This value can be used for implementing token rotation together with {@link TokenEndpointResponse.refresh_token}.
+   *
+   * @see https://authjs.dev/guides/refresh-token-rotation#database-strategy
+   * @see https://www.rfc-editor.org/rfc/rfc6749#section-5.1
+   */
+  expires_at?: number
 }
 /**
  * The user info returned from your OAuth provider.
@@ -128,105 +131,113 @@ export interface Account extends Partial<TokenEndpointResponse> {
  * @see https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
  */
 export interface Profile {
-    id?: string | null;
-    sub?: string | null;
-    name?: string | null;
-    given_name?: string | null;
-    family_name?: string | null;
-    middle_name?: string | null;
-    nickname?: string | null;
-    preferred_username?: string | null;
-    profile?: string | null;
-    picture?: string | null | any;
-    website?: string | null;
-    email?: string | null;
-    email_verified?: boolean | null;
-    gender?: string | null;
-    birthdate?: string | null;
-    zoneinfo?: string | null;
-    locale?: string | null;
-    phone_number?: string | null;
-    updated_at?: Date | string | number | null;
-    address?: {
-        formatted?: string | null;
-        street_address?: string | null;
-        locality?: string | null;
-        region?: string | null;
-        postal_code?: string | null;
-        country?: string | null;
-    } | null;
-    [claim: string]: unknown;
+  id?: string | null
+  sub?: string | null
+  name?: string | null
+  given_name?: string | null
+  family_name?: string | null
+  middle_name?: string | null
+  nickname?: string | null
+  preferred_username?: string | null
+  profile?: string | null
+  picture?: string | null | any
+  website?: string | null
+  email?: string | null
+  email_verified?: boolean | null
+  gender?: string | null
+  birthdate?: string | null
+  zoneinfo?: string | null
+  locale?: string | null
+  phone_number?: string | null
+  updated_at?: Date | string | number | null
+  address?: {
+    formatted?: string | null
+    street_address?: string | null
+    locality?: string | null
+    region?: string | null
+    postal_code?: string | null
+    country?: string | null
+  } | null
+  [claim: string]: unknown
 }
 /** [Documentation](https://authjs.dev/reference/core#cookies) */
 export interface CookieOption {
-    name: string;
-    options: SerializeOptions;
+  name: string
+  options: SerializeOptions
 }
 /** [Documentation](https://authjs.dev/reference/core#cookies) */
 export interface CookiesOptions {
-    sessionToken: Partial<CookieOption>;
-    callbackUrl: Partial<CookieOption>;
-    csrfToken: Partial<CookieOption>;
-    pkceCodeVerifier: Partial<CookieOption>;
-    state: Partial<CookieOption>;
-    nonce: Partial<CookieOption>;
-    webauthnChallenge: Partial<CookieOption>;
+  sessionToken: Partial<CookieOption>
+  callbackUrl: Partial<CookieOption>
+  csrfToken: Partial<CookieOption>
+  pkceCodeVerifier: Partial<CookieOption>
+  state: Partial<CookieOption>
+  nonce: Partial<CookieOption>
+  webauthnChallenge: Partial<CookieOption>
 }
 /** TODO: Check if all these are used/correct */
-export type ErrorPageParam = "Configuration" | "AccessDenied" | "Verification";
+export type ErrorPageParam = 'Configuration' | 'AccessDenied' | 'Verification'
 /** TODO: Check if all these are used/correct */
-export type SignInPageErrorParam = "Signin" | "OAuthSignin" | "OAuthCallbackError" | "OAuthCreateAccount" | "EmailCreateAccount" | "Callback" | "OAuthAccountNotLinked" | "EmailSignin" | "CredentialsSignin" | "SessionRequired";
+export type SignInPageErrorParam =
+  | 'Signin'
+  | 'OAuthSignin'
+  | 'OAuthCallbackError'
+  | 'OAuthCreateAccount'
+  | 'EmailCreateAccount'
+  | 'Callback'
+  | 'OAuthAccountNotLinked'
+  | 'EmailSignin'
+  | 'CredentialsSignin'
+  | 'SessionRequired'
 export interface PagesOptions {
-    /**
-     * The path to the sign in page.
-     *
-     * The optional "error" query parameter is set to
-     * one of the {@link SignInPageErrorParam available} values.
-     *
-     * @default "/signin"
-     */
-    signIn: string;
-    signOut: string;
-    /**
-     * The path to the error page.
-     *
-     * The optional "error" query parameter is set to
-     * one of the {@link ErrorPageParam available} values.
-     *
-     * @default "/error"
-     */
-    error: string;
-    verifyRequest: string;
-    /** If set, new users will be directed here on first sign in */
-    newUser: string;
+  /**
+   * The path to the sign in page.
+   *
+   * The optional "error" query parameter is set to
+   * one of the {@link SignInPageErrorParam available} values.
+   *
+   * @default "/signin"
+   */
+  signIn: string
+  signOut: string
+  /**
+   * The path to the error page.
+   *
+   * The optional "error" query parameter is set to
+   * one of the {@link ErrorPageParam available} values.
+   *
+   * @default "/error"
+   */
+  error: string
+  verifyRequest: string
+  /** If set, new users will be directed here on first sign in */
+  newUser: string
 }
-type ISODateString = string;
+type ISODateString = string
 export interface DefaultSession {
-    user?: User;
-    expires: ISODateString;
+  user?: User
+  expires: ISODateString
 }
 /** The active session of the logged in user. */
-export interface Session extends DefaultSession {
-}
+export interface Session extends DefaultSession {}
 export interface DefaultUser {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
 }
 /**
  * The shape of the returned object in the OAuth providers' `profile` callback,
  * available in the `jwt` and `session` callbacks,
  * or the second parameter of the `session` callback, when using a database.
  */
-export interface User extends DefaultUser {
-}
+export interface User extends DefaultUser {}
 export interface PublicProvider {
-    id: string;
-    name: string;
-    type: string;
-    signinUrl: string;
-    callbackUrl: string;
+  id: string
+  name: string
+  type: string
+  signinUrl: string
+  callbackUrl: string
 }
 /**
  * Supported actions by Auth.js. Each action map to a REST API endpoint.
@@ -257,13 +268,24 @@ export interface PublicProvider {
  * - **`"webauthn-options"`**:
  *   - **`GET`**: Returns the options for the WebAuthn authentication and registration flows.
  */
-export type AuthAction = "callback" | "csrf" | "error" | "providers" | "session" | "signin" | "signout" | "verify-request" | "webauthn-options";
-export interface ResponseInternal<Body extends string | Record<string, any> | any[] | null = any> {
-    status?: number;
-    headers?: Headers | HeadersInit;
-    body?: Body;
-    redirect?: string;
-    cookies?: Cookie[];
+export type AuthAction =
+  | 'callback'
+  | 'csrf'
+  | 'error'
+  | 'providers'
+  | 'session'
+  | 'signin'
+  | 'signout'
+  | 'verify-request'
+  | 'webauthn-options'
+export interface ResponseInternal<
+  Body extends string | Record<string, any> | any[] | null = any,
+> {
+  status?: number
+  headers?: Headers | HeadersInit
+  body?: Body
+  redirect?: string
+  cookies?: Cookie[]
 }
 /**
  * A webauthn authenticator.
@@ -273,37 +295,37 @@ export interface ResponseInternal<Body extends string | Record<string, any> | an
  * @see https://www.w3.org/TR/webauthn/#authenticator
  */
 export interface Authenticator {
-    /**
-     * ID of the user this authenticator belongs to.
-     */
-    userId?: string;
-    /**
-     * The provider account ID connected to the authenticator.
-     */
-    providerAccountId: string;
-    /**
-     * Number of times the authenticator has been used.
-     */
-    counter: number;
-    /**
-     * Whether the client authenticator backed up the credential.
-     */
-    credentialBackedUp: boolean;
-    /**
-     * Base64 encoded credential ID.
-     */
-    credentialID: string;
-    /**
-     * Base64 encoded credential public key.
-     */
-    credentialPublicKey: string;
-    /**
-     * Concatenated transport flags.
-     */
-    transports?: string | null;
-    /**
-     * Device type of the authenticator.
-     */
-    credentialDeviceType: string;
+  /**
+   * ID of the user this authenticator belongs to.
+   */
+  userId?: string
+  /**
+   * The provider account ID connected to the authenticator.
+   */
+  providerAccountId: string
+  /**
+   * Number of times the authenticator has been used.
+   */
+  counter: number
+  /**
+   * Whether the client authenticator backed up the credential.
+   */
+  credentialBackedUp: boolean
+  /**
+   * Base64 encoded credential ID.
+   */
+  credentialID: string
+  /**
+   * Base64 encoded credential public key.
+   */
+  credentialPublicKey: string
+  /**
+   * Concatenated transport flags.
+   */
+  transports?: string | null
+  /**
+   * Device type of the authenticator.
+   */
+  credentialDeviceType: string
 }
 //# sourceMappingURL=types.d.ts.map

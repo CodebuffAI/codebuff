@@ -9,7 +9,7 @@
  * @module providers/click-up
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /** @see [Get the authenticated user](https://clickup.com/api/clickupreference/operation/GetAuthorizedUser/)*/
 export interface ClickUpProfile {
@@ -75,18 +75,18 @@ export interface ClickUpProfile {
  * :::
  */
 export default function ClickUp(
-  config: OAuthUserConfig<ClickUpProfile>
+  config: OAuthUserConfig<ClickUpProfile>,
 ): OAuthConfig<ClickUpProfile> {
   return {
-    id: "click-up",
-    name: "ClickUp",
-    type: "oauth",
-    authorization: "https://app.clickup.com/api",
-    token: "https://api.clickup.com/api/v2/oauth/token",
-    userinfo: "https://api.clickup.com/api/v2/user",
+    id: 'click-up',
+    name: 'ClickUp',
+    type: 'oauth',
+    authorization: 'https://app.clickup.com/api',
+    token: 'https://api.clickup.com/api/v2/oauth/token',
+    userinfo: 'https://api.clickup.com/api/v2/user',
     clientId: config.clientId,
     clientSecret: config.clientSecret,
-    checks: ["state"],
+    checks: ['state'],
     profile: (profile: ClickUpProfile) => {
       return {
         id: profile.user.id.toString(),
@@ -96,8 +96,8 @@ export default function ClickUp(
       }
     },
     style: {
-      bg: "#24292f",
-      text: "#fff",
+      bg: '#24292f',
+      text: '#fff',
     },
     options: config,
   }

@@ -8,8 +8,8 @@
  *
  * @module providers/microsoft-entra-id
  */
-import { conformInternal, customFetch } from "../lib/symbols.js"
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import { conformInternal, customFetch } from '../lib/symbols.js'
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /**
  * @see [Microsoft Identity Platform - ID token claims reference](https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference)
@@ -159,7 +159,7 @@ export interface MicrosoftEntraIDProfile {
    */
   uti: string
   /** Indicates the version of the ID token. */
-  ver: "2.0"
+  ver: '2.0'
   /**
    * If present, always true, denoting the user is in at least one group.
    * Indicates that the client should use the Microsoft Graph API to determine
@@ -438,7 +438,7 @@ export default function MicrosoftEntraID(
      * @default 48
      */
     profilePhotoSize?: 48 | 64 | 96 | 120 | 240 | 360 | 432 | 504 | 648
-  }
+  },
 ): OIDCConfig<MicrosoftEntraIDProfile> {
   const { profilePhotoSize = 48 } = config
 
@@ -446,27 +446,27 @@ export default function MicrosoftEntraID(
   // fallback to /common/ uri.
   config.issuer ??=
     process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ||
-    "https://login.microsoftonline.com/common/v2.0"
+    'https://login.microsoftonline.com/common/v2.0'
 
   return {
-    id: "microsoft-entra-id",
-    name: "Microsoft Entra ID",
-    type: "oidc",
-    authorization: { params: { scope: "openid profile email User.Read" } },
+    id: 'microsoft-entra-id',
+    name: 'Microsoft Entra ID',
+    type: 'oidc',
+    authorization: { params: { scope: 'openid profile email User.Read' } },
     async profile(profile, tokens) {
       // https://learn.microsoft.com/en-us/graph/api/profilephoto-get?view=graph-rest-1.0&tabs=http#examples
       const response = await fetch(
         `https://graph.microsoft.com/v1.0/me/photos/${profilePhotoSize}x${profilePhotoSize}/$value`,
-        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+        { headers: { Authorization: `Bearer ${tokens.access_token}` } },
       )
 
       // Confirm that profile photo was returned
       let image
       // TODO: Do this without Buffer
-      if (response.ok && typeof Buffer !== "undefined") {
+      if (response.ok && typeof Buffer !== 'undefined') {
         try {
           const pictureBuffer = await response.arrayBuffer()
-          const pictureBase64 = Buffer.from(pictureBuffer).toString("base64")
+          const pictureBase64 = Buffer.from(pictureBuffer).toString('base64')
           image = `data:image/jpeg;base64, ${pictureBase64}`
         } catch {}
       }
@@ -478,15 +478,15 @@ export default function MicrosoftEntraID(
         image: image ?? null,
       }
     },
-    style: { text: "#fff", bg: "#0072c6" },
+    style: { text: '#fff', bg: '#0072c6' },
     async [customFetch](...args) {
       const url = new URL(args[0] instanceof Request ? args[0].url : args[0])
-      if (url.pathname.endsWith(".well-known/openid-configuration")) {
+      if (url.pathname.endsWith('.well-known/openid-configuration')) {
         const response = await fetch(...args)
         const json = await response.clone().json()
         const tenantRe = /microsoftonline\.com\/(\w+)\/v2\.0/
-        const tenantId = config.issuer?.match(tenantRe)?.[1] ?? "common"
-        const issuer = json.issuer.replace("{tenantid}", tenantId)
+        const tenantId = config.issuer?.match(tenantRe)?.[1] ?? 'common'
+        const issuer = json.issuer.replace('{tenantid}', tenantId)
         return Response.json({ ...json, issuer })
       }
       return fetch(...args)

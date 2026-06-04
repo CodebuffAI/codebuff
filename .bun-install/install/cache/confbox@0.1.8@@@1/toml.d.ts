@@ -1,2 +1,2 @@
-export * from "./dist/toml";
-export { default } from "./dist/toml";
+export * from './dist/toml'
+export { default } from './dist/toml'

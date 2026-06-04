@@ -1,2 +1,2 @@
-import { includes } from "../fp";
-export = includes;
+import { includes } from '../fp'
+export = includes

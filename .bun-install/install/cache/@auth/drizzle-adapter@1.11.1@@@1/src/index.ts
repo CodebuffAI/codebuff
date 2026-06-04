@@ -16,20 +16,20 @@
  * @module @auth/drizzle-adapter
  */
 
-import { is } from "drizzle-orm"
-import { MySqlDatabase } from "drizzle-orm/mysql-core"
-import { PgDatabase } from "drizzle-orm/pg-core"
-import { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core"
-import { DefaultMySqlSchema, MySqlDrizzleAdapter } from "./lib/mysql.js"
-import { DefaultPostgresSchema, PostgresDrizzleAdapter } from "./lib/pg.js"
-import { DefaultSQLiteSchema, SQLiteDrizzleAdapter } from "./lib/sqlite.js"
-import { DefaultSchema, SqlFlavorOptions } from "./lib/utils.js"
+import { is } from 'drizzle-orm'
+import { MySqlDatabase } from 'drizzle-orm/mysql-core'
+import { PgDatabase } from 'drizzle-orm/pg-core'
+import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
+import { DefaultMySqlSchema, MySqlDrizzleAdapter } from './lib/mysql.js'
+import { DefaultPostgresSchema, PostgresDrizzleAdapter } from './lib/pg.js'
+import { DefaultSQLiteSchema, SQLiteDrizzleAdapter } from './lib/sqlite.js'
+import { DefaultSchema, SqlFlavorOptions } from './lib/utils.js'
 
-import type { Adapter } from "@auth/core/adapters"
+import type { Adapter } from '@auth/core/adapters'
 
 export function DrizzleAdapter<SqlFlavor extends SqlFlavorOptions>(
   db: SqlFlavor,
-  schema?: DefaultSchema<SqlFlavor>
+  schema?: DefaultSchema<SqlFlavor>,
 ): Adapter {
   if (is(db, MySqlDatabase)) {
     return MySqlDrizzleAdapter(db, schema as DefaultMySqlSchema)
@@ -40,6 +40,6 @@ export function DrizzleAdapter<SqlFlavor extends SqlFlavorOptions>(
   }
 
   throw new Error(
-    `Unsupported database type (${typeof db}) in Auth.js Drizzle adapter.`
+    `Unsupported database type (${typeof db}) in Auth.js Drizzle adapter.`,
   )
 }

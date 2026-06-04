@@ -1,5 +1,5 @@
 declare const cliCursor: {
-	/**
+  /**
 	Show cursor.
 
 	@param stream - Default: `process.stderr`.
@@ -11,9 +11,9 @@ declare const cliCursor: {
 	cliCursor.show();
 	```
 	*/
-	show(stream?: NodeJS.WritableStream): void;
+  show(stream?: NodeJS.WritableStream): void
 
-	/**
+  /**
 	Hide cursor.
 
 	@param stream - Default: `process.stderr`.
@@ -25,9 +25,9 @@ declare const cliCursor: {
 	cliCursor.hide();
 	```
 	*/
-	hide(stream?: NodeJS.WritableStream): void;
+  hide(stream?: NodeJS.WritableStream): void
 
-	/**
+  /**
 	Toggle cursor visibility.
 
 	@param force - Is useful to show or hide the cursor based on a boolean.
@@ -41,7 +41,7 @@ declare const cliCursor: {
 	cliCursor.toggle(unicornsAreAwesome);
 	```
 	*/
-	toggle(force?: boolean, stream?: NodeJS.WritableStream): void;
-};
+  toggle(force?: boolean, stream?: NodeJS.WritableStream): void
+}
 
-export default cliCursor;
+export default cliCursor

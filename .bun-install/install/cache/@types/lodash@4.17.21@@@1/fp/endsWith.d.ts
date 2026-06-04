@@ -1,2 +1,2 @@
-import { endsWith } from "../fp";
-export = endsWith;
+import { endsWith } from '../fp'
+export = endsWith

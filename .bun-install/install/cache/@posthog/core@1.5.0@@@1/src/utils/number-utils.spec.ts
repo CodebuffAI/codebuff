@@ -83,7 +83,9 @@ describe('number-utils', () => {
 
     it('logs a warning when min is greater than max', () => {
       expect(clampToRange(50, 100, 10, mockLogger)).toBe(10)
-      expect(mockLogger.warn).toHaveBeenCalledWith('min cannot be greater than max.')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'min cannot be greater than max.',
+      )
     })
   })
 })

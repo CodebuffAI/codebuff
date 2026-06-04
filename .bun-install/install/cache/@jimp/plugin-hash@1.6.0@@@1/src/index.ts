@@ -1,7 +1,7 @@
-import { JimpClass } from "@jimp/types";
-import anyBase from "any-base";
+import { JimpClass } from '@jimp/types'
+import anyBase from 'any-base'
 
-import ImagePHash from "./phash.js";
+import ImagePHash from './phash.js'
 
 // an array storing the maximum string length of hashes at various bases
 // 0 and 1 do not exist as possible hash lengths
@@ -11,14 +11,14 @@ const alphabet =
 
 // an array storing the maximum string length of hashes at various bases
 // 0 and 1 do not exist as possible hash lengths
-const maxHashLength = [NaN, NaN];
+const maxHashLength = [NaN, NaN]
 
 for (let i = 2; i < 65; i++) {
   const maxHash = anyBase(
     anyBase.BIN,
     alphabet.slice(0, i),
-  )(new Array(64 + 1).join("1"));
-  maxHashLength.push(maxHash.length);
+  )(new Array(64 + 1).join('1'))
+  maxHashLength.push(maxHash.length)
 }
 
 export const methods = {
@@ -35,8 +35,8 @@ export const methods = {
    * ```
    */
   pHash<I extends JimpClass>(image: I) {
-    const pHash = new ImagePHash();
-    return pHash.getHash(image);
+    const pHash = new ImagePHash()
+    return pHash.getHash(image)
   },
 
   /**
@@ -54,14 +54,14 @@ export const methods = {
    */
   hash<I extends JimpClass>(image: I, base = 64) {
     if (base < 2 || base > 64) {
-      throw new Error("base must be a number between 2 and 64");
+      throw new Error('base must be a number between 2 and 64')
     }
 
-    const subAlphabet = alphabet.slice(0, base);
-    const pHash = this.pHash(image);
-    const maxLength = maxHashLength[base]!;
+    const subAlphabet = alphabet.slice(0, base)
+    const pHash = this.pHash(image)
+    const maxLength = maxHashLength[base]!
 
-    return anyBase(anyBase.BIN, subAlphabet)(pHash).padStart(maxLength, "0");
+    return anyBase(anyBase.BIN, subAlphabet)(pHash).padStart(maxLength, '0')
   },
 
   /**
@@ -78,12 +78,12 @@ export const methods = {
    * ```
    */
   distanceFromHash<I extends JimpClass>(image: I, compareHash: string) {
-    const pHash = new ImagePHash();
-    const currentHash = pHash.getHash(image);
+    const pHash = new ImagePHash()
+    const currentHash = pHash.getHash(image)
 
-    return pHash.distance(currentHash, compareHash);
+    return pHash.distance(currentHash, compareHash)
   },
-};
+}
 
 /**
  * Calculates the hamming distance of two images based on their perceptual hash
@@ -101,11 +101,11 @@ export const methods = {
  * ```
  */
 export function distance<I extends JimpClass>(img1: I, img2: I) {
-  const phash = new ImagePHash();
-  const hash1 = phash.getHash(img1);
-  const hash2 = phash.getHash(img2);
+  const phash = new ImagePHash()
+  const hash1 = phash.getHash(img1)
+  const hash2 = phash.getHash(img2)
 
-  return phash.distance(hash1, hash2);
+  return phash.distance(hash1, hash2)
 }
 
 /**
@@ -124,6 +124,6 @@ export function distance<I extends JimpClass>(img1: I, img2: I) {
  * ```
  */
 export function compareHashes(hash1: string, hash2: string) {
-  const phash = new ImagePHash();
-  return phash.distance(hash1, hash2);
+  const phash = new ImagePHash()
+  return phash.distance(hash1, hash2)
 }

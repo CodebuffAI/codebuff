@@ -3,7 +3,12 @@ import { StackFrame } from '../types'
 
 export const UNKNOWN_FUNCTION = '?'
 
-export function createFrame(filename: string, func: string, lineno?: number, colno?: number): StackFrame {
+export function createFrame(
+  filename: string,
+  func: string,
+  lineno?: number,
+  colno?: number,
+): StackFrame {
   const frame: StackFrame = {
     // TODO: should be a variable here
     platform: 'web:javascript',

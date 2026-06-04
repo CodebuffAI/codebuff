@@ -8,7 +8,7 @@
  *
  * @module providers/dropbox
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Dropbox login to your page.
  *
@@ -61,5 +61,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Dropbox(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Dropbox(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=dropbox.d.ts.map

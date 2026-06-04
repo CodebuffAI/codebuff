@@ -8,17 +8,17 @@
  *
  * @module providers/beyondidentity
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** @see [Beyond Identity Developer Docs](https://developer.beyondidentity.com/) */
 export interface BeyondIdentityProfile {
-    /** The user's unique identifier. */
-    sub: string;
-    /** The user's full name. */
-    name: string;
-    /** The user's preferred username. */
-    preferred_username: string;
-    /** The user's email address. */
-    email: string;
+  /** The user's unique identifier. */
+  sub: string
+  /** The user's full name. */
+  name: string
+  /** The user's preferred username. */
+  preferred_username: string
+  /** The user's email address. */
+  email: string
 }
 /**
  * Add Beyond Identity login to your page.
@@ -73,5 +73,7 @@ export interface BeyondIdentityProfile {
  *
  * :::
  */
-export default function BeyondIdentity(config: OIDCUserConfig<BeyondIdentityProfile>): OIDCConfig<BeyondIdentityProfile>;
+export default function BeyondIdentity(
+  config: OIDCUserConfig<BeyondIdentityProfile>,
+): OIDCConfig<BeyondIdentityProfile>
 //# sourceMappingURL=beyondidentity.d.ts.map

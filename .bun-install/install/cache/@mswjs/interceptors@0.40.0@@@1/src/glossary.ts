@@ -16,7 +16,7 @@ export type HttpRequestEventMap = {
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
   response: [
     args: {
@@ -24,7 +24,7 @@ export type HttpRequestEventMap = {
       isMockedResponse: boolean
       request: Request
       requestId: string
-    }
+    },
   ]
   unhandledException: [
     args: {
@@ -32,6 +32,6 @@ export type HttpRequestEventMap = {
       request: Request
       requestId: string
       controller: RequestController
-    }
+    },
   ]
 }

@@ -6,7 +6,7 @@ import { spawnLocal } from './spawn-local'
  */
 export function buildSourcemapCliArgs(
   config: ResolvedPluginConfig,
-  mode: { stdin: true } | { directory: string }
+  mode: { stdin: true } | { directory: string },
 ): string[] {
   const args = ['sourcemap', 'process']
 
@@ -54,9 +54,12 @@ export function buildCliEnv(config: ResolvedPluginConfig): NodeJS.ProcessEnv {
  */
 export async function runSourcemapCli(
   config: ResolvedPluginConfig,
-  options: { filePaths: string[] } | { directory: string }
+  options: { filePaths: string[] } | { directory: string },
 ): Promise<void> {
-  const mode = 'filePaths' in options ? { stdin: true as const } : { directory: options.directory }
+  const mode =
+    'filePaths' in options
+      ? { stdin: true as const }
+      : { directory: options.directory }
   const args = buildSourcemapCliArgs(config, mode)
   const env = buildCliEnv(config)
 

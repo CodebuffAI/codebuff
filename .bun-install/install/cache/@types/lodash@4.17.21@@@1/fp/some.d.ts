@@ -1,2 +1,2 @@
-import { some } from "../fp";
-export = some;
+import { some } from '../fp'
+export = some

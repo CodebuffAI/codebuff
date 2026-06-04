@@ -1,2 +1,2 @@
-import { bindAll } from "./index";
-export = bindAll;
+import { bindAll } from './index'
+export = bindAll

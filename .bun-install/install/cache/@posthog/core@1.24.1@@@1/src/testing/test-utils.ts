@@ -20,7 +20,10 @@ export const parseBody = (mockCall: any): any => {
   return JSON.parse(options.body || '')
 }
 
-export const createImperativePromise = <T>(): [Promise<T>, (value: T) => void] => {
+export const createImperativePromise = <T>(): [
+  Promise<T>,
+  (value: T) => void,
+] => {
   let resolve: (value: T) => void
   const promise = new Promise<T>((r) => {
     resolve = r

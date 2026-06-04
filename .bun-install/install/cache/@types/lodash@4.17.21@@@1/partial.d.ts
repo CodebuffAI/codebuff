@@ -1,2 +1,2 @@
-import { partial } from "./index";
-export = partial;
+import { partial } from './index'
+export = partial

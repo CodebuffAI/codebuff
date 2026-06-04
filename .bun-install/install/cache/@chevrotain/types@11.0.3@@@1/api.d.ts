@@ -1,6 +1,6 @@
-export declare const VERSION: string;
+export declare const VERSION: string
 
-export type ParserMethod<ARGS extends unknown[], R> = (...args: ARGS) => R;
+export type ParserMethod<ARGS extends unknown[], R> = (...args: ARGS) => R
 
 /**
  * This class does not actually exist nor is exposed at runtime.
@@ -12,7 +12,7 @@ declare abstract class BaseParser {
    * This must be called at the end of a Parser constructor.
    * See: http://chevrotain.io/docs/tutorial/step2_parsing.html#under-the-hood
    */
-  protected performSelfAnalysis(): void;
+  protected performSelfAnalysis(): void
 
   /**
    * It is recommended to reuse the same Parser instance
@@ -23,9 +23,9 @@ declare abstract class BaseParser {
    * @param tokenVocabulary - A data structure containing all the Tokens used by the Parser.
    * @param config - The Parser's configuration.
    */
-  constructor(tokenVocabulary: TokenVocabulary, config?: IParserConfig);
+  constructor(tokenVocabulary: TokenVocabulary, config?: IParserConfig)
 
-  errors: IRecognitionException[];
+  errors: IRecognitionException[]
 
   /**
    * Flag indicating the Parser is at the recording phase.
@@ -35,25 +35,25 @@ declare abstract class BaseParser {
    *   - https://chevrotain.io/docs/guide/internals.html#grammar-recording
    * to learn more on the recording phase and how Chevrotain works.
    */
-  RECORDING_PHASE: boolean;
+  RECORDING_PHASE: boolean
 
   /**
    * Resets the parser state, should be overridden for custom parsers which "carry" additional state.
    * When overriding, remember to also invoke the super implementation!
    */
-  reset(): void;
+  reset(): void
 
   getBaseCstVisitorConstructor<IN = any, OUT = any>(): {
-    new (...args: any[]): ICstVisitor<IN, OUT>;
-  };
+    new (...args: any[]): ICstVisitor<IN, OUT>
+  }
 
   getBaseCstVisitorConstructorWithDefaults<IN = any, OUT = any>(): {
-    new (...args: any[]): ICstVisitor<IN, OUT>;
-  };
+    new (...args: any[]): ICstVisitor<IN, OUT>
+  }
 
-  getGAstProductions(): Record<string, Rule>;
+  getGAstProductions(): Record<string, Rule>
 
-  getSerializedGastProductions(): ISerializedGast[];
+  getSerializedGastProductions(): ISerializedGast[]
 
   /**
    * @param startRuleName
@@ -62,7 +62,7 @@ declare abstract class BaseParser {
   computeContentAssist(
     startRuleName: string,
     precedingInput: IToken[],
-  ): ISyntacticContentAssistPath[];
+  ): ISyntacticContentAssistPath[]
 
   /**
    * @param grammarRule - The rule to try and parse in backtracking mode.
@@ -73,7 +73,7 @@ declare abstract class BaseParser {
   protected BACKTRACK<T>(
     grammarRule: (...args: any[]) => T,
     args?: any[],
-  ): () => boolean;
+  ): () => boolean
 
   /**
    * The Semantic Actions wrapper.
@@ -84,7 +84,7 @@ declare abstract class BaseParser {
    * For more information see:
    *   - https://chevrotain.io/docs/guide/internals.html#grammar-recording
    */
-  protected ACTION<T>(impl: () => T): T;
+  protected ACTION<T>(impl: () => T): T
 
   /**
    * Like `CONSUME` with the numerical suffix as a parameter, e.g:
@@ -98,7 +98,7 @@ declare abstract class BaseParser {
     idx: number,
     tokType: TokenType,
     options?: ConsumeMethodOpts,
-  ): IToken;
+  ): IToken
 
   /**
    * Like `OPTION` with the numerical suffix as a parameter, e.g:
@@ -111,7 +111,7 @@ declare abstract class BaseParser {
   protected option<OUT>(
     idx: number,
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * Like `OR` with the numerical suffix as a parameter, e.g:
@@ -121,8 +121,8 @@ declare abstract class BaseParser {
    * ...
    * @see OR
    */
-  protected or(idx: number, altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
-  protected or<T>(idx: number, altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
+  protected or(idx: number, altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
+  protected or<T>(idx: number, altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
 
   /**
    * Like `MANY` with the numerical suffix as a parameter, e.g:
@@ -135,7 +135,7 @@ declare abstract class BaseParser {
   protected many(
     idx: number,
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * Like `AT_LEAST_ONE` with the numerical suffix as a parameter, e.g:
@@ -148,7 +148,7 @@ declare abstract class BaseParser {
   protected atLeastOne(
     idx: number,
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    *
@@ -181,61 +181,61 @@ declare abstract class BaseParser {
    * @param tokType - The Type of the token to be consumed.
    * @param options - optional properties to modify the behavior of CONSUME.
    */
-  protected CONSUME(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME1(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME1(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME2(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME2(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME3(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME3(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME4(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME4(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME5(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME5(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME6(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME6(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME7(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME7(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME8(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME8(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * @see CONSUME
    * @hidden
    */
-  protected CONSUME9(tokType: TokenType, options?: ConsumeMethodOpts): IToken;
+  protected CONSUME9(tokType: TokenType, options?: ConsumeMethodOpts): IToken
 
   /**
    * Parsing DSL Method that Indicates an Optional production.
@@ -272,7 +272,7 @@ declare abstract class BaseParser {
    */
   protected OPTION<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -280,7 +280,7 @@ declare abstract class BaseParser {
    */
   protected OPTION1<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -288,7 +288,7 @@ declare abstract class BaseParser {
    */
   protected OPTION2<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -296,7 +296,7 @@ declare abstract class BaseParser {
    */
   protected OPTION3<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -304,7 +304,7 @@ declare abstract class BaseParser {
    */
   protected OPTION4<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -312,7 +312,7 @@ declare abstract class BaseParser {
    */
   protected OPTION5<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -320,7 +320,7 @@ declare abstract class BaseParser {
    */
   protected OPTION6<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -328,7 +328,7 @@ declare abstract class BaseParser {
    */
   protected OPTION7<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -336,7 +336,7 @@ declare abstract class BaseParser {
    */
   protected OPTION8<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * @see OPTION
@@ -344,7 +344,7 @@ declare abstract class BaseParser {
    */
   protected OPTION9<OUT>(
     actionORMethodDef: GrammarAction<OUT> | DSLMethodOpts<OUT>,
-  ): OUT | undefined;
+  ): OUT | undefined
 
   /**
    * Parsing DSL method that indicates a choice between a set of alternatives must be made.
@@ -406,71 +406,71 @@ declare abstract class BaseParser {
    *
    * @returns The result of invoking the chosen alternative.
    */
-  protected OR<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR1<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR1(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR1<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR1(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR2<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR2(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR2<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR2(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR3<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR3(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR3<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR3(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR4<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR4(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR4<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR4(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR5<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR5(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR5<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR5(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR6<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR6(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR6<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR6(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR7<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR7(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR7<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR7(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR8<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR8(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR8<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR8(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * @see OR
    * @hidden
    */
-  protected OR9<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T;
-  protected OR9(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any;
+  protected OR9<T>(altsOrOpts: IOrAlt<T>[] | OrMethodOpts<T>): T
+  protected OR9(altsOrOpts: IOrAlt<any>[] | OrMethodOpts<any>): any
 
   /**
    * Parsing DSL method, that indicates a repetition of zero or more.
@@ -508,7 +508,7 @@ declare abstract class BaseParser {
    */
   protected MANY(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -516,7 +516,7 @@ declare abstract class BaseParser {
    */
   protected MANY1(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -524,7 +524,7 @@ declare abstract class BaseParser {
    */
   protected MANY2(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -532,7 +532,7 @@ declare abstract class BaseParser {
    */
   protected MANY3(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -540,7 +540,7 @@ declare abstract class BaseParser {
    */
   protected MANY4(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -548,7 +548,7 @@ declare abstract class BaseParser {
    */
   protected MANY5(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -556,7 +556,7 @@ declare abstract class BaseParser {
    */
   protected MANY6(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -564,7 +564,7 @@ declare abstract class BaseParser {
    */
   protected MANY7(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -572,7 +572,7 @@ declare abstract class BaseParser {
    */
   protected MANY8(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * @see MANY
@@ -580,7 +580,7 @@ declare abstract class BaseParser {
    */
   protected MANY9(
     actionORMethodDef: GrammarAction<any> | DSLMethodOpts<any>,
-  ): void;
+  ): void
 
   /**
    * Parsing DSL method, that indicates a repetition of zero or more with a separator
@@ -611,61 +611,61 @@ declare abstract class BaseParser {
    * @param options - An object defining the grammar of each iteration and the separator between iterations
    *
    */
-  protected MANY_SEP(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP1(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP1(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP2(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP2(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP3(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP3(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP4(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP4(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP5(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP5(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP6(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP6(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP7(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP7(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP8(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP8(options: ManySepMethodOpts<any>): void
 
   /**
    * @see MANY_SEP
    * @hidden
    */
-  protected MANY_SEP9(options: ManySepMethodOpts<any>): void;
+  protected MANY_SEP9(options: ManySepMethodOpts<any>): void
 
   /**
    * Convenience method, same as MANY but the repetition is of one or more.
@@ -680,7 +680,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -688,7 +688,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE1(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -696,7 +696,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE2(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -704,7 +704,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE3(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -712,7 +712,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE4(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -720,7 +720,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE5(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -728,7 +728,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE6(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -736,7 +736,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE7(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -744,7 +744,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE8(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * @see AT_LEAST_ONE
@@ -752,7 +752,7 @@ declare abstract class BaseParser {
    */
   protected AT_LEAST_ONE9(
     actionORMethodDef: GrammarAction<any> | DSLMethodOptsWithErr<any>,
-  ): void;
+  ): void
 
   /**
    * Convenience method, same as MANY_SEP but the repetition is of one or more.
@@ -767,68 +767,68 @@ declare abstract class BaseParser {
    *
    * @return {ISeparatedIterationResult<OUT>}
    */
-  protected AT_LEAST_ONE_SEP(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP1(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP1(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP2(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP2(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP3(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP3(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP4(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP4(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP5(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP5(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP6(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP6(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP7(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP7(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP8(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP8(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * @see AT_LEAST_ONE_SEP
    * @hidden
    */
-  protected AT_LEAST_ONE_SEP9(options: AtLeastOneSepMethodOpts<any>): void;
+  protected AT_LEAST_ONE_SEP9(options: AtLeastOneSepMethodOpts<any>): void
 
   /**
    * Returns an "imaginary" Token to insert when Single Token Insertion is done
    * Override this if you require special behavior in your grammar.
    * For example if an IntegerToken is required provide one with the image '0' so it would be valid syntactically.
    */
-  protected getTokenToInsert(tokType: TokenType): IToken;
+  protected getTokenToInsert(tokType: TokenType): IToken
 
   /**
    * By default, all tokens type may be inserted. This behavior may be overridden in inheriting Recognizers
@@ -837,28 +837,28 @@ declare abstract class BaseParser {
    * depending on its int value and context (Inserting an integer 0 in cardinality: "[1..]" will cause semantic issues
    * as the max of the cardinality will be greater than the min value (and this is a false error!).
    */
-  protected canTokenTypeBeInsertedInRecovery(tokType: TokenType): boolean;
+  protected canTokenTypeBeInsertedInRecovery(tokType: TokenType): boolean
 
   /**
    * By default, all token types may be deleted. This behavior may be overridden in inheriting parsers.
    * The method receives the expected token type. The token that would be deleted can be received with {@link LA}.
    */
-  protected canTokenTypeBeDeletedInRecovery(tokType: TokenType): boolean;
+  protected canTokenTypeBeDeletedInRecovery(tokType: TokenType): boolean
 
   /**
    * @deprecated - will be removed in the future
    */
   protected getNextPossibleTokenTypes(
     grammarPath: ITokenGrammarPath,
-  ): TokenType[];
+  ): TokenType[]
 
-  input: IToken[];
+  input: IToken[]
 
   /**
    * Will consume a single token and return the **next** token, meaning
    * the token **after** the skipped token.
    */
-  protected SKIP_TOKEN(): IToken;
+  protected SKIP_TOKEN(): IToken
 
   /**
    * Look-Ahead for the Token Vector
@@ -873,7 +873,7 @@ declare abstract class BaseParser {
    * This is often used to implement custom lookahead logic for GATES.
    * https://chevrotain.io/docs/features/gates.html
    */
-  protected LA(howMuch: number): IToken;
+  protected LA(howMuch: number): IToken
 }
 
 /**
@@ -894,7 +894,7 @@ export declare class CstParser extends BaseParser {
     name: string,
     implementation: F,
     config?: IRuleConfig<CstNode>,
-  ): ParserMethod<Parameters<F>, CstNode>;
+  ): ParserMethod<Parameters<F>, CstNode>
 
   /**
    * Overrides a Grammar Rule
@@ -904,7 +904,7 @@ export declare class CstParser extends BaseParser {
     name: string,
     implementation: F,
     config?: IRuleConfig<CstNode>,
-  ): ParserMethod<Parameters<F>, CstNode>;
+  ): ParserMethod<Parameters<F>, CstNode>
 
   /**
    * Like `SUBRULE` with the numerical suffix as a parameter, e.g:
@@ -918,7 +918,7 @@ export declare class CstParser extends BaseParser {
     idx: number,
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * The Parsing DSL Method is used by one rule to call another.
@@ -940,7 +940,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -949,7 +949,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE1<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -958,7 +958,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE2<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -967,7 +967,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE3<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -976,7 +976,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE4<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -985,7 +985,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE5<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -994,7 +994,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE6<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -1003,7 +1003,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE7<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -1012,7 +1012,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE8<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 
   /**
    * @see SUBRULE
@@ -1021,7 +1021,7 @@ export declare class CstParser extends BaseParser {
   protected SUBRULE9<ARGS extends unknown[]>(
     ruleToCall: ParserMethod<ARGS, CstNode>,
     options?: SubruleMethodOpts<ARGS>,
-  ): CstNode;
+  ): CstNode
 }
 
 /**
@@ -1041,7 +1041,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
     name: string,
     implementation: F,
     config?: IRuleConfig<ReturnType<F>>,
-  ): ParserMethod<Parameters<F>, ReturnType<F>>;
+  ): ParserMethod<Parameters<F>, ReturnType<F>>
 
   /**
    * Overrides a Grammar Rule
@@ -1051,7 +1051,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
     name: string,
     implementation: F,
     config?: IRuleConfig<ReturnType<F>>,
-  ): ParserMethod<Parameters<F>, ReturnType<F>>;
+  ): ParserMethod<Parameters<F>, ReturnType<F>>
 
   /**
    * Like `SUBRULE` with the numerical suffix as a parameter, e.g:
@@ -1065,7 +1065,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
     idx: number,
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * The Parsing DSL Method is used by one rule to call another.
@@ -1087,7 +1087,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1096,7 +1096,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE1<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1105,7 +1105,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE2<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1114,7 +1114,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE3<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1123,7 +1123,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE4<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1132,7 +1132,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE5<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1141,7 +1141,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE6<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1150,7 +1150,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE7<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1159,7 +1159,7 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE8<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 
   /**
    * @see SUBRULE
@@ -1168,25 +1168,25 @@ export declare class EmbeddedActionsParser extends BaseParser {
   protected SUBRULE9<ARGS extends unknown[], R>(
     ruleToCall: ParserMethod<ARGS, R>,
     options?: SubruleMethodOpts<ARGS>,
-  ): R;
+  ): R
 }
 
 export interface ILexerDefinitionError {
-  message: string;
-  type: LexerDefinitionErrorType;
-  tokenTypes?: TokenType[];
+  message: string
+  type: LexerDefinitionErrorType
+  tokenTypes?: TokenType[]
 }
 
 export declare class Lexer {
-  static SKIPPED: string;
+  static SKIPPED: string
 
   /**
    * A Constant to mark "abstract" TokenTypes that are used
    * purely as token categories.
    * See: {@link ITokenConfig.categories}
    */
-  static NA: RegExp;
-  lexerDefinitionErrors: ILexerDefinitionError[];
+  static NA: RegExp
+  lexerDefinitionErrors: ILexerDefinitionError[]
 
   /**
    * @param lexerDefinition -
@@ -1227,7 +1227,7 @@ export declare class Lexer {
   constructor(
     lexerDefinition: TokenType[] | IMultiModeLexerDefinition,
     config?: ILexerConfig,
-  );
+  )
 
   /**
    * Will lex(Tokenize) a string.
@@ -1238,23 +1238,23 @@ export declare class Lexer {
    * @param [initialMode] - The initial Lexer Mode to start with, by default this will be the first mode in the lexer's
    *                                 definition. If the lexer has no explicit modes it will be the implicit single 'default_mode' mode.
    */
-  tokenize(text: string, initialMode?: string): ILexingResult;
+  tokenize(text: string, initialMode?: string): ILexingResult
 }
 
 export interface ILexingResult {
-  tokens: IToken[];
+  tokens: IToken[]
   groups: {
-    [groupName: string]: IToken[];
-  };
-  errors: ILexingError[];
+    [groupName: string]: IToken[]
+  }
+  errors: ILexingError[]
 }
 
 export interface ILexingError {
-  offset: number;
-  line: number | undefined;
-  column: number | undefined;
-  length: number;
-  message: string;
+  offset: number
+  line: number | undefined
+  column: number | undefined
+  length: number
+  message: string
 }
 
 export interface ILexerConfig {
@@ -1264,7 +1264,7 @@ export interface ILexerConfig {
    * This can be useful when wishing to indicate lexer errors in another manner
    * than simply throwing an error (for example in an online playground).
    */
-  deferDefinitionErrorsHandling?: boolean;
+  deferDefinitionErrorsHandling?: boolean
 
   /**
    * "full" location information means all six combinations of /(end|start)(Line|Column|Offset)/ properties.
@@ -1276,7 +1276,7 @@ export interface ILexerConfig {
    * in edge cases where every last ounce of performance is needed.
    */
   // TODO: consider renaming this to LocationTracking to align with NodeLocationTracking option on the ParserConfig.
-  positionTracking?: "full" | "onlyStart" | "onlyOffset";
+  positionTracking?: 'full' | 'onlyStart' | 'onlyOffset'
 
   /**
    * A regExp defining custom line terminators.
@@ -1299,14 +1299,14 @@ export interface ILexerConfig {
    * keep in mind that for the default pattern: /\n|\r\n?/g an optimized implementation is already built-in.
    * This means the optimization is only relevant for lexers overriding the default pattern.
    */
-  lineTerminatorsPattern?: RegExp | ILineTerminatorsTester;
+  lineTerminatorsPattern?: RegExp | ILineTerminatorsTester
 
   /**
    * Characters or CharCodes that represent line terminators for this lexer.
    * This always needs to be provided when using a custom {@link ILexerConfig.lineTerminatorsPattern}.
    * In the future this duplication may be removed or reduced.
    */
-  lineTerminatorCharacters?: (number | string)[];
+  lineTerminatorCharacters?: (number | string)[]
 
   /**
    * When true this flag will cause the Lexer to throw an Error
@@ -1319,14 +1319,14 @@ export interface ILexerConfig {
    * The optimizations can boost the lexer's performance anywhere from 30%
    * to 100%+ depending on the number of TokenTypes used.
    */
-  ensureOptimizations?: boolean;
+  ensureOptimizations?: boolean
 
   /**
    * Can be used to disable lexer optimizations
    * If there is a suspicion they are causing incorrect behavior.
    * Note that this would have negative performance implications.
    */
-  safeMode?: boolean;
+  safeMode?: boolean
 
   /**
    * A custom error message provider.
@@ -1335,7 +1335,7 @@ export interface ILexerConfig {
    *   - Translating the error messages to a different languages.
    *   - Changing the formatting.
    */
-  errorMessageProvider?: ILexerErrorMessageProvider;
+  errorMessageProvider?: ILexerErrorMessageProvider
 
   /**
    * Enabling this flag will print performance tracing logs during lexer
@@ -1351,7 +1351,7 @@ export interface ILexerConfig {
    *
    * Note that passing the boolean `true` is identical to passing the numerical value `infinity`
    */
-  traceInitPerf?: boolean | number;
+  traceInitPerf?: boolean | number
 
   /**
    * This flag will avoid running the Lexer validations during Lexer initialization.
@@ -1364,7 +1364,7 @@ export interface ILexerConfig {
    * So they should not be skipped during development flows.
    *   - For example: via a conditional that checks an env variable.
    */
-  skipValidations?: boolean;
+  skipValidations?: boolean
 
   /**
    * Should the lexer halt on the **first** error, or continue attempting to tokenize by dropping characters
@@ -1375,7 +1375,7 @@ export interface ILexerConfig {
    *
    * By default, `recoveryEnabled` is `true`
    */
-  recoveryEnabled?: boolean;
+  recoveryEnabled?: boolean
 }
 
 export interface ILexerErrorMessageProvider {
@@ -1401,7 +1401,7 @@ export interface ILexerErrorMessageProvider {
     length: number,
     line?: number,
     column?: number,
-  ): string;
+  ): string
 
   /**
    * Unable To Pop Lexer Mode Error happens when lexer tries to pop the last remaining mode from the mode stack
@@ -1410,7 +1410,7 @@ export interface ILexerErrorMessageProvider {
    *
    * @param token - The Token that requested pop mode.
    */
-  buildUnableToPopLexerModeMessage(token: IToken): string;
+  buildUnableToPopLexerModeMessage(token: IToken): string
 }
 
 /**
@@ -1420,7 +1420,7 @@ export interface ILexerErrorMessageProvider {
  *
  * - See: {@link ILexerConfig.errorMessageProvider}
  */
-export declare const defaultLexerErrorProvider: ILexerErrorMessageProvider;
+export declare const defaultLexerErrorProvider: ILexerErrorMessageProvider
 
 /**
  * A subset of the regExp interface.
@@ -1430,24 +1430,24 @@ export interface ILineTerminatorsTester {
   /**
    * Just like regExp.test
    */
-  test: (text: string) => boolean;
+  test: (text: string) => boolean
 
   /**
    * Just like the regExp lastIndex with the global flag enabled
    * It should be updated after every match to point to the offset where the next
    * match attempt starts.
    */
-  lastIndex: number;
+  lastIndex: number
 }
 
 export type TokenPattern =
   | RegExp
   | string
   | CustomPatternMatcherFunc
-  | ICustomPattern;
+  | ICustomPattern
 
 export interface ITokenConfig {
-  name: string;
+  name: string
 
   /**
    * Categories enable polymorphism on Token Types.
@@ -1456,7 +1456,7 @@ export interface ITokenConfig {
    * In practical terms this means that:
    * CONSUME(C1) can match a Token of type X.
    */
-  categories?: TokenType | TokenType[];
+  categories?: TokenType | TokenType[]
 
   /**
    * The Label is a human readable name to be used
@@ -1466,7 +1466,7 @@ export interface ITokenConfig {
    * short for "left curly brace". The much easier to understand
    * label could simply be "\{".
    */
-  label?: string;
+  label?: string
 
   /**
    * This defines what sequence of characters would be matched
@@ -1474,7 +1474,7 @@ export interface ITokenConfig {
    *
    * For Custom Patterns see: http://chevrotain.io/docs/guide/custom_token_patterns.html
    */
-  pattern?: TokenPattern;
+  pattern?: TokenPattern
 
   /**
    * The group property will cause the lexer to collect
@@ -1485,7 +1485,7 @@ export interface ITokenConfig {
    *
    * See: https://github.com/chevrotain/chevrotain/tree/master/examples/lexer/token_groups
    */
-  group?: string;
+  group?: string
 
   /**
    * A name of a Lexer mode to "enter" once this Token Type has been matched.
@@ -1495,7 +1495,7 @@ export interface ITokenConfig {
    *
    * See: https://github.com/chevrotain/chevrotain/tree/master/examples/lexer/multi_mode_lexer
    */
-  push_mode?: string;
+  push_mode?: string
 
   /**
    * If "pop_mode" is true the Lexer will pop the last mode of the modes stack and
@@ -1503,7 +1503,7 @@ export interface ITokenConfig {
    *
    * See: https://github.com/chevrotain/chevrotain/tree/master/examples/lexer/multi_mode_lexer
    */
-  pop_mode?: boolean;
+  pop_mode?: boolean
 
   /**
    * The "longer_alt" property will cause the Lexer to attempt matching against other Token Types
@@ -1518,13 +1518,13 @@ export interface ITokenConfig {
    * For example see: https://github.com/chevrotain/chevrotain/tree/master/examples/lexer/keywords_vs_identifiers
    * For resolving the keywords vs Identifier ambiguity.
    */
-  longer_alt?: TokenType | TokenType[];
+  longer_alt?: TokenType | TokenType[]
 
   /**
    * Can a String matching this Token Type's pattern possibly contain a line terminator?
    * If true and the line_breaks property is not also true this will cause inaccuracies in the Lexer's line / column tracking.
    */
-  line_breaks?: boolean;
+  line_breaks?: boolean
 
   /**
    * Possible starting characters or charCodes of the pattern.
@@ -1549,14 +1549,14 @@ export interface ITokenConfig {
    *       and D83D is 55357 in decimal.
    *    * Note that "💩".charCodeAt(0) === 55357
    */
-  start_chars_hint?: (string | number)[];
+  start_chars_hint?: (string | number)[]
 }
 
 /**
  * Creates a new TokenType which can then be used
  * to define a Lexer and Parser
  */
-export declare function createToken(config: ITokenConfig): TokenType;
+export declare function createToken(config: ITokenConfig): TokenType
 
 /**
  * Utility to create Chevrotain IToken "instances"
@@ -1572,7 +1572,7 @@ export declare function createTokenInstance(
   endLine: number,
   startColumn: number,
   endColumn: number,
-): IToken;
+): IToken
 
 /**
  *  API #1 [Custom Token Patterns](http://chevrotain.io/docs/guide/custom_token_patterns.html).
@@ -1594,36 +1594,36 @@ export declare type CustomPatternMatcherFunc = (
    * Token Groups
    */
   groups: {
-    [groupName: string]: IToken[];
+    [groupName: string]: IToken[]
   },
-) => CustomPatternMatcherReturn | RegExpExecArray | null; // RegExpExecArray included for legacy reasons
+) => CustomPatternMatcherReturn | RegExpExecArray | null // RegExpExecArray included for legacy reasons
 
-export type CustomPatternMatcherReturn = [string] & { payload?: any };
+export type CustomPatternMatcherReturn = [string] & { payload?: any }
 
 export interface TokenType {
-  name: string;
-  GROUP?: string;
-  PATTERN?: TokenPattern;
-  LABEL?: string;
-  LONGER_ALT?: TokenType | TokenType[];
-  POP_MODE?: boolean;
-  PUSH_MODE?: string;
-  LINE_BREAKS?: boolean;
-  CATEGORIES?: TokenType[];
-  tokenTypeIdx?: number;
-  categoryMatches?: number[];
+  name: string
+  GROUP?: string
+  PATTERN?: TokenPattern
+  LABEL?: string
+  LONGER_ALT?: TokenType | TokenType[]
+  POP_MODE?: boolean
+  PUSH_MODE?: string
+  LINE_BREAKS?: boolean
+  CATEGORIES?: TokenType[]
+  tokenTypeIdx?: number
+  categoryMatches?: number[]
   categoryMatchesMap?: {
-    [tokType: number]: boolean;
-  };
-  isParent?: boolean;
-  START_CHARS_HINT?: (string | number)[];
+    [tokType: number]: boolean
+  }
+  isParent?: boolean
+  START_CHARS_HINT?: (string | number)[]
 }
 
 /**
  *  API #2 for [Custom Token Patterns](http://chevrotain.io/docs/guide/custom_token_patterns.html).
  */
 interface ICustomPattern {
-  exec: CustomPatternMatcherFunc;
+  exec: CustomPatternMatcherFunc
 }
 
 /**
@@ -1638,11 +1638,11 @@ interface ICustomPattern {
  */
 export interface IToken {
   /** The textual representation of the Token as it appeared in the text. */
-  image: string;
+  image: string
   /** Offset of the first character of the Token. 0-indexed. */
-  startOffset: number;
+  startOffset: number
   /** Line of the first character of the Token. 1-indexed. */
-  startLine?: number;
+  startLine?: number
   /**
    * Column of the first character of the Token. 1-indexed.
    *
@@ -1652,37 +1652,37 @@ export interface IToken {
    * 123456
    * ```
    */
-  startColumn?: number;
+  startColumn?: number
   /**
    * Offset of the last character of the Token. 0-indexed.
    * Note that this points at the last character, not the end of the token, so the original image would be
    * `input.substring(token.startOffset, token.endOffset + 1)`.
    */
-  endOffset?: number;
+  endOffset?: number
   /** Line of the last character of the Token. 1-indexed. Will be the same as startLine for single-line tokens.*/
-  endLine?: number;
+  endLine?: number
   /** Column of the last character of the Token. 1-indexed. See also startColumn. */
-  endColumn?: number;
+  endColumn?: number
   /** this marks if a Token does not really exist and has been inserted "artificially" during parsing in rule error recovery. */
-  isInsertedInRecovery?: boolean;
+  isInsertedInRecovery?: boolean
   /** An number index representing the type of the Token use <getTokenConstructor> to get the Token Type from a token "instance"  */
-  tokenTypeIdx: number;
+  tokenTypeIdx: number
   /**
    * The actual Token Type of this Token "instance"
    * This is the same Object returned by the "createToken" API.
    * This property is very useful for debugging the Lexing and Parsing phases.
    */
-  tokenType: TokenType;
+  tokenType: TokenType
 
   /**
    * Custom Payload value, this is an optional feature of Custom Token Patterns
    * For additional details see the docs:
    * https://chevrotain.io/docs/guide/custom_token_patterns.html#custom-payloads
    */
-  payload?: any;
+  payload?: any
 }
 
-export declare function tokenName(tokType: TokenType): string;
+export declare function tokenName(tokType: TokenType): string
 
 /**
  *  Returns a human readable label for a TokenType if such exists,
@@ -1691,7 +1691,7 @@ export declare function tokenName(tokType: TokenType): string;
  *  Labels are useful in improving the readability of error messages and syntax diagrams.
  *  To define labels provide the label property in the {@link createToken} config parameter.
  */
-export declare function tokenLabel(tokType: TokenType): string;
+export declare function tokenLabel(tokType: TokenType): string
 
 /**
  * A Utility method to check if a token is of the type of the argument Token class.
@@ -1732,47 +1732,47 @@ export declare function tokenLabel(tokType: TokenType): string;
  *
  * @returns true iff the token matches the TokenType.
  */
-export function tokenMatcher(token: IToken, tokType: TokenType): boolean;
+export function tokenMatcher(token: IToken, tokType: TokenType): boolean
 
 export declare type MultiModesDefinition = {
-  [modeName: string]: TokenType[];
-};
-
-export interface IMultiModeLexerDefinition {
-  modes: MultiModesDefinition;
-  defaultMode: string;
+  [modeName: string]: TokenType[]
 }
 
-export type TokenTypeDictionary = { [tokenName: string]: TokenType };
+export interface IMultiModeLexerDefinition {
+  modes: MultiModesDefinition
+  defaultMode: string
+}
+
+export type TokenTypeDictionary = { [tokenName: string]: TokenType }
 
 export declare type TokenVocabulary =
   | TokenTypeDictionary
   | TokenType[]
-  | IMultiModeLexerDefinition;
+  | IMultiModeLexerDefinition
 
 export interface IRuleConfig<T> {
   /**
    * The function which will be invoked to produce the returned value for a production that have not been
    * successfully executed and the parser recovered from.
    */
-  recoveryValueFunc?: (e: IRecognitionException) => T;
+  recoveryValueFunc?: (e: IRecognitionException) => T
   /**
    * Enable/Disable re-sync error recovery for this specific production.
    */
-  resyncEnabled?: boolean;
+  resyncEnabled?: boolean
 }
 
 export interface DSLMethodOpts<T> {
   /**
    * The Grammar to process in this method.
    */
-  DEF: GrammarAction<T>;
+  DEF: GrammarAction<T>
   /**
    * A semantic constraint on this DSL method
    * @see https://github.com/chevrotain/chevrotain/blob/master/examples/parser/predicate_lookahead/predicate_lookahead.js
    * For farther details.
    */
-  GATE?: () => boolean;
+  GATE?: () => boolean
 
   /**
    * Maximum number of "following tokens" which would be used to
@@ -1784,7 +1784,7 @@ export interface DSLMethodOpts<T> {
    *
    * TODO: create full docs and link
    */
-  MAX_LOOKAHEAD?: number;
+  MAX_LOOKAHEAD?: number
 }
 
 export interface DSLMethodOptsWithErr<T> extends DSLMethodOpts<T> {
@@ -1794,7 +1794,7 @@ export interface DSLMethodOptsWithErr<T> extends DSLMethodOpts<T> {
    *  If none is provided, the error message will include the names of the expected
    *  Tokens sequences which start the method's inner grammar
    */
-  ERR_MSG?: string;
+  ERR_MSG?: string
 }
 
 export interface OrMethodOpts<T> {
@@ -1802,13 +1802,13 @@ export interface OrMethodOpts<T> {
    * The set of alternatives,
    * See detailed description in {@link BaseParser.OR}
    */
-  DEF: IOrAlt<T>[];
+  DEF: IOrAlt<T>[]
   /**
    * A description for the alternatives used in error messages
    * If none is provided, the error message will include the names of the expected
    * Tokens sequences which may start each alternative.
    */
-  ERR_MSG?: string;
+  ERR_MSG?: string
 
   /**
    * A Flag indicating that **all** ambiguities in this alternation should
@@ -1821,7 +1821,7 @@ export interface OrMethodOpts<T> {
    * - Using gates {@link IOrAlt.GATE} to implement custom lookahead logic.
    * - Using the more granular {@link IOrAlt.IGNORE_AMBIGUITIES} on a **specific** alternative.
    */
-  IGNORE_AMBIGUITIES?: boolean;
+  IGNORE_AMBIGUITIES?: boolean
 
   /**
    * Maximum number of "following tokens" which would be used to
@@ -1833,23 +1833,23 @@ export interface OrMethodOpts<T> {
    *
    * TODO: create full docs and link
    */
-  MAX_LOOKAHEAD?: number;
+  MAX_LOOKAHEAD?: number
 }
 
 export interface ManySepMethodOpts<T> {
   /**
    * The grammar to process in each iteration.
    */
-  DEF: GrammarAction<T>;
+  DEF: GrammarAction<T>
   /**
    * The separator between each iteration.
    */
-  SEP: TokenType;
+  SEP: TokenType
 
   /**
    * @see DSLMethodOpts.MAX_LOOKAHEAD
    */
-  MAX_LOOKAHEAD?: number;
+  MAX_LOOKAHEAD?: number
 }
 
 export interface AtLeastOneSepMethodOpts<T> extends ManySepMethodOpts<T> {
@@ -1859,7 +1859,7 @@ export interface AtLeastOneSepMethodOpts<T> extends ManySepMethodOpts<T> {
    *  If none is provided, the error message will include the names of the expected
    *  Tokens sequences which start the method's inner grammar.
    */
-  ERR_MSG?: string;
+  ERR_MSG?: string
 }
 
 export interface ConsumeMethodOpts {
@@ -1867,11 +1867,11 @@ export interface ConsumeMethodOpts {
    *  A custom Error message if the Token could not be consumed.
    *  This will override any error message provided by the parser's "errorMessageProvider"
    */
-  ERR_MSG?: string;
+  ERR_MSG?: string
   /**
    * A label to be used instead of the TokenType name in the created CST.
    */
-  LABEL?: string;
+  LABEL?: string
 }
 
 export interface SubruleMethodOpts<ARGS> {
@@ -1879,18 +1879,18 @@ export interface SubruleMethodOpts<ARGS> {
    * The arguments to parameterized rules, see:
    * https://github.com/chevrotain/chevrotain/blob/master/examples/parser/parametrized_rules/parametrized.js
    */
-  ARGS?: ARGS;
+  ARGS?: ARGS
   /**
    * A label to be used instead of the subrule's name in the created CST.
    */
-  LABEL?: string;
+  LABEL?: string
 }
 
-export declare type GrammarAction<OUT> = () => OUT;
+export declare type GrammarAction<OUT> = () => OUT
 
 export interface IOrAlt<T> {
-  GATE?: () => boolean;
-  ALT: () => T;
+  GATE?: () => boolean
+  ALT: () => T
   /**
    * A Flag indicating that any ambiguities involving this
    * specific alternative Should be ignored.
@@ -1898,7 +1898,7 @@ export interface IOrAlt<T> {
    * This flag will be **implicitly** enabled if a GATE is used
    * as the assumption is that the GATE is used to resolve an ambiguity.
    */
-  IGNORE_AMBIGUITIES?: boolean;
+  IGNORE_AMBIGUITIES?: boolean
 }
 
 export interface IOrAltWithGate<T> extends IOrAlt<T> {
@@ -1906,13 +1906,13 @@ export interface IOrAltWithGate<T> extends IOrAlt<T> {
 }
 
 export interface ICstVisitor<IN, OUT> {
-  visit(cstNode: CstNode | CstNode[], param?: IN): OUT;
+  visit(cstNode: CstNode | CstNode[], param?: IN): OUT
 
   /**
    * Will throw an error if the visitor is missing any required methods
    * - `visitXYZ` for each `XYZ` grammar rule.
    */
-  validateVisitor(): void;
+  validateVisitor(): void
 }
 
 /**
@@ -1925,8 +1925,8 @@ export interface ICstVisitor<IN, OUT> {
  * of Commas, Semi colons, redundant parenthesis ect, however a CST would have that information.
  */
 export interface CstNode {
-  readonly name: string;
-  readonly children: CstChildrenDictionary;
+  readonly name: string
+  readonly children: CstChildrenDictionary
   /**
    * A flag indicating the whole CSTNode has been recovered during **re-sync** error recovery.
    * This means that some of the node's children may be missing.
@@ -1936,7 +1936,7 @@ export interface CstNode {
    * - See: https://chevrotain.io/docs/tutorial/step4_fault_tolerance.html
    *   for more info on error recovery and fault tolerance.
    */
-  readonly recoveredNode?: boolean;
+  readonly recoveredNode?: boolean
 
   /**
    * Will only be present if the {@link IParserConfig.nodeLocationTracking} is
@@ -1944,7 +1944,7 @@ export interface CstNode {
    * See: https://chevrotain.io/docs/guide/concrete_syntax_tree.html#cstnodes-location
    * For more details.
    */
-  readonly location?: CstNodeLocation;
+  readonly location?: CstNodeLocation
 }
 
 /**
@@ -1952,36 +1952,33 @@ export interface CstNode {
  *  The {@link IParserConfig.nodeLocationTracking} is set to "full".
  */
 export interface CstNodeLocation {
-  startOffset: number;
-  startLine?: number;
-  startColumn?: number;
-  endOffset?: number;
-  endLine?: number;
-  endColumn?: number;
+  startOffset: number
+  startLine?: number
+  startColumn?: number
+  endOffset?: number
+  endLine?: number
+  endColumn?: number
 }
 
 export declare type CstChildrenDictionary = {
-  [identifier: string]: CstElement[];
-};
+  [identifier: string]: CstElement[]
+}
 
-export declare type CstElement = IToken | CstNode;
+export declare type CstElement = IToken | CstNode
 
-export declare type nodeLocationTrackingOptions =
-  | "full"
-  | "onlyOffset"
-  | "none";
+export declare type nodeLocationTrackingOptions = 'full' | 'onlyOffset' | 'none'
 
 export interface IParserConfig {
   /**
    * Is the error recovery / fault tolerance of the Chevrotain Parser enabled.
    */
-  recoveryEnabled?: boolean;
+  recoveryEnabled?: boolean
   /**
    * Maximum number of tokens the parser will use to choose between alternatives.
    * By default this value is `4`.
    * In the future it may be reduced to `3` due to performance considerations.
    */
-  maxLookahead?: number;
+  maxLookahead?: number
   /**
    * Enable This Flag to to support Dynamically defined Tokens.
    * This will disable performance optimizations which cannot work if the whole Token vocabulary is not known
@@ -1989,14 +1986,14 @@ export interface IParserConfig {
    *
    * See [runnable example](https://github.com/chevrotain/chevrotain/tree/master/examples/parser/dynamic_tokens)
    */
-  dynamicTokensEnabled?: boolean;
+  dynamicTokensEnabled?: boolean
   /**
    * Enable computation of CST nodes location.
    * By default this is set to "none", meaning this feature is disabled.
    * See: http://chevrotain.io/docs/guide/concrete_syntax_tree.html#cstnode-location
    * For more details.
    */
-  nodeLocationTracking?: nodeLocationTrackingOptions;
+  nodeLocationTracking?: nodeLocationTrackingOptions
   /**
    * A custom error message provider.
    * Can be used to override the default error messages.
@@ -2005,7 +2002,7 @@ export interface IParserConfig {
    *   - Changing the formatting.
    *   - Providing special error messages under certain conditions, e.g: missing semicolons.
    */
-  errorMessageProvider?: IParserErrorMessageProvider;
+  errorMessageProvider?: IParserErrorMessageProvider
   /**
    * Enabling this flag will print performance tracing logs during parser
    * Initialization (constructor invocation), this is useful to narrow down the cause
@@ -2020,7 +2017,7 @@ export interface IParserConfig {
    *
    * Note that passing the boolean `true` is identical to passing the numerical value `infinity`
    */
-  traceInitPerf?: boolean | number;
+  traceInitPerf?: boolean | number
   /**
    * This flag will avoid running the grammar validations during Parser initialization.
    *
@@ -2032,7 +2029,7 @@ export interface IParserConfig {
    * So they should not be skipped during development flows.
    *   - For example: via a conditional that checks an env variable.
    */
-  skipValidations?: boolean;
+  skipValidations?: boolean
   /**
    * @experimental
    *
@@ -2042,7 +2039,7 @@ export interface IParserConfig {
    * Note that the default lookahead strategy is very well optimized and using a custom lookahead
    * strategy might lead to massively reduced performance.
    */
-  lookaheadStrategy?: ILookaheadStrategy;
+  lookaheadStrategy?: ILookaheadStrategy
 }
 
 /**
@@ -2064,11 +2061,11 @@ export interface IParserErrorMessageProvider {
    * @param options.ruleName - The rule in which the error occurred.
    */
   buildMismatchTokenMessage(options: {
-    expected: TokenType;
-    actual: IToken;
-    previous: IToken;
-    ruleName: string;
-  }): string;
+    expected: TokenType
+    actual: IToken
+    previous: IToken
+    ruleName: string
+  }): string
   /**
    * A Redundant Input Error happens when the parser has completed parsing but there
    * is still unprocessed input remaining.
@@ -2078,9 +2075,9 @@ export interface IParserErrorMessageProvider {
    * @param options.ruleName - The rule in which the error occurred.
    */
   buildNotAllInputParsedMessage(options: {
-    firstRedundant: IToken;
-    ruleName: string;
-  }): string;
+    firstRedundant: IToken
+    ruleName: string
+  }): string
   /**
    * A No Viable Alternative Error happens when the parser cannot detect any valid alternative in an alternation.
    * It corresponds to a failed {@link BaseParser.OR} in Chevrotain DSL terms.
@@ -2099,12 +2096,12 @@ export interface IParserErrorMessageProvider {
    * @param options.ruleName - The rule in which the error occurred.
    */
   buildNoViableAltMessage(options: {
-    expectedPathsPerAlt: TokenType[][][];
-    actual: IToken[];
-    previous: IToken;
-    customUserDescription?: string;
-    ruleName: string;
-  }): string;
+    expectedPathsPerAlt: TokenType[][][]
+    actual: IToken[]
+    previous: IToken
+    customUserDescription?: string
+    ruleName: string
+  }): string
   /**
    * An Early Exit Error happens when the parser cannot detect the first mandatory iteration of a repetition.
    * It corresponds to a failed {@link BaseParser.AT_LEAST_ONE_SEP} or {@link BaseParser.AT_LEAST_ONE_SEP} in Chevrotain DSL terms.
@@ -2122,31 +2119,31 @@ export interface IParserErrorMessageProvider {
    * @param options.ruleName - The rule in which the error occurred.
    */
   buildEarlyExitMessage(options: {
-    expectedIterationPaths: TokenType[][];
-    actual: IToken[];
-    previous: IToken;
-    customUserDescription?: string;
-    ruleName: string;
-  }): string;
+    expectedIterationPaths: TokenType[][]
+    actual: IToken[]
+    previous: IToken
+    customUserDescription?: string
+    ruleName: string
+  }): string
 }
 
 /**
  * @experimental
  */
 export interface ILLkLookaheadValidator {
-  validateNoLeftRecursion(rules: Rule[]): ILookaheadValidationError[];
+  validateNoLeftRecursion(rules: Rule[]): ILookaheadValidationError[]
 
-  validateEmptyOrAlternatives(rules: Rule[]): ILookaheadValidationError[];
+  validateEmptyOrAlternatives(rules: Rule[]): ILookaheadValidationError[]
 
   validateAmbiguousAlternationAlternatives(
     rules: Rule[],
     maxLookahead: number,
-  ): ILookaheadValidationError[];
+  ): ILookaheadValidationError[]
 
   validateSomeNonEmptyLookaheadPath(
     rules: Rule[],
     maxLookahead: number,
-  ): ILookaheadValidationError[];
+  ): ILookaheadValidationError[]
 }
 
 /**
@@ -2154,14 +2151,14 @@ export interface ILLkLookaheadValidator {
  */
 export interface ILLkLookaheadStrategyConstructor {
   new (options?: {
-    maxLookahead?: number;
-  }): ILookaheadStrategy & ILLkLookaheadValidator;
+    maxLookahead?: number
+  }): ILookaheadStrategy & ILLkLookaheadValidator
 }
 
 /**
  * @experimental
  */
-export const LLkLookaheadStrategy: ILLkLookaheadStrategyConstructor;
+export const LLkLookaheadStrategy: ILLkLookaheadStrategyConstructor
 
 /**
  * @experimental
@@ -2178,10 +2175,10 @@ export interface ILookaheadStrategy {
    * @param options.grammarName The name of the grammar.
    */
   validate(options: {
-    rules: Rule[];
-    tokenTypes: TokenType[];
-    grammarName: string;
-  }): ILookaheadValidationError[];
+    rules: Rule[]
+    tokenTypes: TokenType[]
+    grammarName: string
+  }): ILookaheadValidationError[]
 
   /**
    * Initializes the lookahead for a grammar.
@@ -2191,7 +2188,7 @@ export interface ILookaheadStrategy {
    *
    * @param options.rules All parser rules of the grammar.
    */
-  initialize?(options: { rules: Rule[] }): void;
+  initialize?(options: { rules: Rule[] }): void
 
   /**
    * Builds a lookahead function for alternations/`OR` parser methods.
@@ -2209,12 +2206,12 @@ export interface ILookaheadStrategy {
    * @returns A function that is able to compute which of the alternatives to choose while parsing.
    */
   buildLookaheadForAlternation(options: {
-    prodOccurrence: number;
-    rule: Rule;
-    maxLookahead: number;
-    hasPredicates: boolean;
-    dynamicTokensEnabled: boolean;
-  }): (orAlts?: IOrAlt<any>[] | undefined) => number | undefined;
+    prodOccurrence: number
+    rule: Rule
+    maxLookahead: number
+    hasPredicates: boolean
+    dynamicTokensEnabled: boolean
+  }): (orAlts?: IOrAlt<any>[] | undefined) => number | undefined
 
   /**
    * Builds a lookahead function for optional productions.
@@ -2232,29 +2229,29 @@ export interface ILookaheadStrategy {
    * @returns A function is able to compute whether to parse the production or to continue with the rest of the parser rule.
    */
   buildLookaheadForOptional(options: {
-    prodOccurrence: number;
-    prodType: OptionalProductionType;
-    rule: Rule;
-    maxLookahead: number;
-    dynamicTokensEnabled: boolean;
-  }): () => boolean;
+    prodOccurrence: number
+    prodType: OptionalProductionType
+    rule: Rule
+    maxLookahead: number
+    dynamicTokensEnabled: boolean
+  }): () => boolean
 }
 
 export interface ILookaheadValidationError {
-  message: string;
-  ruleName?: string;
+  message: string
+  ruleName?: string
 }
 
-export type LookaheadSequence = TokenType[][];
+export type LookaheadSequence = TokenType[][]
 
 export type OptionalProductionType =
-  | "Option"
-  | "RepetitionMandatory"
-  | "RepetitionMandatoryWithSeparator"
-  | "Repetition"
-  | "RepetitionWithSeparator";
+  | 'Option'
+  | 'RepetitionMandatory'
+  | 'RepetitionMandatoryWithSeparator'
+  | 'Repetition'
+  | 'RepetitionWithSeparator'
 
-export type LookaheadProductionType = OptionalProductionType | "Alternation";
+export type LookaheadProductionType = OptionalProductionType | 'Alternation'
 
 /**
  * Computes all lookahead paths for a given production.
@@ -2272,41 +2269,41 @@ export type LookaheadProductionType = OptionalProductionType | "Alternation";
  * @param options.maxLookahead The maximum amount of lookahead for this production.
  */
 export declare function getLookaheadPaths(options: {
-  occurrence: number;
-  rule: Rule;
-  prodType: LookaheadProductionType;
-  maxLookahead: number;
-}): LookaheadSequence[];
+  occurrence: number
+  rule: Rule
+  prodType: LookaheadProductionType
+  maxLookahead: number
+}): LookaheadSequence[]
 
 export interface IRecognizerContext {
   /**
    * A copy of the parser's rule stack at the "time" the RecognitionException occurred.
    * This can be used to help debug parsing errors (How did we get here?).
    */
-  ruleStack: string[];
+  ruleStack: string[]
   /**
    * A copy of the parser's rule occurrence stack at the "time" the RecognitionException occurred.
    * This can be used to help debug parsing errors (How did we get here?).
    */
-  ruleOccurrenceStack: number[];
+  ruleOccurrenceStack: number[]
 }
 
 export declare type ISeparatedIterationResult<OUT> = {
-  values: OUT[];
-  separators: IToken[];
-};
+  values: OUT[]
+  separators: IToken[]
+}
 
 export interface ISerializedGast {
-  type: ProductionType;
-  definition?: ISerializedGast[];
+  type: ProductionType
+  definition?: ISerializedGast[]
 }
 
 export type ProductionType =
   | LookaheadProductionType
-  | "NonTerminal"
-  | "Alternative"
-  | "Terminal"
-  | "Rule";
+  | 'NonTerminal'
+  | 'Alternative'
+  | 'Terminal'
+  | 'Rule'
 
 /**
  * Structure for the path the parser "took" to reach a certain position
@@ -2316,22 +2313,22 @@ export interface IGrammarPath {
   /**
    * The Grammar rules invoked and still unterminated to reach this Grammar Path.
    */
-  ruleStack: string[];
+  ruleStack: string[]
   /**
    * The occurrence index (SUBRULE1/2/3/5/...) of each Grammar rule invoked and still unterminated.
    * Used to distinguish between **different** invocations of the same subrule at the same top level rule.
    */
-  occurrenceStack: number[];
+  occurrenceStack: number[]
 }
 
 export interface ISyntacticContentAssistPath extends IGrammarPath {
-  nextTokenType: TokenType;
-  nextTokenOccurrence: number;
+  nextTokenType: TokenType
+  nextTokenOccurrence: number
 }
 
 export interface ITokenGrammarPath extends IGrammarPath {
-  lastTok: TokenType;
-  lastTokOccurrence: number;
+  lastTok: TokenType
+  lastTokOccurrence: number
 }
 
 export declare enum LexerDefinitionErrorType {
@@ -2358,7 +2355,7 @@ export declare enum LexerDefinitionErrorType {
 /**
  * Type of End Of File Token.
  */
-export declare const EOF: TokenType;
+export declare const EOF: TokenType
 
 /**
  * Convenience used to express an **empty** alternative in an OR (alternation).
@@ -2401,8 +2398,8 @@ export declare const EOF: TokenType;
  *    ])
  *  ```
  */
-export declare function EMPTY_ALT(): () => undefined;
-export declare function EMPTY_ALT<T>(value: T): () => T;
+export declare function EMPTY_ALT(): () => undefined
+export declare function EMPTY_ALT<T>(value: T): () => T
 
 /**
  * This is the default logic Chevrotain uses to construct error messages.
@@ -2411,31 +2408,31 @@ export declare function EMPTY_ALT<T>(value: T): () => T;
  *
  * - See: {@link IParserConfig.errorMessageProvider}
  */
-export declare const defaultParserErrorProvider: IParserErrorMessageProvider;
+export declare const defaultParserErrorProvider: IParserErrorMessageProvider
 
 /**
  * A Chevrotain Parser runtime exception.
  */
 export interface IRecognitionException extends Error {
-  name: string;
-  message: string;
+  name: string
+  message: string
   /**
    * The token which caused the parser error.
    */
-  token: IToken;
+  token: IToken
   /**
    * Additional tokens which have been re-synced in error recovery due to the original error.
    * This information can be used the calculate the whole text area which has been skipped due to an error.
    * For example for displaying with a red underline in a text editor.
    */
-  resyncedTokens: IToken[];
-  context: IRecognizerContext;
+  resyncedTokens: IToken[]
+  context: IRecognizerContext
 }
 
 /**
  * A utility to detect if an Error is a Chevrotain Parser's runtime exception.
  */
-export declare function isRecognitionException(error: Error): boolean;
+export declare function isRecognitionException(error: Error): boolean
 
 /**
  * An exception of this type will be saved in {@link BaseParser.errors} when {@link BaseParser.CONSUME}
@@ -2445,12 +2442,12 @@ export declare class MismatchedTokenException
   extends Error
   implements IRecognitionException
 {
-  context: IRecognizerContext;
-  resyncedTokens: IToken[];
-  token: IToken;
-  previousToken: IToken;
+  context: IRecognizerContext
+  resyncedTokens: IToken[]
+  token: IToken
+  previousToken: IToken
 
-  constructor(message: string, token: IToken, previousToken: IToken);
+  constructor(message: string, token: IToken, previousToken: IToken)
 }
 
 /**
@@ -2461,12 +2458,12 @@ export declare class NoViableAltException
   extends Error
   implements IRecognitionException
 {
-  context: IRecognizerContext;
-  resyncedTokens: IToken[];
-  token: IToken;
-  previousToken: IToken;
+  context: IRecognizerContext
+  resyncedTokens: IToken[]
+  token: IToken
+  previousToken: IToken
 
-  constructor(message: string, token: IToken, previousToken: IToken);
+  constructor(message: string, token: IToken, previousToken: IToken)
 }
 
 /**
@@ -2477,11 +2474,11 @@ export declare class NotAllInputParsedException
   extends Error
   implements IRecognitionException
 {
-  context: IRecognizerContext;
-  resyncedTokens: IToken[];
-  token: IToken;
+  context: IRecognizerContext
+  resyncedTokens: IToken[]
+  token: IToken
 
-  constructor(message: string, token: IToken);
+  constructor(message: string, token: IToken)
 }
 
 /**
@@ -2492,20 +2489,20 @@ export declare class EarlyExitException
   extends Error
   implements IRecognitionException
 {
-  context: IRecognizerContext;
-  resyncedTokens: IToken[];
-  token: IToken;
-  previousToken: IToken;
+  context: IRecognizerContext
+  resyncedTokens: IToken[]
+  token: IToken
+  previousToken: IToken
 
-  constructor(message: string, token: IToken, previousToken: IToken);
+  constructor(message: string, token: IToken, previousToken: IToken)
 }
 
 export interface IProduction {
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 export interface IProductionWithOccurrence extends IProduction {
-  idx: number;
+  idx: number
 }
 
 /**
@@ -2516,199 +2513,195 @@ export interface IProductionWithOccurrence extends IProduction {
  * For example, custom validations or introspection.
  */
 export abstract class GAstVisitor {
-  visit(node: IProduction): any;
+  visit(node: IProduction): any
 
-  abstract visitNonTerminal(node: NonTerminal): any;
+  abstract visitNonTerminal(node: NonTerminal): any
 
-  abstract visitAlternative(node: Alternative): any;
+  abstract visitAlternative(node: Alternative): any
 
-  abstract visitOption(node: Option): any;
+  abstract visitOption(node: Option): any
 
-  abstract visitRepetition(node: Repetition): any;
+  abstract visitRepetition(node: Repetition): any
 
-  abstract visitRepetitionMandatory(node: RepetitionMandatory): any;
+  abstract visitRepetitionMandatory(node: RepetitionMandatory): any
 
   abstract visitRepetitionMandatoryWithSeparator(
     node: RepetitionMandatoryWithSeparator,
-  ): any;
+  ): any
 
-  abstract visitRepetitionWithSeparator(node: RepetitionWithSeparator): any;
+  abstract visitRepetitionWithSeparator(node: RepetitionWithSeparator): any
 
-  abstract visitAlternation(node: Alternation): any;
+  abstract visitAlternation(node: Alternation): any
 
-  abstract visitTerminal(node: Terminal): any;
+  abstract visitTerminal(node: Terminal): any
 
-  abstract visitRule(node: Rule): any;
+  abstract visitRule(node: Rule): any
 }
 
 /**
  * The Grammar AST class representing a top level {@link CstParser.RULE} or {@link EmbeddedActionsParser.RULE} call.
  */
 export declare class Rule {
-  name: string;
-  orgText: string;
-  definition: IProduction[];
+  name: string
+  orgText: string
+  definition: IProduction[]
 
   constructor(options: {
-    name: string;
-    definition: IProduction[];
-    orgText?: string;
-  });
+    name: string
+    definition: IProduction[]
+    orgText?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a top level {@link CstParser.SUBRULE} or {@link EmbeddedActionsParser.SUBRULE} call.
  */
 export declare class NonTerminal implements IProductionWithOccurrence {
-  nonTerminalName: string;
-  label?: string;
-  referencedRule: Rule;
-  idx: number;
+  nonTerminalName: string
+  label?: string
+  referencedRule: Rule
+  idx: number
   constructor(options: {
-    nonTerminalName: string;
-    label?: string;
-    referencedRule?: Rule;
-    idx?: number;
-  });
-  definition: IProduction[];
-  accept(visitor: IGASTVisitor): void;
+    nonTerminalName: string
+    label?: string
+    referencedRule?: Rule
+    idx?: number
+  })
+  definition: IProduction[]
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class used to represent a single alternative in an {@link Alternation}.
  */
 export declare class Alternative {
-  definition: IProduction[];
-  ignoreAmbiguities: boolean;
+  definition: IProduction[]
+  ignoreAmbiguities: boolean
 
   constructor(options: {
-    definition: IProduction[];
-    ignoreAmbiguities?: boolean;
-  });
+    definition: IProduction[]
+    ignoreAmbiguities?: boolean
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.OPTION} call.
  */
 export declare class Option implements IProductionWithOccurrence {
-  idx: number;
-  definition: IProduction[];
+  idx: number
+  definition: IProduction[]
 
   constructor(options: {
-    definition: IProduction[];
-    idx?: number;
-    name?: string;
-  });
+    definition: IProduction[]
+    idx?: number
+    name?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.AT_LEAST_ONE_SEP} call.
  */
 export declare class RepetitionMandatory implements IProductionWithOccurrence {
-  idx: number;
-  definition: IProduction[];
+  idx: number
+  definition: IProduction[]
 
   constructor(options: {
-    definition: IProduction[];
-    idx?: number;
-    name?: string;
-  });
+    definition: IProduction[]
+    idx?: number
+    name?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.AT_LEAST_ONE_SEP} call.
  */
-export declare class RepetitionMandatoryWithSeparator
-  implements IProductionWithOccurrence
-{
-  separator: TokenType;
-  idx: number;
-  definition: IProduction[];
+export declare class RepetitionMandatoryWithSeparator implements IProductionWithOccurrence {
+  separator: TokenType
+  idx: number
+  definition: IProduction[]
 
   constructor(options: {
-    definition: IProduction[];
-    separator: TokenType;
-    idx?: number;
-    name?: string;
-  });
+    definition: IProduction[]
+    separator: TokenType
+    idx?: number
+    name?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.MANY} call.
  */
 export declare class Repetition implements IProductionWithOccurrence {
-  separator: TokenType;
-  idx: number;
-  definition: IProduction[];
+  separator: TokenType
+  idx: number
+  definition: IProduction[]
 
   constructor(options: {
-    definition: IProduction[];
-    idx?: number;
-    name?: string;
-  });
+    definition: IProduction[]
+    idx?: number
+    name?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.MANY_SEP} call.
  */
-export declare class RepetitionWithSeparator
-  implements IProductionWithOccurrence
-{
-  separator: TokenType;
-  idx: number;
-  definition: IProduction[];
+export declare class RepetitionWithSeparator implements IProductionWithOccurrence {
+  separator: TokenType
+  idx: number
+  definition: IProduction[]
 
   constructor(options: {
-    definition: IProduction[];
-    separator: TokenType;
-    idx?: number;
-    name?: string;
-  });
+    definition: IProduction[]
+    separator: TokenType
+    idx?: number
+    name?: string
+  })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.OR} call.
  */
 export declare class Alternation implements IProductionWithOccurrence {
-  idx: number;
-  definition: IProduction[];
+  idx: number
+  definition: IProduction[]
 
-  constructor(options: { definition: IProduction[]; idx?: number });
+  constructor(options: { definition: IProduction[]; idx?: number })
 
-  accept(visitor: IGASTVisitor): void;
+  accept(visitor: IGASTVisitor): void
 }
 
 /**
  * The Grammar AST class representing a {@link BaseParser.CONSUME} call.
  */
 export declare class Terminal implements IProductionWithOccurrence {
-  terminalType: TokenType;
-  label?: string;
-  idx: number;
+  terminalType: TokenType
+  label?: string
+  idx: number
   constructor(options: {
-    terminalType: TokenType;
-    label?: string;
-    idx?: number;
-  });
-  accept(visitor: IGASTVisitor): void;
+    terminalType: TokenType
+    label?: string
+    idx?: number
+  })
+  accept(visitor: IGASTVisitor): void
 }
 
 export interface IGASTVisitor {
-  visit(prod: IProduction): any;
+  visit(prod: IProduction): any
 }
 
 /**
@@ -2717,19 +2710,19 @@ export interface IGASTVisitor {
  * This can be useful for scenarios requiring exporting the grammar structure
  * for example drawing syntax diagrams.
  */
-export declare function serializeGrammar(topRules: Rule[]): ISerializedGast[];
+export declare function serializeGrammar(topRules: Rule[]): ISerializedGast[]
 
 /**
  * Like {@link serializeGrammar} but for a single GAST Production instead of a set of Rules.
  */
-export declare function serializeProduction(node: IProduction): ISerializedGast;
+export declare function serializeProduction(node: IProduction): ISerializedGast
 
 /**
  * @deprecated
  * This function no longer does anything, Avoid using this function
  * As it will be removed in future versions.
  */
-export declare function clearCache(): void;
+export declare function clearCache(): void
 
 /**
  * Structure of configuration object for {@link createSyntaxDiagramsCode}
@@ -2738,11 +2731,11 @@ export interface ICreateSyntaxDiagramsConfig {
   /**
    * Base Url to load the runtime resources for rendering the diagrams
    */
-  resourceBase?: string;
+  resourceBase?: string
   /**
    * Url to load the styleSheet, replace with your own for styling customization.
    */
-  css?: string;
+  css?: string
 }
 
 /**
@@ -2754,7 +2747,7 @@ export interface ICreateSyntaxDiagramsConfig {
 export declare function createSyntaxDiagramsCode(
   grammar: ISerializedGast[],
   config?: ICreateSyntaxDiagramsConfig,
-): string;
+): string
 
 /**
  * Will generate TypeScript definitions source code (text).
@@ -2772,7 +2765,7 @@ export declare function createSyntaxDiagramsCode(
 export declare function generateCstDts(
   productions: Record<string, Rule>,
   options?: GenerateDtsOptions,
-): string;
+): string
 
 export declare type GenerateDtsOptions = {
   /**
@@ -2781,10 +2774,10 @@ export declare type GenerateDtsOptions = {
    * For example, if a different traversal method on the CST has been implemented
    * by the end-user and the Chevrotain CST Visitor apis are not used.
    */
-  includeVisitorInterface?: boolean;
+  includeVisitorInterface?: boolean
   /**
    * The generated visitor interface will be called `ICstNodeVisitor` by default
    * This parameter enables giving it a more specific name, for example: `MyCstVisitor` or `JohnDoe`
    */
-  visitorInterfaceName?: string;
-};
+  visitorInterfaceName?: string
+}

@@ -1,2 +1,2 @@
-import { unset } from "./index";
-export = unset;
+import { unset } from './index'
+export = unset

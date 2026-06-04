@@ -1,2 +1,2 @@
-import { isArray } from "../fp";
-export = isArray;
+import { isArray } from '../fp'
+export = isArray

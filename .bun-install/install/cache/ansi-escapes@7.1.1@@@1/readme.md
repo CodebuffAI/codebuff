@@ -11,17 +11,17 @@ npm install ansi-escapes
 ## Usage
 
 ```js
-import ansiEscapes from 'ansi-escapes';
+import ansiEscapes from 'ansi-escapes'
 
 // Moves the cursor two rows up and to the left
-process.stdout.write(ansiEscapes.cursorUp(2) + ansiEscapes.cursorLeft);
+process.stdout.write(ansiEscapes.cursorUp(2) + ansiEscapes.cursorLeft)
 //=> '\u001B[2A\u001B[1000D'
 ```
 
 Or use named exports...
 
 ```js
-import {cursorUp, cursorLeft} from 'ansi-escapes';
+import { cursorUp, cursorLeft } from 'ansi-escapes'
 
 // etc, as above...
 ```
@@ -186,6 +186,7 @@ Buffer of an image. Usually read in with `fs.readFile()`.
 Type: `object`
 
 ##### width
+
 ##### height
 
 Type: `string | number`

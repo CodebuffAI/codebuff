@@ -1,2 +1,2 @@
-import { toSafeInteger } from "./index";
-export = toSafeInteger;
+import { toSafeInteger } from './index'
+export = toSafeInteger

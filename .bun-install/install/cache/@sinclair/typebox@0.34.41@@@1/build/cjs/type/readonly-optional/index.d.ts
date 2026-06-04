@@ -1,1 +1,1 @@
-export * from './readonly-optional';
+export * from './readonly-optional'

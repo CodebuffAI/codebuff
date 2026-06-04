@@ -8,7 +8,7 @@
  *
  * @module providers/box
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Box login to your page.
@@ -61,15 +61,15 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Box(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "box",
-    name: "Box",
-    type: "oauth",
-    authorization: "https://account.box.com/api/oauth2/authorize",
-    token: "https://api.box.com/oauth2/token",
-    userinfo: "https://api.box.com/2.0/users/me",
+    id: 'box',
+    name: 'Box',
+    type: 'oauth',
+    authorization: 'https://account.box.com/api/oauth2/authorize',
+    token: 'https://api.box.com/oauth2/token',
+    userinfo: 'https://api.box.com/2.0/users/me',
     profile(profile) {
       return {
         id: profile.id,
@@ -79,8 +79,8 @@ export default function Box(
       }
     },
     style: {
-      bg: "#0075C9",
-      text: "#fff",
+      bg: '#0075C9',
+      text: '#fff',
     },
     options,
   }

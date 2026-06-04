@@ -8,12 +8,12 @@
  *
  * @module providers/duende-identity-server6
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js";
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 export interface DuendeISUser extends Record<string, any> {
-    email: string;
-    id: string;
-    name: string;
-    verified: boolean;
+  email: string
+  id: string
+  name: string
+  verified: boolean
 }
 /**
  * Add DuendeIdentityServer6 login to your page.
@@ -87,5 +87,7 @@ export interface DuendeISUser extends Record<string, any> {
  *
  * :::
  */
-export default function DuendeIdentityServer6<P extends DuendeISUser>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function DuendeIdentityServer6<P extends DuendeISUser>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=duende-identity-server6.d.ts.map

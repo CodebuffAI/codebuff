@@ -8,7 +8,7 @@
  *
  * @module providers/webex
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * The returned user profile from Webex when using the profile callback.
  *
@@ -17,10 +17,10 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  * integration's scope, and the organization the OAuth integration belongs to.
  */
 export interface WebexProfile extends Record<string, any> {
-    id: string;
-    emails: string[];
-    displayName?: string;
-    avatar?: string;
+  id: string
+  emails: string[]
+  displayName?: string
+  avatar?: string
 }
 /**
  * Add Webex login to your page.
@@ -72,7 +72,9 @@ export interface WebexProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Webex<P extends WebexProfile>(config: OAuthUserConfig<P> & {
-    apiBaseUrl?: string;
-}): OAuthConfig<P>;
+export default function Webex<P extends WebexProfile>(
+  config: OAuthUserConfig<P> & {
+    apiBaseUrl?: string
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=webex.d.ts.map

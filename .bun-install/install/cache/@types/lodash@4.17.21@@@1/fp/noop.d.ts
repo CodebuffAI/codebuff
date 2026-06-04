@@ -1,2 +1,2 @@
-import { noop } from "../fp";
-export = noop;
+import { noop } from '../fp'
+export = noop

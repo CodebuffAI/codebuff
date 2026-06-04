@@ -1,28 +1,36 @@
-import { FullIconCustomisations } from "../customisations/defaults.js";
-import { Awaitable } from "@antfu/utils";
-import { IconifyIcon, IconifyJSON } from "@iconify/types";
+import { FullIconCustomisations } from '../customisations/defaults.js'
+import { Awaitable } from '@antfu/utils'
+import { IconifyIcon, IconifyJSON } from '@iconify/types'
 /**
  * External package name.
  *
  * You can use scoped packages, for example, `@my-collections/collection-a` or normal packages `my-awesome-collection`.
  */
-type ExternalPkgName = string | [scope: string, collection: string];
+type ExternalPkgName = string | [scope: string, collection: string]
 /**
  * Type for universal icon loader.
  */
-type UniversalIconLoader = (collection: string, icon: string, options?: IconifyLoaderOptions) => Promise<string | undefined>;
+type UniversalIconLoader = (
+  collection: string,
+  icon: string,
+  options?: IconifyLoaderOptions,
+) => Promise<string | undefined>
 /**
  * Custom icon loader, used by `getCustomIcon`.
  */
-type CustomIconLoader = (name: string) => Awaitable<string | undefined>;
+type CustomIconLoader = (name: string) => Awaitable<string | undefined>
 /**
  * Auto-install options
  */
-type AutoInstall = boolean | ((name: string) => Promise<void | undefined>);
+type AutoInstall = boolean | ((name: string) => Promise<void | undefined>)
 /**
  * Custom icon customizer, it will allow to customize all icons on a collection or individual icons.
  */
-type IconCustomizer = (collection: string, icon: string, props: Record<string, string>) => Awaitable<void>;
+type IconCustomizer = (
+  collection: string,
+  icon: string,
+  props: Record<string, string>,
+) => Awaitable<void>
 /**
  * Icon customizations: will be applied to all resolved icons.
  *
@@ -44,7 +52,11 @@ type IconCustomizations = {
    * @param icon The name of the icon
    * @return The transformed `svg`.
    */
-  transform?: (svg: string, collection: string, icon: string) => Awaitable<string>;
+  transform?: (
+    svg: string,
+    collection: string,
+    icon: string,
+  ) => Awaitable<string>
   /**
    * Change default icon customizations values.
    *
@@ -53,17 +65,21 @@ type IconCustomizations = {
    * @param name The icon name, can be used to check if icon needs to be customised.
    * @return The modified icon's customizations values.
    */
-  customize?: (defaultCustomizations: FullIconCustomisations, data: IconifyIcon, name: string) => FullIconCustomisations | undefined;
+  customize?: (
+    defaultCustomizations: FullIconCustomisations,
+    data: IconifyIcon,
+    name: string,
+  ) => FullIconCustomisations | undefined
   /**
    * Custom icon customizer.
    */
-  iconCustomizer?: IconCustomizer;
+  iconCustomizer?: IconCustomizer
   /**
    * Additional icon properties.
    *
    * All properties without value will not be applied.
    */
-  additionalProps?: Record<string, string | undefined>;
+  additionalProps?: Record<string, string | undefined>
   /**
    * Should optimize the custom `svg` icon?.
    *
@@ -71,16 +87,19 @@ type IconCustomizations = {
    *
    * @default `false`.
    */
-  trimCustomSvg?: boolean;
-};
+  trimCustomSvg?: boolean
+}
 /**
  * List of icons as object. Key is the icon name, the value is the icon data or callback (can be async) to get icon data
  */
-type InlineCollection = Record<string, string | (() => Awaitable<string | undefined>)>;
+type InlineCollection = Record<
+  string,
+  string | (() => Awaitable<string | undefined>)
+>
 /**
  * Collection of custom icons. Key is the collection name, the value is the loader or InlineCollection object
  */
-type CustomCollections = Record<string, CustomIconLoader | InlineCollection>;
+type CustomCollections = Record<string, CustomIconLoader | InlineCollection>
 /**
  * Options to use with the modern loader.
  */
@@ -88,37 +107,43 @@ type IconifyLoaderOptions = {
   /**
    * Emit warning when missing icons are matched
    */
-  warn?: string;
+  warn?: string
   /**
    * Add svg and xlink xml namespace when necessary.
    *
    * @default false
    */
-  addXmlNs?: boolean;
+  addXmlNs?: boolean
   /**
    * Scale of icons against 1em
    */
-  scale?: number;
+  scale?: number
   /**
    * Style to apply to icons by default
    *
    * @default ''
    */
-  defaultStyle?: string;
+  defaultStyle?: string
   /**
    * Class names to apply to icons by default
    *
    * @default ''
    */
-  defaultClass?: string;
+  defaultClass?: string
   /**
    * Loader for custom loaders
    */
-  customCollections?: Record<string, (() => Awaitable<IconifyJSON>) | undefined | CustomIconLoader | InlineCollection>;
+  customCollections?: Record<
+    string,
+    | (() => Awaitable<IconifyJSON>)
+    | undefined
+    | CustomIconLoader
+    | InlineCollection
+  >
   /**
    * Icon customizer
    */
-  customizations?: IconCustomizations;
+  customizations?: IconCustomizations
   /**
    * Auto install icon sources package when the usages is detected
    *
@@ -126,7 +151,7 @@ type IconifyLoaderOptions = {
    *
    * @default false
    */
-  autoInstall?: AutoInstall;
+  autoInstall?: AutoInstall
   /**
    * The additional icon properties applied to the svg.
    *
@@ -135,7 +160,7 @@ type IconifyLoaderOptions = {
    *
    * If you need that properties just add an empty object here, useful for example when using the `svg` on `CSS`.
    */
-  usedProps?: Record<string, string>;
+  usedProps?: Record<string, string>
   /**
    * Current working directory, used to resolve the @iconify-json package.
    *
@@ -147,6 +172,16 @@ type IconifyLoaderOptions = {
    *
    * @default process.cwd()
    */
-  cwd?: string | string[];
-};
-export { AutoInstall, CustomCollections, CustomIconLoader, ExternalPkgName, IconCustomizations, IconCustomizer, IconifyLoaderOptions, InlineCollection, UniversalIconLoader };
+  cwd?: string | string[]
+}
+export {
+  AutoInstall,
+  CustomCollections,
+  CustomIconLoader,
+  ExternalPkgName,
+  IconCustomizations,
+  IconCustomizer,
+  IconifyLoaderOptions,
+  InlineCollection,
+  UniversalIconLoader,
+}

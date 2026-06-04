@@ -1,2 +1,2 @@
-import { spread } from "../fp";
-export = spread;
+import { spread } from '../fp'
+export = spread

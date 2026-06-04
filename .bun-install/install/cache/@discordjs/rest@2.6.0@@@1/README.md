@@ -47,58 +47,58 @@ bun add @discordjs/rest discord-api-types
 Send a basic message:
 
 ```js
-import { REST } from '@discordjs/rest';
-import { Routes } from 'discord-api-types/v10';
+import { REST } from '@discordjs/rest'
+import { Routes } from 'discord-api-types/v10'
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
+const rest = new REST({ version: '10' }).setToken(TOKEN)
 
 try {
-	await rest.post(Routes.channelMessages(CHANNEL_ID), {
-		body: {
-			content: 'A message via REST!',
-		},
-	});
+  await rest.post(Routes.channelMessages(CHANNEL_ID), {
+    body: {
+      content: 'A message via REST!',
+    },
+  })
 } catch (error) {
-	console.error(error);
+  console.error(error)
 }
 ```
 
 Create a thread from an existing message to be archived after 60 minutes of inactivity:
 
 ```js
-import { REST } from '@discordjs/rest';
-import { Routes } from 'discord-api-types/v10';
+import { REST } from '@discordjs/rest'
+import { Routes } from 'discord-api-types/v10'
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
+const rest = new REST({ version: '10' }).setToken(TOKEN)
 
 try {
-	await rest.post(Routes.threads(CHANNEL_ID, MESSAGE_ID), {
-		body: {
-			name: 'Thread',
-			auto_archive_duration: 60,
-		},
-	});
+  await rest.post(Routes.threads(CHANNEL_ID, MESSAGE_ID), {
+    body: {
+      name: 'Thread',
+      auto_archive_duration: 60,
+    },
+  })
 } catch (error) {
-	console.error(error);
+  console.error(error)
 }
 ```
 
 Send a basic message in an edge environment:
 
 ```js
-import { REST } from '@discordjs/rest';
-import { Routes } from 'discord-api-types/v10';
+import { REST } from '@discordjs/rest'
+import { Routes } from 'discord-api-types/v10'
 
-const rest = new REST({ version: '10', makeRequest: fetch }).setToken(TOKEN);
+const rest = new REST({ version: '10', makeRequest: fetch }).setToken(TOKEN)
 
 try {
-	await rest.post(Routes.channelMessages(CHANNEL_ID), {
-		body: {
-			content: 'A message via REST from the edge!',
-		},
-	});
+  await rest.post(Routes.channelMessages(CHANNEL_ID), {
+    body: {
+      content: 'A message via REST from the edge!',
+    },
+  })
 } catch (error) {
-	console.error(error);
+  console.error(error)
 }
 ```
 

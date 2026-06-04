@@ -23,19 +23,19 @@ _This does not handle multipart bodies_, due to their complex and typically
 large nature. For multipart bodies, you may be interested in the following
 modules:
 
-  * [busboy](https://www.npmjs.org/package/busboy#readme) and
-    [connect-busboy](https://www.npmjs.org/package/connect-busboy#readme)
-  * [multiparty](https://www.npmjs.org/package/multiparty#readme) and
-    [connect-multiparty](https://www.npmjs.org/package/connect-multiparty#readme)
-  * [formidable](https://www.npmjs.org/package/formidable#readme)
-  * [multer](https://www.npmjs.org/package/multer#readme)
+- [busboy](https://www.npmjs.org/package/busboy#readme) and
+  [connect-busboy](https://www.npmjs.org/package/connect-busboy#readme)
+- [multiparty](https://www.npmjs.org/package/multiparty#readme) and
+  [connect-multiparty](https://www.npmjs.org/package/connect-multiparty#readme)
+- [formidable](https://www.npmjs.org/package/formidable#readme)
+- [multer](https://www.npmjs.org/package/multer#readme)
 
 This module provides the following parsers:
 
-  * [JSON body parser](#bodyparserjsonoptions)
-  * [Raw body parser](#bodyparserrawoptions)
-  * [Text body parser](#bodyparsertextoptions)
-  * [URL-encoded form body parser](#bodyparserurlencodedoptions)
+- [JSON body parser](#bodyparserjsonoptions)
+- [Raw body parser](#bodyparserrawoptions)
+- [Text body parser](#bodyparsertextoptions)
+- [URL-encoded form body parser](#bodyparserurlencodedoptions)
 
 Other body parsers you might be interested in:
 
@@ -289,7 +289,6 @@ of `✓`. Defaults to `false`.
 
 Whether to decode numeric entities such as `&#9786;` when parsing an iso-8859-1
 form. Defaults to `false`.
-
 
 #### depth
 

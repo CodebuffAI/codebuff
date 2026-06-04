@@ -310,15 +310,15 @@
   This change replaces
 
   ```ts
-  import { experimental_createMCPClient } from 'ai';
-  import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio';
+  import { experimental_createMCPClient } from 'ai'
+  import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio'
   ```
 
   with
 
   ```ts
-  import { experimental_createMCPClient } from '@ai-sdk/mcp';
-  import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio';
+  import { experimental_createMCPClient } from '@ai-sdk/mcp'
+  import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
   ```
 
 ## 5.0.78
@@ -947,7 +947,7 @@
     }),
     prompt,
     n: 10,
-  });
+  })
   ```
 
   After
@@ -961,7 +961,7 @@
     providerOptions: {
       luma: { pollIntervalMillis: 5 },
     },
-  });
+  })
   ```
 
   Pull Request: https://github.com/vercel/ai/pull/6180
@@ -1043,7 +1043,6 @@
 - 4fef487: feat: support for zod v4 for schema validation
 
   All these methods now accept both a zod v4 and zod v3 schemas for validation:
-
   - `generateObject()`
   - `streamObject()`
   - `generateText()`
@@ -1154,19 +1153,19 @@
   The `experimental_generateImage` method from the `ai` package now returnes revised prompts for OpenAI's image models.
 
   ```js
-  const prompt = 'Santa Claus driving a Cadillac';
+  const prompt = 'Santa Claus driving a Cadillac'
 
   const { providerMetadata } = await experimental_generateImage({
     model: openai.image('dall-e-3'),
     prompt,
-  });
+  })
 
-  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt;
+  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt
 
   console.log({
     prompt,
     revisedPrompt,
-  });
+  })
   ```
 
 - ec5933d: chore (ai/mcp): add `assertCapability` method to experimental MCP client
@@ -1811,7 +1810,6 @@
 - 4fef487: feat: support for zod v4 for schema validation
 
   All these methods now accept both a zod v4 and zod v3 schemas for validation:
-
   - `generateObject()`
   - `streamObject()`
   - `generateText()`
@@ -1985,7 +1983,7 @@
     }),
     prompt,
     n: 10,
-  });
+  })
   ```
 
   After
@@ -1999,7 +1997,7 @@
     providerOptions: {
       luma: { pollIntervalMillis: 5 },
     },
-  });
+  })
   ```
 
   Pull Request: https://github.com/vercel/ai/pull/6180
@@ -2093,19 +2091,19 @@
   The `experimental_generateImage` method from the `ai` package now returnes revised prompts for OpenAI's image models.
 
   ```js
-  const prompt = 'Santa Claus driving a Cadillac';
+  const prompt = 'Santa Claus driving a Cadillac'
 
   const { providerMetadata } = await experimental_generateImage({
     model: openai.image('dall-e-3'),
     prompt,
-  });
+  })
 
-  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt;
+  const revisedPrompt = providerMetadata.openai.images[0]?.revisedPrompt
 
   console.log({
     prompt,
     revisedPrompt,
-  });
+  })
   ```
 
 - Updated dependencies [957b739]

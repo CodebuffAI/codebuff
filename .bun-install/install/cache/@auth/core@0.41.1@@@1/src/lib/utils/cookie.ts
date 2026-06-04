@@ -3,7 +3,7 @@ import type {
   CookiesOptions,
   LoggerInstance,
   RequestInternal,
-} from "../../types.js"
+} from '../../types.js'
 
 // Uncomment to recalculate the estimated size
 // of an empty session cookie
@@ -33,7 +33,7 @@ const CHUNK_SIZE = ALLOWED_COOKIE_SIZE - ESTIMATED_EMPTY_COOKIE_SIZE
 /** Stringified form of `JWT`. Extract the content with `jwt.decode` */
 export type JWTString = string
 
-export type SetCookieOptions = Partial<CookieOption["options"]> & {
+export type SetCookieOptions = Partial<CookieOption['options']> & {
   expires?: Date | string
   encode?: (val: unknown) => string
 }
@@ -42,7 +42,7 @@ export type SetCookieOptions = Partial<CookieOption["options"]> & {
  * If `options.session.strategy` is set to `jwt`, this is a stringified `JWT`.
  * In case of `strategy: "database"`, this is the `sessionToken` of the session in the database.
  */
-export type SessionToken<T extends "jwt" | "database" = "jwt"> = T extends "jwt"
+export type SessionToken<T extends 'jwt' | 'database' = 'jwt'> = T extends 'jwt'
   ? JWTString
   : string
 
@@ -57,15 +57,15 @@ export type SessionToken<T extends "jwt" | "database" = "jwt"> = T extends "jwt"
  * @TODO Review cookie settings (names, options)
  */
 export function defaultCookies(useSecureCookies: boolean) {
-  const cookiePrefix = useSecureCookies ? "__Secure-" : ""
+  const cookiePrefix = useSecureCookies ? '__Secure-' : ''
   return {
     // default cookie options
     sessionToken: {
       name: `${cookiePrefix}authjs.session-token`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
       },
     },
@@ -73,19 +73,19 @@ export function defaultCookies(useSecureCookies: boolean) {
       name: `${cookiePrefix}authjs.callback-url`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
       },
     },
     csrfToken: {
       // Default to __Host- for CSRF token for additional protection if using useSecureCookies
       // NB: The `__Host-` prefix is stricter than the `__Secure-` prefix.
-      name: `${useSecureCookies ? "__Host-" : ""}authjs.csrf-token`,
+      name: `${useSecureCookies ? '__Host-' : ''}authjs.csrf-token`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
       },
     },
@@ -93,8 +93,8 @@ export function defaultCookies(useSecureCookies: boolean) {
       name: `${cookiePrefix}authjs.pkce.code_verifier`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
         maxAge: 60 * 15, // 15 minutes in seconds
       },
@@ -103,8 +103,8 @@ export function defaultCookies(useSecureCookies: boolean) {
       name: `${cookiePrefix}authjs.state`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
         maxAge: 60 * 15, // 15 minutes in seconds
       },
@@ -113,8 +113,8 @@ export function defaultCookies(useSecureCookies: boolean) {
       name: `${cookiePrefix}authjs.nonce`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
       },
     },
@@ -122,8 +122,8 @@ export function defaultCookies(useSecureCookies: boolean) {
       name: `${cookiePrefix}authjs.challenge`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
-        path: "/",
+        sameSite: 'lax',
+        path: '/',
         secure: useSecureCookies,
         maxAge: 60 * 15, // 15 minutes in seconds
       },
@@ -144,8 +144,8 @@ export class SessionStore {
 
   constructor(
     option: CookieOption,
-    cookies: RequestInternal["cookies"],
-    logger: LoggerInstance | Console
+    cookies: RequestInternal['cookies'],
+    logger: LoggerInstance | Console,
   ) {
     this.#logger = logger
     this.#option = option
@@ -166,14 +166,14 @@ export class SessionStore {
   get value() {
     // Sort the chunks by their keys before joining
     const sortedKeys = Object.keys(this.#chunks).sort((a, b) => {
-      const aSuffix = parseInt(a.split(".").pop() || "0")
-      const bSuffix = parseInt(b.split(".").pop() || "0")
+      const aSuffix = parseInt(a.split('.').pop() || '0')
+      const bSuffix = parseInt(b.split('.').pop() || '0')
 
       return aSuffix - bSuffix
     })
 
     // Use the sorted keys to join the chunks in the correct order
-    return sortedKeys.map((key) => this.#chunks[key]).join("")
+    return sortedKeys.map((key) => this.#chunks[key]).join('')
   }
 
   /** Given a cookie, return a list of cookies, chunked to fit the allowed cookie size. */
@@ -193,7 +193,7 @@ export class SessionStore {
       this.#chunks[name] = value
     }
 
-    this.#logger.debug("CHUNKING_SESSION_COOKIE", {
+    this.#logger.debug('CHUNKING_SESSION_COOKIE', {
       message: `Session cookie exceeds allowed ${ALLOWED_COOKIE_SIZE} bytes.`,
       emptyCookieSize: ESTIMATED_EMPTY_COOKIE_SIZE,
       valueSize: cookie.value.length,
@@ -210,7 +210,7 @@ export class SessionStore {
       delete this.#chunks?.[name]
       cleanedChunks[name] = {
         name,
-        value: "",
+        value: '',
         options: { ...this.#option.options, maxAge: 0 },
       }
     }
@@ -222,7 +222,7 @@ export class SessionStore {
    * If the cookie has changed from chunked to unchunked or vice versa,
    * it deletes the old cookies as well.
    */
-  chunk(value: string, options: Partial<Cookie["options"]>): Cookie[] {
+  chunk(value: string, options: Partial<Cookie['options']>): Cookie[] {
     // Assume all cookies should be cleaned by default
     const cookies: Record<string, Cookie> = this.#clean()
 

@@ -1,2 +1,2 @@
-import { unionWith } from "../fp";
-export = unionWith;
+import { unionWith } from '../fp'
+export = unionWith

@@ -1,2 +1,2 @@
-import { fill } from "../fp";
-export = fill;
+import { fill } from '../fp'
+export = fill

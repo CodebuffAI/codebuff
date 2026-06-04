@@ -283,6 +283,25 @@ Write out your complete implementation now. Do not write any final summary.`,
         }
         readOnlyOnlySteps = 0
 
+        // Snapshot-staleness guard: if the state snapshot has no proposal
+        // artifacts at all but message history already contains a propose_*
+        // call, this step likely just emitted a proposal whose live ledger
+        // append was not visible to `summary` yet. Do not fire PROPOSAL_RETRY in
+        // that narrow case, because it would call startNewProposalAttempt and
+        // orphan the just-recorded artifact. Real failed proposals are NOT
+        // covered by this guard because their failed artifact appears in
+        // summary.toolResults and should still trigger a retry below.
+        if (
+          summary.toolResults.length === 0 &&
+          countToolCallsInMessages(
+            getMessagesSinceLastProposalRetry(agentState.messageHistory ?? []),
+            isProposalToolName,
+          ) > 0
+        ) {
+          stopReason = 'noCompletionSignal'
+          break
+        }
+
         // Pure failure (no usable diff anywhere): retry. The runtime starts a
         // fresh ledger attempt when it applies this PROPOSAL_RETRY message.
         yield buildProposalRetryToolCall({
@@ -1031,6 +1050,15 @@ Write out your complete implementation now. Do not write any final summary.`,
         return count
       }
 
+      function getMessagesSinceLastProposalRetry(messages: any[]): any[] {
+        const lastRetryIndex = messages.findLastIndex(
+          (message) =>
+            Array.isArray(message?.tags) &&
+            message.tags.includes('PROPOSAL_RETRY'),
+        )
+        return lastRetryIndex === -1 ? messages : messages.slice(lastRetryIndex + 1)
+      }
+
       function hasProposalCompletionSignal(messages: any[]): boolean {
         return messages.some((message) =>
           getMessageText(message).includes('PROPOSAL_BUNDLE_COMPLETE'),
@@ -1239,6 +1267,14 @@ Write out your complete implementation now. Do not write any final summary.`,
           toolName === 'code_search' ||
           toolName === 'glob' ||
           toolName === 'list_directory'
+        )
+      }
+
+      function isProposalToolName(toolName: any): boolean {
+        return (
+          toolName === 'propose_str_replace' ||
+          toolName === 'propose_write_file' ||
+          toolName === 'propose_edit_transaction'
         )
       }
 

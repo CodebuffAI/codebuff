@@ -10,25 +10,25 @@
  *
  * @module providers/asgardeo
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** The returned user profile from Asgardeo when using the profile callback. */
 export interface AsgardeoProfile extends Record<string, any> {
-    /**
-     * The user Asgardeo account ID
-     */
-    sub: string;
-    /**
-     * The user name
-     */
-    given_name: string;
-    /**
-     * The user email
-     */
-    email: string;
-    /**
-     * The user profile picture
-     */
-    picture: string;
+  /**
+   * The user Asgardeo account ID
+   */
+  sub: string
+  /**
+   * The user name
+   */
+  given_name: string
+  /**
+   * The user email
+   */
+  email: string
+  /**
+   * The user profile picture
+   */
+  picture: string
 }
 /**
  *
@@ -98,5 +98,7 @@ export interface AsgardeoProfile extends Record<string, any> {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Asgardeo(config: OIDCUserConfig<AsgardeoProfile>): OIDCConfig<AsgardeoProfile>;
+export default function Asgardeo(
+  config: OIDCUserConfig<AsgardeoProfile>,
+): OIDCConfig<AsgardeoProfile>
 //# sourceMappingURL=asgardeo.d.ts.map

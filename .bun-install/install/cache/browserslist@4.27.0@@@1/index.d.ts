@@ -11,7 +11,7 @@
  */
 declare function browserslist(
   queries?: string | readonly string[] | null,
-  opts?: browserslist.Options
+  opts?: browserslist.Options,
 ): string[]
 
 declare namespace browserslist {
@@ -163,7 +163,7 @@ declare namespace browserslist {
    */
   function parse(
     queries?: string | readonly string[] | null,
-    opts?: browserslist.Options
+    opts?: browserslist.Options,
   ): Query[]
 
   /**

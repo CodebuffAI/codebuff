@@ -1,1 +1,1 @@
-export function components(g: any): any[];
+export function components(g: any): any[]

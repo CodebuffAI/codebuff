@@ -173,7 +173,10 @@ export type PostHogRemoteConfig = {
 
 export type FeatureFlagValue = string | boolean
 
-export type PostHogFlagsResponse = Omit<PostHogRemoteConfig, 'hasFeatureFlags'> & {
+export type PostHogFlagsResponse = Omit<
+  PostHogRemoteConfig,
+  'hasFeatureFlags'
+> & {
   featureFlags: {
     [key: string]: FeatureFlagValue
   }
@@ -243,7 +246,10 @@ export type PostHogV1FlagsResponse = Omit<PostHogFlagsResponse, 'flags'>
 /**
  * Models the response from the v2 `/flags` endpoint.
  */
-export type PostHogV2FlagsResponse = Omit<PostHogFlagsResponse, 'featureFlags' | 'featureFlagPayloads'>
+export type PostHogV2FlagsResponse = Omit<
+  PostHogFlagsResponse,
+  'featureFlags' | 'featureFlagPayloads'
+>
 
 /**
  * The format of the flags object in persisted storage
@@ -260,9 +266,19 @@ export type PostHogFlagsAndPayloadsResponse = Partial<
   Pick<PostHogFlagsResponse, 'featureFlags' | 'featureFlagPayloads'>
 >
 
-export type JsonType = string | number | boolean | null | { [key: string]: JsonType } | Array<JsonType> | JsonType[]
+export type JsonType =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonType }
+  | Array<JsonType>
+  | JsonType[]
 
-export type FetchLike = (url: string, options: PostHogFetchOptions) => Promise<PostHogFetchResponse>
+export type FetchLike = (
+  url: string,
+  options: PostHogFetchOptions,
+) => Promise<PostHogFetchResponse>
 
 export type FeatureFlagDetail = {
   key: string
@@ -339,7 +355,11 @@ export enum SurveyType {
   ExternalSurvey = 'external_survey',
 }
 
-export type SurveyQuestion = BasicSurveyQuestion | LinkSurveyQuestion | RatingSurveyQuestion | MultipleSurveyQuestion
+export type SurveyQuestion =
+  | BasicSurveyQuestion
+  | LinkSurveyQuestion
+  | RatingSurveyQuestion
+  | MultipleSurveyQuestion
 
 export enum SurveyQuestionDescriptionContentType {
   Html = 'html',
@@ -354,7 +374,11 @@ type SurveyQuestionBase = {
   optional?: boolean
   buttonText?: string
   originalQuestionIndex: number
-  branching?: NextQuestionBranching | EndBranching | ResponseBasedBranching | SpecificQuestionBranching
+  branching?:
+    | NextQuestionBranching
+    | EndBranching
+    | ResponseBasedBranching
+    | SpecificQuestionBranching
 }
 
 export type BasicSurveyQuestion = SurveyQuestionBase & {

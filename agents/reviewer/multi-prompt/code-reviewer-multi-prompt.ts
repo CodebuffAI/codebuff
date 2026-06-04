@@ -121,10 +121,16 @@ function* handleStepsMultiPrompt({
     }
   }
 
-  // Set output with the simplified reviews (array of strings)
+  const message = formatReviewSummaryForHandleSteps(reviewTexts)
+
+  // Keep individual reviews for programmatic consumers, but include a readable
+  // top-level message/output so parent agents and CLIs don't surface a raw JSON
+  // array of review strings to users.
   yield {
     toolName: 'set_output',
     input: {
+      message,
+      output: message,
       reviews: reviewTexts,
     },
     includeToolCall: false,
@@ -133,6 +139,18 @@ function* handleStepsMultiPrompt({
   type ContentBlock = { type: string; text?: string }
   type ReviewMessage = { role: string; content: ContentBlock[]; sentAt?: number }
   type ReviewResult = ReviewMessage[]
+
+  // handleSteps is serialized into bundled agents without top-level helpers, so
+  // keep this formatter in the generator scope. The exported formatReviewSummary
+  // below stays available for unit tests and non-serialized callers.
+  function formatReviewSummaryForHandleSteps(reviewTexts: string[]): string {
+    if (reviewTexts.length === 0) return 'No reviewer output was returned.'
+    if (reviewTexts.length === 1) return reviewTexts[0]
+
+    return reviewTexts
+      .map((review, index) => `Review ${index + 1}:\n${review.trim()}`)
+      .join('\n\n')
+  }
 
   /**
    * Extracts the array of subagent results from spawn_agents tool output.
@@ -171,6 +189,15 @@ function* handleStepsMultiPrompt({
     }
     return extracted
   }
+}
+
+export function formatReviewSummary(reviewTexts: string[]): string {
+  if (reviewTexts.length === 0) return 'No reviewer output was returned.'
+  if (reviewTexts.length === 1) return reviewTexts[0]
+
+  return reviewTexts
+    .map((review, index) => `Review ${index + 1}:\n${review.trim()}`)
+    .join('\n\n')
 }
 
 const definition = {

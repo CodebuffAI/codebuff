@@ -47,7 +47,8 @@ export const isString = (x: unknown): x is string => {
   return toString.call(x) == '[object String]'
 }
 
-export const isEmptyString = (x: unknown): boolean => isString(x) && x.trim().length === 0
+export const isEmptyString = (x: unknown): boolean =>
+  isString(x) && x.trim().length === 0
 
 export const isNull = (x: unknown): x is null => {
   // eslint-disable-next-line posthog-js/no-direct-null-check
@@ -58,7 +59,8 @@ export const isNull = (x: unknown): x is null => {
     sometimes you want to check if something is null or undefined
     that's what this is for
  */
-export const isNullish = (x: unknown): x is null | undefined => isUndefined(x) || isNull(x)
+export const isNullish = (x: unknown): x is null | undefined =>
+  isUndefined(x) || isNull(x)
 
 export const isNumber = (x: unknown): x is number => {
   // eslint-disable-next-line posthog-js/no-direct-number-check
@@ -89,7 +91,9 @@ export const isPlainError = (x: unknown): x is Error => {
   return x instanceof Error
 }
 
-export const isKnownUnsafeEditableEvent = (x: unknown): x is KnownUnsafeEditableEvent => {
+export const isKnownUnsafeEditableEvent = (
+  x: unknown,
+): x is KnownUnsafeEditableEvent => {
   return includes(knownUnsafeEditableEvent as unknown as string[], x)
 }
 
@@ -122,7 +126,9 @@ export function isEvent(candidate: unknown): candidate is Event {
   return !isUndefined(Event) && isInstanceOf(candidate, Event)
 }
 
-export function isPlainObject(candidate: unknown): candidate is Record<string, unknown> {
+export function isPlainObject(
+  candidate: unknown,
+): candidate is Record<string, unknown> {
   return isBuiltin(candidate, 'Object')
 }
 
@@ -135,6 +141,8 @@ function isInstanceOf(candidate: unknown, base: any): boolean {
 }
 
 export const yesLikeValues = [true, 'true', 1, '1', 'yes']
-export const isYesLike = (val: string | boolean | number): boolean => includes(yesLikeValues, val)
+export const isYesLike = (val: string | boolean | number): boolean =>
+  includes(yesLikeValues, val)
 export const noLikeValues = [false, 'false', 0, '0', 'no']
-export const isNoLike = (val: string | boolean | number): boolean => includes(noLikeValues, val)
+export const isNoLike = (val: string | boolean | number): boolean =>
+  includes(noLikeValues, val)

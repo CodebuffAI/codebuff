@@ -1,2 +1,2 @@
-import { kebabCase } from "./index";
-export = kebabCase;
+import { kebabCase } from './index'
+export = kebabCase

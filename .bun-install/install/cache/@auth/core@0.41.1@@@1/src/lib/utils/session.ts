@@ -1,12 +1,12 @@
-import type { InternalOptions, User } from "../../types.js"
-import type { SessionStore } from "./cookie.js"
+import type { InternalOptions, User } from '../../types.js'
+import type { SessionStore } from './cookie.js'
 
 /**
  * Returns the currently logged in user, if any.
  */
 export async function getLoggedInUser(
   options: InternalOptions,
-  sessionStore: SessionStore
+  sessionStore: SessionStore,
 ): Promise<User | null> {
   const {
     adapter,
@@ -18,7 +18,7 @@ export async function getLoggedInUser(
   if (!sessionToken) return null
 
   // Try to decode JWT
-  if (sessionStrategy === "jwt") {
+  if (sessionStrategy === 'jwt') {
     const salt = options.cookies.sessionToken.name
     const payload = await jwt.decode({ ...jwt, token: sessionToken, salt })
 

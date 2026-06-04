@@ -23,7 +23,10 @@ export interface PluginConfig {
   }
 }
 
-export interface ResolvedPluginConfig extends Omit<PluginConfig, 'envId' | 'projectId'> {
+export interface ResolvedPluginConfig extends Omit<
+  PluginConfig,
+  'envId' | 'projectId'
+> {
   projectId?: string
   host: string
   logLevel: LogLevel
@@ -44,7 +47,10 @@ export interface ResolveConfigOptions {
   cwd?: string
 }
 
-export function resolveConfig(options: PluginConfig, resolveOptions?: ResolveConfigOptions): ResolvedPluginConfig {
+export function resolveConfig(
+  options: PluginConfig,
+  resolveOptions?: ResolveConfigOptions,
+): ResolvedPluginConfig {
   const projectId = options.projectId ?? options.envId
   const host = options.host ?? 'https://us.i.posthog.com'
   const logLevel = options.logLevel ?? 'info'
@@ -62,7 +68,9 @@ export function resolveConfig(options: PluginConfig, resolveOptions?: ResolveCon
 
   if (enabled) {
     if (!projectId) {
-      throw new Error('projectId is required when sourcemaps are enabled (envId is deprecated)')
+      throw new Error(
+        'projectId is required when sourcemaps are enabled (envId is deprecated)',
+      )
     }
     if (!options.personalApiKey) {
       throw new Error('personalApiKey is required when sourcemaps are enabled')

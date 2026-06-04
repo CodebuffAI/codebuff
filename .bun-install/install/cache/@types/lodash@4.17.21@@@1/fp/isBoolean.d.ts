@@ -1,2 +1,2 @@
-import { isBoolean } from "../fp";
-export = isBoolean;
+import { isBoolean } from '../fp'
+export = isBoolean

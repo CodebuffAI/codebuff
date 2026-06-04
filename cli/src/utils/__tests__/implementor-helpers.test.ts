@@ -93,6 +93,25 @@ describe('extractFilePath', () => {
     }
     expect(extractFilePath(block)).toBe('output-path.ts')
   })
+
+  test('extracts from inline outputRaw file field', () => {
+    const block: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'test-1',
+      toolName: 'propose_str_replace',
+      input: {},
+      outputRaw: [
+        {
+          type: 'json',
+          value: {
+            file: 'tmp-multieditor-live/notes.ts',
+            unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        },
+      ],
+    }
+    expect(extractFilePath(block)).toBe('tmp-multieditor-live/notes.ts')
+  })
 })
 
 describe('extractDiff', () => {
@@ -681,6 +700,82 @@ describe('synthesizeProposalToolBlocks', () => {
     expect(blocks).toHaveLength(1)
     const stats = getFileStatsFromBlocks(blocks)
     expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
+  })
+
+  test('pairs results to calls by file path when arrays misalign', () => {
+    // The implementor compiles `toolCalls` (successful only) and `toolResults`
+    // (successful PLUS genuine failures) from different filters, so a
+    // diff-less failed result can sit at index 0 while the successful call's
+    // diff sits later. Index pairing would attach the diff-less result and the
+    // card would show "no changes"; path pairing must still find the diff.
+    const resultValue = {
+      toolCalls: [
+        {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'src/good.ts',
+            replacements: [{ oldString: 'a', newString: 'b' }],
+          },
+        },
+      ],
+      toolResults: [
+        // Failed-only result for a DIFFERENT file, first in the array.
+        { file: 'src/other.ts', errorMessage: 'No change to the file' },
+        // Successful result for the call's file, second in the array.
+        { file: 'src/good.ts', unifiedDiff: '@@ -1 +1 @@\n-a\n+b', message: 'Updated file' },
+      ],
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    expect(blocks).toHaveLength(1)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0].path).toBe('src/good.ts')
+    expect(stats[0].stats.linesAdded).toBe(1)
+    expect(stats[0].stats.linesRemoved).toBe(1)
+  })
+
+  test('falls back to unifiedDiffs string when toolResults lack diffs', () => {
+    const resultValue = {
+      toolCalls: [
+        {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'tmp-multieditor-live/notes.ts',
+            replacements: [{ oldString: 'before', newString: 'after' }],
+          },
+        },
+      ],
+      // Misaligned/diff-less result for the call.
+      toolResults: [{ file: 'tmp-multieditor-live/notes.ts' }],
+      unifiedDiffs:
+        '--- tmp-multieditor-live/notes.ts ---\n@@ -1 +1 @@\n-before\n+after',
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0].path).toBe('tmp-multieditor-live/notes.ts')
+    expect(stats[0].stats.linesAdded).toBe(1)
+    expect(stats[0].stats.linesRemoved).toBe(1)
+  })
+
+  test('synthesizes from unifiedDiffs alone when there are no tool calls', () => {
+    const resultValue = {
+      type: 'structuredOutput',
+      value: {
+        toolCalls: [],
+        toolResults: [],
+        unifiedDiffs:
+          '--- src/a.ts ---\n@@ -1 +1 @@\n-oldA\n+newA\n\n--- src/b.ts ---\n@@ -1 +1 @@\n-oldB\n+newB',
+      },
+    }
+
+    const blocks = synthesizeProposalToolBlocks(resultValue)
+    const stats = getFileStatsFromBlocks(blocks)
+    expect(stats.map((stat) => stat.path)).toEqual(['src/a.ts', 'src/b.ts'])
+    expect(stats[0].stats.linesAdded).toBe(1)
+    expect(stats[1].stats.linesAdded).toBe(1)
   })
 })
 

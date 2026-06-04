@@ -1,5 +1,6 @@
 # debug
-[![Build Status](https://travis-ci.org/visionmedia/debug.svg?branch=master)](https://travis-ci.org/visionmedia/debug)  [![Coverage Status](https://coveralls.io/repos/github/visionmedia/debug/badge.svg?branch=master)](https://coveralls.io/github/visionmedia/debug?branch=master)  [![Slack](https://visionmedia-community-slackin.now.sh/badge.svg)](https://visionmedia-community-slackin.now.sh/) [![OpenCollective](https://opencollective.com/debug/backers/badge.svg)](#backers)
+
+[![Build Status](https://travis-ci.org/visionmedia/debug.svg?branch=master)](https://travis-ci.org/visionmedia/debug) [![Coverage Status](https://coveralls.io/repos/github/visionmedia/debug/badge.svg?branch=master)](https://coveralls.io/github/visionmedia/debug?branch=master) [![Slack](https://visionmedia-community-slackin.now.sh/badge.svg)](https://visionmedia-community-slackin.now.sh/) [![OpenCollective](https://opencollective.com/debug/backers/badge.svg)](#backers)
 [![OpenCollective](https://opencollective.com/debug/sponsors/badge.svg)](#sponsors)
 
 <img width="647" src="https://user-images.githubusercontent.com/71256/29091486-fa38524c-7c37-11e7-895f-e7ec8e1039b6.png">
@@ -20,45 +21,47 @@ $ npm install debug
 Example [_app.js_](./examples/node/app.js):
 
 ```js
-var debug = require('debug')('http')
-  , http = require('http')
-  , name = 'My App';
+var debug = require('debug')('http'),
+  http = require('http'),
+  name = 'My App'
 
 // fake app
 
-debug('booting %o', name);
+debug('booting %o', name)
 
-http.createServer(function(req, res){
-  debug(req.method + ' ' + req.url);
-  res.end('hello\n');
-}).listen(3000, function(){
-  debug('listening');
-});
+http
+  .createServer(function (req, res) {
+    debug(req.method + ' ' + req.url)
+    res.end('hello\n')
+  })
+  .listen(3000, function () {
+    debug('listening')
+  })
 
 // fake worker of some kind
 
-require('./worker');
+require('./worker')
 ```
 
 Example [_worker.js_](./examples/node/worker.js):
 
 ```js
-var a = require('debug')('worker:a')
-  , b = require('debug')('worker:b');
+var a = require('debug')('worker:a'),
+  b = require('debug')('worker:b')
 
 function work() {
-  a('doing lots of uninteresting work');
-  setTimeout(work, Math.random() * 1000);
+  a('doing lots of uninteresting work')
+  setTimeout(work, Math.random() * 1000)
 }
 
-work();
+work()
 
 function workb() {
-  b('doing some work');
-  setTimeout(workb, Math.random() * 2000);
+  b('doing some work')
+  setTimeout(workb, Math.random() * 2000)
 }
 
-workb();
+workb()
 ```
 
 The `DEBUG` environment variable is then used to enable these based on space or
@@ -103,6 +106,7 @@ $env:DEBUG='app';node app.js
 Then, run the program to be debugged as usual.
 
 npm script example:
+
 ```js
   "windowsDebug": "@powershell -Command $env:DEBUG='*';node app.js",
 ```
@@ -130,7 +134,6 @@ and the Firebug plugin for Firefox (any version).
 
 <img width="524" src="https://user-images.githubusercontent.com/71256/29092033-b65f9f2e-7c39-11e7-8e32-f6f0d8e865c1.png">
 
-
 ## Millisecond diff
 
 When actively developing an application it can be useful to see when the time spent between one `debug()` call and the next. Suppose for example you invoke `debug()` before requesting a resource, and after as well, the "+NNNms" will show you how much time was spent between calls.
@@ -141,10 +144,9 @@ When stdout is not a TTY, `Date#toISOString()` is used, making it more useful fo
 
 <img width="647" src="https://user-images.githubusercontent.com/71256/29091956-6bd78372-7c39-11e7-8c55-c948396d6edd.png">
 
-
 ## Conventions
 
-If you're using this in one or more of your libraries, you _should_ use the name of your library so that developers may toggle debugging as desired without guessing names. If you have more than one debuggers you _should_ prefix them with your library name and use ":" to separate features. For example "bodyParser" from Connect would then be "connect:bodyParser".  If you append a "*" to the end of your name, it will always be enabled regardless of the setting of the DEBUG environment variable.  You can then use it for normal output as well as debug output.
+If you're using this in one or more of your libraries, you _should_ use the name of your library so that developers may toggle debugging as desired without guessing names. If you have more than one debuggers you _should_ prefix them with your library name and use ":" to separate features. For example "bodyParser" from Connect would then be "connect:bodyParser". If you append a "\*" to the end of your name, it will always be enabled regardless of the setting of the DEBUG environment variable. You can then use it for normal output as well as debug output.
 
 ## Wildcards
 
@@ -163,16 +165,15 @@ starting with "connect:".
 When running through Node.js, you can set a few environment variables that will
 change the behavior of the debug logging:
 
-| Name      | Purpose                                         |
-|-----------|-------------------------------------------------|
-| `DEBUG`   | Enables/disables specific debugging namespaces. |
-| `DEBUG_HIDE_DATE` | Hide date from debug output (non-TTY).  |
-| `DEBUG_COLORS`| Whether or not to use colors in the debug output. |
-| `DEBUG_DEPTH` | Object inspection depth.                    |
-| `DEBUG_SHOW_HIDDEN` | Shows hidden properties on inspected objects. |
+| Name                | Purpose                                           |
+| ------------------- | ------------------------------------------------- |
+| `DEBUG`             | Enables/disables specific debugging namespaces.   |
+| `DEBUG_HIDE_DATE`   | Hide date from debug output (non-TTY).            |
+| `DEBUG_COLORS`      | Whether or not to use colors in the debug output. |
+| `DEBUG_DEPTH`       | Object inspection depth.                          |
+| `DEBUG_SHOW_HIDDEN` | Shows hidden properties on inspected objects.     |
 
-
-__Note:__ The environment variables beginning with `DEBUG_` end up being
+**Note:** The environment variables beginning with `DEBUG_` end up being
 converted into an Options object that gets used with `%o`/`%O` formatters.
 See the Node.js documentation for
 [`util.inspect()`](https://nodejs.org/api/util.html#util_util_inspect_object_options)
@@ -183,15 +184,14 @@ for the complete list.
 Debug uses [printf-style](https://wikipedia.org/wiki/Printf_format_string) formatting.
 Below are the officially supported formatters:
 
-| Formatter | Representation |
-|-----------|----------------|
-| `%O`      | Pretty-print an Object on multiple lines. |
-| `%o`      | Pretty-print an Object all on a single line. |
-| `%s`      | String. |
-| `%d`      | Number (both integer and float). |
+| Formatter | Representation                                                                            |
+| --------- | ----------------------------------------------------------------------------------------- |
+| `%O`      | Pretty-print an Object on multiple lines.                                                 |
+| `%o`      | Pretty-print an Object all on a single line.                                              |
+| `%s`      | String.                                                                                   |
+| `%d`      | Number (both integer and float).                                                          |
 | `%j`      | JSON. Replaced with the string '[Circular]' if the argument contains circular references. |
-| `%%`      | Single percent sign ('%'). This does not consume an argument. |
-
+| `%%`      | Single percent sign ('%'). This does not consume an argument.                             |
 
 ### Custom formatters
 
@@ -211,7 +211,6 @@ debug('this is hex: %h', new Buffer('hello world'))
 //   foo this is hex: 68656c6c6f20776f726c6421 +0ms
 ```
 
-
 ## Browser Support
 
 You can build a browser-ready script using [browserify](https://github.com/substack/node-browserify),
@@ -229,57 +228,58 @@ localStorage.debug = 'worker:*'
 And then refresh the page.
 
 ```js
-a = debug('worker:a');
-b = debug('worker:b');
+a = debug('worker:a')
+b = debug('worker:b')
 
-setInterval(function(){
-  a('doing some work');
-}, 1000);
+setInterval(function () {
+  a('doing some work')
+}, 1000)
 
-setInterval(function(){
-  b('doing some work');
-}, 1200);
+setInterval(function () {
+  b('doing some work')
+}, 1200)
 ```
-
 
 ## Output streams
 
-  By default `debug` will log to stderr, however this can be configured per-namespace by overriding the `log` method:
+By default `debug` will log to stderr, however this can be configured per-namespace by overriding the `log` method:
 
 Example [_stdout.js_](./examples/node/stdout.js):
 
 ```js
-var debug = require('debug');
-var error = debug('app:error');
+var debug = require('debug')
+var error = debug('app:error')
 
 // by default stderr is used
-error('goes to stderr!');
+error('goes to stderr!')
 
-var log = debug('app:log');
+var log = debug('app:log')
 // set this namespace to log via console.log
-log.log = console.log.bind(console); // don't forget to bind to console!
-log('goes to stdout');
-error('still goes to stderr!');
+log.log = console.log.bind(console) // don't forget to bind to console!
+log('goes to stdout')
+error('still goes to stderr!')
 
 // set all output to go via console.info
 // overrides all per-namespace log settings
-debug.log = console.info.bind(console);
-error('now goes to stdout via console.info');
-log('still goes to stdout, but via console.info now');
+debug.log = console.info.bind(console)
+error('now goes to stdout via console.info')
+log('still goes to stdout, but via console.info now')
 ```
 
 ## Extend
-You can simply extend debugger 
+
+You can simply extend debugger
+
 ```js
-const log = require('debug')('auth');
+const log = require('debug')('auth')
 
 //creates new debug instance with extended namespace
-const logSign = log.extend('sign');
-const logLogin = log.extend('login');
+const logSign = log.extend('sign')
+const logLogin = log.extend('login')
 
-log('hello'); // auth hello
-logSign('hello'); //auth:sign hello
-logLogin('hello'); //auth:login hello
+log('hello') // auth hello
+logSign('hello') //auth:sign hello
+logLogin('hello') //auth:login hello
 ```
 
 ## Set dynamically
@@ -287,19 +287,19 @@ logLogin('hello'); //auth:login hello
 You can also enable debug dynamically by calling the `enable()` method :
 
 ```js
-let debug = require('debug');
+let debug = require('debug')
 
-console.log(1, debug.enabled('test'));
+console.log(1, debug.enabled('test'))
 
-debug.enable('test');
-console.log(2, debug.enabled('test'));
+debug.enable('test')
+console.log(2, debug.enabled('test'))
 
-debug.disable();
-console.log(3, debug.enabled('test'));
-
+debug.disable()
+console.log(3, debug.enabled('test'))
 ```
 
-print :   
+print :
+
 ```
 1 false
 2 true
@@ -309,8 +309,8 @@ print :
 Usage :  
 `enable(namespaces)`  
 `namespaces` can include modes separated by a colon and wildcards.
-   
-Note that calling `enable()` completely overrides previously set DEBUG variable : 
+
+Note that calling `enable()` completely overrides previously set DEBUG variable :
 
 ```
 $ DEBUG=foo node -e 'var dbg = require("debug"); dbg.enable("bar"); console.log(dbg.enabled("foo"))'
@@ -323,7 +323,7 @@ After you've created a debug instance, you can determine whether or not it is
 enabled by checking the `enabled` property:
 
 ```javascript
-const debug = require('debug')('http');
+const debug = require('debug')('http')
 
 if (debug.enabled) {
   // do stuff...
@@ -333,12 +333,11 @@ if (debug.enabled) {
 You can also manually toggle this property to force the debug instance to be
 enabled or disabled.
 
-
 ## Authors
 
- - TJ Holowaychuk
- - Nathan Rajlich
- - Andrew Rhyne
+- TJ Holowaychuk
+- Nathan Rajlich
+- Andrew Rhyne
 
 ## Backers
 
@@ -374,7 +373,6 @@ Support us with a monthly donation and help us continue our activities. [[Become
 <a href="https://opencollective.com/debug/backer/27/website" target="_blank"><img src="https://opencollective.com/debug/backer/27/avatar.svg"></a>
 <a href="https://opencollective.com/debug/backer/28/website" target="_blank"><img src="https://opencollective.com/debug/backer/28/avatar.svg"></a>
 <a href="https://opencollective.com/debug/backer/29/website" target="_blank"><img src="https://opencollective.com/debug/backer/29/avatar.svg"></a>
-
 
 ## Sponsors
 

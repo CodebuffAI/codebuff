@@ -8,21 +8,21 @@
  *
  * @module providers/eventbrite
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * @see https://www.eventbrite.com/platform/api#/reference/user/retrieve-your-user/retrieve-your-user
  */
 export interface EventbriteProfile extends Record<string, any> {
-    id: string;
-    name: string;
-    first_name: string;
-    last_name: string;
-    emails: {
-        email: string;
-        verified: boolean;
-        primary: boolean;
-    }[];
-    image_id: string;
+  id: string
+  name: string
+  first_name: string
+  last_name: string
+  emails: {
+    email: string
+    verified: boolean
+    primary: boolean
+  }[]
+  image_id: string
 }
 /**
  * Add Eventbrite login to your page and make requests to [Eventbrite APIs](https://www.eventbrite.com/platform/api).
@@ -74,5 +74,7 @@ export interface EventbriteProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Eventbrite<P extends EventbriteProfile>(config: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Eventbrite<P extends EventbriteProfile>(
+  config: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=eventbrite.d.ts.map

@@ -8,12 +8,12 @@
  *
  * @module providers/cognito
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface CognitoProfile extends Record<string, any> {
-    sub: string;
-    name: string;
-    email: string;
-    picture: string;
+  sub: string
+  name: string
+  email: string
+  picture: string
 }
 /**
  * Add Cognito login to your page.
@@ -77,5 +77,7 @@ export interface CognitoProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Cognito<P extends CognitoProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Cognito<P extends CognitoProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=cognito.d.ts.map

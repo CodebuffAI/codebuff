@@ -8,33 +8,33 @@
  *
  * @module providers/zitadel
  */
-import type { OIDCConfig, OAuthUserConfig } from "./index.js";
+import type { OIDCConfig, OAuthUserConfig } from './index.js'
 /**
  * The returned user profile from ZITADEL when using the profile callback. See the standard claims reference [here](https://zitadel.com/docs/apis/openidoauth/claims#standard-claims).
  * If you need access to ZITADEL APIs or need additional information, make sure to add the corresponding scopes.
  */
 export interface ZitadelProfile extends Record<string, any> {
-    amr: string;
-    aud: string;
-    auth_time: number;
-    azp: string;
-    email: string;
-    email_verified: boolean;
-    exp: number;
-    family_name: string;
-    given_name: string;
-    gender: string;
-    iat: number;
-    iss: string;
-    jti: string;
-    locale: string;
-    name: string;
-    nbf: number;
-    picture: string;
-    phone: string;
-    phone_verified: boolean;
-    preferred_username: string;
-    sub: string;
+  amr: string
+  aud: string
+  auth_time: number
+  azp: string
+  email: string
+  email_verified: boolean
+  exp: number
+  family_name: string
+  given_name: string
+  gender: string
+  iat: number
+  iss: string
+  jti: string
+  locale: string
+  name: string
+  nbf: number
+  picture: string
+  phone: string
+  phone_verified: boolean
+  preferred_username: string
+  sub: string
 }
 /**
  * Add ZITADEL login to your page.
@@ -113,5 +113,7 @@ export interface ZitadelProfile extends Record<string, any> {
  *
  * :::
  */
-export default function ZITADEL<P extends ZitadelProfile>(options: OAuthUserConfig<P>): OIDCConfig<P>;
+export default function ZITADEL<P extends ZitadelProfile>(
+  options: OAuthUserConfig<P>,
+): OIDCConfig<P>
 //# sourceMappingURL=zitadel.d.ts.map

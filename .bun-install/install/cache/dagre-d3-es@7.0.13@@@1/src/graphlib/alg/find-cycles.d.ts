@@ -1,1 +1,1 @@
-export function findCycles(g: any): any[];
+export function findCycles(g: any): any[]

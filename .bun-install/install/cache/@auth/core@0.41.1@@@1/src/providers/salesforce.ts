@@ -8,7 +8,7 @@
  *
  * @module providers/salesforce
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 export interface SalesforceProfile extends Record<string, any> {
   sub: string
@@ -58,16 +58,16 @@ export interface SalesforceProfile extends Record<string, any> {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Salesforce(
-  options: OIDCUserConfig<SalesforceProfile>
+  options: OIDCUserConfig<SalesforceProfile>,
 ): OIDCConfig<SalesforceProfile> {
   return {
-    id: "salesforce",
-    name: "Salesforce",
-    type: "oidc",
-    issuer: "https://login.salesforce.com",
+    id: 'salesforce',
+    name: 'Salesforce',
+    type: 'oidc',
+    issuer: 'https://login.salesforce.com',
     idToken: false,
-    checks: ["pkce", "state", "nonce"],
-    style: { bg: "#00a1e0" },
+    checks: ['pkce', 'state', 'nonce'],
+    style: { bg: '#00a1e0' },
     options,
   }
 }

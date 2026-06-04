@@ -1,2 +1,2 @@
-import { overEvery } from "../fp";
-export = overEvery;
+import { overEvery } from '../fp'
+export = overEvery

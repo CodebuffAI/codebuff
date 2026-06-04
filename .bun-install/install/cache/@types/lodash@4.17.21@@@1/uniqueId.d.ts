@@ -1,2 +1,2 @@
-import { uniqueId } from "./index";
-export = uniqueId;
+import { uniqueId } from './index'
+export = uniqueId

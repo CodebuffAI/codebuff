@@ -1,1 +1,1 @@
-export function positionEdgeLabels(selection: any, g: any): void;
+export function positionEdgeLabels(selection: any, g: any): void

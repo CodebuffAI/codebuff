@@ -1,2 +1,2 @@
-import { sum } from "../fp";
-export = sum;
+import { sum } from '../fp'
+export = sum

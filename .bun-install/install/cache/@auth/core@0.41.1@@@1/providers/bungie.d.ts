@@ -8,7 +8,7 @@
  *
  * @module providers/bungie
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Bungie login to your page.
  *
@@ -163,5 +163,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Bungie(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Bungie(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=bungie.d.ts.map

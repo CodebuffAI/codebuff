@@ -1,2 +1,2 @@
-import { truncate } from "../fp";
-export = truncate;
+import { truncate } from '../fp'
+export = truncate

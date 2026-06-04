@@ -1,2 +1,2 @@
-import { pickBy } from "../fp";
-export = pickBy;
+import { pickBy } from '../fp'
+export = pickBy

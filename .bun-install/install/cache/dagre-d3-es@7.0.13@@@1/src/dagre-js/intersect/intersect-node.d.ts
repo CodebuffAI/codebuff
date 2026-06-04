@@ -1,1 +1,1 @@
-export function intersectNode(node: any, point: any): any;
+export function intersectNode(node: any, point: any): any

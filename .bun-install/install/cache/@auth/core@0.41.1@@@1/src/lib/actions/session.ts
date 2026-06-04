@@ -1,9 +1,9 @@
-import { JWTSessionError, SessionTokenError } from "../../errors.js"
-import { fromDate } from "../utils/date.js"
+import { JWTSessionError, SessionTokenError } from '../../errors.js'
+import { fromDate } from '../utils/date.js'
 
-import type { Adapter } from "../../adapters.js"
-import type { InternalOptions, ResponseInternal, Session } from "../../types.js"
-import type { Cookie, SessionStore } from "../utils/cookie.js"
+import type { Adapter } from '../../adapters.js'
+import type { InternalOptions, ResponseInternal, Session } from '../../types.js'
+import type { Cookie, SessionStore } from '../utils/cookie.js'
 
 /** Return a session object filtered via `callbacks.session` */
 export async function session(
@@ -11,7 +11,7 @@ export async function session(
   sessionStore: SessionStore,
   cookies: Cookie[],
   isUpdate?: boolean,
-  newSession?: any
+  newSession?: any,
 ): Promise<ResponseInternal<Session | null>> {
   const {
     adapter,
@@ -25,11 +25,11 @@ export async function session(
   const response: ResponseInternal<Session | null> = {
     body: null,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(!isUpdate && {
-        "Cache-Control": "private, no-cache, no-store",
-        Expires: "0",
-        Pragma: "no-cache",
+        'Cache-Control': 'private, no-cache, no-store',
+        Expires: '0',
+        Pragma: 'no-cache',
       }),
     },
     cookies,
@@ -39,17 +39,17 @@ export async function session(
 
   if (!sessionToken) return response
 
-  if (sessionStrategy === "jwt") {
+  if (sessionStrategy === 'jwt') {
     try {
       const salt = options.cookies.sessionToken.name
       const payload = await jwt.decode({ ...jwt, token: sessionToken, salt })
 
-      if (!payload) throw new Error("Invalid JWT")
+      if (!payload) throw new Error('Invalid JWT')
 
       // @ts-expect-error
       const token = await callbacks.jwt({
         token: payload,
-        ...(isUpdate && { trigger: "update" }),
+        ...(isUpdate && { trigger: 'update' }),
         session: newSession,
       })
 
@@ -136,7 +136,7 @@ export async function session(
         session: { ...session, user },
         user,
         newSession,
-        ...(isUpdate ? { trigger: "update" } : {}),
+        ...(isUpdate ? { trigger: 'update' } : {}),
       })
 
       // Return session payload as response

@@ -1,2 +1,2 @@
-import { every } from "../fp";
-export = every;
+import { every } from '../fp'
+export = every

@@ -40,8 +40,7 @@ of Autoprefixer.
 .image {
   background-image: url(image@1x.png);
 }
-@media (-webkit-min-device-pixel-ratio: 2),
-       (min-resolution: 2dppx) {
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
   .image {
     background-image: url(image@2x.png);
   }
@@ -55,12 +54,12 @@ Twitter account for news and releases: [@autoprefixer].
 </a>
 
 [interactive demo]: https://autoprefixer.github.io/
-[@autoprefixer]:    https://twitter.com/autoprefixer
-[Can I Use]:        https://caniuse.com/
-[cult-img]:         https://cultofmartians.com/assets/badges/badge.svg
-[PostCSS]:          https://github.com/postcss/postcss
-[cult]:             https://cultofmartians.com/tasks/autoprefixer-grid.html
-
+[@autoprefixer]: https://twitter.com/autoprefixer
+[Can I Use]: https://caniuse.com/
+[cult-img]: https://cultofmartians.com/assets/badges/badge.svg
+[PostCSS]: https://github.com/postcss/postcss
+[cult]: https://cultofmartians.com/tasks/autoprefixer-grid.html
 
 ## Docs
+
 Read full docs **[here](https://github.com/postcss/autoprefixer#readme)**.

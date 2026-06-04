@@ -8,13 +8,17 @@
  *
  * @module providers/battlenet
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface BattleNetProfile extends Record<string, any> {
-    sub: string;
-    battle_tag: string;
+  sub: string
+  battle_tag: string
 }
 /** See the [available regions](https://develop.battle.net/documentation/guides/regionality-and-apis) */
-export type BattleNetIssuer = "https://oauth.battle.net" | "https://oauth.battlenet.com.cn" | "https://www.battlenet.com.cn/oauth" | `https://${"us" | "eu" | "kr" | "tw"}.battle.net/oauth`;
+export type BattleNetIssuer =
+  | 'https://oauth.battle.net'
+  | 'https://oauth.battlenet.com.cn'
+  | 'https://www.battlenet.com.cn/oauth'
+  | `https://${'us' | 'eu' | 'kr' | 'tw'}.battle.net/oauth`
 /**
  * Add Battle.net login to your page.
  *
@@ -79,7 +83,9 @@ export type BattleNetIssuer = "https://oauth.battle.net" | "https://oauth.battle
  *
  * :::
  */
-export default function BattleNet<P extends BattleNetProfile>(options: OAuthUserConfig<P> & {
-    issuer: BattleNetIssuer;
-}): OAuthConfig<P>;
+export default function BattleNet<P extends BattleNetProfile>(
+  options: OAuthUserConfig<P> & {
+    issuer: BattleNetIssuer
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=battlenet.d.ts.map

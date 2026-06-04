@@ -1,2 +1,2 @@
-import { curryRight } from "./index";
-export = curryRight;
+import { curryRight } from './index'
+export = curryRight

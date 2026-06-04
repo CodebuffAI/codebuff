@@ -1,2 +1,2 @@
-import { random } from "../fp";
-export = random;
+import { random } from '../fp'
+export = random

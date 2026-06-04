@@ -9,7 +9,7 @@
  * @module providers/yandex
  */
 
-import { OAuthConfig, OAuthUserConfig } from "./oauth.js"
+import { OAuthConfig, OAuthUserConfig } from './oauth.js'
 
 /**
  * - {@link https://yandex.com/dev/id/doc/en/user-information | Getting information about the user}
@@ -72,7 +72,7 @@ export interface YandexProfile {
    */
   real_name?: string
   /** User's gender. `null` Stands for unknown or unspecified gender. Will be `undefined` if not provided by Yandex. */
-  sex?: "male" | "female" | null
+  sex?: 'male' | 'female' | null
   /**
    * The default phone number for contacting the user.
    * The API can exclude the user's phone number from the response at its discretion.
@@ -128,17 +128,17 @@ export interface YandexProfile {
  * :::
  */
 export default function Yandex(
-  options: OAuthUserConfig<YandexProfile>
+  options: OAuthUserConfig<YandexProfile>,
 ): OAuthConfig<YandexProfile> {
   return {
-    id: "yandex",
-    name: "Yandex",
-    type: "oauth",
+    id: 'yandex',
+    name: 'Yandex',
+    type: 'oauth',
     /** @see [Data access](https://yandex.com/dev/id/doc/en/register-client#access) */
     authorization:
-      "https://oauth.yandex.ru/authorize?scope=login:info+login:email+login:avatar",
-    token: "https://oauth.yandex.ru/token",
-    userinfo: "https://login.yandex.ru/info?format=json",
+      'https://oauth.yandex.ru/authorize?scope=login:info+login:email+login:avatar',
+    token: 'https://oauth.yandex.ru/token',
+    userinfo: 'https://login.yandex.ru/info?format=json',
     profile(profile) {
       return {
         id: profile.id,
@@ -151,8 +151,8 @@ export default function Yandex(
       }
     },
     style: {
-      bg: "#ffcc00",
-      text: "#000",
+      bg: '#ffcc00',
+      text: '#000',
     },
     options,
   }

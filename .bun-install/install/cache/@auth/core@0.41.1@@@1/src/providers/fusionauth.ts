@@ -8,7 +8,7 @@
  *
  * @module providers/fusionauth
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js"
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 
 /**
  * This is the default openid signature returned from FusionAuth
@@ -277,12 +277,12 @@ declare module 'next-auth' {
  */
 export default function FusionAuth<P extends FusionAuthProfile>(
   // tenantId only needed if there is more than one tenant configured on the server
-  options: OAuthUserConfig<P> & { tenantId?: string }
+  options: OAuthUserConfig<P> & { tenantId?: string },
 ): OAuthConfig<P> {
   return {
-    id: "fusionauth",
-    name: "FusionAuth",
-    type: "oidc",
+    id: 'fusionauth',
+    name: 'FusionAuth',
+    type: 'oidc',
     issuer: options.issuer,
     clientId: options.clientId,
     clientSecret: options.clientSecret,
@@ -291,7 +291,7 @@ export default function FusionAuth<P extends FusionAuthProfile>(
       : `${options.issuer}/.well-known/openid-configuration`,
     authorization: {
       params: {
-        scope: "openid offline_access email profile",
+        scope: 'openid offline_access email profile',
         ...(options?.tenantId && { tenantId: options.tenantId }),
       },
     },
@@ -304,10 +304,10 @@ export default function FusionAuth<P extends FusionAuthProfile>(
         if (response.status === 401) return response
 
         const newHeaders = Array.from(response.headers.entries())
-          .filter(([key]) => key.toLowerCase() !== "www-authenticate")
+          .filter(([key]) => key.toLowerCase() !== 'www-authenticate')
           .reduce(
             (headers, [key, value]) => (headers.append(key, value), headers),
-            new Headers()
+            new Headers(),
           )
 
         return new Response(response.body, {
@@ -317,7 +317,7 @@ export default function FusionAuth<P extends FusionAuthProfile>(
         })
       },
     },
-    checks: ["pkce", "state"],
+    checks: ['pkce', 'state'],
     profile(profile) {
       return {
         id: profile.sub,
@@ -327,7 +327,7 @@ export default function FusionAuth<P extends FusionAuthProfile>(
           profile.preferred_username ??
           [profile.given_name, profile.middle_name, profile.family_name]
             .filter((x) => x)
-            .join(" "),
+            .join(' '),
         image: profile.picture,
       }
     },

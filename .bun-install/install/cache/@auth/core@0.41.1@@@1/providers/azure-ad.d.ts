@@ -8,12 +8,16 @@
  *
  * @module providers/azure-ad
  */
-import MicrosoftEntraID, { MicrosoftEntraIDProfile } from "./microsoft-entra-id.js";
-export type AzureADProfile = MicrosoftEntraIDProfile;
+import MicrosoftEntraID, {
+  MicrosoftEntraIDProfile,
+} from './microsoft-entra-id.js'
+export type AzureADProfile = MicrosoftEntraIDProfile
 /**
  * @deprecated
  * Azure Active Directory has been renamed to [Microsoft Entra ID](/getting-started/providers/microsoft-entra-id).
  * Import this provider from the `providers/microsoft-entra-id` submodule instead of `providers/azure-ad`.
  */
-export default function AzureAD(config: Parameters<typeof MicrosoftEntraID>[0]): ReturnType<typeof MicrosoftEntraID>;
+export default function AzureAD(
+  config: Parameters<typeof MicrosoftEntraID>[0],
+): ReturnType<typeof MicrosoftEntraID>
 //# sourceMappingURL=azure-ad.d.ts.map

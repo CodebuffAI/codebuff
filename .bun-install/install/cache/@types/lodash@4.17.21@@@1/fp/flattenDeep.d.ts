@@ -1,2 +1,2 @@
-import { flattenDeep } from "../fp";
-export = flattenDeep;
+import { flattenDeep } from '../fp'
+export = flattenDeep

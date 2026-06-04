@@ -53,9 +53,7 @@
     "local": {
       "type": "openai-compatible",
       "baseURL": "http://localhost:11434/v1",
-      "models": [
-        "new-model"
-      ],
+      "models": ["new-model"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -89,10 +87,7 @@
       "type": "openai-compatible",
       "baseURL": "https://opencode.ai/zen/v1",
       "apiKeyEnv": "OPENCODE_API_KEY",
-      "models": [
-        "mimo-v2.5-free",
-        "deepseek-v4-flash-free"
-      ],
+      "models": ["mimo-v2.5-free", "deepseek-v4-flash-free"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -106,11 +101,7 @@
       "type": "openai-compatible",
       "baseURL": "https://agentrouter.org/v1",
       "apiKeyEnv": "AGENT_ROUTER_TOKEN",
-      "models": [
-        "glm-5.1",
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
-      ],
+      "models": ["glm-5.1", "deepseek-v4-pro", "deepseek-v4-flash"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -124,11 +115,7 @@
       "type": "openai-compatible",
       "baseURL": "https://agentrouter.org/v1",
       "apiKeyEnv": "AGENT_ROUTER_TOKEN",
-      "models": [
-        "glm-5.1",
-        "deepseek-v4-pro",
-        "deepseek-v4-flash"
-      ],
+      "models": ["glm-5.1", "deepseek-v4-pro", "deepseek-v4-flash"],
       "supportsStructuredOutputs": false,
       "compatibility": {
         "stripCacheControl": true,
@@ -197,48 +184,86 @@
         "supportsRequiredToolChoice": true,
         "stripProviderMetadata": true
       }
+    },
+    "bedrock": {
+      "type": "openai-compatible",
+      "baseURL": "https://bedrock-mantle.ap-northeast-1.api.aws/v1",
+      "apiKeyEnv": "AWS_BEARER_TOKEN_BEDROCK",
+      "models": [
+        "apac.anthropic.claude-opus-4-8",
+        "apac.anthropic.claude-sonnet-4-6",
+        "apac.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "apac.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+        "us.amazon.nova-premier-v1:0",
+        "us.amazon.nova-pro-v1:0",
+        "us.meta.llama3-3-70b-instruct-v1:0"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
+    },
+    "freemodel": {
+      "type": "openai-compatible",
+      "baseURL": "https://vip-sg.freemodel.dev/v1",
+      "apiKeyEnv": "FREEMODEL_API_KEY",
+      "models": ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "stripProviderMetadata": true
+      }
     }
   },
-  "defaultModel": "agent-platform/gemini-3.5-flash",
+  "defaultModel": "codex/gpt-5.5",
   "modes": {
-    "default": "agent-platform/gemini-3.5-flash",
+    "default": "codex/gpt-5.5",
     "lite": "agent-platform/gemini-3.5-flash",
-    "max": "agentrouter/deepseek-v4-pro",
-    "plan": "agentrouter/deepseek-v4-pro"
+    "max": "codex/gpt-5.5",
+    "plan": "codex/gpt-5.5"
   },
   "modeReasoningEfforts": {
-    "default": "high"
+    "default": "high",
+    "max": "high"
   },
   "agents": {
     "editor-implementor-proposal-direct": "agent-platform/gemini-3.5-flash",
-    "base": "agent-platform/gemini-3.5-flash",
-    "base2": "agent-platform/gemini-3.5-flash",
+    "base": "codex/gpt-5.5",
+    "base2": "codex/gpt-5.5",
     "base2-lite": "agent-platform/gemini-3.5-flash",
     "base2-fast": "agent-platform/gemini-3.5-flash",
     "base2-fast-no-validation": "agent-platform/gemini-3.5-flash",
-    "base2-max": "agentrouter/deepseek-v4-pro",
-    "base2-plan": "agentrouter/deepseek-v4-pro",
-    "base-deep": "agentrouter/deepseek-v4-pro",
-    "thinker": "agentrouter/deepseek-v4-pro",
-    "thinker-gpt": "agentrouter/deepseek-v4-pro",
+    "base2-max": "codex/gpt-5.5",
+    "base2-plan": "codex/gpt-5.5",
+    "base-deep": "codex/gpt-5.5",
+    "thinker": "codex/gpt-5.5",
+    "thinker-gpt": "codex/gpt-5.5",
     "thinker-gemini": "agent-platform/gemini-3.5-flash",
     "thinker-with-files-gemini": "agent-platform/gemini-3.5-flash",
-    "thinker-best-of-n": "agentrouter/deepseek-v4-pro",
-    "thinker-best-of-n-opus": "agentrouter/deepseek-v4-pro",
-    "thinker-selector": "agentrouter/deepseek-v4-pro",
-    "thinker-selector-opus": "agentrouter/deepseek-v4-pro",
+    "thinker-best-of-n": "codex/gpt-5.5",
+    "thinker-best-of-n-opus": "codex/gpt-5.5",
+    "thinker-selector": "codex/gpt-5.5",
+    "thinker-selector-opus": "codex/gpt-5.5",
     "editor": "agent-platform/gemini-3.5-flash",
-    "editor-gpt-5": "agentrouter/deepseek-v4-pro",
+    "editor-gpt-5": "codex/gpt-5.5",
     "editor-implementor": "agent-platform/gemini-3.5-flash",
-    "editor-implementor-opus": "agentrouter/deepseek-v4-pro",
-    "editor-implementor-gpt-5": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-opus": "codex/gpt-5.5",
+    "editor-implementor-gpt-5": "codex/gpt-5.5",
     "editor-multi-prompt": "agent-platform/gemini-3.5-flash",
     "best-of-n-selector": "agent-platform/gemini-3.5-flash",
     "best-of-n-selector2": "agent-platform/gemini-3.5-flash",
     "code-reviewer": "agent-platform/gemini-3.5-flash",
-    "code-reviewer-gpt": "agentrouter/deepseek-v4-pro",
-    "code-reviewer-kimi": "agentrouter/deepseek-v4-pro",
-    "code-reviewer-minimax": "agentrouter/deepseek-v4-pro",
+    "code-reviewer-gpt": "codex/gpt-5.5",
+    "code-reviewer-kimi": "codex/gpt-5.5",
+    "code-reviewer-minimax": "codex/gpt-5.5",
     "code-reviewer-lite": "agent-platform/gemini-3.5-flash",
     "code-reviewer-deepseek": "agent-platform/gemini-3.5-flash",
     "code-reviewer-deepseek-flash": "agent-platform/gemini-3.5-flash",
@@ -259,13 +284,13 @@
     "researcher-docs": "agent-platform/gemini-3.5-flash",
     "librarian": "agent-platform/gemini-3.5-flash",
     "tmux-cli": "agent-platform/gemini-3.5-flash",
-    "gpt-5-agent": "agentrouter/deepseek-v4-pro",
-    "opus-agent": "agentrouter/deepseek-v4-pro",
+    "gpt-5-agent": "codex/gpt-5.5",
+    "opus-agent": "codex/gpt-5.5",
     "general-agent": "agent-platform/gemini-3.5-flash",
     "editor-implementor-proposal-1": "agent-platform/gemini-3.5-flash",
     "editor-implementor-proposal-2": "agent-platform/gemini-3.5-flash",
-    "editor-implementor-proposal-3": "agentrouter/deepseek-v4-pro",
-    "editor-implementor-proposal-4": "agentrouter/deepseek-v4-pro",
+    "editor-implementor-proposal-3": "agent-platform/gemini-3.5-flash",
+    "editor-implementor-proposal-4": "agent-platform/gemini-3.5-flash",
     "editor-implementor-proposal-5": "agent-platform/gemini-3.5-flash"
   },
   "agentReasoningEfforts": {
@@ -275,17 +300,11 @@
     "proposalModels": [
       "agent-platform/gemini-3.5-flash",
       "agent-platform/gemini-3.5-flash",
-      "agentrouter/deepseek-v4-pro",
-      "agentrouter/deepseek-v4-pro",
+      "agent-platform/gemini-3.5-flash",
+      "agent-platform/gemini-3.5-flash",
       "agent-platform/gemini-3.5-flash"
     ],
-    "proposalReasoningEfforts": [
-      null,
-      null,
-      null,
-      null,
-      null
-    ],
+    "proposalReasoningEfforts": [null, null, null, null, null],
     "selectorModel": "agent-platform/gemini-3.5-flash"
   }
 }

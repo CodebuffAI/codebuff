@@ -1,5 +1,5 @@
 export function isNodeLikeError(
-  error: unknown
+  error: unknown,
 ): error is NodeJS.ErrnoException {
   if (error == null) {
     return false

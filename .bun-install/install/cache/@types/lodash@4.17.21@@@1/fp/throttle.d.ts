@@ -1,2 +1,2 @@
-import { throttle } from "../fp";
-export = throttle;
+import { throttle } from '../fp'
+export = throttle

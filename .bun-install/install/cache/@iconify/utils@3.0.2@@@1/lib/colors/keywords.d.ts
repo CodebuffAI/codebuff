@@ -1,6 +1,6 @@
-import { Color } from "./types.js";
+import { Color } from './types.js'
 /**
  * Color keywords
  */
-declare const colorKeywords: Record<string, Color>;
-export { colorKeywords };
+declare const colorKeywords: Record<string, Color>
+export { colorKeywords }

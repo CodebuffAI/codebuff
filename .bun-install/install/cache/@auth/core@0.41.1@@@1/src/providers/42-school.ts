@@ -8,7 +8,7 @@
  *
  * @module providers/42-school
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface UserData {
   id: number
@@ -19,10 +19,10 @@ export interface UserData {
   usual_full_name: null | string
   usual_first_name: null | string
   url: string
-  phone: "hidden" | string | null
+  phone: 'hidden' | string | null
   displayname: string
   image_url: string | null
-  "staff?": boolean
+  'staff?': boolean
   correction_point: number
   pool_month: string | null
   pool_year: string | null
@@ -32,7 +32,7 @@ export interface UserData {
   created_at: string
   updated_at: string | null
   alumni: boolean
-  "is_launched?": boolean
+  'is_launched?': boolean
 }
 
 export interface CursusUser {
@@ -55,8 +55,8 @@ export interface ProjectUser {
   id: number
   occurrence: number
   final_mark: number | null
-  status: "in_progress" | "finished"
-  "validated?": boolean | null
+  status: 'in_progress' | 'finished'
+  'validated?': boolean | null
   current_team_id: number
   project: {
     id: number
@@ -76,8 +76,8 @@ export interface Achievement {
   id: number
   name: string
   description: string
-  tier: "none" | "easy" | "medium" | "hard" | "challenge"
-  kind: "scolarity" | "project" | "pedagogy" | "scolarity"
+  tier: 'none' | 'easy' | 'medium' | 'hard' | 'challenge'
+  kind: 'scolarity' | 'project' | 'pedagogy' | 'scolarity'
   visible: boolean
   image: string | null
   nbr_of_success: number | null
@@ -231,18 +231,18 @@ export interface FortyTwoProfile extends UserData, Record<string, any> {
  * :::
  */
 export default function FortyTwo<P extends FortyTwoProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "42-school",
-    name: "42 School",
-    type: "oauth",
+    id: '42-school',
+    name: '42 School',
+    type: 'oauth',
     authorization: {
-      url: "https://api.intra.42.fr/oauth/authorize",
-      params: { scope: "public" },
+      url: 'https://api.intra.42.fr/oauth/authorize',
+      params: { scope: 'public' },
     },
-    token: "https://api.intra.42.fr/oauth/token",
-    userinfo: "https://api.intra.42.fr/v2/me",
+    token: 'https://api.intra.42.fr/oauth/token',
+    userinfo: 'https://api.intra.42.fr/v2/me',
     profile(profile) {
       return {
         id: profile.id.toString(),

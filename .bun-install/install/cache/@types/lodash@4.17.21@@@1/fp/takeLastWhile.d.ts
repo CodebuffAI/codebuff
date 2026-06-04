@@ -1,2 +1,2 @@
-import { takeLastWhile } from "../fp";
-export = takeLastWhile;
+import { takeLastWhile } from '../fp'
+export = takeLastWhile

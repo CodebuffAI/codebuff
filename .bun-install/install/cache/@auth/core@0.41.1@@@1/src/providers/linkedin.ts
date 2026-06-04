@@ -8,7 +8,7 @@
  *
  * @module providers/linkedin
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** @see https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2#response-body-schema */
 export interface LinkedInProfile extends Record<string, any> {
@@ -76,16 +76,16 @@ export interface LinkedInProfile extends Record<string, any> {
  * :::
  */
 export default function LinkedIn<P extends LinkedInProfile>(
-  options: OIDCUserConfig<P>
+  options: OIDCUserConfig<P>,
 ): OIDCConfig<P> {
   return {
-    id: "linkedin",
-    name: "LinkedIn",
-    type: "oidc",
-    client: { token_endpoint_auth_method: "client_secret_post" },
-    issuer: "https://www.linkedin.com/oauth",
-    style: { bg: "#069", text: "#fff" },
-    checks: ["state"],
+    id: 'linkedin',
+    name: 'LinkedIn',
+    type: 'oidc',
+    client: { token_endpoint_auth_method: 'client_secret_post' },
+    issuer: 'https://www.linkedin.com/oauth',
+    style: { bg: '#069', text: '#fff' },
+    checks: ['state'],
     options,
   }
 }

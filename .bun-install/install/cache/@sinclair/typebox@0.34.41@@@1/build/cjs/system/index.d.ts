@@ -1,2 +1,2 @@
-export * from './policy';
-export * from './system';
+export * from './policy'
+export * from './system'

@@ -1,2 +1,2 @@
-import { isLength } from "../fp";
-export = isLength;
+import { isLength } from '../fp'
+export = isLength

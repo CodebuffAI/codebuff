@@ -9,7 +9,7 @@
  * @module providers/azure-ad-b2c
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** @see [Claims](https://learn.microsoft.com/en-us/azure/active-directory-b2c/tokens-overview#claims) */
 export interface AzureADB2CProfile {
@@ -104,12 +104,12 @@ export interface AzureADB2CProfile {
  * :::
  */
 export default function AzureADB2C(
-  options: OIDCUserConfig<AzureADB2CProfile>
+  options: OIDCUserConfig<AzureADB2CProfile>,
 ): OIDCConfig<AzureADB2CProfile> {
   return {
-    id: "azure-ad-b2c",
-    name: "Azure AD B2C",
-    type: "oidc",
+    id: 'azure-ad-b2c',
+    name: 'Azure AD B2C',
+    type: 'oidc',
     profile(profile) {
       return {
         id: profile.sub,
@@ -118,7 +118,7 @@ export default function AzureADB2C(
         image: null,
       }
     },
-    style: { text: "#fff", bg: "#0072c6" },
+    style: { text: '#fff', bg: '#0072c6' },
     options,
   }
 }

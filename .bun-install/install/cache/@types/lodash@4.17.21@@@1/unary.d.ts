@@ -1,2 +1,2 @@
-import { unary } from "./index";
-export = unary;
+import { unary } from './index'
+export = unary

@@ -8,7 +8,7 @@
  *
  * @module providers/zoho
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add ZOHO login to your page.
  *
@@ -59,5 +59,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Zoho(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Zoho(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=zoho.d.ts.map

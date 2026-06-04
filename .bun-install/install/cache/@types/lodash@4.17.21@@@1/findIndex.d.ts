@@ -1,2 +1,2 @@
-import { findIndex } from "./index";
-export = findIndex;
+import { findIndex } from './index'
+export = findIndex

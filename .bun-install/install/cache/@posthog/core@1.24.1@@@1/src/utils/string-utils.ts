@@ -53,11 +53,15 @@ function deepSortKeys(value: JsonType): JsonType {
 export function getPersonPropertiesHash(
   distinct_id: string,
   userPropertiesToSet?: { [key: string]: JsonType },
-  userPropertiesToSetOnce?: { [key: string]: JsonType }
+  userPropertiesToSetOnce?: { [key: string]: JsonType },
 ): string {
   return JSON.stringify({
     distinct_id,
-    userPropertiesToSet: userPropertiesToSet ? deepSortKeys(userPropertiesToSet) : undefined,
-    userPropertiesToSetOnce: userPropertiesToSetOnce ? deepSortKeys(userPropertiesToSetOnce) : undefined,
+    userPropertiesToSet: userPropertiesToSet
+      ? deepSortKeys(userPropertiesToSet)
+      : undefined,
+    userPropertiesToSetOnce: userPropertiesToSetOnce
+      ? deepSortKeys(userPropertiesToSetOnce)
+      : undefined,
   })
 }

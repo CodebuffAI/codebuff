@@ -2,19 +2,20 @@ import { EventMap, Listener } from 'strict-event-emitter'
 import { Interceptor, ExtractEventNames } from './Interceptor'
 
 export interface BatchInterceptorOptions<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
 > {
   name: string
   interceptors: InterceptorList
 }
 
 export type ExtractEventMapType<
-  InterceptorList extends ReadonlyArray<Interceptor<any>>
-> = InterceptorList extends ReadonlyArray<infer InterceptorType>
-  ? InterceptorType extends Interceptor<infer EventMap>
-    ? EventMap
+  InterceptorList extends ReadonlyArray<Interceptor<any>>,
+> =
+  InterceptorList extends ReadonlyArray<infer InterceptorType>
+    ? InterceptorType extends Interceptor<infer EventMap>
+      ? EventMap
+      : never
     : never
-  : never
 
 /**
  * A batch interceptor that exposes a single interface
@@ -22,7 +23,7 @@ export type ExtractEventMapType<
  */
 export class BatchInterceptor<
   InterceptorList extends ReadonlyArray<Interceptor<any>>,
-  Events extends EventMap = ExtractEventMapType<InterceptorList>
+  Events extends EventMap = ExtractEventMapType<InterceptorList>,
 > extends Interceptor<Events> {
   static symbol: symbol
 
@@ -50,7 +51,7 @@ export class BatchInterceptor<
 
   public on<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     // Instead of adding a listener to the batch interceptor,
     // propagate the listener to each of the individual interceptors.
@@ -63,7 +64,7 @@ export class BatchInterceptor<
 
   public once<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     for (const interceptor of this.interceptors) {
       interceptor.once(event, listener)
@@ -74,7 +75,7 @@ export class BatchInterceptor<
 
   public off<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     for (const interceptor of this.interceptors) {
       interceptor.off(event, listener)
@@ -84,7 +85,7 @@ export class BatchInterceptor<
   }
 
   public removeAllListeners<EventName extends ExtractEventNames<Events>>(
-    event?: EventName | undefined
+    event?: EventName | undefined,
   ): this {
     for (const interceptors of this.interceptors) {
       interceptors.removeAllListeners(event)

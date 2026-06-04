@@ -20,8 +20,18 @@ export class BucketedRateLimiter<T extends string | number> {
   }) {
     this._onBucketRateLimited = options._onBucketRateLimited
     this._bucketSize = clampToRange(options.bucketSize, 0, 100, options._logger)
-    this._refillRate = clampToRange(options.refillRate, 0, this._bucketSize, options._logger)
-    this._refillInterval = clampToRange(options.refillInterval, 0, ONE_DAY_IN_MS, options._logger)
+    this._refillRate = clampToRange(
+      options.refillRate,
+      0,
+      this._bucketSize,
+      options._logger,
+    )
+    this._refillInterval = clampToRange(
+      options.refillInterval,
+      0,
+      ONE_DAY_IN_MS,
+      options._logger,
+    )
   }
 
   private _applyRefill(bucket: Bucket, now: number): void {
@@ -31,7 +41,8 @@ export class BucketedRateLimiter<T extends string | number> {
     if (refillIntervals > 0) {
       const tokensToAdd = refillIntervals * this._refillRate
       bucket.tokens = Math.min(bucket.tokens + tokensToAdd, this._bucketSize)
-      bucket.lastAccess = bucket.lastAccess + refillIntervals * this._refillInterval
+      bucket.lastAccess =
+        bucket.lastAccess + refillIntervals * this._refillInterval
     }
   }
 

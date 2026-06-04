@@ -1,2 +1,2 @@
-import { debounce } from "../fp";
-export = debounce;
+import { debounce } from '../fp'
+export = debounce

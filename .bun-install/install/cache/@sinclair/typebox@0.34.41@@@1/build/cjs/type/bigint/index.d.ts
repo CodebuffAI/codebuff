@@ -1,1 +1,1 @@
-export * from './bigint';
+export * from './bigint'

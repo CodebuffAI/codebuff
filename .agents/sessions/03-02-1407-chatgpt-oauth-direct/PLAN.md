@@ -1,6 +1,7 @@
 # PLAN — ChatGPT Subscription OAuth Direct Routing
 
 ## Implementation Steps
+
 1. **Add shared ChatGPT OAuth constants**
    - Create `common/src/constants/chatgpt-oauth.ts` with:
      - feature flag (`CHATGPT_OAUTH_ENABLED=false`)
@@ -75,17 +76,20 @@
      - confirm backend-only behavior unchanged.
 
 10. **Validation and cleanup decision for temporary script**
-   - Run targeted tests/typechecks for touched packages.
-   - Run OAuth validation script in manual mode (with your account interaction if needed).
-   - Decide and apply final disposition of temporary script:
-     - keep as dev utility, or
-     - remove before finalization.
+
+- Run targeted tests/typechecks for touched packages.
+- Run OAuth validation script in manual mode (with your account interaction if needed).
+- Decide and apply final disposition of temporary script:
+  - keep as dev utility, or
+  - remove before finalization.
 
 11. **Security/redaction verification**
-   - Validate no token values are logged in direct feature code paths.
-   - Grep/check for accidental logging of authorization headers, token payload fields, or raw callback query params.
+
+- Validate no token values are logged in direct feature code paths.
+- Grep/check for accidental logging of authorization headers, token payload fields, or raw callback query params.
 
 ## Dependencies / Ordering
+
 - Step 1 must be first.
 - Step 2 must run before deep integration (early protocol validation gate).
 - Step 3 precedes Steps 5–7.
@@ -96,6 +100,7 @@
 - Steps 10–11 are final validation/cleanup/security passes.
 
 ## Risk Areas
+
 1. **Unofficial OAuth contract drift** — endpoint/field incompatibility can break token exchange.
 2. **Direct payload compatibility** — strict sanitization must retain required OpenAI fields.
 3. **Error classification correctness** — misclassification can violate requested fallback policy.

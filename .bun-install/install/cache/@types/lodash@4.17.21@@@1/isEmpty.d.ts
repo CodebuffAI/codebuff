@@ -1,2 +1,2 @@
-import { isEmpty } from "./index";
-export = isEmpty;
+import { isEmpty } from './index'
+export = isEmpty

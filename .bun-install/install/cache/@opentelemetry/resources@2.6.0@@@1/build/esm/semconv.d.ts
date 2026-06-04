@@ -6,7 +6,7 @@
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CLOUD_ACCOUNT_ID: "cloud.account.id";
+export declare const ATTR_CLOUD_ACCOUNT_ID: 'cloud.account.id'
 /**
  * Cloud regions often have multiple, isolated locations known as zones to increase availability. Availability zone represents the zone where the resource is running.
  *
@@ -16,13 +16,13 @@ export declare const ATTR_CLOUD_ACCOUNT_ID: "cloud.account.id";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CLOUD_AVAILABILITY_ZONE: "cloud.availability_zone";
+export declare const ATTR_CLOUD_AVAILABILITY_ZONE: 'cloud.availability_zone'
 /**
  * Name of the cloud provider.
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CLOUD_PROVIDER: "cloud.provider";
+export declare const ATTR_CLOUD_PROVIDER: 'cloud.provider'
 /**
  * The geographical region the resource is running.
  *
@@ -33,7 +33,7 @@ export declare const ATTR_CLOUD_PROVIDER: "cloud.provider";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CLOUD_REGION: "cloud.region";
+export declare const ATTR_CLOUD_REGION: 'cloud.region'
 /**
  * Container ID. Usually a UUID, as for example used to [identify Docker containers](https://docs.docker.com/engine/containers/run/#container-identification). The UUID might be abbreviated.
  *
@@ -41,7 +41,7 @@ export declare const ATTR_CLOUD_REGION: "cloud.region";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CONTAINER_ID: "container.id";
+export declare const ATTR_CONTAINER_ID: 'container.id'
 /**
  * Name of the image the container was built on.
  *
@@ -49,7 +49,7 @@ export declare const ATTR_CONTAINER_ID: "container.id";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CONTAINER_IMAGE_NAME: "container.image.name";
+export declare const ATTR_CONTAINER_IMAGE_NAME: 'container.image.name'
 /**
  * Container image tags. An example can be found in [Docker Image Inspect](https://docs.docker.com/engine/api/v1.43/#tag/Image/operation/ImageInspect). Should be only the `<tag>` section of the full name for example from `registry.example.com/my-org/my-image:<tag>`.
  *
@@ -57,7 +57,7 @@ export declare const ATTR_CONTAINER_IMAGE_NAME: "container.image.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CONTAINER_IMAGE_TAGS: "container.image.tags";
+export declare const ATTR_CONTAINER_IMAGE_TAGS: 'container.image.tags'
 /**
  * Container name used by container runtime.
  *
@@ -65,13 +65,13 @@ export declare const ATTR_CONTAINER_IMAGE_TAGS: "container.image.tags";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_CONTAINER_NAME: "container.name";
+export declare const ATTR_CONTAINER_NAME: 'container.name'
 /**
  * The CPU architecture the host system is running on.
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_ARCH: "host.arch";
+export declare const ATTR_HOST_ARCH: 'host.arch'
 /**
  * Unique host ID. For Cloud, this must be the instance_id assigned by the cloud provider. For non-containerized systems, this should be the `machine-id`. See the table below for the sources to use to determine the `machine-id` based on operating system.
  *
@@ -79,7 +79,7 @@ export declare const ATTR_HOST_ARCH: "host.arch";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_ID: "host.id";
+export declare const ATTR_HOST_ID: 'host.id'
 /**
  * VM image ID or host OS image ID. For Cloud, this value is from the provider.
  *
@@ -87,7 +87,7 @@ export declare const ATTR_HOST_ID: "host.id";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_IMAGE_ID: "host.image.id";
+export declare const ATTR_HOST_IMAGE_ID: 'host.image.id'
 /**
  * Name of the VM image or OS install the host was instantiated from.
  *
@@ -96,7 +96,7 @@ export declare const ATTR_HOST_IMAGE_ID: "host.image.id";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_IMAGE_NAME: "host.image.name";
+export declare const ATTR_HOST_IMAGE_NAME: 'host.image.name'
 /**
  * The version string of the VM image or host OS as defined in [Version Attributes](/docs/resource/README.md#version-attributes).
  *
@@ -104,7 +104,7 @@ export declare const ATTR_HOST_IMAGE_NAME: "host.image.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_IMAGE_VERSION: "host.image.version";
+export declare const ATTR_HOST_IMAGE_VERSION: 'host.image.version'
 /**
  * Name of the host. On Unix systems, it may contain what the hostname command returns, or the fully qualified hostname, or another name specified by the user.
  *
@@ -112,7 +112,7 @@ export declare const ATTR_HOST_IMAGE_VERSION: "host.image.version";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_NAME: "host.name";
+export declare const ATTR_HOST_NAME: 'host.name'
 /**
  * Type of host. For Cloud, this must be the machine type.
  *
@@ -120,7 +120,7 @@ export declare const ATTR_HOST_NAME: "host.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_HOST_TYPE: "host.type";
+export declare const ATTR_HOST_TYPE: 'host.type'
 /**
  * The name of the cluster.
  *
@@ -128,7 +128,7 @@ export declare const ATTR_HOST_TYPE: "host.type";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_K8S_CLUSTER_NAME: "k8s.cluster.name";
+export declare const ATTR_K8S_CLUSTER_NAME: 'k8s.cluster.name'
 /**
  * The name of the Deployment.
  *
@@ -136,7 +136,7 @@ export declare const ATTR_K8S_CLUSTER_NAME: "k8s.cluster.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_K8S_DEPLOYMENT_NAME: "k8s.deployment.name";
+export declare const ATTR_K8S_DEPLOYMENT_NAME: 'k8s.deployment.name'
 /**
  * The name of the namespace that the pod is running in.
  *
@@ -144,7 +144,7 @@ export declare const ATTR_K8S_DEPLOYMENT_NAME: "k8s.deployment.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_K8S_NAMESPACE_NAME: "k8s.namespace.name";
+export declare const ATTR_K8S_NAMESPACE_NAME: 'k8s.namespace.name'
 /**
  * The name of the Pod.
  *
@@ -152,13 +152,13 @@ export declare const ATTR_K8S_NAMESPACE_NAME: "k8s.namespace.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_K8S_POD_NAME: "k8s.pod.name";
+export declare const ATTR_K8S_POD_NAME: 'k8s.pod.name'
 /**
  * The operating system type.
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_OS_TYPE: "os.type";
+export declare const ATTR_OS_TYPE: 'os.type'
 /**
  * The version string of the operating system as defined in [Version Attributes](/docs/resource/README.md#version-attributes).
  *
@@ -167,7 +167,7 @@ export declare const ATTR_OS_TYPE: "os.type";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_OS_VERSION: "os.version";
+export declare const ATTR_OS_VERSION: 'os.version'
 /**
  * The command used to launch the process (i.e. the command name). On Linux based systems, can be set to the zeroth string in `proc/[pid]/cmdline`. On Windows, can be set to the first parameter extracted from `GetCommandLineW`.
  *
@@ -175,7 +175,7 @@ export declare const ATTR_OS_VERSION: "os.version";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_COMMAND: "process.command";
+export declare const ATTR_PROCESS_COMMAND: 'process.command'
 /**
  * All the command arguments (including the command/executable itself) as received by the process. On Linux-based systems (and some other Unixoid systems supporting procfs), can be set according to the list of null-delimited strings extracted from `proc/[pid]/cmdline`. For libc-based executables, this would be the full argv vector passed to `main`.
  *
@@ -183,7 +183,7 @@ export declare const ATTR_PROCESS_COMMAND: "process.command";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_COMMAND_ARGS: "process.command_args";
+export declare const ATTR_PROCESS_COMMAND_ARGS: 'process.command_args'
 /**
  * The name of the process executable. On Linux based systems, this **SHOULD** be set to the base name of the target of `/proc/[pid]/exe`. On Windows, this **SHOULD** be set to the base name of `GetProcessImageFileNameW`.
  *
@@ -191,7 +191,7 @@ export declare const ATTR_PROCESS_COMMAND_ARGS: "process.command_args";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_EXECUTABLE_NAME: "process.executable.name";
+export declare const ATTR_PROCESS_EXECUTABLE_NAME: 'process.executable.name'
 /**
  * The full path to the process executable. On Linux based systems, can be set to the target of `proc/[pid]/exe`. On Windows, can be set to the result of `GetProcessImageFileNameW`.
  *
@@ -199,7 +199,7 @@ export declare const ATTR_PROCESS_EXECUTABLE_NAME: "process.executable.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_EXECUTABLE_PATH: "process.executable.path";
+export declare const ATTR_PROCESS_EXECUTABLE_PATH: 'process.executable.path'
 /**
  * The username of the user that owns the process.
  *
@@ -207,7 +207,7 @@ export declare const ATTR_PROCESS_EXECUTABLE_PATH: "process.executable.path";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_OWNER: "process.owner";
+export declare const ATTR_PROCESS_OWNER: 'process.owner'
 /**
  * Process identifier (PID).
  *
@@ -215,7 +215,7 @@ export declare const ATTR_PROCESS_OWNER: "process.owner";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_PID: "process.pid";
+export declare const ATTR_PROCESS_PID: 'process.pid'
 /**
  * An additional description about the runtime of the process, for example a specific vendor customization of the runtime environment.
  *
@@ -223,7 +223,7 @@ export declare const ATTR_PROCESS_PID: "process.pid";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_RUNTIME_DESCRIPTION: "process.runtime.description";
+export declare const ATTR_PROCESS_RUNTIME_DESCRIPTION: 'process.runtime.description'
 /**
  * The name of the runtime of this process.
  *
@@ -231,7 +231,7 @@ export declare const ATTR_PROCESS_RUNTIME_DESCRIPTION: "process.runtime.descript
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_RUNTIME_NAME: "process.runtime.name";
+export declare const ATTR_PROCESS_RUNTIME_NAME: 'process.runtime.name'
 /**
  * The version of the runtime of this process, as returned by the runtime without modification.
  *
@@ -239,7 +239,7 @@ export declare const ATTR_PROCESS_RUNTIME_NAME: "process.runtime.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_PROCESS_RUNTIME_VERSION: "process.runtime.version";
+export declare const ATTR_PROCESS_RUNTIME_VERSION: 'process.runtime.version'
 /**
  * The string ID of the service instance.
  *
@@ -274,7 +274,7 @@ export declare const ATTR_PROCESS_RUNTIME_VERSION: "process.runtime.version";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_SERVICE_INSTANCE_ID: "service.instance.id";
+export declare const ATTR_SERVICE_INSTANCE_ID: 'service.instance.id'
 /**
  * A namespace for `service.name`.
  *
@@ -284,7 +284,7 @@ export declare const ATTR_SERVICE_INSTANCE_ID: "service.instance.id";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_SERVICE_NAMESPACE: "service.namespace";
+export declare const ATTR_SERVICE_NAMESPACE: 'service.namespace'
 /**
  * Additional description of the web engine (e.g. detailed version and edition information).
  *
@@ -292,7 +292,7 @@ export declare const ATTR_SERVICE_NAMESPACE: "service.namespace";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_WEBENGINE_DESCRIPTION: "webengine.description";
+export declare const ATTR_WEBENGINE_DESCRIPTION: 'webengine.description'
 /**
  * The name of the web engine.
  *
@@ -300,7 +300,7 @@ export declare const ATTR_WEBENGINE_DESCRIPTION: "webengine.description";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_WEBENGINE_NAME: "webengine.name";
+export declare const ATTR_WEBENGINE_NAME: 'webengine.name'
 /**
  * The version of the web engine.
  *
@@ -308,5 +308,5 @@ export declare const ATTR_WEBENGINE_NAME: "webengine.name";
  *
  * @experimental This attribute is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const ATTR_WEBENGINE_VERSION: "webengine.version";
+export declare const ATTR_WEBENGINE_VERSION: 'webengine.version'
 //# sourceMappingURL=semconv.d.ts.map

@@ -10,7 +10,7 @@
  */
 import MicrosoftEntraID, {
   MicrosoftEntraIDProfile,
-} from "./microsoft-entra-id.js"
+} from './microsoft-entra-id.js'
 
 export type AzureADProfile = MicrosoftEntraIDProfile
 
@@ -20,11 +20,11 @@ export type AzureADProfile = MicrosoftEntraIDProfile
  * Import this provider from the `providers/microsoft-entra-id` submodule instead of `providers/azure-ad`.
  */
 export default function AzureAD(
-  config: Parameters<typeof MicrosoftEntraID>[0]
+  config: Parameters<typeof MicrosoftEntraID>[0],
 ): ReturnType<typeof MicrosoftEntraID> {
   return {
     ...MicrosoftEntraID(config),
-    id: "azure-ad",
-    name: "Azure Active Directory",
+    id: 'azure-ad',
+    name: 'Azure Active Directory',
   }
 }

@@ -4,37 +4,37 @@
  * @example handled
  * @example unhandled
  */
-export declare const ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT: "aspnetcore.diagnostics.exception.result";
+export declare const ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT: 'aspnetcore.diagnostics.exception.result'
 /**
  * Enum value "aborted" for attribute {@link ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT}.
  *
  * Exception handling didn't run because the request was aborted.
  */
-export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_ABORTED: "aborted";
+export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_ABORTED: 'aborted'
 /**
  * Enum value "handled" for attribute {@link ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT}.
  *
  * Exception was handled by the exception handling middleware.
  */
-export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_HANDLED: "handled";
+export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_HANDLED: 'handled'
 /**
  * Enum value "skipped" for attribute {@link ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT}.
  *
  * Exception handling was skipped because the response had started.
  */
-export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_SKIPPED: "skipped";
+export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_SKIPPED: 'skipped'
 /**
  * Enum value "unhandled" for attribute {@link ATTR_ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT}.
  *
  * Exception was not handled by the exception handling middleware.
  */
-export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_UNHANDLED: "unhandled";
+export declare const ASPNETCORE_DIAGNOSTICS_EXCEPTION_RESULT_VALUE_UNHANDLED: 'unhandled'
 /**
  * Full type name of the [`IExceptionHandler`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.diagnostics.iexceptionhandler) implementation that handled the exception.
  *
  * @example Contoso.MyHandler
  */
-export declare const ATTR_ASPNETCORE_DIAGNOSTICS_HANDLER_TYPE: "aspnetcore.diagnostics.handler.type";
+export declare const ATTR_ASPNETCORE_DIAGNOSTICS_HANDLER_TYPE: 'aspnetcore.diagnostics.handler.type'
 /**
  * Rate limiting policy name.
  *
@@ -42,75 +42,75 @@ export declare const ATTR_ASPNETCORE_DIAGNOSTICS_HANDLER_TYPE: "aspnetcore.diagn
  * @example sliding
  * @example token
  */
-export declare const ATTR_ASPNETCORE_RATE_LIMITING_POLICY: "aspnetcore.rate_limiting.policy";
+export declare const ATTR_ASPNETCORE_RATE_LIMITING_POLICY: 'aspnetcore.rate_limiting.policy'
 /**
  * Rate-limiting result, shows whether the lease was acquired or contains a rejection reason
  *
  * @example acquired
  * @example request_canceled
  */
-export declare const ATTR_ASPNETCORE_RATE_LIMITING_RESULT: "aspnetcore.rate_limiting.result";
+export declare const ATTR_ASPNETCORE_RATE_LIMITING_RESULT: 'aspnetcore.rate_limiting.result'
 /**
  * Enum value "acquired" for attribute {@link ATTR_ASPNETCORE_RATE_LIMITING_RESULT}.
  *
  * Lease was acquired
  */
-export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_ACQUIRED: "acquired";
+export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_ACQUIRED: 'acquired'
 /**
  * Enum value "endpoint_limiter" for attribute {@link ATTR_ASPNETCORE_RATE_LIMITING_RESULT}.
  *
  * Lease request was rejected by the endpoint limiter
  */
-export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_ENDPOINT_LIMITER: "endpoint_limiter";
+export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_ENDPOINT_LIMITER: 'endpoint_limiter'
 /**
  * Enum value "global_limiter" for attribute {@link ATTR_ASPNETCORE_RATE_LIMITING_RESULT}.
  *
  * Lease request was rejected by the global limiter
  */
-export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_GLOBAL_LIMITER: "global_limiter";
+export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_GLOBAL_LIMITER: 'global_limiter'
 /**
  * Enum value "request_canceled" for attribute {@link ATTR_ASPNETCORE_RATE_LIMITING_RESULT}.
  *
  * Lease request was canceled
  */
-export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_REQUEST_CANCELED: "request_canceled";
+export declare const ASPNETCORE_RATE_LIMITING_RESULT_VALUE_REQUEST_CANCELED: 'request_canceled'
 /**
  * Flag indicating if request was handled by the application pipeline.
  *
  * @example true
  */
-export declare const ATTR_ASPNETCORE_REQUEST_IS_UNHANDLED: "aspnetcore.request.is_unhandled";
+export declare const ATTR_ASPNETCORE_REQUEST_IS_UNHANDLED: 'aspnetcore.request.is_unhandled'
 /**
  * A value that indicates whether the matched route is a fallback route.
  *
  * @example true
  */
-export declare const ATTR_ASPNETCORE_ROUTING_IS_FALLBACK: "aspnetcore.routing.is_fallback";
+export declare const ATTR_ASPNETCORE_ROUTING_IS_FALLBACK: 'aspnetcore.routing.is_fallback'
 /**
  * Match result - success or failure
  *
  * @example success
  * @example failure
  */
-export declare const ATTR_ASPNETCORE_ROUTING_MATCH_STATUS: "aspnetcore.routing.match_status";
+export declare const ATTR_ASPNETCORE_ROUTING_MATCH_STATUS: 'aspnetcore.routing.match_status'
 /**
  * Enum value "failure" for attribute {@link ATTR_ASPNETCORE_ROUTING_MATCH_STATUS}.
  *
  * Match failed
  */
-export declare const ASPNETCORE_ROUTING_MATCH_STATUS_VALUE_FAILURE: "failure";
+export declare const ASPNETCORE_ROUTING_MATCH_STATUS_VALUE_FAILURE: 'failure'
 /**
  * Enum value "success" for attribute {@link ATTR_ASPNETCORE_ROUTING_MATCH_STATUS}.
  *
  * Match succeeded
  */
-export declare const ASPNETCORE_ROUTING_MATCH_STATUS_VALUE_SUCCESS: "success";
+export declare const ASPNETCORE_ROUTING_MATCH_STATUS_VALUE_SUCCESS: 'success'
 /**
  * A value that indicates whether the user is authenticated.
  *
  * @example true
  */
-export declare const ATTR_ASPNETCORE_USER_IS_AUTHENTICATED: "aspnetcore.user.is_authenticated";
+export declare const ATTR_ASPNETCORE_USER_IS_AUTHENTICATED: 'aspnetcore.user.is_authenticated'
 /**
  * Client address - domain name if available without reverse DNS lookup; otherwise, IP address or Unix domain socket name.
  *
@@ -120,7 +120,7 @@ export declare const ATTR_ASPNETCORE_USER_IS_AUTHENTICATED: "aspnetcore.user.is_
  *
  * @note When observed from the server side, and when communicating through an intermediary, `client.address` **SHOULD** represent the client address behind any intermediaries,  for example proxies, if it's available.
  */
-export declare const ATTR_CLIENT_ADDRESS: "client.address";
+export declare const ATTR_CLIENT_ADDRESS: 'client.address'
 /**
  * Client port number.
  *
@@ -128,19 +128,19 @@ export declare const ATTR_CLIENT_ADDRESS: "client.address";
  *
  * @note When observed from the server side, and when communicating through an intermediary, `client.port` **SHOULD** represent the client port behind any intermediaries,  for example proxies, if it's available.
  */
-export declare const ATTR_CLIENT_PORT: "client.port";
+export declare const ATTR_CLIENT_PORT: 'client.port'
 /**
  * The column number in `code.file.path` best representing the operation. It **SHOULD** point within the code unit named in `code.function.name`. This attribute **MUST NOT** be used on the Profile signal since the data is already captured in 'message Line'. This constraint is imposed to prevent redundancy and maintain data integrity.
  *
  * @example 16
  */
-export declare const ATTR_CODE_COLUMN_NUMBER: "code.column.number";
+export declare const ATTR_CODE_COLUMN_NUMBER: 'code.column.number'
 /**
  * The source code file name that identifies the code unit as uniquely as possible (preferably an absolute file path). This attribute **MUST NOT** be used on the Profile signal since the data is already captured in 'message Function'. This constraint is imposed to prevent redundancy and maintain data integrity.
  *
  * @example "/usr/local/MyApplication/content_root/app/index.php"
  */
-export declare const ATTR_CODE_FILE_PATH: "code.file.path";
+export declare const ATTR_CODE_FILE_PATH: 'code.file.path'
 /**
  * The method or function fully-qualified name without arguments. The value should fit the natural representation of the language runtime, which is also likely the same used within `code.stacktrace` attribute value. This attribute **MUST NOT** be used on the Profile signal since the data is already captured in 'message Function'. This constraint is imposed to prevent redundancy and maintain data integrity.
  *
@@ -164,19 +164,19 @@ export declare const ATTR_CODE_FILE_PATH: "code.file.path";
  *   - Rust: `playground::my_module::my_cool_func`
  *   - C function: `fopen`
  */
-export declare const ATTR_CODE_FUNCTION_NAME: "code.function.name";
+export declare const ATTR_CODE_FUNCTION_NAME: 'code.function.name'
 /**
  * The line number in `code.file.path` best representing the operation. It **SHOULD** point within the code unit named in `code.function.name`. This attribute **MUST NOT** be used on the Profile signal since the data is already captured in 'message Line'. This constraint is imposed to prevent redundancy and maintain data integrity.
  *
  * @example 42
  */
-export declare const ATTR_CODE_LINE_NUMBER: "code.line.number";
+export declare const ATTR_CODE_LINE_NUMBER: 'code.line.number'
 /**
  * A stacktrace as a string in the natural representation for the language runtime. The representation is identical to [`exception.stacktrace`](/docs/exceptions/exceptions-spans.md#stacktrace-representation). This attribute **MUST NOT** be used on the Profile signal since the data is already captured in 'message Location'. This constraint is imposed to prevent redundancy and maintain data integrity.
  *
  * @example "at com.example.GenerateTrace.methodB(GenerateTrace.java:13)\\n at com.example.GenerateTrace.methodA(GenerateTrace.java:9)\\n at com.example.GenerateTrace.main(GenerateTrace.java:5)\\n"
  */
-export declare const ATTR_CODE_STACKTRACE: "code.stacktrace";
+export declare const ATTR_CODE_STACKTRACE: 'code.stacktrace'
 /**
  * The name of a collection (table, container) within the database.
  *
@@ -193,7 +193,7 @@ export declare const ATTR_CODE_STACKTRACE: "code.stacktrace";
  * For batch operations, if the individual operations are known to have the same
  * collection name then that collection name **SHOULD** be used.
  */
-export declare const ATTR_DB_COLLECTION_NAME: "db.collection.name";
+export declare const ATTR_DB_COLLECTION_NAME: 'db.collection.name'
 /**
  * The name of the database, fully qualified within the server address and port.
  *
@@ -204,7 +204,7 @@ export declare const ATTR_DB_COLLECTION_NAME: "db.collection.name";
  * Semantic conventions for individual database systems **SHOULD** document what `db.namespace` means in the context of that system.
  * It is **RECOMMENDED** to capture the value as provided by the application without attempting to do any case normalization.
  */
-export declare const ATTR_DB_NAMESPACE: "db.namespace";
+export declare const ATTR_DB_NAMESPACE: 'db.namespace'
 /**
  * The number of queries included in a batch operation.
  *
@@ -214,7 +214,7 @@ export declare const ATTR_DB_NAMESPACE: "db.namespace";
  *
  * @note Operations are only considered batches when they contain two or more operations, and so `db.operation.batch.size` **SHOULD** never be `1`.
  */
-export declare const ATTR_DB_OPERATION_BATCH_SIZE: "db.operation.batch.size";
+export declare const ATTR_DB_OPERATION_BATCH_SIZE: 'db.operation.batch.size'
 /**
  * The name of the operation or command being executed.
  *
@@ -237,7 +237,7 @@ export declare const ATTR_DB_OPERATION_BATCH_SIZE: "db.operation.batch.size";
  * otherwise `db.operation.name` **SHOULD** be `BATCH` or some other database
  * system specific term if more applicable.
  */
-export declare const ATTR_DB_OPERATION_NAME: "db.operation.name";
+export declare const ATTR_DB_OPERATION_NAME: 'db.operation.name'
 /**
  * Low cardinality summary of a database query.
  *
@@ -255,7 +255,7 @@ export declare const ATTR_DB_OPERATION_NAME: "db.operation.name";
  * [Generating query summary](/docs/database/database-spans.md#generating-a-summary-of-the-query)
  * section.
  */
-export declare const ATTR_DB_QUERY_SUMMARY: "db.query.summary";
+export declare const ATTR_DB_QUERY_SUMMARY: 'db.query.summary'
 /**
  * The database query being executed.
  *
@@ -266,7 +266,7 @@ export declare const ATTR_DB_QUERY_SUMMARY: "db.query.summary";
  * For batch operations, if the individual operations are known to have the same query text then that query text **SHOULD** be used, otherwise all of the individual query texts **SHOULD** be concatenated with separator `; ` or some other database system specific separator if more applicable.
  * Parameterized query text **SHOULD NOT** be sanitized. Even though parameterized query text can potentially have sensitive data, by using a parameterized query the user is giving a strong signal that any sensitive data will be passed as parameter values, and the benefit to observability of capturing the static part of the query text by default outweighs the risk.
  */
-export declare const ATTR_DB_QUERY_TEXT: "db.query.text";
+export declare const ATTR_DB_QUERY_TEXT: 'db.query.text'
 /**
  * Database response status code.
  *
@@ -278,7 +278,7 @@ export declare const ATTR_DB_QUERY_TEXT: "db.query.text";
  * @note The status code returned by the database. Usually it represents an error code, but may also represent partial success, warning, or differentiate between various types of successful outcomes.
  * Semantic conventions for individual database systems **SHOULD** document what `db.response.status_code` means in the context of that system.
  */
-export declare const ATTR_DB_RESPONSE_STATUS_CODE: "db.response.status_code";
+export declare const ATTR_DB_RESPONSE_STATUS_CODE: 'db.response.status_code'
 /**
  * The name of a stored procedure within the database.
  *
@@ -290,37 +290,37 @@ export declare const ATTR_DB_RESPONSE_STATUS_CODE: "db.response.status_code";
  * For batch operations, if the individual operations are known to have the same
  * stored procedure name then that stored procedure name **SHOULD** be used.
  */
-export declare const ATTR_DB_STORED_PROCEDURE_NAME: "db.stored_procedure.name";
+export declare const ATTR_DB_STORED_PROCEDURE_NAME: 'db.stored_procedure.name'
 /**
  * The database management system (DBMS) product as identified by the client instrumentation.
  *
  * @note The actual DBMS may differ from the one identified by the client. For example, when using PostgreSQL client libraries to connect to a CockroachDB, the `db.system.name` is set to `postgresql` based on the instrumentation's best knowledge.
  */
-export declare const ATTR_DB_SYSTEM_NAME: "db.system.name";
+export declare const ATTR_DB_SYSTEM_NAME: 'db.system.name'
 /**
  * Enum value "mariadb" for attribute {@link ATTR_DB_SYSTEM_NAME}.
  *
  * [MariaDB](https://mariadb.org/)
  */
-export declare const DB_SYSTEM_NAME_VALUE_MARIADB: "mariadb";
+export declare const DB_SYSTEM_NAME_VALUE_MARIADB: 'mariadb'
 /**
  * Enum value "microsoft.sql_server" for attribute {@link ATTR_DB_SYSTEM_NAME}.
  *
  * [Microsoft SQL Server](https://www.microsoft.com/sql-server)
  */
-export declare const DB_SYSTEM_NAME_VALUE_MICROSOFT_SQL_SERVER: "microsoft.sql_server";
+export declare const DB_SYSTEM_NAME_VALUE_MICROSOFT_SQL_SERVER: 'microsoft.sql_server'
 /**
  * Enum value "mysql" for attribute {@link ATTR_DB_SYSTEM_NAME}.
  *
  * [MySQL](https://www.mysql.com/)
  */
-export declare const DB_SYSTEM_NAME_VALUE_MYSQL: "mysql";
+export declare const DB_SYSTEM_NAME_VALUE_MYSQL: 'mysql'
 /**
  * Enum value "postgresql" for attribute {@link ATTR_DB_SYSTEM_NAME}.
  *
  * [PostgreSQL](https://www.postgresql.org/)
  */
-export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql";
+export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: 'postgresql'
 /**
  * Name of the garbage collector managed heap generation.
  *
@@ -328,37 +328,37 @@ export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql";
  * @example gen1
  * @example gen2
  */
-export declare const ATTR_DOTNET_GC_HEAP_GENERATION: "dotnet.gc.heap.generation";
+export declare const ATTR_DOTNET_GC_HEAP_GENERATION: 'dotnet.gc.heap.generation'
 /**
  * Enum value "gen0" for attribute {@link ATTR_DOTNET_GC_HEAP_GENERATION}.
  *
  * Generation 0
  */
-export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN0: "gen0";
+export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN0: 'gen0'
 /**
  * Enum value "gen1" for attribute {@link ATTR_DOTNET_GC_HEAP_GENERATION}.
  *
  * Generation 1
  */
-export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN1: "gen1";
+export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN1: 'gen1'
 /**
  * Enum value "gen2" for attribute {@link ATTR_DOTNET_GC_HEAP_GENERATION}.
  *
  * Generation 2
  */
-export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN2: "gen2";
+export declare const DOTNET_GC_HEAP_GENERATION_VALUE_GEN2: 'gen2'
 /**
  * Enum value "loh" for attribute {@link ATTR_DOTNET_GC_HEAP_GENERATION}.
  *
  * Large Object Heap
  */
-export declare const DOTNET_GC_HEAP_GENERATION_VALUE_LOH: "loh";
+export declare const DOTNET_GC_HEAP_GENERATION_VALUE_LOH: 'loh'
 /**
  * Enum value "poh" for attribute {@link ATTR_DOTNET_GC_HEAP_GENERATION}.
  *
  * Pinned Object Heap
  */
-export declare const DOTNET_GC_HEAP_GENERATION_VALUE_POH: "poh";
+export declare const DOTNET_GC_HEAP_GENERATION_VALUE_POH: 'poh'
 /**
  * Describes a class of error the operation ended with.
  *
@@ -387,39 +387,39 @@ export declare const DOTNET_GC_HEAP_GENERATION_VALUE_POH: "poh";
  *   - Use a domain-specific attribute
  *   - Set `error.type` to capture all errors, regardless of whether they are defined within the domain-specific set or not.
  */
-export declare const ATTR_ERROR_TYPE: "error.type";
+export declare const ATTR_ERROR_TYPE: 'error.type'
 /**
  * Enum value "_OTHER" for attribute {@link ATTR_ERROR_TYPE}.
  *
  * A fallback error value to be used when the instrumentation doesn't define a custom value.
  */
-export declare const ERROR_TYPE_VALUE_OTHER: "_OTHER";
+export declare const ERROR_TYPE_VALUE_OTHER: '_OTHER'
 /**
  * Indicates that the exception is escaping the scope of the span.
  *
  * @deprecated It's no longer recommended to record exceptions that are handled and do not escape the scope of a span.
  */
-export declare const ATTR_EXCEPTION_ESCAPED: "exception.escaped";
+export declare const ATTR_EXCEPTION_ESCAPED: 'exception.escaped'
 /**
  * The exception message.
  *
  * @example Division by zero
  * @example Can't convert 'int' object to str implicitly
  */
-export declare const ATTR_EXCEPTION_MESSAGE: "exception.message";
+export declare const ATTR_EXCEPTION_MESSAGE: 'exception.message'
 /**
  * A stacktrace as a string in the natural representation for the language runtime. The representation is to be determined and documented by each language SIG.
  *
  * @example "Exception in thread "main" java.lang.RuntimeException: Test exception\\n at com.example.GenerateTrace.methodB(GenerateTrace.java:13)\\n at com.example.GenerateTrace.methodA(GenerateTrace.java:9)\\n at com.example.GenerateTrace.main(GenerateTrace.java:5)\\n"
  */
-export declare const ATTR_EXCEPTION_STACKTRACE: "exception.stacktrace";
+export declare const ATTR_EXCEPTION_STACKTRACE: 'exception.stacktrace'
 /**
  * The type of the exception (its fully-qualified class name, if applicable). The dynamic type of the exception should be preferred over the static type in languages that support it.
  *
  * @example java.net.ConnectException
  * @example OSError
  */
-export declare const ATTR_EXCEPTION_TYPE: "exception.type";
+export declare const ATTR_EXCEPTION_TYPE: 'exception.type'
 /**
  * HTTP request headers, `<key>` being the normalized HTTP Header name (lowercase), the value being the header values.
  *
@@ -443,7 +443,7 @@ export declare const ATTR_EXCEPTION_TYPE: "exception.type";
  *   - A header `X-Forwarded-For: 1.2.3.4, 1.2.3.5` **SHOULD** be recorded as the `http.request.header.x-forwarded-for`
  *     attribute with value `["1.2.3.4", "1.2.3.5"]` or `["1.2.3.4, 1.2.3.5"]` depending on the HTTP library.
  */
-export declare const ATTR_HTTP_REQUEST_HEADER: (key: string) => string;
+export declare const ATTR_HTTP_REQUEST_HEADER: (key: string) => string
 /**
  * HTTP request method.
  *
@@ -467,67 +467,67 @@ export declare const ATTR_HTTP_REQUEST_HEADER: (key: string) => string;
  * Instrumentations for specific web frameworks that consider HTTP methods to be case insensitive, **SHOULD** populate a canonical equivalent.
  * Tracing instrumentations that do so, **MUST** also set `http.request.method_original` to the original value.
  */
-export declare const ATTR_HTTP_REQUEST_METHOD: "http.request.method";
+export declare const ATTR_HTTP_REQUEST_METHOD: 'http.request.method'
 /**
  * Enum value "_OTHER" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * Any HTTP method that the instrumentation has no prior knowledge of.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_OTHER: "_OTHER";
+export declare const HTTP_REQUEST_METHOD_VALUE_OTHER: '_OTHER'
 /**
  * Enum value "CONNECT" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * CONNECT method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_CONNECT: "CONNECT";
+export declare const HTTP_REQUEST_METHOD_VALUE_CONNECT: 'CONNECT'
 /**
  * Enum value "DELETE" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * DELETE method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_DELETE: "DELETE";
+export declare const HTTP_REQUEST_METHOD_VALUE_DELETE: 'DELETE'
 /**
  * Enum value "GET" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * GET method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_GET: "GET";
+export declare const HTTP_REQUEST_METHOD_VALUE_GET: 'GET'
 /**
  * Enum value "HEAD" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * HEAD method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_HEAD: "HEAD";
+export declare const HTTP_REQUEST_METHOD_VALUE_HEAD: 'HEAD'
 /**
  * Enum value "OPTIONS" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * OPTIONS method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_OPTIONS: "OPTIONS";
+export declare const HTTP_REQUEST_METHOD_VALUE_OPTIONS: 'OPTIONS'
 /**
  * Enum value "PATCH" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * PATCH method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_PATCH: "PATCH";
+export declare const HTTP_REQUEST_METHOD_VALUE_PATCH: 'PATCH'
 /**
  * Enum value "POST" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * POST method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_POST: "POST";
+export declare const HTTP_REQUEST_METHOD_VALUE_POST: 'POST'
 /**
  * Enum value "PUT" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * PUT method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_PUT: "PUT";
+export declare const HTTP_REQUEST_METHOD_VALUE_PUT: 'PUT'
 /**
  * Enum value "TRACE" for attribute {@link ATTR_HTTP_REQUEST_METHOD}.
  *
  * TRACE method.
  */
-export declare const HTTP_REQUEST_METHOD_VALUE_TRACE: "TRACE";
+export declare const HTTP_REQUEST_METHOD_VALUE_TRACE: 'TRACE'
 /**
  * Original HTTP method sent by the client in the request line.
  *
@@ -535,7 +535,7 @@ export declare const HTTP_REQUEST_METHOD_VALUE_TRACE: "TRACE";
  * @example ACL
  * @example foo
  */
-export declare const ATTR_HTTP_REQUEST_METHOD_ORIGINAL: "http.request.method_original";
+export declare const ATTR_HTTP_REQUEST_METHOD_ORIGINAL: 'http.request.method_original'
 /**
  * The ordinal number of request resending attempt (for any reason, including redirects).
  *
@@ -543,7 +543,7 @@ export declare const ATTR_HTTP_REQUEST_METHOD_ORIGINAL: "http.request.method_ori
  *
  * @note The resend count **SHOULD** be updated each time an HTTP request gets resent by the client, regardless of what was the cause of the resending (e.g. redirection, authorization failure, 503 Server Unavailable, network issues, or any other).
  */
-export declare const ATTR_HTTP_REQUEST_RESEND_COUNT: "http.request.resend_count";
+export declare const ATTR_HTTP_REQUEST_RESEND_COUNT: 'http.request.resend_count'
 /**
  * HTTP response headers, `<key>` being the normalized HTTP Header name (lowercase), the value being the header values.
  *
@@ -566,13 +566,13 @@ export declare const ATTR_HTTP_REQUEST_RESEND_COUNT: "http.request.resend_count"
  *   - A header `My-custom-header: abc, def` header **SHOULD** be recorded as the `http.response.header.my-custom-header`
  *     attribute with value `["abc", "def"]` or `["abc, def"]` depending on the HTTP library.
  */
-export declare const ATTR_HTTP_RESPONSE_HEADER: (key: string) => string;
+export declare const ATTR_HTTP_RESPONSE_HEADER: (key: string) => string
 /**
  * [HTTP response status code](https://tools.ietf.org/html/rfc7231#section-6).
  *
  * @example 200
  */
-export declare const ATTR_HTTP_RESPONSE_STATUS_CODE: "http.response.status_code";
+export declare const ATTR_HTTP_RESPONSE_STATUS_CODE: 'http.response.status_code'
 /**
  * The matched route template for the request. This **MUST** be low-cardinality and include all static path segments, with dynamic path segments represented with placeholders.
  *
@@ -590,7 +590,7 @@ export declare const ATTR_HTTP_RESPONSE_STATUS_CODE: "http.response.status_code"
  * Instrumentations **SHOULD** use routing information provided by the corresponding web framework. They **SHOULD** pick the most precise source of routing information and **MAY**
  * support custom route formatting. Instrumentations **SHOULD** document the format and the API used to obtain the route string.
  */
-export declare const ATTR_HTTP_ROUTE: "http.route";
+export declare const ATTR_HTTP_ROUTE: 'http.route'
 /**
  * Name of the garbage collector action.
  *
@@ -599,7 +599,7 @@ export declare const ATTR_HTTP_ROUTE: "http.route";
  *
  * @note Garbage collector action is generally obtained via [GarbageCollectionNotificationInfo#getGcAction()](https://docs.oracle.com/en/java/javase/11/docs/api/jdk.management/com/sun/management/GarbageCollectionNotificationInfo.html#getGcAction()).
  */
-export declare const ATTR_JVM_GC_ACTION: "jvm.gc.action";
+export declare const ATTR_JVM_GC_ACTION: 'jvm.gc.action'
 /**
  * Name of the garbage collector.
  *
@@ -608,7 +608,7 @@ export declare const ATTR_JVM_GC_ACTION: "jvm.gc.action";
  *
  * @note Garbage collector name is generally obtained via [GarbageCollectionNotificationInfo#getGcName()](https://docs.oracle.com/en/java/javase/11/docs/api/jdk.management/com/sun/management/GarbageCollectionNotificationInfo.html#getGcName()).
  */
-export declare const ATTR_JVM_GC_NAME: "jvm.gc.name";
+export declare const ATTR_JVM_GC_NAME: 'jvm.gc.name'
 /**
  * Name of the memory pool.
  *
@@ -618,99 +618,99 @@ export declare const ATTR_JVM_GC_NAME: "jvm.gc.name";
  *
  * @note Pool names are generally obtained via [MemoryPoolMXBean#getName()](https://docs.oracle.com/en/java/javase/11/docs/api/java.management/java/lang/management/MemoryPoolMXBean.html#getName()).
  */
-export declare const ATTR_JVM_MEMORY_POOL_NAME: "jvm.memory.pool.name";
+export declare const ATTR_JVM_MEMORY_POOL_NAME: 'jvm.memory.pool.name'
 /**
  * The type of memory.
  *
  * @example heap
  * @example non_heap
  */
-export declare const ATTR_JVM_MEMORY_TYPE: "jvm.memory.type";
+export declare const ATTR_JVM_MEMORY_TYPE: 'jvm.memory.type'
 /**
  * Enum value "heap" for attribute {@link ATTR_JVM_MEMORY_TYPE}.
  *
  * Heap memory.
  */
-export declare const JVM_MEMORY_TYPE_VALUE_HEAP: "heap";
+export declare const JVM_MEMORY_TYPE_VALUE_HEAP: 'heap'
 /**
  * Enum value "non_heap" for attribute {@link ATTR_JVM_MEMORY_TYPE}.
  *
  * Non-heap memory
  */
-export declare const JVM_MEMORY_TYPE_VALUE_NON_HEAP: "non_heap";
+export declare const JVM_MEMORY_TYPE_VALUE_NON_HEAP: 'non_heap'
 /**
  * Whether the thread is daemon or not.
  */
-export declare const ATTR_JVM_THREAD_DAEMON: "jvm.thread.daemon";
+export declare const ATTR_JVM_THREAD_DAEMON: 'jvm.thread.daemon'
 /**
  * State of the thread.
  *
  * @example runnable
  * @example blocked
  */
-export declare const ATTR_JVM_THREAD_STATE: "jvm.thread.state";
+export declare const ATTR_JVM_THREAD_STATE: 'jvm.thread.state'
 /**
  * Enum value "blocked" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread that is blocked waiting for a monitor lock is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_BLOCKED: "blocked";
+export declare const JVM_THREAD_STATE_VALUE_BLOCKED: 'blocked'
 /**
  * Enum value "new" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread that has not yet started is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_NEW: "new";
+export declare const JVM_THREAD_STATE_VALUE_NEW: 'new'
 /**
  * Enum value "runnable" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread executing in the Java virtual machine is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_RUNNABLE: "runnable";
+export declare const JVM_THREAD_STATE_VALUE_RUNNABLE: 'runnable'
 /**
  * Enum value "terminated" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread that has exited is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_TERMINATED: "terminated";
+export declare const JVM_THREAD_STATE_VALUE_TERMINATED: 'terminated'
 /**
  * Enum value "timed_waiting" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread that is waiting for another thread to perform an action for up to a specified waiting time is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_TIMED_WAITING: "timed_waiting";
+export declare const JVM_THREAD_STATE_VALUE_TIMED_WAITING: 'timed_waiting'
 /**
  * Enum value "waiting" for attribute {@link ATTR_JVM_THREAD_STATE}.
  *
  * A thread that is waiting indefinitely for another thread to perform a particular action is in this state.
  */
-export declare const JVM_THREAD_STATE_VALUE_WAITING: "waiting";
+export declare const JVM_THREAD_STATE_VALUE_WAITING: 'waiting'
 /**
  * Local address of the network connection - IP address or Unix domain socket name.
  *
  * @example 10.1.2.80
  * @example /tmp/my.sock
  */
-export declare const ATTR_NETWORK_LOCAL_ADDRESS: "network.local.address";
+export declare const ATTR_NETWORK_LOCAL_ADDRESS: 'network.local.address'
 /**
  * Local port number of the network connection.
  *
  * @example 65123
  */
-export declare const ATTR_NETWORK_LOCAL_PORT: "network.local.port";
+export declare const ATTR_NETWORK_LOCAL_PORT: 'network.local.port'
 /**
  * Peer address of the network connection - IP address or Unix domain socket name.
  *
  * @example 10.1.2.80
  * @example /tmp/my.sock
  */
-export declare const ATTR_NETWORK_PEER_ADDRESS: "network.peer.address";
+export declare const ATTR_NETWORK_PEER_ADDRESS: 'network.peer.address'
 /**
  * Peer port number of the network connection.
  *
  * @example 65123
  */
-export declare const ATTR_NETWORK_PEER_PORT: "network.peer.port";
+export declare const ATTR_NETWORK_PEER_PORT: 'network.peer.port'
 /**
  * [OSI application layer](https://wikipedia.org/wiki/Application_layer) or non-OSI equivalent.
  *
@@ -720,7 +720,7 @@ export declare const ATTR_NETWORK_PEER_PORT: "network.peer.port";
  *
  * @note The value **SHOULD** be normalized to lowercase.
  */
-export declare const ATTR_NETWORK_PROTOCOL_NAME: "network.protocol.name";
+export declare const ATTR_NETWORK_PROTOCOL_NAME: 'network.protocol.name'
 /**
  * The actual version of the protocol used for network communication.
  *
@@ -729,7 +729,7 @@ export declare const ATTR_NETWORK_PROTOCOL_NAME: "network.protocol.name";
  *
  * @note If protocol version is subject to negotiation (for example using [ALPN](https://www.rfc-editor.org/rfc/rfc7301.html)), this attribute **SHOULD** be set to the negotiated version. If the actual protocol version is not known, this attribute **SHOULD NOT** be set.
  */
-export declare const ATTR_NETWORK_PROTOCOL_VERSION: "network.protocol.version";
+export declare const ATTR_NETWORK_PROTOCOL_VERSION: 'network.protocol.version'
 /**
  * [OSI transport layer](https://wikipedia.org/wiki/Transport_layer) or [inter-process communication method](https://wikipedia.org/wiki/Inter-process_communication).
  *
@@ -742,37 +742,37 @@ export declare const ATTR_NETWORK_PROTOCOL_VERSION: "network.protocol.version";
  * a port number is ambiguous without knowing the transport. For example
  * different processes could be listening on TCP port 12345 and UDP port 12345.
  */
-export declare const ATTR_NETWORK_TRANSPORT: "network.transport";
+export declare const ATTR_NETWORK_TRANSPORT: 'network.transport'
 /**
  * Enum value "pipe" for attribute {@link ATTR_NETWORK_TRANSPORT}.
  *
  * Named or anonymous pipe.
  */
-export declare const NETWORK_TRANSPORT_VALUE_PIPE: "pipe";
+export declare const NETWORK_TRANSPORT_VALUE_PIPE: 'pipe'
 /**
  * Enum value "quic" for attribute {@link ATTR_NETWORK_TRANSPORT}.
  *
  * QUIC
  */
-export declare const NETWORK_TRANSPORT_VALUE_QUIC: "quic";
+export declare const NETWORK_TRANSPORT_VALUE_QUIC: 'quic'
 /**
  * Enum value "tcp" for attribute {@link ATTR_NETWORK_TRANSPORT}.
  *
  * TCP
  */
-export declare const NETWORK_TRANSPORT_VALUE_TCP: "tcp";
+export declare const NETWORK_TRANSPORT_VALUE_TCP: 'tcp'
 /**
  * Enum value "udp" for attribute {@link ATTR_NETWORK_TRANSPORT}.
  *
  * UDP
  */
-export declare const NETWORK_TRANSPORT_VALUE_UDP: "udp";
+export declare const NETWORK_TRANSPORT_VALUE_UDP: 'udp'
 /**
  * Enum value "unix" for attribute {@link ATTR_NETWORK_TRANSPORT}.
  *
  * Unix domain socket
  */
-export declare const NETWORK_TRANSPORT_VALUE_UNIX: "unix";
+export declare const NETWORK_TRANSPORT_VALUE_UNIX: 'unix'
 /**
  * [OSI network layer](https://wikipedia.org/wiki/Network_layer) or non-OSI equivalent.
  *
@@ -781,53 +781,53 @@ export declare const NETWORK_TRANSPORT_VALUE_UNIX: "unix";
  *
  * @note The value **SHOULD** be normalized to lowercase.
  */
-export declare const ATTR_NETWORK_TYPE: "network.type";
+export declare const ATTR_NETWORK_TYPE: 'network.type'
 /**
  * Enum value "ipv4" for attribute {@link ATTR_NETWORK_TYPE}.
  *
  * IPv4
  */
-export declare const NETWORK_TYPE_VALUE_IPV4: "ipv4";
+export declare const NETWORK_TYPE_VALUE_IPV4: 'ipv4'
 /**
  * Enum value "ipv6" for attribute {@link ATTR_NETWORK_TYPE}.
  *
  * IPv6
  */
-export declare const NETWORK_TYPE_VALUE_IPV6: "ipv6";
+export declare const NETWORK_TYPE_VALUE_IPV6: 'ipv6'
 /**
  * The name of the instrumentation scope - (`InstrumentationScope.Name` in OTLP).
  *
  * @example io.opentelemetry.contrib.mongodb
  */
-export declare const ATTR_OTEL_SCOPE_NAME: "otel.scope.name";
+export declare const ATTR_OTEL_SCOPE_NAME: 'otel.scope.name'
 /**
  * The version of the instrumentation scope - (`InstrumentationScope.Version` in OTLP).
  *
  * @example 1.0.0
  */
-export declare const ATTR_OTEL_SCOPE_VERSION: "otel.scope.version";
+export declare const ATTR_OTEL_SCOPE_VERSION: 'otel.scope.version'
 /**
  * Name of the code, either "OK" or "ERROR". **MUST NOT** be set if the status code is UNSET.
  */
-export declare const ATTR_OTEL_STATUS_CODE: "otel.status_code";
+export declare const ATTR_OTEL_STATUS_CODE: 'otel.status_code'
 /**
  * Enum value "ERROR" for attribute {@link ATTR_OTEL_STATUS_CODE}.
  *
  * The operation contains an error.
  */
-export declare const OTEL_STATUS_CODE_VALUE_ERROR: "ERROR";
+export declare const OTEL_STATUS_CODE_VALUE_ERROR: 'ERROR'
 /**
  * Enum value "OK" for attribute {@link ATTR_OTEL_STATUS_CODE}.
  *
  * The operation has been validated by an Application developer or Operator to have completed successfully.
  */
-export declare const OTEL_STATUS_CODE_VALUE_OK: "OK";
+export declare const OTEL_STATUS_CODE_VALUE_OK: 'OK'
 /**
  * Description of the Status if it has a value, otherwise not set.
  *
  * @example resource not found
  */
-export declare const ATTR_OTEL_STATUS_DESCRIPTION: "otel.status_description";
+export declare const ATTR_OTEL_STATUS_DESCRIPTION: 'otel.status_description'
 /**
  * Server domain name if available without reverse DNS lookup; otherwise, IP address or Unix domain socket name.
  *
@@ -837,7 +837,7 @@ export declare const ATTR_OTEL_STATUS_DESCRIPTION: "otel.status_description";
  *
  * @note When observed from the client side, and when communicating through an intermediary, `server.address` **SHOULD** represent the server address behind any intermediaries, for example proxies, if it's available.
  */
-export declare const ATTR_SERVER_ADDRESS: "server.address";
+export declare const ATTR_SERVER_ADDRESS: 'server.address'
 /**
  * Server port number.
  *
@@ -847,7 +847,7 @@ export declare const ATTR_SERVER_ADDRESS: "server.address";
  *
  * @note When observed from the client side, and when communicating through an intermediary, `server.port` **SHOULD** represent the server port behind any intermediaries, for example proxies, if it's available.
  */
-export declare const ATTR_SERVER_PORT: "server.port";
+export declare const ATTR_SERVER_PORT: 'server.port'
 /**
  * Logical name of the service.
  *
@@ -855,116 +855,116 @@ export declare const ATTR_SERVER_PORT: "server.port";
  *
  * @note **MUST** be the same for all instances of horizontally scaled services. If the value was not specified, SDKs **MUST** fallback to `unknown_service:` concatenated with [`process.executable.name`](process.md), e.g. `unknown_service:bash`. If `process.executable.name` is not available, the value **MUST** be set to `unknown_service`.
  */
-export declare const ATTR_SERVICE_NAME: "service.name";
+export declare const ATTR_SERVICE_NAME: 'service.name'
 /**
  * The version string of the service API or implementation. The format is not defined by these conventions.
  *
  * @example 2.0.0
  * @example a01dbef8a
  */
-export declare const ATTR_SERVICE_VERSION: "service.version";
+export declare const ATTR_SERVICE_VERSION: 'service.version'
 /**
  * SignalR HTTP connection closure status.
  *
  * @example app_shutdown
  * @example timeout
  */
-export declare const ATTR_SIGNALR_CONNECTION_STATUS: "signalr.connection.status";
+export declare const ATTR_SIGNALR_CONNECTION_STATUS: 'signalr.connection.status'
 /**
  * Enum value "app_shutdown" for attribute {@link ATTR_SIGNALR_CONNECTION_STATUS}.
  *
  * The connection was closed because the app is shutting down.
  */
-export declare const SIGNALR_CONNECTION_STATUS_VALUE_APP_SHUTDOWN: "app_shutdown";
+export declare const SIGNALR_CONNECTION_STATUS_VALUE_APP_SHUTDOWN: 'app_shutdown'
 /**
  * Enum value "normal_closure" for attribute {@link ATTR_SIGNALR_CONNECTION_STATUS}.
  *
  * The connection was closed normally.
  */
-export declare const SIGNALR_CONNECTION_STATUS_VALUE_NORMAL_CLOSURE: "normal_closure";
+export declare const SIGNALR_CONNECTION_STATUS_VALUE_NORMAL_CLOSURE: 'normal_closure'
 /**
  * Enum value "timeout" for attribute {@link ATTR_SIGNALR_CONNECTION_STATUS}.
  *
  * The connection was closed due to a timeout.
  */
-export declare const SIGNALR_CONNECTION_STATUS_VALUE_TIMEOUT: "timeout";
+export declare const SIGNALR_CONNECTION_STATUS_VALUE_TIMEOUT: 'timeout'
 /**
  * [SignalR transport type](https://github.com/dotnet/aspnetcore/blob/main/src/SignalR/docs/specs/TransportProtocols.md)
  *
  * @example web_sockets
  * @example long_polling
  */
-export declare const ATTR_SIGNALR_TRANSPORT: "signalr.transport";
+export declare const ATTR_SIGNALR_TRANSPORT: 'signalr.transport'
 /**
  * Enum value "long_polling" for attribute {@link ATTR_SIGNALR_TRANSPORT}.
  *
  * LongPolling protocol
  */
-export declare const SIGNALR_TRANSPORT_VALUE_LONG_POLLING: "long_polling";
+export declare const SIGNALR_TRANSPORT_VALUE_LONG_POLLING: 'long_polling'
 /**
  * Enum value "server_sent_events" for attribute {@link ATTR_SIGNALR_TRANSPORT}.
  *
  * ServerSentEvents protocol
  */
-export declare const SIGNALR_TRANSPORT_VALUE_SERVER_SENT_EVENTS: "server_sent_events";
+export declare const SIGNALR_TRANSPORT_VALUE_SERVER_SENT_EVENTS: 'server_sent_events'
 /**
  * Enum value "web_sockets" for attribute {@link ATTR_SIGNALR_TRANSPORT}.
  *
  * WebSockets protocol
  */
-export declare const SIGNALR_TRANSPORT_VALUE_WEB_SOCKETS: "web_sockets";
+export declare const SIGNALR_TRANSPORT_VALUE_WEB_SOCKETS: 'web_sockets'
 /**
  * The language of the telemetry SDK.
  */
-export declare const ATTR_TELEMETRY_SDK_LANGUAGE: "telemetry.sdk.language";
+export declare const ATTR_TELEMETRY_SDK_LANGUAGE: 'telemetry.sdk.language'
 /**
  * Enum value "cpp" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_CPP: "cpp";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_CPP: 'cpp'
 /**
  * Enum value "dotnet" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_DOTNET: "dotnet";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_DOTNET: 'dotnet'
 /**
  * Enum value "erlang" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_ERLANG: "erlang";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_ERLANG: 'erlang'
 /**
  * Enum value "go" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_GO: "go";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_GO: 'go'
 /**
  * Enum value "java" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_JAVA: "java";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_JAVA: 'java'
 /**
  * Enum value "nodejs" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_NODEJS: "nodejs";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_NODEJS: 'nodejs'
 /**
  * Enum value "php" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_PHP: "php";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_PHP: 'php'
 /**
  * Enum value "python" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_PYTHON: "python";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_PYTHON: 'python'
 /**
  * Enum value "ruby" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_RUBY: "ruby";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_RUBY: 'ruby'
 /**
  * Enum value "rust" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_RUST: "rust";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_RUST: 'rust'
 /**
  * Enum value "swift" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_SWIFT: "swift";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_SWIFT: 'swift'
 /**
  * Enum value "webjs" for attribute {@link ATTR_TELEMETRY_SDK_LANGUAGE}.
  */
-export declare const TELEMETRY_SDK_LANGUAGE_VALUE_WEBJS: "webjs";
+export declare const TELEMETRY_SDK_LANGUAGE_VALUE_WEBJS: 'webjs'
 /**
  * The name of the telemetry SDK as defined above.
  *
@@ -977,19 +977,19 @@ export declare const TELEMETRY_SDK_LANGUAGE_VALUE_WEBJS: "webjs";
  * The identifier `opentelemetry` is reserved and **MUST NOT** be used in this case.
  * All custom identifiers **SHOULD** be stable across different versions of an implementation.
  */
-export declare const ATTR_TELEMETRY_SDK_NAME: "telemetry.sdk.name";
+export declare const ATTR_TELEMETRY_SDK_NAME: 'telemetry.sdk.name'
 /**
  * The version string of the telemetry SDK.
  *
  * @example 1.2.3
  */
-export declare const ATTR_TELEMETRY_SDK_VERSION: "telemetry.sdk.version";
+export declare const ATTR_TELEMETRY_SDK_VERSION: 'telemetry.sdk.version'
 /**
  * The [URI fragment](https://www.rfc-editor.org/rfc/rfc3986#section-3.5) component
  *
  * @example SemConv
  */
-export declare const ATTR_URL_FRAGMENT: "url.fragment";
+export declare const ATTR_URL_FRAGMENT: 'url.fragment'
 /**
  * Absolute URL describing a network resource according to [RFC3986](https://www.rfc-editor.org/rfc/rfc3986)
  *
@@ -1020,7 +1020,7 @@ export declare const ATTR_URL_FRAGMENT: "url.fragment";
  * When a query string value is redacted, the query string key **SHOULD** still be preserved, e.g.
  * `https://www.example.com/path?color=blue&sig=REDACTED`.
  */
-export declare const ATTR_URL_FULL: "url.full";
+export declare const ATTR_URL_FULL: 'url.full'
 /**
  * The [URI path](https://www.rfc-editor.org/rfc/rfc3986#section-3.3) component
  *
@@ -1028,7 +1028,7 @@ export declare const ATTR_URL_FULL: "url.full";
  *
  * @note Sensitive content provided in `url.path` **SHOULD** be scrubbed when instrumentations can identify it.
  */
-export declare const ATTR_URL_PATH: "url.path";
+export declare const ATTR_URL_PATH: 'url.path'
 /**
  * The [URI query](https://www.rfc-editor.org/rfc/rfc3986#section-3.4) component
  *
@@ -1049,7 +1049,7 @@ export declare const ATTR_URL_PATH: "url.path";
  * When a query string value is redacted, the query string key **SHOULD** still be preserved, e.g.
  * `q=OpenTelemetry&sig=REDACTED`.
  */
-export declare const ATTR_URL_QUERY: "url.query";
+export declare const ATTR_URL_QUERY: 'url.query'
 /**
  * The [URI scheme](https://www.rfc-editor.org/rfc/rfc3986#section-3.1) component identifying the used protocol.
  *
@@ -1057,7 +1057,7 @@ export declare const ATTR_URL_QUERY: "url.query";
  * @example ftp
  * @example telnet
  */
-export declare const ATTR_URL_SCHEME: "url.scheme";
+export declare const ATTR_URL_SCHEME: 'url.scheme'
 /**
  * Value of the [HTTP User-Agent](https://www.rfc-editor.org/rfc/rfc9110.html#field.user-agent) header sent by the client.
  *
@@ -1065,5 +1065,5 @@ export declare const ATTR_URL_SCHEME: "url.scheme";
  * @example Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1
  * @example YourApp/1.0.0 grpc-java-okhttp/1.27.2
  */
-export declare const ATTR_USER_AGENT_ORIGINAL: "user_agent.original";
+export declare const ATTR_USER_AGENT_ORIGINAL: 'user_agent.original'
 //# sourceMappingURL=stable_attributes.d.ts.map

@@ -1,5 +1,5 @@
-import type { InternalOptions, ResponseInternal } from "../../types.js";
-import type { Cookie, SessionStore } from "../utils/cookie.js";
+import type { InternalOptions, ResponseInternal } from '../../types.js'
+import type { Cookie, SessionStore } from '../utils/cookie.js'
 /**
  * Destroys the session.
  * If the session strategy is database,
@@ -7,5 +7,9 @@ import type { Cookie, SessionStore } from "../utils/cookie.js";
  * In any case, the session cookie is cleared and
  * {@link AuthConfig["events"].signOut} is emitted.
  */
-export declare function signOut(cookies: Cookie[], sessionStore: SessionStore, options: InternalOptions): Promise<ResponseInternal>;
+export declare function signOut(
+  cookies: Cookie[],
+  sessionStore: SessionStore,
+  options: InternalOptions,
+): Promise<ResponseInternal>
 //# sourceMappingURL=signout.d.ts.map

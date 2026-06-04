@@ -8,24 +8,24 @@
  *
  * @module providers/azure-ad-b2c
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** @see [Claims](https://learn.microsoft.com/en-us/azure/active-directory-b2c/tokens-overview#claims) */
 export interface AzureADB2CProfile {
-    exp: number;
-    nbf: number;
-    ver: string;
-    iss: string;
-    sub: string;
-    aud: string;
-    iat: number;
-    auth_time: number;
-    oid: string;
-    country: string;
-    name: string;
-    postalCode: string;
-    emails: string[];
-    tfp: string;
-    preferred_username: string;
+  exp: number
+  nbf: number
+  ver: string
+  iss: string
+  sub: string
+  aud: string
+  iat: number
+  auth_time: number
+  oid: string
+  country: string
+  name: string
+  postalCode: string
+  emails: string[]
+  tfp: string
+  preferred_username: string
 }
 /**
  * Add Azure AD B2C login to your page.
@@ -100,5 +100,7 @@ export interface AzureADB2CProfile {
  *
  * :::
  */
-export default function AzureADB2C(options: OIDCUserConfig<AzureADB2CProfile>): OIDCConfig<AzureADB2CProfile>;
+export default function AzureADB2C(
+  options: OIDCUserConfig<AzureADB2CProfile>,
+): OIDCConfig<AzureADB2CProfile>
 //# sourceMappingURL=azure-ad-b2c.d.ts.map

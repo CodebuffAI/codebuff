@@ -14,8 +14,8 @@
  *
  */
 export type WarningCode =
-  | "debug-enabled"
-  | "csrf-disabled"
-  | "env-url-basepath-redundant"
-  | "env-url-basepath-mismatch"
-  | "experimental-webauthn"
+  | 'debug-enabled'
+  | 'csrf-disabled'
+  | 'env-url-basepath-redundant'
+  | 'env-url-basepath-mismatch'
+  | 'experimental-webauthn'

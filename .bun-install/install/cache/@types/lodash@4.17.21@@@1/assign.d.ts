@@ -1,2 +1,2 @@
-import { assign } from "./index";
-export = assign;
+import { assign } from './index'
+export = assign

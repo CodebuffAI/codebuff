@@ -1,2 +1,2 @@
-export declare const hostDetector: import("../../NoopDetector").NoopDetector;
+export declare const hostDetector: import('../../NoopDetector').NoopDetector
 //# sourceMappingURL=HostDetector.d.ts.map

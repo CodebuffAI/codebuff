@@ -9,7 +9,10 @@ export type TmuxStartResult =
   | { status: 'success'; sessionName: string }
   | { status: 'failure'; error: string }
 
-export const CLI_AGENT_MODES: readonly CliAgentMode[] = ['work', 'review'] as const
+export const CLI_AGENT_MODES: readonly CliAgentMode[] = [
+  'work',
+  'review',
+] as const
 
 export interface InputParamDefinition {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object'
@@ -43,7 +46,7 @@ export interface CliAgentConfig {
   /** Custom instructions for review mode. If not provided, uses getDefaultReviewModeInstructions() */
   reviewModeInstructions?: string
   cliSpecificDocs?: string
-  /** 
+  /**
    * If true, skips the preparation phase before starting the tmux session.
    * Use this for agents that test the CLI itself (like codebuff-local-cli)
    * rather than external tools that need context gathering.

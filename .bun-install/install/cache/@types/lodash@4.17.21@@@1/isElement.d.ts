@@ -1,2 +1,2 @@
-import { isElement } from "./index";
-export = isElement;
+import { isElement } from './index'
+export = isElement

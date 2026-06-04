@@ -1,2 +1,2 @@
-import { invoke } from "./index";
-export = invoke;
+import { invoke } from './index'
+export = invoke

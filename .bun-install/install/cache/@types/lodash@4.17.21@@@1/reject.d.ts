@@ -1,2 +1,2 @@
-import { reject } from "./index";
-export = reject;
+import { reject } from './index'
+export = reject

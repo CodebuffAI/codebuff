@@ -1,2 +1,2 @@
-import { unzip } from "../fp";
-export = unzip;
+import { unzip } from '../fp'
+export = unzip

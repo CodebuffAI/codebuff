@@ -1,2 +1,2 @@
-import { isObjectLike } from "./index";
-export = isObjectLike;
+import { isObjectLike } from './index'
+export = isObjectLike

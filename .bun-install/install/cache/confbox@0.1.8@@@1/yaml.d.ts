@@ -1,2 +1,2 @@
-export * from "./dist/yaml";
-export { default } from "./dist/yaml";
+export * from './dist/yaml'
+export { default } from './dist/yaml'

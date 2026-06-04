@@ -6,7 +6,14 @@ import type { JsonType } from '../types'
 // levels originally copied from Sentry to work with the sentry integration
 // and to avoid relying on a frequently changing @sentry/types dependency
 // but provided as an array of literal types, so we can constrain the level below
-export const severityLevels = ['fatal', 'error', 'warning', 'log', 'info', 'debug'] as const
+export const severityLevels = [
+  'fatal',
+  'error',
+  'warning',
+  'log',
+  'info',
+  'debug',
+] as const
 export declare type SeverityLevel = (typeof severityLevels)[number]
 
 export interface PolymorphicEvent {
@@ -44,17 +51,30 @@ export type ExceptionList = Exception[]
 
 export interface Mechanism {
   handled?: boolean
-  type?: 'generic' | 'onunhandledrejection' | 'onuncaughtexception' | 'onconsole' | 'middleware'
+  type?:
+    | 'generic'
+    | 'onunhandledrejection'
+    | 'onuncaughtexception'
+    | 'onconsole'
+    | 'middleware'
   source?: string
   synthetic?: boolean
 }
 
 export type GetModuleFn = (filename: string | undefined) => string | undefined
 
-export type StackParser = (stack: string, skipFirstLines?: number) => StackFrame[]
-export type StackLineParser = (line: string, platform: Platform) => StackFrame | undefined
+export type StackParser = (
+  stack: string,
+  skipFirstLines?: number,
+) => StackFrame[]
+export type StackLineParser = (
+  line: string,
+  platform: Platform,
+) => StackFrame | undefined
 
-export type StackFrameModifierFn = (frames: StackFrame[]) => Promise<StackFrame[]>
+export type StackFrameModifierFn = (
+  frames: StackFrame[],
+) => Promise<StackFrame[]>
 
 export type Platform = 'node:javascript' | 'web:javascript' | 'hermes'
 
@@ -95,7 +115,11 @@ interface Coercer<T, U, C> {
   coerce(input: T, ctx: C): U
 }
 
-export type ErrorTrackingCoercer<T> = Coercer<T, ExceptionLike | undefined, CoercingContext>
+export type ErrorTrackingCoercer<T> = Coercer<
+  T,
+  ExceptionLike | undefined,
+  CoercingContext
+>
 
 interface BaseException {
   type: string

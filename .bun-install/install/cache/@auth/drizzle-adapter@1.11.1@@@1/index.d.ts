@@ -15,7 +15,10 @@
  *
  * @module @auth/drizzle-adapter
  */
-import { DefaultSchema, SqlFlavorOptions } from "./lib/utils.js";
-import type { Adapter } from "@auth/core/adapters";
-export declare function DrizzleAdapter<SqlFlavor extends SqlFlavorOptions>(db: SqlFlavor, schema?: DefaultSchema<SqlFlavor>): Adapter;
+import { DefaultSchema, SqlFlavorOptions } from './lib/utils.js'
+import type { Adapter } from '@auth/core/adapters'
+export declare function DrizzleAdapter<SqlFlavor extends SqlFlavorOptions>(
+  db: SqlFlavor,
+  schema?: DefaultSchema<SqlFlavor>,
+): Adapter
 //# sourceMappingURL=index.d.ts.map

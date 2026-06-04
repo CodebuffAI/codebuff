@@ -1,1 +1,1 @@
-export declare function insertImport(): void;
+export declare function insertImport(): void

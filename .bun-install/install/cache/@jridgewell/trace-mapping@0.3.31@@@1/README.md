@@ -23,7 +23,7 @@ import {
   generatedPositionFor,
   sourceContentFor,
   isIgnored,
-} from '@jridgewell/trace-mapping';
+} from '@jridgewell/trace-mapping'
 
 const tracer = new TraceMap({
   version: 3,
@@ -32,46 +32,46 @@ const tracer = new TraceMap({
   names: ['foo'],
   mappings: 'KAyCIA',
   ignoreList: [],
-});
+})
 
 // Lines start at line 1, columns at column 0.
-const traced = originalPositionFor(tracer, { line: 1, column: 5 });
+const traced = originalPositionFor(tracer, { line: 1, column: 5 })
 assert.deepEqual(traced, {
   source: 'input.js',
   line: 42,
   column: 4,
   name: 'foo',
-});
+})
 
-const content = sourceContentFor(tracer, traced.source);
-assert.strictEqual(content, 'content for input.js');
+const content = sourceContentFor(tracer, traced.source)
+assert.strictEqual(content, 'content for input.js')
 
 const generated = generatedPositionFor(tracer, {
   source: 'input.js',
   line: 42,
   column: 4,
-});
+})
 assert.deepEqual(generated, {
   line: 1,
   column: 5,
-});
+})
 
-const ignored = isIgnored(tracer, 'input.js');
-assert.equal(ignored, false);
+const ignored = isIgnored(tracer, 'input.js')
+assert.equal(ignored, false)
 ```
 
 We also provide a lower level API to get the actual segment that matches our line and column. Unlike
 `originalPositionFor`, `traceSegment` uses a 0-base for `line`:
 
 ```typescript
-import { traceSegment } from '@jridgewell/trace-mapping';
+import { traceSegment } from '@jridgewell/trace-mapping'
 
 // line is 0-base.
-const traced = traceSegment(tracer, /* line */ 0, /* column */ 5);
+const traced = traceSegment(tracer, /* line */ 0, /* column */ 5)
 
 // Segments are [outputColumn, sourcesIndex, sourceLine, sourceColumn, namesIndex]
 // Again, line is 0-base and so is sourceLine
-assert.deepEqual(traced, [5, 0, 41, 4, 0]);
+assert.deepEqual(traced, [5, 0, 41, 4, 0])
 ```
 
 ### SectionedSourceMaps
@@ -83,10 +83,10 @@ helper that can receive either a regular sourcemap or a `SectionedSourceMap` and
 `TraceMap` instance:
 
 ```typescript
-import { AnyMap } from '@jridgewell/trace-mapping';
-const fooOutput = 'foo';
-const barOutput = 'bar';
-const output = [fooOutput, barOutput].join('\n');
+import { AnyMap } from '@jridgewell/trace-mapping'
+const fooOutput = 'foo'
+const barOutput = 'bar'
+const output = [fooOutput, barOutput].join('\n')
 
 const sectioned = new AnyMap({
   version: 3,
@@ -113,19 +113,19 @@ const sectioned = new AnyMap({
       },
     },
   ],
-});
+})
 
 const traced = originalPositionFor(sectioned, {
   line: 2,
   column: 0,
-});
+})
 
 assert.deepEqual(traced, {
   source: 'bar.js',
   line: 1,
   column: 0,
   name: 'bar',
-});
+})
 ```
 
 ## Benchmarks

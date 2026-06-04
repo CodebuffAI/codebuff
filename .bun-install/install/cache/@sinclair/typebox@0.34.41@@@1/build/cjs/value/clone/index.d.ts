@@ -1,1 +1,1 @@
-export * from './clone';
+export * from './clone'

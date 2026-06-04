@@ -1,2 +1,2 @@
-import { unionBy } from "./index";
-export = unionBy;
+import { unionBy } from './index'
+export = unionBy

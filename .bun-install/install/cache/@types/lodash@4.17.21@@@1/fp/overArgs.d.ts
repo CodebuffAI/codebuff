@@ -1,2 +1,2 @@
-import { overArgs } from "../fp";
-export = overArgs;
+import { overArgs } from '../fp'
+export = overArgs

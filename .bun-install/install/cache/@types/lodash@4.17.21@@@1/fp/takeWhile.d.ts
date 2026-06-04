@@ -1,2 +1,2 @@
-import { takeWhile } from "../fp";
-export = takeWhile;
+import { takeWhile } from '../fp'
+export = takeWhile

@@ -155,7 +155,7 @@ interceptor.on(
   'response',
   ({ response, isMockedResponse, request, requestId }) => {
     console.log('response to %s %s was:', request.method, request.url, response)
-  }
+  },
 )
 ```
 
@@ -282,8 +282,8 @@ interceptor.on('request', ({ request, controller }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-      }
-    )
+      },
+    ),
   )
 })
 ```
@@ -342,7 +342,7 @@ interceptor.on(
   'response',
   ({ response, isMockedResponse, request, requestId }) => {
     // react to the incoming response...
-  }
+  },
 )
 ```
 
@@ -357,7 +357,7 @@ interceptor.on(
   'unhandledException',
   ({ error, request, requestId, controller }) => {
     console.log(error)
-  }
+  },
 )
 ```
 

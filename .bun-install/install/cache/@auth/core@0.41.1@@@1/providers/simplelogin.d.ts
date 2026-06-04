@@ -8,15 +8,15 @@
  *
  * @module providers/simplelogin
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface SimpleLoginProfile {
-    id: number;
-    sub: string;
-    email: string;
-    email_verified: boolean;
-    name: string;
-    avatar_url: string | undefined;
-    client: string;
+  id: number
+  sub: string
+  email: string
+  email_verified: boolean
+  name: string
+  avatar_url: string | undefined
+  client: string
 }
 /**
  * Add SimpleLogin login to your page.
@@ -83,5 +83,7 @@ export interface SimpleLoginProfile {
  *
  * :::
  */
-export default function SimpleLogin<P extends SimpleLoginProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function SimpleLogin<P extends SimpleLoginProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=simplelogin.d.ts.map

@@ -1,2 +1,2 @@
-import { difference } from "./index";
-export = difference;
+import { difference } from './index'
+export = difference

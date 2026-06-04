@@ -1,2 +1,2 @@
-import { isArguments } from "./index";
-export = isArguments;
+import { isArguments } from './index'
+export = isArguments

@@ -1,4 +1,4 @@
-export declare function debug(...scope: string[]): (..._: any) => void;
+export declare function debug(...scope: string[]): (..._: any) => void
 /**
  * Returns the root directory of the plugin.
  *
@@ -13,4 +13,7 @@ export declare function debug(...scope: string[]): (..._: any) => void;
  *
  * If no path is found, undefined is returned which will eventually result in a thrown Error from Plugin.
  */
-export declare function findRoot(name: string | undefined, root: string): Promise<string | undefined>;
+export declare function findRoot(
+  name: string | undefined,
+  root: string,
+): Promise<string | undefined>

@@ -1,2 +1,2 @@
-import { isMatch } from "../fp";
-export = isMatch;
+import { isMatch } from '../fp'
+export = isMatch

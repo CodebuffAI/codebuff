@@ -1,2 +1,2 @@
-import { toArray } from "../fp";
-export = toArray;
+import { toArray } from '../fp'
+export = toArray

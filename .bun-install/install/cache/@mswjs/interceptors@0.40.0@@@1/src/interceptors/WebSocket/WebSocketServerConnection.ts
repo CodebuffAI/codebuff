@@ -30,19 +30,19 @@ export abstract class WebSocketServerConnectionProtocol {
   public abstract close(): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketServerEventMap
+    EventType extends keyof WebSocketServerEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
-    options?: AddEventListenerOptions | boolean
+    options?: AddEventListenerOptions | boolean,
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketServerEventMap
+    EventType extends keyof WebSocketServerEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
-    options?: EventListenerOptions | boolean
+    options?: EventListenerOptions | boolean,
   ): void
 }
 
@@ -51,9 +51,7 @@ export abstract class WebSocketServerConnectionProtocol {
  * WebSocket server connection. It's idle by default but you can
  * establish it by calling `server.connect()`.
  */
-export class WebSocketServerConnection
-  implements WebSocketServerConnectionProtocol
-{
+export class WebSocketServerConnection implements WebSocketServerConnectionProtocol {
   /**
    * A WebSocket instance connected to the original server.
    */
@@ -65,7 +63,7 @@ export class WebSocketServerConnection
   constructor(
     private readonly client: WebSocketOverride,
     private readonly transport: WebSocketClassTransport,
-    private readonly createConnection: () => WebSocket
+    private readonly createConnection: () => WebSocket,
   ) {
     this[kEmitter] = new EventTarget()
     this.mockCloseController = new AbortController()
@@ -100,7 +98,7 @@ export class WebSocketServerConnection
 
     this.transport.addEventListener(
       'incoming',
-      this.handleIncomingMessage.bind(this)
+      this.handleIncomingMessage.bind(this),
     )
   }
 
@@ -111,7 +109,7 @@ export class WebSocketServerConnection
   public get socket(): WebSocket {
     invariant(
       this.realWebSocket,
-      'Cannot access "socket" on the original WebSocket server object: the connection is not open. Did you forget to call `server.connect()`?'
+      'Cannot access "socket" on the original WebSocket server object: the connection is not open. Did you forget to call `server.connect()`?',
     )
 
     return this.realWebSocket
@@ -123,7 +121,7 @@ export class WebSocketServerConnection
   public connect(): void {
     invariant(
       !this.realWebSocket || this.realWebSocket.readyState !== WebSocket.OPEN,
-      'Failed to call "connect()" on the original WebSocket instance: the connection already open'
+      'Failed to call "connect()" on the original WebSocket instance: the connection already open',
     )
 
     const realWebSocket = this.createConnection()
@@ -138,10 +136,10 @@ export class WebSocketServerConnection
       'open',
       (event) => {
         this[kEmitter].dispatchEvent(
-          bindEvent(this.realWebSocket!, new Event('open', event))
+          bindEvent(this.realWebSocket!, new Event('open', event)),
         )
       },
-      { once: true }
+      { once: true },
     )
 
     realWebSocket.addEventListener('message', (event) => {
@@ -155,8 +153,8 @@ export class WebSocketServerConnection
           new MessageEvent('incoming', {
             data: event.data,
             origin: event.origin,
-          })
-        )
+          }),
+        ),
       )
     })
 
@@ -169,7 +167,7 @@ export class WebSocketServerConnection
       },
       {
         signal: this.mockCloseController.signal,
-      }
+      },
     )
 
     // Forward the "close" event to let the interceptor handle
@@ -181,13 +179,13 @@ export class WebSocketServerConnection
       },
       {
         signal: this.realCloseController.signal,
-      }
+      },
     )
 
     realWebSocket.addEventListener('error', () => {
       const errorEvent = bindEvent(
         realWebSocket,
-        new Event('error', { cancelable: true })
+        new Event('error', { cancelable: true }),
       )
 
       // Emit the "error" event on the `server` connection
@@ -210,7 +208,7 @@ export class WebSocketServerConnection
   public addEventListener<EventType extends keyof WebSocketServerEventMap>(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
-    options?: AddEventListenerOptions | boolean
+    options?: AddEventListenerOptions | boolean,
   ): void {
     if (!Reflect.has(listener, kBoundListener)) {
       const boundListener = listener.bind(this.client)
@@ -226,7 +224,7 @@ export class WebSocketServerConnection
     this[kEmitter].addEventListener(
       event,
       Reflect.get(listener, kBoundListener) as EventListener,
-      options
+      options,
     )
   }
 
@@ -236,12 +234,12 @@ export class WebSocketServerConnection
   public removeEventListener<EventType extends keyof WebSocketServerEventMap>(
     event: EventType,
     listener: WebSocketEventListener<WebSocketServerEventMap[EventType]>,
-    options?: EventListenerOptions | boolean
+    options?: EventListenerOptions | boolean,
   ): void {
     this[kEmitter].removeEventListener(
       event,
       Reflect.get(listener, kBoundListener) as EventListener,
-      options
+      options,
     )
   }
 
@@ -262,7 +260,7 @@ export class WebSocketServerConnection
     invariant(
       realWebSocket,
       'Failed to call "server.send()" for "%s": the connection is not open. Did you forget to call "server.connect()"?',
-      this.client.url
+      this.client.url,
     )
 
     // Silently ignore writes on the closed original WebSocket.
@@ -282,7 +280,7 @@ export class WebSocketServerConnection
         () => {
           realWebSocket.send(data)
         },
-        { once: true }
+        { once: true },
       )
       return
     }
@@ -300,7 +298,7 @@ export class WebSocketServerConnection
     invariant(
       realWebSocket,
       'Failed to close server connection for "%s": the connection is not open. Did you forget to call "server.connect()"?',
-      this.client.url
+      this.client.url,
     )
 
     // Remove the "close" event listener from the server
@@ -331,8 +329,8 @@ export class WebSocketServerConnection
              */
             code: 1000,
             cancelable: true,
-          })
-        )
+          }),
+        ),
       )
     })
   }
@@ -348,7 +346,7 @@ export class WebSocketServerConnection
         data: event.data,
         origin: event.origin,
         cancelable: true,
-      })
+      }),
     )
 
     /**
@@ -378,8 +376,8 @@ export class WebSocketServerConnection
           new MessageEvent('message', {
             data: event.data,
             origin: event.origin,
-          })
-        )
+          }),
+        ),
       )
     }
   }
@@ -404,7 +402,7 @@ export class WebSocketServerConnection
         reason: event.reason,
         wasClean: event.wasClean,
         cancelable: true,
-      })
+      }),
     )
 
     this[kEmitter].dispatchEvent(closeEvent)

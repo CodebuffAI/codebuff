@@ -8,7 +8,7 @@
  *
  * @module providers/dropbox
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Dropbox login to your page.
@@ -63,25 +63,25 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Dropbox(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "dropbox",
-    name: "Dropbox",
-    type: "oauth",
+    id: 'dropbox',
+    name: 'Dropbox',
+    type: 'oauth',
     authorization: {
-      url: "https://www.dropbox.com/oauth2/authorize",
+      url: 'https://www.dropbox.com/oauth2/authorize',
       params: {
-        token_access_type: "offline",
-        scope: "account_info.read",
+        token_access_type: 'offline',
+        scope: 'account_info.read',
       },
     },
-    token: "https://api.dropboxapi.com/oauth2/token",
+    token: 'https://api.dropboxapi.com/oauth2/token',
     userinfo: {
-      url: "https://api.dropboxapi.com/2/users/get_current_account",
+      url: 'https://api.dropboxapi.com/2/users/get_current_account',
       async request({ tokens, provider }) {
         return await fetch(provider.userinfo?.url as URL, {
-          method: "POST",
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${tokens.access_token}`,
           },
@@ -96,7 +96,7 @@ export default function Dropbox(
         image: profile.profile_photo_url,
       }
     },
-    style: { brandColor: "#0061fe" },
+    style: { brandColor: '#0061fe' },
     options,
   }
 }

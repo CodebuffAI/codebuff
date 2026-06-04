@@ -1,13 +1,13 @@
-import type { SourceMapSegment, ReverseSegment } from './sourcemap-segment';
-import { COLUMN } from './sourcemap-segment';
+import type { SourceMapSegment, ReverseSegment } from './sourcemap-segment'
+import { COLUMN } from './sourcemap-segment'
 
 export type MemoState = {
-  lastKey: number;
-  lastNeedle: number;
-  lastIndex: number;
-};
+  lastKey: number
+  lastNeedle: number
+  lastIndex: number
+}
 
-export let found = false;
+export let found = false
 
 /**
  * A binary search implementation that returns the index if a match is found.
@@ -32,23 +32,23 @@ export function binarySearch(
   high: number,
 ): number {
   while (low <= high) {
-    const mid = low + ((high - low) >> 1);
-    const cmp = haystack[mid][COLUMN] - needle;
+    const mid = low + ((high - low) >> 1)
+    const cmp = haystack[mid][COLUMN] - needle
 
     if (cmp === 0) {
-      found = true;
-      return mid;
+      found = true
+      return mid
     }
 
     if (cmp < 0) {
-      low = mid + 1;
+      low = mid + 1
     } else {
-      high = mid - 1;
+      high = mid - 1
     }
   }
 
-  found = false;
-  return low - 1;
+  found = false
+  return low - 1
 }
 
 export function upperBound(
@@ -57,9 +57,9 @@ export function upperBound(
   index: number,
 ): number {
   for (let i = index + 1; i < haystack.length; index = i++) {
-    if (haystack[i][COLUMN] !== needle) break;
+    if (haystack[i][COLUMN] !== needle) break
   }
-  return index;
+  return index
 }
 
 export function lowerBound(
@@ -68,9 +68,9 @@ export function lowerBound(
   index: number,
 ): number {
   for (let i = index - 1; i >= 0; index = i--) {
-    if (haystack[i][COLUMN] !== needle) break;
+    if (haystack[i][COLUMN] !== needle) break
   }
-  return index;
+  return index
 }
 
 export function memoizedState(): MemoState {
@@ -78,7 +78,7 @@ export function memoizedState(): MemoState {
     lastKey: -1,
     lastNeedle: -1,
     lastIndex: -1,
-  };
+  }
 }
 
 /**
@@ -91,25 +91,25 @@ export function memoizedBinarySearch(
   state: MemoState,
   key: number,
 ): number {
-  const { lastKey, lastNeedle, lastIndex } = state;
+  const { lastKey, lastNeedle, lastIndex } = state
 
-  let low = 0;
-  let high = haystack.length - 1;
+  let low = 0
+  let high = haystack.length - 1
   if (key === lastKey) {
     if (needle === lastNeedle) {
-      found = lastIndex !== -1 && haystack[lastIndex][COLUMN] === needle;
-      return lastIndex;
+      found = lastIndex !== -1 && haystack[lastIndex][COLUMN] === needle
+      return lastIndex
     }
 
     if (needle >= lastNeedle) {
       // lastIndex may be -1 if the previous needle was not found.
-      low = lastIndex === -1 ? 0 : lastIndex;
+      low = lastIndex === -1 ? 0 : lastIndex
     } else {
-      high = lastIndex;
+      high = lastIndex
     }
   }
-  state.lastKey = key;
-  state.lastNeedle = needle;
+  state.lastKey = key
+  state.lastNeedle = needle
 
-  return (state.lastIndex = binarySearch(haystack, needle, low, high));
+  return (state.lastIndex = binarySearch(haystack, needle, low, high))
 }

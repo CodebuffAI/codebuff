@@ -1,2 +1,2 @@
-import { whereEq } from "../fp";
-export = whereEq;
+import { whereEq } from '../fp'
+export = whereEq

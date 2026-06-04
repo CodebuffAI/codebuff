@@ -110,8 +110,8 @@ Use .eslintrc.\* file to configure rules in ESLint < v9. See also: https://eslin
 ```js
 module.exports = {
   root: true,
-  extends: ["plugin:tailwindcss/recommended"],
-};
+  extends: ['plugin:tailwindcss/recommended'],
+}
 ```
 
 If you would like to know about configuration, Learn more in [ESLint docs](https://eslint.org/docs/latest/use/configure/configuration-files)
@@ -121,9 +121,9 @@ If you would like to know about configuration, Learn more in [ESLint docs](https
 Use `eslint.config.js` file to configure rules. This is the default in ESLint v9, but can be used starting from ESLint v8.57.0. See also: https://eslint.org/docs/latest/use/configure/configuration-files-new.
 
 ```js
-import tailwind from "eslint-plugin-tailwindcss";
+import tailwind from 'eslint-plugin-tailwindcss'
 
-export default [...tailwind.configs["flat/recommended"]];
+export default [...tailwind.configs['flat/recommended']]
 ```
 
 If you would like to know about configuration, Learn more in [ESLint docs](https://eslint.org/docs/latest/use/configure/configuration-files-new)
@@ -175,14 +175,13 @@ Our recommendations:
 #### For `eslint.config.js`
 
 - For `js[x]`, `ts[x]`:
-
   - Install the parser: `npm i -D @eslint/js typescript-eslint`
   - Assign it to your files in `eslint.config.js`:
 
     ```js
-    import js from "@eslint/js";
-    import ts from "typescript-eslint";
-    import tailwind from "eslint-plugin-tailwindcss";
+    import js from '@eslint/js'
+    import ts from 'typescript-eslint'
+    import tailwind from 'eslint-plugin-tailwindcss'
 
     export default [
       // add eslint built-in
@@ -191,26 +190,25 @@ Our recommendations:
       // if you would like use more another configuration,
       // see the section: https://typescript-eslint.io/getting-started#details
       ...ts.configs.recommended,
-      ...tailwind.configs["flat/recommended"],
-    ];
+      ...tailwind.configs['flat/recommended'],
+    ]
     ```
 
 - For `vue.js`:
-
   - Install the parser: `npm i -D eslint-plugin-vue`
   - Assign it to your files in `eslint.config.js`:
 
     ```js
-    import vue from "eslint-plugin-vue";
-    import tailwind from "eslint-plugin-tailwindcss";
+    import vue from 'eslint-plugin-vue'
+    import tailwind from 'eslint-plugin-tailwindcss'
 
     export default [
       // add `eslint-plugin-vue` flat config simply
       // if you would like use more another configuration,
       // see the section: https://eslint.vuejs.org/user-guide/#bundle-configurations-eslint-config-js
-      ...vue.configs["flat/recommended"],
-      ...tailwind.configs["flat/recommended"],
-    ];
+      ...vue.configs['flat/recommended'],
+      ...tailwind.configs['flat/recommended'],
+    ]
     ```
 
 ### 4. Add a npm script
@@ -250,21 +248,21 @@ FYI, here are the `default` values:
   settings: {
     tailwindcss: {
       // These are the default values but feel free to customize
-      callees: ["classnames", "clsx", "ctl"],
-      config: "tailwind.config.js", // returned from `loadConfig()` utility if not provided
+      callees: ['classnames', 'clsx', 'ctl'],
+      config: 'tailwind.config.js', // returned from `loadConfig()` utility if not provided
       cssFiles: [
-        "**/*.css",
-        "!**/node_modules",
-        "!**/.*",
-        "!**/dist",
-        "!**/build",
+        '**/*.css',
+        '!**/node_modules',
+        '!**/.*',
+        '!**/dist',
+        '!**/build',
       ],
       cssFilesRefreshRate: 5_000,
       removeDuplicates: true,
       skipClassAttribute: false,
       whitelist: [],
       tags: [], // can be set to e.g. ['tw'] for use in tw`bg-blue`
-      classRegex: "^class(Name)?$", // can be modified to support custom attributes. E.g. "^tw$" for `twin.macro`
+      classRegex: '^class(Name)?$', // can be modified to support custom attributes. E.g. "^tw$" for `twin.macro`
     },
   },
 }
@@ -273,33 +271,33 @@ FYI, here are the `default` values:
 #### For `eslint.config.js`
 
 ```js
-import tailwind from "eslint-plugin-tailwindcss";
+import tailwind from 'eslint-plugin-tailwindcss'
 
 export default [
-  ...tailwind.configs["flat/recommended"],
+  ...tailwind.configs['flat/recommended'],
   {
     settings: {
       tailwindcss: {
         // These are the default values but feel free to customize
-        callees: ["classnames", "clsx", "ctl"],
-        config: "tailwind.config.js", // returned from `loadConfig()` utility if not provided
+        callees: ['classnames', 'clsx', 'ctl'],
+        config: 'tailwind.config.js', // returned from `loadConfig()` utility if not provided
         cssFiles: [
-          "**/*.css",
-          "!**/node_modules",
-          "!**/.*",
-          "!**/dist",
-          "!**/build",
+          '**/*.css',
+          '!**/node_modules',
+          '!**/.*',
+          '!**/dist',
+          '!**/build',
         ],
         cssFilesRefreshRate: 5_000,
         removeDuplicates: true,
         skipClassAttribute: false,
         whitelist: [],
         tags: [], // can be set to e.g. ['tw'] for use in tw`bg-blue`
-        classRegex: "^class(Name)?$", // can be modified to support custom attributes. E.g. "^tw$" for `twin.macro`
+        classRegex: '^class(Name)?$', // can be modified to support custom attributes. E.g. "^tw$" for `twin.macro`
       },
     },
   },
-];
+]
 ```
 
 The plugin will look for each setting in this order and stops searching as soon as it finds the settings:
@@ -315,6 +313,5 @@ The plugin will look for each setting in this order and stops searching as soon 
 - `no-redundant-variant`: e.g. avoid `mx-5 sm:mx-5`, no need to redefine `mx` in `sm:` variant as it uses the same value (`5`)
 
 - `only-valid-arbitrary-values`:
-
   - e.g. avoid `top-[42]`, only `0` value can be unitless.
   - e.g. avoid `text-[rgba(10%,20%,30,50%)]`, can't mix `%` and `0-255`.

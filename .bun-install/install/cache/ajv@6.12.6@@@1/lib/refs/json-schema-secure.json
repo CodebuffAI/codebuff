@@ -7,7 +7,7 @@
     "schemaArray": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#"}
+      "items": { "$ref": "#" }
     }
   },
   "dependencies": {
@@ -24,7 +24,7 @@
       "description": "prevent slow validation of large non-scalar arrays",
       "if": {
         "properties": {
-          "uniqueItems": {"const": true},
+          "uniqueItems": { "const": true },
           "items": {
             "properties": {
               "type": {
@@ -34,7 +34,7 @@
                   },
                   {
                     "type": "array",
-                    "contains": {"enum": ["object", "array"]}
+                    "contains": { "enum": ["object", "array"] }
                   }
                 ]
               }
@@ -56,39 +56,33 @@
     }
   },
   "properties": {
-    "additionalItems": {"$ref": "#"},
-    "additionalProperties": {"$ref": "#"},
+    "additionalItems": { "$ref": "#" },
+    "additionalProperties": { "$ref": "#" },
     "dependencies": {
       "additionalProperties": {
-        "anyOf": [
-          {"type": "array"},
-          {"$ref": "#"}
-        ]
+        "anyOf": [{ "type": "array" }, { "$ref": "#" }]
       }
     },
     "items": {
-      "anyOf": [
-        {"$ref": "#"},
-        {"$ref": "#/definitions/schemaArray"}
-      ]
+      "anyOf": [{ "$ref": "#" }, { "$ref": "#/definitions/schemaArray" }]
     },
     "definitions": {
-      "additionalProperties": {"$ref": "#"}
+      "additionalProperties": { "$ref": "#" }
     },
     "patternProperties": {
-      "additionalProperties": {"$ref": "#"}
+      "additionalProperties": { "$ref": "#" }
     },
     "properties": {
-      "additionalProperties": {"$ref": "#"}
+      "additionalProperties": { "$ref": "#" }
     },
-    "if": {"$ref": "#"},
-    "then": {"$ref": "#"},
-    "else": {"$ref": "#"},
-    "allOf": {"$ref": "#/definitions/schemaArray"},
-    "anyOf": {"$ref": "#/definitions/schemaArray"},
-    "oneOf": {"$ref": "#/definitions/schemaArray"},
-    "not": {"$ref": "#"},
-    "contains": {"$ref": "#"},
-    "propertyNames": {"$ref": "#"}
+    "if": { "$ref": "#" },
+    "then": { "$ref": "#" },
+    "else": { "$ref": "#" },
+    "allOf": { "$ref": "#/definitions/schemaArray" },
+    "anyOf": { "$ref": "#/definitions/schemaArray" },
+    "oneOf": { "$ref": "#/definitions/schemaArray" },
+    "not": { "$ref": "#" },
+    "contains": { "$ref": "#" },
+    "propertyNames": { "$ref": "#" }
   }
 }

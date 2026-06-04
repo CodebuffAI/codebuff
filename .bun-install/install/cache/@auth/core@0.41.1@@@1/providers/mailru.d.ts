@@ -8,7 +8,7 @@
  *
  * @module providers/mailru
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Mailru login to your page.
  *
@@ -59,5 +59,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Mailru(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Mailru(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=mailru.d.ts.map

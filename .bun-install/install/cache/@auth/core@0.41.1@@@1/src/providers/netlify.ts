@@ -9,7 +9,7 @@
  * @module providers/netlify
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Netlify login to your page.
@@ -65,15 +65,15 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Netlify(
-  config: OAuthUserConfig<Record<string, any>>
+  config: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "netlify",
-    name: "Netlify",
-    type: "oauth",
-    authorization: "https://app.netlify.com/authorize?scope",
-    token: "https://api.netlify.com/oauth/token",
-    userinfo: "https://api.netlify.com/api/v1/user",
+    id: 'netlify',
+    name: 'Netlify',
+    type: 'oauth',
+    authorization: 'https://app.netlify.com/authorize?scope',
+    token: 'https://api.netlify.com/oauth/token',
+    userinfo: 'https://api.netlify.com/api/v1/user',
     profile(profile) {
       return {
         id: profile.id,
@@ -83,7 +83,7 @@ export default function Netlify(
       }
     },
     style: {
-      brandColor: "#32e6e2",
+      brandColor: '#32e6e2',
     },
     options: config,
   }

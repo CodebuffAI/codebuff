@@ -8,10 +8,15 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<
   PromiseRejectionEvent | EventWithDetailReason
 > {
   match(err: unknown): err is PromiseRejectionEvent | EventWithDetailReason {
-    return isBuiltin(err, 'PromiseRejectionEvent') || this.isCustomEventWrappingRejection(err)
+    return (
+      isBuiltin(err, 'PromiseRejectionEvent') ||
+      this.isCustomEventWrappingRejection(err)
+    )
   }
 
-  private isCustomEventWrappingRejection(err: unknown): err is EventWithDetailReason {
+  private isCustomEventWrappingRejection(
+    err: unknown,
+  ): err is EventWithDetailReason {
     if (!isEvent(err)) {
       return false
     }
@@ -23,7 +28,10 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<
     }
   }
 
-  coerce(err: PromiseRejectionEvent | EventWithDetailReason, ctx: CoercingContext): ExceptionLike | undefined {
+  coerce(
+    err: PromiseRejectionEvent | EventWithDetailReason,
+    ctx: CoercingContext,
+  ): ExceptionLike | undefined {
     const reason = this.getUnhandledRejectionReason(err)
     if (isPrimitive(reason)) {
       return {
@@ -37,7 +45,9 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<
     }
   }
 
-  private getUnhandledRejectionReason(error: PromiseRejectionEvent | EventWithDetailReason): unknown {
+  private getUnhandledRejectionReason(
+    error: PromiseRejectionEvent | EventWithDetailReason,
+  ): unknown {
     try {
       // PromiseRejectionEvents store the object of the rejection under 'reason'
       // see https://developer.mozilla.org/en-US/docs/Web/API/PromiseRejectionEvent
@@ -50,7 +60,12 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<
       // the CustomEvent's `detail` attribute, since they're not part of CustomEvent's spec
       // see https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent and
       // https://github.com/getsentry/sentry-javascript/issues/2380
-      if ('detail' in error && error.detail != null && typeof error.detail === 'object' && 'reason' in error.detail) {
+      if (
+        'detail' in error &&
+        error.detail != null &&
+        typeof error.detail === 'object' &&
+        'reason' in error.detail
+      ) {
         return error.detail.reason
       }
     } catch {

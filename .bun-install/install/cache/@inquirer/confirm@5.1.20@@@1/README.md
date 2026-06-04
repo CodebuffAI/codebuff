@@ -51,11 +51,11 @@ yarn add @inquirer/confirm
 # Usage
 
 ```js
-import { confirm } from '@inquirer/prompts';
+import { confirm } from '@inquirer/prompts'
 // Or
 // import confirm from '@inquirer/confirm';
 
-const answer = await confirm({ message: 'Continue?' });
+const answer = await confirm({ message: 'Continue?' })
 ```
 
 ## Options
@@ -73,17 +73,17 @@ You can theme a prompt by passing a `theme` object option. The theme object only
 
 ```ts
 type Theme = {
-  prefix: string | { idle: string; done: string };
+  prefix: string | { idle: string; done: string }
   spinner: {
-    interval: number;
-    frames: string[];
-  };
+    interval: number
+    frames: string[]
+  }
   style: {
-    answer: (text: string) => string;
-    message: (text: string, status: 'idle' | 'done' | 'loading') => string;
-    defaultAnswer: (text: string) => string;
-  };
-};
+    answer: (text: string) => string
+    message: (text: string, status: 'idle' | 'done' | 'loading') => string
+    defaultAnswer: (text: string) => string
+  }
+}
 ```
 
 # License

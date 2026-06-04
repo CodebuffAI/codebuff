@@ -6,6 +6,7 @@ import type {
   ContentBlock,
   AgentContentBlock,
   AskUserContentBlock,
+  ToolContentBlock,
 } from '../types/chat'
 
 /**
@@ -607,9 +608,72 @@ export interface UpdateToolBlockOptions {
   toolOutput: unknown[]
 }
 
+const getFirstToolOutputValue = (toolOutput: unknown[]): unknown => {
+  const firstOutput = toolOutput?.[0]
+  return firstOutput &&
+    typeof firstOutput === 'object' &&
+    'value' in firstOutput
+    ? (firstOutput as { value: unknown }).value
+    : undefined
+}
+
+const formatTransactionToolOutput = (toolOutput: unknown[]): string => {
+  const value = getFirstToolOutputValue(toolOutput)
+  if (!value || typeof value !== 'object') {
+    return JSON.stringify(toolOutput, null, 2)
+  }
+
+  const result = value as Record<string, unknown>
+  if (typeof result.errorMessage === 'string') return result.errorMessage
+  if (typeof result.error === 'string') return result.error
+
+  if (typeof result.message === 'string') {
+    const files = Array.isArray(result.files) ? result.files : []
+    if (files.length === 0) return result.message
+
+    const fileList = files
+      .map((file) => {
+        const entry = file as Record<string, unknown>
+        return typeof entry.path === 'string'
+          ? entry.path
+          : typeof entry.file === 'string'
+            ? entry.file
+            : null
+      })
+      .filter((path): path is string => typeof path === 'string')
+      .map((path) => `- ${path}`)
+      .join('\n')
+
+    return fileList ? `${result.message}\n${fileList}` : result.message
+  }
+
+  return JSON.stringify(toolOutput, null, 2)
+}
+
+const formatToolOutput = (
+  toolName: ToolContentBlock['toolName'],
+  toolOutput: unknown[],
+): string => {
+  if (toolName === 'run_terminal_command') {
+    const parsed = getFirstToolOutputValue(toolOutput) as
+      | { stdout?: string; stderr?: string }
+      | undefined
+    if (parsed?.stdout || parsed?.stderr) {
+      return (parsed.stdout || '') + (parsed.stderr || '')
+    }
+    return JSON.stringify(toolOutput, null, 2)
+  }
+
+  if (toolName === 'edit_transaction' || toolName === 'propose_edit_transaction') {
+    return formatTransactionToolOutput(toolOutput)
+  }
+
+  return JSON.stringify(toolOutput, null, 2)
+}
+
 /**
  * Updates tool blocks with their output when tool results arrive.
- * Handles special formatting for terminal command output.
+ * Handles special formatting for terminal command and transaction output.
  * Recursively processes nested agent blocks.
  */
 export const updateToolBlockWithOutput = (
@@ -620,18 +684,11 @@ export const updateToolBlockWithOutput = (
 
   return blocks.map((block) => {
     if (block.type === 'tool' && block.toolCallId === toolCallId) {
-      let output: string
-      if (block.toolName === 'run_terminal_command') {
-        const parsed = (toolOutput?.[0] as any)?.value
-        if (parsed?.stdout || parsed?.stderr) {
-          output = (parsed.stdout || '') + (parsed.stderr || '')
-        } else {
-          output = JSON.stringify(toolOutput, null, 2)
-        }
-      } else {
-        output = JSON.stringify(toolOutput, null, 2)
+      return {
+        ...block,
+        output: formatToolOutput(block.toolName, toolOutput),
+        outputRaw: toolOutput,
       }
-      return { ...block, output }
     } else if (block.type === 'agent' && block.blocks) {
       const updatedBlocks = updateToolBlockWithOutput(block.blocks, options)
       // Avoid creating new block if nested blocks didn't change

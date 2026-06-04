@@ -1,1 +1,1 @@
-export * from './awaited';
+export * from './awaited'

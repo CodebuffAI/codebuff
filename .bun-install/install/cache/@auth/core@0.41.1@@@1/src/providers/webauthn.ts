@@ -3,28 +3,28 @@ import {
   generateRegistrationOptions,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
-} from "@simplewebauthn/server"
-import { MissingAdapter } from "../errors.js"
+} from '@simplewebauthn/server'
+import { MissingAdapter } from '../errors.js'
 
-import type { CommonProviderOptions, CredentialInput } from "./index.js"
+import type { CommonProviderOptions, CredentialInput } from './index.js'
 import type {
   GenerateRegistrationOptionsOpts,
   GenerateAuthenticationOptionsOpts,
   VerifyAuthenticationResponseOpts,
   VerifyRegistrationResponseOpts,
-} from "@simplewebauthn/server"
+} from '@simplewebauthn/server'
 
 import type {
   InternalOptions,
   RequestInternal,
   SemverString,
   User,
-} from "../types.js"
+} from '../types.js'
 
-export type WebAuthnProviderType = "webauthn"
+export type WebAuthnProviderType = 'webauthn'
 
 export const DEFAULT_WEBAUTHN_TIMEOUT = 5 * 60 * 1000 // 5 minutes
-export const DEFAULT_SIMPLEWEBAUTHN_BROWSER_VERSION: SemverString = "v9.0.1"
+export const DEFAULT_SIMPLEWEBAUTHN_BROWSER_VERSION: SemverString = 'v9.0.1'
 
 export type RelayingParty = {
   /** Relaying Party ID. Use the website's domain name. */
@@ -46,38 +46,38 @@ type RelayingPartyArray = {
 
 export type GetUserInfo = (
   options: InternalOptions<WebAuthnProviderType>,
-  request: RequestInternal
+  request: RequestInternal,
 ) => Promise<
   | { user: User; exists: true }
-  | { user: Omit<User, "id">; exists: false }
+  | { user: Omit<User, 'id'>; exists: false }
   | null
 >
 
 type ConfigurableAuthenticationOptions = Omit<
   GenerateAuthenticationOptionsOpts,
-  "rpID" | "allowCredentials" | "challenge"
+  'rpID' | 'allowCredentials' | 'challenge'
 >
 type ConfigurableRegistrationOptions = Omit<
   GenerateRegistrationOptionsOpts,
-  | "rpName"
-  | "rpID"
-  | "userID"
-  | "userName"
-  | "challenge"
-  | "userDisplayName"
-  | "excludeCredentials"
+  | 'rpName'
+  | 'rpID'
+  | 'userID'
+  | 'userName'
+  | 'challenge'
+  | 'userDisplayName'
+  | 'excludeCredentials'
 >
 type ConfigurableVerifyAuthenticationOptions = Omit<
   VerifyAuthenticationResponseOpts,
-  | "expectedChallenge"
-  | "expectedOrigin"
-  | "expectedRPID"
-  | "authenticator"
-  | "response"
+  | 'expectedChallenge'
+  | 'expectedOrigin'
+  | 'expectedRPID'
+  | 'authenticator'
+  | 'response'
 >
 type ConfigurableVerifyRegistrationOptions = Omit<
   VerifyRegistrationResponseOpts,
-  "expectedChallenge" | "expectedOrigin" | "expectedRPID" | "response"
+  'expectedChallenge' | 'expectedOrigin' | 'expectedRPID' | 'response'
 >
 
 export interface WebAuthnConfig extends CommonProviderOptions {
@@ -93,7 +93,7 @@ export interface WebAuthnConfig extends CommonProviderOptions {
    */
   getRelayingParty: (
     options: InternalOptions<WebAuthnProviderType>,
-    request: RequestInternal
+    request: RequestInternal,
   ) => RelayingParty
   /**
    * Enable conditional UI.
@@ -196,11 +196,11 @@ export interface WebAuthnConfig extends CommonProviderOptions {
  * :::
  */
 export default function WebAuthn(
-  config: Partial<WebAuthnConfig>
+  config: Partial<WebAuthnConfig>,
 ): WebAuthnConfig {
   return {
-    id: "webauthn",
-    name: "WebAuthn",
+    id: 'webauthn',
+    name: 'WebAuthn',
     enableConditionalUI: true,
     simpleWebAuthn: {
       generateAuthenticationOptions,
@@ -212,16 +212,16 @@ export default function WebAuthn(
     registrationOptions: { timeout: DEFAULT_WEBAUTHN_TIMEOUT },
     formFields: {
       email: {
-        label: "Email",
+        label: 'Email',
         required: true,
-        autocomplete: "username webauthn",
+        autocomplete: 'username webauthn',
       },
     },
     simpleWebAuthnBrowserVersion: DEFAULT_SIMPLEWEBAUTHN_BROWSER_VERSION,
     getUserInfo,
     getRelayingParty,
     ...config,
-    type: "webauthn",
+    type: 'webauthn',
   }
 }
 
@@ -241,15 +241,15 @@ const getUserInfo: GetUserInfo = async (options, request) => {
   const { adapter } = options
   if (!adapter)
     throw new MissingAdapter(
-      "WebAuthn provider requires a database adapter to be configured"
+      'WebAuthn provider requires a database adapter to be configured',
     )
 
   // Get email address from the query.
   const { query, body, method } = request
-  const email = (method === "POST" ? body?.email : query?.email) as unknown
+  const email = (method === 'POST' ? body?.email : query?.email) as unknown
 
   // If email is not provided, return null
-  if (!email || typeof email !== "string") return null
+  if (!email || typeof email !== 'string') return null
 
   const existingUser = await adapter.getUserByEmail(email)
   if (existingUser) {
@@ -266,7 +266,7 @@ const getUserInfo: GetUserInfo = async (options, request) => {
  */
 function getRelayingParty(
   /** The options object containing the provider and URL information. */
-  options: InternalOptions<WebAuthnProviderType>
+  options: InternalOptions<WebAuthnProviderType>,
 ): RelayingParty {
   const { provider, url } = options
   const { relayingParty } = provider

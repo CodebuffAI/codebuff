@@ -8,7 +8,7 @@
  *
  * @module providers/faceit
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add FACEIT login to your page.
@@ -62,21 +62,21 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function FACEIT(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "faceit",
-    name: "FACEIT",
-    type: "oauth",
-    authorization: "https://accounts.faceit.com/accounts?redirect_popup=true",
+    id: 'faceit',
+    name: 'FACEIT',
+    type: 'oauth',
+    authorization: 'https://accounts.faceit.com/accounts?redirect_popup=true',
     // @ts-expect-error - TODO fix this
     headers: {
       Authorization: `Basic ${Buffer.from(
-        `${options.clientId}:${options.clientSecret}`
-      ).toString("base64")}`,
+        `${options.clientId}:${options.clientSecret}`,
+      ).toString('base64')}`,
     },
-    token: "https://api.faceit.com/auth/v1/oauth/token",
-    userinfo: "https://api.faceit.com/auth/v1/resources/userinfo",
+    token: 'https://api.faceit.com/auth/v1/oauth/token',
+    userinfo: 'https://api.faceit.com/auth/v1/resources/userinfo',
     profile(profile) {
       return {
         id: profile.guid,

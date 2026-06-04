@@ -69,7 +69,7 @@ it('patch the Headers object correctly after dispose and reapply', async () => {
   const { res } = await waitForClientRequest(request)
 
   expect(res.rawHeaders).toEqual(
-    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes'])
+    expect.arrayContaining(['X-CustoM-HeadeR', 'Yes']),
   )
   expect(res.headers['x-custom-header']).toEqual('Yes')
 })

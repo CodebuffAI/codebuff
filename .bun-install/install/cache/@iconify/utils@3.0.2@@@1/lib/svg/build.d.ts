@@ -1,22 +1,24 @@
-import { IconifyIconCustomisations } from "../customisations/defaults.js";
-import { IconifyIcon } from "../icon/defaults.js";
-import { SVGViewBox } from "./viewbox.js";
+import { IconifyIconCustomisations } from '../customisations/defaults.js'
+import { IconifyIcon } from '../icon/defaults.js'
+import { SVGViewBox } from './viewbox.js'
 /**
  * Interface for getSVGData() result
  */
 interface IconifyIconBuildResult {
   attributes: {
-    width?: string;
-    height?: string;
-    viewBox: string;
-  };
-  viewBox: SVGViewBox;
-  body: string;
+    width?: string
+    height?: string
+    viewBox: string
+  }
+  viewBox: SVGViewBox
+  body: string
 }
 /**
  * Check if value should be unset. Allows multiple keywords
  */
-declare const isUnsetKeyword: (value: unknown) => value is "unset" | "undefined" | "none";
+declare const isUnsetKeyword: (
+  value: unknown,
+) => value is 'unset' | 'undefined' | 'none'
 /**
  * Get SVG attributes and content from icon + customisations
  *
@@ -27,5 +29,8 @@ declare const isUnsetKeyword: (value: unknown) => value is "unset" | "undefined"
  * Result should be converted to <svg> by platform specific parser.
  * Use replaceIDs to generate unique IDs for body.
  */
-declare function iconToSVG(icon: IconifyIcon, customisations?: IconifyIconCustomisations): IconifyIconBuildResult;
-export { IconifyIconBuildResult, iconToSVG, isUnsetKeyword };
+declare function iconToSVG(
+  icon: IconifyIcon,
+  customisations?: IconifyIconCustomisations,
+): IconifyIconBuildResult
+export { IconifyIconBuildResult, iconToSVG, isUnsetKeyword }

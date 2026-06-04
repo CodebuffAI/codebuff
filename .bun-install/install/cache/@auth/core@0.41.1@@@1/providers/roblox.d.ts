@@ -8,19 +8,19 @@
  *
  * @module providers/roblox
  */
-import type { OIDCUserConfig, OIDCConfig } from "./index.js";
+import type { OIDCUserConfig, OIDCConfig } from './index.js'
 /**
  * Corresponds to the user structure documented here:
  * https://create.roblox.com/docs/cloud/reference/oauth2 (Example User with Profile Scope)
  */
 export interface RobloxProfile extends Record<string, any> {
-    sub: string;
-    name: string;
-    nickname: string;
-    preferred_username: string;
-    created_at: number;
-    profile: string;
-    picture: string | null;
+  sub: string
+  name: string
+  nickname: string
+  preferred_username: string
+  created_at: number
+  profile: string
+  picture: string | null
 }
 /**
  * Add Roblox login to your page.
@@ -63,5 +63,7 @@ export interface RobloxProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Roblox(options: OIDCUserConfig<RobloxProfile>): OIDCConfig<RobloxProfile>;
+export default function Roblox(
+  options: OIDCUserConfig<RobloxProfile>,
+): OIDCConfig<RobloxProfile>
 //# sourceMappingURL=roblox.d.ts.map

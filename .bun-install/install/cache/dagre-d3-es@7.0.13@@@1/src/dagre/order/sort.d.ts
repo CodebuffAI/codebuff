@@ -1,3 +1,6 @@
-export function sort(entries: any, biasRight: any): {
-    vs: any[];
-};
+export function sort(
+  entries: any,
+  biasRight: any,
+): {
+  vs: any[]
+}

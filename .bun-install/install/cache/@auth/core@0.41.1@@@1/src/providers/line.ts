@@ -8,7 +8,7 @@
  *
  * @module providers/line
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface LineProfile extends Record<string, any> {
   iss: string
@@ -82,18 +82,18 @@ export interface LineProfile extends Record<string, any> {
  * :::
  */
 export default function LINE<P extends LineProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "line",
-    name: "LINE",
-    type: "oidc",
-    issuer: "https://access.line.me",
+    id: 'line',
+    name: 'LINE',
+    type: 'oidc',
+    issuer: 'https://access.line.me',
     client: {
-      id_token_signed_response_alg: "HS256",
+      id_token_signed_response_alg: 'HS256',
     },
-    style: { bg: "#00C300", text: "#fff" },
+    style: { bg: '#00C300', text: '#fff' },
     options,
-    checks: ["state"],
+    checks: ['state'],
   }
 }

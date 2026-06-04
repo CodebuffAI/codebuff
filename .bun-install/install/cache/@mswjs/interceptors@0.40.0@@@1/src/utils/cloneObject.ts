@@ -15,7 +15,7 @@ function isPlainObject(obj?: Record<string, any>): boolean {
 }
 
 export function cloneObject<ObjectType extends Record<string, any>>(
-  obj: ObjectType
+  obj: ObjectType,
 ): ObjectType {
   logger.info('cloning object:', obj)
 
@@ -27,7 +27,7 @@ export function cloneObject<ObjectType extends Record<string, any>>(
       acc[key] = isPlainObject(value) ? cloneObject(value) : value
       return acc
     },
-    {}
+    {},
   )
 
   return isPlainObject(obj)

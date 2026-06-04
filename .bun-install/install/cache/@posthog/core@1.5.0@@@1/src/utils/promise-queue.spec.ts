@@ -37,7 +37,7 @@ describe('promise-queue', () => {
     queue.add(
       buildRecursivePromise(100, () => {
         queue.add(buildPromise(100))
-      })
+      }),
     )
     expect(queue.length).toBe(1)
     await queue.join()

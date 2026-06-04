@@ -13,9 +13,9 @@ npm install default-browser
 ## Usage
 
 ```js
-import defaultBrowser from 'default-browser';
+import defaultBrowser from 'default-browser'
 
-console.log(await defaultBrowser());
+console.log(await defaultBrowser())
 //=> {name: 'Safari', id: 'com.apple.Safari'}
 ```
 

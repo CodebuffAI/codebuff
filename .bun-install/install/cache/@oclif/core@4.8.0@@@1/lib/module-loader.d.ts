@@ -1,5 +1,5 @@
-import { Command } from './command';
-import { Config as IConfig, Plugin as IPlugin } from './interfaces';
+import { Command } from './command'
+import { Config as IConfig, Plugin as IPlugin } from './interfaces'
 /**
  * Loads and returns a module.
  *
@@ -16,7 +16,10 @@ import { Config as IConfig, Plugin as IPlugin } from './interfaces';
  *
  * @returns {Promise<*>} The entire ESM module from dynamic import or CJS module by require.
  */
-export declare function load<T = any>(config: IConfig | IPlugin, modulePath: string): Promise<T>;
+export declare function load<T = any>(
+  config: IConfig | IPlugin,
+  modulePath: string,
+): Promise<T>
 /**
  * Loads a module and returns an object with the module and data about the module.
  *
@@ -34,11 +37,14 @@ export declare function load<T = any>(config: IConfig | IPlugin, modulePath: str
  * @returns {Promise<{isESM: boolean, module: *, filePath: string}>} An object with the loaded module & data including
  *                                                                   file path and whether the module is ESM.
  */
-export declare function loadWithData<T = any>(config: IConfig | IPlugin, modulePath: string): Promise<{
-    filePath: string;
-    isESM: boolean;
-    module: T;
-}>;
+export declare function loadWithData<T = any>(
+  config: IConfig | IPlugin,
+  modulePath: string,
+): Promise<{
+  filePath: string
+  isESM: boolean
+  module: T
+}>
 /**
  * Loads a module and returns an object with the module and data about the module.
  *
@@ -54,11 +60,14 @@ export declare function loadWithData<T = any>(config: IConfig | IPlugin, moduleP
  * @returns {Promise<{isESM: boolean, module: *, filePath: string}>} An object with the loaded module & data including
  *                                                                   file path and whether the module is ESM.
  */
-export declare function loadWithDataFromManifest<T = any>(cached: Command.Cached, modulePath: string): Promise<{
-    filePath: string;
-    isESM: boolean;
-    module: T;
-}>;
+export declare function loadWithDataFromManifest<T = any>(
+  cached: Command.Cached,
+  modulePath: string,
+): Promise<{
+  filePath: string
+  isESM: boolean
+  module: T
+}>
 /**
  * For `.js` files uses `getPackageType` to determine if `type` is set to `module` in associated `package.json`. If
  * the `modulePath` provided ends in `.mjs` it is assumed to be ESM.
@@ -68,4 +77,4 @@ export declare function loadWithDataFromManifest<T = any>(cached: Command.Cached
  * @returns {boolean} The modulePath is an ES Module.
  * @see https://www.npmjs.com/package/get-package-type
  */
-export declare function isPathModule(filePath: string): boolean;
+export declare function isPathModule(filePath: string): boolean

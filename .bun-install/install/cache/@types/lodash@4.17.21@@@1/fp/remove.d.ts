@@ -1,2 +1,2 @@
-import { remove } from "../fp";
-export = remove;
+import { remove } from '../fp'
+export = remove

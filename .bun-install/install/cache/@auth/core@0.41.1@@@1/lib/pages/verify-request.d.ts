@@ -1,8 +1,10 @@
-import type { Theme } from "../../types.js";
+import type { Theme } from '../../types.js'
 interface VerifyRequestPageProps {
-    url: URL;
-    theme: Theme;
+  url: URL
+  theme: Theme
 }
-export default function VerifyRequestPage(props: VerifyRequestPageProps): import("preact").JSX.Element;
-export {};
+export default function VerifyRequestPage(
+  props: VerifyRequestPageProps,
+): import('preact').JSX.Element
+export {}
 //# sourceMappingURL=verify-request.d.ts.map

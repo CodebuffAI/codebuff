@@ -1,2 +1,2 @@
-import { size } from "./index";
-export = size;
+import { size } from './index'
+export = size

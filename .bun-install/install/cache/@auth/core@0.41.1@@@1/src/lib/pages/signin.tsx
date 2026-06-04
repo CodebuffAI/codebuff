@@ -2,23 +2,23 @@ import type {
   InternalProvider,
   SignInPageErrorParam,
   Theme,
-} from "../../types.js"
-import { webauthnScript } from "../utils/webauthn-client.js"
+} from '../../types.js'
+import { webauthnScript } from '../utils/webauthn-client.js'
 
-const signinErrors: Record<SignInPageErrorParam | "default", string> = {
-  default: "Unable to sign in.",
-  Signin: "Try signing in with a different account.",
-  OAuthSignin: "Try signing in with a different account.",
-  OAuthCallbackError: "Try signing in with a different account.",
-  OAuthCreateAccount: "Try signing in with a different account.",
-  EmailCreateAccount: "Try signing in with a different account.",
-  Callback: "Try signing in with a different account.",
+const signinErrors: Record<SignInPageErrorParam | 'default', string> = {
+  default: 'Unable to sign in.',
+  Signin: 'Try signing in with a different account.',
+  OAuthSignin: 'Try signing in with a different account.',
+  OAuthCallbackError: 'Try signing in with a different account.',
+  OAuthCreateAccount: 'Try signing in with a different account.',
+  EmailCreateAccount: 'Try signing in with a different account.',
+  Callback: 'Try signing in with a different account.',
   OAuthAccountNotLinked:
-    "To confirm your identity, sign in with the same account you used originally.",
-  EmailSignin: "The e-mail could not be sent.",
+    'To confirm your identity, sign in with the same account you used originally.',
+  EmailSignin: 'The e-mail could not be sent.',
   CredentialsSignin:
-    "Sign in failed. Check the details you provided are correct.",
-  SessionRequired: "Please sign in to access this page.",
+    'Sign in failed. Check the details you provided are correct.',
+  SessionRequired: 'Please sign in to access this page.',
 }
 
 function ConditionalUIScript(providerID: string) {
@@ -51,26 +51,26 @@ export default function SigninPage(props: {
     error: errorType,
   } = props
 
-  if (typeof document !== "undefined" && theme?.brandColor) {
+  if (typeof document !== 'undefined' && theme?.brandColor) {
     document.documentElement.style.setProperty(
-      "--brand-color",
-      theme.brandColor
+      '--brand-color',
+      theme.brandColor,
     )
   }
 
-  if (typeof document !== "undefined" && theme?.buttonText) {
+  if (typeof document !== 'undefined' && theme?.buttonText) {
     document.documentElement.style.setProperty(
-      "--button-text-color",
-      theme.buttonText
+      '--button-text-color',
+      theme.buttonText,
     )
   }
 
   const error = errorType && (signinErrors[errorType] ?? signinErrors.default)
 
-  const providerLogoPath = "https://authjs.dev/img/providers"
+  const providerLogoPath = 'https://authjs.dev/img/providers'
 
   const conditionalUIProviderID = providers.find(
-    (provider) => provider.type === "webauthn" && provider.enableConditionalUI
+    (provider) => provider.type === 'webauthn' && provider.enableConditionalUI,
   )?.id
 
   return (
@@ -102,17 +102,17 @@ export default function SigninPage(props: {
         {theme?.logo && <img src={theme.logo} alt="Logo" className="logo" />}
         {providers.map((provider, i) => {
           let bg, brandColor, logo
-          if (provider.type === "oauth" || provider.type === "oidc") {
+          if (provider.type === 'oauth' || provider.type === 'oidc') {
             ;({
-              bg = "#fff",
+              bg = '#fff',
               brandColor,
               logo = `${providerLogoPath}/${provider.id}.svg`,
             } = provider.style ?? {})
           }
-          const color = brandColor ?? bg ?? "#fff"
+          const color = brandColor ?? bg ?? '#fff'
           return (
             <div key={provider.id} className="provider">
-              {provider.type === "oauth" || provider.type === "oidc" ? (
+              {provider.type === 'oauth' || provider.type === 'oidc' ? (
                 <form action={provider.signinUrl} method="POST">
                   <input type="hidden" name="csrfToken" value={csrfToken} />
                   {callbackUrl && (
@@ -126,15 +126,15 @@ export default function SigninPage(props: {
                     type="submit"
                     className="button"
                     style={{
-                      "--provider-brand-color": color,
+                      '--provider-brand-color': color,
                     }}
                     tabIndex={0}
                   >
                     <span
                       style={{
                         filter:
-                          "invert(1) grayscale(1) brightness(1.3) contrast(9000)",
-                        "mix-blend-mode": "luminosity",
+                          'invert(1) grayscale(1) brightness(1.3) contrast(9000)',
+                        'mix-blend-mode': 'luminosity',
                         opacity: 0.95,
                       }}
                     >
@@ -144,14 +144,14 @@ export default function SigninPage(props: {
                   </button>
                 </form>
               ) : null}
-              {(provider.type === "email" ||
-                provider.type === "credentials" ||
-                provider.type === "webauthn") &&
+              {(provider.type === 'email' ||
+                provider.type === 'credentials' ||
+                provider.type === 'webauthn') &&
                 i > 0 &&
-                providers[i - 1].type !== "email" &&
-                providers[i - 1].type !== "credentials" &&
-                providers[i - 1].type !== "webauthn" && <hr />}
-              {provider.type === "email" && (
+                providers[i - 1].type !== 'email' &&
+                providers[i - 1].type !== 'credentials' &&
+                providers[i - 1].type !== 'webauthn' && <hr />}
+              {provider.type === 'email' && (
                 <form action={provider.signinUrl} method="POST">
                   <input type="hidden" name="csrfToken" value={csrfToken} />
                   <label
@@ -174,7 +174,7 @@ export default function SigninPage(props: {
                   </button>
                 </form>
               )}
-              {provider.type === "credentials" && (
+              {provider.type === 'credentials' && (
                 <form action={provider.callbackUrl} method="POST">
                   <input type="hidden" name="csrfToken" value={csrfToken} />
                   {Object.keys(provider.credentials).map((credential) => {
@@ -189,9 +189,9 @@ export default function SigninPage(props: {
                         <input
                           name={credential}
                           id={`input-${credential}-for-${provider.id}-provider`}
-                          type={provider.credentials[credential].type ?? "text"}
+                          type={provider.credentials[credential].type ?? 'text'}
                           placeholder={
-                            provider.credentials[credential].placeholder ?? ""
+                            provider.credentials[credential].placeholder ?? ''
                           }
                           {...provider.credentials[credential]}
                         />
@@ -203,7 +203,7 @@ export default function SigninPage(props: {
                   </button>
                 </form>
               )}
-              {provider.type === "webauthn" && (
+              {provider.type === 'webauthn' && (
                 <form
                   action={provider.callbackUrl}
                   method="POST"
@@ -223,9 +223,9 @@ export default function SigninPage(props: {
                           name={field}
                           data-form-field
                           id={`input-${field}-for-${provider.id}-provider`}
-                          type={provider.formFields[field].type ?? "text"}
+                          type={provider.formFields[field].type ?? 'text'}
                           placeholder={
-                            provider.formFields[field].placeholder ?? ""
+                            provider.formFields[field].placeholder ?? ''
                           }
                           {...provider.formFields[field]}
                         />
@@ -241,9 +241,9 @@ export default function SigninPage(props: {
                   </button>
                 </form>
               )}
-              {(provider.type === "email" ||
-                provider.type === "credentials" ||
-                provider.type === "webauthn") &&
+              {(provider.type === 'email' ||
+                provider.type === 'credentials' ||
+                provider.type === 'webauthn') &&
                 i + 1 < providers.length && <hr />}
             </div>
           )

@@ -8,19 +8,19 @@
  *
  * @module providers/wechat
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /** @see [Get the authenticated user](https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Authorized_Interface_Calling_UnionID.html) */
 export interface WeChatProfile {
-    openid: string;
-    nickname: string;
-    sex: number;
-    province: string;
-    city: string;
-    country: string;
-    headimgurl: string;
-    privilege: string[];
-    unionid: string;
-    [claim: string]: unknown;
+  openid: string
+  nickname: string
+  sex: number
+  province: string
+  city: string
+  country: string
+  headimgurl: string
+  privilege: string[]
+  unionid: string
+  [claim: string]: unknown
 }
 /**
  * Add WeChat login to your page and make requests to [WeChat APIs](https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Authorized_Interface_Calling_UnionID.html).
@@ -72,7 +72,9 @@ export interface WeChatProfile {
  *
  * :::
  */
-export default function WeChat(options: OAuthUserConfig<WeChatProfile> & {
-    platformType?: "OfficialAccount" | "WebsiteApp";
-}): OAuthConfig<WeChatProfile>;
+export default function WeChat(
+  options: OAuthUserConfig<WeChatProfile> & {
+    platformType?: 'OfficialAccount' | 'WebsiteApp'
+  },
+): OAuthConfig<WeChatProfile>
 //# sourceMappingURL=wechat.d.ts.map

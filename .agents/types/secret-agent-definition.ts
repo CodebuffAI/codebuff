@@ -10,8 +10,10 @@ export type AllToolNames =
   | 'spawn_agent_inline'
   | 'update_subgoal'
 
-export interface SecretAgentDefinition
-  extends Omit<AgentDefinition, 'toolNames'> {
+export interface SecretAgentDefinition extends Omit<
+  AgentDefinition,
+  'toolNames'
+> {
   /** Tools this agent can use. */
   toolNames?: AllToolNames[]
 }

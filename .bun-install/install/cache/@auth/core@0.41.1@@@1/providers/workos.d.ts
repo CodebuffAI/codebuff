@@ -8,27 +8,27 @@
  *
  * @module providers/workos
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * - {@link https://workos.com/docs/reference/sso/profile | The returned profile object}
  */
 export interface WorkOSProfile extends Record<string, any> {
-    object: string;
-    id: string;
-    organization_id: string;
-    connection_id: string;
-    connection_type: string;
-    idp_id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    raw_attributes: {
-        id: string;
-        email: string;
-        lastName: string;
-        firstName: string;
-        picture: string;
-    };
+  object: string
+  id: string
+  organization_id: string
+  connection_id: string
+  connection_type: string
+  idp_id: string
+  email: string
+  first_name: string
+  last_name: string
+  raw_attributes: {
+    id: string
+    email: string
+    lastName: string
+    firstName: string
+    picture: string
+  }
 }
 /**
  * Add WorkOS login to your page.
@@ -148,7 +148,9 @@ export interface WorkOSProfile extends Record<string, any> {
  *
  * :::
  */
-export default function WorkOS<P extends WorkOSProfile>(options: OAuthUserConfig<P> & {
-    connection?: string;
-}): OAuthConfig<P>;
+export default function WorkOS<P extends WorkOSProfile>(
+  options: OAuthUserConfig<P> & {
+    connection?: string
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=workos.d.ts.map

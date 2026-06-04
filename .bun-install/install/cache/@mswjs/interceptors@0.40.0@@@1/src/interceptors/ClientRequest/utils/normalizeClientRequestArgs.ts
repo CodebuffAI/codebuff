@@ -41,7 +41,7 @@ export type ClientRequestArgs =
 
 function resolveRequestOptions(
   args: ClientRequestArgs,
-  url: URL
+  url: URL,
 ): RequestOptions {
   // Calling `fetch` provides only URL to `ClientRequest`
   // without any `RequestOptions` or callback.
@@ -95,7 +95,7 @@ function overrideUrlByRequestOptions(url: URL, options: RequestOptions): URL {
 }
 
 function resolveCallback(
-  args: ClientRequestArgs
+  args: ClientRequestArgs,
 ): HttpRequestCallback | undefined {
   return typeof args[1] === 'function' ? args[1] : args[2]
 }
@@ -103,7 +103,7 @@ function resolveCallback(
 export type NormalizedClientRequestArgs = [
   url: URL,
   options: ResolvedRequestOptions,
-  callback?: HttpRequestCallback
+  callback?: HttpRequestCallback,
 ]
 
 /**
@@ -112,7 +112,7 @@ export type NormalizedClientRequestArgs = [
  */
 export function normalizeClientRequestArgs(
   defaultProtocol: string,
-  args: ClientRequestArgs
+  args: ClientRequestArgs,
 ): NormalizedClientRequestArgs {
   let url: URL
   let options: ResolvedRequestOptions
@@ -200,12 +200,12 @@ export function normalizeClientRequestArgs(
     return args[1] === undefined
       ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl])
       : typeof args[1] === 'function'
-      ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
-      : normalizeClientRequestArgs(defaultProtocol, [
-          resolvedUrl,
-          args[1],
-          args[2],
-        ])
+        ? normalizeClientRequestArgs(defaultProtocol, [resolvedUrl, args[1]])
+        : normalizeClientRequestArgs(defaultProtocol, [
+            resolvedUrl,
+            args[1],
+            args[2],
+          ])
   }
   // Handle a given "RequestOptions" object as-is
   // and derive the URL instance from it.
@@ -224,7 +224,7 @@ export function normalizeClientRequestArgs(
     callback = resolveCallback(args)
   } else {
     throw new Error(
-      `Failed to construct ClientRequest with these parameters: ${args}`
+      `Failed to construct ClientRequest with these parameters: ${args}`,
     )
   }
 
@@ -242,7 +242,7 @@ export function normalizeClientRequestArgs(
   if (!options._defaultAgent) {
     logger.info(
       'has no default agent, setting the default agent for "%s"',
-      options.protocol
+      options.protocol,
     )
 
     options._defaultAgent =

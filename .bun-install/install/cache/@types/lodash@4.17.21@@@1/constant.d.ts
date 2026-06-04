@@ -1,2 +1,2 @@
-import { constant } from "./index";
-export = constant;
+import { constant } from './index'
+export = constant

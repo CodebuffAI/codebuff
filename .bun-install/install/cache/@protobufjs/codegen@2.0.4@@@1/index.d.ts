@@ -1,4 +1,4 @@
-export = codegen;
+export = codegen
 
 /**
  * Appends code to the function's body.
@@ -7,7 +7,10 @@ export = codegen;
  * @returns Itself or the generated function if finished
  * @throws {Error} If format parameter counts do not match
  */
-type Codegen = (formatStringOrScope?: (string|{ [k: string]: any }), ...formatParams: any[]) => (Codegen|Function);
+type Codegen = (
+  formatStringOrScope?: string | { [k: string]: any },
+  ...formatParams: any[]
+) => Codegen | Function
 
 /**
  * Begins generating a function.
@@ -15,17 +18,19 @@ type Codegen = (formatStringOrScope?: (string|{ [k: string]: any }), ...formatPa
  * @param [functionName] Function name if not anonymous
  * @returns Appender that appends code to the function's body
  */
-declare function codegen(functionParams: string[], functionName?: string): Codegen;
+declare function codegen(
+  functionParams: string[],
+  functionName?: string,
+): Codegen
 
 /**
  * Begins generating a function.
  * @param [functionName] Function name if not anonymous
  * @returns Appender that appends code to the function's body
  */
-declare function codegen(functionName?: string): Codegen;
+declare function codegen(functionName?: string): Codegen
 
 declare namespace codegen {
-
-    /** When set to `true`, codegen will log generated code to console. Useful for debugging. */
-    let verbose: boolean;
+  /** When set to `true`, codegen will log generated code to console. Useful for debugging. */
+  let verbose: boolean
 }

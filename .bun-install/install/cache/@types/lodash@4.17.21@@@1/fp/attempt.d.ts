@@ -1,2 +1,2 @@
-import { attempt } from "../fp";
-export = attempt;
+import { attempt } from '../fp'
+export = attempt

@@ -8,7 +8,7 @@
  *
  * @module providers/faceit
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add FACEIT login to your page.
  *
@@ -60,5 +60,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function FACEIT(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function FACEIT(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=faceit.d.ts.map

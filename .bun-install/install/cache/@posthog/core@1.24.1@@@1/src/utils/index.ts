@@ -34,7 +34,10 @@ export interface RetriableOptions {
   retryCheck: (err: unknown) => boolean
 }
 
-export async function retriable<T>(fn: () => Promise<T>, props: RetriableOptions): Promise<T> {
+export async function retriable<T>(
+  fn: () => Promise<T>,
+  props: RetriableOptions,
+): Promise<T> {
   let lastError = null
 
   for (let i = 0; i < props.retryCount + 1; i++) {
@@ -84,18 +87,24 @@ export const isError = (x: unknown): x is Error => {
 }
 
 export function getFetch(): FetchLike | undefined {
-  return typeof fetch !== 'undefined' ? fetch : typeof globalThis.fetch !== 'undefined' ? globalThis.fetch : undefined
+  return typeof fetch !== 'undefined'
+    ? fetch
+    : typeof globalThis.fetch !== 'undefined'
+      ? globalThis.fetch
+      : undefined
 }
 
 export function allSettled<T>(
-  promises: (Promise<T> | null | undefined)[]
-): Promise<({ status: 'fulfilled'; value: T } | { status: 'rejected'; reason: any })[]> {
+  promises: (Promise<T> | null | undefined)[],
+): Promise<
+  ({ status: 'fulfilled'; value: T } | { status: 'rejected'; reason: any })[]
+> {
   return Promise.all(
     promises.map((p) =>
       (p ?? Promise.resolve()).then(
         (value: any) => ({ status: 'fulfilled' as const, value }),
-        (reason: any) => ({ status: 'rejected' as const, reason })
-      )
-    )
+        (reason: any) => ({ status: 'rejected' as const, reason }),
+      ),
+    ),
   )
 }

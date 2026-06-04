@@ -1,2 +1,2 @@
-import { compact } from "../fp";
-export = compact;
+import { compact } from '../fp'
+export = compact

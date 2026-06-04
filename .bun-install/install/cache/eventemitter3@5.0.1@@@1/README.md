@@ -45,7 +45,7 @@ https://unpkg.com/eventemitter3@latest/dist/eventemitter3.umd.min.js
 After installation the only thing you need to do is require the module:
 
 ```js
-var EventEmitter = require('eventemitter3');
+var EventEmitter = require('eventemitter3')
 ```
 
 And you're ready to create your own EventEmitter instances. For the API
@@ -62,16 +62,16 @@ longer have the overhead of an event that required `fn.bind` in order to get a
 custom `this` value.
 
 ```js
-var EE = new EventEmitter()
-  , context = { foo: 'bar' };
+var EE = new EventEmitter(),
+  context = { foo: 'bar' }
 
 function emitted() {
-  console.log(this === context); // true
+  console.log(this === context) // true
 }
 
-EE.once('event-name', emitted, context);
-EE.on('another-event', emitted, context);
-EE.removeListener('another-event', emitted, context);
+EE.once('event-name', emitted, context)
+EE.on('another-event', emitted, context)
+EE.removeListener('another-event', emitted, context)
 ```
 
 ### Tests and benchmarks

@@ -1,2 +1,2 @@
-import { rangeStep } from "../fp";
-export = rangeStep;
+import { rangeStep } from '../fp'
+export = rangeStep

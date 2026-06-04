@@ -1,11 +1,11 @@
 interface AggregateLogOptions {
-    project: string;
-    log: string;
-    executorName: string;
+  project: string
+  log: string
+  executorName: string
 }
 interface AggregateLogItem {
-    log: string;
-    projects: Set<string>;
+  log: string
+  projects: Set<string>
 }
 /**
  * @example
@@ -19,9 +19,9 @@ interface AggregateLogItem {
  * migrationLogs.flushLogs()
  */
 export declare class AggregatedLog {
-    logs: Map<string, Map<string, AggregateLogItem>>;
-    addLog({ project, log, executorName }: AggregateLogOptions): void;
-    reset(): void;
-    flushLogs(): void;
+  logs: Map<string, Map<string, AggregateLogItem>>
+  addLog({ project, log, executorName }: AggregateLogOptions): void
+  reset(): void
+  flushLogs(): void
 }
-export {};
+export {}

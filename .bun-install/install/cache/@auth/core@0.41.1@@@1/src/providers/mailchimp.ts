@@ -8,7 +8,7 @@
  *
  * @module providers/mailchimp
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Mailchimp login to your page.
@@ -64,15 +64,15 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Mailchimp(
-  config: OAuthUserConfig<Record<string, any>>
+  config: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "mailchimp",
-    name: "Mailchimp",
-    type: "oauth",
-    authorization: "https://login.mailchimp.com/oauth2/authorize",
-    token: "https://login.mailchimp.com/oauth2/token",
-    userinfo: "https://login.mailchimp.com/oauth2/metadata",
+    id: 'mailchimp',
+    name: 'Mailchimp',
+    type: 'oauth',
+    authorization: 'https://login.mailchimp.com/oauth2/authorize',
+    token: 'https://login.mailchimp.com/oauth2/token',
+    userinfo: 'https://login.mailchimp.com/oauth2/metadata',
     profile(profile) {
       return {
         id: profile.login.login_id,
@@ -82,8 +82,8 @@ export default function Mailchimp(
       }
     },
     style: {
-      bg: "#000",
-      text: "#fff",
+      bg: '#000',
+      text: '#fff',
     },
     options: config,
   }

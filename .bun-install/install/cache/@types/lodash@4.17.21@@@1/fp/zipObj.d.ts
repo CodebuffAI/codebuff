@@ -1,2 +1,2 @@
-import { zipObj } from "../fp";
-export = zipObj;
+import { zipObj } from '../fp'
+export = zipObj

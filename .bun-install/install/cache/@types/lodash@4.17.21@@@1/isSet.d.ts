@@ -1,2 +1,2 @@
-import { isSet } from "./index";
-export = isSet;
+import { isSet } from './index'
+export = isSet

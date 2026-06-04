@@ -1,2 +1,2 @@
-import { assignAllWith } from "../fp";
-export = assignAllWith;
+import { assignAllWith } from '../fp'
+export = assignAllWith

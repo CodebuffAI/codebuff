@@ -1,2 +1,2 @@
-import { toPlainObject } from "../fp";
-export = toPlainObject;
+import { toPlainObject } from '../fp'
+export = toPlainObject

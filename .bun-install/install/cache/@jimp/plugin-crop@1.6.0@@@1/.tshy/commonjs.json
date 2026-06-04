@@ -6,11 +6,7 @@
     "../src/**/*.tsx",
     "../src/**/*.json"
   ],
-  "exclude": [
-    "../**/*.test.ts",
-    "../src/**/*.mts",
-    "../src/package.json"
-  ],
+  "exclude": ["../**/*.test.ts", "../src/**/*.mts", "../src/package.json"],
   "compilerOptions": {
     "outDir": "../.tshy-build/commonjs"
   }

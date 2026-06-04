@@ -1,2 +1,2 @@
-import { isNumber } from "../fp";
-export = isNumber;
+import { isNumber } from '../fp'
+export = isNumber

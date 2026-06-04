@@ -8,7 +8,7 @@
  *
  * @module providers/authentik
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface AuthentikProfile extends Record<string, any> {
   iss: string
@@ -89,12 +89,12 @@ export interface AuthentikProfile extends Record<string, any> {
  * :::
  */
 export default function Authentik<P extends AuthentikProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "authentik",
-    name: "Authentik",
-    type: "oidc",
+    id: 'authentik',
+    name: 'Authentik',
+    type: 'oidc',
     options,
   }
 }

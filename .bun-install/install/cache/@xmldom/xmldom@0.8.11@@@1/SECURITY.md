@@ -7,10 +7,10 @@ The most up-to-date version of this document can be found at <https://github.com
 This repository contains the code for the libraries `xmldom` and `@xmldom/xmldom` on npm.
 
 As long as we didn't publish v1, we aim to maintain the last two minor versions with security fixes. If it is possible we provide security fixes as path versions.
-If you think there is a good reason to also patch an earlier version let us know in a github issue or the release discussion once the fix has been provided. 
+If you think there is a good reason to also patch an earlier version let us know in a github issue or the release discussion once the fix has been provided.
 The maintainers will consider it and if we agree and have/find the required resources, a patch for that version will be provided.
 
-Please notice that [we are no longer able to publish the (unscoped) `xmldom` package](https://github.com/xmldom/xmldom/issues/271), 
+Please notice that [we are no longer able to publish the (unscoped) `xmldom` package](https://github.com/xmldom/xmldom/issues/271),
 and that all existing versions of `xmldom` are affected by at least one security vulnerability and should be considered deprecated.
 You can still report issues regarding `xmldom` as described below.
 
@@ -18,7 +18,7 @@ If you need help with migrating from `xmldom` to `@xmldom/xmldom`, file a github
 
 ## Reporting vulnerabilities
 
-Please email reports about any security related issues you find to `security@xmldom.org`, which will forward it to the list of maintainers. 
+Please email reports about any security related issues you find to `security@xmldom.org`, which will forward it to the list of maintainers.
 The maintainers will try to respond within 7 calendar days. (If nobody peplies after 7 days, please us send a reminder!)
 As part of you communication please make sure to always hit "Reply all", so all maintainers are kept in the loop.
 
@@ -29,7 +29,7 @@ In addition, please include the following information along with your report:
 - An explanation who can exploit this vulnerability, and what they gain when doing so -- write an attack scenario. This will help us evaluate your report quickly, especially if the issue is complex.
 - Whether this vulnerability public or known to third parties. If it is, please provide details.
 
-If you believe that an existing (public) issue is security-related, please send an email to `security@xmldom.org`. 
+If you believe that an existing (public) issue is security-related, please send an email to `security@xmldom.org`.
 The email should include the issue URL and a short description of why it should be handled according to this security policy.
 
 Once an issue is reported, the maintainers use the following disclosure process:

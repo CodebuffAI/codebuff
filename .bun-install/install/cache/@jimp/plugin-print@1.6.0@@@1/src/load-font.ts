@@ -2,7 +2,7 @@ import {
   isWebWorker,
   loadBitmapFontData,
   processBitmapFont,
-} from "./load-bitmap-font.js";
+} from './load-bitmap-font.js'
 
 /**
  * Loads a Bitmap Font from a file.
@@ -20,16 +20,16 @@ import {
  * ```
  */
 export async function loadFont(file: string) {
-  let fileOrBuffer: string | Buffer = file;
+  let fileOrBuffer: string | Buffer = file
 
-  if (typeof window === "undefined" && !isWebWorker) {
-    const { existsSync, promises: fs } = await import("fs");
+  if (typeof window === 'undefined' && !isWebWorker) {
+    const { existsSync, promises: fs } = await import('fs')
 
     if (existsSync(file)) {
-      fileOrBuffer = await fs.readFile(file);
+      fileOrBuffer = await fs.readFile(file)
     }
   }
 
-  const data = await loadBitmapFontData(fileOrBuffer);
-  return processBitmapFont(file, data);
+  const data = await loadBitmapFontData(fileOrBuffer)
+  return processBitmapFont(file, data)
 }

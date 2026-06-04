@@ -1,2 +1,2 @@
-import { forEach } from "../fp";
-export = forEach;
+import { forEach } from '../fp'
+export = forEach

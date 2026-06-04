@@ -56,14 +56,14 @@ Dotenv is a zero-dependency module that loads environment variables from a `.env
 [![LICENSE](https://img.shields.io/github/license/motdotla/dotenv.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/motdotla/dotenv-expand/graph/badge.svg?token=pawWEyaMfg)](https://codecov.io/gh/motdotla/dotenv-expand)
 
-* [🌱 Install](#-install)
-* [🏗️ Usage (.env)](#%EF%B8%8F-usage)
-* [🌴 Multiple Environments 🆕](#-manage-multiple-environments)
-* [🚀 Deploying (.env.vault) 🆕](#-deploying)
-* [📚 Examples](#-examples)
-* [📖 Docs](#-documentation)
-* [❓ FAQ](#-faq)
-* [⏱️ Changelog](./CHANGELOG.md)
+- [🌱 Install](#-install)
+- [🏗️ Usage (.env)](#%EF%B8%8F-usage)
+- [🌴 Multiple Environments 🆕](#-manage-multiple-environments)
+- [🚀 Deploying (.env.vault) 🆕](#-deploying)
+- [📚 Examples](#-examples)
+- [📖 Docs](#-documentation)
+- [❓ FAQ](#-faq)
+- [⏱️ Changelog](./CHANGELOG.md)
 
 ## 🌱 Install
 
@@ -242,7 +242,7 @@ Regenerate your `.env.vault` file.
 $ npx dotenv-vault build
 ```
 
-*ℹ️  🔐 Vault Managed vs 💻 Locally Managed: The above example, for brevity's sake, used the 🔐 Vault Managed solution to manage your `.env.vault` file. You can instead use the 💻 Locally Managed solution. [Read more here](https://github.com/dotenv-org/dotenv-vault#how-do-i-use--locally-managed-dotenv-vault). Our vision is that other platforms and orchestration tools adopt the `.env.vault` standard as they did the `.env` standard. We don't expect to be the only ones providing tooling to manage and generate `.env.vault` files.*
+_ℹ️ 🔐 Vault Managed vs 💻 Locally Managed: The above example, for brevity's sake, used the 🔐 Vault Managed solution to manage your `.env.vault` file. You can instead use the 💻 Locally Managed solution. [Read more here](https://github.com/dotenv-org/dotenv-vault#how-do-i-use--locally-managed-dotenv-vault). Our vision is that other platforms and orchestration tools adopt the `.env.vault` standard as they did the `.env` standard. We don't expect to be the only ones providing tooling to manage and generate `.env.vault` files._
 
 <a href="https://github.com/dotenv-org/dotenv-vault#-manage-multiple-environments">Learn more at dotenv-vault: Manage Multiple Environments</a>
 
@@ -273,7 +273,7 @@ Hello production
 
 ### dotenv-vault
 
-*Note: Requires dotenv >= 16.1.0*
+_Note: Requires dotenv >= 16.1.0_
 
 Encrypt your `.env.vault` file.
 
@@ -296,7 +296,7 @@ heroku config:set DOTENV_KEY=dotenv://:key_1234…@dotenvx.com/vault/.env.vault?
 
 That's it! On deploy, your `.env.vault` file will be decrypted and its secrets injected as environment variables – just in time.
 
-*ℹ️ A note from [Mot](https://github.com/motdotla): Until recently, we did not have an opinion on how and where to store your secrets in production. We now strongly recommend generating a `.env.vault` file. It's the best way to prevent your secrets from being scattered across multiple servers and cloud providers – protecting you from breaches like the [CircleCI breach](https://techcrunch.com/2023/01/05/circleci-breach/). Also it unlocks interoperability WITHOUT native third-party integrations. Third-party integrations are [increasingly risky](https://coderpad.io/blog/development/heroku-github-breach/) to our industry. They may be the 'du jour' of today, but we imagine a better future.*
+_ℹ️ A note from [Mot](https://github.com/motdotla): Until recently, we did not have an opinion on how and where to store your secrets in production. We now strongly recommend generating a `.env.vault` file. It's the best way to prevent your secrets from being scattered across multiple servers and cloud providers – protecting you from breaches like the [CircleCI breach](https://techcrunch.com/2023/01/05/circleci-breach/). Also it unlocks interoperability WITHOUT native third-party integrations. Third-party integrations are [increasingly risky](https://coderpad.io/blog/development/heroku-github-breach/) to our industry. They may be the 'du jour' of today, but we imagine a better future._
 
 <a href="https://github.com/dotenv-org/dotenv-vault#-deploying">Learn more at dotenv-vault: Deploying</a>
 
@@ -304,32 +304,32 @@ That's it! On deploy, your `.env.vault` file will be decrypted and its secrets i
 
 See [examples](https://github.com/dotenv-org/examples) of using dotenv with various frameworks, languages, and configurations.
 
-* [nodejs](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs)
-* [nodejs (debug on)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs-debug)
-* [nodejs (override on)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs-override)
-* [nodejs (processEnv override)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-custom-target)
-* [nodejs (DOTENV_KEY override)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-vault-custom-target)
-* [esm](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-esm)
-* [esm (preload)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-esm-preload)
-* [typescript](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript)
-* [typescript parse](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript-parse)
-* [typescript config](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript-config)
-* [webpack](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-webpack)
-* [webpack (plugin)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-webpack2)
-* [react](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-react)
-* [react (typescript)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-react-typescript)
-* [express](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-express)
-* [nestjs](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nestjs)
-* [fastify](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-fastify)
+- [nodejs](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs)
+- [nodejs (debug on)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs-debug)
+- [nodejs (override on)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nodejs-override)
+- [nodejs (processEnv override)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-custom-target)
+- [nodejs (DOTENV_KEY override)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-vault-custom-target)
+- [esm](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-esm)
+- [esm (preload)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-esm-preload)
+- [typescript](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript)
+- [typescript parse](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript-parse)
+- [typescript config](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-typescript-config)
+- [webpack](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-webpack)
+- [webpack (plugin)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-webpack2)
+- [react](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-react)
+- [react (typescript)](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-react-typescript)
+- [express](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-express)
+- [nestjs](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-nestjs)
+- [fastify](https://github.com/dotenv-org/examples/tree/master/usage/dotenv-fastify)
 
 ## 📖 Documentation
 
 Dotenv exposes four functions:
 
-* `config`
-* `parse`
-* `populate`
-* `decrypt`
+- `config`
+- `parse`
+- `populate`
+- `decrypt`
 
 ### Config
 
@@ -363,9 +363,9 @@ require('dotenv').config({ path: '/custom/path/to/.env' })
 
 By default, `config` will look for a file called .env in the current working directory.
 
-Pass in multiple files as an array, and they will be parsed in order and combined with `process.env` (or `option.processEnv`, if set). The first value set for a variable will win, unless the `options.override` flag is set, in which case the last value set will win.  If a value already exists in `process.env` and the `options.override` flag is NOT set, no changes will be made to that value. 
+Pass in multiple files as an array, and they will be parsed in order and combined with `process.env` (or `option.processEnv`, if set). The first value set for a variable will win, unless the `options.override` flag is set, in which case the last value set will win. If a value already exists in `process.env` and the `options.override` flag is NOT set, no changes will be made to that value.
 
-```js  
+```js
 require('dotenv').config({ path: ['.env.local', '.env'] })
 ```
 
@@ -393,7 +393,7 @@ require('dotenv').config({ debug: process.env.DEBUG })
 
 Default: `false`
 
-Override any environment variables that have already been set on your machine with values from your .env file(s). If multiple files have been provided in `option.path` the override will also be used as each file is combined with the next. Without `override` being set, the first value wins. With `override` set the last value wins. 
+Override any environment variables that have already been set on your machine with values from your .env file(s). If multiple files have been provided in `option.path` the override will also be used as each file is combined with the next. Without `override` being set, the first value wins. With `override` set the last value wins.
 
 ```js
 require('dotenv').config({ override: true })
@@ -420,7 +420,10 @@ Default: `process.env.DOTENV_KEY`
 Pass the `DOTENV_KEY` directly to config options. Defaults to looking for `process.env.DOTENV_KEY` environment variable. Note this only applies to decrypting `.env.vault` files. If passed as null or undefined, or not passed at all, dotenv falls back to its traditional job of parsing a `.env` file.
 
 ```js
-require('dotenv').config({ DOTENV_KEY: 'dotenv://:key_1234…@dotenvx.com/vault/.env.vault?environment=production' })
+require('dotenv').config({
+  DOTENV_KEY:
+    'dotenv://:key_1234…@dotenvx.com/vault/.env.vault?environment=production',
+})
 ```
 
 ### Parse
@@ -501,8 +504,10 @@ For example, decrypting a simple ciphertext:
 
 ```js
 const dotenv = require('dotenv')
-const ciphertext = 's7NYXa809k/bVSPwIAmJhPJmEGTtU0hG58hOZy7I0ix6y5HP8LsHBsZCYC/gw5DDFy5DgOcyd18R'
-const decryptionKey = 'ddcaa26504cd70a6fef9801901c3981538563a1767c297cb8416e8a38c62fe00'
+const ciphertext =
+  's7NYXa809k/bVSPwIAmJhPJmEGTtU0hG58hOZy7I0ix6y5HP8LsHBsZCYC/gw5DDFy5DgOcyd18R'
+const decryptionKey =
+  'ddcaa26504cd70a6fef9801901c3981538563a1767c297cb8416e8a38c62fe00'
 
 const decrypted = dotenv.decrypt(ciphertext, decryptionKey)
 
@@ -608,12 +613,15 @@ A little background..
 What does this mean in plain language? It means you would think the following would work but it won't.
 
 `errorReporter.mjs`:
+
 ```js
 import { Client } from 'best-error-reporting-service'
 
 export default new Client(process.env.API_KEY)
 ```
+
 `index.mjs`:
+
 ```js
 // Note: this is INCORRECT and will not work
 import * as dotenv from 'dotenv'
@@ -654,7 +662,7 @@ Configure your `webpack.config.js` to something like the following.
 ```js
 require('dotenv').config()
 
-const path = require('path');
+const path = require('path')
 const webpack = require('webpack')
 
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
@@ -670,11 +678,11 @@ module.exports = {
     new NodePolyfillPlugin(),
     new webpack.DefinePlugin({
       'process.env': {
-        HELLO: JSON.stringify(process.env.HELLO)
-      }
+        HELLO: JSON.stringify(process.env.HELLO),
+      },
     }),
-  ]
-};
+  ],
+}
 ```
 
 Alternatively, just use [dotenv-webpack](https://github.com/mrsteele/dotenv-webpack) which does this and more behind the scenes for you.
@@ -693,7 +701,7 @@ A `.env.vault` file is an encrypted version of your development (and ci, staging
 
 ### What if I accidentally commit my `.env` file to code?
 
-Remove it, [remove git history](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) and then install the [git pre-commit hook](https://github.com/dotenvx/dotenvx#pre-commit) to prevent this from ever happening again. 
+Remove it, [remove git history](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) and then install the [git pre-commit hook](https://github.com/dotenvx/dotenvx#pre-commit) to prevent this from ever happening again.
 
 ```
 brew install dotenvx/brew/dotenvx

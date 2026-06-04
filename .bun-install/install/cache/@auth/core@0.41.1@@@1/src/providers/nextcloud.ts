@@ -9,7 +9,7 @@
  * @module providers/nextcloud
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Represents the Nextcloud user profile data returned from the `/ocs/v1.php/cloud/users/`.
@@ -166,12 +166,12 @@ export interface NextcloudProfile extends Record<string, any> {
  * :::
  */
 export default function Nextcloud(
-  options: OAuthUserConfig<NextcloudProfile>
+  options: OAuthUserConfig<NextcloudProfile>,
 ): OAuthConfig<NextcloudProfile> {
   return {
-    id: "nextcloud",
-    name: "Nextcloud",
-    type: "oauth",
+    id: 'nextcloud',
+    name: 'Nextcloud',
+    type: 'oauth',
     authorization: `${options.issuer}/apps/oauth2/authorize`,
     token: `${options.issuer}/apps/oauth2/api/v1/token`,
     userinfo: {
@@ -181,9 +181,9 @@ export default function Nextcloud(
 
         const res = await fetch(url, {
           headers: {
-            "OCS-APIRequest": "true",
+            'OCS-APIRequest': 'true',
             Authorization: `Bearer ${tokens.access_token}`,
-            Accept: "application/json",
+            Accept: 'application/json',
           },
         }).then((res) => res.json())
         return res.ocs.data
@@ -198,9 +198,9 @@ export default function Nextcloud(
       }
     },
     style: {
-      logo: "/nextcloud.svg",
-      bg: "#fff",
-      text: "#0082C9",
+      logo: '/nextcloud.svg',
+      bg: '#fff',
+      text: '#0082C9',
     },
     options,
   }

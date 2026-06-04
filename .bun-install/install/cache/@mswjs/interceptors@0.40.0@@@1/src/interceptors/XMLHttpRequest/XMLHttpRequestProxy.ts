@@ -26,7 +26,7 @@ export function createXMLHttpRequestProxy({
       const originalRequest = Reflect.construct(
         target,
         args,
-        newTarget
+        newTarget,
       ) as XMLHttpRequest
 
       /**
@@ -37,26 +37,26 @@ export function createXMLHttpRequestProxy({
        * when the user operates with the proxied request instance.
        */
       const prototypeDescriptors = Object.getOwnPropertyDescriptors(
-        target.prototype
+        target.prototype,
       )
       for (const propertyName in prototypeDescriptors) {
         Reflect.defineProperty(
           originalRequest,
           propertyName,
-          prototypeDescriptors[propertyName]
+          prototypeDescriptors[propertyName],
         )
       }
 
       const xhrRequestController = new XMLHttpRequestController(
         originalRequest,
-        logger
+        logger,
       )
 
       xhrRequestController.onRequest = async function ({ request, requestId }) {
         const controller = new RequestController(request, {
           passthrough: () => {
             this.logger.info(
-              'no mocked response received, performing request as-is...'
+              'no mocked response received, performing request as-is...',
             )
           },
           respondWith: async (response) => {
@@ -80,7 +80,7 @@ export function createXMLHttpRequestProxy({
 
         this.logger.info(
           'emitting the "request" event for %s listener(s)...',
-          emitter.listenerCount('request')
+          emitter.listenerCount('request'),
         )
 
         await handleRequest({
@@ -99,7 +99,7 @@ export function createXMLHttpRequestProxy({
       }) {
         this.logger.info(
           'emitting the "response" event for %s listener(s)...',
-          emitter.listenerCount('response')
+          emitter.listenerCount('response'),
         )
 
         emitter.emit('response', {

@@ -1,2 +1,2 @@
-import { matches } from "../fp";
-export = matches;
+import { matches } from '../fp'
+export = matches

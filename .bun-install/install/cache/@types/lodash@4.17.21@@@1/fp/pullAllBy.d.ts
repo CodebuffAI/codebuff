@@ -1,2 +1,2 @@
-import { pullAllBy } from "../fp";
-export = pullAllBy;
+import { pullAllBy } from '../fp'
+export = pullAllBy

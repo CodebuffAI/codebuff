@@ -8,17 +8,17 @@
  *
  * @module providers/ory-hydra
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface OryHydraProfile extends Record<string, any> {
-    iss: string;
-    ver: string;
-    sub: string;
-    aud: string;
-    iat: string;
-    exp: string;
-    jti: string;
-    amr: string;
-    email?: string;
+  iss: string
+  ver: string
+  sub: string
+  aud: string
+  iat: string
+  exp: string
+  jti: string
+  amr: string
+  email?: string
 }
 /**
  * Add Ory Hydra login to your page.
@@ -75,5 +75,7 @@ export interface OryHydraProfile extends Record<string, any> {
  *
  * :::
  */
-export default function OryHydra<P extends OryHydraProfile>(options: OIDCUserConfig<P>): OIDCConfig<P>;
+export default function OryHydra<P extends OryHydraProfile>(
+  options: OIDCUserConfig<P>,
+): OIDCConfig<P>
 //# sourceMappingURL=ory-hydra.d.ts.map

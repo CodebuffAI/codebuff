@@ -1,5 +1,5 @@
 export function isDomParserSupportedType(
-  type: string
+  type: string,
 ): type is DOMParserSupportedType {
   const supportedTypes: Array<DOMParserSupportedType> = [
     'application/xhtml+xml',

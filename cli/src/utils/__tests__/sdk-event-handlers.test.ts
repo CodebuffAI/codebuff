@@ -12,6 +12,7 @@ import type { AgentContentBlock, ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../constants'
 import type { EventHandlerState } from '../sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import { getFileStatsFromBlocks } from '../implementor-helpers'
 
 // Type for spawn agent info stored in the map
 interface SpawnAgentInfo {
@@ -668,6 +669,64 @@ describe('sdk-event-handlers', () => {
       type: 'tool',
       toolName: 'propose_str_replace',
       input: { path: 'cli/src/utils/arrays.ts' },
+    })
+  })
+
+  test('attaches live result-only proposal edit blocks by agent id', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'proposal-agent-1',
+        agentName: 'Proposal #1',
+        agentType: 'editor-implementor-proposal-1',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: 'Make the edits',
+      } as any,
+    ])
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'proposal-tool-1',
+      toolName: 'propose_str_replace',
+      agentId: 'proposal-agent-1',
+      parentAgentId: 'editor-agent-1',
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: 'tmp-multieditor-live/notes.ts',
+            message: 'Proposed string replacement.',
+            unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        },
+      ],
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    const toolBlocks = (agentBlock.blocks ?? []).filter(
+      (block) => block.type === 'tool',
+    )
+
+    expect(toolBlocks).toHaveLength(1)
+    expect(toolBlocks[0]).toMatchObject({
+      type: 'tool',
+      toolCallId: 'proposal-tool-1',
+      toolName: 'propose_str_replace',
+      agentId: 'proposal-agent-1',
+      input: {},
+    })
+
+    const stats = getFileStatsFromBlocks(agentBlock.blocks)
+    expect(stats).toHaveLength(1)
+    expect(stats[0]).toMatchObject({
+      path: 'tmp-multieditor-live/notes.ts',
+      changeType: 'M',
+      stats: { linesAdded: 1, linesRemoved: 1, hunks: 1 },
     })
   })
 

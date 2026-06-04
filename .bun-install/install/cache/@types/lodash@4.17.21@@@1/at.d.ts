@@ -1,2 +1,2 @@
-import { at } from "./index";
-export = at;
+import { at } from './index'
+export = at

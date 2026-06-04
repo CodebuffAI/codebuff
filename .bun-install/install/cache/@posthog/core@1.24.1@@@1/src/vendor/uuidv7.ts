@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-const DIGITS = "0123456789abcdef";
+const DIGITS = '0123456789abcdef'
 
 /** Represents a UUID as a 16-byte byte array. */
 export class UUID {
@@ -27,9 +27,9 @@ export class UUID {
    */
   static ofInner(bytes: Readonly<Uint8Array>): UUID {
     if (bytes.length !== 16) {
-      throw new TypeError("not 128-bit length");
+      throw new TypeError('not 128-bit length')
     } else {
-      return new UUID(bytes);
+      return new UUID(bytes)
     }
   }
 
@@ -62,27 +62,27 @@ export class UUID {
       randBHi > 0x3fff_ffff ||
       randBLo > 0xffff_ffff
     ) {
-      throw new RangeError("invalid field value");
+      throw new RangeError('invalid field value')
     }
 
-    const bytes = new Uint8Array(16);
-    bytes[0] = unixTsMs / 2 ** 40;
-    bytes[1] = unixTsMs / 2 ** 32;
-    bytes[2] = unixTsMs / 2 ** 24;
-    bytes[3] = unixTsMs / 2 ** 16;
-    bytes[4] = unixTsMs / 2 ** 8;
-    bytes[5] = unixTsMs;
-    bytes[6] = 0x70 | (randA >>> 8);
-    bytes[7] = randA;
-    bytes[8] = 0x80 | (randBHi >>> 24);
-    bytes[9] = randBHi >>> 16;
-    bytes[10] = randBHi >>> 8;
-    bytes[11] = randBHi;
-    bytes[12] = randBLo >>> 24;
-    bytes[13] = randBLo >>> 16;
-    bytes[14] = randBLo >>> 8;
-    bytes[15] = randBLo;
-    return new UUID(bytes);
+    const bytes = new Uint8Array(16)
+    bytes[0] = unixTsMs / 2 ** 40
+    bytes[1] = unixTsMs / 2 ** 32
+    bytes[2] = unixTsMs / 2 ** 24
+    bytes[3] = unixTsMs / 2 ** 16
+    bytes[4] = unixTsMs / 2 ** 8
+    bytes[5] = unixTsMs
+    bytes[6] = 0x70 | (randA >>> 8)
+    bytes[7] = randA
+    bytes[8] = 0x80 | (randBHi >>> 24)
+    bytes[9] = randBHi >>> 16
+    bytes[10] = randBHi >>> 8
+    bytes[11] = randBHi
+    bytes[12] = randBLo >>> 24
+    bytes[13] = randBLo >>> 16
+    bytes[14] = randBLo >>> 8
+    bytes[15] = randBLo
+    return new UUID(bytes)
   }
 
   /**
@@ -100,48 +100,48 @@ export class UUID {
    * @throws SyntaxError if the argument could not parse as a valid UUID string.
    */
   static parse(uuid: string): UUID {
-    let hex: string | undefined = undefined;
+    let hex: string | undefined = undefined
     switch (uuid.length) {
       case 32:
-        hex = /^[0-9a-f]{32}$/i.exec(uuid)?.[0];
-        break;
+        hex = /^[0-9a-f]{32}$/i.exec(uuid)?.[0]
+        break
       case 36:
         hex =
           /^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i
             .exec(uuid)
             ?.slice(1, 6)
-            .join("");
-        break;
+            .join('')
+        break
       case 38:
         hex =
           /^\{([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\}$/i
             .exec(uuid)
             ?.slice(1, 6)
-            .join("");
-        break;
+            .join('')
+        break
       case 45:
         hex =
           /^urn:uuid:([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i
             .exec(uuid)
             ?.slice(1, 6)
-            .join("");
-        break;
+            .join('')
+        break
       default:
-        break;
+        break
     }
 
     if (hex) {
-      const inner = new Uint8Array(16);
+      const inner = new Uint8Array(16)
       for (let i = 0; i < 16; i += 4) {
-        const n = parseInt(hex.substring(2 * i, 2 * i + 8), 16);
-        inner[i + 0] = n >>> 24;
-        inner[i + 1] = n >>> 16;
-        inner[i + 2] = n >>> 8;
-        inner[i + 3] = n;
+        const n = parseInt(hex.substring(2 * i, 2 * i + 8), 16)
+        inner[i + 0] = n >>> 24
+        inner[i + 1] = n >>> 16
+        inner[i + 2] = n >>> 8
+        inner[i + 3] = n
       }
-      return new UUID(inner);
+      return new UUID(inner)
     } else {
-      throw new SyntaxError("could not parse UUID string");
+      throw new SyntaxError('could not parse UUID string')
     }
   }
 
@@ -150,15 +150,15 @@ export class UUID {
    * (`0189dcd5-5311-7d40-8db0-9496a2eef37b`).
    */
   toString(): string {
-    let text = "";
+    let text = ''
     for (let i = 0; i < this.bytes.length; i++) {
-      text += DIGITS.charAt(this.bytes[i] >>> 4);
-      text += DIGITS.charAt(this.bytes[i] & 0xf);
+      text += DIGITS.charAt(this.bytes[i] >>> 4)
+      text += DIGITS.charAt(this.bytes[i] & 0xf)
       if (i === 3 || i === 5 || i === 7 || i === 9) {
-        text += "-";
+        text += '-'
       }
     }
-    return text;
+    return text
   }
 
   /**
@@ -166,17 +166,17 @@ export class UUID {
    * (`0189dcd553117d408db09496a2eef37b`).
    */
   toHex(): string {
-    let text = "";
+    let text = ''
     for (let i = 0; i < this.bytes.length; i++) {
-      text += DIGITS.charAt(this.bytes[i] >>> 4);
-      text += DIGITS.charAt(this.bytes[i] & 0xf);
+      text += DIGITS.charAt(this.bytes[i] >>> 4)
+      text += DIGITS.charAt(this.bytes[i] & 0xf)
     }
-    return text;
+    return text
   }
 
   /** @returns The 8-4-4-4-12 canonical hexadecimal string representation. */
   toJSON(): string {
-    return this.toString();
+    return this.toString()
   }
 
   /**
@@ -188,25 +188,25 @@ export class UUID {
    * subsumed under the variants `0b0` and `0b111`, respectively.
    */
   getVariant():
-    | "VAR_0"
-    | "VAR_10"
-    | "VAR_110"
-    | "VAR_RESERVED"
-    | "NIL"
-    | "MAX" {
-    const n = this.bytes[8] >>> 4;
+    | 'VAR_0'
+    | 'VAR_10'
+    | 'VAR_110'
+    | 'VAR_RESERVED'
+    | 'NIL'
+    | 'MAX' {
+    const n = this.bytes[8] >>> 4
     if (n < 0) {
-      throw new Error("unreachable");
+      throw new Error('unreachable')
     } else if (n <= 0b0111) {
-      return this.bytes.every((e) => e === 0) ? "NIL" : "VAR_0";
+      return this.bytes.every((e) => e === 0) ? 'NIL' : 'VAR_0'
     } else if (n <= 0b1011) {
-      return "VAR_10";
+      return 'VAR_10'
     } else if (n <= 0b1101) {
-      return "VAR_110";
+      return 'VAR_110'
     } else if (n <= 0b1111) {
-      return this.bytes.every((e) => e === 0xff) ? "MAX" : "VAR_RESERVED";
+      return this.bytes.every((e) => e === 0xff) ? 'MAX' : 'VAR_RESERVED'
     } else {
-      throw new Error("unreachable");
+      throw new Error('unreachable')
     }
   }
 
@@ -215,17 +215,17 @@ export class UUID {
    * not have the variant field value of `0b10`.
    */
   getVersion(): number | undefined {
-    return this.getVariant() === "VAR_10" ? this.bytes[6] >>> 4 : undefined;
+    return this.getVariant() === 'VAR_10' ? this.bytes[6] >>> 4 : undefined
   }
 
   /** Creates an object from `this`. */
   clone(): UUID {
-    return new UUID(this.bytes.slice(0));
+    return new UUID(this.bytes.slice(0))
   }
 
   /** Returns true if `this` is equivalent to `other`. */
   equals(other: UUID): boolean {
-    return this.compareTo(other) === 0;
+    return this.compareTo(other) === 0
   }
 
   /**
@@ -234,12 +234,12 @@ export class UUID {
    */
   compareTo(other: UUID): number {
     for (let i = 0; i < 16; i++) {
-      const diff = this.bytes[i] - other.bytes[i];
+      const diff = this.bytes[i] - other.bytes[i]
       if (diff !== 0) {
-        return Math.sign(diff);
+        return Math.sign(diff)
       }
     }
-    return 0;
+    return 0
   }
 }
 
@@ -253,11 +253,11 @@ export class UUID {
  * generated UUIDs. See their respective documentation for details.
  */
 export class V7Generator {
-  private timestamp = 0;
-  private counter = 0;
+  private timestamp = 0
+  private counter = 0
 
   /** The random number generator used by the generator. */
-  private readonly random: { nextUint32(): number };
+  private readonly random: { nextUint32(): number }
 
   /**
    * Creates a generator object with the default random number generator, or
@@ -266,9 +266,9 @@ export class V7Generator {
    */
   constructor(randomNumberGenerator?: {
     /** Returns a 32-bit random unsigned integer. */
-    nextUint32(): number;
+    nextUint32(): number
   }) {
-    this.random = randomNumberGenerator ?? getDefaultRandom();
+    this.random = randomNumberGenerator ?? getDefaultRandom()
   }
 
   /**
@@ -286,7 +286,7 @@ export class V7Generator {
    * {@link generateOrResetCore} for the low-level primitive.
    */
   generate(): UUID {
-    return this.generateOrResetCore(Date.now(), 10_000);
+    return this.generateOrResetCore(Date.now(), 10_000)
   }
 
   /**
@@ -303,7 +303,7 @@ export class V7Generator {
    * {@link generateOrAbortCore} for the low-level primitive.
    */
   generateOrAbort(): UUID | undefined {
-    return this.generateOrAbortCore(Date.now(), 10_000);
+    return this.generateOrAbortCore(Date.now(), 10_000)
   }
 
   /**
@@ -318,13 +318,13 @@ export class V7Generator {
    * @throws RangeError if `unixTsMs` is not a 48-bit positive integer.
    */
   generateOrResetCore(unixTsMs: number, rollbackAllowance: number): UUID {
-    let value = this.generateOrAbortCore(unixTsMs, rollbackAllowance);
+    let value = this.generateOrAbortCore(unixTsMs, rollbackAllowance)
     if (value === undefined) {
       // reset state and resume
-      this.timestamp = 0;
-      value = this.generateOrAbortCore(unixTsMs, rollbackAllowance)!;
+      this.timestamp = 0
+      value = this.generateOrAbortCore(unixTsMs, rollbackAllowance)!
     }
-    return value;
+    return value
   }
 
   /**
@@ -342,32 +342,32 @@ export class V7Generator {
     unixTsMs: number,
     rollbackAllowance: number,
   ): UUID | undefined {
-    const MAX_COUNTER = 0x3ff_ffff_ffff;
+    const MAX_COUNTER = 0x3ff_ffff_ffff
 
     if (
       !Number.isInteger(unixTsMs) ||
       unixTsMs < 1 ||
       unixTsMs > 0xffff_ffff_ffff
     ) {
-      throw new RangeError("`unixTsMs` must be a 48-bit positive integer");
+      throw new RangeError('`unixTsMs` must be a 48-bit positive integer')
     } else if (rollbackAllowance < 0 || rollbackAllowance > 0xffff_ffff_ffff) {
-      throw new RangeError("`rollbackAllowance` out of reasonable range");
+      throw new RangeError('`rollbackAllowance` out of reasonable range')
     }
 
     if (unixTsMs > this.timestamp) {
-      this.timestamp = unixTsMs;
-      this.resetCounter();
+      this.timestamp = unixTsMs
+      this.resetCounter()
     } else if (unixTsMs + rollbackAllowance >= this.timestamp) {
       // go on with previous timestamp if new one is not much smaller
-      this.counter++;
+      this.counter++
       if (this.counter > MAX_COUNTER) {
         // increment timestamp at counter overflow
-        this.timestamp++;
-        this.resetCounter();
+        this.timestamp++
+        this.resetCounter()
       }
     } else {
       // abort if clock went backwards to unbearable extent
-      return undefined;
+      return undefined
     }
 
     return UUID.fromFieldsV7(
@@ -375,13 +375,13 @@ export class V7Generator {
       Math.trunc(this.counter / 2 ** 30),
       this.counter & (2 ** 30 - 1),
       this.random.nextUint32(),
-    );
+    )
   }
 
   /** Initializes the counter at a 42-bit random integer. */
   private resetCounter(): void {
     this.counter =
-      this.random.nextUint32() * 0x400 + (this.random.nextUint32() & 0x3ff);
+      this.random.nextUint32() * 0x400 + (this.random.nextUint32() & 0x3ff)
   }
 
   /**
@@ -397,10 +397,10 @@ export class V7Generator {
         this.random.nextUint32(),
         this.random.nextUint32(),
       ).buffer,
-    );
-    bytes[6] = 0x40 | (bytes[6] >>> 4);
-    bytes[8] = 0x80 | (bytes[8] >>> 2);
-    return UUID.ofInner(bytes);
+    )
+    bytes[6] = 0x40 | (bytes[6] >>> 4)
+    bytes[8] = 0x80 | (bytes[8] >>> 2)
+    return UUID.ofInner(bytes)
   }
 }
 
@@ -409,31 +409,31 @@ export class V7Generator {
 
 /** Returns the default random number generator available in the environment. */
 const getDefaultRandom = (): { nextUint32(): number } => {
-// fix: crypto isn't available in react-native, always use Math.random
+  // fix: crypto isn't available in react-native, always use Math.random
 
-//   // detect Web Crypto API
-//   if (
-//     typeof crypto !== "undefined" &&
-//     typeof crypto.getRandomValues !== "undefined"
-//   ) {
-//     return new BufferedCryptoRandom();
-//   } else {
-//     // fall back on Math.random() unless the flag is set to true
-//     if (typeof UUIDV7_DENY_WEAK_RNG !== "undefined" && UUIDV7_DENY_WEAK_RNG) {
-//       throw new Error("no cryptographically strong RNG available");
-//     }
-//     return {
-//       nextUint32: (): number =>
-//         Math.trunc(Math.random() * 0x1_0000) * 0x1_0000 +
-//         Math.trunc(Math.random() * 0x1_0000),
-//     };
-//   }
+  //   // detect Web Crypto API
+  //   if (
+  //     typeof crypto !== "undefined" &&
+  //     typeof crypto.getRandomValues !== "undefined"
+  //   ) {
+  //     return new BufferedCryptoRandom();
+  //   } else {
+  //     // fall back on Math.random() unless the flag is set to true
+  //     if (typeof UUIDV7_DENY_WEAK_RNG !== "undefined" && UUIDV7_DENY_WEAK_RNG) {
+  //       throw new Error("no cryptographically strong RNG available");
+  //     }
+  //     return {
+  //       nextUint32: (): number =>
+  //         Math.trunc(Math.random() * 0x1_0000) * 0x1_0000 +
+  //         Math.trunc(Math.random() * 0x1_0000),
+  //     };
+  //   }
   return {
     nextUint32: (): number =>
       Math.trunc(Math.random() * 0x1_0000) * 0x1_0000 +
       Math.trunc(Math.random() * 0x1_0000),
-  };
-};
+  }
+}
 
 // /**
 //  * Wraps `crypto.getRandomValues()` to enable buffering; this uses a small
@@ -452,7 +452,7 @@ const getDefaultRandom = (): { nextUint32(): number } => {
 //   }
 // }
 
-let defaultGenerator: V7Generator | undefined;
+let defaultGenerator: V7Generator | undefined
 
 /**
  * Generates a UUIDv7 string.
@@ -460,11 +460,11 @@ let defaultGenerator: V7Generator | undefined;
  * @returns The 8-4-4-4-12 canonical hexadecimal string representation
  * ("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").
  */
-export const uuidv7 = (): string => uuidv7obj().toString();
+export const uuidv7 = (): string => uuidv7obj().toString()
 
 /** Generates a UUIDv7 object. */
 export const uuidv7obj = (): UUID =>
-  (defaultGenerator || (defaultGenerator = new V7Generator())).generate();
+  (defaultGenerator || (defaultGenerator = new V7Generator())).generate()
 
 /**
  * Generates a UUIDv4 string.
@@ -472,8 +472,8 @@ export const uuidv7obj = (): UUID =>
  * @returns The 8-4-4-4-12 canonical hexadecimal string representation
  * ("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").
  */
-export const uuidv4 = (): string => uuidv4obj().toString();
+export const uuidv4 = (): string => uuidv4obj().toString()
 
 /** Generates a UUIDv4 object. */
 export const uuidv4obj = (): UUID =>
-  (defaultGenerator || (defaultGenerator = new V7Generator())).generateV4();
+  (defaultGenerator || (defaultGenerator = new V7Generator())).generateV4()

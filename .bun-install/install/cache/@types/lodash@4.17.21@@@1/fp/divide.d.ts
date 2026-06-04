@@ -1,2 +1,2 @@
-import { divide } from "../fp";
-export = divide;
+import { divide } from '../fp'
+export = divide

@@ -62,7 +62,7 @@ You can, however, use `@oclif/core` in a standalone script like this:
 #!/usr/bin/env -S node --loader ts-node/esm --no-warnings=ExperimentalWarning
 
 import * as fs from 'fs'
-import {Command, Flags, flush, handle} from '@oclif/core'
+import { Command, Flags, flush, handle } from '@oclif/core'
 
 class LS extends Command {
   static description = 'List the files in a directory.'
@@ -76,7 +76,7 @@ class LS extends Command {
   }
 
   async run() {
-    const {flags} = await this.parse(LS)
+    const { flags } = await this.parse(LS)
     const files = fs.readdirSync(flags.dir)
     for (const f of files) {
       this.log(f)
@@ -123,14 +123,14 @@ You can also use oclif's `Parser` separately:
 
 ```javascript
 // index.js
-import {Args, Flags, Parser} from '@oclif/core'
+import { Args, Flags, Parser } from '@oclif/core'
 
-const {args, flags} = await Parser.parse(process.argv.slice(2), {
+const { args, flags } = await Parser.parse(process.argv.slice(2), {
   args: {
-    name: Args.string({required: true}),
+    name: Args.string({ required: true }),
   },
   flags: {
-    from: Flags.string({char: 'f', default: 'oclif'}),
+    from: Flags.string({ char: 'f', default: 'oclif' }),
   },
 })
 

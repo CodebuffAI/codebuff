@@ -1,1 +1,1 @@
-export * from './tuple';
+export * from './tuple'

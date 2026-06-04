@@ -1,2 +1,2 @@
-export * from './anyschema';
-export * from './schema';
+export * from './anyschema'
+export * from './schema'

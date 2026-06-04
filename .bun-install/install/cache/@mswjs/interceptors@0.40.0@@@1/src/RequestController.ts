@@ -24,7 +24,7 @@ export class RequestController {
 
   constructor(
     protected readonly request: Request,
-    protected readonly source: RequestControllerSource
+    protected readonly source: RequestControllerSource,
   ) {
     this.readyState = RequestController.PENDING
     this.handled = new DeferredPromise<void>()
@@ -43,7 +43,7 @@ export class RequestController {
       this.readyState === RequestController.PENDING,
       'Failed to passthrough the "%s %s" request: the request has already been handled',
       this.request.method,
-      this.request.url
+      this.request.url,
     )
 
     this.readyState = RequestController.PASSTHROUGH
@@ -68,7 +68,7 @@ export class RequestController {
       this.request.url,
       response.status,
       response.statusText || 'OK',
-      this.readyState
+      this.readyState,
     )
 
     this.readyState = RequestController.RESPONSE
@@ -99,7 +99,7 @@ export class RequestController {
       this.request.method,
       this.request.url,
       reason?.toString(),
-      this.readyState
+      this.readyState,
     )
 
     this.readyState = RequestController.ERROR

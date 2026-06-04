@@ -1,7 +1,7 @@
 export class BrotliDecompressionStream extends TransformStream {
   constructor() {
     console.warn(
-      '[Interceptors]: Brotli decompression of response streams is not supported in the browser'
+      '[Interceptors]: Brotli decompression of response streams is not supported in the browser',
     )
 
     super({

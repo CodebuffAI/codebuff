@@ -1,2 +1,2 @@
-import { isNil } from "./index";
-export = isNil;
+import { isNil } from './index'
+export = isNil

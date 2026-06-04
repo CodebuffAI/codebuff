@@ -8,7 +8,7 @@
  *
  * @module providers/webex
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * The returned user profile from Webex when using the profile callback.
@@ -75,17 +75,17 @@ export interface WebexProfile extends Record<string, any> {
  * :::
  */
 export default function Webex<P extends WebexProfile>(
-  config: OAuthUserConfig<P> & { apiBaseUrl?: string }
+  config: OAuthUserConfig<P> & { apiBaseUrl?: string },
 ): OAuthConfig<P> {
-  const apiBaseUrl = config?.apiBaseUrl ?? "https://webexapis.com/v1"
+  const apiBaseUrl = config?.apiBaseUrl ?? 'https://webexapis.com/v1'
 
   return {
-    id: "webex",
-    name: "Webex",
-    type: "oauth",
+    id: 'webex',
+    name: 'Webex',
+    type: 'oauth',
     authorization: {
       url: `${apiBaseUrl}/authorize`,
-      params: { scope: "spark:kms spark:people_read" },
+      params: { scope: 'spark:kms spark:people_read' },
     },
     token: `${apiBaseUrl}/access_token`,
     userinfo: `${apiBaseUrl}/people/me`,

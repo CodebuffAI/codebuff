@@ -8,7 +8,7 @@
  *
  * @module providers/reddit
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Reddit login to your page.
  *
@@ -84,5 +84,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Reddit(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Reddit(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=reddit.d.ts.map

@@ -1,2 +1,2 @@
-import { toString } from "./index";
-export = toString;
+import { toString } from './index'
+export = toString

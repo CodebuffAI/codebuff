@@ -1,2 +1,2 @@
-import { forOwnRight } from "./index";
-export = forOwnRight;
+import { forOwnRight } from './index'
+export = forOwnRight

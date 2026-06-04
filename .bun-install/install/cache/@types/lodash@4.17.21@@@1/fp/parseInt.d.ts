@@ -1,2 +1,2 @@
-import { parseInt } from "../fp";
-export = parseInt;
+import { parseInt } from '../fp'
+export = parseInt

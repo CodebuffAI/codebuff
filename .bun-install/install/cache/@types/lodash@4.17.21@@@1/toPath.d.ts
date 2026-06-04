@@ -1,2 +1,2 @@
-import { toPath } from "./index";
-export = toPath;
+import { toPath } from './index'
+export = toPath

@@ -681,10 +681,13 @@ async function executeSingleToolCall(
         chunkForClient = rest
       }
 
-      // Only add parentAgentId if this programmatic agent has a parent (i.e., it's nested)
-      // This ensures we don't add parentAgentId to top-level spawns
+      // Add lineage to nested programmatic events so the CLI can attach them
+      // to the correct child agent block. Subagents spawned by this agent are
+      // parented under the current agent; this agent's own tool calls/results
+      // are parented under its real parent.
       if (agentState.parentId) {
-        const parentAgentId = agentState.agentId
+        const childSubagentParentId = agentState.agentId
+        const toolEventParentId = agentState.parentId
 
         switch (chunkForClient.type) {
           case 'subagent_start':
@@ -692,17 +695,25 @@ async function executeSingleToolCall(
             if (!chunkForClient.parentAgentId) {
               onResponseChunk({
                 ...chunkForClient,
-                parentAgentId,
+                parentAgentId: childSubagentParentId,
               })
               return
             }
             break
           case 'tool_call':
           case 'tool_result': {
-            if (!chunkForClient.parentAgentId) {
+            if (
+              !chunkForClient.parentAgentId ||
+              !('agentId' in chunkForClient) ||
+              !chunkForClient.agentId
+            ) {
               onResponseChunk({
                 ...chunkForClient,
-                parentAgentId,
+                agentId:
+                  'agentId' in chunkForClient && chunkForClient.agentId
+                    ? chunkForClient.agentId
+                    : agentState.agentId,
+                parentAgentId: chunkForClient.parentAgentId ?? toolEventParentId,
               })
               return
             }

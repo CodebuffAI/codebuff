@@ -1,5 +1,8 @@
-import { TSchema, SchemaOptions } from '../schema/index';
+import { TSchema, SchemaOptions } from '../schema/index'
 /** Clones a Rest */
-export declare function CloneRest<T extends TSchema[]>(schemas: T): T;
+export declare function CloneRest<T extends TSchema[]>(schemas: T): T
 /** Clones a Type */
-export declare function CloneType<T extends TSchema>(schema: T, options?: SchemaOptions): T;
+export declare function CloneType<T extends TSchema>(
+  schema: T,
+  options?: SchemaOptions,
+): T

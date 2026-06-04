@@ -147,7 +147,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
    */
   public on<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     const logger = this.logger.extend('on')
 
@@ -167,7 +167,7 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
   public once<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     this.emitter.once(event, listener)
     return this
@@ -175,14 +175,14 @@ export class Interceptor<Events extends InterceptorEventMap> {
 
   public off<EventName extends ExtractEventNames<Events>>(
     event: EventName,
-    listener: Listener<Events[EventName]>
+    listener: Listener<Events[EventName]>,
   ): this {
     this.emitter.off(event, listener)
     return this
   }
 
   public removeAllListeners<EventName extends ExtractEventNames<Events>>(
-    event?: EventName
+    event?: EventName,
   ): this {
     this.emitter.removeAllListeners(event)
     return this

@@ -6,7 +6,7 @@ import { Logger } from '@open-draft/logger'
 const logger = new Logger('http getIncomingMessageBody')
 
 export function getIncomingMessageBody(
-  response: IncomingMessage
+  response: IncomingMessage,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     logger.info('cloning the original response...')

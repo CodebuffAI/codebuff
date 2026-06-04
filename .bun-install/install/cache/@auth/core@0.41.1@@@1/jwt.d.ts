@@ -35,98 +35,107 @@
  *
  * @module jwt
  */
-import { Awaitable } from "./types.js";
-import type { LoggerInstance } from "./lib/utils/logger.js";
+import { Awaitable } from './types.js'
+import type { LoggerInstance } from './lib/utils/logger.js'
 /** Issues a JWT. By default, the JWT is encrypted using "A256CBC-HS512". */
-export declare function encode<Payload = JWT>(params: JWTEncodeParams<Payload>): Promise<string>;
+export declare function encode<Payload = JWT>(
+  params: JWTEncodeParams<Payload>,
+): Promise<string>
 /** Decodes an Auth.js issued JWT. */
-export declare function decode<Payload = JWT>(params: JWTDecodeParams): Promise<Payload | null>;
+export declare function decode<Payload = JWT>(
+  params: JWTDecodeParams,
+): Promise<Payload | null>
 type GetTokenParamsBase = {
-    secret?: JWTDecodeParams["secret"];
-    salt?: JWTDecodeParams["salt"];
-};
-export interface GetTokenParams<R extends boolean = false> extends GetTokenParamsBase {
-    /** The request containing the JWT either in the cookies or in the `Authorization` header. */
-    req: Request | {
-        headers: Headers | Record<string, string>;
-    };
-    /**
-     * Use secure prefix for cookie name, unless URL in `NEXTAUTH_URL` is http://
-     * or not set (e.g. development or test instance) case use unprefixed name
-     */
-    secureCookie?: boolean;
-    /** If the JWT is in the cookie, what name `getToken()` should look for. */
-    cookieName?: string;
-    /**
-     * `getToken()` will return the raw JWT if this is set to `true`
-     *
-     * @default false
-     */
-    raw?: R;
-    decode?: JWTOptions["decode"];
-    logger?: LoggerInstance | Console;
+  secret?: JWTDecodeParams['secret']
+  salt?: JWTDecodeParams['salt']
+}
+export interface GetTokenParams<
+  R extends boolean = false,
+> extends GetTokenParamsBase {
+  /** The request containing the JWT either in the cookies or in the `Authorization` header. */
+  req:
+    | Request
+    | {
+        headers: Headers | Record<string, string>
+      }
+  /**
+   * Use secure prefix for cookie name, unless URL in `NEXTAUTH_URL` is http://
+   * or not set (e.g. development or test instance) case use unprefixed name
+   */
+  secureCookie?: boolean
+  /** If the JWT is in the cookie, what name `getToken()` should look for. */
+  cookieName?: string
+  /**
+   * `getToken()` will return the raw JWT if this is set to `true`
+   *
+   * @default false
+   */
+  raw?: R
+  decode?: JWTOptions['decode']
+  logger?: LoggerInstance | Console
 }
 /**
  * Takes an Auth.js request (`req`) and returns either the Auth.js issued JWT's payload,
  * or the raw JWT string. We look for the JWT in the either the cookies, or the `Authorization` header.
  */
-export declare function getToken<R extends boolean = false>(params: GetTokenParams<R>): Promise<R extends true ? string : JWT | null>;
+export declare function getToken<R extends boolean = false>(
+  params: GetTokenParams<R>,
+): Promise<R extends true ? string : JWT | null>
 export interface DefaultJWT extends Record<string, unknown> {
-    name?: string | null;
-    email?: string | null;
-    picture?: string | null;
-    sub?: string;
-    iat?: number;
-    exp?: number;
-    jti?: string;
+  name?: string | null
+  email?: string | null
+  picture?: string | null
+  sub?: string
+  iat?: number
+  exp?: number
+  jti?: string
 }
 /**
  * Returned by the `jwt` callback when using JWT sessions
  *
  * [`jwt` callback](https://authjs.dev/reference/core/types#jwt)
  */
-export interface JWT extends Record<string, unknown>, DefaultJWT {
-}
+export interface JWT extends Record<string, unknown>, DefaultJWT {}
 export interface JWTEncodeParams<Payload = JWT> {
-    /**
-     * The maximum age of the Auth.js issued JWT in seconds.
-     *
-     * @default 30 * 24 * 60 * 60 // 30 days
-     */
-    maxAge?: number;
-    /** Used in combination with `secret`, to derive the encryption secret for JWTs. */
-    salt: string;
-    /** Used in combination with `salt`, to derive the encryption secret for JWTs. */
-    secret: string | string[];
-    /** The JWT payload. */
-    token?: Payload;
+  /**
+   * The maximum age of the Auth.js issued JWT in seconds.
+   *
+   * @default 30 * 24 * 60 * 60 // 30 days
+   */
+  maxAge?: number
+  /** Used in combination with `secret`, to derive the encryption secret for JWTs. */
+  salt: string
+  /** Used in combination with `salt`, to derive the encryption secret for JWTs. */
+  secret: string | string[]
+  /** The JWT payload. */
+  token?: Payload
 }
 export interface JWTDecodeParams {
-    /** Used in combination with `secret`, to derive the encryption secret for JWTs. */
-    salt: string;
-    /**
-     * Used in combination with `salt`, to derive the encryption secret for JWTs.
-     *
-     * @note
-     * You can also pass an array of secrets, in which case the first secret that successfully
-     * decrypts the JWT will be used. This is useful for rotating secrets without invalidating existing sessions.
-     * The newer secret should be added to the start of the array, which will be used for all new sessions.
-     */
-    secret: string | string[];
-    /** The Auth.js issued JWT to be decoded */
-    token?: string;
+  /** Used in combination with `secret`, to derive the encryption secret for JWTs. */
+  salt: string
+  /**
+   * Used in combination with `salt`, to derive the encryption secret for JWTs.
+   *
+   * @note
+   * You can also pass an array of secrets, in which case the first secret that successfully
+   * decrypts the JWT will be used. This is useful for rotating secrets without invalidating existing sessions.
+   * The newer secret should be added to the start of the array, which will be used for all new sessions.
+   */
+  secret: string | string[]
+  /** The Auth.js issued JWT to be decoded */
+  token?: string
 }
 export interface JWTOptions {
-    /**
-     * The maximum age of the Auth.js issued JWT in seconds.
-     *
-     * @default 30 * 24 * 60 * 60 // 30 days
-     */
-    maxAge: number;
-    /** Override this method to control the Auth.js issued JWT encoding. */
-    encode: (params: JWTEncodeParams) => Awaitable<string>;
-    /** Override this method to control the Auth.js issued JWT decoding. */
-    decode: (params: JWTDecodeParams) => Awaitable<JWT | null>;
+  /**
+   * The maximum age of the Auth.js issued JWT in seconds.
+   *
+   * @default 30 * 24 * 60 * 60 // 30 days
+   */
+  maxAge: number
+  /** Override this method to control the Auth.js issued JWT encoding. */
+  encode: (params: JWTEncodeParams) => Awaitable<string>
+  /** Override this method to control the Auth.js issued JWT decoding. */
+  decode: (params: JWTDecodeParams) => Awaitable<JWT | null>
 }
-export {};
+export {}
 //# sourceMappingURL=jwt.d.ts.map

@@ -51,28 +51,28 @@
  * @module types
  */
 
-import type { SerializeOptions } from "./lib/vendored/cookie.js"
-import type { TokenEndpointResponse } from "oauth4webapi"
-import type { Adapter } from "./adapters.js"
-import { AuthConfig } from "./index.js"
-import type { JWTOptions } from "./jwt.js"
-import type { Cookie } from "./lib/utils/cookie.js"
-import type { LoggerInstance } from "./lib/utils/logger.js"
-import type { WarningCode } from "./warnings.js"
+import type { SerializeOptions } from './lib/vendored/cookie.js'
+import type { TokenEndpointResponse } from 'oauth4webapi'
+import type { Adapter } from './adapters.js'
+import { AuthConfig } from './index.js'
+import type { JWTOptions } from './jwt.js'
+import type { Cookie } from './lib/utils/cookie.js'
+import type { LoggerInstance } from './lib/utils/logger.js'
+import type { WarningCode } from './warnings.js'
 import type {
   CredentialsConfig,
   EmailConfig,
   OAuthConfigInternal,
   OIDCConfigInternal,
   ProviderType,
-} from "./providers/index.js"
+} from './providers/index.js'
 import type {
   WebAuthnConfig,
   WebAuthnProviderType,
-} from "./providers/webauthn.js"
+} from './providers/webauthn.js'
 
-export type { WebAuthnOptionsResponseBody } from "./lib/utils/webauthn-utils.js"
-export type { AuthConfig } from "./index.js"
+export type { WebAuthnOptionsResponseBody } from './lib/utils/webauthn-utils.js'
+export type { AuthConfig } from './index.js'
 export type { LoggerInstance, WarningCode }
 export type Awaitable<T> = T | PromiseLike<T>
 export type Awaited<T> = T extends Promise<infer U> ? U : T
@@ -89,7 +89,7 @@ export type SemverString =
  * [Pages](https://authjs.dev/guides/pages/signin)
  */
 export interface Theme {
-  colorScheme?: "auto" | "dark" | "light"
+  colorScheme?: 'auto' | 'dark' | 'light'
   logo?: string
   brandColor?: string
   buttonText?: string
@@ -199,20 +199,20 @@ export interface CookiesOptions {
 }
 
 /** TODO: Check if all these are used/correct */
-export type ErrorPageParam = "Configuration" | "AccessDenied" | "Verification"
+export type ErrorPageParam = 'Configuration' | 'AccessDenied' | 'Verification'
 
 /** TODO: Check if all these are used/correct */
 export type SignInPageErrorParam =
-  | "Signin"
-  | "OAuthSignin"
-  | "OAuthCallbackError"
-  | "OAuthCreateAccount"
-  | "EmailCreateAccount"
-  | "Callback"
-  | "OAuthAccountNotLinked"
-  | "EmailSignin"
-  | "CredentialsSignin"
-  | "SessionRequired"
+  | 'Signin'
+  | 'OAuthSignin'
+  | 'OAuthCallbackError'
+  | 'OAuthCreateAccount'
+  | 'EmailCreateAccount'
+  | 'Callback'
+  | 'OAuthAccountNotLinked'
+  | 'EmailSignin'
+  | 'CredentialsSignin'
+  | 'SessionRequired'
 
 export interface PagesOptions {
   /**
@@ -266,13 +266,13 @@ export interface User extends DefaultUser {}
 // Below are types that are only supposed be used by next-auth internally
 
 /** @internal */
-export type InternalProvider<T = ProviderType> = (T extends "oauth"
+export type InternalProvider<T = ProviderType> = (T extends 'oauth'
   ? OAuthConfigInternal<any>
-  : T extends "oidc"
+  : T extends 'oidc'
     ? OIDCConfigInternal<any>
-    : T extends "email"
+    : T extends 'email'
       ? EmailConfig
-      : T extends "credentials"
+      : T extends 'credentials'
         ? CredentialsConfig
         : T extends WebAuthnProviderType
           ? WebAuthnConfig
@@ -320,20 +320,20 @@ export interface PublicProvider {
  *   - **`GET`**: Returns the options for the WebAuthn authentication and registration flows.
  */
 export type AuthAction =
-  | "callback"
-  | "csrf"
-  | "error"
-  | "providers"
-  | "session"
-  | "signin"
-  | "signout"
-  | "verify-request"
-  | "webauthn-options"
+  | 'callback'
+  | 'csrf'
+  | 'error'
+  | 'providers'
+  | 'session'
+  | 'signin'
+  | 'signout'
+  | 'verify-request'
+  | 'webauthn-options'
 
 /** @internal */
 export interface RequestInternal {
   url: URL
-  method: "GET" | "POST"
+  method: 'GET' | 'POST'
   cookies?: Partial<Record<string, string>>
   headers?: Record<string, any>
   query?: Record<string, any>
@@ -412,12 +412,12 @@ export interface InternalOptions<TProviderType = ProviderType> {
   theme: Theme
   debug: boolean
   logger: LoggerInstance
-  session: NonNullable<Required<AuthConfig["session"]>>
+  session: NonNullable<Required<AuthConfig['session']>>
   pages: Partial<PagesOptions>
   jwt: JWTOptions
-  events: NonNullable<AuthConfig["events"]>
+  events: NonNullable<AuthConfig['events']>
   adapter: Required<Adapter> | undefined
-  callbacks: NonNullable<Required<AuthConfig["callbacks"]>>
+  callbacks: NonNullable<Required<AuthConfig['callbacks']>>
   cookies: Record<keyof CookiesOptions, CookieOption>
   callbackUrl: string
   /**
@@ -425,6 +425,6 @@ export interface InternalOptions<TProviderType = ProviderType> {
    * See also {@link OAuthConfigInternal.redirectProxyUrl}.
    */
   isOnRedirectProxy: boolean
-  experimental: NonNullable<AuthConfig["experimental"]>
+  experimental: NonNullable<AuthConfig['experimental']>
   basePath: string
 }

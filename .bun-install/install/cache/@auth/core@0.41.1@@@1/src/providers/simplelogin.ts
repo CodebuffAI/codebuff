@@ -8,7 +8,7 @@
  *
  * @module providers/simplelogin
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface SimpleLoginProfile {
   id: number
@@ -86,13 +86,13 @@ export interface SimpleLoginProfile {
  * :::
  */
 export default function SimpleLogin<P extends SimpleLoginProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "simplelogin",
-    name: "SimpleLogin",
-    type: "oidc",
-    issuer: "https://app.simplelogin.io",
+    id: 'simplelogin',
+    name: 'SimpleLogin',
+    type: 'oidc',
+    issuer: 'https://app.simplelogin.io',
     profile(profile) {
       return {
         id: profile.sub,
@@ -101,7 +101,7 @@ export default function SimpleLogin<P extends SimpleLoginProfile>(
         image: profile.avatar_url,
       }
     },
-    style: { brandColor: "#e3156a" },
+    style: { brandColor: '#e3156a' },
     options,
   }
 }

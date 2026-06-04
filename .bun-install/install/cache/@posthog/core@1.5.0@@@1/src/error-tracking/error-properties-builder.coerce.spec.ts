@@ -1,4 +1,10 @@
-import { DOMExceptionCoercer, ErrorEventCoercer, ErrorCoercer, ObjectCoercer, StringCoercer } from './coercers'
+import {
+  DOMExceptionCoercer,
+  ErrorEventCoercer,
+  ErrorCoercer,
+  ObjectCoercer,
+  StringCoercer,
+} from './coercers'
 import { PrimitiveCoercer } from './coercers/primitive-coercer'
 import { PromiseRejectionEventCoercer } from './coercers/promise-rejection-event'
 import { ErrorPropertiesBuilder } from './error-properties-builder'
@@ -25,15 +31,18 @@ describe('ErrorPropertiesBuilder', () => {
         new PrimitiveCoercer(),
       ],
       [],
-      []
+      [],
     )
 
-    function coerceInput(input: unknown, error: Error = new Error()): ExceptionLike | undefined {
+    function coerceInput(
+      input: unknown,
+      error: Error = new Error(),
+    ): ExceptionLike | undefined {
       const coercingContext = errorPropertiesBuilder.buildCoercingContext(
         { handled: false },
         {
           syntheticException: error,
-        }
+        },
       )
       return coercingContext.apply(input)
     }
@@ -60,7 +69,10 @@ describe('ErrorPropertiesBuilder', () => {
 
     it('should handle exception string', () => {
       const syntheticError = new Error()
-      const exception = coerceInput('Uncaught exception: InternalError: but somehow still a string', syntheticError)
+      const exception = coerceInput(
+        'Uncaught exception: InternalError: but somehow still a string',
+        syntheticError,
+      )
       expect(exception).toMatchObject({
         type: 'InternalError',
         value: 'but somehow still a string',
@@ -159,12 +171,17 @@ describe('ErrorPropertiesBuilder', () => {
           super(type, eventInitDict)
         }
       }
-      const event = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true })
+      const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      })
       const syntheticError = new Error()
       const exception = coerceInput(event, syntheticError)
       expect(exception).toMatchObject({
         type: 'MouseEvent',
-        value: "'MouseEvent' captured as exception with keys: [object has no keys]",
+        value:
+          "'MouseEvent' captured as exception with keys: [object has no keys]",
         stack: syntheticError.stack,
         synthetic: true,
       })
@@ -174,7 +191,7 @@ describe('ErrorPropertiesBuilder', () => {
       class FakeDomError {
         constructor(
           public name: string,
-          public message: string
+          public message: string,
         ) {}
         [Symbol.toStringTag] = 'DOMError'
       }

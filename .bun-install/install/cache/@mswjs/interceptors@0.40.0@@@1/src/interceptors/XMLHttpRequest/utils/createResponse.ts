@@ -6,7 +6,7 @@ import { FetchResponse } from '../../../utils/fetchUtils'
  */
 export function createResponse(
   request: XMLHttpRequest,
-  body: BodyInit | null
+  body: BodyInit | null,
 ): Response {
   /**
    * Handle XMLHttpRequest responses that must have null as the
@@ -25,12 +25,14 @@ export function createResponse(
     status: request.status,
     statusText: request.statusText,
     headers: createHeadersFromXMLHttpRequestHeaders(
-      request.getAllResponseHeaders()
+      request.getAllResponseHeaders(),
     ),
   })
 }
 
-function createHeadersFromXMLHttpRequestHeaders(headersString: string): Headers {
+function createHeadersFromXMLHttpRequestHeaders(
+  headersString: string,
+): Headers {
   const headers = new Headers()
 
   const lines = headersString.split(/[\r\n]+/)

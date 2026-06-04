@@ -100,15 +100,20 @@ export const DEFAULT_BLOCKED_UA_STRS = [
 /**
  * Block various web spiders from executing our JS and sending false capturing data
  */
-export const isBlockedUA = function (ua: string | undefined, customBlockedUserAgents: string[] = []): boolean {
+export const isBlockedUA = function (
+  ua: string | undefined,
+  customBlockedUserAgents: string[] = [],
+): boolean {
   if (!ua) {
     return false
   }
 
   const uaLower = ua.toLowerCase()
-  return DEFAULT_BLOCKED_UA_STRS.concat(customBlockedUserAgents).some((blockedUA) => {
-    const blockedUaLower = blockedUA.toLowerCase()
-    // can't use includes because IE 11 :/
-    return uaLower.indexOf(blockedUaLower) !== -1
-  })
+  return DEFAULT_BLOCKED_UA_STRS.concat(customBlockedUserAgents).some(
+    (blockedUA) => {
+      const blockedUaLower = blockedUA.toLowerCase()
+      // can't use includes because IE 11 :/
+      return uaLower.indexOf(blockedUaLower) !== -1
+    },
+  )
 }

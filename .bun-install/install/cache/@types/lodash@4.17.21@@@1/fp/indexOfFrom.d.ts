@@ -1,2 +1,2 @@
-import { indexOfFrom } from "../fp";
-export = indexOfFrom;
+import { indexOfFrom } from '../fp'
+export = indexOfFrom

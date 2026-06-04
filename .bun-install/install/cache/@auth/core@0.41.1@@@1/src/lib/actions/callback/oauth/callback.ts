@@ -1,9 +1,9 @@
-import * as checks from "./checks.js"
-import * as o from "oauth4webapi"
+import * as checks from './checks.js'
+import * as o from 'oauth4webapi'
 import {
   OAuthCallbackError,
   OAuthProfileParseError,
-} from "../../../../errors.js"
+} from '../../../../errors.js'
 
 import type {
   Account,
@@ -13,15 +13,15 @@ import type {
   RequestInternal,
   TokenSet,
   User,
-} from "../../../../types.js"
-import { type OAuthConfigInternal } from "../../../../providers/index.js"
-import type { Cookie } from "../../../utils/cookie.js"
-import { isOIDCProvider } from "../../../utils/providers.js"
-import { conformInternal, customFetch } from "../../../symbols.js"
-import { decodeJwt } from "jose"
+} from '../../../../types.js'
+import { type OAuthConfigInternal } from '../../../../providers/index.js'
+import type { Cookie } from '../../../utils/cookie.js'
+import { isOIDCProvider } from '../../../utils/providers.js'
+import { conformInternal, customFetch } from '../../../symbols.js'
+import { decodeJwt } from 'jose'
 
 function formUrlEncode(token: string) {
-  return encodeURIComponent(token).replace(/%20/g, "+")
+  return encodeURIComponent(token).replace(/%20/g, '+')
 }
 
 /**
@@ -45,9 +45,9 @@ function clientSecretBasic(clientId: string, clientSecret: string) {
  * we fetch it anyway. This is because we always want a user profile.
  */
 export async function handleOAuth(
-  params: RequestInternal["query"],
-  cookies: RequestInternal["cookies"],
-  options: InternalOptions<"oauth" | "oidc">
+  params: RequestInternal['query'],
+  cookies: RequestInternal['cookies'],
+  options: InternalOptions<'oauth' | 'oidc'>,
 ) {
   const { logger, provider } = options
 
@@ -56,8 +56,8 @@ export async function handleOAuth(
   const { token, userinfo } = provider
   // Falls back to authjs.dev if the user only passed params
   if (
-    (!token?.url || token.url.host === "authjs.dev") &&
-    (!userinfo?.url || userinfo.url.host === "authjs.dev")
+    (!token?.url || token.url.host === 'authjs.dev') &&
+    (!userinfo?.url || userinfo.url.host === 'authjs.dev')
   ) {
     // We assume that issuer is always defined as this has been asserted earlier
 
@@ -70,16 +70,16 @@ export async function handleOAuth(
 
     if (!as.token_endpoint)
       throw new TypeError(
-        "TODO: Authorization server did not provide a token endpoint."
+        'TODO: Authorization server did not provide a token endpoint.',
       )
 
     if (!as.userinfo_endpoint)
       throw new TypeError(
-        "TODO: Authorization server did not provide a userinfo endpoint."
+        'TODO: Authorization server did not provide a userinfo endpoint.',
       )
   } else {
     as = {
-      issuer: provider.issuer ?? "https://authjs.dev", // TODO: review fallback issuer
+      issuer: provider.issuer ?? 'https://authjs.dev', // TODO: review fallback issuer
       token_endpoint: token?.url.toString(),
       userinfo_endpoint: userinfo?.url.toString(),
     }
@@ -95,22 +95,22 @@ export async function handleOAuth(
   switch (client.token_endpoint_auth_method) {
     // TODO: in the next breaking major version have undefined be `client_secret_post`
     case undefined:
-    case "client_secret_basic":
+    case 'client_secret_basic':
       // TODO: in the next breaking major version use o.ClientSecretBasic() here
       clientAuth = (_as, _client, _body, headers) => {
         headers.set(
-          "authorization",
-          clientSecretBasic(provider.clientId, provider.clientSecret!)
+          'authorization',
+          clientSecretBasic(provider.clientId, provider.clientSecret!),
         )
       }
       break
-    case "client_secret_post":
+    case 'client_secret_post':
       clientAuth = o.ClientSecretPost(provider.clientSecret!)
       break
-    case "client_secret_jwt":
+    case 'client_secret_jwt':
       clientAuth = o.ClientSecretJwt(provider.clientSecret!)
       break
-    case "private_key_jwt":
+    case 'private_key_jwt':
       clientAuth = o.PrivateKeyJwt(provider.token!.clientPrivateKey!, {
         // TODO: review in the next breaking change
         [o.modifyAssertion](_header, payload) {
@@ -118,11 +118,11 @@ export async function handleOAuth(
         },
       })
       break
-    case "none":
+    case 'none':
       clientAuth = o.None()
       break
     default:
-      throw new Error("unsupported client authentication method")
+      throw new Error('unsupported client authentication method')
   }
 
   const resCookies: Cookie[] = []
@@ -135,7 +135,7 @@ export async function handleOAuth(
       as,
       client,
       new URLSearchParams(params),
-      provider.checks.includes("state") ? state : o.skipStateCheck
+      provider.checks.includes('state') ? state : o.skipStateCheck,
     )
   } catch (err) {
     if (err instanceof o.AuthorizationResponseError) {
@@ -143,8 +143,8 @@ export async function handleOAuth(
         providerId: provider.id,
         ...Object.fromEntries(err.cause.entries()),
       }
-      logger.debug("OAuthCallbackError", cause)
-      throw new OAuthCallbackError("OAuth Provider returned an error", cause)
+      logger.debug('OAuthCallbackError', cause)
+      throw new OAuthCallbackError('OAuth Provider returned an error', cause)
     }
     throw err
   }
@@ -162,17 +162,17 @@ export async function handleOAuth(
     clientAuth,
     codeGrantParams,
     redirect_uri,
-    codeVerifier ?? "decoy",
+    codeVerifier ?? 'decoy',
     {
       // TODO: move away from allowing insecure HTTP requests
       [o.allowInsecureRequests]: true,
       [o.customFetch]: (...args) => {
-        if (!provider.checks.includes("pkce")) {
-          args[1].body.delete("code_verifier")
+        if (!provider.checks.includes('pkce')) {
+          args[1].body.delete('code_verifier')
         }
         return (provider[customFetch] ?? fetch)(...args)
       },
-    }
+    },
   )
 
   if (provider.token?.conform) {
@@ -187,8 +187,8 @@ export async function handleOAuth(
 
   if (provider[conformInternal]) {
     switch (provider.id) {
-      case "microsoft-entra-id":
-      case "azure-ad": {
+      case 'microsoft-entra-id':
+      case 'azure-ad': {
         /**
          * These providers return errors in the response body and
          * need the authorization server metadata to be re-processed
@@ -203,13 +203,13 @@ export async function handleOAuth(
           }
           throw new OAuthCallbackError(
             `OAuth Provider returned an error: ${responseJson.error}`,
-            cause
+            cause,
           )
         }
         const { tid } = decodeJwt(responseJson.id_token)
-        if (typeof tid === "string") {
+        if (typeof tid === 'string') {
           const tenantRe = /microsoftonline\.com\/(\w+)\/v2\.0/
-          const tenantId = as.issuer?.match(tenantRe)?.[1] ?? "common"
+          const tenantId = as.issuer?.match(tenantRe)?.[1] ?? 'common'
           const issuer = new URL(as.issuer.replace(tenantId, tid))
           const discoveryResponse = await o.discoveryRequest(issuer, {
             [o.customFetch]: provider[customFetch],
@@ -229,10 +229,10 @@ export async function handleOAuth(
     {
       expectedNonce: await checks.nonce.use(cookies, resCookies, options),
       requireIdToken,
-    }
+    },
   )
 
-  const tokens: TokenSet & Pick<Account, "expires_at"> = processedCodeResponse
+  const tokens: TokenSet & Pick<Account, 'expires_at'> = processedCodeResponse
 
   if (requireIdToken) {
     const idTokenClaims = o.getValidatedIdTokenClaims(processedCodeResponse)!
@@ -240,7 +240,7 @@ export async function handleOAuth(
 
     // Apple sends some of the user information in a `user` parameter as a stringified JSON.
     // It also only does so the first time the user consents to share their information.
-    if (provider[conformInternal] && provider.id === "apple") {
+    if (provider[conformInternal] && provider.id === 'apple') {
       try {
         profile.user = JSON.parse(params?.user)
       } catch {}
@@ -255,14 +255,14 @@ export async function handleOAuth(
           [o.customFetch]: provider[customFetch],
           // TODO: move away from allowing insecure HTTP requests
           [o.allowInsecureRequests]: true,
-        }
+        },
       )
 
       profile = await o.processUserInfoResponse(
         as,
         client,
         idTokenClaims.sub,
-        userinfoResponse
+        userinfoResponse,
       )
     }
   } else {
@@ -278,11 +278,11 @@ export async function handleOAuth(
           [o.customFetch]: provider[customFetch],
           // TODO: move away from allowing insecure HTTP requests
           [o.allowInsecureRequests]: true,
-        }
+        },
       )
       profile = await userinfoResponse.json()
     } else {
-      throw new TypeError("No userinfo endpoint configured")
+      throw new TypeError('No userinfo endpoint configured')
     }
   }
 
@@ -295,7 +295,7 @@ export async function handleOAuth(
     profile,
     provider,
     tokens,
-    logger
+    logger,
   )
 
   return { ...profileResult, profile, cookies: resCookies }
@@ -309,7 +309,7 @@ export async function getUserAndAccount(
   OAuthProfile: Profile,
   provider: OAuthConfigInternal<any>,
   tokens: TokenSet,
-  logger: LoggerInstance
+  logger: LoggerInstance,
 ) {
   try {
     const userFromProfile = await provider.profile(OAuthProfile, tokens)
@@ -339,9 +339,9 @@ export async function getUserAndAccount(
     // all providers, so we return an empty object; the user should then be
     // redirected back to the sign up page. We log the error to help developers
     // who might be trying to debug this when configuring a new provider.
-    logger.debug("getProfile error details", OAuthProfile)
+    logger.debug('getProfile error details', OAuthProfile)
     logger.error(
-      new OAuthProfileParseError(e as Error, { provider: provider.id })
+      new OAuthProfileParseError(e as Error, { provider: provider.id }),
     )
   }
 }

@@ -8,15 +8,15 @@
  *
  * @module providers/spotify
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface SpotifyImage {
-    url: string;
+  url: string
 }
 export interface SpotifyProfile extends Record<string, any> {
-    id: string;
-    display_name: string;
-    email: string;
-    images: SpotifyImage[];
+  id: string
+  display_name: string
+  email: string
+  images: SpotifyImage[]
 }
 /**
  * Add Spotify login to your page.
@@ -71,5 +71,7 @@ export interface SpotifyProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Spotify<P extends SpotifyProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Spotify<P extends SpotifyProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=spotify.d.ts.map

@@ -1,5 +1,11 @@
 import { PostHogCore } from '@/posthog-core'
-import type { GetFlagsResult, JsonType, PostHogCoreOptions, PostHogFetchOptions, PostHogFetchResponse } from '@/types'
+import type {
+  GetFlagsResult,
+  JsonType,
+  PostHogCoreOptions,
+  PostHogFetchOptions,
+  PostHogFetchResponse,
+} from '@/types'
 
 const version = '2.0.0-alpha'
 
@@ -17,7 +23,7 @@ export class PostHogCoreTestClient extends PostHogCore {
   constructor(
     private mocks: PostHogCoreTestClientMocks,
     apiKey: string,
-    options?: PostHogCoreOptions
+    options?: PostHogCoreOptions,
   ) {
     super(apiKey, options)
 
@@ -30,9 +36,15 @@ export class PostHogCoreTestClient extends PostHogCore {
     groups: Record<string, string | number> = {},
     personProperties: Record<string, string> = {},
     groupProperties: Record<string, Record<string, string>> = {},
-    extraPayload: Record<string, any> = {}
+    extraPayload: Record<string, any> = {},
   ): Promise<GetFlagsResult> {
-    return super.getFlags(distinctId, groups, personProperties, groupProperties, extraPayload)
+    return super.getFlags(
+      distinctId,
+      groups,
+      personProperties,
+      groupProperties,
+      extraPayload,
+    )
   }
 
   getPersistedProperty<T>(key: string): T {
@@ -41,7 +53,10 @@ export class PostHogCoreTestClient extends PostHogCore {
   setPersistedProperty<T>(key: string, value: T | null): void {
     return this.mocks.storage.setItem(key, value)
   }
-  fetch(url: string, options: PostHogFetchOptions): Promise<PostHogFetchResponse> {
+  fetch(
+    url: string,
+    options: PostHogFetchOptions,
+  ): Promise<PostHogFetchResponse> {
     return this.mocks.fetch(url, options)
   }
   getLibraryId(): string {
@@ -59,7 +74,7 @@ export const createTestClient = (
   apiKey: string,
   options?: PostHogCoreOptions,
   setupMocks?: (mocks: PostHogCoreTestClientMocks) => void,
-  storageCache: { [key: string]: string | JsonType } = {}
+  storageCache: { [key: string]: string | JsonType } = {},
 ): [PostHogCoreTestClient, PostHogCoreTestClientMocks] => {
   const mocks = {
     fetch: jest.fn(),
@@ -76,10 +91,16 @@ export const createTestClient = (
       status: 200,
       text: () => Promise.resolve('ok'),
       json: () => Promise.resolve({ status: 'ok' }),
-    })
+    }),
   )
 
   setupMocks?.(mocks)
 
-  return [new PostHogCoreTestClient(mocks, apiKey, { disableCompression: true, ...options }), mocks]
+  return [
+    new PostHogCoreTestClient(mocks, apiKey, {
+      disableCompression: true,
+      ...options,
+    }),
+    mocks,
+  ]
 }

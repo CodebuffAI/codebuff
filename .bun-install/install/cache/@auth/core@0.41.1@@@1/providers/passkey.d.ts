@@ -8,7 +8,7 @@
  *
  * @module providers/passkey
  */
-import { WebAuthnConfig } from "./webauthn.js";
+import { WebAuthnConfig } from './webauthn.js'
 /**
  * Add Passkey login to your page.
  *
@@ -61,5 +61,5 @@ import { WebAuthnConfig } from "./webauthn.js";
  *
  * :::
  */
-export default function Passkey(config: Partial<WebAuthnConfig>): WebAuthnConfig;
+export default function Passkey(config: Partial<WebAuthnConfig>): WebAuthnConfig
 //# sourceMappingURL=passkey.d.ts.map

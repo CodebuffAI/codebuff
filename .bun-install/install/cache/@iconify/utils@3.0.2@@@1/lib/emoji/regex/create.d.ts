@@ -1,7 +1,9 @@
 /**
  * Create optimised regex
  */
-declare function createOptimisedRegexForEmojiSequences(sequences: number[][]): string;
+declare function createOptimisedRegexForEmojiSequences(
+  sequences: number[][],
+): string
 /**
  * Create optimised regex for emojis
  *
@@ -16,5 +18,5 @@ declare function createOptimisedRegexForEmojiSequences(sequences: number[][]): s
  *
  * All examples above refer to the same emoji and will generate the same regex result
  */
-declare function createOptimisedRegex(emojis: (string | number[])[]): string;
-export { createOptimisedRegex, createOptimisedRegexForEmojiSequences };
+declare function createOptimisedRegex(emojis: (string | number[])[]): string
+export { createOptimisedRegex, createOptimisedRegexForEmojiSequences }

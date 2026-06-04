@@ -8,7 +8,7 @@
  *
  * @module providers/freshbooks
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add FreshBooks login to your page.
  *
@@ -62,5 +62,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Freshbooks(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Freshbooks(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=freshbooks.d.ts.map

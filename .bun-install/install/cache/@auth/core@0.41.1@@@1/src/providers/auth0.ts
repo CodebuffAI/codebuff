@@ -10,7 +10,7 @@
  *
  * @module providers/auth0
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Auth0 when using the profile callback. [Reference](https://auth0.com/docs/manage-users/user-accounts/user-profiles/user-profile-structure). */
 export interface Auth0Profile extends Record<string, any> {
@@ -115,13 +115,13 @@ export interface Auth0Profile extends Record<string, any> {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Auth0(
-  config: OIDCUserConfig<Auth0Profile>
+  config: OIDCUserConfig<Auth0Profile>,
 ): OIDCConfig<Auth0Profile> {
   return {
-    id: "auth0",
-    name: "Auth0",
-    type: "oidc",
-    style: { text: "#fff", bg: "#EB5424" },
+    id: 'auth0',
+    name: 'Auth0',
+    type: 'oidc',
+    style: { text: '#fff', bg: '#EB5424' },
     options: config,
   }
 }

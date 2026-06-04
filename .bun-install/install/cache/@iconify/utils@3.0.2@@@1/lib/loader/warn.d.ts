@@ -1,2 +1,2 @@
-declare function warnOnce(msg: string): void;
-export { warnOnce };
+declare function warnOnce(msg: string): void
+export { warnOnce }

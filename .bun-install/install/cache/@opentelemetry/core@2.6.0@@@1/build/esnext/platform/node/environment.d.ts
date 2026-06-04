@@ -6,7 +6,7 @@
  * @param {string} key - The name of the environment variable to retrieve.
  * @returns {number | undefined} - The number value or `undefined`.
  */
-export declare function getNumberFromEnv(key: string): number | undefined;
+export declare function getNumberFromEnv(key: string): number | undefined
 /**
  * Retrieves a string from an environment variable.
  * - Returns `undefined` if the environment variable is empty, unset, or contains only whitespace.
@@ -14,7 +14,7 @@ export declare function getNumberFromEnv(key: string): number | undefined;
  * @param {string} key - The name of the environment variable to retrieve.
  * @returns {string | undefined} - The string value or `undefined`.
  */
-export declare function getStringFromEnv(key: string): string | undefined;
+export declare function getStringFromEnv(key: string): string | undefined
 /**
  * Retrieves a boolean value from an environment variable.
  * - Trims leading and trailing whitespace and ignores casing.
@@ -24,7 +24,7 @@ export declare function getStringFromEnv(key: string): string | undefined;
  * @param {string} key - The name of the environment variable to retrieve.
  * @returns {boolean} - The boolean value or `false` if the environment variable is unset empty, unset, or contains only whitespace.
  */
-export declare function getBooleanFromEnv(key: string): boolean;
+export declare function getBooleanFromEnv(key: string): boolean
 /**
  * Retrieves a list of strings from an environment variable.
  * - Uses ',' as the delimiter.
@@ -36,5 +36,5 @@ export declare function getBooleanFromEnv(key: string): boolean;
  * @param {string} key - The name of the environment variable to retrieve.
  * @returns {string[] | undefined} - The list of strings or `undefined`.
  */
-export declare function getStringListFromEnv(key: string): string[] | undefined;
+export declare function getStringListFromEnv(key: string): string[] | undefined
 //# sourceMappingURL=environment.d.ts.map

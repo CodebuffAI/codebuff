@@ -5,7 +5,7 @@
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_APP_JANK: "app.jank";
+export declare const EVENT_APP_JANK: 'app.jank'
 /**
  * This event represents an instantaneous click on the screen of an application.
  *
@@ -13,7 +13,7 @@ export declare const EVENT_APP_JANK: "app.jank";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_APP_SCREEN_CLICK: "app.screen.click";
+export declare const EVENT_APP_SCREEN_CLICK: 'app.screen.click'
 /**
  * This event indicates that an application widget has been clicked.
  *
@@ -21,7 +21,7 @@ export declare const EVENT_APP_SCREEN_CLICK: "app.screen.click";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_APP_WIDGET_CLICK: "app.widget.click";
+export declare const EVENT_APP_WIDGET_CLICK: 'app.widget.click'
 /**
  * Deprecated. Use `azure.resource.log` instead.
  *
@@ -29,19 +29,19 @@ export declare const EVENT_APP_WIDGET_CLICK: "app.widget.click";
  *
  * @deprecated Replaced by `azure.resource.log`.
  */
-export declare const EVENT_AZ_RESOURCE_LOG: "az.resource.log";
+export declare const EVENT_AZ_RESOURCE_LOG: 'az.resource.log'
 /**
  * Describes Azure Resource Log event, see [Azure Resource Log Top-level Schema](https://learn.microsoft.com/azure/azure-monitor/essentials/resource-logs-schema#top-level-common-schema) for more details.
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_AZURE_RESOURCE_LOG: "azure.resource.log";
+export declare const EVENT_AZURE_RESOURCE_LOG: 'azure.resource.log'
 /**
  * This event describes the website performance metrics introduced by Google, See [web vitals](https://web.dev/vitals).
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_BROWSER_WEB_VITAL: "browser.web_vital";
+export declare const EVENT_BROWSER_WEB_VITAL: 'browser.web_vital'
 /**
  * This event represents an occurrence of a lifecycle transition on Android or iOS platform.
  *
@@ -51,7 +51,7 @@ export declare const EVENT_BROWSER_WEB_VITAL: "browser.web_vital";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_DEVICE_APP_LIFECYCLE: "device.app.lifecycle";
+export declare const EVENT_DEVICE_APP_LIFECYCLE: 'device.app.lifecycle'
 /**
  * Defines feature flag evaluation as an event.
  *
@@ -59,7 +59,7 @@ export declare const EVENT_DEVICE_APP_LIFECYCLE: "device.app.lifecycle";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_FEATURE_FLAG_EVALUATION: "feature_flag.evaluation";
+export declare const EVENT_FEATURE_FLAG_EVALUATION: 'feature_flag.evaluation'
 /**
  * This event describes the assistant message passed to GenAI system.
  *
@@ -67,7 +67,7 @@ export declare const EVENT_FEATURE_FLAG_EVALUATION: "feature_flag.evaluation";
  *
  * @deprecated Chat history is reported on `gen_ai.input.messages` attribute on spans or `gen_ai.client.inference.operation.details` event.
  */
-export declare const EVENT_GEN_AI_ASSISTANT_MESSAGE: "gen_ai.assistant.message";
+export declare const EVENT_GEN_AI_ASSISTANT_MESSAGE: 'gen_ai.assistant.message'
 /**
  * This event describes the Gen AI response message.
  *
@@ -75,7 +75,7 @@ export declare const EVENT_GEN_AI_ASSISTANT_MESSAGE: "gen_ai.assistant.message";
  *
  * @deprecated Chat history is reported on `gen_ai.output.messages` attribute on spans or `gen_ai.client.inference.operation.details` event.
  */
-export declare const EVENT_GEN_AI_CHOICE: "gen_ai.choice";
+export declare const EVENT_GEN_AI_CHOICE: 'gen_ai.choice'
 /**
  * Describes the details of a GenAI completion request including chat history and parameters.
  *
@@ -83,13 +83,13 @@ export declare const EVENT_GEN_AI_CHOICE: "gen_ai.choice";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS: "gen_ai.client.inference.operation.details";
+export declare const EVENT_GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS: 'gen_ai.client.inference.operation.details'
 /**
  * This event captures the result of evaluating GenAI output for quality, accuracy, or other characteristics. This event **SHOULD** be parented to GenAI operation span being evaluated when possible or set `gen_ai.response.id` when span id is not available.
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_GEN_AI_EVALUATION_RESULT: "gen_ai.evaluation.result";
+export declare const EVENT_GEN_AI_EVALUATION_RESULT: 'gen_ai.evaluation.result'
 /**
  * This event describes the system instructions passed to the GenAI model.
  *
@@ -97,7 +97,7 @@ export declare const EVENT_GEN_AI_EVALUATION_RESULT: "gen_ai.evaluation.result";
  *
  * @deprecated Chat history is reported on `gen_ai.system_instructions` attribute on spans or `gen_ai.client.inference.operation.details` event.
  */
-export declare const EVENT_GEN_AI_SYSTEM_MESSAGE: "gen_ai.system.message";
+export declare const EVENT_GEN_AI_SYSTEM_MESSAGE: 'gen_ai.system.message'
 /**
  * This event describes the response from a tool or function call passed to the GenAI model.
  *
@@ -105,7 +105,7 @@ export declare const EVENT_GEN_AI_SYSTEM_MESSAGE: "gen_ai.system.message";
  *
  * @deprecated Chat history is reported on `gen_ai.input.messages` attribute on spans or `gen_ai.client.inference.operation.details` event.
  */
-export declare const EVENT_GEN_AI_TOOL_MESSAGE: "gen_ai.tool.message";
+export declare const EVENT_GEN_AI_TOOL_MESSAGE: 'gen_ai.tool.message'
 /**
  * This event describes the user message passed to the GenAI model.
  *
@@ -113,7 +113,7 @@ export declare const EVENT_GEN_AI_TOOL_MESSAGE: "gen_ai.tool.message";
  *
  * @deprecated Chat history is reported on `gen_ai.input.messages` attribute on spans or `gen_ai.client.inference.operation.details` event.
  */
-export declare const EVENT_GEN_AI_USER_MESSAGE: "gen_ai.user.message";
+export declare const EVENT_GEN_AI_USER_MESSAGE: 'gen_ai.user.message'
 /**
  * Describes a message sent or received within the context of an RPC call.
  *
@@ -121,7 +121,7 @@ export declare const EVENT_GEN_AI_USER_MESSAGE: "gen_ai.user.message";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_RPC_MESSAGE: "rpc.message";
+export declare const EVENT_RPC_MESSAGE: 'rpc.message'
 /**
  * Indicates that a session has ended.
  *
@@ -129,7 +129,7 @@ export declare const EVENT_RPC_MESSAGE: "rpc.message";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_SESSION_END: "session.end";
+export declare const EVENT_SESSION_END: 'session.end'
 /**
  * Indicates that a new session has been started, optionally linking to the prior session.
  *
@@ -138,5 +138,5 @@ export declare const EVENT_SESSION_END: "session.end";
  *
  * @experimental This event is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const EVENT_SESSION_START: "session.start";
+export declare const EVENT_SESSION_START: 'session.start'
 //# sourceMappingURL=experimental_events.d.ts.map

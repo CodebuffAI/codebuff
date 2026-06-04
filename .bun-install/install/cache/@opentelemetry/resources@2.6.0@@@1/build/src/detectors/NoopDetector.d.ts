@@ -1,6 +1,6 @@
-import { DetectedResource, ResourceDetector } from '../types';
+import { DetectedResource, ResourceDetector } from '../types'
 export declare class NoopDetector implements ResourceDetector {
-    detect(): DetectedResource;
+  detect(): DetectedResource
 }
-export declare const noopDetector: NoopDetector;
+export declare const noopDetector: NoopDetector
 //# sourceMappingURL=NoopDetector.d.ts.map

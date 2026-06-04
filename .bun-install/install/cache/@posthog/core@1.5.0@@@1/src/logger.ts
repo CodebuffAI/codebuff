@@ -21,7 +21,7 @@ function createConsole(consoleLike: ConsoleLike = console): ConsoleLike {
 export const _createLogger = (
   prefix: string,
   maybeCall: (fn: () => void) => void,
-  consoleLike: ConsoleLike
+  consoleLike: ConsoleLike,
 ): Logger => {
   function _log(level: 'log' | 'warn' | 'error', ...args: any[]) {
     maybeCall(() => {
@@ -48,11 +48,15 @@ export const _createLogger = (
       consoleLike['error'](prefix, ...args)
     },
 
-    createLogger: (additionalPrefix: string) => _createLogger(`${prefix} ${additionalPrefix}`, maybeCall, consoleLike),
+    createLogger: (additionalPrefix: string) =>
+      _createLogger(`${prefix} ${additionalPrefix}`, maybeCall, consoleLike),
   }
   return logger
 }
 
-export function createLogger(prefix: string, maybeCall: (fn: () => void) => void) {
+export function createLogger(
+  prefix: string,
+  maybeCall: (fn: () => void) => void,
+) {
   return _createLogger(prefix, maybeCall, createConsole())
 }

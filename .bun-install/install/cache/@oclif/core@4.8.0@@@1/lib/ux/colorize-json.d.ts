@@ -1,12 +1,18 @@
 type Options = {
-    pretty?: boolean | undefined;
-    theme?: Record<string, string> | undefined;
-};
-export declare function stringifyInput(json?: unknown, options?: Options): string;
-export declare function tokenize(json?: unknown, options?: Options): {
-    type: string;
-    value: string;
-}[];
+  pretty?: boolean | undefined
+  theme?: Record<string, string> | undefined
+}
+export declare function stringifyInput(
+  json?: unknown,
+  options?: Options,
+): string
+export declare function tokenize(
+  json?: unknown,
+  options?: Options,
+): {
+  type: string
+  value: string
+}[]
 /**
  * Add color to JSON.
  *
@@ -25,5 +31,5 @@ export declare function tokenize(json?: unknown, options?: Options): {
  * - boolean
  * - null
  */
-export default function colorizeJson(json: unknown, options?: Options): string;
-export {};
+export default function colorizeJson(json: unknown, options?: Options): string
+export {}

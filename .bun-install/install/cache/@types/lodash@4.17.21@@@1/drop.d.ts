@@ -1,2 +1,2 @@
-import { drop } from "./index";
-export = drop;
+import { drop } from './index'
+export = drop

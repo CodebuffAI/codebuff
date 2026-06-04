@@ -1,15 +1,15 @@
-import { AccountNotLinked, OAuthAccountNotLinked } from "../../../errors.js"
-import { fromDate } from "../../utils/date.js"
+import { AccountNotLinked, OAuthAccountNotLinked } from '../../../errors.js'
+import { fromDate } from '../../utils/date.js'
 
 import type {
   AdapterAccount,
   AdapterSession,
   AdapterUser,
-} from "../../../adapters.js"
-import type { Account, InternalOptions, User } from "../../../types.js"
-import type { JWT } from "../../../jwt.js"
-import type { OAuthConfig } from "../../../providers/index.js"
-import type { SessionToken } from "../../utils/cookie.js"
+} from '../../../adapters.js'
+import type { Account, InternalOptions, User } from '../../../types.js'
+import type { JWT } from '../../../jwt.js'
+import type { OAuthConfig } from '../../../providers/index.js'
+import type { SessionToken } from '../../utils/cookie.js'
 
 /**
  * This function handles the complex flow of signing users in, and either creating,
@@ -27,13 +27,13 @@ export async function handleLoginOrRegister(
   sessionToken: SessionToken,
   _profile: User | AdapterUser | { email: string },
   _account: AdapterAccount | Account | null,
-  options: InternalOptions
+  options: InternalOptions,
 ) {
   // Input validation
   if (!_account?.providerAccountId || !_account.type)
-    throw new Error("Missing or invalid provider account")
-  if (!["email", "oauth", "oidc", "webauthn"].includes(_account.type))
-    throw new Error("Provider not supported")
+    throw new Error('Missing or invalid provider account')
+  if (!['email', 'oauth', 'oidc', 'webauthn'].includes(_account.type))
+    throw new Error('Provider not supported')
 
   const {
     adapter,
@@ -67,14 +67,14 @@ export async function handleLoginOrRegister(
   let user: AdapterUser | null = null
   let isNewUser = false
 
-  const useJwtSession = sessionStrategy === "jwt"
+  const useJwtSession = sessionStrategy === 'jwt'
 
   if (sessionToken) {
     if (useJwtSession) {
       try {
         const salt = options.cookies.sessionToken.name
         session = await jwt.decode({ ...jwt, token: sessionToken, salt })
-        if (session && "sub" in session && session.sub) {
+        if (session && 'sub' in session && session.sub) {
           user = await getUser(session.sub)
         }
       } catch {
@@ -89,7 +89,7 @@ export async function handleLoginOrRegister(
     }
   }
 
-  if (account.type === "email") {
+  if (account.type === 'email') {
     // If signing in with an email, check if an account with the same email address exists already
     const userByEmail = await getUserByEmail(profile.email)
     if (userByEmail) {
@@ -125,7 +125,7 @@ export async function handleLoginOrRegister(
         })
 
     return { session, user, isNewUser }
-  } else if (account.type === "webauthn") {
+  } else if (account.type === 'webauthn') {
     // Check if the account exists
     const userByAccount = await getUserByAccount({
       providerAccountId: account.providerAccountId,
@@ -142,8 +142,8 @@ export async function handleLoginOrRegister(
         // with is already associated with another user, then we cannot link them
         // and need to return an error.
         throw new AccountNotLinked(
-          "The account is already associated with another user",
-          { provider: account.provider }
+          'The account is already associated with another user',
+          { provider: account.provider },
         )
       }
       // If there is no active session, but the account being signed in with is already
@@ -190,8 +190,8 @@ export async function handleLoginOrRegister(
         // if the email address associated with the new account is already associated with
         // an existing account.
         throw new AccountNotLinked(
-          "Another account already exists with the same e-mail address",
-          { provider: account.provider }
+          'Another account already exists with the same e-mail address',
+          { provider: account.provider },
         )
       } else {
         // If the current user is not logged in and the profile isn't linked to any user
@@ -235,8 +235,8 @@ export async function handleLoginOrRegister(
       // with is already associated with another user, then we cannot link them
       // and need to return an error.
       throw new OAuthAccountNotLinked(
-        "The account is already associated with another user",
-        { provider: account.provider }
+        'The account is already associated with another user',
+        { provider: account.provider },
       )
     }
     // If there is no active session, but the account being signed in with is already
@@ -251,7 +251,7 @@ export async function handleLoginOrRegister(
 
     return { session, user: userByAccount, isNewUser }
   } else {
-    const { provider: p } = options as InternalOptions<"oauth" | "oidc">
+    const { provider: p } = options as InternalOptions<'oauth' | 'oidc'>
     const { type, provider, providerAccountId, userId, ...tokenSet } = account
     const defaults = { providerAccountId, provider, type, userId }
     account = Object.assign(p.account(tokenSet) ?? {}, defaults)
@@ -302,8 +302,8 @@ export async function handleLoginOrRegister(
         // want to link them in case it's not safe to do so, so instead we prompt the user
         // to sign in via email to verify their identity and then link the accounts.
         throw new OAuthAccountNotLinked(
-          "Another account already exists with the same e-mail address",
-          { provider: account.provider }
+          'Another account already exists with the same e-mail address',
+          { provider: account.provider },
         )
       }
     } else {

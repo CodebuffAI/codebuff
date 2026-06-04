@@ -27,13 +27,12 @@ settings:
 
       # this is technically for identifying `node_modules` alternate names
       moduleDirectory:
-
         - node_modules # defaults to 'node_modules', but...
         - bower_components
 
-        - project/src  # can add a path segment here that will act like
-                       # a source root, for in-project aliasing (i.e.
-                       # `import MyStore from 'stores/my-store'`)
+        - project/src # can add a path segment here that will act like
+          # a source root, for in-project aliasing (i.e.
+          # `import MyStore from 'stores/my-store'`)
 ```
 
 or to use the default options:

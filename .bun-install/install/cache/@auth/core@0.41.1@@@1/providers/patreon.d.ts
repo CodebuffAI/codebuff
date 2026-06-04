@@ -8,12 +8,12 @@
  *
  * @module providers/patreon
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface PatreonProfile extends Record<string, any> {
-    sub: string;
-    nickname: string;
-    email: string;
-    picture: string;
+  sub: string
+  nickname: string
+  email: string
+  picture: string
 }
 /**
  * Add Patreon login to your page.
@@ -69,5 +69,7 @@ export interface PatreonProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Patreon<P extends PatreonProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Patreon<P extends PatreonProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=patreon.d.ts.map

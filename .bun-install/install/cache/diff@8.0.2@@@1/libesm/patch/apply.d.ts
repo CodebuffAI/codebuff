@@ -1,22 +1,27 @@
-import type { StructuredPatch } from '../types.js';
+import type { StructuredPatch } from '../types.js'
 export interface ApplyPatchOptions {
-    /**
-     * Maximum Levenshtein distance (in lines deleted, added, or subtituted) between the context shown in a patch hunk and the lines found in the file.
-     * @default 0
-     */
-    fuzzFactor?: number;
-    /**
-     * If `true`, and if the file to be patched consistently uses different line endings to the patch (i.e. either the file always uses Unix line endings while the patch uses Windows ones, or vice versa), then `applyPatch` will behave as if the line endings in the patch were the same as those in the source file.
-     * (If `false`, the patch will usually fail to apply in such circumstances since lines deleted in the patch won't be considered to match those in the source file.)
-     * @default true
-     */
-    autoConvertLineEndings?: boolean;
-    /**
-     * Callback used to compare to given lines to determine if they should be considered equal when patching.
-     * Defaults to strict equality but may be overridden to provide fuzzier comparison.
-     * Should return false if the lines should be rejected.
-     */
-    compareLine?: (lineNumber: number, line: string, operation: string, patchContent: string) => boolean;
+  /**
+   * Maximum Levenshtein distance (in lines deleted, added, or subtituted) between the context shown in a patch hunk and the lines found in the file.
+   * @default 0
+   */
+  fuzzFactor?: number
+  /**
+   * If `true`, and if the file to be patched consistently uses different line endings to the patch (i.e. either the file always uses Unix line endings while the patch uses Windows ones, or vice versa), then `applyPatch` will behave as if the line endings in the patch were the same as those in the source file.
+   * (If `false`, the patch will usually fail to apply in such circumstances since lines deleted in the patch won't be considered to match those in the source file.)
+   * @default true
+   */
+  autoConvertLineEndings?: boolean
+  /**
+   * Callback used to compare to given lines to determine if they should be considered equal when patching.
+   * Defaults to strict equality but may be overridden to provide fuzzier comparison.
+   * Should return false if the lines should be rejected.
+   */
+  compareLine?: (
+    lineNumber: number,
+    line: string,
+    operation: string,
+    patchContent: string,
+  ) => boolean
 }
 /**
  * attempts to apply a unified diff patch.
@@ -40,11 +45,22 @@ export interface ApplyPatchOptions {
  *
  * @param patch a string diff or the output from the `parsePatch` or `structuredPatch` methods.
  */
-export declare function applyPatch(source: string, patch: string | StructuredPatch | [StructuredPatch], options?: ApplyPatchOptions): string | false;
+export declare function applyPatch(
+  source: string,
+  patch: string | StructuredPatch | [StructuredPatch],
+  options?: ApplyPatchOptions,
+): string | false
 export interface ApplyPatchesOptions extends ApplyPatchOptions {
-    loadFile: (index: StructuredPatch, callback: (err: any, data: string) => void) => void;
-    patched: (index: StructuredPatch, content: string | false, callback: (err: any) => void) => void;
-    complete: (err?: any) => void;
+  loadFile: (
+    index: StructuredPatch,
+    callback: (err: any, data: string) => void,
+  ) => void
+  patched: (
+    index: StructuredPatch,
+    content: string | false,
+    callback: (err: any) => void,
+  ) => void
+  complete: (err?: any) => void
 }
 /**
  * applies one or more patches.
@@ -58,5 +74,8 @@ export interface ApplyPatchesOptions extends ApplyPatchOptions {
  *
  * Once all patches have been applied or an error occurs, the `options.complete(err)` callback is made.
  */
-export declare function applyPatches(uniDiff: string | StructuredPatch[], options: ApplyPatchesOptions): void;
+export declare function applyPatches(
+  uniDiff: string | StructuredPatch[],
+  options: ApplyPatchesOptions,
+): void
 //# sourceMappingURL=apply.d.ts.map

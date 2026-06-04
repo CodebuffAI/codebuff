@@ -1,2 +1,2 @@
-import { times } from "./index";
-export = times;
+import { times } from './index'
+export = times

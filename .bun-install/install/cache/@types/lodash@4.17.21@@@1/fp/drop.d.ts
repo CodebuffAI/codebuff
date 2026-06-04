@@ -1,2 +1,2 @@
-import { drop } from "../fp";
-export = drop;
+import { drop } from '../fp'
+export = drop

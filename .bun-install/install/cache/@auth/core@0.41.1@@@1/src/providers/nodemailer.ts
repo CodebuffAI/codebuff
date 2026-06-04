@@ -1,16 +1,16 @@
-import { createTransport } from "nodemailer"
-import { AuthError } from "../errors.js"
-import { html, text } from "../lib/utils/email.js"
+import { createTransport } from 'nodemailer'
+import { AuthError } from '../errors.js'
+import { html, text } from '../lib/utils/email.js'
 
-import type { Transport, TransportOptions } from "nodemailer"
-import * as JSONTransport from "nodemailer/lib/json-transport/index.js"
-import * as SendmailTransport from "nodemailer/lib/sendmail-transport/index.js"
-import * as SESTransport from "nodemailer/lib/ses-transport/index.js"
-import * as SMTPPool from "nodemailer/lib/smtp-pool/index.js"
-import * as SMTPTransport from "nodemailer/lib/smtp-transport/index.js"
-import * as StreamTransport from "nodemailer/lib/stream-transport/index.js"
-import type { Awaitable, Theme } from "../types.js"
-import type { EmailConfig } from "./email.js"
+import type { Transport, TransportOptions } from 'nodemailer'
+import * as JSONTransport from 'nodemailer/lib/json-transport/index.js'
+import * as SendmailTransport from 'nodemailer/lib/sendmail-transport/index.js'
+import * as SESTransport from 'nodemailer/lib/ses-transport/index.js'
+import * as SMTPPool from 'nodemailer/lib/smtp-pool/index.js'
+import * as SMTPTransport from 'nodemailer/lib/smtp-transport/index.js'
+import * as StreamTransport from 'nodemailer/lib/stream-transport/index.js'
+import type { Awaitable, Theme } from '../types.js'
+import type { EmailConfig } from './email.js'
 
 type AllTransportOptions =
   | string
@@ -45,21 +45,21 @@ export interface NodemailerConfig extends EmailConfig {
 
 export type NodemailerUserConfig = Omit<
   Partial<NodemailerConfig>,
-  "options" | "type"
+  'options' | 'type'
 >
 
 export default function Nodemailer(
-  config: NodemailerUserConfig
+  config: NodemailerUserConfig,
 ): NodemailerConfig {
   if (!config.server)
-    throw new AuthError("Nodemailer requires a `server` configuration")
+    throw new AuthError('Nodemailer requires a `server` configuration')
 
   return {
-    id: "nodemailer",
-    type: "email",
-    name: "Nodemailer",
-    server: { host: "localhost", port: 25, auth: { user: "", pass: "" } },
-    from: "Auth.js <no-reply@authjs.dev>",
+    id: 'nodemailer',
+    type: 'email',
+    name: 'Nodemailer',
+    server: { host: 'localhost', port: 25, auth: { user: '', pass: '' } },
+    from: 'Auth.js <no-reply@authjs.dev>',
     maxAge: 24 * 60 * 60,
     async sendVerificationRequest(params) {
       const { identifier, url, provider, theme } = params
@@ -76,7 +76,7 @@ export default function Nodemailer(
       const pending = result.pending || []
       const failed = rejected.concat(pending).filter(Boolean)
       if (failed.length) {
-        throw new Error(`Email (${failed.join(", ")}) could not be sent`)
+        throw new Error(`Email (${failed.join(', ')}) could not be sent`)
       }
     },
     options: config,

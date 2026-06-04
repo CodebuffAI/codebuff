@@ -1,2 +1,2 @@
-import { indexBy } from "../fp";
-export = indexBy;
+import { indexBy } from '../fp'
+export = indexBy

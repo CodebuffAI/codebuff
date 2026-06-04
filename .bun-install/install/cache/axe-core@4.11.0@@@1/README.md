@@ -39,14 +39,14 @@ Now insert calls at each point in your tests where a new piece of UI becomes vis
 ```js
 axe
   .run()
-  .then(results => {
+  .then((results) => {
     if (results.violations.length) {
-      throw new Error('Accessibility issues found');
+      throw new Error('Accessibility issues found')
     }
   })
-  .catch(err => {
-    console.error('Something bad happened:', err.message);
-  });
+  .catch((err) => {
+    console.error('Something bad happened:', err.message)
+  })
 ```
 
 ## Philosophy
@@ -115,22 +115,22 @@ axe.configure({
     lang: 'de',
     rules: {
       accesskeys: {
-        help: 'Der Wert des accesskey-Attributes muss einzigartig sein.'
-      }
+        help: 'Der Wert des accesskey-Attributes muss einzigartig sein.',
+      },
       // ...
     },
     checks: {
       abstractrole: {
-        fail: 'Abstrakte ARIA-Rollen dürfen nicht direkt verwendet werden.'
+        fail: 'Abstrakte ARIA-Rollen dürfen nicht direkt verwendet werden.',
       },
       'aria-errormessage': {
         // Note: doT (https://github.com/olado/dot) templates are supported here.
-        fail: 'Der Wert der aria-errormessage ${data.values}` muss eine Technik verwenden, um die Message anzukündigen (z. B., aria-live, aria-describedby, role=alert, etc.).'
-      }
+        fail: 'Der Wert der aria-errormessage ${data.values}` muss eine Technik verwenden, um die Message anzukündigen (z. B., aria-live, aria-describedby, role=alert, etc.).',
+      },
       // ...
-    }
-  }
-});
+    },
+  },
+})
 ```
 
 ### Supported Locales

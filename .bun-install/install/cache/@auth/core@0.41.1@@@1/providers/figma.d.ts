@@ -8,15 +8,15 @@
  *
  * @module providers/figma
  */
-import { OAuth2Config, OAuthUserConfig } from "./index.js";
+import { OAuth2Config, OAuthUserConfig } from './index.js'
 /**
  * @see https://www.figma.com/developers/api#users-types
  */
 interface FigmaProfile {
-    id: string;
-    email: string;
-    handle: string;
-    img_url: string;
+  id: string
+  email: string
+  handle: string
+  img_url: string
 }
 /**
  * ### Setup
@@ -70,6 +70,8 @@ interface FigmaProfile {
  *
  * :::
  */
-export default function Figma(options: OAuthUserConfig<FigmaProfile>): OAuth2Config<FigmaProfile>;
-export {};
+export default function Figma(
+  options: OAuthUserConfig<FigmaProfile>,
+): OAuth2Config<FigmaProfile>
+export {}
 //# sourceMappingURL=figma.d.ts.map

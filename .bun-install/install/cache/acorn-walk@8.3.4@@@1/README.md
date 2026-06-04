@@ -47,13 +47,13 @@ produce a meaningful state. (An example of a use of state is to track
 scope at each point in the tree.)
 
 ```js
-const acorn = require("acorn")
-const walk = require("acorn-walk")
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
-walk.simple(acorn.parse("let x = 10"), {
+walk.simple(acorn.parse('let x = 10'), {
   Literal(node) {
     console.log(`Found a literal: ${node.value}`)
-  }
+  },
 })
 ```
 
@@ -62,13 +62,16 @@ a tree, building up an array of ancestor nodes (including the current node)
 and passing the array to the callbacks as a third parameter.
 
 ```js
-const acorn = require("acorn")
-const walk = require("acorn-walk")
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 walk.ancestor(acorn.parse("foo('hi')"), {
   Literal(_node, _state, ancestors) {
-    console.log("This literal's ancestors are:", ancestors.map(n => n.type))
-  }
+    console.log(
+      "This literal's ancestors are:",
+      ancestors.map((n) => n.type),
+    )
+  },
 })
 ```
 
@@ -97,10 +100,10 @@ current node) and passing the array to the callbacks as a third
 parameter.
 
 ```js
-const acorn = require("acorn")
-const walk = require("acorn-walk")
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
-walk.full(acorn.parse("1 + 1"), node => {
+walk.full(acorn.parse('1 + 1'), (node) => {
   console.log(`There's a ${node.type} node at ${node.ch}`)
 })
 ```
@@ -120,5 +123,5 @@ boundaries, the inner one will be preferred.
 the given position.
 
 **findNodeAfter**`(node, pos, test, base, state)` is similar to
-`findNodeAround`, but will match all nodes *after* the given position
+`findNodeAround`, but will match all nodes _after_ the given position
 (testing outer nodes before inner nodes).

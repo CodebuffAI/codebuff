@@ -1,8 +1,8 @@
-import type { Observable } from 'rxjs';
+import type { Observable } from 'rxjs'
 export declare class Deferred<T> {
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: any) => void;
-    promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void
+  reject: (reason?: any) => void
+  promise: Promise<T>
 }
 /**
  * Will subscribe to the `source` observable provided,
@@ -31,7 +31,9 @@ export declare class Deferred<T> {
  *
  * @param source the Observable source to await values from
  */
-export declare function eachValueFrom<T>(source: Observable<T>): AsyncIterableIterator<T>;
+export declare function eachValueFrom<T>(
+  source: Observable<T>,
+): AsyncIterableIterator<T>
 /**
  * Will subscribe to the `source` observable provided
  * and build the emitted values up in a buffer. Allowing
@@ -57,7 +59,9 @@ export declare function eachValueFrom<T>(source: Observable<T>): AsyncIterableIt
  *
  * @param source the Observable source to await values from
  */
-export declare function bufferedValuesFrom<T>(source: Observable<T>): AsyncGenerator<T[]>;
+export declare function bufferedValuesFrom<T>(
+  source: Observable<T>,
+): AsyncGenerator<T[]>
 /**
  * Will subscribe to the provided `source` observable,
  * allowing `for await..of` loops to iterate and get the
@@ -81,7 +85,9 @@ export declare function bufferedValuesFrom<T>(source: Observable<T>): AsyncGener
  *
  * @param source the Observable source to await values from
  */
-export declare function latestValueFrom<T>(source: Observable<T>): AsyncGenerator<T>;
+export declare function latestValueFrom<T>(
+  source: Observable<T>,
+): AsyncGenerator<T>
 /**
  * Subscribes to the provided `source` observable and allows
  * `for await..of` loops to iterate over it, such that
@@ -106,4 +112,6 @@ export declare function latestValueFrom<T>(source: Observable<T>): AsyncGenerato
  *
  * @param source the Observable source to await values from
  */
-export declare function nextValueFrom<T>(source: Observable<T>): AsyncGenerator<T, void, void>;
+export declare function nextValueFrom<T>(
+  source: Observable<T>,
+): AsyncGenerator<T, void, void>

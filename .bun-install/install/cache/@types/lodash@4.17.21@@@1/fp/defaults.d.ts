@@ -1,2 +1,2 @@
-import { defaults } from "../fp";
-export = defaults;
+import { defaults } from '../fp'
+export = defaults

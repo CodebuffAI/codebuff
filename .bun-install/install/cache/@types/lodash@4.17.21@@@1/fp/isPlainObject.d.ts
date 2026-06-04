@@ -1,2 +1,2 @@
-import { isPlainObject } from "../fp";
-export = isPlainObject;
+import { isPlainObject } from '../fp'
+export = isPlainObject

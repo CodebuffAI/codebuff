@@ -4,7 +4,11 @@ import { StackFrame } from './types'
 
 describe('ErrorPropertiesBuilder', () => {
   describe('coerceUnknown', () => {
-    const errorPropertiesBuilder = new ErrorPropertiesBuilder([], [chromeStackLineParser], [])
+    const errorPropertiesBuilder = new ErrorPropertiesBuilder(
+      [],
+      [chromeStackLineParser],
+      [],
+    )
 
     function parseStack(error: Error): StackFrame[] | undefined {
       const ctx = {}
@@ -15,7 +19,7 @@ describe('ErrorPropertiesBuilder', () => {
           stack: error.stack,
           synthetic: false,
         },
-        ctx
+        ctx,
       )
       return exception.stack
     }

@@ -1,2 +1,2 @@
-import { isArray } from "./index";
-export = isArray;
+import { isArray } from './index'
+export = isArray

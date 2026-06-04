@@ -10,69 +10,87 @@
 /**
  * @category Generators
  */
-export { formatFiles } from './src/generators/format-files';
+export { formatFiles } from './src/generators/format-files'
 /**
  * @category Generators
  */
-export { generateFiles, OverwriteStrategy, } from './src/generators/generate-files';
+export {
+  generateFiles,
+  OverwriteStrategy,
+} from './src/generators/generate-files'
 /**
  * @category Generators
  */
-export { toJS, ToJSOptions } from './src/generators/to-js';
+export { toJS, ToJSOptions } from './src/generators/to-js'
 /**
  * @category Generators
  */
-export { updateTsConfigsToJs } from './src/generators/update-ts-configs-to-js';
+export { updateTsConfigsToJs } from './src/generators/update-ts-configs-to-js'
 /**
  * @category Generators
  */
-export { runTasksInSerial } from './src/generators/run-tasks-in-serial';
+export { runTasksInSerial } from './src/generators/run-tasks-in-serial'
 /**
  * @category Generators
  */
-export { visitNotIgnoredFiles } from './src/generators/visit-not-ignored-files';
-export { parseTargetString, targetToTargetString, } from './src/executors/parse-target-string';
+export { visitNotIgnoredFiles } from './src/generators/visit-not-ignored-files'
+export {
+  parseTargetString,
+  targetToTargetString,
+} from './src/executors/parse-target-string'
 /**
  * @category Executors
  */
-export { readTargetOptions } from './src/executors/read-target-options';
+export { readTargetOptions } from './src/executors/read-target-options'
 /**
  * @category Utils
  */
-export { addDependenciesToPackageJson, ensurePackage, removeDependenciesFromPackageJson, NX_VERSION, } from './src/utils/package-json';
+export {
+  addDependenciesToPackageJson,
+  ensurePackage,
+  removeDependenciesFromPackageJson,
+  NX_VERSION,
+} from './src/utils/package-json'
 /**
  * @category Utils
  */
-export { installPackagesTask } from './src/tasks/install-packages-task';
+export { installPackagesTask } from './src/tasks/install-packages-task'
 /**
  * @category Utils
  */
-export { names } from './src/utils/names';
+export { names } from './src/utils/names'
 /**
  * @category Utils
  */
-export { getWorkspaceLayout, extractLayoutDirectory, } from './src/utils/get-workspace-layout';
+export {
+  getWorkspaceLayout,
+  extractLayoutDirectory,
+} from './src/utils/get-workspace-layout'
 /**
  * @category Utils
  */
-export type { StringChange, StringDeletion, StringInsertion, } from './src/utils/string-change';
+export type {
+  StringChange,
+  StringDeletion,
+  StringInsertion,
+} from './src/utils/string-change'
 /**
  * @category Utils
  */
-export { applyChangesToString, ChangeType } from './src/utils/string-change';
+export { applyChangesToString, ChangeType } from './src/utils/string-change'
 /**
  * @category Utils
  */
-export { offsetFromRoot } from './src/utils/offset-from-root';
+export { offsetFromRoot } from './src/utils/offset-from-root'
 /**
  * @category Utils
  */
-export { convertNxGenerator } from './src/utils/invoke-nx-generator';
+export { convertNxGenerator } from './src/utils/invoke-nx-generator'
 /**
  * @category Utils
  */
-export { convertNxExecutor } from './src/utils/convert-nx-executor';
+export { convertNxExecutor } from './src/utils/convert-nx-executor'
 /**
  * @category Utils
  */
-export { moveFilesToNewDirectory } from './src/utils/move-dir';
+export { moveFilesToNewDirectory } from './src/utils/move-dir'

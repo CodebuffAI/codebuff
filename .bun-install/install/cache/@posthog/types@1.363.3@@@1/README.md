@@ -11,8 +11,8 @@ You're loading PostHog via a **`<script>` tag** and want TypeScript types for `w
 ```html
 <!-- You load PostHog like this -->
 <script>
-    !function(t,e){...}(document,window.posthog||[]);
-    posthog.init('your-api-key', { api_host: 'https://us.i.posthog.com' })
+  !function(t,e){...}(document,window.posthog||[]);
+  posthog.init('your-api-key', { api_host: 'https://us.i.posthog.com' })
 </script>
 ```
 
@@ -54,9 +54,9 @@ Create a type declaration file to type `window.posthog`:
 import type { PostHog } from '@posthog/types'
 
 declare global {
-    interface Window {
-        posthog?: PostHog
-    }
+  interface Window {
+    posthog?: PostHog
+  }
 }
 
 export {}
@@ -71,7 +71,7 @@ window.posthog?.identify('user-123', { email: 'user@example.com' })
 
 const flagValue = window.posthog?.getFeatureFlag('my-flag')
 if (flagValue === 'variant-a') {
-    // ...
+  // ...
 }
 ```
 
@@ -82,15 +82,15 @@ import type { PostHogConfig, Properties } from '@posthog/types'
 
 // Type your configuration
 const config: Partial<PostHogConfig> = {
-    api_host: 'https://us.i.posthog.com',
-    autocapture: true,
-    capture_pageview: 'history_change',
+  api_host: 'https://us.i.posthog.com',
+  autocapture: true,
+  capture_pageview: 'history_change',
 }
 
 // Type event properties
 const eventProps: Properties = {
-    button_id: 'signup',
-    page: '/pricing',
+  button_id: 'signup',
+  page: '/pricing',
 }
 ```
 

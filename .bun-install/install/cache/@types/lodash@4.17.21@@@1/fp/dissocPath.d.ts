@@ -1,2 +1,2 @@
-import { dissocPath } from "../fp";
-export = dissocPath;
+import { dissocPath } from '../fp'
+export = dissocPath

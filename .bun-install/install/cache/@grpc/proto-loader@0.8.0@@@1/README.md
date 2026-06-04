@@ -13,33 +13,33 @@ npm install @grpc/proto-loader
 ## Usage
 
 ```js
-const protoLoader = require('@grpc/proto-loader');
-const grpcLibrary = require('grpc');
+const protoLoader = require('@grpc/proto-loader')
+const grpcLibrary = require('grpc')
 // OR
-const grpcLibrary = require('@grpc/grpc-js');
+const grpcLibrary = require('@grpc/grpc-js')
 
-protoLoader.load(protoFileName, options).then(packageDefinition => {
-  const packageObject = grpcLibrary.loadPackageDefinition(packageDefinition);
-});
+protoLoader.load(protoFileName, options).then((packageDefinition) => {
+  const packageObject = grpcLibrary.loadPackageDefinition(packageDefinition)
+})
 // OR
-const packageDefinition = protoLoader.loadSync(protoFileName, options);
-const packageObject = grpcLibrary.loadPackageDefinition(packageDefinition);
+const packageDefinition = protoLoader.loadSync(protoFileName, options)
+const packageObject = grpcLibrary.loadPackageDefinition(packageDefinition)
 ```
 
 The options parameter is an object that can have the following optional properties:
 
-| Field name | Valid values | Description
-|------------|--------------|------------
-| `keepCase` | `true` or `false` | Preserve field names. The default is to change them to camel case.
-| `longs` | `String` or `Number` | The type to use to represent `long` values. Defaults to a `Long` object type.
-| `enums` | `String` | The type to use to represent `enum` values. Defaults to the numeric value.
-| `bytes` | `Array` or `String` | The type to use to represent `bytes` values. Defaults to `Buffer`.
-| `defaults` | `true` or `false` | Set default values on output objects. Defaults to `false`.
-| `arrays` | `true` or `false` | Set empty arrays for missing array values even if `defaults` is `false` Defaults to `false`.
-| `objects` | `true` or `false` | Set empty objects for missing object values even if `defaults` is `false` Defaults to `false`.
-| `oneofs` | `true` or `false` | Set virtual oneof properties to the present field's name. Defaults to `false`.
-| `json` | `true` or `false` | Represent `Infinity` and `NaN` as strings in `float` fields, and automatically decode `google.protobuf.Any` values. Defaults to `false`
-| `includeDirs` | An array of strings | A list of search paths for imported `.proto` files.
+| Field name    | Valid values         | Description                                                                                                                             |
+| ------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `keepCase`    | `true` or `false`    | Preserve field names. The default is to change them to camel case.                                                                      |
+| `longs`       | `String` or `Number` | The type to use to represent `long` values. Defaults to a `Long` object type.                                                           |
+| `enums`       | `String`             | The type to use to represent `enum` values. Defaults to the numeric value.                                                              |
+| `bytes`       | `Array` or `String`  | The type to use to represent `bytes` values. Defaults to `Buffer`.                                                                      |
+| `defaults`    | `true` or `false`    | Set default values on output objects. Defaults to `false`.                                                                              |
+| `arrays`      | `true` or `false`    | Set empty arrays for missing array values even if `defaults` is `false` Defaults to `false`.                                            |
+| `objects`     | `true` or `false`    | Set empty objects for missing object values even if `defaults` is `false` Defaults to `false`.                                          |
+| `oneofs`      | `true` or `false`    | Set virtual oneof properties to the present field's name. Defaults to `false`.                                                          |
+| `json`        | `true` or `false`    | Represent `Infinity` and `NaN` as strings in `float` fields, and automatically decode `google.protobuf.Any` values. Defaults to `false` |
+| `includeDirs` | An array of strings  | A list of search paths for imported `.proto` files.                                                                                     |
 
 The following options object closely approximates the existing behavior of `grpc.load`:
 
@@ -49,13 +49,13 @@ const options = {
   longs: String,
   enums: String,
   defaults: true,
-  oneofs: true
+  oneofs: true,
 }
 ```
 
 ## Generating TypeScript types
 
-The `proto-loader-gen-types` script distributed with this package can be used to generate TypeScript type information for the objects loaded at runtime. More information about how to use it can be found in [the *@grpc/proto-loader TypeScript Type Generator CLI Tool* proposal document](https://github.com/grpc/proposal/blob/master/L70-node-proto-loader-type-generator.md). The arguments mostly match the `load` function's options; the full usage information is as follows:
+The `proto-loader-gen-types` script distributed with this package can be used to generate TypeScript type information for the objects loaded at runtime. More information about how to use it can be found in [the _@grpc/proto-loader TypeScript Type Generator CLI Tool_ proposal document](https://github.com/grpc/proposal/blob/master/L70-node-proto-loader-type-generator.md). The arguments mostly match the `load` function's options; the full usage information is as follows:
 
 ```console
 proto-loader-gen-types.js [options] filenames...
@@ -121,20 +121,20 @@ $(npm bin)/proto-loader-gen-types --longs=String --enums=String --defaults --one
 Consume the types:
 
 ```ts
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
-import type { ProtoGrpcType } from './proto/example.ts';
-import type { ExampleHandlers } from './proto/example_package/Example.ts';
+import * as grpc from '@grpc/grpc-js'
+import * as protoLoader from '@grpc/proto-loader'
+import type { ProtoGrpcType } from './proto/example.ts'
+import type { ExampleHandlers } from './proto/example_package/Example.ts'
 
 const exampleServer: ExampleHandlers = {
   // server handlers implementation...
-};
+}
 
-const packageDefinition = protoLoader.loadSync('./proto/example.proto');
-const proto = (grpc.loadPackageDefinition(
-  packageDefinition
-) as unknown) as ProtoGrpcType;
+const packageDefinition = protoLoader.loadSync('./proto/example.proto')
+const proto = grpc.loadPackageDefinition(
+  packageDefinition,
+) as unknown as ProtoGrpcType
 
-const server = new grpc.Server();
-server.addService(proto.example_package.Example.service, exampleServer);
+const server = new grpc.Server()
+server.addService(proto.example_package.Example.service, exampleServer)
 ```

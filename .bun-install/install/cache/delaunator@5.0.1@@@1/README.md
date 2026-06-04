@@ -28,14 +28,14 @@ console.log(delaunay.triangles);
 Install with NPM (`npm install delaunator`) or Yarn (`yarn add delaunator`), then import as an ES module:
 
 ```js
-import Delaunator from 'delaunator';
+import Delaunator from 'delaunator'
 ```
 
 To use as a module in a browser:
 
 ```html
 <script type="module">
-    import Delaunator from 'https://cdn.skypack.dev/delaunator@5.0.0';
+  import Delaunator from 'https://cdn.skypack.dev/delaunator@5.0.0'
 </script>
 ```
 
@@ -67,11 +67,11 @@ To get the coordinates of all triangles, use:
 
 ```js
 for (let i = 0; i < triangles.length; i += 3) {
-    coordinates.push([
-        points[triangles[i]],
-        points[triangles[i + 1]],
-        points[triangles[i + 2]]
-    ]);
+  coordinates.push([
+    points[triangles[i]],
+    points[triangles[i + 1]],
+    points[triangles[i + 2]],
+  ])
 }
 ```
 
@@ -104,16 +104,16 @@ Useful for iterative relaxation algorithms such as [Lloyd's](https://en.wikipedi
 Benchmark results against other Delaunay JS libraries
 (`npm run bench` on Macbook Pro Retina 15" 2017, Node v10.10.0):
 
-&nbsp; | uniform 100k | gauss 100k | grid 100k | degen 100k | uniform 1&nbsp;million | gauss 1&nbsp;million | grid 1&nbsp;million | degen 1&nbsp;million
-:-- | --: | --: | --: | --: | --: | --: | --: | --:
-**delaunator** | 82ms | 61ms | 66ms | 25ms | 1.07s | 950ms | 830ms | 278ms
-[faster&#8209;delaunay](https://github.com/Bathlamos/delaunay-triangulation) | 473ms | 411ms | 272ms | 68ms | 4.27s | 4.62s | 4.3s | 810ms
-[incremental&#8209;delaunay](https://github.com/mikolalysenko/incremental-delaunay) | 547ms | 505ms | 172ms | 528ms | 5.9s | 6.08s | 2.11s | 6.09s
-[d3&#8209;voronoi](https://github.com/d3/d3-voronoi) | 972ms | 909ms | 358ms | 720ms | 15.04s | 13.86s | 5.55s | 11.13s
-[delaunay&#8209;fast](https://github.com/ironwallaby/delaunay) | 3.8s | 4s | 12.57s | timeout | 132s | 138s | 399s | timeout
-[delaunay](https://github.com/darkskyapp/delaunay) | 4.85s | 5.73s | 15.05s | timeout | 156s | 178s | 326s | timeout
-[delaunay&#8209;triangulate](https://github.com/mikolalysenko/delaunay-triangulate) | 2.24s | 2.04s | OOM | 1.51s | OOM | OOM | OOM | OOM
-[cdt2d](https://github.com/mikolalysenko/cdt2d) | 45s | 51s | 118s | 17s | timeout | timeout | timeout | timeout
+| &nbsp;                                                                              | uniform 100k | gauss 100k | grid 100k | degen 100k | uniform 1&nbsp;million | gauss 1&nbsp;million | grid 1&nbsp;million | degen 1&nbsp;million |
+| :---------------------------------------------------------------------------------- | -----------: | ---------: | --------: | ---------: | ---------------------: | -------------------: | ------------------: | -------------------: |
+| **delaunator**                                                                      |         82ms |       61ms |      66ms |       25ms |                  1.07s |                950ms |               830ms |                278ms |
+| [faster&#8209;delaunay](https://github.com/Bathlamos/delaunay-triangulation)        |        473ms |      411ms |     272ms |       68ms |                  4.27s |                4.62s |                4.3s |                810ms |
+| [incremental&#8209;delaunay](https://github.com/mikolalysenko/incremental-delaunay) |        547ms |      505ms |     172ms |      528ms |                   5.9s |                6.08s |               2.11s |                6.09s |
+| [d3&#8209;voronoi](https://github.com/d3/d3-voronoi)                                |        972ms |      909ms |     358ms |      720ms |                 15.04s |               13.86s |               5.55s |               11.13s |
+| [delaunay&#8209;fast](https://github.com/ironwallaby/delaunay)                      |         3.8s |         4s |    12.57s |    timeout |                   132s |                 138s |                399s |              timeout |
+| [delaunay](https://github.com/darkskyapp/delaunay)                                  |        4.85s |      5.73s |    15.05s |    timeout |                   156s |                 178s |                326s |              timeout |
+| [delaunay&#8209;triangulate](https://github.com/mikolalysenko/delaunay-triangulate) |        2.24s |      2.04s |       OOM |      1.51s |                    OOM |                  OOM |                 OOM |                  OOM |
+| [cdt2d](https://github.com/mikolalysenko/cdt2d)                                     |          45s |        51s |      118s |        17s |                timeout |              timeout |             timeout |              timeout |
 
 ## Papers
 

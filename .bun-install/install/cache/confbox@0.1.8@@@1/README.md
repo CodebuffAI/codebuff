@@ -65,7 +65,7 @@ import {
   stringifyJSON,
   parseTOML,
   stringifyTOML,
-} from "confbox";
+} from 'confbox'
 ```
 
 **CommonJS** (Legacy Node.js)
@@ -82,7 +82,7 @@ const {
   stringifyJSON,
   parseTOML,
   stringifyTOML,
-} = require("confbox");
+} = require('confbox')
 ```
 
 **CDN** (Deno, Bun and Browsers)
@@ -99,7 +99,7 @@ import {
   stringifyJSON,
   parseTOML,
   stringifyTOML,
-} from "https://esm.sh/confbox";
+} from 'https://esm.sh/confbox'
 ```
 
 <!-- /automd -->

@@ -27,23 +27,23 @@ pnpm add discord-api-types
 You can only import this module by specifying the API version you want to target. Append `/v*` to the import path, where the `*` represents the API version. Below are some examples
 
 ```js
-const { APIUser } = require('discord-api-types/v10');
+const { APIUser } = require('discord-api-types/v10')
 ```
 
 ```ts
 // TypeScript/ES Module support
-import { APIUser } from 'discord-api-types/v10';
+import { APIUser } from 'discord-api-types/v10'
 ```
 
 You may also import just certain parts of the module that you need. The possible values are: `globals`, `gateway`, `gateway/v*`, `payloads`, `payloads/v*`, `rest`, `rest/v*`, `rpc`, `rpc/v*`, `utils`, `utils/v*`, `voice`, and `voice/v*`. Below are some examples
 
 ```js
-const { GatewayVersion } = require('discord-api-types/gateway/v10');
+const { GatewayVersion } = require('discord-api-types/gateway/v10')
 ```
 
 ```ts
 // TypeScript/ES Module support
-import { GatewayVersion } from 'discord-api-types/gateway/v10';
+import { GatewayVersion } from 'discord-api-types/gateway/v10'
 ```
 
 > _**Note:** The `v*` exports (`discord-api-types/v*`) include the appropriate version of `gateway`, `payloads`, `rest`, `rpc`, and `utils` you specified, alongside the `globals` exports_
@@ -56,21 +56,21 @@ We also provide typings compatible with the [deno](https://deno.land/) runtime. 
 
 ```ts
 // Importing a specific API version
-import { APIUser } from 'https://raw.githubusercontent.com/discordjs/discord-api-types/main/deno/v10.ts';
+import { APIUser } from 'https://raw.githubusercontent.com/discordjs/discord-api-types/main/deno/v10.ts'
 ```
 
 2. From [deno.land/x](https://deno.land/x)
 
 ```ts
 // Importing a specific API version
-import { APIUser } from 'https://deno.land/x/discord_api_types/v10.ts';
+import { APIUser } from 'https://deno.land/x/discord_api_types/v10.ts'
 ```
 
 3. From [skypack.dev](https://www.skypack.dev/)
 
 ```ts
 // Importing a specific API version
-import { APIUser } from 'https://cdn.skypack.dev/discord-api-types/v10?dts';
+import { APIUser } from 'https://cdn.skypack.dev/discord-api-types/v10?dts'
 ```
 
 ## Project Structure
@@ -82,13 +82,13 @@ The exports of each API version is split into three main parts:
 - Everything exported with the `Gateway` prefix represents data that ONLY comes from or is directly related to the Gateway.
 
 - Everything exported with the `REST` prefix represents data that ONLY comes from or is directly related to the REST API.
-    - For endpoint options, they will follow the following structure: `REST<HTTP Method><Type><Query|(JSON|FormData)Body|Result>` where the type represents what it will return.
-        - For example, `RESTPostAPIChannelMessageJSONBody` or `RESTGetAPIGatewayBotInfoResult`.
+  - For endpoint options, they will follow the following structure: `REST<HTTP Method><Type><Query|(JSON|FormData)Body|Result>` where the type represents what it will return.
+    - For example, `RESTPostAPIChannelMessageJSONBody` or `RESTGetAPIGatewayBotInfoResult`.
 
-        - Some exported types (specifically OAuth2 related ones) may not respect this entire structure due to the nature of the fields. They will start with either `RESTOAuth2` or with something similar to `REST<HTTP Method>OAuth2`
+    - Some exported types (specifically OAuth2 related ones) may not respect this entire structure due to the nature of the fields. They will start with either `RESTOAuth2` or with something similar to `REST<HTTP Method>OAuth2`
 
-    - If a type ends with `Result`, then it represents the expected result by calling its accompanying route.
-        - Types that are exported as `never` usually mean the result will be a `204 No Content`, so you can safely ignore it. This does **not** account for errors.
+  - If a type ends with `Result`, then it represents the expected result by calling its accompanying route.
+    - Types that are exported as `never` usually mean the result will be a `204 No Content`, so you can safely ignore it. This does **not** account for errors.
 
 - Anything else that is miscellaneous will be exported based on what it represents (for example the `REST` route object).
 

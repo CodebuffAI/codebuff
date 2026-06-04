@@ -88,7 +88,7 @@ export class MockHttpSocket extends MockSocket {
           }
 
           this.requestParser.execute(
-            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding)
+            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding),
           )
         }
       },
@@ -100,7 +100,7 @@ export class MockHttpSocket extends MockSocket {
            * from that point onward anyway. No need to keep it in memory.
            */
           this.responseParser.execute(
-            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk),
           )
         }
       },
@@ -146,7 +146,11 @@ export class MockHttpSocket extends MockSocket {
       Reflect.set(this, 'getProtocol', () => 'TLSv1.3')
       Reflect.set(this, 'getSession', () => undefined)
       Reflect.set(this, 'isSessionReused', () => false)
-      Reflect.set(this, 'getCipher', () => ({ name: 'AES256-SHA', standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA', version: 'TLSv1.3' }))
+      Reflect.set(this, 'getCipher', () => ({
+        name: 'AES256-SHA',
+        standardName: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+        version: 'TLSv1.3',
+      }))
     }
   }
 
@@ -223,10 +227,10 @@ export class MockHttpSocket extends MockSocket {
           const chunkString = chunk.toString()
           const chunkBeforeRequestHeaders = chunkString.slice(
             0,
-            chunkString.indexOf('\r\n') + 2
+            chunkString.indexOf('\r\n') + 2,
           )
           const chunkAfterRequestHeaders = chunkString.slice(
-            chunk.indexOf('\r\n\r\n')
+            chunk.indexOf('\r\n\r\n'),
           )
           const rawRequestHeaders = getRawFetchHeaders(this.request!.headers)
           const requestHeadersString = rawRequestHeaders
@@ -259,7 +263,7 @@ export class MockHttpSocket extends MockSocket {
         'getProtocol',
         'getSession',
         'isSessionReused',
-        'getCipher'
+        'getCipher',
       ]
 
       tlsProperties.forEach((propertyName) => {
@@ -320,7 +324,7 @@ export class MockHttpSocket extends MockSocket {
       this.request?.method,
       this.request?.url,
       response.status,
-      response.statusText
+      response.statusText,
     )
 
     // Handle "type: error" responses.
@@ -357,7 +361,7 @@ export class MockHttpSocket extends MockSocket {
           callback?.()
         },
         read() {},
-      })
+      }),
     )
 
     /**
@@ -382,7 +386,7 @@ export class MockHttpSocket extends MockSocket {
     serverResponse.writeHead(
       response.status,
       response.statusText || STATUS_CODES[response.status],
-      rawResponseHeaders
+      rawResponseHeaders,
     )
 
     // If the developer destroy the socket, gracefully destroy the response.
@@ -465,7 +469,7 @@ export class MockHttpSocket extends MockSocket {
       null,
       addressInfo.address,
       addressInfo.family === 'IPv6' ? 6 : 4,
-      this.connectionOptions.host
+      this.connectionOptions.host,
     )
     this.emit('connect')
     this.emit('ready')
@@ -478,7 +482,7 @@ export class MockHttpSocket extends MockSocket {
       this.emit(
         'session',
         this.connectionOptions.session ||
-          Buffer.from('mock-session-renegotiate')
+          Buffer.from('mock-session-renegotiate'),
       )
       this.emit('session', Buffer.from('mock-session-resume'))
     }
@@ -519,7 +523,7 @@ export class MockHttpSocket extends MockSocket {
     __,
     ___,
     ____,
-    shouldKeepAlive
+    shouldKeepAlive,
   ) => {
     this.shouldKeepAlive = shouldKeepAlive
 
@@ -608,7 +612,7 @@ export class MockHttpSocket extends MockSocket {
   private onRequestBody(chunk: Buffer): void {
     invariant(
       this.requestStream,
-      'Failed to write to a request stream: stream does not exist'
+      'Failed to write to a request stream: stream does not exist',
     )
 
     this.requestStream.push(chunk)
@@ -639,7 +643,7 @@ export class MockHttpSocket extends MockSocket {
     method,
     url,
     status,
-    statusText
+    statusText,
   ) => {
     const headers = FetchResponse.parseRawHeaders([
       ...this.responseRawHeadersBuffer,
@@ -657,7 +661,7 @@ export class MockHttpSocket extends MockSocket {
        */
       FetchResponse.isResponseWithBody(status)
         ? (Readable.toWeb(
-            (this.responseStream = new Readable({ read() {} }))
+            (this.responseStream = new Readable({ read() {} })),
           ) as any)
         : null,
       {
@@ -665,12 +669,12 @@ export class MockHttpSocket extends MockSocket {
         status,
         statusText,
         headers,
-      }
+      },
     )
 
     invariant(
       this.request,
-      'Failed to handle a response: request does not exist'
+      'Failed to handle a response: request does not exist',
     )
 
     FetchResponse.setUrl(this.request.url, response)
@@ -696,7 +700,7 @@ export class MockHttpSocket extends MockSocket {
   private onResponseBody(chunk: Buffer) {
     invariant(
       this.responseStream,
-      'Failed to write to a response stream: stream does not exist'
+      'Failed to write to a response stream: stream does not exist',
     )
 
     this.responseStream.push(chunk)

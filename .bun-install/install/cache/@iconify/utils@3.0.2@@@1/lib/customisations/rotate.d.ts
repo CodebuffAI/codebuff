@@ -1,5 +1,5 @@
 /**
  * Get rotation value
  */
-declare function rotateFromString(value: string, defaultValue?: number): number;
-export { rotateFromString };
+declare function rotateFromString(value: string, defaultValue?: number): number
+export { rotateFromString }

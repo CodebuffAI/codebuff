@@ -1,2 +1,2 @@
-import { invertBy } from "./index";
-export = invertBy;
+import { invertBy } from './index'
+export = invertBy

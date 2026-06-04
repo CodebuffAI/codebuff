@@ -11,16 +11,20 @@ export async function spawnLocal(
     resolveFrom: string
     cwd: string
     onBinaryFound: (binaryLocation: string) => void
-  }
+  },
 ): Promise<void> {
   let binaryLocation
   try {
-    binaryLocation = resolveBinaryPath(options.env.PATH ?? '', options.resolveFrom, binaryName)
+    binaryLocation = resolveBinaryPath(
+      options.env.PATH ?? '',
+      options.resolveFrom,
+      binaryName,
+    )
     options.onBinaryFound(binaryLocation)
   } catch (e) {
     console.error(e)
     throw new Error(
-      `Binary ${binaryName} not found. Make sure postinstall script was allowed if it installs the binary`
+      `Binary ${binaryName} not found. Make sure postinstall script was allowed if it installs the binary`,
     )
   }
 

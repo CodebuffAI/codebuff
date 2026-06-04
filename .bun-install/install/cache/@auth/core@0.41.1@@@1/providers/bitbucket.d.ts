@@ -8,26 +8,31 @@
  *
  * @module providers/bitbucket
  */
-import { OAuthConfig, OAuthUserConfig } from "./index.js";
-type LiteralUnion<T extends U, U = string> = T | (U & Record<never, never>);
+import { OAuthConfig, OAuthUserConfig } from './index.js'
+type LiteralUnion<T extends U, U = string> = T | (U & Record<never, never>)
 /**
  * @see https://developer.atlassian.com/cloud/bitbucket/rest/api-group-users/#api-user-get
  */
 export interface BitbucketProfile {
-    display_name: string;
-    links: Record<LiteralUnion<"self" | "avatar" | "repositories" | "snippets" | "html" | "hooks">, {
-        href?: string;
-    }>;
-    created_on: string;
-    type: string;
-    uuid: string;
-    has_2fa_enabled: boolean | null;
-    username: string;
-    is_staff: boolean;
-    account_id: string;
-    nickname: string;
-    account_status: string;
-    location: string | null;
+  display_name: string
+  links: Record<
+    LiteralUnion<
+      'self' | 'avatar' | 'repositories' | 'snippets' | 'html' | 'hooks'
+    >,
+    {
+      href?: string
+    }
+  >
+  created_on: string
+  type: string
+  uuid: string
+  has_2fa_enabled: boolean | null
+  username: string
+  is_staff: boolean
+  account_id: string
+  nickname: string
+  account_status: string
+  location: string | null
 }
 /**
  *
@@ -84,6 +89,8 @@ export interface BitbucketProfile {
  *
  * :::
  */
-export default function Bitbucket(options: OAuthUserConfig<BitbucketProfile>): OAuthConfig<BitbucketProfile>;
-export {};
+export default function Bitbucket(
+  options: OAuthUserConfig<BitbucketProfile>,
+): OAuthConfig<BitbucketProfile>
+export {}
 //# sourceMappingURL=bitbucket.d.ts.map

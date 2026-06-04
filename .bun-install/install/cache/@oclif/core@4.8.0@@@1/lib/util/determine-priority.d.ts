@@ -1,4 +1,4 @@
-import { Command } from '../command';
+import { Command } from '../command'
 /**
  * This function is responsible for locating the correct plugin to use for a named command id
  * It searches the {Config} registered commands to match either the raw command id or the command alias
@@ -15,4 +15,7 @@ import { Command } from '../command';
  * If there is not a core plugin command present, this function will return the first
  * plugin as discovered (will not change the order)
  */
-export declare function determinePriority(plugins: string[], commands: Command.Loadable[]): Command.Loadable;
+export declare function determinePriority(
+  plugins: string[],
+  commands: Command.Loadable[],
+): Command.Loadable

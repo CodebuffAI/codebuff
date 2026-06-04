@@ -1,2 +1,2 @@
-import { isArrayLike } from "../fp";
-export = isArrayLike;
+import { isArrayLike } from '../fp'
+export = isArrayLike

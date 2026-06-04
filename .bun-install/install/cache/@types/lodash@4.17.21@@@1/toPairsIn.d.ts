@@ -1,2 +1,2 @@
-import { toPairsIn } from "./index";
-export = toPairsIn;
+import { toPairsIn } from './index'
+export = toPairsIn

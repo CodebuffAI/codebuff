@@ -1,5 +1,11 @@
 import { isEmptyString, isError, isEvent, isString } from '@/utils'
-import { CoercingContext, ErrorTrackingCoercer, ExceptionLike, SeverityLevel, severityLevels } from '../types'
+import {
+  CoercingContext,
+  ErrorTrackingCoercer,
+  ExceptionLike,
+  SeverityLevel,
+  severityLevels,
+} from '../types'
 import { extractExceptionKeysForMessage } from './utils'
 
 type ObjectLike = Record<string, unknown>
@@ -9,7 +15,10 @@ export class ObjectCoercer implements ErrorTrackingCoercer<ObjectLike> {
     return typeof candidate === 'object' && candidate !== null
   }
 
-  coerce(candidate: ObjectLike, ctx: CoercingContext): ExceptionLike | undefined {
+  coerce(
+    candidate: ObjectLike,
+    ctx: CoercingContext,
+  ): ExceptionLike | undefined {
     const errorProperty = this.getErrorPropertyFromObject(candidate)
     if (errorProperty) {
       return ctx.apply(errorProperty)
@@ -18,7 +27,9 @@ export class ObjectCoercer implements ErrorTrackingCoercer<ObjectLike> {
         type: this.getType(candidate),
         value: this.getValue(candidate),
         stack: ctx.syntheticException?.stack,
-        level: this.isSeverityLevel(candidate.level) ? candidate.level : 'error',
+        level: this.isSeverityLevel(candidate.level)
+          ? candidate.level
+          : 'error',
         synthetic: true,
       }
     }
@@ -48,11 +59,17 @@ export class ObjectCoercer implements ErrorTrackingCoercer<ObjectLike> {
   }
 
   private isSeverityLevel(x: unknown): x is SeverityLevel {
-    return isString(x) && !isEmptyString(x) && severityLevels.indexOf(x as SeverityLevel) >= 0
+    return (
+      isString(x) &&
+      !isEmptyString(x) &&
+      severityLevels.indexOf(x as SeverityLevel) >= 0
+    )
   }
 
   /** If a plain object has a property that is an `Error`, return this error. */
-  private getErrorPropertyFromObject(obj: Record<string, unknown>): Error | undefined {
+  private getErrorPropertyFromObject(
+    obj: Record<string, unknown>,
+  ): Error | undefined {
     for (const prop in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, prop)) {
         const value = obj[prop]

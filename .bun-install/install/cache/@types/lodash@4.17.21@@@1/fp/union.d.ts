@@ -1,2 +1,2 @@
-import { union } from "../fp";
-export = union;
+import { union } from '../fp'
+export = union

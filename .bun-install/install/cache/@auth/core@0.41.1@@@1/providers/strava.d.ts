@@ -8,12 +8,12 @@
  *
  * @module providers/strava
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface StravaProfile extends Record<string, any> {
-    id: string;
-    firstname: string;
-    lastname: string;
-    profile: string;
+  id: string
+  firstname: string
+  lastname: string
+  profile: string
 }
 /**
  * Add Strava login to your page.
@@ -64,5 +64,7 @@ export interface StravaProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Strava<P extends StravaProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Strava<P extends StravaProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=strava.d.ts.map

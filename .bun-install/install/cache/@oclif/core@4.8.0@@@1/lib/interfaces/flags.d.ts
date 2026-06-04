@@ -1,4 +1,4 @@
-import { FlagInput } from './parser';
+import { FlagInput } from './parser'
 /**
  * Infer the flags that are returned by Command.parse. This is useful for when you want to assign the flags as a class property.
  *
@@ -29,6 +29,9 @@ import { FlagInput } from './parser';
  *   }
  * }
  */
-export type InferredFlags<T> = T extends FlagInput<infer F> ? F & {
-    json: boolean | undefined;
-} : unknown;
+export type InferredFlags<T> =
+  T extends FlagInput<infer F>
+    ? F & {
+        json: boolean | undefined
+      }
+    : unknown

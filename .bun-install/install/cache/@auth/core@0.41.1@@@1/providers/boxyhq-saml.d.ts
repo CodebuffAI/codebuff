@@ -8,12 +8,12 @@
  *
  * @module providers/boxyhq-saml
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface BoxyHQSAMLProfile extends Record<string, any> {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
+  id: string
+  email: string
+  firstName?: string
+  lastName?: string
 }
 /**
  * Add BoxyHQ SAML login to your page.
@@ -117,5 +117,7 @@ export interface BoxyHQSAMLProfile extends Record<string, any> {
  *
  * :::
  */
-export default function SAMLJackson<P extends BoxyHQSAMLProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function SAMLJackson<P extends BoxyHQSAMLProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=boxyhq-saml.d.ts.map

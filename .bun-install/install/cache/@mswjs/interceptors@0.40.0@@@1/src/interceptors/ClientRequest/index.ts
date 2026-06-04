@@ -40,7 +40,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       construct: (target, args: Parameters<typeof http.request>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
           'http:',
-          args
+          args,
         )
 
         // Create a mock agent instance appropriate for the request protocol.
@@ -60,7 +60,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       apply: (target, thisArg, args: Parameters<typeof http.request>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
           'http:',
-          args
+          args,
         )
         const mockAgent = new MockAgent({
           customAgent: options.agent,
@@ -77,7 +77,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       apply: (target, thisArg, args: Parameters<typeof http.get>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
           'http:',
-          args
+          args,
         )
 
         const mockAgent = new MockAgent({
@@ -99,7 +99,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       apply: (target, thisArg, args: Parameters<typeof https.request>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
           'https:',
-          args
+          args,
         )
 
         const mockAgent = new MockHttpsAgent({
@@ -117,7 +117,7 @@ export class ClientRequestInterceptor extends Interceptor<HttpRequestEventMap> {
       apply: (target, thisArg, args: Parameters<typeof https.get>) => {
         const [url, options, callback] = normalizeClientRequestArgs(
           'https:',
-          args
+          args,
         )
 
         const mockAgent = new MockHttpsAgent({

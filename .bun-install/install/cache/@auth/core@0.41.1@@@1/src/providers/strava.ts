@@ -8,7 +8,7 @@
  *
  * @module providers/strava
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface StravaProfile extends Record<string, any> {
   id: string // this is really a number
@@ -67,26 +67,26 @@ export interface StravaProfile extends Record<string, any> {
  * :::
  */
 export default function Strava<P extends StravaProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "strava",
-    name: "Strava",
-    type: "oauth",
+    id: 'strava',
+    name: 'Strava',
+    type: 'oauth',
     authorization: {
-      url: "https://www.strava.com/api/v3/oauth/authorize",
+      url: 'https://www.strava.com/api/v3/oauth/authorize',
       params: {
-        scope: "read",
-        approval_prompt: "auto",
-        response_type: "code",
+        scope: 'read',
+        approval_prompt: 'auto',
+        response_type: 'code',
       },
     },
     token: {
-      url: "https://www.strava.com/api/v3/oauth/token",
+      url: 'https://www.strava.com/api/v3/oauth/token',
     },
-    userinfo: "https://www.strava.com/api/v3/athlete",
+    userinfo: 'https://www.strava.com/api/v3/athlete',
     client: {
-      token_endpoint_auth_method: "client_secret_post",
+      token_endpoint_auth_method: 'client_secret_post',
     },
     profile(profile) {
       return {

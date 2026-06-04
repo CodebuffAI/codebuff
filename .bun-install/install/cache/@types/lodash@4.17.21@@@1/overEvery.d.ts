@@ -1,2 +1,2 @@
-import { overEvery } from "./index";
-export = overEvery;
+import { overEvery } from './index'
+export = overEvery

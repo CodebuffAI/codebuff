@@ -66,7 +66,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
 
       this.logger.info(
         'sent serialized request to the child:',
-        serializedRequest
+        serializedRequest,
       )
 
       process.send?.(`request:${serializedRequest}`)
@@ -86,7 +86,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
             }
 
             const responseInit = JSON.parse(
-              serializedResponse
+              serializedResponse,
             ) as SerializedResponse
 
             const mockedResponse = new FetchResponse(responseInit.body, {
@@ -110,7 +110,7 @@ export class RemoteHttpInterceptor extends BatchInterceptor<
       // Listen for the mocked response message from the parent.
       this.logger.info(
         'add "message" listener to the parent process',
-        handleParentMessage
+        handleParentMessage,
       )
       process.addListener('message', handleParentMessage)
 
@@ -167,7 +167,7 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
 
       const requestJson = JSON.parse(
         serializedRequest,
-        requestReviver
+        requestReviver,
       ) as RevivedRequest
 
       logger.info('parsed intercepted request', requestJson)
@@ -215,12 +215,12 @@ export class RemoteHttpResolver extends Interceptor<HttpRequestEventMap> {
                 response: responseClone,
                 isMockedResponse: true,
               })
-            }
+            },
           )
 
           logger.info(
             'sent serialized mocked response to the parent:',
-            serializedResponse
+            serializedResponse,
           )
         },
         errorWith: (reason) => {

@@ -8,7 +8,7 @@ export function createFrame(
   filename: string,
   func: string,
   lineno?: number,
-  colno?: number
+  colno?: number,
 ): StackFrame {
   const frame: StackFrame = {
     // TODO: should be a variable here

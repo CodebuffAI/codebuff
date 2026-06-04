@@ -1,2 +1,2 @@
-import { capitalize } from "../fp";
-export = capitalize;
+import { capitalize } from '../fp'
+export = capitalize

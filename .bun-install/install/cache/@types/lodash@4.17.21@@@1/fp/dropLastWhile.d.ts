@@ -1,2 +1,2 @@
-import { dropLastWhile } from "../fp";
-export = dropLastWhile;
+import { dropLastWhile } from '../fp'
+export = dropLastWhile

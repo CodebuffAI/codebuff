@@ -8,7 +8,7 @@
  *
  * @module providers/pipedrive
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface PipedriveProfile extends Record<string, any> {
   success: boolean
@@ -98,15 +98,15 @@ export interface PipedriveProfile extends Record<string, any> {
  * :::
  */
 export default function Pipedrive<P extends PipedriveProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "pipedrive",
-    name: "Pipedrive",
-    type: "oauth",
-    authorization: "https://oauth.pipedrive.com/oauth/authorize",
-    token: "https://oauth.pipedrive.com/oauth/token",
-    userinfo: "https://api.pipedrive.com/users/me",
+    id: 'pipedrive',
+    name: 'Pipedrive',
+    type: 'oauth',
+    authorization: 'https://oauth.pipedrive.com/oauth/authorize',
+    token: 'https://oauth.pipedrive.com/oauth/token',
+    userinfo: 'https://api.pipedrive.com/users/me',
     profile: ({ data: profile }) => {
       return {
         id: profile.id.toString(),

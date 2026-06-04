@@ -1,4 +1,4 @@
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 interface Address {
   address_type: string
@@ -70,17 +70,17 @@ export interface VippsProfile extends Record<string, any> {
  * :::
  */
 export default function Vipps(
-  options: OIDCUserConfig<VippsProfile>
+  options: OIDCUserConfig<VippsProfile>,
 ): OIDCConfig<VippsProfile> {
   return {
-    id: "vipps",
-    name: "Vipps",
-    type: "oidc",
-    issuer: "https://api.vipps.no/access-management-1.0/access/",
-    authorization: { params: { scope: "openid name email" } },
+    id: 'vipps',
+    name: 'Vipps',
+    type: 'oidc',
+    issuer: 'https://api.vipps.no/access-management-1.0/access/',
+    authorization: { params: { scope: 'openid name email' } },
     idToken: false,
-    style: { brandColor: "#f05c18" },
-    checks: ["pkce", "state", "nonce"],
+    style: { brandColor: '#f05c18' },
+    checks: ['pkce', 'state', 'nonce'],
     options,
   }
 }

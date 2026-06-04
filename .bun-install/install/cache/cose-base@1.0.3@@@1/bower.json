@@ -9,15 +9,7 @@
     "type": "git",
     "url": "https://github.com/iVis-at-Bilkent/cose-base.git"
   },
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ],
-  "keywords": [
-    "layout"
-  ],
+  "ignore": ["**/.*", "node_modules", "bower_components", "test", "tests"],
+  "keywords": ["layout"],
   "license": "MIT"
 }

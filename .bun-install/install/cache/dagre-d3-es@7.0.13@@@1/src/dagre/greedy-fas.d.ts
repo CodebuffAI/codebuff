@@ -1,1 +1,1 @@
-export function greedyFAS(g: any, weightFn: any): any[];
+export function greedyFAS(g: any, weightFn: any): any[]

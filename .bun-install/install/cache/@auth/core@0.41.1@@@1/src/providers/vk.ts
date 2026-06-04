@@ -8,7 +8,7 @@
  *
  * @module providers/vk
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /** https://dev.vk.com/reference/objects/user */
 export interface VkProfile {
@@ -73,7 +73,7 @@ export interface VkProfile {
     instagram?: string
   }
   photo_400?: string
-  wall_default?: "owner" | "all"
+  wall_default?: 'owner' | 'all'
   interests?: string
   books?: string
   tv?: string
@@ -123,7 +123,7 @@ export interface VkProfile {
       id: number
       images?: Array<{
         height?: number
-        type?: "s" | "m" | "x" | "l" | "o" | "p" | "q" | "r" | "y" | "z" | "w"
+        type?: 's' | 'm' | 'x' | 'l' | 'o' | 'p' | 'q' | 'r' | 'y' | 'z' | 'w'
         url?: string
         width?: number
       }>
@@ -139,31 +139,31 @@ export interface VkProfile {
         url: string
         src?: string
         type:
-          | "s"
-          | "m"
-          | "x"
-          | "o"
-          | "p"
-          | "q"
-          | "r"
-          | "k"
-          | "l"
-          | "y"
-          | "z"
-          | "c"
-          | "w"
-          | "a"
-          | "b"
-          | "e"
-          | "i"
-          | "d"
-          | "j"
-          | "temp"
-          | "h"
-          | "g"
-          | "n"
-          | "f"
-          | "max"
+          | 's'
+          | 'm'
+          | 'x'
+          | 'o'
+          | 'p'
+          | 'q'
+          | 'r'
+          | 'k'
+          | 'l'
+          | 'y'
+          | 'z'
+          | 'c'
+          | 'w'
+          | 'a'
+          | 'b'
+          | 'e'
+          | 'i'
+          | 'd'
+          | 'j'
+          | 'temp'
+          | 'h'
+          | 'g'
+          | 'n'
+          | 'f'
+          | 'max'
         width: number
       }>
       text?: string
@@ -193,7 +193,7 @@ export interface VkProfile {
   occupation?: {
     id?: number
     name?: string
-    type?: "work" | "school" | "university"
+    type?: 'work' | 'school' | 'university'
   }
   career?: {
     group_id?: number
@@ -270,7 +270,7 @@ export interface VkProfile {
   relatives?: Array<{
     id?: number
     name?: string
-    type: "parent" | "child" | "grandparent" | "grandchild" | "sibling"
+    type: 'parent' | 'child' | 'grandparent' | 'grandchild' | 'sibling'
   }>
   counters?: {
     albums?: number
@@ -359,17 +359,17 @@ export interface VkProfile {
  * :::
  */
 export default function VK<P extends Record<string, any> = VkProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
-  const apiVersion = "5.131" // https://vk.com/dev/versions
+  const apiVersion = '5.131' // https://vk.com/dev/versions
 
   return {
-    id: "vk",
-    name: "VK",
-    type: "oauth",
+    id: 'vk',
+    name: 'VK',
+    type: 'oauth',
     authorization: `https://oauth.vk.com/authorize?scope=email&v=${apiVersion}`,
     client: {
-      token_endpoint_auth_method: "client_secret_post",
+      token_endpoint_auth_method: 'client_secret_post',
     },
     token: `https://oauth.vk.com/access_token?v=${apiVersion}`,
     userinfo: {
@@ -378,7 +378,7 @@ export default function VK<P extends Record<string, any> = VkProfile>(
         const profile = await fetch(provider.userinfo?.url as URL, {
           headers: {
             Authorization: `Bearer ${tokens.access_token}`,
-            "User-Agent": "authjs",
+            'User-Agent': 'authjs',
           },
         }).then(async (res) => await res.json())
 
@@ -390,12 +390,12 @@ export default function VK<P extends Record<string, any> = VkProfile>(
     profile(profile: P) {
       return {
         id: profile.id,
-        name: [profile.first_name, profile.last_name].filter(Boolean).join(" "),
+        name: [profile.first_name, profile.last_name].filter(Boolean).join(' '),
         email: profile.email ?? null,
         image: profile.photo_100,
       }
     },
-    style: { bg: "#07F", text: "#fff" },
+    style: { bg: '#07F', text: '#fff' },
     options,
   }
 }

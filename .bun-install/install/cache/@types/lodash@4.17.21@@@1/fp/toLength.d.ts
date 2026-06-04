@@ -1,2 +1,2 @@
-import { toLength } from "../fp";
-export = toLength;
+import { toLength } from '../fp'
+export = toLength

@@ -1,5 +1,4 @@
-argparse
-========
+# argparse
 
 [![Build Status](https://secure.travis-ci.org/nodeca/argparse.svg?branch=master)](http://travis-ci.org/nodeca/argparse)
 [![NPM version](https://img.shields.io/npm/v/argparse.svg)](https://www.npmjs.org/package/argparse)
@@ -9,36 +8,34 @@ CLI arguments parser for node.js, with [sub-commands](https://docs.python.org/3.
 **Difference with original.**
 
 - JS has no keyword arguments support.
-  -  Pass options instead: `new ArgumentParser({ description: 'example', add_help: true })`.
+  - Pass options instead: `new ArgumentParser({ description: 'example', add_help: true })`.
 - JS has no python's types `int`, `float`, ...
   - Use string-typed names: `.add_argument('-b', { type: 'int', help: 'help' })`.
 - `%r` format specifier uses `require('util').inspect()`.
 
 More details in [doc](./doc).
 
-
-Example
--------
+## Example
 
 `test.js` file:
 
 ```javascript
 #!/usr/bin/env node
-'use strict';
+'use strict'
 
-const { ArgumentParser } = require('argparse');
-const { version } = require('./package.json');
+const { ArgumentParser } = require('argparse')
+const { version } = require('./package.json')
 
 const parser = new ArgumentParser({
-  description: 'Argparse example'
-});
+  description: 'Argparse example',
+})
 
-parser.add_argument('-v', '--version', { action: 'version', version });
-parser.add_argument('-f', '--foo', { help: 'foo bar' });
-parser.add_argument('-b', '--bar', { help: 'bar foo' });
-parser.add_argument('--baz', { help: 'baz bar' });
+parser.add_argument('-v', '--version', { action: 'version', version })
+parser.add_argument('-f', '--foo', { help: 'foo bar' })
+parser.add_argument('-b', '--bar', { help: 'bar foo' })
+parser.add_argument('--baz', { help: 'baz bar' })
 
-console.dir(parser.parse_args());
+console.dir(parser.parse_args())
 ```
 
 Display help:
@@ -64,9 +61,7 @@ $ ./test.js -f=3 --bar=4 --baz 5
 { foo: '3', bar: '4', baz: '5' }
 ```
 
-
-API docs
---------
+## API docs
 
 Since this is a port with minimal divergence, there's no separate documentation.
 Use original one instead, with notes about difference.
@@ -75,9 +70,7 @@ Use original one instead, with notes about difference.
 2. [Original tutorial](https://docs.python.org/3.9/howto/argparse.html).
 3. [Difference with python](./doc).
 
-
-argparse for enterprise
------------------------
+## argparse for enterprise
 
 Available as part of the Tidelift Subscription
 

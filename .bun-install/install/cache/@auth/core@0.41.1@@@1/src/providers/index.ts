@@ -1,19 +1,19 @@
-import type { Profile } from "../types.js"
-import CredentialsProvider from "./credentials.js"
-import type { CredentialsConfig, CredentialsProviderId } from "./credentials.js"
-import type EmailProvider from "./email.js"
-import type { EmailConfig, EmailProviderId } from "./email.js"
+import type { Profile } from '../types.js'
+import CredentialsProvider from './credentials.js'
+import type { CredentialsConfig, CredentialsProviderId } from './credentials.js'
+import type EmailProvider from './email.js'
+import type { EmailConfig, EmailProviderId } from './email.js'
 import type {
   OAuth2Config,
   OAuthConfig,
   OAuthProviderId,
   OIDCConfig,
-} from "./oauth.js"
-import type { WebAuthnConfig, WebAuthnProviderType } from "./webauthn.js"
+} from './oauth.js'
+import type { WebAuthnConfig, WebAuthnProviderType } from './webauthn.js'
 
-export * from "./credentials.js"
-export * from "./email.js"
-export * from "./oauth.js"
+export * from './credentials.js'
+export * from './email.js'
+export * from './oauth.js'
 
 /**
  * Providers passed to Auth.js must define one of these types.
@@ -24,10 +24,10 @@ export * from "./oauth.js"
  * @see [Credentials-based Authentication](https://authjs.dev/getting-started/providers/credentials)
  */
 export type ProviderType =
-  | "oidc"
-  | "oauth"
-  | "email"
-  | "credentials"
+  | 'oidc'
+  | 'oauth'
+  | 'email'
+  | 'credentials'
   | WebAuthnProviderType
 
 /** Shared across all {@link ProviderType} */

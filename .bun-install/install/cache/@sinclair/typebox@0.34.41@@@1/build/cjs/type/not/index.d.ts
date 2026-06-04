@@ -1,1 +1,1 @@
-export * from './not';
+export * from './not'

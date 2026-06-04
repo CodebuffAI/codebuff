@@ -1,2 +1,2 @@
-import { property } from "../fp";
-export = property;
+import { property } from '../fp'
+export = property

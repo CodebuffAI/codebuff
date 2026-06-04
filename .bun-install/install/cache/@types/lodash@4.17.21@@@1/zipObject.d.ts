@@ -1,2 +1,2 @@
-import { zipObject } from "./index";
-export = zipObject;
+import { zipObject } from './index'
+export = zipObject

@@ -1,2 +1,2 @@
-import { allPass } from "../fp";
-export = allPass;
+import { allPass } from '../fp'
+export = allPass

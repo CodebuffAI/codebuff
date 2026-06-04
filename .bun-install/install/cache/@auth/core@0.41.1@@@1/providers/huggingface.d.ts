@@ -8,132 +8,132 @@
  *
  * @module providers/huggingface
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface HuggingfaceProfile {
+  /**
+   * Unique identifier for the user.
+   */
+  sub: string
+  /**
+   * Full name of the user.
+   *
+   * Needs 'profile' scope
+   */
+  name?: string
+  /**
+   * Username of the user.
+   *
+   * Need 'profile' scope
+   */
+  preferred_username?: string
+  /**
+   * URL of the user's avatar.
+   *
+   * Need 'profile' scope
+   */
+  profile?: string
+  /**
+   * URL of the user's profile picture.
+   *
+   * Need 'profile' scope
+   */
+  picture?: string
+  /**
+   * Need 'profile' scope
+   *
+   * Website of the user.
+   */
+  website?: string
+  /**
+   * Need 'email' scope
+   *
+   * Email address of the user.
+   */
+  email?: string
+  /**
+   * Need 'email' scope
+   *
+   * Whether the user's email address is verified. Should always be true, Hugging Face enforces
+   * email verification for users to grant access to OAuth apps.
+   */
+  email_verified?: boolean
+  /**
+   * Whether the user has a paid subscription.
+   */
+  isPro: boolean
+  /**
+   * Whether the user has a payment method set up.
+   *
+   * Needs the `read-billing` scope.
+   */
+  canPay?: boolean
+  /**
+   * List of the user's organizations.
+   */
+  orgs: Array<{
     /**
-     * Unique identifier for the user.
+     * Unique identifier for the organization.
      */
-    sub: string;
+    sub: string
     /**
-     * Full name of the user.
+     * Name of the organization.
+     */
+    name: string
+    /**
+     * URL of the organization's avatar.
+     */
+    picture: string
+    /**
+     * Username of the organization.
+     */
+    preferred_username: string
+    /**
+     * Whether the organization has a paid enterprise subscription.
+     */
+    isEnterprise: boolean
+    /**
+     * Whether the organization has a payment method set up.
      *
-     * Needs 'profile' scope
+     * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    name?: string;
+    canPay?: boolean
     /**
-     * Username of the user.
+     * The role of the user in the organization.
      *
-     * Need 'profile' scope
+     * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    preferred_username?: string;
+    roleInOrg?: 'admin' | 'write' | 'read' | 'contributor'
     /**
-     * URL of the user's avatar.
+     * User needs to re-authenticate to access the organization.
      *
-     * Need 'profile' scope
+     * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    profile?: string;
+    pendingSSO?: boolean
     /**
-     * URL of the user's profile picture.
+     * User needs to enable MFA to access the organization.
      *
-     * Need 'profile' scope
+     * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    picture?: string;
+    missingMFA?: boolean
     /**
-     * Need 'profile' scope
+     * Resource groups are a feature of enterprise organizations.
      *
-     * Website of the user.
-     */
-    website?: string;
-    /**
-     * Need 'email' scope
+     * They allow granular access control to resources within the organization.
      *
-     * Email address of the user.
+     * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    email?: string;
-    /**
-     * Need 'email' scope
-     *
-     * Whether the user's email address is verified. Should always be true, Hugging Face enforces
-     * email verification for users to grant access to OAuth apps.
-     */
-    email_verified?: boolean;
-    /**
-     * Whether the user has a paid subscription.
-     */
-    isPro: boolean;
-    /**
-     * Whether the user has a payment method set up.
-     *
-     * Needs the `read-billing` scope.
-     */
-    canPay?: boolean;
-    /**
-     * List of the user's organizations.
-     */
-    orgs: Array<{
-        /**
-         * Unique identifier for the organization.
-         */
-        sub: string;
-        /**
-         * Name of the organization.
-         */
-        name: string;
-        /**
-         * URL of the organization's avatar.
-         */
-        picture: string;
-        /**
-         * Username of the organization.
-         */
-        preferred_username: string;
-        /**
-         * Whether the organization has a paid enterprise subscription.
-         */
-        isEnterprise: boolean;
-        /**
-         * Whether the organization has a payment method set up.
-         *
-         * Access to the organization needs to be granted to the oauth app for this field to be present.
-         */
-        canPay?: boolean;
-        /**
-         * The role of the user in the organization.
-         *
-         * Access to the organization needs to be granted to the oauth app for this field to be present.
-         */
-        roleInOrg?: "admin" | "write" | "read" | "contributor";
-        /**
-         * User needs to re-authenticate to access the organization.
-         *
-         * Access to the organization needs to be granted to the oauth app for this field to be present.
-         */
-        pendingSSO?: boolean;
-        /**
-         * User needs to enable MFA to access the organization.
-         *
-         * Access to the organization needs to be granted to the oauth app for this field to be present.
-         */
-        missingMFA?: boolean;
-        /**
-         * Resource groups are a feature of enterprise organizations.
-         *
-         * They allow granular access control to resources within the organization.
-         *
-         * Access to the organization needs to be granted to the oauth app for this field to be present.
-         */
-        resourceGroups?: Array<{
-            /**
-             * Unique identifier for the resource group.
-             */
-            sub: string;
-            name: string;
-            /**
-             * The role of the user in the resource group.
-             */
-            role: "read" | "write" | "admin" | "contributor";
-        }>;
-    }>;
+    resourceGroups?: Array<{
+      /**
+       * Unique identifier for the resource group.
+       */
+      sub: string
+      name: string
+      /**
+       * The role of the user in the resource group.
+       */
+      role: 'read' | 'write' | 'admin' | 'contributor'
+    }>
+  }>
 }
 /**
  * Add HuggingFace login to your page.
@@ -212,5 +212,7 @@ export interface HuggingfaceProfile {
  *
  * :::
  */
-export default function Huggingface(options: OIDCUserConfig<HuggingfaceProfile>): OIDCConfig<HuggingfaceProfile>;
+export default function Huggingface(
+  options: OIDCUserConfig<HuggingfaceProfile>,
+): OIDCConfig<HuggingfaceProfile>
 //# sourceMappingURL=huggingface.d.ts.map

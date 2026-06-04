@@ -1,2 +1,2 @@
-import { dissoc } from "../fp";
-export = dissoc;
+import { dissoc } from '../fp'
+export = dissoc

@@ -2,7 +2,15 @@ import { PluginFunc } from 'dayjs/esm'
 
 declare module 'dayjs/esm' {
   interface ConfigTypeMap {
-    arraySupport: [number?, number?, number?, number?, number?, number?, number?]
+    arraySupport: [
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+    ]
   }
 }
 

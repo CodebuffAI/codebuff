@@ -1,2 +1,2 @@
-import { valuesIn } from "./index";
-export = valuesIn;
+import { valuesIn } from './index'
+export = valuesIn

@@ -15,18 +15,21 @@ $ npm install ansi-styles
 ## Usage
 
 ```js
-const style = require('ansi-styles');
+const style = require('ansi-styles')
 
-console.log(`${style.green.open}Hello world!${style.green.close}`);
-
+console.log(`${style.green.open}Hello world!${style.green.close}`)
 
 // Color conversion between 256/truecolor
 // NOTE: When converting from truecolor to 256 colors, the original color
 //       may be degraded to fit the new color palette. This means terminals
 //       that do not support 16 million colors will best-match the
 //       original color.
-console.log(`${style.color.ansi256(style.rgbToAnsi256(199, 20, 250))}Hello World${style.color.close}`)
-console.log(`${style.color.ansi16m(...style.hexToRgb('#abcdef'))}Hello World${style.color.close}`)
+console.log(
+  `${style.color.ansi256(style.rgbToAnsi256(199, 20, 250))}Hello World${style.color.close}`,
+)
+console.log(
+  `${style.color.ansi16m(...style.hexToRgb('#abcdef'))}Hello World${style.color.close}`,
+)
 ```
 
 ## API
@@ -40,12 +43,12 @@ Each style has an `open` and `close` property.
 - `reset`
 - `bold`
 - `dim`
-- `italic` *(Not widely supported)*
+- `italic` _(Not widely supported)_
 - `underline`
-- `overline` *Supported on VTE-based terminals, the GNOME terminal, mintty, and Git Bash.*
+- `overline` _Supported on VTE-based terminals, the GNOME terminal, mintty, and Git Bash._
 - `inverse`
 - `hidden`
-- `strikethrough` *(Not widely supported)*
+- `strikethrough` _(Not widely supported)_
 
 ### Colors
 
@@ -96,7 +99,7 @@ By default, you get a map of styles, but the styles are also available as groups
 ###### Example
 
 ```js
-console.log(style.color.green.open);
+console.log(style.color.green.open)
 ```
 
 Raw escape codes (i.e. without the CSI escape prefix `\u001B[` and render mode postfix `m`) are available under `style.codes`, which returns a `Map` with the open codes as keys and close codes as values.
@@ -104,7 +107,7 @@ Raw escape codes (i.e. without the CSI escape prefix `\u001B[` and render mode p
 ###### Example
 
 ```js
-console.log(style.codes.get(36));
+console.log(style.codes.get(36))
 //=> 39
 ```
 
@@ -121,11 +124,11 @@ The following color spaces from `color-convert` are supported:
 To use these, call the associated conversion function with the intended output, for example:
 
 ```js
-style.color.ansi256(style.rgbToAnsi256(100, 200, 15)); // RGB to 256 color ansi foreground code
-style.bgColor.ansi256(style.hexToAnsi256('#C0FFEE')); // HEX to 256 color ansi foreground code
+style.color.ansi256(style.rgbToAnsi256(100, 200, 15)) // RGB to 256 color ansi foreground code
+style.bgColor.ansi256(style.hexToAnsi256('#C0FFEE')) // HEX to 256 color ansi foreground code
 
-style.color.ansi16m(100, 200, 15); // RGB to 16 million color foreground code
-style.bgColor.ansi16m(...style.hexToRgb('#C0FFEE')); // Hex (RGB) to 16 million color foreground code
+style.color.ansi16m(100, 200, 15) // RGB to 16 million color foreground code
+style.bgColor.ansi16m(...style.hexToRgb('#C0FFEE')) // Hex (RGB) to 16 million color foreground code
 ```
 
 ## Related

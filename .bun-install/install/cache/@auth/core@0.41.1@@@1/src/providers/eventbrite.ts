@@ -9,7 +9,7 @@
  * @module providers/eventbrite
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * @see https://www.eventbrite.com/platform/api#/reference/user/retrieve-your-user/retrieve-your-user
@@ -74,18 +74,18 @@ export interface EventbriteProfile extends Record<string, any> {
  * :::
  */
 export default function Eventbrite<P extends EventbriteProfile>(
-  config: OAuthUserConfig<P>
+  config: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "eventbrite",
-    name: "Eventbrite",
-    type: "oauth",
+    id: 'eventbrite',
+    name: 'Eventbrite',
+    type: 'oauth',
     authorization: {
-      url: "https://www.eventbrite.com/oauth/authorize",
-      params: { scope: "user.profile" },
+      url: 'https://www.eventbrite.com/oauth/authorize',
+      params: { scope: 'user.profile' },
     },
-    token: "https://www.eventbrite.com/oauth/token",
-    userinfo: "https://www.eventbriteapi.com/v3/users/me/",
+    token: 'https://www.eventbrite.com/oauth/token',
+    userinfo: 'https://www.eventbriteapi.com/v3/users/me/',
     profile(profile) {
       return {
         id: profile.id,
@@ -97,9 +97,9 @@ export default function Eventbrite<P extends EventbriteProfile>(
       }
     },
     client: {
-      token_endpoint_auth_method: "client_secret_post",
+      token_endpoint_auth_method: 'client_secret_post',
     },
-    style: { bg: "#f05537", text: "#fff" },
+    style: { bg: '#f05537', text: '#fff' },
     options: config,
   }
 }

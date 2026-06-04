@@ -1,9 +1,9 @@
-import type { AuthAction, InternalOptions } from "../../../../types.js";
+import type { AuthAction, InternalOptions } from '../../../../types.js'
 interface CreateCSRFTokenParams {
-    options: InternalOptions;
-    cookieValue?: string;
-    isPost: boolean;
-    bodyValue?: string;
+  options: InternalOptions
+  cookieValue?: string
+  isPost: boolean
+  bodyValue?: string
 }
 /**
  * Ensure CSRF Token cookie is set for any subsequent requests.
@@ -19,15 +19,26 @@ interface CreateCSRFTokenParams {
  * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
  * https://owasp.org/www-chapter-london/assets/slides/David_Johansson-Double_Defeat_of_Double-Submit_Cookie.pdf
  */
-export declare function createCSRFToken({ options, cookieValue, isPost, bodyValue, }: CreateCSRFTokenParams): Promise<{
-    csrfTokenVerified: boolean;
-    csrfToken: string;
-    cookie?: undefined;
-} | {
-    cookie: string;
-    csrfToken: string;
-    csrfTokenVerified?: undefined;
-}>;
-export declare function validateCSRF(action: AuthAction, verified?: boolean): void;
-export {};
+export declare function createCSRFToken({
+  options,
+  cookieValue,
+  isPost,
+  bodyValue,
+}: CreateCSRFTokenParams): Promise<
+  | {
+      csrfTokenVerified: boolean
+      csrfToken: string
+      cookie?: undefined
+    }
+  | {
+      cookie: string
+      csrfToken: string
+      csrfTokenVerified?: undefined
+    }
+>
+export declare function validateCSRF(
+  action: AuthAction,
+  verified?: boolean,
+): void
+export {}
 //# sourceMappingURL=csrf-token.d.ts.map

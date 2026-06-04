@@ -1,2 +1,2 @@
-import { isRegExp } from "./index";
-export = isRegExp;
+import { isRegExp } from './index'
+export = isRegExp

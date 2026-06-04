@@ -8,7 +8,7 @@
  *
  * @module providers/osu
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface OsuUserCompact {
   avatar_url: string
@@ -116,15 +116,15 @@ export interface OsuProfile extends OsuUserCompact, Record<string, any> {
  * :::
  */
 export default function Osu<P extends OsuProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "osu",
-    name: "osu!",
-    type: "oauth",
-    token: "https://osu.ppy.sh/oauth/token",
-    authorization: "https://osu.ppy.sh/oauth/authorize?scope=identify",
-    userinfo: "https://osu.ppy.sh/api/v2/me",
+    id: 'osu',
+    name: 'osu!',
+    type: 'oauth',
+    token: 'https://osu.ppy.sh/oauth/token',
+    authorization: 'https://osu.ppy.sh/oauth/authorize?scope=identify',
+    userinfo: 'https://osu.ppy.sh/api/v2/me',
     profile(profile) {
       return {
         id: profile.id.toString(),

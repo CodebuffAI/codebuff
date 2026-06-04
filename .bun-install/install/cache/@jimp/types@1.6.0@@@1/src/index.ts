@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod'
 
 export enum Edge {
   EXTEND = 1,
@@ -7,9 +7,9 @@ export enum Edge {
 }
 
 export interface Bitmap {
-  data: Buffer;
-  width: number;
-  height: number;
+  data: Buffer
+  width: number
+  height: number
 }
 
 export interface Format<
@@ -19,23 +19,23 @@ export interface Format<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   DecodeOptions extends Record<string, any> | undefined = undefined,
 > {
-  mime: Mime;
-  hasAlpha?: boolean;
-  encode: (image: Bitmap, options?: ExportOptions) => Promise<Buffer> | Buffer;
-  decode: (data: Buffer, options?: DecodeOptions) => Promise<Bitmap> | Bitmap;
+  mime: Mime
+  hasAlpha?: boolean
+  encode: (image: Bitmap, options?: ExportOptions) => Promise<Buffer> | Buffer
+  decode: (data: Buffer, options?: DecodeOptions) => Promise<Bitmap> | Bitmap
 }
 
 export interface RGBColor {
-  r: number;
-  g: number;
-  b: number;
+  r: number
+  g: number
+  b: number
 }
 
 export interface RGBAColor {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
+  r: number
+  g: number
+  b: number
+  a: number
 }
 
 export const JimpClassSchema = z.object({
@@ -44,26 +44,26 @@ export const JimpClassSchema = z.object({
     width: z.number(),
     height: z.number(),
   }),
-});
+})
 
 export interface JimpClass {
-  background: number;
-  bitmap: Bitmap;
+  background: number
+  bitmap: Bitmap
 
-  getPixelIndex: (x: number, y: number, edgeHandling?: Edge) => number;
-  getPixelColor: (x: number, y: number) => number;
-  setPixelColor: (hex: number, x: number, y: number) => JimpClass;
+  getPixelIndex: (x: number, y: number, edgeHandling?: Edge) => number
+  getPixelColor: (x: number, y: number) => number
+  setPixelColor: (hex: number, x: number, y: number) => JimpClass
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scan(f: (x: number, y: number, idx: number) => any): JimpClass;
+  scan(f: (x: number, y: number, idx: number) => any): JimpClass
   scan(
     x: number,
     y: number,
     w: number,
     h: number,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    cb: (x: number, y: number, idx: number) => any
-  ): JimpClass;
+    cb: (x: number, y: number, idx: number) => any,
+  ): JimpClass
   scan(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     x: number | ((x: number, y: number, idx: number) => any),
@@ -71,6 +71,6 @@ export interface JimpClass {
     w?: number,
     h?: number,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    f?: (x: number, y: number, idx: number) => any
-  ): JimpClass;
+    f?: (x: number, y: number, idx: number) => any,
+  ): JimpClass
 }

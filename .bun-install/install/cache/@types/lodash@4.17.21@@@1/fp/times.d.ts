@@ -1,2 +1,2 @@
-import { times } from "../fp";
-export = times;
+import { times } from '../fp'
+export = times

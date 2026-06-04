@@ -1,2 +1,2 @@
-import { entriesIn } from "../fp";
-export = entriesIn;
+import { entriesIn } from '../fp'
+export = entriesIn

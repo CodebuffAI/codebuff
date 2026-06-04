@@ -1,21 +1,21 @@
-import * as jwt from "../jwt.js"
-import { createCallbackUrl } from "./utils/callback-url.js"
-import * as cookie from "./utils/cookie.js"
-import { createCSRFToken } from "./actions/callback/oauth/csrf-token.js"
+import * as jwt from '../jwt.js'
+import { createCallbackUrl } from './utils/callback-url.js'
+import * as cookie from './utils/cookie.js'
+import { createCSRFToken } from './actions/callback/oauth/csrf-token.js'
 
-import { AdapterError, EventError } from "../errors.js"
-import parseProviders from "./utils/providers.js"
-import { setLogger, type LoggerInstance } from "./utils/logger.js"
-import { merge } from "./utils/merge.js"
+import { AdapterError, EventError } from '../errors.js'
+import parseProviders from './utils/providers.js'
+import { setLogger, type LoggerInstance } from './utils/logger.js'
+import { merge } from './utils/merge.js'
 
-import type { InternalOptions, RequestInternal } from "../types.js"
-import type { AuthConfig } from "../index.js"
+import type { InternalOptions, RequestInternal } from '../types.js'
+import type { AuthConfig } from '../index.js'
 
 interface InitParams {
   url: URL
   authOptions: AuthConfig
   providerId?: string
-  action: InternalOptions["action"]
+  action: InternalOptions['action']
   /** Callback URL value extracted from the incoming request. */
   callbackUrl?: string
   /** CSRF token value extracted from the incoming request. From body if POST, from query if GET */
@@ -23,15 +23,15 @@ interface InitParams {
   /** Is the incoming request a POST request? */
   csrfDisabled: boolean
   isPost: boolean
-  cookies: RequestInternal["cookies"]
+  cookies: RequestInternal['cookies']
 }
 
-export const defaultCallbacks: InternalOptions["callbacks"] = {
+export const defaultCallbacks: InternalOptions['callbacks'] = {
   signIn() {
     return true
   },
   redirect({ url, baseUrl }) {
-    if (url.startsWith("/")) return `${baseUrl}${url}`
+    if (url.startsWith('/')) return `${baseUrl}${url}`
     else if (new URL(url).origin === baseUrl) return url
     return baseUrl
   },
@@ -72,7 +72,7 @@ export async function init({
 
   let isOnRedirectProxy = false
   if (
-    (provider?.type === "oauth" || provider?.type === "oidc") &&
+    (provider?.type === 'oauth' || provider?.type === 'oidc') &&
     provider.redirectProxyUrl
   ) {
     try {
@@ -80,7 +80,7 @@ export async function init({
         new URL(provider.redirectProxyUrl).origin === url.origin
     } catch {
       throw new TypeError(
-        `redirectProxyUrl must be a valid URL. Received: ${provider.redirectProxyUrl}`
+        `redirectProxyUrl must be a valid URL. Received: ${provider.redirectProxyUrl}`,
       )
     }
   }
@@ -91,10 +91,10 @@ export async function init({
     debug: false,
     pages: {},
     theme: {
-      colorScheme: "auto",
-      logo: "",
-      brandColor: "",
-      buttonText: "",
+      colorScheme: 'auto',
+      logo: '',
+      brandColor: '',
+      buttonText: '',
     },
     // Custom options override defaults
     ...config,
@@ -106,15 +106,15 @@ export async function init({
     provider,
     cookies: merge(
       cookie.defaultCookies(
-        config.useSecureCookies ?? url.protocol === "https:"
+        config.useSecureCookies ?? url.protocol === 'https:',
       ),
-      config.cookies
+      config.cookies,
     ),
     providers,
     // Session options
     session: {
       // If no adapter specified, force use of JSON Web Tokens (stateless)
-      strategy: config.adapter ? "database" : "jwt",
+      strategy: config.adapter ? 'database' : 'jwt',
       maxAge,
       updateAge: 24 * 60 * 60,
       generateSessionToken: () => crypto.randomUUID(),
@@ -192,9 +192,9 @@ type Method = (...args: any[]) => Promise<any>
 
 /** Wraps an object of methods and adds error handling. */
 function eventsErrorHandler(
-  methods: Partial<InternalOptions["events"]>,
-  logger: LoggerInstance
-): Partial<InternalOptions["events"]> {
+  methods: Partial<InternalOptions['events']>,
+  logger: LoggerInstance,
+): Partial<InternalOptions['events']> {
   return Object.keys(methods).reduce<any>((acc, name) => {
     acc[name] = async (...args: any[]) => {
       try {
@@ -210,8 +210,8 @@ function eventsErrorHandler(
 
 /** Handles adapter induced errors. */
 function adapterErrorHandler(
-  adapter: AuthConfig["adapter"],
-  logger: LoggerInstance
+  adapter: AuthConfig['adapter'],
+  logger: LoggerInstance,
 ) {
   if (!adapter) return
 

@@ -1,7 +1,7 @@
-import { methods } from "@jimp/plugin-resize";
-import { JimpClass } from "@jimp/types";
-import { clone } from "@jimp/utils";
-import pixelMatch from "pixelmatch";
+import { methods } from '@jimp/plugin-resize'
+import { JimpClass } from '@jimp/types'
+import { clone } from '@jimp/utils'
+import pixelMatch from 'pixelmatch'
 
 /**
  * Diffs two images and returns
@@ -25,8 +25,8 @@ import pixelMatch from "pixelmatch";
  * ```
  */
 export function diff<I extends JimpClass>(img1: I, img2: I, threshold = 0.1) {
-  let bmp1 = img1.bitmap;
-  let bmp2 = img2.bitmap;
+  let bmp1 = img1.bitmap
+  let bmp2 = img2.bitmap
 
   if (bmp1.width !== bmp2.width || bmp1.height !== bmp2.height) {
     if (bmp1.width * bmp1.height > bmp2.width * bmp2.height) {
@@ -34,18 +34,18 @@ export function diff<I extends JimpClass>(img1: I, img2: I, threshold = 0.1) {
       bmp1 = methods.resize(clone(img1), {
         w: bmp2.width,
         h: bmp2.height,
-      }).bitmap;
+      }).bitmap
     } else {
       // img2 is bigger (or they are the same in area)
       bmp2 = methods.resize(clone(img2), {
         w: bmp1.width,
         h: bmp1.height,
-      }).bitmap;
+      }).bitmap
     }
   }
 
-  if (typeof threshold !== "number" || threshold < 0 || threshold > 1) {
-    throw new Error("threshold must be a number between 0 and 1");
+  if (typeof threshold !== 'number' || threshold < 0 || threshold > 1) {
+    throw new Error('threshold must be a number between 0 and 1')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +53,7 @@ export function diff<I extends JimpClass>(img1: I, img2: I, threshold = 0.1) {
     width: bmp1.width,
     height: bmp1.height,
     color: 0xffffffff,
-  });
+  })
 
   const numDiffPixels = pixelMatch(
     bmp1.data,
@@ -61,11 +61,11 @@ export function diff<I extends JimpClass>(img1: I, img2: I, threshold = 0.1) {
     diff.bitmap.data,
     diff.bitmap.width,
     diff.bitmap.height,
-    { threshold }
-  );
+    { threshold },
+  )
 
   return {
     percent: numDiffPixels / (diff.bitmap.width * diff.bitmap.height),
     image: diff,
-  };
+  }
 }

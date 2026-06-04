@@ -1,2 +1,2 @@
-import { unionBy } from "../fp";
-export = unionBy;
+import { unionBy } from '../fp'
+export = unionBy

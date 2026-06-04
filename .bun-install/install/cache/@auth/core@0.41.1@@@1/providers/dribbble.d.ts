@@ -8,12 +8,12 @@
  *
  * @module providers/dribbble
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface DribbbleProfile extends Record<string, any> {
-    id: number;
-    name: string;
-    email: string;
-    avatar_url: string;
+  id: number
+  name: string
+  email: string
+  avatar_url: string
 }
 /**
  *
@@ -74,7 +74,8 @@ export interface DribbbleProfile extends Record<string, any> {
  * You can optionally set the scope to `public upload` for more advanced scenarios. If omitted, the default `public` scope will be used for authentication purposes.
  * :::
  */
-export default function Dribbble<P extends DribbbleProfile>(options: OAuthUserConfig<P> & {
+export default function Dribbble<P extends DribbbleProfile>(
+  options: OAuthUserConfig<P> & {
     /**
      * Reference: https://developer.dribbble.com/v2/oauth/#scopes
      *
@@ -83,6 +84,7 @@ export default function Dribbble<P extends DribbbleProfile>(options: OAuthUserCo
      *
      * @default public
      */
-    scope?: "public" | "public upload";
-}): OAuthConfig<P>;
+    scope?: 'public' | 'public upload'
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=dribbble.d.ts.map

@@ -1,1 +1,1 @@
-export * from './mutate';
+export * from './mutate'

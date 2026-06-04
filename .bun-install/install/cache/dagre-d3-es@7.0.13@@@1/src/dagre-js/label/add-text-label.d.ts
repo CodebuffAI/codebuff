@@ -1,1 +1,1 @@
-export function addTextLabel(root: any, node: any): any;
+export function addTextLabel(root: any, node: any): any

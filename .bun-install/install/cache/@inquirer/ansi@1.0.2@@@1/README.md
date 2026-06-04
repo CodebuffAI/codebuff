@@ -38,20 +38,20 @@ import {
   cursorHide,
   cursorShow,
   eraseLines,
-} from '@inquirer/ansi';
+} from '@inquirer/ansi'
 
 // Move cursor up 3 lines
-process.stdout.write(cursorUp(3));
+process.stdout.write(cursorUp(3))
 
 // Move cursor to specific position (x: 10, y: 5)
-process.stdout.write(cursorTo(10, 5));
+process.stdout.write(cursorTo(10, 5))
 
 // Hide/show cursor
-process.stdout.write(cursorHide);
-process.stdout.write(cursorShow);
+process.stdout.write(cursorHide)
+process.stdout.write(cursorShow)
 
 // Clear 5 lines
-process.stdout.write(eraseLines(5));
+process.stdout.write(eraseLines(5))
 ```
 
 Or when used inside an inquirer prompt:

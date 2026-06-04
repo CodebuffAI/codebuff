@@ -8,7 +8,7 @@ const kRestorePatches = Symbol('kRestorePatches')
 function recordRawHeader(
   headers: Headers,
   args: HeaderTuple,
-  behavior: SetHeaderBehavior
+  behavior: SetHeaderBehavior,
 ) {
   ensureRawHeadersSymbol(headers, [])
   const rawHeaders = Reflect.get(headers, kRawHeaders) as RawHeaders
@@ -31,7 +31,7 @@ function recordRawHeader(
  */
 function ensureRawHeadersSymbol(
   headers: Headers,
-  rawHeaders: RawHeaders
+  rawHeaders: RawHeaders,
 ): void {
   if (Reflect.has(headers, kRawHeaders)) {
     return
@@ -116,7 +116,7 @@ export function recordRawFetchHeaders() {
           const headers = Reflect.construct(
             target,
             [Reflect.get(headersInit, kRawHeaders)],
-            newTarget
+            newTarget,
           )
           ensureRawHeadersSymbol(headers, [
             /**
@@ -214,7 +214,7 @@ export function recordRawFetchHeaders() {
         if (typeof args[1] === 'object' && args[1].headers != null) {
           ensureRawHeadersSymbol(
             response.headers,
-            inferRawHeaders(args[1].headers)
+            inferRawHeaders(args[1].headers),
           )
         }
 

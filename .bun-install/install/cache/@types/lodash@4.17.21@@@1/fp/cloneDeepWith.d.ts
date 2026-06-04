@@ -1,2 +1,2 @@
-import { cloneDeepWith } from "../fp";
-export = cloneDeepWith;
+import { cloneDeepWith } from '../fp'
+export = cloneDeepWith

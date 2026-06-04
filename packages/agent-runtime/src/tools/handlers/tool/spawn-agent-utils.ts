@@ -587,9 +587,16 @@ export async function executeSubagent(
     idleTimeoutMessage,
     hardTimeoutMessage,
   })
+  const streamedProposalResultFiles = new Set<string>()
   const recordProposalProgress = (chunk: string | PrintModeEvent) => {
-    if (isProposalAgent && isEditorProposalProgressChunk(chunk)) {
+    if (!isProposalAgent) return
+    if (isEditorProposalProgressChunk(chunk)) {
       timeoutSignal.recordProgress()
+    }
+    if (typeof chunk === 'string' || chunk.type !== 'tool_result') return
+    if (!isProposalToolName(chunk.toolName)) return
+    for (const file of getProposalResultFiles(chunk.output)) {
+      streamedProposalResultFiles.add(file)
     }
   }
   const forwardResponseChunk = (chunk: string | PrintModeEvent) => {
@@ -699,6 +706,15 @@ export async function executeSubagent(
     }
   }
 
+  if (isProposalAgent) {
+    emitMissingProposalLedgerEvents({
+      agentState: result.agentState,
+      parentAgentId: parentAgentState.agentId,
+      streamedProposalResultFiles,
+      onResponseChunk,
+    })
+  }
+
   onResponseChunk({
     type: 'subagent_finish',
     agentId: result.agentState.agentId,
@@ -715,6 +731,101 @@ export async function executeSubagent(
   }
 
   return result
+}
+
+function isProposalToolName(
+  toolName: string,
+): toolName is ProposalLedgerArtifact['toolName'] {
+  return (
+    toolName === 'propose_str_replace' ||
+    toolName === 'propose_write_file' ||
+    toolName === 'propose_edit_transaction'
+  )
+}
+
+function getProposalResultFiles(output: unknown): string[] {
+  if (!Array.isArray(output)) return []
+  const files = new Set<string>()
+  for (const part of output) {
+    if (!part || typeof part !== 'object') continue
+    const value = (part as { value?: unknown }).value
+    if (!value || typeof value !== 'object') continue
+    const record = value as Record<string, unknown>
+    const file =
+      typeof record.file === 'string'
+        ? record.file
+        : typeof record.path === 'string'
+          ? record.path
+          : ''
+    if (file) files.add(file)
+    if (Array.isArray(record.files)) {
+      for (const entry of record.files) {
+        if (!entry || typeof entry !== 'object') continue
+        const fileEntry = entry as Record<string, unknown>
+        const nestedFile =
+          typeof fileEntry.file === 'string'
+            ? fileEntry.file
+            : typeof fileEntry.path === 'string'
+              ? fileEntry.path
+              : ''
+        if (nestedFile) files.add(nestedFile)
+      }
+    }
+  }
+  return [...files]
+}
+
+function emitMissingProposalLedgerEvents(params: {
+  agentState: AgentState
+  parentAgentId: string
+  streamedProposalResultFiles: Set<string>
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
+}): void {
+  const {
+    agentState,
+    parentAgentId,
+    streamedProposalResultFiles,
+    onResponseChunk,
+  } = params
+  if (!agentState.runId) return
+
+  for (const artifact of getProposalLedger(agentState.runId)) {
+    const file = artifact.result.file
+    if (!file || streamedProposalResultFiles.has(file)) continue
+    const toolCallId = `proposal-ledger-${agentState.runId}-${artifact.seq}`
+    onResponseChunk({
+      type: 'tool_call',
+      toolCallId,
+      toolName: artifact.toolName,
+      input: buildApplyableProposalInput(artifact),
+      agentId: agentState.agentId,
+      parentAgentId,
+      includeToolCall: false,
+    })
+    onResponseChunk({
+      type: 'tool_result',
+      toolCallId,
+      toolName: artifact.toolName,
+      output: [
+        {
+          type: 'json',
+          value: {
+            file,
+            ...(artifact.result.unifiedDiff
+              ? { unifiedDiff: artifact.result.unifiedDiff }
+              : {}),
+            ...(artifact.result.message ? { message: artifact.result.message } : {}),
+            ...(artifact.result.errorMessage
+              ? { errorMessage: artifact.result.errorMessage }
+              : {}),
+          },
+        },
+      ],
+      agentId: agentState.agentId,
+      parentAgentId,
+    })
+    streamedProposalResultFiles.add(file)
+  }
 }
 
 function buildEditorProposalTimeoutMessage(params: {

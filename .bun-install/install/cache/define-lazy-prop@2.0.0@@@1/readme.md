@@ -4,30 +4,27 @@
 
 Useful when the value of a property is expensive to generate, so you want to delay the computation until the property is needed. For example, improving startup performance by deferring nonessential operations.
 
-
 ## Install
 
 ```
 $ npm install define-lazy-prop
 ```
 
-
 ## Usage
 
 ```js
-const defineLazyProp = require('define-lazy-prop');
+const defineLazyProp = require('define-lazy-prop')
 
 const unicorn = {
-	// …
-};
+  // …
+}
 
-defineLazyProp(unicorn, 'rainbow', () => expensiveComputation());
+defineLazyProp(unicorn, 'rainbow', () => expensiveComputation())
 
 app.on('user-action', () => {
-	doSomething(unicorn.rainbow);
-});
+  doSomething(unicorn.rainbow)
+})
 ```
-
 
 ## API
 
@@ -51,13 +48,11 @@ Type: `Function`
 
 Called the first time `propertyName` is accessed. Expected to return a value.
 
-
 ## Related
 
 - [lazy-value](https://github.com/sindresorhus/lazy-value) - Create a lazily evaluated value
 - [import-lazy](https://github.com/sindresorhus/import-lazy) - Import a module lazily
 - [p-lazy](https://github.com/sindresorhus/p-lazy) - Create a lazy promise
-
 
 ## License
 

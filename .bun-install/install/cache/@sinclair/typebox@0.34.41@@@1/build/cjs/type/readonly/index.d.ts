@@ -1,2 +1,2 @@
-export * from './readonly-from-mapped-result';
-export * from './readonly';
+export * from './readonly-from-mapped-result'
+export * from './readonly'

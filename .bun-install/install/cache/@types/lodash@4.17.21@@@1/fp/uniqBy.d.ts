@@ -1,2 +1,2 @@
-import { uniqBy } from "../fp";
-export = uniqBy;
+import { uniqBy } from '../fp'
+export = uniqBy

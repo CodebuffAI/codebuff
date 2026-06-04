@@ -1,2 +1,2 @@
-import { stubFalse } from "../fp";
-export = stubFalse;
+import { stubFalse } from '../fp'
+export = stubFalse

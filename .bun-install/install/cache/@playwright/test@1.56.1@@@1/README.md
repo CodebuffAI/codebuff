@@ -6,11 +6,11 @@
 
 Playwright is a framework for Web Testing and Automation. It allows testing [Chromium](https://www.chromium.org/Home), [Firefox](https://www.mozilla.org/en-US/firefox/new/) and [WebKit](https://webkit.org/) with a single API. Playwright is built to enable cross-browser web automation that is **ever-green**, **capable**, **reliable** and **fast**.
 
-|          | Linux | macOS | Windows |
-|   :---   | :---: | :---: | :---:   |
+|                                                                      |       Linux        |       macOS        |      Windows       |
+| :------------------------------------------------------------------- | :----------------: | :----------------: | :----------------: |
 | Chromium <!-- GEN:chromium-version -->141.0.7390.37<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| WebKit <!-- GEN:webkit-version -->26.0<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| Firefox <!-- GEN:firefox-version -->142.0.1<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| WebKit <!-- GEN:webkit-version -->26.0<!-- GEN:stop -->              | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| Firefox <!-- GEN:firefox-version -->142.0.1<!-- GEN:stop -->         | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 
 Headless execution is supported for all browsers on all platforms. Check out [system requirements](https://playwright.dev/docs/intro#system-requirements) for details.
 
@@ -45,8 +45,8 @@ npx playwright install
 
 You can optionally install only selected browsers, see [install browsers](https://playwright.dev/docs/cli#install-browsers) for more details. Or you can install no browsers at all and use existing [browser channels](https://playwright.dev/docs/browsers).
 
-* [Getting started](https://playwright.dev/docs/intro)
-* [API reference](https://playwright.dev/docs/api/class-playwright)
+- [Getting started](https://playwright.dev/docs/intro)
+- [API reference](https://playwright.dev/docs/api/class-playwright)
 
 ## Capabilities
 
@@ -162,7 +162,7 @@ test('Intercept network requests', async ({ page }) => {
 
 ## Resources
 
-* [Documentation](https://playwright.dev)
-* [API reference](https://playwright.dev/docs/api/class-playwright/)
-* [Contribution guide](CONTRIBUTING.md)
-* [Changelog](https://github.com/microsoft/playwright/releases)
+- [Documentation](https://playwright.dev)
+- [API reference](https://playwright.dev/docs/api/class-playwright/)
+- [Contribution guide](CONTRIBUTING.md)
+- [Changelog](https://github.com/microsoft/playwright/releases)

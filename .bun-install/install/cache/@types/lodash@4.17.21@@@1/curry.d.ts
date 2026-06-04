@@ -1,2 +1,2 @@
-import { curry } from "./index";
-export = curry;
+import { curry } from './index'
+export = curry

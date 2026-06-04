@@ -1,6 +1,6 @@
-import { AuthError } from "../../errors.js"
-import type { WarningCode } from "../../warnings.js"
-import type { AuthConfig } from "../../index.js"
+import { AuthError } from '../../errors.js'
+import type { WarningCode } from '../../warnings.js'
+import type { AuthConfig } from '../../index.js'
 
 /**
  * Override any of the methods, and the rest will use the default logger.
@@ -14,10 +14,10 @@ export interface LoggerInstance extends Record<string, Function> {
   debug: (message: string, metadata?: unknown) => void
 }
 
-const red = "\x1b[31m"
-const yellow = "\x1b[33m"
-const grey = "\x1b[90m"
-const reset = "\x1b[0m"
+const red = '\x1b[31m'
+const yellow = '\x1b[33m'
+const grey = '\x1b[90m'
+const reset = '\x1b[0m'
 
 const defaultLogger: LoggerInstance = {
   error(error) {
@@ -25,8 +25,8 @@ const defaultLogger: LoggerInstance = {
     console.error(`${red}[auth][error]${reset} ${name}: ${error.message}`)
     if (
       error.cause &&
-      typeof error.cause === "object" &&
-      "err" in error.cause &&
+      typeof error.cause === 'object' &&
+      'err' in error.cause &&
       error.cause.err instanceof Error
     ) {
       const { err, ...data } = error.cause
@@ -34,10 +34,10 @@ const defaultLogger: LoggerInstance = {
       if (data)
         console.error(
           `${red}[auth][details]${reset}:`,
-          JSON.stringify(data, null, 2)
+          JSON.stringify(data, null, 2),
         )
     } else if (error.stack) {
-      console.error(error.stack.replace(/.*/, "").substring(1))
+      console.error(error.stack.replace(/.*/, '').substring(1))
     }
   },
   warn(code) {
@@ -47,7 +47,7 @@ const defaultLogger: LoggerInstance = {
   debug(message, metadata) {
     console.log(
       `${grey}[auth][debug]:${reset} ${message}`,
-      JSON.stringify(metadata, null, 2)
+      JSON.stringify(metadata, null, 2),
     )
   },
 }
@@ -57,7 +57,7 @@ const defaultLogger: LoggerInstance = {
  * Any `undefined` level will use the default logger.
  */
 export function setLogger(
-  config: Pick<AuthConfig, "logger" | "debug">
+  config: Pick<AuthConfig, 'logger' | 'debug'>,
 ): LoggerInstance {
   const newLogger: LoggerInstance = {
     ...defaultLogger,

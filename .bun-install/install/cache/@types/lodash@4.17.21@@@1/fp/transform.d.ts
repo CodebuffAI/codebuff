@@ -1,2 +1,2 @@
-import { transform } from "../fp";
-export = transform;
+import { transform } from '../fp'
+export = transform

@@ -29,29 +29,29 @@ Alternatively you can use the [Vercel AI Gateway](https://vercel.com/docs/ai-gat
 ### Generating Text
 
 ```ts
-import { generateText } from 'ai';
+import { generateText } from 'ai'
 
 const { text } = await generateText({
   model: 'openai/gpt-5', // use Vercel AI Gateway
   prompt: 'What is an agent?',
-});
+})
 ```
 
 ```ts
-import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 
 const { text } = await generateText({
   model: openai('gpt-5'), // use OpenAI Responses API directly
   prompt: 'What is an agent?',
-});
+})
 ```
 
 ### Generating Structured Data
 
 ```ts
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import { generateObject } from 'ai'
+import { z } from 'zod'
 
 const { object } = await generateObject({
   model: 'openai/gpt-5',
@@ -63,7 +63,7 @@ const { object } = await generateObject({
     }),
   }),
   prompt: 'Generate a lasagna recipe.',
-});
+})
 ```
 
 ### UI Integration
@@ -79,29 +79,29 @@ npm install @ai-sdk/react
 ###### @/app/page.tsx (Next.js App Router)
 
 ```tsx
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useChat } from '@ai-sdk/react';
+import { useState } from 'react'
+import { useChat } from '@ai-sdk/react'
 
 export default function Page() {
-  const { messages, status, sendMessage } = useChat();
-  const [input, setInput] = useState('');
-  const handleSubmit = e => {
-    e.preventDefault();
-    sendMessage({ text: input });
-    setInput('');
-  };
+  const { messages, status, sendMessage } = useChat()
+  const [input, setInput] = useState('')
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    sendMessage({ text: input })
+    setInput('')
+  }
 
   return (
     <div>
-      {messages.map(message => (
+      {messages.map((message) => (
         <div key={message.id}>
           <strong>{`${message.role}: `}</strong>
           {message.parts.map((part, index) => {
             switch (part.type) {
               case 'text':
-                return <span key={index}>{part.text}</span>;
+                return <span key={index}>{part.text}</span>
 
               // other cases can handle images, tool calls, etc
             }
@@ -113,31 +113,31 @@ export default function Page() {
         <input
           value={input}
           placeholder="Send a message..."
-          onChange={e => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value)}
           disabled={status !== 'ready'}
         />
       </form>
     </div>
-  );
+  )
 }
 ```
 
 ###### @/app/api/chat/route.ts (Next.js App Router)
 
 ```ts
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { streamText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages } = await req.json()
 
   const result = streamText({
     model: openai('gpt-4o'),
     system: 'You are a helpful assistant.',
     messages,
-  });
+  })
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse()
 }
 ```
 

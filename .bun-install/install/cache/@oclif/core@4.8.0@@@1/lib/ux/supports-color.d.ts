@@ -1,1 +1,1 @@
-export declare function supportsColor(): boolean;
+export declare function supportsColor(): boolean

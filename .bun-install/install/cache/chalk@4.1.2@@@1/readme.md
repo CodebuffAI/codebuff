@@ -82,73 +82,75 @@ $ npm install chalk
 ## Usage
 
 ```js
-const chalk = require('chalk');
+const chalk = require('chalk')
 
-console.log(chalk.blue('Hello world!'));
+console.log(chalk.blue('Hello world!'))
 ```
 
 Chalk comes with an easy to use composable API where you just chain and nest the styles you want.
 
 ```js
-const chalk = require('chalk');
-const log = console.log;
+const chalk = require('chalk')
+const log = console.log
 
 // Combine styled and normal strings
-log(chalk.blue('Hello') + ' World' + chalk.red('!'));
+log(chalk.blue('Hello') + ' World' + chalk.red('!'))
 
 // Compose multiple styles using the chainable API
-log(chalk.blue.bgRed.bold('Hello world!'));
+log(chalk.blue.bgRed.bold('Hello world!'))
 
 // Pass in multiple arguments
-log(chalk.blue('Hello', 'World!', 'Foo', 'bar', 'biz', 'baz'));
+log(chalk.blue('Hello', 'World!', 'Foo', 'bar', 'biz', 'baz'))
 
 // Nest styles
-log(chalk.red('Hello', chalk.underline.bgBlue('world') + '!'));
+log(chalk.red('Hello', chalk.underline.bgBlue('world') + '!'))
 
 // Nest styles of the same type even (color, underline, background)
-log(chalk.green(
-	'I am a green line ' +
-	chalk.blue.underline.bold('with a blue substring') +
-	' that becomes green again!'
-));
+log(
+  chalk.green(
+    'I am a green line ' +
+      chalk.blue.underline.bold('with a blue substring') +
+      ' that becomes green again!',
+  ),
+)
 
 // ES2015 template literal
 log(`
 CPU: ${chalk.red('90%')}
 RAM: ${chalk.green('40%')}
 DISK: ${chalk.yellow('70%')}
-`);
+`)
 
 // ES2015 tagged template literal
 log(chalk`
 CPU: {red ${cpu.totalPercent}%}
-RAM: {green ${ram.used / ram.total * 100}%}
-DISK: {rgb(255,131,0) ${disk.used / disk.total * 100}%}
-`);
+RAM: {green ${(ram.used / ram.total) * 100}%}
+DISK: {rgb(255,131,0) ${(disk.used / disk.total) * 100}%}
+`)
 
 // Use RGB colors in terminal emulators that support it.
-log(chalk.keyword('orange')('Yay for orange colored text!'));
-log(chalk.rgb(123, 45, 67).underline('Underlined reddish color'));
-log(chalk.hex('#DEADED').bold('Bold gray!'));
+log(chalk.keyword('orange')('Yay for orange colored text!'))
+log(chalk.rgb(123, 45, 67).underline('Underlined reddish color'))
+log(chalk.hex('#DEADED').bold('Bold gray!'))
 ```
 
 Easily define your own themes:
 
 ```js
-const chalk = require('chalk');
+const chalk = require('chalk')
 
-const error = chalk.bold.red;
-const warning = chalk.keyword('orange');
+const error = chalk.bold.red
+const warning = chalk.keyword('orange')
 
-console.log(error('Error!'));
-console.log(warning('Warning!'));
+console.log(error('Error!'))
+console.log(warning('Warning!'))
 ```
 
 Take advantage of console.log [string substitution](https://nodejs.org/docs/latest/api/console.html#console_console_log_data_args):
 
 ```js
-const name = 'Sindre';
-console.log(chalk.green('Hello %s'), name);
+const name = 'Sindre'
+console.log(chalk.green('Hello %s'), name)
 //=> 'Hello Sindre'
 ```
 
@@ -171,15 +173,15 @@ Color support is automatically detected, but you can override it by setting the 
 If you need to change this in a reusable module, create a new instance:
 
 ```js
-const ctx = new chalk.Instance({level: 0});
+const ctx = new chalk.Instance({ level: 0 })
 ```
 
-| Level | Description |
-| :---: | :--- |
-| `0` | All colors disabled |
-| `1` | Basic color support (16 colors) |
-| `2` | 256 color support |
-| `3` | Truecolor support (16 million colors) |
+| Level | Description                           |
+| :---: | :------------------------------------ |
+|  `0`  | All colors disabled                   |
+|  `1`  | Basic color support (16 colors)       |
+|  `2`  | 256 color support                     |
+|  `3`  | Truecolor support (16 million colors) |
 
 ### chalk.supportsColor
 
@@ -200,11 +202,11 @@ Explicit 256/Truecolor mode can be enabled using the `--color=256` and `--color=
 - `reset` - Resets the current color chain.
 - `bold` - Make text bold.
 - `dim` - Emitting only a small amount of light.
-- `italic` - Make text italic. *(Not widely supported)*
-- `underline` - Make text underline. *(Not widely supported)*
+- `italic` - Make text italic. _(Not widely supported)_
+- `underline` - Make text underline. _(Not widely supported)_
 - `inverse`- Inverse background and foreground colors.
 - `hidden` - Prints the text, but makes it invisible.
-- `strikethrough` - Puts a horizontal line through the center of the text. *(Not widely supported)*
+- `strikethrough` - Puts a horizontal line through the center of the text. _(Not widely supported)_
 - `visible`- Prints the text only when Chalk has a color level > 0. Can be useful for things that are purely cosmetic.
 
 ### Colors
@@ -250,15 +252,15 @@ Explicit 256/Truecolor mode can be enabled using the `--color=256` and `--color=
 Chalk can be used as a [tagged template literal](https://exploringjs.com/es6/ch_template-literals.html#_tagged-template-literals).
 
 ```js
-const chalk = require('chalk');
+const chalk = require('chalk')
 
-const miles = 18;
-const calculateFeet = miles => miles * 5280;
+const miles = 18
+const calculateFeet = (miles) => miles * 5280
 
 console.log(chalk`
 	There are {bold 5280 feet} in a mile.
 	In {bold ${miles} miles}, there are {green.bold ${calculateFeet(miles)} feet}.
-`);
+`)
 ```
 
 Blocks are delimited by an opening curly brace (`{`), a style, some content, and a closing curly brace (`}`).
@@ -266,9 +268,9 @@ Blocks are delimited by an opening curly brace (`{`), a style, some content, and
 Template styles are chained exactly like normal Chalk styles. The following three statements are equivalent:
 
 ```js
-console.log(chalk.bold.rgb(10, 100, 200)('Hello!'));
-console.log(chalk.bold.rgb(10, 100, 200)`Hello!`);
-console.log(chalk`{bold.rgb(10,100,200) Hello!}`);
+console.log(chalk.bold.rgb(10, 100, 200)('Hello!'))
+console.log(chalk.bold.rgb(10, 100, 200)`Hello!`)
+console.log(chalk`{bold.rgb(10,100,200) Hello!}`)
 ```
 
 Note that function styles (`rgb()`, `hsl()`, `keyword()`, etc.) may not contain spaces between parameters.

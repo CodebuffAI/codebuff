@@ -16,18 +16,18 @@ npm install --save @opentelemetry/resources
 ## Usage
 
 ```typescript
-import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
-import { resourceFromAttributes } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
+import { resourceFromAttributes } from '@opentelemetry/resources'
 
 const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'api-service',
-});
+  [ATTR_SERVICE_NAME]: 'api-service',
+})
 
 const anotherResource = resourceFromAttributes({
-    'service.version': '2.0.0',
-    'service.group': 'instrumentation-group'
-});
-const mergedResource = resource.merge(anotherResource);
+  'service.version': '2.0.0',
+  'service.group': 'instrumentation-group',
+})
+const mergedResource = resource.merge(anotherResource)
 ```
 
 ## Useful links
@@ -45,5 +45,4 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/resources
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Fresources.svg
-
 [resource-semantic_conventions]: https://github.com/open-telemetry/opentelemetry-specification/tree/master/specification/resource/semantic_conventions

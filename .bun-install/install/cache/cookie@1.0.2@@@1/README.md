@@ -16,7 +16,7 @@ $ npm install cookie
 ## API
 
 ```js
-const cookie = require("cookie");
+const cookie = require('cookie')
 // import * as cookie from 'cookie';
 ```
 
@@ -27,7 +27,7 @@ The `str` argument is the string representing a `Cookie` header value and `optio
 optional object containing additional parsing options.
 
 ```js
-const cookies = cookie.parse("foo=bar; equation=E%3Dmc%5E2");
+const cookies = cookie.parse('foo=bar; equation=E%3Dmc%5E2')
 // { foo: 'bar', equation: 'E=mc^2' }
 ```
 
@@ -52,7 +52,7 @@ name for the cookie, the `value` argument is the value to set the cookie to, and
 argument is an optional object containing additional serialization options.
 
 ```js
-const setCookie = cookie.serialize("foo", "bar");
+const setCookie = cookie.serialize('foo', 'bar')
 // foo=bar
 ```
 
@@ -141,54 +141,54 @@ The following example uses this module in conjunction with the Node.js core HTTP
 to prompt a user for their name and display it back on future visits.
 
 ```js
-var cookie = require("cookie");
-var escapeHtml = require("escape-html");
-var http = require("http");
-var url = require("url");
+var cookie = require('cookie')
+var escapeHtml = require('escape-html')
+var http = require('http')
+var url = require('url')
 
 function onRequest(req, res) {
   // Parse the query string
-  var query = url.parse(req.url, true, true).query;
+  var query = url.parse(req.url, true, true).query
 
   if (query && query.name) {
     // Set a new cookie with the name
     res.setHeader(
-      "Set-Cookie",
-      cookie.serialize("name", String(query.name), {
+      'Set-Cookie',
+      cookie.serialize('name', String(query.name), {
         httpOnly: true,
         maxAge: 60 * 60 * 24 * 7, // 1 week
       }),
-    );
+    )
 
     // Redirect back after setting cookie
-    res.statusCode = 302;
-    res.setHeader("Location", req.headers.referer || "/");
-    res.end();
-    return;
+    res.statusCode = 302
+    res.setHeader('Location', req.headers.referer || '/')
+    res.end()
+    return
   }
 
   // Parse the cookies on the request
-  var cookies = cookie.parse(req.headers.cookie || "");
+  var cookies = cookie.parse(req.headers.cookie || '')
 
   // Get the visitor name set in the cookie
-  var name = cookies.name;
+  var name = cookies.name
 
-  res.setHeader("Content-Type", "text/html; charset=UTF-8");
+  res.setHeader('Content-Type', 'text/html; charset=UTF-8')
 
   if (name) {
-    res.write("<p>Welcome back, <b>" + escapeHtml(name) + "</b>!</p>");
+    res.write('<p>Welcome back, <b>' + escapeHtml(name) + '</b>!</p>')
   } else {
-    res.write("<p>Hello, new visitor!</p>");
+    res.write('<p>Hello, new visitor!</p>')
   }
 
-  res.write('<form method="GET">');
+  res.write('<form method="GET">')
   res.write(
     '<input placeholder="enter your name" name="name"> <input type="submit" value="Set Name">',
-  );
-  res.end("</form>");
+  )
+  res.end('</form>')
 }
 
-http.createServer(onRequest).listen(3000);
+http.createServer(onRequest).listen(3000)
 ```
 
 ## Testing

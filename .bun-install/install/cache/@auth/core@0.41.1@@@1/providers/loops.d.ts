@@ -8,18 +8,21 @@
  *
  * @module providers/loops
  */
-import type { EmailConfig } from "./email.js";
-export type LoopsUserConfig = Omit<Partial<LoopsConfig>, "options" | "type">;
-export interface LoopsConfig extends Omit<EmailConfig, "sendVerificationRequest" | "options"> {
-    id: string;
-    apiKey: string;
-    transactionalId: string;
-    sendVerificationRequest: (params: Params) => Promise<void>;
-    options: LoopsUserConfig;
+import type { EmailConfig } from './email.js'
+export type LoopsUserConfig = Omit<Partial<LoopsConfig>, 'options' | 'type'>
+export interface LoopsConfig extends Omit<
+  EmailConfig,
+  'sendVerificationRequest' | 'options'
+> {
+  id: string
+  apiKey: string
+  transactionalId: string
+  sendVerificationRequest: (params: Params) => Promise<void>
+  options: LoopsUserConfig
 }
-type Params = Parameters<EmailConfig["sendVerificationRequest"]>[0] & {
-    provider: LoopsConfig;
-};
+type Params = Parameters<EmailConfig['sendVerificationRequest']>[0] & {
+  provider: LoopsConfig
+}
 /**
  *
  * @param config
@@ -35,6 +38,6 @@ type Params = Parameters<EmailConfig["sendVerificationRequest"]>[0] & {
  *
  * @typedef LoopsUserConfig
  */
-export default function Loops(config: LoopsUserConfig): LoopsConfig;
-export {};
+export default function Loops(config: LoopsUserConfig): LoopsConfig
+export {}
 //# sourceMappingURL=loops.d.ts.map

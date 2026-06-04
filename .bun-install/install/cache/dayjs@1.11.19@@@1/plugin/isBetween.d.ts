@@ -5,6 +5,11 @@ export = plugin
 
 declare module 'dayjs' {
   interface Dayjs {
-    isBetween(a: ConfigType, b: ConfigType, c?: OpUnitType | null, d?: '()' | '[]' | '[)' | '(]'): boolean
+    isBetween(
+      a: ConfigType,
+      b: ConfigType,
+      c?: OpUnitType | null,
+      d?: '()' | '[]' | '[)' | '(]',
+    ): boolean
   }
 }

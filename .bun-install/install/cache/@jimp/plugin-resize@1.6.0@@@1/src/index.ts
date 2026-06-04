@@ -1,11 +1,11 @@
-import { JimpClass } from "@jimp/types";
-import { ResizeStrategy } from "./constants.js";
-import { z } from "zod";
+import { JimpClass } from '@jimp/types'
+import { ResizeStrategy } from './constants.js'
+import { z } from 'zod'
 
-import Resize from "./modules/resize.js";
-import { operations as Resize2 } from "./modules/resize2.js";
+import Resize from './modules/resize.js'
+import { operations as Resize2 } from './modules/resize2.js'
 
-export * from "./constants.js";
+export * from './constants.js'
 
 interface ResizeClass {
   // eslint-disable-next-line @typescript-eslint/no-misused-new
@@ -16,12 +16,12 @@ interface ResizeClass {
     targetHeight: number,
     blendAlpha: boolean,
     interpolationPass: boolean,
-    resizeCallback: (buffer: Buffer) => void
-  ): ResizeClass;
-  resize(buffer: Buffer): void;
+    resizeCallback: (buffer: Buffer) => void,
+  ): ResizeClass
+  resize(buffer: Buffer): void
 }
 
-type Constructable<T> = new (...args: unknown[]) => T;
+type Constructable<T> = new (...args: unknown[]) => T
 
 const ResizeOptionsSchema = z.union([
   z.object({
@@ -40,9 +40,9 @@ const ResizeOptionsSchema = z.union([
     /** a scaling method (e.g. ResizeStrategy.BEZIER) */
     mode: z.nativeEnum(ResizeStrategy).optional(),
   }),
-]);
+])
 
-export type ResizeOptions = z.infer<typeof ResizeOptionsSchema>;
+export type ResizeOptions = z.infer<typeof ResizeOptionsSchema>
 
 const ScaleToFitOptionsSchema = z.object({
   /** the width to resize the image to */
@@ -51,19 +51,19 @@ const ScaleToFitOptionsSchema = z.object({
   h: z.number().min(0),
   /** a scaling method (e.g. Jimp.RESIZE_BEZIER) */
   mode: z.nativeEnum(ResizeStrategy).optional(),
-});
+})
 
-export type ScaleToFitOptions = z.infer<typeof ScaleToFitOptionsSchema>;
+export type ScaleToFitOptions = z.infer<typeof ScaleToFitOptionsSchema>
 
 const ScaleComplexOptionsSchema = z.object({
   /** the width to resize the image to */
   f: z.number().min(0),
   /** a scaling method (e.g. Jimp.RESIZE_BEZIER) */
   mode: z.nativeEnum(ResizeStrategy).optional(),
-});
+})
 
-export type ScaleComplexOptions = z.infer<typeof ScaleComplexOptionsSchema>;
-export type ScaleOptions = number | ScaleComplexOptions;
+export type ScaleComplexOptions = z.infer<typeof ScaleComplexOptionsSchema>
+export type ScaleOptions = number | ScaleComplexOptions
 
 export const methods = {
   /**
@@ -78,33 +78,33 @@ export const methods = {
    * ```
    */
   resize<I extends JimpClass>(image: I, options: ResizeOptions) {
-    const { mode } = ResizeOptionsSchema.parse(options);
+    const { mode } = ResizeOptionsSchema.parse(options)
 
-    let w: number;
-    let h: number;
+    let w: number
+    let h: number
 
-    if (typeof options.w === "number") {
-      w = options.w;
-      h = options.h ?? image.bitmap.height * (w / image.bitmap.width);
-    } else if (typeof options.h === "number") {
-      h = options.h;
-      w = options.w ?? image.bitmap.width * (h / image.bitmap.height);
+    if (typeof options.w === 'number') {
+      w = options.w
+      h = options.h ?? image.bitmap.height * (w / image.bitmap.width)
+    } else if (typeof options.h === 'number') {
+      h = options.h
+      w = options.w ?? image.bitmap.width * (h / image.bitmap.height)
     } else {
-      throw new Error("w must be a number");
+      throw new Error('w must be a number')
     }
 
     // round inputs
-    w = Math.round(w) || 1;
-    h = Math.round(h) || 1;
+    w = Math.round(w) || 1
+    h = Math.round(h) || 1
 
-    if (mode && typeof Resize2[mode] === "function") {
+    if (mode && typeof Resize2[mode] === 'function') {
       const dst = {
         data: Buffer.alloc(w * h * 4),
         width: w,
         height: h,
-      };
-      Resize2[mode](image.bitmap, dst);
-      image.bitmap = dst;
+      }
+      Resize2[mode](image.bitmap, dst)
+      image.bitmap = dst
     } else {
       const resize = new (Resize as unknown as Constructable<ResizeClass>)(
         image.bitmap.width,
@@ -114,16 +114,16 @@ export const methods = {
         true,
         true,
         (buffer: Buffer) => {
-          image.bitmap.data = Buffer.from(buffer);
-          image.bitmap.width = w;
-          image.bitmap.height = h;
-        }
-      );
+          image.bitmap.data = Buffer.from(buffer)
+          image.bitmap.width = w
+          image.bitmap.height = h
+        },
+      )
 
-      resize.resize(image.bitmap.data);
+      resize.resize(image.bitmap.data)
     }
 
-    return image;
+    return image
   },
 
   /**
@@ -141,13 +141,13 @@ export const methods = {
    */
   scale<I extends JimpClass>(image: I, options: ScaleOptions) {
     const { f, mode } =
-      typeof options === "number"
+      typeof options === 'number'
         ? ({ f: options } as ScaleComplexOptions)
-        : ScaleComplexOptionsSchema.parse(options);
-    const w = image.bitmap.width * f;
-    const h = image.bitmap.height * f;
+        : ScaleComplexOptionsSchema.parse(options)
+    const w = image.bitmap.width * f
+    const h = image.bitmap.height * f
 
-    return this.resize(image, { w, h, mode: mode });
+    return this.resize(image, { w, h, mode: mode })
   },
 
   /**
@@ -165,12 +165,12 @@ export const methods = {
    * ```
    */
   scaleToFit<I extends JimpClass>(image: I, options: ScaleToFitOptions) {
-    const { h, w, mode } = ScaleToFitOptionsSchema.parse(options);
+    const { h, w, mode } = ScaleToFitOptionsSchema.parse(options)
     const f =
       w / h > image.bitmap.width / image.bitmap.height
         ? h / image.bitmap.height
-        : w / image.bitmap.width;
+        : w / image.bitmap.width
 
-    return this.scale(image, { f, mode: mode });
+    return this.scale(image, { f, mode: mode })
   },
-};
+}

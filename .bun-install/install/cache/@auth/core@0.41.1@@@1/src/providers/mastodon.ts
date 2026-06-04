@@ -8,7 +8,7 @@
  *
  * @module providers/mastodon
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface MastodonProfile extends Record<string, any> {
   id: string
@@ -90,12 +90,12 @@ export interface MastodonProfile extends Record<string, any> {
 export default function Mastodon<P extends MastodonProfile>(
   options: OAuthUserConfig<P> & {
     issuer: string
-  }
+  },
 ): OAuthConfig<P> {
   return {
-    id: "mastodon",
-    name: "Mastodon",
-    type: "oauth",
+    id: 'mastodon',
+    name: 'Mastodon',
+    type: 'oauth',
     authorization: `${options.issuer}/oauth/authorize?scope=read`,
     token: `${options.issuer}/oauth/token`,
     userinfo: `${options.issuer}/api/v1/accounts/verify_credentials`,

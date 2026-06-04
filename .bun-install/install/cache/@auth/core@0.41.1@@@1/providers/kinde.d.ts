@@ -10,23 +10,23 @@
  *
  * @module providers/kinde
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** The returned user profile from Kinde when using the profile callback. [Reference](https://kinde.com/api/docs/#get-user-profile). */
 export interface KindeProfile extends Record<string, any> {
-    /** The user's given name. */
-    first_name: string;
-    /** The user's unique identifier. */
-    id: string;
-    /** The user's family name. */
-    last_name: string;
-    /** URL pointing to the user's profile picture. */
-    picture: string;
-    /** The user's email address. */
-    preferred_email: string;
-    /** The user's identifier from a previous system. */
-    provided_id: string;
-    /** The user's username. */
-    username: string;
+  /** The user's given name. */
+  first_name: string
+  /** The user's unique identifier. */
+  id: string
+  /** The user's family name. */
+  last_name: string
+  /** URL pointing to the user's profile picture. */
+  picture: string
+  /** The user's email address. */
+  preferred_email: string
+  /** The user's identifier from a previous system. */
+  provided_id: string
+  /** The user's username. */
+  username: string
 }
 /**
  * ### Setup
@@ -69,5 +69,7 @@ export interface KindeProfile extends Record<string, any> {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Kinde(config: OIDCUserConfig<KindeProfile>): OIDCConfig<KindeProfile>;
+export default function Kinde(
+  config: OIDCUserConfig<KindeProfile>,
+): OIDCConfig<KindeProfile>
 //# sourceMappingURL=kinde.d.ts.map

@@ -1,1 +1,1 @@
-export * from './integer';
+export * from './integer'

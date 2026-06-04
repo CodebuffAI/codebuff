@@ -1,2 +1,2 @@
-import { getOr } from "../fp";
-export = getOr;
+import { getOr } from '../fp'
+export = getOr

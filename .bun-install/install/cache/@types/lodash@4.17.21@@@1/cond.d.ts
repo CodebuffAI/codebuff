@@ -1,2 +1,2 @@
-import { cond } from "./index";
-export = cond;
+import { cond } from './index'
+export = cond

@@ -10,27 +10,27 @@
  *
  * @module providers/descope
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** The returned user profile from Descope when using the profile callback.
  * [See Load User](https://docs.descope.com/api/openapi/usermanagement/operation/LoadUser/)
  */
 export interface DescopeProfile {
-    /** The user's unique Descope ID */
-    sub: string;
-    /** The user's name */
-    name: string;
-    /** The user's email */
-    email: string;
-    /** A boolean indicating if the user's email is verified */
-    email_verified: boolean;
-    /** The user's phone number */
-    phone_number: string;
-    /** A boolean indicating if the user's phone number is verified */
-    phone_number_verified: boolean;
-    /** The user's picture */
-    picture: string;
-    /** The user's custom attributes */
-    [claim: string]: unknown;
+  /** The user's unique Descope ID */
+  sub: string
+  /** The user's name */
+  name: string
+  /** The user's email */
+  email: string
+  /** A boolean indicating if the user's email is verified */
+  email_verified: boolean
+  /** The user's phone number */
+  phone_number: string
+  /** A boolean indicating if the user's phone number is verified */
+  phone_number_verified: boolean
+  /** The user's picture */
+  picture: string
+  /** The user's custom attributes */
+  [claim: string]: unknown
 }
 /**
  *
@@ -87,5 +87,7 @@ export interface DescopeProfile {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Descope(config: OIDCUserConfig<DescopeProfile>): OIDCConfig<DescopeProfile>;
+export default function Descope(
+  config: OIDCUserConfig<DescopeProfile>,
+): OIDCConfig<DescopeProfile>
 //# sourceMappingURL=descope.d.ts.map

@@ -24,7 +24,10 @@ const definition: AgentDefinition = {
       toolName: 'add_message',
       input: {
         role: 'user',
-        content: 'Before starting the ' + CLI_NAME + ' CLI session, gather context by reading relevant files and understanding the task to provide better guidance to the CLI.',
+        content:
+          'Before starting the ' +
+          CLI_NAME +
+          ' CLI session, gather context by reading relevant files and understanding the task to provide better guidance to the CLI.',
       },
       includeToolCall: false,
     }
@@ -36,7 +39,8 @@ const definition: AgentDefinition = {
     const { toolResult } = yield {
       toolName: 'run_terminal_command',
       input: {
-        command: './scripts/tmux/tmux-cli.sh start --command "' + START_COMMAND + '"',
+        command:
+          './scripts/tmux/tmux-cli.sh start --command "' + START_COMMAND + '"',
         timeout_seconds: 30,
       },
     }
@@ -48,9 +52,12 @@ const definition: AgentDefinition = {
     const result = toolResult?.[0]
     if (result && result.type === 'json') {
       const value = result.value as Record<string, unknown>
-      const stdout = typeof value?.stdout === 'string' ? value.stdout.trim() : ''
-      const stderr = typeof value?.stderr === 'string' ? value.stderr.trim() : ''
-      const exitCode = typeof value?.exitCode === 'number' ? value.exitCode : undefined
+      const stdout =
+        typeof value?.stdout === 'string' ? value.stdout.trim() : ''
+      const stderr =
+        typeof value?.stderr === 'string' ? value.stderr.trim() : ''
+      const exitCode =
+        typeof value?.exitCode === 'number' ? value.exitCode : undefined
 
       if (!stdout && !stderr) {
         parseError = 'tmux-cli.sh returned empty output'
@@ -77,7 +84,8 @@ const definition: AgentDefinition = {
               script: 'tmux-cli.sh',
               issue: errorMsg,
               errorOutput: JSON.stringify(toolResult),
-              suggestedFix: 'Ensure tmux-cli.sh outputs the session name to stdout and exits with code 0. Check that tmux is installed.',
+              suggestedFix:
+                'Ensure tmux-cli.sh outputs the session name to stdout and exits with code 0. Check that tmux is installed.',
             },
           ],
           captures: [],
@@ -92,12 +100,23 @@ const definition: AgentDefinition = {
       toolName: 'add_message',
       input: {
         role: 'user',
-        content: 'A ' + CLI_NAME + ' tmux session has been started: `' + sessionName + '`\n\n' +
+        content:
+          'A ' +
+          CLI_NAME +
+          ' tmux session has been started: `' +
+          sessionName +
+          '`\n\n' +
           'Use this session for all CLI interactions. The session name must be included in your final output.\n\n' +
           'Proceed with the task using the helper scripts:\n' +
-          '- Send commands: `./scripts/tmux/tmux-cli.sh send "' + sessionName + '" "..."`\n' +
-          '- Capture output: `./scripts/tmux/tmux-cli.sh capture "' + sessionName + '" --label "..."`\n' +
-          '- Stop when done: `./scripts/tmux/tmux-cli.sh stop "' + sessionName + '"`',
+          '- Send commands: `./scripts/tmux/tmux-cli.sh send "' +
+          sessionName +
+          '" "..."`\n' +
+          '- Capture output: `./scripts/tmux/tmux-cli.sh capture "' +
+          sessionName +
+          '" --label "..."`\n' +
+          '- Stop when done: `./scripts/tmux/tmux-cli.sh stop "' +
+          sessionName +
+          '"`',
       },
       includeToolCall: false,
     }

@@ -40,7 +40,7 @@ import type {
   RuleModuleWithMetaDocs,
   RuleRecommendation,
   RuleRecommendationAcrossConfigs,
-} from '@typescript-eslint/utils/ts-eslint';
+} from '@typescript-eslint/utils/ts-eslint'
 
 interface ESLintPluginDocs {
   /**
@@ -48,40 +48,40 @@ interface ESLintPluginDocs {
    * Alternately accepts the name of the base rule, in case the rule has been renamed.
    * This is only used for documentation purposes.
    */
-  extendsBaseRule?: boolean | string;
+  extendsBaseRule?: boolean | string
 
   /**
    * If a string config name, which starting config this rule is enabled in.
    * If an object, which settings it has enabled in each of those configs.
    */
-  recommended?: RuleRecommendation | RuleRecommendationAcrossConfigs<unknown[]>;
+  recommended?: RuleRecommendation | RuleRecommendationAcrossConfigs<unknown[]>
 
   /**
    * Does the rule require us to create a full TypeScript Program in order for it
    * to type-check code. This is only used for documentation purposes.
    */
-  requiresTypeChecking?: boolean;
+  requiresTypeChecking?: boolean
 }
 
 type ESLintPluginRuleModule = RuleModuleWithMetaDocs<
   string,
   readonly unknown[],
   ESLintPluginDocs
->;
+>
 
 type TypeScriptESLintRules = Record<
   string,
   RuleModuleWithMetaDocs<string, unknown[], ESLintPluginDocs>
->;
+>
 
-declare const rules: TypeScriptESLintRules;
+declare const rules: TypeScriptESLintRules
 
 declare namespace rules {
   export type {
     ESLintPluginDocs,
     ESLintPluginRuleModule,
     TypeScriptESLintRules,
-  };
+  }
 }
 
-export = rules;
+export = rules

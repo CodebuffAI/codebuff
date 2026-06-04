@@ -1,2 +1,2 @@
-import { mergeAll } from "../fp";
-export = mergeAll;
+import { mergeAll } from '../fp'
+export = mergeAll

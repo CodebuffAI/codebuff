@@ -3,7 +3,7 @@
  */
 export function getValueBySymbol<T>(
   symbolName: string,
-  source: object
+  source: object,
 ): T | undefined {
   const ownSymbols = Object.getOwnPropertySymbols(source)
 

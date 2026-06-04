@@ -1,8 +1,8 @@
-import type { Client, PrivateKey } from "oauth4webapi"
-import type { CommonProviderOptions } from "../providers/index.js"
-import type { Awaitable, Profile, TokenSet, User } from "../types.js"
-import type { AuthConfig } from "../index.js"
-import type { conformInternal, customFetch } from "../lib/symbols.js"
+import type { Client, PrivateKey } from 'oauth4webapi'
+import type { CommonProviderOptions } from '../providers/index.js'
+import type { Awaitable, Profile, TokenSet, User } from '../types.js'
+import type { AuthConfig } from '../index.js'
+import type { conformInternal, customFetch } from '../lib/symbols.js'
 
 // TODO: fix types
 type AuthorizationParameters = any
@@ -11,11 +11,11 @@ type IssuerMetadata = any
 type OAuthCallbackChecks = any
 type OpenIDCallbackChecks = any
 
-export type { OAuthProviderId } from "./provider-types.js"
+export type { OAuthProviderId } from './provider-types.js'
 
 export type OAuthChecks = OpenIDCallbackChecks | OAuthCallbackChecks
 
-type PartialIssuer = Partial<Pick<IssuerMetadata, "jwks_endpoint" | "issuer">>
+type PartialIssuer = Partial<Pick<IssuerMetadata, 'jwks_endpoint' | 'issuer'>>
 
 type UrlParams = Record<string, unknown>
 
@@ -26,7 +26,7 @@ type EndpointRequest<C, R, P> = (
       signinUrl: string
       callbackUrl: string
     }
-  }
+  },
 ) => Awaitable<R> | void
 
 /** Gives granular control of the request to the given endpoint */
@@ -89,7 +89,7 @@ export type UserinfoEndpointHandler = EndpointHandler<
 
 export type ProfileCallback<Profile> = (
   profile: Profile,
-  tokens: TokenSet
+  tokens: TokenSet,
 ) => Awaitable<User>
 
 export type AccountCallback = (tokens: TokenSet) => TokenSet | undefined | void
@@ -109,8 +109,7 @@ export interface OAuthProviderButtonStyles {
 
 /** TODO: Document */
 export interface OAuth2Config<Profile>
-  extends CommonProviderOptions,
-    PartialIssuer {
+  extends CommonProviderOptions, PartialIssuer {
   /**
    * Identifies the provider when you want to sign in to
    * a specific provider.
@@ -142,7 +141,7 @@ export interface OAuth2Config<Profile>
   authorization?: string | AuthorizationEndpointHandler
   token?: string | TokenEndpointHandler
   userinfo?: string | UserinfoEndpointHandler
-  type: "oauth"
+  type: 'oauth'
   /**
    * Receives the full {@link Profile} returned by the OAuth provider, and returns a subset.
    * It is used to create the user in the database.
@@ -198,7 +197,7 @@ export interface OAuth2Config<Profile>
    * [RFC 6749 - The OAuth 2.0 Authorization Framework](https://www.rfc-editor.org/rfc/rfc6749.html#section-4.1.1) |
    * [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html#IDToken) |
    */
-  checks?: Array<"pkce" | "state" | "none">
+  checks?: Array<'pkce' | 'state' | 'none'>
   clientId?: string
   clientSecret?: string
   /**
@@ -221,7 +220,7 @@ export interface OAuth2Config<Profile>
    * to enable automatic account linking.
    */
   allowDangerousEmailAccountLinking?: boolean
-  redirectProxyUrl?: AuthConfig["redirectProxyUrl"]
+  redirectProxyUrl?: AuthConfig['redirectProxyUrl']
   /** @see {customFetch} */
   [customFetch]?: typeof fetch
   /**
@@ -241,10 +240,12 @@ export interface OAuth2Config<Profile>
  *
  * @see https://openid.net/specs/openid-connect-core-1_0.html
  */
-export interface OIDCConfig<Profile>
-  extends Omit<OAuth2Config<Profile>, "type" | "checks"> {
-  type: "oidc"
-  checks?: Array<NonNullable<OAuth2Config<Profile>["checks"]>[number] | "nonce">
+export interface OIDCConfig<Profile> extends Omit<
+  OAuth2Config<Profile>,
+  'type' | 'checks'
+> {
+  type: 'oidc'
+  checks?: Array<NonNullable<OAuth2Config<Profile>['checks']>[number] | 'nonce'>
   /**
    * If set to `false`, the `userinfo_endpoint` will be fetched for the user data.
    * @note An `id_token` is still required to be returned during the authorization flow.
@@ -254,7 +255,7 @@ export interface OIDCConfig<Profile>
 
 export type OAuthConfig<Profile> = OIDCConfig<Profile> | OAuth2Config<Profile>
 
-export type OAuthEndpointType = "authorization" | "token" | "userinfo"
+export type OAuthEndpointType = 'authorization' | 'token' | 'userinfo'
 
 /**
  * We parsed `authorization`, `token` and `userinfo`
@@ -263,20 +264,20 @@ export type OAuthEndpointType = "authorization" | "token" | "userinfo"
  */
 export type OAuthConfigInternal<Profile> = Omit<
   OAuthConfig<Profile>,
-  OAuthEndpointType | "redirectProxyUrl"
+  OAuthEndpointType | 'redirectProxyUrl'
 > & {
   authorization?: { url: URL }
   token?: {
     url: URL
-    request?: TokenEndpointHandler["request"]
+    request?: TokenEndpointHandler['request']
     clientPrivateKey?: CryptoKey | PrivateKey
     /**
      * @internal
      * @deprecated
      */
-    conform?: TokenEndpointHandler["conform"]
+    conform?: TokenEndpointHandler['conform']
   }
-  userinfo?: { url: URL; request?: UserinfoEndpointHandler["request"] }
+  userinfo?: { url: URL; request?: UserinfoEndpointHandler['request'] }
   /**
    * Reconstructed from {@link OAuth2Config.redirectProxyUrl},
    * adding the callback action and provider id onto the URL.
@@ -288,23 +289,23 @@ export type OAuthConfigInternal<Profile> = Omit<
    * @example `"https://auth.example.com/api/auth/callback/:provider"`
    *
    */
-  redirectProxyUrl?: OAuth2Config<Profile>["redirectProxyUrl"]
+  redirectProxyUrl?: OAuth2Config<Profile>['redirectProxyUrl']
 } & Pick<
     Required<OAuthConfig<Profile>>,
-    "clientId" | "checks" | "profile" | "account"
+    'clientId' | 'checks' | 'profile' | 'account'
   >
 
 export type OIDCConfigInternal<Profile> = OAuthConfigInternal<Profile> & {
-  checks: OIDCConfig<Profile>["checks"]
-  idToken: OIDCConfig<Profile>["idToken"]
+  checks: OIDCConfig<Profile>['checks']
+  idToken: OIDCConfig<Profile>['idToken']
 }
 
 export type OAuthUserConfig<Profile> = Omit<
   Partial<OAuthConfig<Profile>>,
-  "options" | "type"
+  'options' | 'type'
 >
 
 export type OIDCUserConfig<Profile> = Omit<
   Partial<OIDCConfig<Profile>>,
-  "options" | "type"
+  'options' | 'type'
 >

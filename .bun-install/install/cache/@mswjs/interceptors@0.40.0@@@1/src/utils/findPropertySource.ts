@@ -4,7 +4,7 @@
  */
 export function findPropertySource(
   target: object,
-  propertyName: string | symbol
+  propertyName: string | symbol,
 ): object | null {
   if (!(propertyName in target)) {
     return null

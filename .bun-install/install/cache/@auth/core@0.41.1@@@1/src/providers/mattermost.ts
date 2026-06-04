@@ -8,7 +8,7 @@
  *
  * @module providers/mattermost
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js"
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 
 /** [Get a user](https://api.mattermost.com/#tag/users/operation/GetUser) */
 export interface MattermostProfile {
@@ -128,15 +128,15 @@ export interface MattermostProfile {
  * :::
  */
 export default function Mattermost<P extends MattermostProfile>(
-  config: OAuthUserConfig<P> & { issuer: string }
+  config: OAuthUserConfig<P> & { issuer: string },
 ): OAuthConfig<P> {
   const { issuer, ...rest } = config
 
   return {
-    id: "mattermost",
-    name: "Mattermost",
-    type: "oauth",
-    client: { token_endpoint_auth_method: "client_secret_post" },
+    id: 'mattermost',
+    name: 'Mattermost',
+    type: 'oauth',
+    client: { token_endpoint_auth_method: 'client_secret_post' },
     token: `${issuer}/oauth/access_token`,
     authorization: `${issuer}/oauth/authorize`,
     userinfo: `${issuer}/api/v4/users/me`,
@@ -148,7 +148,7 @@ export default function Mattermost<P extends MattermostProfile>(
         image: null,
       }
     },
-    style: { bg: "#000", text: "#fff" },
+    style: { bg: '#000', text: '#fff' },
     options: rest,
   }
 }

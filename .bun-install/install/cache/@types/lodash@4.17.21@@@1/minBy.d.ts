@@ -1,2 +1,2 @@
-import { minBy } from "./index";
-export = minBy;
+import { minBy } from './index'
+export = minBy

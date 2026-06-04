@@ -9,12 +9,14 @@
  * @module providers/loops
  */
 
-import type { EmailConfig, EmailUserConfig } from "./email.js"
+import type { EmailConfig, EmailUserConfig } from './email.js'
 
-export type LoopsUserConfig = Omit<Partial<LoopsConfig>, "options" | "type">
+export type LoopsUserConfig = Omit<Partial<LoopsConfig>, 'options' | 'type'>
 
-export interface LoopsConfig
-  extends Omit<EmailConfig, "sendVerificationRequest" | "options"> {
+export interface LoopsConfig extends Omit<
+  EmailConfig,
+  'sendVerificationRequest' | 'options'
+> {
   id: string
   apiKey: string
   transactionalId: string
@@ -22,7 +24,7 @@ export interface LoopsConfig
   options: LoopsUserConfig
 }
 
-type Params = Parameters<EmailConfig["sendVerificationRequest"]>[0] & {
+type Params = Parameters<EmailConfig['sendVerificationRequest']>[0] & {
   provider: LoopsConfig
 }
 
@@ -44,23 +46,23 @@ type Params = Parameters<EmailConfig["sendVerificationRequest"]>[0] & {
 
 export default function Loops(config: LoopsUserConfig): LoopsConfig {
   return {
-    id: "loops",
-    apiKey: "",
-    type: "email",
-    name: "Loops",
-    from: "Auth.js <no-reply@authjs.dev>",
+    id: 'loops',
+    apiKey: '',
+    type: 'email',
+    name: 'Loops',
+    from: 'Auth.js <no-reply@authjs.dev>',
     maxAge: 24 * 60 * 60,
-    transactionalId: config.transactionalId || "",
+    transactionalId: config.transactionalId || '',
     async sendVerificationRequest(params: Params) {
       const { identifier: to, provider, url } = params
       if (!provider.apiKey || !provider.transactionalId)
-        throw new TypeError("Missing Loops API Key or TransactionalId")
+        throw new TypeError('Missing Loops API Key or TransactionalId')
 
-      const res = await fetch("https://app.loops.so/api/v1/transactional", {
-        method: "POST",
+      const res = await fetch('https://app.loops.so/api/v1/transactional', {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           transactionalId: provider.transactionalId,
@@ -71,7 +73,7 @@ export default function Loops(config: LoopsUserConfig): LoopsConfig {
         }),
       })
       if (!res.ok) {
-        throw new Error("Loops Send Error: " + JSON.stringify(await res.json()))
+        throw new Error('Loops Send Error: ' + JSON.stringify(await res.json()))
       }
     },
     options: config,

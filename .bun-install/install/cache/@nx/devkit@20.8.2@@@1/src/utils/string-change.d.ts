@@ -1,33 +1,33 @@
 export declare enum ChangeType {
-    Delete = "Delete",
-    Insert = "Insert"
+  Delete = 'Delete',
+  Insert = 'Insert',
 }
 export interface StringDeletion {
-    type: ChangeType.Delete;
-    /**
-     * Place in the original text to start deleting characters
-     */
-    start: number;
-    /**
-     * Number of characters to delete
-     */
-    length: number;
+  type: ChangeType.Delete
+  /**
+   * Place in the original text to start deleting characters
+   */
+  start: number
+  /**
+   * Number of characters to delete
+   */
+  length: number
 }
 export interface StringInsertion {
-    type: ChangeType.Insert;
-    /**
-     * Text to insert into the original text
-     */
-    text: string;
-    /**
-     * Place in the original text to insert new text
-     */
-    index: number;
+  type: ChangeType.Insert
+  /**
+   * Text to insert into the original text
+   */
+  text: string
+  /**
+   * Place in the original text to insert new text
+   */
+  index: number
 }
 /**
  * A change to be made to a string
  */
-export type StringChange = StringInsertion | StringDeletion;
+export type StringChange = StringInsertion | StringDeletion
 /**
  * Applies a list of changes to a string's original value.
  *
@@ -59,4 +59,7 @@ export type StringChange = StringInsertion | StringDeletion;
  * });
  * ```
  */
-export declare function applyChangesToString(text: string, changes: StringChange[]): string;
+export declare function applyChangesToString(
+  text: string,
+  changes: StringChange[],
+): string

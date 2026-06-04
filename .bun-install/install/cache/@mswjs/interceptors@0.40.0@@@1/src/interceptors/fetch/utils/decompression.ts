@@ -11,7 +11,7 @@ class PipelineStream extends TransformStream {
     super({}, ...strategies)
 
     const readable = [super.readable as any, ...transformStreams].reduce(
-      (readable, transform) => readable.pipeThrough(transform)
+      (readable, transform) => readable.pipeThrough(transform),
     )
 
     Object.defineProperty(this, 'readable', {
@@ -30,7 +30,7 @@ export function parseContentEncoding(contentEncoding: string): Array<string> {
 }
 
 function createDecompressionStream(
-  contentEncoding: string
+  contentEncoding: string,
 ): TransformStream | null {
   if (contentEncoding === '') {
     return null
@@ -56,21 +56,21 @@ function createDecompressionStream(
 
       return transformers
     },
-    []
+    [],
   )
 
   return new PipelineStream(transformers)
 }
 
 export function decompressResponse(
-  response: Response
+  response: Response,
 ): ReadableStream<any> | null {
   if (response.body === null) {
     return null
   }
 
   const decompressionStream = createDecompressionStream(
-    response.headers.get('content-encoding') || ''
+    response.headers.get('content-encoding') || '',
   )
 
   if (!decompressionStream) {

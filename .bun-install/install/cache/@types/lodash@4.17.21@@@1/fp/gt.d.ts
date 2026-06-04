@@ -1,2 +1,2 @@
-import { gt } from "../fp";
-export = gt;
+import { gt } from '../fp'
+export = gt

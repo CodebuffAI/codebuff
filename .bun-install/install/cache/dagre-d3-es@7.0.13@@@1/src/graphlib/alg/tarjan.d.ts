@@ -1,1 +1,1 @@
-export function tarjan(g: any): any[];
+export function tarjan(g: any): any[]

@@ -3390,11 +3390,11 @@ function* handleStepsMultiPrompt({
     any
   > {
     // Proposals draft into an in-memory overlay during the proposal phase; this
-    // apply phase is the single place edits are persisted to disk. We convert
-    // each propose_* tool call into its real edit-tool equivalent and replay it
-    // against current disk content (matching upstream): the chosen proposal is
-    // always written. Any __proposal* metadata on the input is stripped by
-    // sanitizeProposalApplyInput before applying.
+    // apply phase is the single place edits are persisted to disk. When the
+    // ledger captured resolved final content, prefer applying that content with
+    // a base-content guard instead of replaying a possibly stale str_replace
+    // anchor. If no ledger content is available, fall back to converting the
+    // propose_* tool call into its real edit-tool equivalent.
     const appliedToolResults: any[] = []
     for (const toolCall of chosenImplementation.toolCalls) {
       // propose_edit_transaction maps to the atomic edit_transaction tool, which
@@ -3437,6 +3437,12 @@ function* handleStepsMultiPrompt({
             : toolCall.toolName
 
       if (realToolName === 'str_replace' || realToolName === 'write_file') {
+        const ledgerApply = yield* applyLedgerFinalContent(toolCall)
+        if (ledgerApply.handled) {
+          appliedToolResults.push(ledgerApply.result)
+          continue
+        }
+
         const input = sanitizeProposalApplyInput(
           isObject(toolCall.input)
             ? {
@@ -3468,6 +3474,81 @@ function* handleStepsMultiPrompt({
     }
 
     return appliedToolResults
+  }
+
+  function* applyLedgerFinalContent(
+    toolCall: ProposedToolCall,
+  ): Generator<
+    ToolCall<'read_files'> | ToolCall<'write_file'>,
+    { handled: true; result: any } | { handled: false },
+    any
+  > {
+    if (!isObject(toolCall.input)) return { handled: false }
+    const finalContent = toolCall.input.__proposalFinalContent
+    if (typeof finalContent !== 'string') return { handled: false }
+
+    const rawPath =
+      typeof toolCall.input.__proposalFile === 'string'
+        ? toolCall.input.__proposalFile
+        : typeof toolCall.input.path === 'string'
+          ? toolCall.input.path
+          : ''
+    const path = normalizeProposalPath(rawPath)
+    if (!path) return { handled: false }
+
+    const baseContent = toolCall.input.__proposalBaseContent
+    if (baseContent !== undefined) {
+      const [currentFile] = yield* readFilesContent([path])
+      const currentContent = currentFile?.content
+      if (baseContent === null) {
+        if (
+          typeof currentContent === 'string' &&
+          !currentContent.startsWith('[FILE_DOES_NOT_EXIST]')
+        ) {
+          return {
+            handled: true,
+            result: {
+              path,
+              errorMessage:
+                'Proposal final content was not applied because the target file now exists, but the proposal was based on creating a new file.',
+            },
+          }
+        }
+      } else if (typeof baseContent === 'string') {
+        if (currentContent !== baseContent) {
+          return {
+            handled: true,
+            result: {
+              path,
+              errorMessage:
+                'Proposal final content was not applied because the target file changed after the proposal was generated.',
+            },
+          }
+        }
+      }
+    }
+
+    const { toolResult } = yield {
+      toolName: 'write_file',
+      input: {
+        path,
+        instructions: 'Apply resolved editor proposal content',
+        content: finalContent,
+      },
+      includeToolCall: true,
+    } satisfies ToolCall<'write_file'>
+
+    if (toolResult === undefined || toolResult === null) {
+      return {
+        handled: true,
+        result: {
+          path,
+          errorMessage:
+            'write_file did not return a tool result while applying proposal final content; no edit was recorded.',
+        },
+      }
+    }
+    return { handled: true, result: toolResult }
   }
 
   function sanitizeProposalApplyInput(input: any): any {

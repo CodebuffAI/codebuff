@@ -1,6 +1,6 @@
-import { JimpClass, JimpClassSchema } from "@jimp/types";
-import { limit255, scan } from "@jimp/utils";
-import { z } from "zod";
+import { JimpClass, JimpClassSchema } from '@jimp/types'
+import { limit255, scan } from '@jimp/utils'
+import { z } from 'zod'
 
 const BlitOptionsSchemaComplex = z.object({
   src: JimpClassSchema,
@@ -16,13 +16,13 @@ const BlitOptionsSchemaComplex = z.object({
   srcW: z.number().optional(),
   /** the height to which to crop the source image */
   srcH: z.number().optional(),
-});
+})
 
-type BlitOptionsComplex = z.infer<typeof BlitOptionsSchemaComplex>;
+type BlitOptionsComplex = z.infer<typeof BlitOptionsSchemaComplex>
 
-const BlitOptionsSchema = z.union([JimpClassSchema, BlitOptionsSchemaComplex]);
+const BlitOptionsSchema = z.union([JimpClassSchema, BlitOptionsSchemaComplex])
 
-export type BlitOptions = z.infer<typeof BlitOptionsSchema>;
+export type BlitOptions = z.infer<typeof BlitOptionsSchema>
 
 export const methods = {
   /**
@@ -41,7 +41,7 @@ export const methods = {
    * ```
    */
   blit<I extends JimpClass>(image: I, options: BlitOptions) {
-    const parsed = BlitOptionsSchema.parse(options);
+    const parsed = BlitOptionsSchema.parse(options)
     let {
       // eslint-disable-next-line prefer-const
       src,
@@ -51,32 +51,32 @@ export const methods = {
       srcY = 0,
       srcW = src.bitmap.width,
       srcH = src.bitmap.height,
-    } = "bitmap" in parsed ? ({ src: parsed } as BlitOptionsComplex) : parsed;
+    } = 'bitmap' in parsed ? ({ src: parsed } as BlitOptionsComplex) : parsed
 
-    if (!("bitmap" in src)) {
-      throw new Error("The source must be a Jimp image");
+    if (!('bitmap' in src)) {
+      throw new Error('The source must be a Jimp image')
     }
 
-    if (typeof x !== "number" || typeof y !== "number") {
-      throw new Error("x and y must be numbers");
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      throw new Error('x and y must be numbers')
     }
 
     // round input
-    x = Math.round(x);
-    y = Math.round(y);
+    x = Math.round(x)
+    y = Math.round(y)
 
     // round input
-    srcX = Math.round(srcX);
-    srcY = Math.round(srcY);
-    srcW = Math.round(srcW);
-    srcH = Math.round(srcH);
+    srcX = Math.round(srcX)
+    srcY = Math.round(srcY)
+    srcW = Math.round(srcW)
+    srcH = Math.round(srcH)
 
-    const maxWidth = image.bitmap.width;
-    const maxHeight = image.bitmap.height;
+    const maxWidth = image.bitmap.width
+    const maxHeight = image.bitmap.height
 
     scan(src, srcX, srcY, srcW, srcH, function (sx, sy, idx) {
-      const xOffset = x + sx - srcX;
-      const yOffset = y + sy - srcY;
+      const xOffset = x + sx - srcX
+      const yOffset = y + sy - srcY
 
       if (
         xOffset >= 0 &&
@@ -84,31 +84,31 @@ export const methods = {
         maxWidth - xOffset > 0 &&
         maxHeight - yOffset > 0
       ) {
-        const dstIdx = image.getPixelIndex(xOffset, yOffset);
+        const dstIdx = image.getPixelIndex(xOffset, yOffset)
         const srcColor = {
           r: src.bitmap.data[idx] || 0,
           g: src.bitmap.data[idx + 1] || 0,
           b: src.bitmap.data[idx + 2] || 0,
           a: src.bitmap.data[idx + 3] || 0,
-        };
+        }
 
         const dst = {
           r: image.bitmap.data[dstIdx] || 0,
           g: image.bitmap.data[dstIdx + 1] || 0,
           b: image.bitmap.data[dstIdx + 2] || 0,
           a: image.bitmap.data[dstIdx + 3] || 0,
-        };
+        }
 
         image.bitmap.data[dstIdx] =
-          ((srcColor.a * (srcColor.r - dst.r) - dst.r + 255) >> 8) + dst.r;
+          ((srcColor.a * (srcColor.r - dst.r) - dst.r + 255) >> 8) + dst.r
         image.bitmap.data[dstIdx + 1] =
-          ((srcColor.a * (srcColor.g - dst.g) - dst.g + 255) >> 8) + dst.g;
+          ((srcColor.a * (srcColor.g - dst.g) - dst.g + 255) >> 8) + dst.g
         image.bitmap.data[dstIdx + 2] =
-          ((srcColor.a * (srcColor.b - dst.b) - dst.b + 255) >> 8) + dst.b;
-        image.bitmap.data[dstIdx + 3] = limit255(dst.a + srcColor.a);
+          ((srcColor.a * (srcColor.b - dst.b) - dst.b + 255) >> 8) + dst.b
+        image.bitmap.data[dstIdx + 3] = limit255(dst.a + srcColor.a)
       }
-    });
+    })
 
-    return image;
+    return image
   },
-};
+}

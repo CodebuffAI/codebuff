@@ -15,20 +15,20 @@ npm i @ai-sdk/gateway
 You can import the default provider instance `gateway` from `@ai-sdk/gateway`:
 
 ```ts
-import { gateway } from '@ai-sdk/gateway';
+import { gateway } from '@ai-sdk/gateway'
 ```
 
 ## Example
 
 ```ts
-import { gateway } from '@ai-sdk/gateway';
-import { generateText } from 'ai';
+import { gateway } from '@ai-sdk/gateway'
+import { generateText } from 'ai'
 
 const { text } = await generateText({
   model: gateway('xai/grok-3-beta'),
   prompt:
     'Tell me about the history of the San Francisco Mission-style burrito.',
-});
+})
 ```
 
 ## Documentation

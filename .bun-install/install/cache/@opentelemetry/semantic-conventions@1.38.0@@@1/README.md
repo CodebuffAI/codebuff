@@ -44,16 +44,15 @@ import {
   ATTR_NETWORK_PROTOCOL_NAME,
   ATTR_NETWORK_PROTOCOL_VERSION,
   NETWORK_TRANSPORT_VALUE_TCP,
-} from '@opentelemetry/semantic-conventions';
+} from '@opentelemetry/semantic-conventions'
 
-const span = tracer.startSpan(spanName, spanOptions)
-  .setAttributes({
-    [ATTR_NETWORK_PEER_ADDRESS]: 'localhost',
-    [ATTR_NETWORK_PEER_PORT]: 8080,
-    [ATTR_NETWORK_PROTOCOL_NAME]: 'http',
-    [ATTR_NETWORK_PROTOCOL_VERSION]: '1.1',
-    [ATTR_NETWORK_TRANSPORT]: NETWORK_TRANSPORT_VALUE_TCP,
-  });
+const span = tracer.startSpan(spanName, spanOptions).setAttributes({
+  [ATTR_NETWORK_PEER_ADDRESS]: 'localhost',
+  [ATTR_NETWORK_PEER_PORT]: 8080,
+  [ATTR_NETWORK_PROTOCOL_NAME]: 'http',
+  [ATTR_NETWORK_PROTOCOL_VERSION]: '1.1',
+  [ATTR_NETWORK_TRANSPORT]: NETWORK_TRANSPORT_VALUE_TCP,
+})
 ```
 
 ### Unstable SemConv
@@ -66,8 +65,8 @@ For example, create a "src/semconv.ts" (or "lib/semconv.js" if implementing in J
 
 ```ts
 // src/semconv.ts
-export const ATTR_DB_NAMESPACE = 'db.namespace';
-export const ATTR_DB_OPERATION_NAME = 'db.operation.name';
+export const ATTR_DB_NAMESPACE = 'db.namespace'
+export const ATTR_DB_OPERATION_NAME = 'db.operation.name'
 ```
 
 ```ts
@@ -124,20 +123,20 @@ import {
   SEMRESATTRS_SERVICE_NAME,
   SEMATTRS_HTTP_ROUTE,
   SEMATTRS_DB_SYSTEM,
-  DBSYSTEMVALUES_POSTGRESQL
-} from '@opentelemetry/semantic-conventions';
+  DBSYSTEMVALUES_POSTGRESQL,
+} from '@opentelemetry/semantic-conventions'
 
 // 'service.name' resource attribute
-console.log(SEMRESATTRS_SERVICE_NAME); // migrate to 'ATTR_SERVICE_NAME'
+console.log(SEMRESATTRS_SERVICE_NAME) // migrate to 'ATTR_SERVICE_NAME'
 
 // 'http.route' attribute
-console.log(SEMATTRS_HTTP_ROUTE); // migrate to 'ATTR_HTTP_ROUTE'
+console.log(SEMATTRS_HTTP_ROUTE) // migrate to 'ATTR_HTTP_ROUTE'
 
 // 'db.system' attribute
-console.log(SEMATTRS_DB_SYSTEM); // migrate to 'ATTR_DB_SYSTEM' (in incubating [*])
+console.log(SEMATTRS_DB_SYSTEM) // migrate to 'ATTR_DB_SYSTEM' (in incubating [*])
 
 // 'postgresql' enum value for 'db.system' attribute
-console.log(DBSYSTEMVALUES_POSTGRESQL); // migrate to 'DB_SYSTEM_VALUE_POSTGRESQL' (in incubating [*])
+console.log(DBSYSTEMVALUES_POSTGRESQL) // migrate to 'DB_SYSTEM_VALUE_POSTGRESQL' (in incubating [*])
 ```
 
 See [Migrated usage](#migrated-usage) below.
@@ -155,19 +154,19 @@ import {
   SemanticAttributes,
   SemanticResourceAttributes,
   DbSystemValues,
-} from '@opentelemetry/semantic-conventions';
+} from '@opentelemetry/semantic-conventions'
 
 // 'service.name' resource attribute
-console.log(SemanticResourceAttributes.SERVICE_NAME); // migrate to 'ATTR_SERVICE_NAME'
+console.log(SemanticResourceAttributes.SERVICE_NAME) // migrate to 'ATTR_SERVICE_NAME'
 
 // 'http.route' attribute
-console.log(SemanticAttributes.HTTP_ROUTE); // migrate to 'ATTR_HTTP_ROUTE'
+console.log(SemanticAttributes.HTTP_ROUTE) // migrate to 'ATTR_HTTP_ROUTE'
 
 // 'db.system' attribute
-console.log(SemanticAttributes.DB_SYSTEM); // migrate to 'ATTR_DB_SYSTEM' (in incubating [*])
+console.log(SemanticAttributes.DB_SYSTEM) // migrate to 'ATTR_DB_SYSTEM' (in incubating [*])
 
 // 'postgresql' enum value for 'db.system' attribute
-console.log(DbSystemValues.POSTGRESQL); // migrate to 'DB_SYSTEM_VALUE_POSTGRESQL' (in incubating [*])
+console.log(DbSystemValues.POSTGRESQL) // migrate to 'DB_SYSTEM_VALUE_POSTGRESQL' (in incubating [*])
 ```
 
 See [Migrated usage](#migrated-usage) below.
@@ -178,8 +177,8 @@ If using any unstable conventions, copy the relevant definitions into your code 
 
 ```ts
 // src/semconv.ts
-export const ATTR_DB_SYSTEM = 'db.system' as const;
-export const DB_SYSTEM_VALUE_POSTGRESQL = "postgresql" as const;
+export const ATTR_DB_SYSTEM = 'db.system' as const
+export const DB_SYSTEM_VALUE_POSTGRESQL = 'postgresql' as const
 ```
 
 then:
@@ -188,23 +187,20 @@ then:
 import {
   ATTR_SERVICE_NAME,
   ATTR_HTTP_ROUTE,
-  METRIC_HTTP_CLIENT_REQUEST_DURATION
-} from '@opentelemetry/semantic-conventions'; // stable semconv
-import {
-  ATTR_DB_SYSTEM,
-  DB_SYSTEM_VALUE_POSTGRESQL
-} from './semconv'; // unstable semconv
+  METRIC_HTTP_CLIENT_REQUEST_DURATION,
+} from '@opentelemetry/semantic-conventions' // stable semconv
+import { ATTR_DB_SYSTEM, DB_SYSTEM_VALUE_POSTGRESQL } from './semconv' // unstable semconv
 
-console.log(ATTR_SERVICE_NAME); // 'service.name'
-console.log(ATTR_HTTP_ROUTE);   // 'http.route'
+console.log(ATTR_SERVICE_NAME) // 'service.name'
+console.log(ATTR_HTTP_ROUTE) // 'http.route'
 
 // Bonus: the older exports did not include metric names from semconv.
 // 'http.client.request.duration' metric name
-console.log(METRIC_HTTP_CLIENT_REQUEST_DURATION);
+console.log(METRIC_HTTP_CLIENT_REQUEST_DURATION)
 
-console.log(ATTR_DB_SYSTEM);    // 'db.system'
+console.log(ATTR_DB_SYSTEM) // 'db.system'
 // 'postgresql' enum value for 'db.system' attribute
-console.log(DB_SYSTEM_VALUE_POSTGRESQL);
+console.log(DB_SYSTEM_VALUE_POSTGRESQL)
 ```
 
 ## Useful links

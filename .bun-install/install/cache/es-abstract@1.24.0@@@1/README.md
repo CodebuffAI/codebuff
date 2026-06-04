@@ -16,14 +16,15 @@ All abstract operations are also available under an `es5`/`es2015`/`es2016`/`es2
 ## Example
 
 ```js
-var ES = require('es-abstract');
-var assert = require('assert');
+var ES = require('es-abstract')
+var assert = require('assert')
 
-assert(ES.isCallable(function () {}));
-assert(!ES.isCallable(/a/g));
+assert(ES.isCallable(function () {}))
+assert(!ES.isCallable(/a/g))
 ```
 
 ## Tests
+
 Simply clone the repo, `npm install`, and run `npm test`
 
 ## Security

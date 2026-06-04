@@ -1,1 +1,1 @@
-export declare function isBinaryPath(path: string): boolean;
+export declare function isBinaryPath(path: string): boolean

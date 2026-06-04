@@ -15,7 +15,7 @@ const kRedirectCount = Symbol('kRedirectCount')
  */
 export async function followFetchRedirect(
   request: Request,
-  response: Response
+  response: Response,
 ): Promise<Response> {
   if (response.status !== 303 && request.body != null) {
     return Promise.reject(createNetworkError())
@@ -26,7 +26,7 @@ export async function followFetchRedirect(
   let locationUrl: URL
   try {
     // If the location is a relative URL, use the request URL as the base URL.
-    locationUrl = new URL(response.headers.get('location')!, request.url) 
+    locationUrl = new URL(response.headers.get('location')!, request.url)
   } catch (error) {
     return Promise.reject(createNetworkError(error))
   }
@@ -35,7 +35,7 @@ export async function followFetchRedirect(
     !(locationUrl.protocol === 'http:' || locationUrl.protocol === 'https:')
   ) {
     return Promise.reject(
-      createNetworkError('URL scheme must be a HTTP(S) scheme')
+      createNetworkError('URL scheme must be a HTTP(S) scheme'),
     )
   }
 
@@ -53,7 +53,7 @@ export async function followFetchRedirect(
     !sameOrigin(requestUrl, locationUrl)
   ) {
     return Promise.reject(
-      createNetworkError('cross origin not allowed for request mode "cors"')
+      createNetworkError('cross origin not allowed for request mode "cors"'),
     )
   }
 

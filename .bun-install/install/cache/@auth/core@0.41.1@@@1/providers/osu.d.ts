@@ -8,53 +8,53 @@
  *
  * @module providers/osu
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface OsuUserCompact {
-    avatar_url: string;
-    country_code: string;
-    default_group: string;
-    id: number;
-    is_active: boolean;
-    is_bot: boolean;
-    is_deleted: boolean;
-    is_online: boolean;
-    is_supporter: boolean;
-    last_visit: Date | null;
-    pm_friends_only: boolean;
-    profile_colour: string | null;
-    username: string;
+  avatar_url: string
+  country_code: string
+  default_group: string
+  id: number
+  is_active: boolean
+  is_bot: boolean
+  is_deleted: boolean
+  is_online: boolean
+  is_supporter: boolean
+  last_visit: Date | null
+  pm_friends_only: boolean
+  profile_colour: string | null
+  username: string
 }
 export interface OsuProfile extends OsuUserCompact, Record<string, any> {
-    discord: string | null;
-    has_supported: boolean;
-    interests: string | null;
-    join_date: Date;
-    kudosu: {
-        available: number;
-        total: number;
-    };
-    location: string | null;
-    max_blocks: number;
-    max_friends: number;
-    occupation: string | null;
-    playmode: string;
-    playstyle: string[];
-    post_count: number;
-    profile_order: string[];
-    title: string | null;
-    title_url: string | null;
-    twitter: string | null;
-    website: string | null;
-    country: {
-        code: string;
-        name: string;
-    };
-    cover: {
-        custom_url: string | null;
-        url: string;
-        id: number | null;
-    };
-    is_restricted: boolean;
+  discord: string | null
+  has_supported: boolean
+  interests: string | null
+  join_date: Date
+  kudosu: {
+    available: number
+    total: number
+  }
+  location: string | null
+  max_blocks: number
+  max_friends: number
+  occupation: string | null
+  playmode: string
+  playstyle: string[]
+  post_count: number
+  profile_order: string[]
+  title: string | null
+  title_url: string | null
+  twitter: string | null
+  website: string | null
+  country: {
+    code: string
+    name: string
+  }
+  cover: {
+    custom_url: string | null
+    url: string
+    id: number | null
+  }
+  is_restricted: boolean
 }
 /**
  * Add osu! login to your page.
@@ -112,5 +112,7 @@ export interface OsuProfile extends OsuUserCompact, Record<string, any> {
  *
  * :::
  */
-export default function Osu<P extends OsuProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Osu<P extends OsuProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=osu.d.ts.map

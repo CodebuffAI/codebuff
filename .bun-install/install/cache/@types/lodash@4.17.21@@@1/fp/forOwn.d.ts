@@ -1,2 +1,2 @@
-import { forOwn } from "../fp";
-export = forOwn;
+import { forOwn } from '../fp'
+export = forOwn

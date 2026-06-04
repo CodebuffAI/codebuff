@@ -36,20 +36,20 @@
  * @module @auth/core
  */
 
-import { assertConfig } from "./lib/utils/assert.js"
+import { assertConfig } from './lib/utils/assert.js'
 import {
   AuthError,
   CredentialsSignin,
   ErrorPageLoop,
   isClientError,
-} from "./errors.js"
-import { AuthInternal, raw, skipCSRFCheck } from "./lib/index.js"
-import { setEnvDefaults, createActionURL } from "./lib/utils/env.js"
-import renderPage from "./lib/pages/index.js"
-import { setLogger, type LoggerInstance } from "./lib/utils/logger.js"
-import { toInternalRequest, toResponse } from "./lib/utils/web.js"
+} from './errors.js'
+import { AuthInternal, raw, skipCSRFCheck } from './lib/index.js'
+import { setEnvDefaults, createActionURL } from './lib/utils/env.js'
+import renderPage from './lib/pages/index.js'
+import { setLogger, type LoggerInstance } from './lib/utils/logger.js'
+import { toInternalRequest, toResponse } from './lib/utils/web.js'
 
-import type { Adapter, AdapterSession, AdapterUser } from "./adapters.js"
+import type { Adapter, AdapterSession, AdapterUser } from './adapters.js'
 import type {
   Account,
   AuthAction,
@@ -62,22 +62,22 @@ import type {
   Session,
   Theme,
   User,
-} from "./types.js"
-import type { CredentialInput, Provider } from "./providers/index.js"
-import { JWT, JWTOptions } from "./jwt.js"
-import { isAuthAction } from "./lib/utils/actions.js"
+} from './types.js'
+import type { CredentialInput, Provider } from './providers/index.js'
+import { JWT, JWTOptions } from './jwt.js'
+import { isAuthAction } from './lib/utils/actions.js'
 
-export { customFetch } from "./lib/symbols.js"
+export { customFetch } from './lib/symbols.js'
 export { skipCSRFCheck, raw, setEnvDefaults, createActionURL, isAuthAction }
 
 export async function Auth(
   request: Request,
-  config: AuthConfig & { raw: typeof raw }
+  config: AuthConfig & { raw: typeof raw },
 ): Promise<ResponseInternal>
 
 export async function Auth(
   request: Request,
-  config: Omit<AuthConfig, "raw">
+  config: Omit<AuthConfig, 'raw'>,
 ): Promise<Response>
 
 /**
@@ -100,7 +100,7 @@ export async function Auth(
  */
 export async function Auth(
   request: Request,
-  config: AuthConfig
+  config: AuthConfig,
 ): Promise<Response | ResponseInternal> {
   const logger = setLogger(config)
 
@@ -116,17 +116,17 @@ export async function Auth(
     // If there's an error in the user config, bail out early
     logger.error(warningsOrError)
     const htmlPages = new Set<AuthAction>([
-      "signin",
-      "signout",
-      "error",
-      "verify-request",
+      'signin',
+      'signout',
+      'error',
+      'verify-request',
     ])
     if (
       !htmlPages.has(internalRequest.action) ||
-      internalRequest.method !== "GET"
+      internalRequest.method !== 'GET'
     ) {
       const message =
-        "There was a problem with the server configuration. Check the server logs for more information."
+        'There was a problem with the server configuration. Check the server logs for more information.'
       return Response.json({ message }, { status: 500 })
     }
 
@@ -137,7 +137,7 @@ export async function Auth(
     const authOnErrorPage =
       pages?.error &&
       internalRequest.url.searchParams
-        .get("callbackUrl")
+        .get('callbackUrl')
         ?.startsWith(pages.error)
 
     // Either there was no error page configured or the configured one contains infinite redirects
@@ -145,12 +145,12 @@ export async function Auth(
       if (authOnErrorPage) {
         logger.error(
           new ErrorPageLoop(
-            `The error page ${pages?.error} should not require authentication`
-          )
+            `The error page ${pages?.error} should not require authentication`,
+          ),
         )
       }
 
-      const page = renderPage({ theme }).error("Configuration")
+      const page = renderPage({ theme }).error('Configuration')
       return toResponse(page)
     }
 
@@ -158,14 +158,14 @@ export async function Auth(
     return Response.redirect(url)
   }
 
-  const isRedirect = request.headers?.has("X-Auth-Return-Redirect")
+  const isRedirect = request.headers?.has('X-Auth-Return-Redirect')
   const isRaw = config.raw === raw
   try {
     const internalResponse = await AuthInternal(internalRequest, config)
     if (isRaw) return internalResponse
 
     const response = toResponse(internalResponse)
-    const url = response.headers.get("Location")
+    const url = response.headers.get('Location')
 
     if (!isRedirect || !url) return response
 
@@ -179,16 +179,16 @@ export async function Auth(
 
     // If the CSRF check failed for POST/session, return a 400 status code.
     // We should not redirect to a page as this is an API route
-    if (request.method === "POST" && internalRequest.action === "session")
+    if (request.method === 'POST' && internalRequest.action === 'session')
       return Response.json(null, { status: 400 })
 
     const isClientSafeErrorType = isClientError(error)
-    const type = isClientSafeErrorType ? error.type : "Configuration"
+    const type = isClientSafeErrorType ? error.type : 'Configuration'
 
     const params = new URLSearchParams({ error: type })
-    if (error instanceof CredentialsSignin) params.set("code", error.code)
+    if (error instanceof CredentialsSignin) params.set('code', error.code)
 
-    const pageKind = (isAuthError && error.kind) || "error"
+    const pageKind = (isAuthError && error.kind) || 'error'
     const pagePath =
       config.pages?.[pageKind] ?? `${config.basePath}/${pageKind.toLowerCase()}`
     const url = `${internalRequest.url.origin}${pagePath}?${params}`
@@ -251,7 +251,7 @@ export interface AuthConfig {
      *
      * [Documentation](https://authjs.dev/reference/core#authconfig#session) | [Adapter](https://authjs.dev/reference/core#authconfig#adapter) | [About JSON Web Tokens](https://authjs.dev/concepts/session-strategies#jwt-session)
      */
-    strategy?: "jwt" | "database"
+    strategy?: 'jwt' | 'database'
     /**
      * Relative time from now in seconds when to expire the session
      *
@@ -418,8 +418,8 @@ export interface AuthConfig {
          * :::
          */
         newSession: any
-        trigger?: "update"
-      }
+        trigger?: 'update'
+      },
     ) => Awaitable<Session | DefaultSession>
     /**
      * This callback is called whenever a JSON Web Token is created (i.e. at sign in)
@@ -467,7 +467,7 @@ export interface AuthConfig {
        * - update event: Triggered by the `useSession().update` method.
        * In case of the latter, `trigger` will be `undefined`.
        */
-      trigger?: "signIn" | "signUp" | "update"
+      trigger?: 'signIn' | 'signUp' | 'update'
       /** @deprecated use `trigger === "signUp"` instead */
       isNewUser?: boolean
       /**
@@ -510,8 +510,8 @@ export interface AuthConfig {
      */
     signOut?: (
       message:
-        | { session: Awaited<ReturnType<Required<Adapter>["deleteSession"]>> }
-        | { token: Awaited<ReturnType<JWTOptions["decode"]>> }
+        | { session: Awaited<ReturnType<Required<Adapter>['deleteSession']>> }
+        | { token: Awaited<ReturnType<JWTOptions['decode']>> },
     ) => Awaitable<void>
     createUser?: (message: { user: User }) => Awaitable<void>
     updateUser?: (message: { user: User }) => Awaitable<void>

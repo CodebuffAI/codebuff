@@ -74,8 +74,8 @@ it('handles [Absolute Legacy URL, callback] input', () => {
   // URL must be preserved.
   expect(url.toJSON()).toEqual(
     new URL(
-      'https://cherry:durian@mswjs.io:12345/resource?apple=banana'
-    ).toJSON()
+      'https://cherry:durian@mswjs.io:12345/resource?apple=banana',
+    ).toJSON(),
   )
 
   // Request options must be derived from the URL instance.
@@ -99,7 +99,7 @@ it('handles [Relative Legacy URL, RequestOptions without path set, callback] inp
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toEqual(
-    new URL('http://mswjs.io/resource?apple=banana').toJSON()
+    new URL('http://mswjs.io/resource?apple=banana').toJSON(),
   )
 
   // No path in request options, so legacy url path is copied-in.
@@ -120,7 +120,7 @@ it('handles [Relative Legacy URL, RequestOptions with path set, callback] input'
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toEqual(
-    new URL('http://mswjs.io/other?cherry=durian').toJSON()
+    new URL('http://mswjs.io/other?cherry=durian').toJSON(),
   )
 
   // Path in request options, so that path is preferred.
@@ -140,7 +140,7 @@ it('handles [Relative Legacy URL, callback] input', () => {
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toMatch(
-    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON()
+    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON(),
   )
 
   // Check path is in options.
@@ -159,7 +159,7 @@ it('handles [Relative Legacy URL] input', () => {
 
   // Correct WHATWG URL generated.
   expect(url.toJSON()).toMatch(
-    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON()
+    getUrlByRequestOptions({ path: '/resource?apple=banana' }).toJSON(),
   )
 
   // Check path is in options.
@@ -316,7 +316,7 @@ it('handles [PartialRequestOptions, callback] input', () => {
 
   // URL must be derived from request options.
   expect(url.toJSON()).toEqual(
-    new URL('https://127.0.0.1:50176/resource').toJSON()
+    new URL('https://127.0.0.1:50176/resource').toJSON(),
   )
 
   // Request options must be preserved.

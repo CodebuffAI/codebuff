@@ -1,2 +1,2 @@
-import { isInteger } from "../fp";
-export = isInteger;
+import { isInteger } from '../fp'
+export = isInteger

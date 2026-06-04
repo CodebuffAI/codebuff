@@ -10,9 +10,9 @@
  * @param name
  */
 export declare function names(name: string): {
-    name: string;
-    className: string;
-    propertyName: string;
-    constantName: string;
-    fileName: string;
-};
+  name: string
+  className: string
+  propertyName: string
+  constantName: string
+  fileName: string
+}

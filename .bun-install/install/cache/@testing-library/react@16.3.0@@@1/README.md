@@ -172,7 +172,7 @@ import * as React from 'react'
 
 // NOTE: React Testing Library works well with React Hooks and classes.
 // Your tests will be the same regardless of how you write your components.
-function HiddenMessage({children}) {
+function HiddenMessage({ children }) {
   const [showMessage, setShowMessage] = React.useState(false)
   return (
     <div>
@@ -180,7 +180,7 @@ function HiddenMessage({children}) {
       <input
         id="toggle"
         type="checkbox"
-        onChange={e => setShowMessage(e.target.checked)}
+        onChange={(e) => setShowMessage(e.target.checked)}
         checked={showMessage}
       />
       {showMessage ? children : null}
@@ -199,7 +199,7 @@ import '@testing-library/jest-dom'
 // NOTE: jest-dom adds handy assertions to Jest and is recommended, but not required
 
 import * as React from 'react'
-import {render, fireEvent, screen} from '@testing-library/react'
+import { render, fireEvent, screen } from '@testing-library/react'
 import HiddenMessage from '../hidden-message'
 
 test('shows the children when the checkbox is checked', () => {
@@ -226,7 +226,7 @@ test('shows the children when the checkbox is checked', () => {
 import * as React from 'react'
 
 function Login() {
-  const [state, setState] = React.useReducer((s, a) => ({...s, ...a}), {
+  const [state, setState] = React.useReducer((s, a) => ({ ...s, ...a }), {
     resolved: false,
     loading: false,
     error: null,
@@ -234,27 +234,29 @@ function Login() {
 
   function handleSubmit(event) {
     event.preventDefault()
-    const {usernameInput, passwordInput} = event.target.elements
+    const { usernameInput, passwordInput } = event.target.elements
 
-    setState({loading: true, resolved: false, error: null})
+    setState({ loading: true, resolved: false, error: null })
 
     window
       .fetch('/api/login', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: usernameInput.value,
           password: passwordInput.value,
         }),
       })
-      .then(r => r.json().then(data => (r.ok ? data : Promise.reject(data))))
+      .then((r) =>
+        r.json().then((data) => (r.ok ? data : Promise.reject(data))),
+      )
       .then(
-        user => {
-          setState({loading: false, resolved: true, error: null})
+        (user) => {
+          setState({ loading: false, resolved: true, error: null })
           window.localStorage.setItem('token', user.token)
         },
-        error => {
-          setState({loading: false, resolved: false, error: error.message})
+        (error) => {
+          setState({ loading: false, resolved: false, error: error.message })
         },
       )
   }
@@ -290,13 +292,13 @@ export default Login
 import '@testing-library/jest-dom'
 import * as React from 'react'
 // import API mocking utilities from Mock Service Worker.
-import {rest} from 'msw'
-import {setupServer} from 'msw/node'
+import { rest } from 'msw'
+import { setupServer } from 'msw/node'
 // import testing utilities
-import {render, fireEvent, screen} from '@testing-library/react'
+import { render, fireEvent, screen } from '@testing-library/react'
 import Login from '../login'
 
-const fakeUserResponse = {token: 'fake_user_token'}
+const fakeUserResponse = { token: 'fake_user_token' }
 const server = setupServer(
   rest.post('/api/login', (req, res, ctx) => {
     return res(ctx.json(fakeUserResponse))
@@ -315,10 +317,10 @@ test('allows the user to login successfully', async () => {
 
   // fill out the form
   fireEvent.change(screen.getByLabelText(/username/i), {
-    target: {value: 'chuck'},
+    target: { value: 'chuck' },
   })
   fireEvent.change(screen.getByLabelText(/password/i), {
-    target: {value: 'norris'},
+    target: { value: 'norris' },
   })
 
   fireEvent.click(screen.getByText(/submit/i))
@@ -338,7 +340,10 @@ test('handles server exceptions', async () => {
   // mock the server error response for this test suite only.
   server.use(
     rest.post('/api/login', (req, res, ctx) => {
-      return res(ctx.status(500), ctx.json({message: 'Internal server error'}))
+      return res(
+        ctx.status(500),
+        ctx.json({ message: 'Internal server error' }),
+      )
     }),
   )
 
@@ -346,10 +351,10 @@ test('handles server exceptions', async () => {
 
   // fill out the form
   fireEvent.change(screen.getByLabelText(/username/i), {
-    target: {value: 'chuck'},
+    target: { value: 'chuck' },
   })
   fireEvent.change(screen.getByLabelText(/password/i), {
-    target: {value: 'norris'},
+    target: { value: 'norris' },
   })
 
   fireEvent.click(screen.getByText(/submit/i))

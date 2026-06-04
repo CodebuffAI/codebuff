@@ -1,2 +1,2 @@
-import { takeRight } from "../fp";
-export = takeRight;
+import { takeRight } from '../fp'
+export = takeRight

@@ -1,2 +1,2 @@
-import { keyBy } from "../fp";
-export = keyBy;
+import { keyBy } from '../fp'
+export = keyBy

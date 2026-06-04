@@ -13,7 +13,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
   // Simple validation for shortName since it's used in file paths
   if (!/^[a-z0-9-]+$/.test(config.shortName)) {
     throw new Error(
-      `CliAgentConfig '${config.id}': shortName must be lowercase alphanumeric with hyphens, got '${config.shortName}'`
+      `CliAgentConfig '${config.id}': shortName must be lowercase alphanumeric with hyphens, got '${config.shortName}'`,
     )
   }
 
@@ -22,7 +22,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     work: 'implementation tasks',
     review: `code review via ${config.cliName}`,
   }
-  const modeDescParts = CLI_AGENT_MODES.map(mode => {
+  const modeDescParts = CLI_AGENT_MODES.map((mode) => {
     const isDefault = mode === defaultMode
     return `"${mode}" for ${modeDescriptions[mode]}${isDefault ? ' (default)' : ''}`
   })
@@ -65,7 +65,13 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     outputSchema,
     includeMessageHistory: false,
 
-    toolNames: ['run_terminal_command', 'read_files', 'code_search', 'set_output', 'add_message'],
+    toolNames: [
+      'run_terminal_command',
+      'read_files',
+      'code_search',
+      'set_output',
+      'add_message',
+    ],
 
     // NOTE: handleSteps is NOT defined here - each CLI agent file defines its own
     // handleSteps with hardcoded config values following the context-pruner pattern.

@@ -1,8 +1,8 @@
-import { createHash, randomString, toRequest } from "../../utils/web.js"
-import { AccessDenied } from "../../../errors.js"
+import { createHash, randomString, toRequest } from '../../utils/web.js'
+import { AccessDenied } from '../../../errors.js'
 
-import type { InternalOptions, RequestInternal } from "../../../types.js"
-import type { Account } from "../../../types.js"
+import type { InternalOptions, RequestInternal } from '../../../types.js'
+import type { Account } from '../../../types.js'
 
 /**
  * Starts an e-mail login flow, by generating a token,
@@ -11,7 +11,7 @@ import type { Account } from "../../../types.js"
  */
 export async function sendToken(
   request: RequestInternal,
-  options: InternalOptions<"email">
+  options: InternalOptions<'email'>,
 ) {
   const { body } = request
   const { provider, callbacks, adapter } = options
@@ -24,7 +24,7 @@ export async function sendToken(
   const account = {
     providerAccountId: email,
     userId: user.id,
-    type: "email",
+    type: 'email',
     provider: provider.id,
   } satisfies Account
 
@@ -38,8 +38,8 @@ export async function sendToken(
   } catch (e) {
     throw new AccessDenied(e as Error)
   }
-  if (!authorized) throw new AccessDenied("AccessDenied")
-  if (typeof authorized === "string") {
+  if (!authorized) throw new AccessDenied('AccessDenied')
+  if (typeof authorized === 'string') {
     return {
       redirect: await callbacks.redirect({
         url: authorized,
@@ -54,7 +54,7 @@ export async function sendToken(
 
   const ONE_DAY_IN_SECONDS = 86400
   const expires = new Date(
-    Date.now() + (provider.maxAge ?? ONE_DAY_IN_SECONDS) * 1000
+    Date.now() + (provider.maxAge ?? ONE_DAY_IN_SECONDS) * 1000,
   )
 
   const secret = provider.secret ?? options.secret
@@ -92,32 +92,32 @@ export async function sendToken(
 }
 
 function defaultNormalizer(email?: string) {
-  if (!email) throw new Error("Missing email from request body.")
+  if (!email) throw new Error('Missing email from request body.')
 
   const trimmedEmail = email.toLowerCase().trim()
 
   // Reject email addresses with quotes to prevent address parser confusion
   // This prevents attacks like "attacker@evil.com"@victim.com
   if (trimmedEmail.includes('"')) {
-    throw new Error("Invalid email address format.")
+    throw new Error('Invalid email address format.')
   }
 
   // Get the first two elements only,
   // separated by `@` from user input.
-  let [local, domain] = trimmedEmail.split("@")
+  let [local, domain] = trimmedEmail.split('@')
 
   // Validate that we have exactly 2 parts (local and domain)
-  if (!local || !domain || trimmedEmail.split("@").length !== 2) {
-    throw new Error("Invalid email address format.")
+  if (!local || !domain || trimmedEmail.split('@').length !== 2) {
+    throw new Error('Invalid email address format.')
   }
 
   // The part before "@" can contain a ","
   // but we remove it on the domain part
-  domain = domain.split(",")[0]
+  domain = domain.split(',')[0]
 
   // Additional validation: domain should not be empty after comma split
   if (!domain) {
-    throw new Error("Invalid email address format.")
+    throw new Error('Invalid email address format.')
   }
 
   return `${local}@${domain}`

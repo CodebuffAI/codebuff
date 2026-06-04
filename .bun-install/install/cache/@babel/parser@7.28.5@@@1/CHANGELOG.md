@@ -1,13 +1,14 @@
 # Changelog
 
 > **Tags:**
-> - :boom:       [Breaking Change]
+>
+> - :boom: [Breaking Change]
 > - :eyeglasses: [Spec Compliance]
-> - :rocket:     [New Feature]
-> - :bug:        [Bug Fix]
-> - :memo:       [Documentation]
-> - :house:      [Internal]
-> - :nail_care:  [Polish]
+> - :rocket: [New Feature]
+> - :bug: [Bug Fix]
+> - :memo: [Documentation]
+> - :house: [Internal]
+> - :nail_care: [Polish]
 
 > Semver Policy: https://github.com/babel/babel/tree/main/packages/babel-parser#semver
 
@@ -18,90 +19,101 @@ See the [Babel Changelog](https://github.com/babel/babel/blob/main/CHANGELOG.md)
 ## 6.17.1 (2017-05-10)
 
 ### :bug: Bug Fix
- * Fix typo in flow spread operator error (Brian Ng)
- * Fixed invalid number literal parsing ([#473](https://github.com/babel/babylon/pull/473)) (Alex Kuzmenko)
- * Fix number parser ([#433](https://github.com/babel/babylon/pull/433)) (Alex Kuzmenko)
- * Ensure non pattern shorthand props are checked for reserved words ([#479](https://github.com/babel/babylon/pull/479)) (Brian Ng)
- * Remove jsx context when parsing arrow functions ([#475](https://github.com/babel/babylon/pull/475)) (Brian Ng)
- * Allow super in class properties ([#499](https://github.com/babel/babylon/pull/499)) (Brian Ng)
- * Allow flow class field to be named constructor ([#510](https://github.com/babel/babylon/pull/510)) (Brian Ng)
+
+- Fix typo in flow spread operator error (Brian Ng)
+- Fixed invalid number literal parsing ([#473](https://github.com/babel/babylon/pull/473)) (Alex Kuzmenko)
+- Fix number parser ([#433](https://github.com/babel/babylon/pull/433)) (Alex Kuzmenko)
+- Ensure non pattern shorthand props are checked for reserved words ([#479](https://github.com/babel/babylon/pull/479)) (Brian Ng)
+- Remove jsx context when parsing arrow functions ([#475](https://github.com/babel/babylon/pull/475)) (Brian Ng)
+- Allow super in class properties ([#499](https://github.com/babel/babylon/pull/499)) (Brian Ng)
+- Allow flow class field to be named constructor ([#510](https://github.com/babel/babylon/pull/510)) (Brian Ng)
 
 ## 6.17.0 (2017-04-20)
 
 ### :bug: Bug Fix
- * Cherry-pick #418 to 6.x ([#476](https://github.com/babel/babylon/pull/476)) (Sebastian McKenzie)
- * Add support for invalid escapes in tagged templates ([#274](https://github.com/babel/babylon/pull/274)) (Kevin Gibbons)
- * Throw error if new.target is used outside of a function ([#402](https://github.com/babel/babylon/pull/402)) (Brian Ng)
- * Fix parsing of class properties ([#351](https://github.com/babel/babylon/pull/351)) (Kevin Gibbons)
- * Fix parsing yield with dynamicImport ([#383](https://github.com/babel/babylon/pull/383)) (Brian Ng)
- * Ensure consistent start args for parseParenItem ([#386](https://github.com/babel/babylon/pull/386)) (Brian Ng)
+
+- Cherry-pick #418 to 6.x ([#476](https://github.com/babel/babylon/pull/476)) (Sebastian McKenzie)
+- Add support for invalid escapes in tagged templates ([#274](https://github.com/babel/babylon/pull/274)) (Kevin Gibbons)
+- Throw error if new.target is used outside of a function ([#402](https://github.com/babel/babylon/pull/402)) (Brian Ng)
+- Fix parsing of class properties ([#351](https://github.com/babel/babylon/pull/351)) (Kevin Gibbons)
+- Fix parsing yield with dynamicImport ([#383](https://github.com/babel/babylon/pull/383)) (Brian Ng)
+- Ensure consistent start args for parseParenItem ([#386](https://github.com/babel/babylon/pull/386)) (Brian Ng)
 
 ## 7.0.0-beta.8 (2017-04-04)
 
 ### New Feature
-* Add support for flow type spread (#418) (Conrad Buck)
-* Allow statics in flow interfaces (#427) (Brian Ng)
+
+- Add support for flow type spread (#418) (Conrad Buck)
+- Allow statics in flow interfaces (#427) (Brian Ng)
 
 ### Bug Fix
-* Fix predicate attachment to match flow parser (#428) (Brian Ng)
-* Add extra.raw back to JSXText and JSXAttribute (#344) (Alex Rattray)
-* Fix rest parameters with array and objects (#424) (Brian Ng)
-* Fix number parser (#433) (Alex Kuzmenko)
+
+- Fix predicate attachment to match flow parser (#428) (Brian Ng)
+- Add extra.raw back to JSXText and JSXAttribute (#344) (Alex Rattray)
+- Fix rest parameters with array and objects (#424) (Brian Ng)
+- Fix number parser (#433) (Alex Kuzmenko)
 
 ### Docs
-* Fix CONTRIBUTING.md [skip ci] (#432) (Alex Kuzmenko)
+
+- Fix CONTRIBUTING.md [skip ci] (#432) (Alex Kuzmenko)
 
 ### Internal
-* Use babel-register script when running babel smoke tests (#442) (Brian Ng)
+
+- Use babel-register script when running babel smoke tests (#442) (Brian Ng)
 
 ## 7.0.0-beta.7 (2017-03-22)
 
 ### Spec Compliance
-* Remove babylon plugin for template revision since it's stage-4 (#426) (Henry Zhu)
+
+- Remove babylon plugin for template revision since it's stage-4 (#426) (Henry Zhu)
 
 ### Bug Fix
 
-* Fix push-pop logic in flow (#405) (Daniel Tschinder)
+- Fix push-pop logic in flow (#405) (Daniel Tschinder)
 
 ## 7.0.0-beta.6 (2017-03-21)
 
 ### New Feature
-* Add support for invalid escapes in tagged templates (#274) (Kevin Gibbons)
+
+- Add support for invalid escapes in tagged templates (#274) (Kevin Gibbons)
 
 ### Polish
-* Improves error message when super is called outside of constructor (#408) (Arshabh Kumar Agarwal)
+
+- Improves error message when super is called outside of constructor (#408) (Arshabh Kumar Agarwal)
 
 ### Docs
 
-* [7.0] Moved value field in spec from ObjectMember to ObjectProperty as ObjectMethod's don't have it (#415) [skip ci] (James Browning)
+- [7.0] Moved value field in spec from ObjectMember to ObjectProperty as ObjectMethod's don't have it (#415) [skip ci] (James Browning)
 
 ## 7.0.0-beta.5 (2017-03-21)
 
 ### Bug Fix
-* Throw error if new.target is used outside of a function (#402) (Brian Ng)
-* Fix parsing of class properties (#351) (Kevin Gibbons)
+
+- Throw error if new.target is used outside of a function (#402) (Brian Ng)
+- Fix parsing of class properties (#351) (Kevin Gibbons)
 
 ### Other
- * Test runner: Detect extra property in 'actual' but not in 'expected'. (#407) (Andy)
- * Optimize travis builds (#419) (Daniel Tschinder)
- * Update codecov to 2.0 (#412) (Daniel Tschinder)
- * Fix spec for ClassMethod: It doesn't have a function, it *is* a function. (#406) [skip ci] (Andy)
- * Changed Non-existent RestPattern to RestElement which is what is actually parsed (#409) [skip ci] (James Browning)
- * Upgrade flow to 0.41 (Daniel Tschinder)
- * Fix watch command (#403) (Brian Ng)
- * Update yarn lock (Daniel Tschinder)
- * Fix watch command (#403) (Brian Ng)
- * chore(package): update flow-bin to version 0.41.0 (#395) (greenkeeper[bot])
- * Add estree test for correct order of directives (Daniel Tschinder)
- * Add DoExpression to spec (#364) (Alex Kuzmenko)
- * Mention cloning of repository in CONTRIBUTING.md (#391) [skip ci] (Sumedh Nimkarde)
- * Explain how to run only one test (#389) [skip ci] (Aaron Ang)
 
- ## 7.0.0-beta.4 (2017-03-01)
+- Test runner: Detect extra property in 'actual' but not in 'expected'. (#407) (Andy)
+- Optimize travis builds (#419) (Daniel Tschinder)
+- Update codecov to 2.0 (#412) (Daniel Tschinder)
+- Fix spec for ClassMethod: It doesn't have a function, it _is_ a function. (#406) [skip ci] (Andy)
+- Changed Non-existent RestPattern to RestElement which is what is actually parsed (#409) [skip ci] (James Browning)
+- Upgrade flow to 0.41 (Daniel Tschinder)
+- Fix watch command (#403) (Brian Ng)
+- Update yarn lock (Daniel Tschinder)
+- Fix watch command (#403) (Brian Ng)
+- chore(package): update flow-bin to version 0.41.0 (#395) (greenkeeper[bot])
+- Add estree test for correct order of directives (Daniel Tschinder)
+- Add DoExpression to spec (#364) (Alex Kuzmenko)
+- Mention cloning of repository in CONTRIBUTING.md (#391) [skip ci] (Sumedh Nimkarde)
+- Explain how to run only one test (#389) [skip ci] (Aaron Ang)
 
-* Don't consume async when checking for async func decl (#377) (Brian Ng)
-* add `ranges` option [skip ci] (Henry Zhu)
-* Don't parse class properties without initializers when classProperties is disabled and Flow is enabled (#300) (Andrew Levine)
+## 7.0.0-beta.4 (2017-03-01)
+
+- Don't consume async when checking for async func decl (#377) (Brian Ng)
+- add `ranges` option [skip ci] (Henry Zhu)
+- Don't parse class properties without initializers when classProperties is disabled and Flow is enabled (#300) (Andrew Levine)
 
 ## 7.0.0-beta.3 (2017-02-28)
 
@@ -149,16 +161,17 @@ Need to modify Babel for this AST node change, so moving to 7.0.
 
 ### :rocket: New Feature
 
-***ESTree*** compatibility as plugin ([#277](https://github.com/babel/babylon/pull/277)) (Daniel Tschinder)
+**_ESTree_** compatibility as plugin ([#277](https://github.com/babel/babylon/pull/277)) (Daniel Tschinder)
 
 We finally introduce a new compatibility layer for ESTree. To put babylon into ESTree-compatible mode the new plugin `estree` can be enabled. In this mode the parser will output an AST that is compliant to the specs of [ESTree](https://github.com/estree/estree/)
 
 We highly recommend everyone who uses babylon outside of babel to use this plugin. This will make it much easier for users to switch between different ESTree-compatible parsers. We so far tested several projects with different parsers and exchanged their parser to babylon and in nearly all cases it worked out of the box. Some other estree-compatible parsers include `acorn`, `esprima`, `espree`, `flow-parser`, etc.
 
 To enable `estree` mode simply add the plugin in the config:
+
 ```json
 {
-  "plugins": [ "estree" ]
+  "plugins": ["estree"]
 }
 ```
 
@@ -169,9 +182,9 @@ Add a parseExpression public method ([#213](https://github.com/babel/babylon/pul
 Babylon exports a new function to parse a single expression
 
 ```js
-import { parseExpression } from 'babylon';
+import { parseExpression } from 'babylon'
 
-const ast = parseExpression('x || y && z', options);
+const ast = parseExpression('x || y && z', options)
 ```
 
 The returned AST will only consist of the expression. The options are the same as for `parse()`
@@ -245,7 +258,7 @@ Fix export default async function to be FunctionDeclaration ([#324](https://gith
 Parsing the following code now returns a `FunctionDeclaration` AST node instead of `FunctionExpression`.
 
 ```js
-export default async function bar() {};
+export default async function bar() {}
 ```
 
 ### :nail_care: Polish
@@ -269,7 +282,6 @@ Fix #336 by correctly setting arrow-param ([#337](https://github.com/babel/babyl
 Fix parse error when destructuring `set` with default value ([#317](https://github.com/babel/babylon/pull/317)) (Brian Ng)
 
 Fix ObjectTypeCallProperty static ([#298](https://github.com/babel/babylon/pull/298)) (Dan Harper)
-
 
 ### :house: Internal
 
@@ -333,6 +345,7 @@ For more information look at [this](https://github.com/facebook/flow/pull/2890) 
 flow: allow leading pipes in all positions ([#256](https://github.com/babel/babylon/pull/256)) (Vladimir Kurchatkin)
 
 This change now allows a leading pipe everywhere types can be used:
+
 ```js
 var f = (x): | 1 | 2 => 1;
 ```
@@ -340,6 +353,7 @@ var f = (x): | 1 | 2 => 1;
 Throw error when exporting non-declaration ([#241](https://github.com/babel/babylon/pull/241)) (Kai Cataldo)
 
 Previously babylon parsed the following exports, although they are not valid:
+
 ```js
 export typeof foo;
 export new Foo();
@@ -356,13 +370,14 @@ This fixes parsing of this case:
 
 ```js
 const map = {
-  [age <= 17] : 'Too young'
-};
+  [age <= 17]: 'Too young',
+}
 ```
 
 Fix source location for JSXEmptyExpression nodes (fixes #248) ([#249](https://github.com/babel/babylon/pull/249)) (James Long)
 
 The following case produced an invalid AST
+
 ```js
 <div>{/* foo */}</div>
 ```
@@ -381,7 +396,7 @@ User external-helpers ([#254](https://github.com/babel/babylon/pull/254)) (Danie
 
 Add watch script for dev ([#234](https://github.com/babel/babylon/pull/234)) (Kai Cataldo)
 
-Freeze current plugins list for "*" option, and remove from README.md ([#245](https://github.com/babel/babylon/pull/245)) (Andrew Levine)
+Freeze current plugins list for "\*" option, and remove from README.md ([#245](https://github.com/babel/babylon/pull/245)) (Andrew Levine)
 
 Prepare tests for multiple fixture runners. ([#240](https://github.com/babel/babylon/pull/240)) (Daniel Tschinder)
 
@@ -453,7 +468,7 @@ var b: string[][];
 
 ### :bug: Bug Fix
 
-Correctly eat semicolon at the end of `DelcareModuleExports` ([#223](https://github.com/babel/babylon/pull/223))  (Daniel Tschinder)
+Correctly eat semicolon at the end of `DelcareModuleExports` ([#223](https://github.com/babel/babylon/pull/223)) (Daniel Tschinder)
 
 ```
 declare module "foo" { declare module.exports: number }
@@ -462,10 +477,10 @@ declare module "foo" { declare module.exports: number; }  // also allowed now
 
 ### :house: Internal
 
- * Count Babel tests towards Babylon code coverage ([#182](https://github.com/babel/babylon/pull/182)) (Moti Zilberman)
- * Fix strange line endings ([#214](https://github.com/babel/babylon/pull/214)) (Thomas Grainger)
- * Add node 7 (Daniel Tschinder)
- * chore(package): update flow-bin to version 0.34.0 ([#204](https://github.com/babel/babylon/pull/204)) (Greenkeeper)
+- Count Babel tests towards Babylon code coverage ([#182](https://github.com/babel/babylon/pull/182)) (Moti Zilberman)
+- Fix strange line endings ([#214](https://github.com/babel/babylon/pull/214)) (Thomas Grainger)
+- Add node 7 (Daniel Tschinder)
+- chore(package): update flow-bin to version 0.34.0 ([#204](https://github.com/babel/babylon/pull/204)) (Greenkeeper)
 
 ## v6.13.1 (2016-10-26)
 
@@ -474,8 +489,8 @@ declare module "foo" { declare module.exports: number; }  // also allowed now
 - Use rollup for bundling to speed up startup time ([#190](https://github.com/babel/babylon/pull/190)) ([@drewml](https://github.com/DrewML))
 
 ```js
-const babylon = require('babylon');
-const ast = babylon.parse('var foo = "lol";');
+const babylon = require('babylon')
+const ast = babylon.parse('var foo = "lol";')
 ```
 
 With that test case, there was a ~95ms savings by removing the need for node to build/traverse the dependency graph.
@@ -505,7 +520,7 @@ class T { -[k:K]: V };
 class C2 { +p: T = e };
 ```
 
-Raise error on duplicate definition of __proto__ ([#183](https://github.com/babel/babylon/pull/183)) (Moti Zilberman)
+Raise error on duplicate definition of **proto** ([#183](https://github.com/babel/babylon/pull/183)) (Moti Zilberman)
 
 ```js
 ({ __proto__: 1, __proto__: 2 }) // Throws an error now
@@ -524,7 +539,7 @@ declare class A {
 Allow "async" as identifier for object literal property shorthand ([#187](https://github.com/babel/babylon/pull/187)) (Andrew Levine)
 
 ```js
-var foo = { async, bar };
+var foo = { async, bar }
 ```
 
 ### :nail_care: Polish
@@ -563,9 +578,8 @@ Implement import() syntax ([#163](https://github.com/babel/babylon/pull/163)) (J
 > This repository contains a proposal for adding a "function-like" import() module loading syntactic form to JavaScript
 
 ```js
-import(`./section-modules/${link.dataset.entryModule}.js`)
-.then(module => {
-  module.loadPageInto(main);
+import(`./section-modules/${link.dataset.entryModule}.js`).then((module) => {
+  module.loadPageInto(main)
 })
 ```
 
@@ -585,7 +599,9 @@ Fix crash when exporting with destructuring and sparse array ([#170](https://git
 
 ```js
 // was failing due to sparse array
-export const { foo: [ ,, qux7 ] } = bar;
+export const {
+  foo: [, , qux7],
+} = bar
 ```
 
 Allow keyword in Flow object declaration property names with type parameters ([#146](https://github.com/babel/babylon/pull/146)) (Dan Harper)
@@ -626,7 +642,7 @@ Annotate more errors with expected token ([#172](https://github.com/babel/babylo
 
 ### :house: Internal
 
-Remove kcheck ([#173](https://github.com/babel/babylon/pull/173)))  (Daniel Tschinder)
+Remove kcheck ([#173](https://github.com/babel/babylon/pull/173))) (Daniel Tschinder)
 
 Also run flow, linting, babel tests on separate instances (add back node 0.10)
 
@@ -638,7 +654,9 @@ Fix crash when exporting with destructuring and sparse array ([#170](https://git
 
 ```js
 // was failing with `Cannot read property 'type' of null` because of null identifiers
-export const { foo: [ ,, qux7 ] } = bar;
+export const {
+  foo: [, , qux7],
+} = bar
 ```
 
 ## v6.11.5 (2016-10-12)
@@ -649,16 +667,18 @@ Fix: Check for duplicate named exports in exported destructuring assignments ([#
 
 ```js
 // `foo` has already been exported. Exported identifiers must be unique. (2:20)
-export function foo() {};
-export const { a: [{foo}] } = bar;
+export function foo() {}
+export const {
+  a: [{ foo }],
+} = bar
 ```
 
 Fix: Check for duplicate named exports in exported rest elements/properties ([#164](https://github.com/babel/babylon/pull/164)) (Kai Cataldo)
 
 ```js
 // `foo` has already been exported. Exported identifiers must be unique. (2:22)
-export const foo = 1;
-export const [bar, ...foo] = baz;
+export const foo = 1
+export const [bar, ...foo] = baz
 ```
 
 ### :bug: Bug Fix
@@ -667,7 +687,7 @@ Fix: Allow identifier `async` for default param in arrow expression ([#165](http
 
 ```js
 // this is ok now
-const test = ({async = true}) => {};
+const test = ({ async = true }) => {}
 ```
 
 ### :nail_care: Polish
@@ -695,10 +715,10 @@ Add static errors for object rest (#149) ([@danez](https://github.com/danez))
 
 > https://github.com/sebmarkbage/ecmascript-rest-spread
 
-Object rest copies the *rest* of properties from the right hand side `obj` starting from the left to right.
+Object rest copies the _rest_ of properties from the right hand side `obj` starting from the left to right.
 
 ```js
-let { x, y, ...z } =  { x: 1, y: 2, z: 3 };
+let { x, y, ...z } = { x: 1, y: 2, z: 3 }
 // x = 1
 // y = 2
 // z = { z: 3 }
@@ -707,6 +727,7 @@ let { x, y, ...z } =  { x: 1, y: 2, z: 3 };
 #### New Syntax Errors:
 
 **SyntaxError**: The rest element has to be the last element when destructuring (1:10)
+
 ```bash
 > 1 | let { ...x, y, z } = { x: 1, y: 2, z: 3};
     |           ^
@@ -734,7 +755,7 @@ Before y and z would just be the same value anyway so there is no reason to need
 **SyntaxError**: A trailing comma is not permitted after the rest element (1:16)
 
 ```js
-let { x, y, ...z, } = obj;
+let { x, y, ...z } = obj
 ```
 
 The rationale for this is that the use case for trailing comma is that you can add something at the end without affecting the line above. Since a RestProperty always has to be the last property it doesn't make sense.
@@ -767,10 +788,11 @@ Bail out for now, and make a change to account for destructuring in the next rel
 ## 6.11.1 (2016-09-22)
 
 ### Bug Fix
+
 - [#137](https://github.com/babel/babylon/pull/137) - Fix a regression with duplicate exports - it was erroring on all keys in `Object.prototype`. @danez
 
 ```javascript
-export toString from './toString';
+export toString from './toString'
 ```
 
 ```bash
@@ -817,15 +839,15 @@ interface ClassProperty <: Node {
 ```js
 // with "plugins": ["classProperties"]
 class Foo {
-  [x]
+  [x];
   ['y']
 }
 
 class Bar {
-  [p]
-  [m] () {}
+  [p];
+  [m]() {}
 }
- ```
+```
 
 ### Bug Fix
 
@@ -866,7 +888,7 @@ for (+i in {});
 
 ### Spec Compliance
 
-* Implement ES2016 check for simple parameter list in strict mode ([#106](https://github.com/babel/babylon/pull/106)) (Timothy Gu)
+- Implement ES2016 check for simple parameter list in strict mode ([#106](https://github.com/babel/babylon/pull/106)) (Timothy Gu)
 
 > It is a Syntax Error if ContainsUseStrict of FunctionBody is true and IsSimpleParameterList of FormalParameters is false. https://tc39.github.io/ecma262/2016/#sec-function-definitions-static-semantics-early-errors
 
@@ -880,13 +902,13 @@ For example:
 function a([ option1, option2 ] = []) {
   "use strict";
 }
- ```
+```
 
 The solution would be to use a top level "use strict" or to remove the destructuring or default parameters when using a function + "use strict" or to.
 
 ### New Feature
 
-* Exact object type annotations for Flow plugin ([#104](https://github.com/babel/babylon/pull/104)) (Basil Hosmer)
+- Exact object type annotations for Flow plugin ([#104](https://github.com/babel/babylon/pull/104)) (Basil Hosmer)
 
 Added to flow in https://github.com/facebook/flow/commit/c710c40aa2a115435098d6c0dfeaadb023cd39b8
 
@@ -898,14 +920,14 @@ var a : {| x: number, y: string |} = { x: 0, y: 'foo' };
 
 ### Bug Fixes
 
-* Include `typeParameter` location in `ArrowFunctionExpression` ([#126](https://github.com/babel/babylon/pull/126)) (Daniel Tschinder)
-* Error on invalid flow type annotation with default assignment ([#122](https://github.com/babel/babylon/pull/122)) (Dan Harper)
-* Fix Flow return types on arrow functions ([#124](https://github.com/babel/babylon/pull/124)) (Dan Harper)
+- Include `typeParameter` location in `ArrowFunctionExpression` ([#126](https://github.com/babel/babylon/pull/126)) (Daniel Tschinder)
+- Error on invalid flow type annotation with default assignment ([#122](https://github.com/babel/babylon/pull/122)) (Dan Harper)
+- Fix Flow return types on arrow functions ([#124](https://github.com/babel/babylon/pull/124)) (Dan Harper)
 
 ### Misc
 
-* Add tests for export extensions ([#127](https://github.com/babel/babylon/pull/127)) (Daniel Tschinder)
-* Fix Contributing guidelines [skip ci] (Daniel Tschinder)
+- Add tests for export extensions ([#127](https://github.com/babel/babylon/pull/127)) (Daniel Tschinder)
+- Fix Contributing guidelines [skip ci] (Daniel Tschinder)
 
 ## 6.9.2 (2016-09-09)
 
@@ -932,9 +954,7 @@ This release contains mainly small bugfixes but also updates babylons default mo
 (Be aware that React is not going to support this syntax)
 
 ```js
-<div>
-  {...todos.map(todo => <Todo key={todo.id} todo={todo}/>)}
-</div>
+<div>{...todos.map((todo) => <Todo key={todo.id} todo={todo} />)}</div>
 ```
 
 - Add support for declare module.exports ([#72](https://github.com/babel/babylon/pull/72)) @danez
@@ -1019,11 +1039,13 @@ declare module "foo" {
 - Parse type parameter declarations with defaults like `type Foo<T = string> = T`
 
 ### Bug Fixes
+
 - Type parameter declarations need 1 or more type parameters.
 - The existential type `*` is not a valid type parameter.
 - The existential type `*` is a primary type
 
 ### Spec Compliance
+
 - The param list for type parameter declarations now consists of `TypeParameter` nodes
 - New `TypeParameter` AST Node (replaces using the `Identifier` node before)
 
@@ -1054,8 +1076,8 @@ class Foo {
 export default function func(@foo() x, @bar({ a: 123 }) @baz() y) {}
 
 var obj = {
-  method(@foo() x, @bar({ a: 123 }) @baz() y) {}
-};
+  method(@foo() x, @bar({ a: 123 }) @baz() y) {},
+}
 ```
 
 ##### Parse for-await statements (w/ `asyncGenerators` plugin) ([#17](https://github.com/babel/babylon/pull/17))

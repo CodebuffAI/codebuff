@@ -9,7 +9,7 @@ export interface MockSocketOptions {
   write: (
     chunk: Buffer | string,
     encoding: BufferEncoding | undefined,
-    callback?: WriteCallback
+    callback?: WriteCallback,
   ) => void
 
   read: (chunk: Buffer, encoding: BufferEncoding | undefined) => void
@@ -37,7 +37,7 @@ export class MockSocket extends net.Socket {
 
   public write(...args: Array<unknown>): boolean {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
-      args as WriteArgs
+      args as WriteArgs,
     )
     this.options.write(chunk, encoding, callback)
     return true
@@ -45,7 +45,7 @@ export class MockSocket extends net.Socket {
 
   public end(...args: Array<unknown>) {
     const [chunk, encoding, callback] = normalizeSocketWriteArgs(
-      args as WriteArgs
+      args as WriteArgs,
     )
     this.options.write(chunk, encoding, callback)
     return super.end.apply(this, args as any)

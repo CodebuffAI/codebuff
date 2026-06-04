@@ -1,4 +1,9 @@
-import { Context, TextMapGetter, TextMapPropagator, TextMapSetter } from '@opentelemetry/api';
+import {
+  Context,
+  TextMapGetter,
+  TextMapPropagator,
+  TextMapSetter,
+} from '@opentelemetry/api'
 /**
  * Propagates {@link Baggage} through Context format propagation.
  *
@@ -6,8 +11,8 @@ import { Context, TextMapGetter, TextMapPropagator, TextMapSetter } from '@opent
  * https://w3c.github.io/baggage/
  */
 export declare class W3CBaggagePropagator implements TextMapPropagator {
-    inject(context: Context, carrier: unknown, setter: TextMapSetter): void;
-    extract(context: Context, carrier: unknown, getter: TextMapGetter): Context;
-    fields(): string[];
+  inject(context: Context, carrier: unknown, setter: TextMapSetter): void
+  extract(context: Context, carrier: unknown, getter: TextMapGetter): Context
+  fields(): string[]
 }
 //# sourceMappingURL=W3CBaggagePropagator.d.ts.map

@@ -3,5 +3,5 @@
  *
  * @param svg The `SVG` source.
  */
-declare function encodeSvgForCss(svg: string): string;
-export { encodeSvgForCss };
+declare function encodeSvgForCss(svg: string): string
+export { encodeSvgForCss }

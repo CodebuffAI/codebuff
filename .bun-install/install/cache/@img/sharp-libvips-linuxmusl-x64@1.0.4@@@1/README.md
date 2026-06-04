@@ -8,7 +8,7 @@ This software contains third-party libraries
 used under the terms of the following licences:
 
 | Library       | Used under the terms of                                                                                   |
-|---------------|-----------------------------------------------------------------------------------------------------------|
+| ------------- | --------------------------------------------------------------------------------------------------------- |
 | aom           | BSD 2-Clause + [Alliance for Open Media Patent License 1.0](https://aomedia.org/license/patent-license/)  |
 | cairo         | Mozilla Public License 2.0                                                                                |
 | cgif          | MIT Licence                                                                                               |

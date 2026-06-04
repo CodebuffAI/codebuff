@@ -523,6 +523,8 @@ export async function executeToolCall<T extends ToolName>(
       toolCallId: toolResult.toolCallId,
       toolName: toolResult.toolName,
       output: toolResult.content,
+      agentId: agentState.agentId,
+      parentAgentId: agentState.parentId,
     })
 
     toolResults.push(toolResult)
@@ -700,8 +702,8 @@ export async function executeCustomToolCall(
     toolCallId: toolCall.toolCallId,
     toolName,
     input: toolCall.input,
-    // Only include agentId for subagents (agents with a parent)
-    ...(agentState?.parentId && { agentId: agentState.agentId }),
+    agentId: agentState.agentId,
+    parentAgentId: agentState.parentId,
     // Include includeToolCall flag if explicitly set to false
     ...(excludeToolFromMessageHistory && { includeToolCall: false }),
   })
@@ -754,6 +756,8 @@ export async function executeCustomToolCall(
         toolName: toolResult.toolName,
         toolCallId: toolResult.toolCallId,
         output: toolResult.content,
+        agentId: agentState.agentId,
+        parentAgentId: agentState.parentId,
       })
 
       toolResults.push(toolResult)

@@ -1,2 +1,2 @@
-import { flatMap } from "./index";
-export = flatMap;
+import { flatMap } from './index'
+export = flatMap

@@ -26,7 +26,10 @@ describe('BucketedRateLimiter', () => {
     })
 
     test('returns bucket is rate limited if no mutations are left', () => {
-      rateLimiter['_buckets']['ResizeObserver'] = { tokens: 0, lastAccess: Date.now() }
+      rateLimiter['_buckets']['ResizeObserver'] = {
+        tokens: 0,
+        lastAccess: Date.now(),
+      }
 
       const result = rateLimiter.consumeRateLimit('ResizeObserver')
       expect(result).toBe(true)
@@ -37,22 +40,25 @@ describe('BucketedRateLimiter', () => {
       { bucketSize: 5, consumptions: 5 },
       { bucketSize: 10, consumptions: 10 },
       { bucketSize: 50, consumptions: 50 },
-    ])('exhausts bucket of size $bucketSize after $consumptions consumptions', ({ bucketSize, consumptions }) => {
-      const limiter = new BucketedRateLimiter({
-        bucketSize,
-        refillRate: 1,
-        refillInterval: 1000,
-        _logger: {} as unknown as Logger,
-      })
+    ])(
+      'exhausts bucket of size $bucketSize after $consumptions consumptions',
+      ({ bucketSize, consumptions }) => {
+        const limiter = new BucketedRateLimiter({
+          bucketSize,
+          refillRate: 1,
+          refillInterval: 1000,
+          _logger: {} as unknown as Logger,
+        })
 
-      for (let i = 0; i < consumptions - 1; i++) {
-        expect(limiter.consumeRateLimit('test')).toBe(false)
-      }
+        for (let i = 0; i < consumptions - 1; i++) {
+          expect(limiter.consumeRateLimit('test')).toBe(false)
+        }
 
-      expect(limiter.consumeRateLimit('test')).toBe(true)
-      // can check the same bucket more than once
-      expect(limiter.consumeRateLimit('test')).toBe(true)
-    })
+        expect(limiter.consumeRateLimit('test')).toBe(true)
+        // can check the same bucket more than once
+        expect(limiter.consumeRateLimit('test')).toBe(true)
+      },
+    )
   })
 
   describe('refill behavior', () => {
@@ -124,7 +130,7 @@ describe('BucketedRateLimiter', () => {
 
         limiter.consumeRateLimit('test')
         expect(limiter['_buckets']['test'].tokens).toBe(expected)
-      }
+      },
     )
   })
 

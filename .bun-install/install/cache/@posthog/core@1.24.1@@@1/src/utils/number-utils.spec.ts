@@ -1,5 +1,10 @@
 import { createMockLogger } from '@/testing'
-import { clampToRange, getRemoteConfigBool, getRemoteConfigNumber, isValidSampleRate } from './number-utils'
+import {
+  clampToRange,
+  getRemoteConfigBool,
+  getRemoteConfigNumber,
+  isValidSampleRate,
+} from './number-utils'
 
 describe('number-utils', () => {
   const mockLogger = createMockLogger()
@@ -83,7 +88,9 @@ describe('number-utils', () => {
 
     it('logs a warning when min is greater than max', () => {
       expect(clampToRange(50, 100, 10, mockLogger)).toBe(10)
-      expect(mockLogger.warn).toHaveBeenCalledWith('min cannot be greater than max.')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'min cannot be greater than max.',
+      )
     })
   })
 
@@ -101,14 +108,37 @@ describe('number-utils', () => {
     })
 
     it('returns the key value when field is an object with a boolean key', () => {
-      expect(getRemoteConfigBool({ autocaptureExceptions: true }, 'autocaptureExceptions')).toBe(true)
-      expect(getRemoteConfigBool({ autocaptureExceptions: false }, 'autocaptureExceptions')).toBe(false)
+      expect(
+        getRemoteConfigBool(
+          { autocaptureExceptions: true },
+          'autocaptureExceptions',
+        ),
+      ).toBe(true)
+      expect(
+        getRemoteConfigBool(
+          { autocaptureExceptions: false },
+          'autocaptureExceptions',
+        ),
+      ).toBe(false)
     })
 
     it('returns default value when key is missing or non-boolean', () => {
-      expect(getRemoteConfigBool({ otherKey: 'value' }, 'autocaptureExceptions')).toBe(true)
-      expect(getRemoteConfigBool({ otherKey: 'value' }, 'autocaptureExceptions', false)).toBe(false)
-      expect(getRemoteConfigBool({ autocaptureExceptions: 'yes' }, 'autocaptureExceptions')).toBe(true)
+      expect(
+        getRemoteConfigBool({ otherKey: 'value' }, 'autocaptureExceptions'),
+      ).toBe(true)
+      expect(
+        getRemoteConfigBool(
+          { otherKey: 'value' },
+          'autocaptureExceptions',
+          false,
+        ),
+      ).toBe(false)
+      expect(
+        getRemoteConfigBool(
+          { autocaptureExceptions: 'yes' },
+          'autocaptureExceptions',
+        ),
+      ).toBe(true)
     })
 
     it('returns default true for empty object', () => {
@@ -121,9 +151,15 @@ describe('number-utils', () => {
       expect(getRemoteConfigNumber(undefined, 'sampleRate')).toBeUndefined()
       expect(getRemoteConfigNumber(false, 'sampleRate')).toBeUndefined()
       expect(getRemoteConfigNumber({}, 'sampleRate')).toBeUndefined()
-      expect(getRemoteConfigNumber({ sampleRate: 'abc' }, 'sampleRate')).toBeUndefined()
-      expect(getRemoteConfigNumber({ sampleRate: '' }, 'sampleRate')).toBeUndefined()
-      expect(getRemoteConfigNumber({ sampleRate: '   ' }, 'sampleRate')).toBeUndefined()
+      expect(
+        getRemoteConfigNumber({ sampleRate: 'abc' }, 'sampleRate'),
+      ).toBeUndefined()
+      expect(
+        getRemoteConfigNumber({ sampleRate: '' }, 'sampleRate'),
+      ).toBeUndefined()
+      expect(
+        getRemoteConfigNumber({ sampleRate: '   ' }, 'sampleRate'),
+      ).toBeUndefined()
     })
 
     it('returns numeric value from number', () => {
@@ -131,7 +167,9 @@ describe('number-utils', () => {
     })
 
     it('returns numeric value from numeric string', () => {
-      expect(getRemoteConfigNumber({ sampleRate: '0.5' }, 'sampleRate')).toBe(0.5)
+      expect(getRemoteConfigNumber({ sampleRate: '0.5' }, 'sampleRate')).toBe(
+        0.5,
+      )
     })
   })
 

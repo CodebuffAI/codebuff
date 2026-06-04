@@ -1,1 +1,1 @@
-export declare function logShowProjectCommand(projectName: string): void;
+export declare function logShowProjectCommand(projectName: string): void

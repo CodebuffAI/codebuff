@@ -1,2 +1,2 @@
-import { ary } from "./index";
-export = ary;
+import { ary } from './index'
+export = ary

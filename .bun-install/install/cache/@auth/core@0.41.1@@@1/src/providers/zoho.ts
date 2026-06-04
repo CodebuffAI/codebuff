@@ -9,7 +9,7 @@
  * @module providers/zoho
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add ZOHO login to your page.
  *
@@ -61,16 +61,16 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Zoho(
-  config: OAuthUserConfig<Record<string, any>>
+  config: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "zoho",
-    name: "Zoho",
-    type: "oauth",
+    id: 'zoho',
+    name: 'Zoho',
+    type: 'oauth',
     authorization:
-      "https://accounts.zoho.com/oauth/v2/auth?scope=AaaServer.profile.Read",
-    token: "https://accounts.zoho.com/oauth/v2/token",
-    userinfo: "https://accounts.zoho.com/oauth/user/info",
+      'https://accounts.zoho.com/oauth/v2/auth?scope=AaaServer.profile.Read',
+    token: 'https://accounts.zoho.com/oauth/v2/token',
+    userinfo: 'https://accounts.zoho.com/oauth/user/info',
     profile(profile) {
       return {
         id: profile.ZUID,

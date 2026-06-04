@@ -1,2 +1,2 @@
-import { negate } from "./index";
-export = negate;
+import { negate } from './index'
+export = negate

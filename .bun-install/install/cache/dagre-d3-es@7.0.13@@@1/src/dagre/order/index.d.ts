@@ -1,1 +1,1 @@
-export function order(g: any): void;
+export function order(g: any): void

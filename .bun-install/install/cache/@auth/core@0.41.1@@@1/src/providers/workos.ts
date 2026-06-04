@@ -8,7 +8,7 @@
  *
  * @module providers/workos
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * - {@link https://workos.com/docs/reference/sso/profile | The returned profile object}
  */
@@ -150,20 +150,20 @@ export interface WorkOSProfile extends Record<string, any> {
  * :::
  */
 export default function WorkOS<P extends WorkOSProfile>(
-  options: OAuthUserConfig<P> & { connection?: string }
+  options: OAuthUserConfig<P> & { connection?: string },
 ): OAuthConfig<P> {
-  const { issuer = "https://api.workos.com/", connection = "" } = options
+  const { issuer = 'https://api.workos.com/', connection = '' } = options
 
   const connectionParams = new URLSearchParams({ connection })
 
   return {
-    id: "workos",
-    name: "WorkOS",
-    type: "oauth",
+    id: 'workos',
+    name: 'WorkOS',
+    type: 'oauth',
     authorization: `${issuer}sso/authorize?${connectionParams}`,
     token: `${issuer}sso/token`,
     client: {
-      token_endpoint_auth_method: "client_secret_post",
+      token_endpoint_auth_method: 'client_secret_post',
     },
     userinfo: `${issuer}sso/profile`,
     profile(profile) {
@@ -174,7 +174,7 @@ export default function WorkOS<P extends WorkOSProfile>(
         image: profile.raw_attributes.picture ?? null,
       }
     },
-    style: { bg: "#6363f1", text: "#fff" },
+    style: { bg: '#6363f1', text: '#fff' },
     options,
   }
 }

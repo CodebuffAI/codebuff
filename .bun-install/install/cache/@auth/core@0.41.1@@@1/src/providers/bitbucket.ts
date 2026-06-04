@@ -9,7 +9,7 @@
  * @module providers/bitbucket
  */
 
-import { OAuthConfig, OAuthUserConfig } from "./index.js"
+import { OAuthConfig, OAuthUserConfig } from './index.js'
 
 type LiteralUnion<T extends U, U = string> = T | (U & Record<never, never>)
 
@@ -20,7 +20,7 @@ export interface BitbucketProfile {
   display_name: string
   links: Record<
     LiteralUnion<
-      "self" | "avatar" | "repositories" | "snippets" | "html" | "hooks"
+      'self' | 'avatar' | 'repositories' | 'snippets' | 'html' | 'hooks'
     >,
     { href?: string }
   >
@@ -92,20 +92,20 @@ export interface BitbucketProfile {
  * :::
  */
 export default function Bitbucket(
-  options: OAuthUserConfig<BitbucketProfile>
+  options: OAuthUserConfig<BitbucketProfile>,
 ): OAuthConfig<BitbucketProfile> {
   return {
-    id: "bitbucket",
-    name: "Bitbucket",
-    type: "oauth",
+    id: 'bitbucket',
+    name: 'Bitbucket',
+    type: 'oauth',
     authorization: {
-      url: "https://bitbucket.org/site/oauth2/authorize",
+      url: 'https://bitbucket.org/site/oauth2/authorize',
       params: {
-        scope: "account",
+        scope: 'account',
       },
     },
-    token: "https://bitbucket.org/site/oauth2/access_token",
-    userinfo: "https://api.bitbucket.org/2.0/user",
+    token: 'https://bitbucket.org/site/oauth2/access_token',
+    userinfo: 'https://api.bitbucket.org/2.0/user',
     profile(profile) {
       return {
         name: profile.display_name ?? profile.username,
@@ -115,8 +115,8 @@ export default function Bitbucket(
     },
     options,
     style: {
-      text: "#fff",
-      bg: "#205081",
+      text: '#fff',
+      bg: '#205081',
     },
   }
 }

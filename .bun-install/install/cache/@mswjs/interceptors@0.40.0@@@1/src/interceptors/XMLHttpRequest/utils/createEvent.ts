@@ -6,7 +6,7 @@ const SUPPORTS_PROGRESS_EVENT = typeof ProgressEvent !== 'undefined'
 export function createEvent(
   target: XMLHttpRequest | XMLHttpRequestUpload,
   type: string,
-  init?: ProgressEventInit
+  init?: ProgressEventInit,
 ): EventPolyfill | ProgressEvent {
   const progressEvents = [
     'error',

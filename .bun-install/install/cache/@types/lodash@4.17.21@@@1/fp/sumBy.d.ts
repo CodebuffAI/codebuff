@@ -1,2 +1,2 @@
-import { sumBy } from "../fp";
-export = sumBy;
+import { sumBy } from '../fp'
+export = sumBy

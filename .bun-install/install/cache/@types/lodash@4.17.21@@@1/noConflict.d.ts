@@ -1,2 +1,2 @@
-import { noConflict } from "./index";
-export = noConflict;
+import { noConflict } from './index'
+export = noConflict

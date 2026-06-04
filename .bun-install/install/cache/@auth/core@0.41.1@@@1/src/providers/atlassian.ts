@@ -10,7 +10,7 @@
  *
  * @module providers/atlassian
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /** The returned user profile from Atlassian when using the profile callback. */
 export interface AtlassianProfile extends Record<string, any> {
@@ -93,18 +93,18 @@ export interface AtlassianProfile extends Record<string, any> {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Atlassian(
-  options: OAuthUserConfig<AtlassianProfile>
+  options: OAuthUserConfig<AtlassianProfile>,
 ): OAuthConfig<AtlassianProfile> {
   return {
-    id: "atlassian",
-    name: "Atlassian",
-    type: "oauth",
+    id: 'atlassian',
+    name: 'Atlassian',
+    type: 'oauth',
     authorization: {
-      url: "https://auth.atlassian.com/authorize",
-      params: { audience: "api.atlassian.com", scope: "read:me" },
+      url: 'https://auth.atlassian.com/authorize',
+      params: { audience: 'api.atlassian.com', scope: 'read:me' },
     },
-    token: "https://auth.atlassian.com/oauth/token",
-    userinfo: "https://api.atlassian.com/me",
+    token: 'https://auth.atlassian.com/oauth/token',
+    userinfo: 'https://api.atlassian.com/me',
     profile(profile) {
       return {
         id: profile.account_id,
@@ -113,8 +113,8 @@ export default function Atlassian(
         image: profile.picture,
       }
     },
-    checks: ["state"],
-    style: { bg: "#fff", text: "#0052cc" },
+    checks: ['state'],
+    style: { bg: '#fff', text: '#0052cc' },
     options,
   }
 }

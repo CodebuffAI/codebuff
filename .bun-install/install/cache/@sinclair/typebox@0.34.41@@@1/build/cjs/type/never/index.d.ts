@@ -1,1 +1,1 @@
-export * from './never';
+export * from './never'

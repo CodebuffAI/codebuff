@@ -12,7 +12,10 @@ class PromiseRejectionEvent extends Event {
   public readonly promise: Promise<any>
   public readonly reason: any
 
-  public constructor(type: PromiseRejectionEventTypes, options: PromiseRejectionEventInit) {
+  public constructor(
+    type: PromiseRejectionEventTypes,
+    options: PromiseRejectionEventInit,
+  ) {
     super(type)
 
     this.promise = options.promise
@@ -40,7 +43,8 @@ describe('PromiseRejectionEventCoercer', () => {
 
     expect(coercer.coerce(pre, ctx)).toMatchObject({
       type: 'UnhandledRejection',
-      value: 'Non-Error promise rejection captured with value: My house is on fire',
+      value:
+        'Non-Error promise rejection captured with value: My house is on fire',
       synthetic: true,
     })
   })

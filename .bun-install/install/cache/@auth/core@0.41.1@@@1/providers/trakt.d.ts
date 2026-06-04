@@ -8,26 +8,26 @@
  *
  * @module providers/trakt
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface TraktUser extends Record<string, any> {
-    username: string;
-    private: boolean;
-    name: string;
-    vip: boolean;
-    vip_ep: boolean;
-    ids: {
-        slug: string;
-    };
-    joined_at: string;
-    location: string | null;
-    about: string | null;
-    gender: string | null;
-    age: number | null;
-    images: {
-        avatar: {
-            full: string;
-        };
-    };
+  username: string
+  private: boolean
+  name: string
+  vip: boolean
+  vip_ep: boolean
+  ids: {
+    slug: string
+  }
+  joined_at: string
+  location: string | null
+  about: string | null
+  gender: string | null
+  age: number | null
+  images: {
+    avatar: {
+      full: string
+    }
+  }
 }
 /**
  * Add Trakt login to your page.
@@ -89,5 +89,7 @@ export interface TraktUser extends Record<string, any> {
  *
  * :::
  */
-export default function Trakt<P extends TraktUser>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function Trakt<P extends TraktUser>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=trakt.d.ts.map

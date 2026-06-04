@@ -36,21 +36,21 @@
  * @module jwt
  */
 
-import { hkdf } from "@panva/hkdf"
-import { EncryptJWT, base64url, calculateJwkThumbprint, jwtDecrypt } from "jose"
-import { defaultCookies, SessionStore } from "./lib/utils/cookie.js"
-import { Awaitable } from "./types.js"
-import type { LoggerInstance } from "./lib/utils/logger.js"
-import { MissingSecret } from "./errors.js"
-import * as cookie from "./lib/vendored/cookie.js"
+import { hkdf } from '@panva/hkdf'
+import { EncryptJWT, base64url, calculateJwkThumbprint, jwtDecrypt } from 'jose'
+import { defaultCookies, SessionStore } from './lib/utils/cookie.js'
+import { Awaitable } from './types.js'
+import type { LoggerInstance } from './lib/utils/logger.js'
+import { MissingSecret } from './errors.js'
+import * as cookie from './lib/vendored/cookie.js'
 
 const { parse: parseCookie } = cookie
 const DEFAULT_MAX_AGE = 30 * 24 * 60 * 60 // 30 days
 
 const now = () => (Date.now() / 1000) | 0
 
-const alg = "dir"
-const enc = "A256CBC-HS512"
+const alg = 'dir'
+const enc = 'A256CBC-HS512'
 type Digest = Parameters<typeof calculateJwkThumbprint>[1]
 
 /** Issues a JWT. By default, the JWT is encrypted using "A256CBC-HS512". */
@@ -60,8 +60,8 @@ export async function encode<Payload = JWT>(params: JWTEncodeParams<Payload>) {
   const encryptionSecret = await getDerivedEncryptionKey(enc, secrets[0], salt)
 
   const thumbprint = await calculateJwkThumbprint(
-    { kty: "oct", k: base64url.encode(encryptionSecret) },
-    `sha${encryptionSecret.byteLength << 3}` as Digest
+    { kty: 'oct', k: base64url.encode(encryptionSecret) },
+    `sha${encryptionSecret.byteLength << 3}` as Digest,
   )
   // @ts-expect-error `jose` allows any object as payload.
   return await new EncryptJWT(token)
@@ -74,7 +74,7 @@ export async function encode<Payload = JWT>(params: JWTEncodeParams<Payload>) {
 
 /** Decodes an Auth.js issued JWT. */
 export async function decode<Payload = JWT>(
-  params: JWTDecodeParams
+  params: JWTDecodeParams,
 ): Promise<Payload | null> {
   const { token, secret, salt } = params
   const secrets = Array.isArray(secret) ? secret : [secret]
@@ -86,35 +86,36 @@ export async function decode<Payload = JWT>(
         const encryptionSecret = await getDerivedEncryptionKey(
           enc,
           secret,
-          salt
+          salt,
         )
         if (kid === undefined) return encryptionSecret
 
         const thumbprint = await calculateJwkThumbprint(
-          { kty: "oct", k: base64url.encode(encryptionSecret) },
-          `sha${encryptionSecret.byteLength << 3}` as Digest
+          { kty: 'oct', k: base64url.encode(encryptionSecret) },
+          `sha${encryptionSecret.byteLength << 3}` as Digest,
         )
         if (kid === thumbprint) return encryptionSecret
       }
 
-      throw new Error("no matching decryption secret")
+      throw new Error('no matching decryption secret')
     },
     {
       clockTolerance: 15,
       keyManagementAlgorithms: [alg],
-      contentEncryptionAlgorithms: [enc, "A256GCM"],
-    }
+      contentEncryptionAlgorithms: [enc, 'A256GCM'],
+    },
   )
   return payload as Payload
 }
 
 type GetTokenParamsBase = {
-  secret?: JWTDecodeParams["secret"]
-  salt?: JWTDecodeParams["salt"]
+  secret?: JWTDecodeParams['secret']
+  salt?: JWTDecodeParams['salt']
 }
 
-export interface GetTokenParams<R extends boolean = false>
-  extends GetTokenParamsBase {
+export interface GetTokenParams<
+  R extends boolean = false,
+> extends GetTokenParamsBase {
   /** The request containing the JWT either in the cookies or in the `Authorization` header. */
   req: Request | { headers: Headers | Record<string, string> }
   /**
@@ -130,7 +131,7 @@ export interface GetTokenParams<R extends boolean = false>
    * @default false
    */
   raw?: R
-  decode?: JWTOptions["decode"]
+  decode?: JWTOptions['decode']
   logger?: LoggerInstance | Console
 }
 
@@ -139,10 +140,10 @@ export interface GetTokenParams<R extends boolean = false>
  * or the raw JWT string. We look for the JWT in the either the cookies, or the `Authorization` header.
  */
 export async function getToken<R extends boolean = false>(
-  params: GetTokenParams<R>
+  params: GetTokenParams<R>,
 ): Promise<R extends true ? string : JWT | null>
 export async function getToken(
-  params: GetTokenParams
+  params: GetTokenParams,
 ): Promise<string | JWT | null> {
   const {
     secureCookie,
@@ -155,23 +156,23 @@ export async function getToken(
     req,
   } = params
 
-  if (!req) throw new Error("Must pass `req` to JWT getToken()")
+  if (!req) throw new Error('Must pass `req` to JWT getToken()')
 
   const headers =
     req.headers instanceof Headers ? req.headers : new Headers(req.headers)
 
   const sessionStore = new SessionStore(
     { name: cookieName, options: { secure: secureCookie } },
-    parseCookie(headers.get("cookie") ?? ""),
-    logger
+    parseCookie(headers.get('cookie') ?? ''),
+    logger,
   )
 
   let token = sessionStore.value
 
-  const authorizationHeader = headers.get("authorization")
+  const authorizationHeader = headers.get('authorization')
 
-  if (!token && authorizationHeader?.split(" ")[0] === "Bearer") {
-    const urlEncodedToken = authorizationHeader.split(" ")[1]
+  if (!token && authorizationHeader?.split(' ')[0] === 'Bearer') {
+    const urlEncodedToken = authorizationHeader.split(' ')[1]
     token = decodeURIComponent(urlEncodedToken)
   }
 
@@ -180,7 +181,7 @@ export async function getToken(
   if (raw) return token
 
   if (!secret)
-    throw new MissingSecret("Must pass `secret` if not set to JWT getToken()")
+    throw new MissingSecret('Must pass `secret` if not set to JWT getToken()')
 
   try {
     return await _decode({ token, secret, salt })
@@ -192,25 +193,25 @@ export async function getToken(
 async function getDerivedEncryptionKey(
   enc: string,
   keyMaterial: Parameters<typeof hkdf>[1],
-  salt: Parameters<typeof hkdf>[2]
+  salt: Parameters<typeof hkdf>[2],
 ) {
   let length: number
   switch (enc) {
-    case "A256CBC-HS512":
+    case 'A256CBC-HS512':
       length = 64
       break
-    case "A256GCM":
+    case 'A256GCM':
       length = 32
       break
     default:
-      throw new Error("Unsupported JWT Content Encryption Algorithm")
+      throw new Error('Unsupported JWT Content Encryption Algorithm')
   }
   return await hkdf(
-    "sha256",
+    'sha256',
     keyMaterial,
     salt,
     `Auth.js Generated Encryption Key (${salt})`,
-    length
+    length,
   )
 }
 

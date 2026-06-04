@@ -8,38 +8,38 @@
  *
  * @module providers/notion
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js";
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 export interface Person extends Record<string, any> {
-    email: string;
+  email: string
 }
 export interface User extends Record<string, any> {
-    object: "user" | "bot";
-    id: string;
-    type: string;
-    name: string;
-    avatar_url: null | string;
-    person: Person;
-    owner?: {
-        type: "workspace" | "user";
-        workspace: string;
-    };
-    workspace_name?: string | null;
+  object: 'user' | 'bot'
+  id: string
+  type: string
+  name: string
+  avatar_url: null | string
+  person: Person
+  owner?: {
+    type: 'workspace' | 'user'
+    workspace: string
+  }
+  workspace_name?: string | null
 }
 export interface Owner {
-    type: string;
-    user: User;
+  type: string
+  user: User
 }
 export interface NotionProfile extends Record<string, any> {
-    access_token: string;
-    bot_id: string;
-    duplicated_template_id: string;
-    owner?: Owner;
-    workspace_icon: string;
-    workspace_id: number;
-    workspace_name: string;
+  access_token: string
+  bot_id: string
+  duplicated_template_id: string
+  owner?: Owner
+  workspace_icon: string
+  workspace_id: number
+  workspace_name: string
 }
 interface AdditionalConfig {
-    redirectUri: string;
+  redirectUri: string
 }
 /**
  * Add Notion login to your page.
@@ -94,6 +94,8 @@ interface AdditionalConfig {
  *
  * :::
  */
-export default function NotionProvider<P extends NotionProfile>(options: OAuthUserConfig<P> & AdditionalConfig): OAuthConfig<P>;
-export {};
+export default function NotionProvider<P extends NotionProfile>(
+  options: OAuthUserConfig<P> & AdditionalConfig,
+): OAuthConfig<P>
+export {}
 //# sourceMappingURL=notion.d.ts.map

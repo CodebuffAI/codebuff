@@ -8,15 +8,15 @@
  *
  * @module providers/click-up
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /** @see [Get the authenticated user](https://clickup.com/api/clickupreference/operation/GetAuthorizedUser/)*/
 export interface ClickUpProfile {
-    user: {
-        id: number;
-        username: string;
-        color: string;
-        profilePicture: string;
-    };
+  user: {
+    id: number
+    username: string
+    color: string
+    profilePicture: string
+  }
 }
 /**
  * Add ClickUp login to your page and make requests to [ClickUp APIs](https://clickup.com/api/).
@@ -71,5 +71,7 @@ export interface ClickUpProfile {
  *
  * :::
  */
-export default function ClickUp(config: OAuthUserConfig<ClickUpProfile>): OAuthConfig<ClickUpProfile>;
+export default function ClickUp(
+  config: OAuthUserConfig<ClickUpProfile>,
+): OAuthConfig<ClickUpProfile>
 //# sourceMappingURL=click-up.d.ts.map

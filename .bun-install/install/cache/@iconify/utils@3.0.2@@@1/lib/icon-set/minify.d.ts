@@ -1,4 +1,4 @@
-import { IconifyJSON } from "@iconify/types";
+import { IconifyJSON } from '@iconify/types'
 /**
  * Minify icon set
  *
@@ -39,5 +39,5 @@ import { IconifyJSON } from "@iconify/types";
  *  width: 24
  * }
  */
-declare function minifyIconSet(data: IconifyJSON): void;
-export { minifyIconSet };
+declare function minifyIconSet(data: IconifyJSON): void
+export { minifyIconSet }

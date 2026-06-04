@@ -1,4 +1,4 @@
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 export interface PingProfile extends Record<string, any> {
   iss: string
@@ -20,7 +20,7 @@ export interface PingProfile extends Record<string, any> {
   email: string
   env: string
   org: string
-  "p1.region": string
+  'p1.region': string
 }
 
 /**
@@ -57,12 +57,12 @@ export interface PingProfile extends Record<string, any> {
  */
 
 export default function PingId(
-  options: OIDCUserConfig<PingProfile>
+  options: OIDCUserConfig<PingProfile>,
 ): OIDCConfig<PingProfile> {
   return {
-    id: "ping-id",
-    name: "Ping Identity",
-    type: "oidc",
+    id: 'ping-id',
+    name: 'Ping Identity',
+    type: 'oidc',
     options,
   }
 }

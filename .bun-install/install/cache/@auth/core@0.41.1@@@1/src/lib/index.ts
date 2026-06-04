@@ -1,20 +1,20 @@
-import { UnknownAction } from "../errors.js"
-import { SessionStore } from "./utils/cookie.js"
-import { init } from "./init.js"
-import renderPage from "./pages/index.js"
-import * as actions from "./actions/index.js"
-import { validateCSRF } from "./actions/callback/oauth/csrf-token.js"
+import { UnknownAction } from '../errors.js'
+import { SessionStore } from './utils/cookie.js'
+import { init } from './init.js'
+import renderPage from './pages/index.js'
+import * as actions from './actions/index.js'
+import { validateCSRF } from './actions/callback/oauth/csrf-token.js'
 
-import type { RequestInternal, ResponseInternal } from "../types.js"
-import type { AuthConfig } from "../index.js"
-import { skipCSRFCheck } from "./symbols.js"
+import type { RequestInternal, ResponseInternal } from '../types.js'
+import type { AuthConfig } from '../index.js'
+import { skipCSRFCheck } from './symbols.js'
 
-export { customFetch, raw, skipCSRFCheck } from "./symbols.js"
+export { customFetch, raw, skipCSRFCheck } from './symbols.js'
 
 /** @internal */
 export async function AuthInternal(
   request: RequestInternal,
-  authOptions: AuthConfig
+  authOptions: AuthConfig,
 ): Promise<ResponseInternal> {
   const { action, providerId, error, method } = request
 
@@ -28,66 +28,66 @@ export async function AuthInternal(
     callbackUrl: request.body?.callbackUrl ?? request.query?.callbackUrl,
     csrfToken: request.body?.csrfToken,
     cookies: request.cookies,
-    isPost: method === "POST",
+    isPost: method === 'POST',
     csrfDisabled,
   })
 
   const sessionStore = new SessionStore(
     options.cookies.sessionToken,
     request.cookies,
-    options.logger
+    options.logger,
   )
 
-  if (method === "GET") {
+  if (method === 'GET') {
     const render = renderPage({ ...options, query: request.query, cookies })
     switch (action) {
-      case "callback":
+      case 'callback':
         return await actions.callback(request, options, sessionStore, cookies)
-      case "csrf":
+      case 'csrf':
         return render.csrf(csrfDisabled, options, cookies)
-      case "error":
+      case 'error':
         return render.error(error)
-      case "providers":
+      case 'providers':
         return render.providers(options.providers)
-      case "session":
+      case 'session':
         return await actions.session(options, sessionStore, cookies)
-      case "signin":
+      case 'signin':
         return render.signin(providerId, error)
-      case "signout":
+      case 'signout':
         return render.signout()
-      case "verify-request":
+      case 'verify-request':
         return render.verifyRequest()
-      case "webauthn-options":
+      case 'webauthn-options':
         return await actions.webAuthnOptions(
           request,
           options,
           sessionStore,
-          cookies
+          cookies,
         )
       default:
     }
   } else {
     const { csrfTokenVerified } = options
     switch (action) {
-      case "callback":
-        if (options.provider.type === "credentials")
+      case 'callback':
+        if (options.provider.type === 'credentials')
           // Verified CSRF Token required for credentials providers only
           validateCSRF(action, csrfTokenVerified)
         return await actions.callback(request, options, sessionStore, cookies)
-      case "session":
+      case 'session':
         validateCSRF(action, csrfTokenVerified)
         return await actions.session(
           options,
           sessionStore,
           cookies,
           true,
-          request.body?.data
+          request.body?.data,
         )
-      case "signin":
+      case 'signin':
         validateCSRF(action, csrfTokenVerified)
         return await actions.signIn(request, cookies, options)
 
-      case "signout":
+      case 'signout':
         validateCSRF(action, csrfTokenVerified)
         return await actions.signOut(cookies, sessionStore, options)
       default:

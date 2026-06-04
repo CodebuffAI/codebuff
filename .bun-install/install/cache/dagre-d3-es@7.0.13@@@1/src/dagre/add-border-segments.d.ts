@@ -1,1 +1,1 @@
-export function addBorderSegments(g: any): void;
+export function addBorderSegments(g: any): void

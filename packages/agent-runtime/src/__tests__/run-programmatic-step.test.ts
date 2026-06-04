@@ -428,6 +428,116 @@ describe('runProgrammaticStep', () => {
       expect(toolCallEvent?.includeToolCall).toBeUndefined()
     })
 
+    it('streams default programmatic proposal tool events with agent lineage while keeping neutral history', async () => {
+      mockAgentState.parentId = 'editor-agent-id'
+      const mockGenerator = (function* () {
+        yield {
+          toolName: 'propose_str_replace',
+          input: {
+            path: 'test.txt',
+            replacements: [{ oldString: 'before', newString: 'after' }],
+          },
+        }
+        yield 'STEP'
+      })() as StepGenerator
+
+      mockTemplate.handleSteps = () => mockGenerator
+      mockTemplate.toolNames = ['propose_str_replace', 'end_turn']
+
+      const proposalOutput = jsonToolResult({
+        file: 'test.txt',
+        message: 'Proposed string replacement.',
+        unifiedDiff: '--- test.txt\n+++ test.txt\n@@\n-before\n+after',
+      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'propose_str_replace') {
+            options.onResponseChunk({
+              type: 'tool_call',
+              toolCallId: options.toolCallId ?? 'proposal-call-id',
+              toolName: 'propose_str_replace',
+              input: options.input,
+              includeToolCall: !options.excludeToolFromMessageHistory,
+            })
+            options.onResponseChunk({
+              type: 'tool_result',
+              toolCallId: options.toolCallId ?? 'proposal-call-id',
+              toolName: 'propose_str_replace',
+              output: proposalOutput,
+            })
+            options.toolResults.push({
+              role: 'tool',
+              toolName: 'propose_str_replace',
+              toolCallId: options.toolCallId ?? 'proposal-call-id',
+              content: proposalOutput,
+            })
+          }
+        },
+      )
+
+      const responseChunks: unknown[] = []
+      const result = await runProgrammaticStep({
+        ...mockParams,
+        onResponseChunk: (chunk) => responseChunks.push(chunk),
+      })
+
+      expect(result.endTurn).toBe(false)
+      expect(
+        result.agentState.messageHistory.some(
+          (message) =>
+            message.role === 'assistant' &&
+            message.content.some((part) => part.type === 'tool-call'),
+        ),
+      ).toBe(false)
+      expect(
+        result.agentState.messageHistory.some(
+          (message) => message.role === 'tool',
+        ),
+      ).toBe(false)
+
+      const toolCallEvent = responseChunks.find(
+        (chunk) =>
+          typeof chunk === 'object' &&
+          chunk !== null &&
+          'type' in chunk &&
+          chunk.type === 'tool_call',
+      ) as
+        | { agentId?: string; parentAgentId?: string; includeToolCall?: boolean }
+        | undefined
+      expect(toolCallEvent).toMatchObject({
+        agentId: 'test-agent-id',
+        parentAgentId: 'editor-agent-id',
+      })
+      expect(toolCallEvent?.includeToolCall).toBeUndefined()
+
+      const toolResultEvent = responseChunks.find(
+        (chunk) =>
+          typeof chunk === 'object' &&
+          chunk !== null &&
+          'type' in chunk &&
+          chunk.type === 'tool_result',
+      ) as { agentId?: string; parentAgentId?: string } | undefined
+      expect(toolResultEvent).toMatchObject({
+        agentId: 'test-agent-id',
+        parentAgentId: 'editor-agent-id',
+      })
+
+      const contextMessage = result.agentState.messageHistory.find(
+        (message) =>
+          message.role === 'user' &&
+          message.content.some(
+            (part) =>
+              part.type === 'text' &&
+              part.text.includes('<programmatic_tool_result>') &&
+              part.text.includes('Tool: propose_str_replace') &&
+              part.text.includes('test.txt'),
+          ),
+      )
+      expect(contextMessage).toBeDefined()
+    })
+
     it('should not add neutral context for default programmatic tools when no LLM step follows', async () => {
       const mockGenerator = (function* () {
         yield { toolName: 'read_files', input: { paths: ['test.txt'] } }

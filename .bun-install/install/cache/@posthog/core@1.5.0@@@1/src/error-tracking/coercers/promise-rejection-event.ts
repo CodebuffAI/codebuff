@@ -7,7 +7,10 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<Promis
     return isBuiltin(err, 'PromiseRejectionEvent')
   }
 
-  coerce(err: PromiseRejectionEvent, ctx: CoercingContext): ExceptionLike | undefined {
+  coerce(
+    err: PromiseRejectionEvent,
+    ctx: CoercingContext,
+  ): ExceptionLike | undefined {
     const reason = this.getUnhandledRejectionReason(err)
     if (isPrimitive(reason)) {
       return {
@@ -41,7 +44,10 @@ export class PromiseRejectionEventCoercer implements ErrorTrackingCoercer<Promis
       // the CustomEvent's `detail` attribute, since they're not part of CustomEvent's spec
       // see https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent and
       // https://github.com/getsentry/sentry-javascript/issues/2380
-      if ('detail' in (error as CustomEventWithDetail) && 'reason' in (error as CustomEventWithDetail).detail) {
+      if (
+        'detail' in (error as CustomEventWithDetail) &&
+        'reason' in (error as CustomEventWithDetail).detail
+      ) {
         return (error as CustomEventWithDetail).detail.reason
       }
     } catch {

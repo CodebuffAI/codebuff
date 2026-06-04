@@ -40,10 +40,7 @@ If you want to ensure [reproducible builds](https://www.wikiwand.com/en/articles
 This module exposes two functions: `getCompatibleVersions()` and `getAllVersions()`, both which can be imported directly from `baseline-browser-mapping`:
 
 ```javascript
-import {
-  getCompatibleVersions,
-  getAllVersions,
-} from "baseline-browser-mapping";
+import { getCompatibleVersions, getAllVersions } from 'baseline-browser-mapping'
 ```
 
 If you want to load the script and data directly in a web page without hosting it yourself, consider using a CDN:
@@ -53,7 +50,7 @@ If you want to load the script and data directly in a web page without hosting i
   import {
     getCompatibleVersions,
     getAllVersions,
-  } from "https://cdn.jsdelivr.net/npm/baseline-browser-mapping";
+  } from 'https://cdn.jsdelivr.net/npm/baseline-browser-mapping'
 </script>
 ```
 
@@ -62,33 +59,33 @@ If you want to load the script and data directly in a web page without hosting i
 To get the current list of minimum browser versions compatible with Baseline Widely available features from the core browser set, call the `getCompatibleVersions()` function:
 
 ```javascript
-getCompatibleVersions();
+getCompatibleVersions()
 ```
 
 Executed on 7th March 2025, the above code returns the following browser versions:
 
 ```javascript
-[
-  { browser: "chrome", version: "105", release_date: "2022-09-02" },
+;[
+  { browser: 'chrome', version: '105', release_date: '2022-09-02' },
   {
-    browser: "chrome_android",
-    version: "105",
-    release_date: "2022-09-02",
+    browser: 'chrome_android',
+    version: '105',
+    release_date: '2022-09-02',
   },
-  { browser: "edge", version: "105", release_date: "2022-09-02" },
-  { browser: "firefox", version: "104", release_date: "2022-08-23" },
+  { browser: 'edge', version: '105', release_date: '2022-09-02' },
+  { browser: 'firefox', version: '104', release_date: '2022-08-23' },
   {
-    browser: "firefox_android",
-    version: "104",
-    release_date: "2022-08-23",
+    browser: 'firefox_android',
+    version: '104',
+    release_date: '2022-08-23',
   },
-  { browser: "safari", version: "15.6", release_date: "2022-09-02" },
+  { browser: 'safari', version: '15.6', release_date: '2022-09-02' },
   {
-    browser: "safari_ios",
-    version: "15.6",
-    release_date: "2022-09-02",
+    browser: 'safari_ios',
+    version: '15.6',
+    release_date: '2022-09-02',
   },
-];
+]
 ```
 
 > [!NOTE]
@@ -115,29 +112,29 @@ The `targetYear` option returns the minimum browser versions compatible with all
 ```javascript
 getCompatibleVersions({
   targetYear: 2020,
-});
+})
 ```
 
 Returns the following versions:
 
 ```javascript
-[
-  { browser: "chrome", version: "87", release_date: "2020-11-19" },
+;[
+  { browser: 'chrome', version: '87', release_date: '2020-11-19' },
   {
-    browser: "chrome_android",
-    version: "87",
-    release_date: "2020-11-19",
+    browser: 'chrome_android',
+    version: '87',
+    release_date: '2020-11-19',
   },
-  { browser: "edge", version: "87", release_date: "2020-11-19" },
-  { browser: "firefox", version: "83", release_date: "2020-11-17" },
+  { browser: 'edge', version: '87', release_date: '2020-11-19' },
+  { browser: 'firefox', version: '83', release_date: '2020-11-17' },
   {
-    browser: "firefox_android",
-    version: "83",
-    release_date: "2020-11-17",
+    browser: 'firefox_android',
+    version: '83',
+    release_date: '2020-11-17',
   },
-  { browser: "safari", version: "14", release_date: "2020-09-16" },
-  { browser: "safari_ios", version: "14", release_date: "2020-09-16" },
-];
+  { browser: 'safari', version: '14', release_date: '2020-09-16' },
+  { browser: 'safari_ios', version: '14', release_date: '2020-09-16' },
+]
 ```
 
 > [!NOTE]
@@ -152,7 +149,7 @@ The `widelyAvailableOnDate` option returns the minimum versions compatible with 
 ```javascript
 getCompatibleVersions({
   widelyAvailableOnDate: `2023-04-05`,
-});
+})
 ```
 
 > [!TIP]
@@ -165,7 +162,7 @@ Setting `includeDownstreamBrowsers` to `true` will include browsers outside of t
 ```javascript
 getCompatibleVersions({
   includeDownstreamBrowsers: true,
-});
+})
 ```
 
 For more information on downstream browsers, see [the section on downstream browsers](#downstream-browsers) below.
@@ -178,7 +175,7 @@ KaiOS is an operating system and app framework based on the Gecko engine from Fi
 getCompatibleVersions({
   includeDownstreamBrowsers: true,
   includeKaiOS: true,
-});
+})
 ```
 
 > [!NOTE]
@@ -191,7 +188,7 @@ Setting `listAllCompatibleVersions` to true will include the minimum versions of
 ```javascript
 getCompatibleVersions({
   listAllCompatibleVersions: true,
-});
+})
 ```
 
 #### `suppressWarnings`
@@ -201,7 +198,7 @@ Setting `suppressWarnings` to `true` will suppress the console warning about old
 ```javascript
 getCompatibleVersions({
   suppressWarnings: true,
-});
+})
 ```
 
 ## Get data for all browser versions
@@ -209,9 +206,9 @@ getCompatibleVersions({
 You may want to obtain data on all the browser versions available in this module for use in an analytics solution or dashboard. To get details of each browser version's level of Baseline support, call the `getAllVersions()` function:
 
 ```javascript
-import { getAllVersions } from "baseline-browser-mapping";
+import { getAllVersions } from 'baseline-browser-mapping'
 
-getAllVersions();
+getAllVersions()
 ```
 
 By default, this function returns an `Array` of `Objects` and excludes downstream browsers:
@@ -239,7 +236,7 @@ You may want to understand which recent browser versions support all Newly avail
 ```javascript
 getAllVersions({
   useSupports: true,
-});
+})
 ```
 
 The `supports` property is optional and has two possible values:
@@ -268,7 +265,7 @@ As with `getCompatibleVersions()`, you can set `includeDownstreamBrowsers` to `t
 ```javascript
 getAllVersions({
   includeDownstreamBrowsers: true,
-});
+})
 ```
 
 Downstream browsers include the same properties as core browsers, as well as the `engine`they use and `engine_version`, for example:
@@ -297,7 +294,7 @@ As with `getCompatibleVersions()` you can include KaiOS in your output. The same
 getAllVersions({
   includeDownstreamBrowsers: true,
   includeKaiOS: true,
-});
+})
 ```
 
 #### `suppressWarnings` (in `getAllVersions()` output)
@@ -307,7 +304,7 @@ As with `getCompatibleVersions()`, you can set `suppressWarnings` to `true` to s
 ```javascript
 getAllVersions({
   suppressWarnings: true,
-});
+})
 ```
 
 #### `outputFormat`
@@ -318,8 +315,8 @@ To return an `Object` that nests keys , set `outputFormat` to `object`:
 
 ```javascript
 getAllVersions({
-  outputFormat: "object",
-});
+  outputFormat: 'object',
+})
 ```
 
 In thise case, `getAllVersions()` returns a nested object with the browser [IDs listed below](#list-of-downstream-browsers) as keys, and versions as keys within them:
@@ -355,8 +352,8 @@ To return a `String` in CSV format, set `outputFormat` to `csv`:
 
 ```javascript
 getAllVersions({
-  outputFormat: "csv",
-});
+  outputFormat: 'csv',
+})
 ```
 
 `getAllVersions` returns a `String` with a header row and comma-separated values for each browser version that you can write to a file or pass to another service. Core browsers will have "NULL" as the value for their `engine` and `engine_version`:

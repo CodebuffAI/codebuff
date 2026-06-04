@@ -1,2 +1,2 @@
-import { subtract } from "./index";
-export = subtract;
+import { subtract } from './index'
+export = subtract

@@ -1,4 +1,4 @@
-import { GeneratorCallback, Tree } from 'nx/src/devkit-exports';
+import { GeneratorCallback, Tree } from 'nx/src/devkit-exports'
 /**
  * Add Dependencies and Dev Dependencies to package.json
  *
@@ -15,7 +15,13 @@ import { GeneratorCallback, Tree } from 'nx/src/devkit-exports';
  * @param keepExistingVersions If true, prevents existing dependencies from being bumped to newer versions
  * @returns Callback to install dependencies only if necessary, no-op otherwise
  */
-export declare function addDependenciesToPackageJson(tree: Tree, dependencies: Record<string, string>, devDependencies: Record<string, string>, packageJsonPath?: string, keepExistingVersions?: boolean): GeneratorCallback;
+export declare function addDependenciesToPackageJson(
+  tree: Tree,
+  dependencies: Record<string, string>,
+  devDependencies: Record<string, string>,
+  packageJsonPath?: string,
+  keepExistingVersions?: boolean,
+): GeneratorCallback
 /**
  * Remove Dependencies and Dev Dependencies from package.json
  *
@@ -29,7 +35,12 @@ export declare function addDependenciesToPackageJson(tree: Tree, dependencies: R
  * @param devDependencies Dependencies to be removed from the devDependencies section of package.json
  * @returns Callback to uninstall dependencies only if necessary. undefined is returned if changes are not necessary.
  */
-export declare function removeDependenciesFromPackageJson(tree: Tree, dependencies: string[], devDependencies: string[], packageJsonPath?: string): GeneratorCallback;
+export declare function removeDependenciesFromPackageJson(
+  tree: Tree,
+  dependencies: string[],
+  devDependencies: string[],
+  packageJsonPath?: string,
+): GeneratorCallback
 /**
  * @typedef EnsurePackageOptions
  * @type {object}
@@ -54,10 +65,15 @@ export declare function removeDependenciesFromPackageJson(tree: Tree, dependenci
  * @param requiredVersion the version or semver range to check (e.g. ~1.0.0, >=1.0.0 <2.0.0)
  * @param {EnsurePackageOptions} options?
  */
-export declare function ensurePackage(tree: Tree, pkg: string, requiredVersion: string, options?: {
-    dev?: boolean;
-    throwOnMissing?: boolean;
-}): void;
+export declare function ensurePackage(
+  tree: Tree,
+  pkg: string,
+  requiredVersion: string,
+  options?: {
+    dev?: boolean
+    throwOnMissing?: boolean
+  },
+): void
 /**
  * Ensure that dependencies and devDependencies from package.json are installed at the required versions.
  * Returns null for ESM dependencies. Import them with a dynamic import instead.
@@ -70,8 +86,11 @@ export declare function ensurePackage(tree: Tree, pkg: string, requiredVersion: 
  * @param pkg the package to install and require
  * @param version the version to install if the package doesn't exist already
  */
-export declare function ensurePackage<T extends any = any>(pkg: string, version: string): T;
+export declare function ensurePackage<T extends any = any>(
+  pkg: string,
+  version: string,
+): T
 /**
  * @description The version of Nx used by the workspace. Returns null if no version is found.
  */
-export declare const NX_VERSION: string;
+export declare const NX_VERSION: string

@@ -5,7 +5,7 @@ import { CloseEvent } from './utils/events'
 import { DeferredPromise } from '@open-draft/deferred-promise'
 
 export type WebSocketEventListener<
-  EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event
+  EventType extends WebSocketEventMap[keyof WebSocketEventMap] = Event,
 > = (this: WebSocket, event: EventType) => void
 
 const WEBSOCKET_CLOSE_CODE_RANGE_ERROR =
@@ -62,8 +62,8 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
         typeof protocols === 'string'
           ? protocols
           : Array.isArray(protocols) && protocols.length > 0
-          ? protocols[0]
-          : ''
+            ? protocols[0]
+            : ''
 
       /**
        * @note Check that nothing has prevented this connection
@@ -89,11 +89,11 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   }
 
   set onmessage(
-    listener: WebSocketEventListener<MessageEvent<WebSocketData>> | null
+    listener: WebSocketEventListener<MessageEvent<WebSocketData>> | null,
   ) {
     this.removeEventListener(
       'message',
-      this._onmessage as WebSocketEventListener
+      this._onmessage as WebSocketEventListener,
     )
     this._onmessage = listener
     if (listener !== null) {
@@ -163,7 +163,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
     invariant(code, WEBSOCKET_CLOSE_CODE_RANGE_ERROR)
     invariant(
       code === 1000 || (code >= 3000 && code <= 4999),
-      WEBSOCKET_CLOSE_CODE_RANGE_ERROR
+      WEBSOCKET_CLOSE_CODE_RANGE_ERROR,
     )
 
     this[kClose](code, reason)
@@ -172,7 +172,7 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   private [kClose](
     code: number = 1000,
     reason?: string,
-    wasClean = true
+    wasClean = true,
   ): void {
     /**
      * @note Move this check here so that even internal closures,
@@ -195,8 +195,8 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
             code,
             reason,
             wasClean,
-          })
-        )
+          }),
+        ),
       )
 
       // Remove all event listeners once the socket is closed.
@@ -210,29 +210,29 @@ export class WebSocketOverride extends EventTarget implements WebSocket {
   public addEventListener<K extends keyof WebSocketEventMap>(
     type: K,
     listener: (this: WebSocket, event: WebSocketEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void
   public addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void
   public addEventListener(
     type: unknown,
     listener: unknown,
-    options?: unknown
+    options?: unknown,
   ): void {
     return super.addEventListener(
       type as string,
       listener as EventListener,
-      options as AddEventListenerOptions
+      options as AddEventListenerOptions,
     )
   }
 
   removeEventListener<K extends keyof WebSocketEventMap>(
     type: K,
     callback: EventListenerOrEventListenerObject | null,
-    options?: boolean | EventListenerOptions
+    options?: boolean | EventListenerOptions,
   ): void {
     return super.removeEventListener(type, callback, options)
   }

@@ -1,5 +1,5 @@
-import EXIFParser, { ExifData } from "exif-parser";
-import { JimpClass } from "@jimp/types";
+import EXIFParser, { ExifData } from 'exif-parser'
+import { JimpClass } from '@jimp/types'
 
 /**
  * Obtains image orientation from EXIF metadata.
@@ -9,8 +9,8 @@ import { JimpClass } from "@jimp/types";
  *          in particular 1 if orientation tag is missing
  */
 export function getExifOrientation<I extends JimpClass>(img: I) {
-  const _exif = (img as unknown as { _exif: ExifData })._exif;
-  return (_exif && _exif.tags && _exif.tags.Orientation) || 1;
+  const _exif = (img as unknown as { _exif: ExifData })._exif
+  return (_exif && _exif.tags && _exif.tags.Orientation) || 1
 }
 
 /**
@@ -23,51 +23,51 @@ export function getExifOrientation<I extends JimpClass>(img: I) {
  * @returns transformation function for transformBitmap().
  */
 function getExifOrientationTransformation<I extends JimpClass>(img: I) {
-  const w = img.bitmap.width;
-  const h = img.bitmap.height;
+  const w = img.bitmap.width
+  const h = img.bitmap.height
 
   switch (getExifOrientation(img)) {
     case 1: // Horizontal (normal)
       // does not need to be supported here
-      return null;
+      return null
 
     case 2: // Mirror horizontal
       return function (x: number, y: number) {
-        return [w - x - 1, y] as const;
-      };
+        return [w - x - 1, y] as const
+      }
 
     case 3: // Rotate 180
       return function (x: number, y: number) {
-        return [w - x - 1, h - y - 1] as const;
-      };
+        return [w - x - 1, h - y - 1] as const
+      }
 
     case 4: // Mirror vertical
       return function (x: number, y: number) {
-        return [x, h - y - 1] as const;
-      };
+        return [x, h - y - 1] as const
+      }
 
     case 5: // Mirror horizontal and rotate 270 CW
       return function (x: number, y: number) {
-        return [y, x] as const;
-      };
+        return [y, x] as const
+      }
 
     case 6: // Rotate 90 CW
       return function (x: number, y: number) {
-        return [y, h - x - 1] as const;
-      };
+        return [y, h - x - 1] as const
+      }
 
     case 7: // Mirror horizontal and rotate 90 CW
       return function (x: number, y: number) {
-        return [w - y - 1, h - x - 1] as const;
-      };
+        return [w - y - 1, h - x - 1] as const
+      }
 
     case 8: // Rotate 270 CW
       return function (x: number, y: number) {
-        return [w - y - 1, x] as const;
-      };
+        return [w - y - 1, x] as const
+      }
 
     default:
-      return null;
+      return null
   }
 }
 
@@ -89,33 +89,33 @@ function transformBitmap<I extends JimpClass>(
   img: I,
   width: number,
   height: number,
-  transformation: (x: number, y: number) => readonly [number, number]
+  transformation: (x: number, y: number) => readonly [number, number],
 ) {
   // Underscore-prefixed values are related to the source bitmap
   // Their counterparts with no prefix are related to the target bitmap
-  const _data = img.bitmap.data;
-  const _width = img.bitmap.width;
+  const _data = img.bitmap.data
+  const _width = img.bitmap.width
 
-  const data = Buffer.alloc(_data.length);
+  const data = Buffer.alloc(_data.length)
 
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
-      const [_x, _y] = transformation(x, y);
+      const [_x, _y] = transformation(x, y)
 
-      const idx = (width * y + x) << 2;
-      const _idx = (_width * _y + _x) << 2;
+      const idx = (width * y + x) << 2
+      const _idx = (_width * _y + _x) << 2
 
-      const pixel = _data.readUInt32BE(_idx);
-      data.writeUInt32BE(pixel, idx);
+      const pixel = _data.readUInt32BE(_idx)
+      data.writeUInt32BE(pixel, idx)
     }
   }
 
-  img.bitmap.data = data;
-  img.bitmap.width = width;
-  img.bitmap.height = height;
+  img.bitmap.data = data
+  img.bitmap.width = width
+  img.bitmap.height = height
 
   // @ts-expect-error Accessing private property
-  img._exif.tags.Orientation = 1;
+  img._exif.tags.Orientation = 1
 }
 
 /**
@@ -124,29 +124,29 @@ function transformBitmap<I extends JimpClass>(
  */
 function exifRotate<I extends JimpClass>(img: I) {
   if (getExifOrientation(img) < 2) {
-    return;
+    return
   }
 
-  const transformation = getExifOrientationTransformation(img);
-  const swapDimensions = getExifOrientation(img) > 4;
+  const transformation = getExifOrientationTransformation(img)
+  const swapDimensions = getExifOrientation(img) > 4
 
-  const newWidth = swapDimensions ? img.bitmap.height : img.bitmap.width;
-  const newHeight = swapDimensions ? img.bitmap.width : img.bitmap.height;
+  const newWidth = swapDimensions ? img.bitmap.height : img.bitmap.width
+  const newHeight = swapDimensions ? img.bitmap.width : img.bitmap.height
 
   if (transformation) {
-    transformBitmap(img, newWidth, newHeight, transformation);
+    transformBitmap(img, newWidth, newHeight, transformation)
   }
 }
 
 export async function attemptExifRotate<I extends JimpClass>(
   image: I,
-  buffer: Buffer
+  buffer: Buffer,
 ) {
   try {
-    (image as unknown as { _exif: ExifData })._exif =
-      EXIFParser.create(buffer).parse();
+    ;(image as unknown as { _exif: ExifData })._exif =
+      EXIFParser.create(buffer).parse()
 
-    exifRotate(image); // EXIF data
+    exifRotate(image) // EXIF data
   } catch {
     // do nothing
   }

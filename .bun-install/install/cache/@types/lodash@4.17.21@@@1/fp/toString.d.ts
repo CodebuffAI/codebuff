@@ -1,2 +1,2 @@
-import { toString } from "../fp";
-export = toString;
+import { toString } from '../fp'
+export = toString

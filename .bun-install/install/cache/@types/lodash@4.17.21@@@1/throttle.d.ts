@@ -1,2 +1,2 @@
-import { throttle } from "./index";
-export = throttle;
+import { throttle } from './index'
+export = throttle

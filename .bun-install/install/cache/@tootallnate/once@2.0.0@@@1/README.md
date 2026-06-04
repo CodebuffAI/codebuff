@@ -20,17 +20,17 @@ the promise with an array of the values provided to the event handler. If an
 rejected with the error argument.
 
 ```typescript
-import once from '@tootallnate/once';
-import { EventEmitter } from 'events';
+import once from '@tootallnate/once'
+import { EventEmitter } from 'events'
 
-const emitter = new EventEmitter();
+const emitter = new EventEmitter()
 
 setTimeout(() => {
-    emitter.emit('foo', 'bar');
-}, 100);
+  emitter.emit('foo', 'bar')
+}, 100)
 
-const [result] = await once(emitter, 'foo');
-console.log({ result });
+const [result] = await once(emitter, 'foo')
+console.log({ result })
 // { result: 'bar' }
 ```
 
@@ -43,14 +43,15 @@ and the `name` of the event. Some examples are shown below.
 _The process "exit" event contains a single number for exit code:_
 
 ```typescript
-const [code] = await once(process, 'exit');
+const [code] = await once(process, 'exit')
 //     ^ number
 ```
+
 _A child process "exit" event contains either an exit code or a signal:_
 
 ```typescript
-const child = spawn('echo', []);
-const [code, signal] = await once(child, 'exit');
+const child = spawn('echo', [])
+const [code, signal] = await once(child, 'exit')
 //     ^ number | null
 //           ^ string | null
 ```
@@ -58,13 +59,13 @@ const [code, signal] = await once(child, 'exit');
 _A forked child process "message" event is type `any`, so you can cast the Promise directly:_
 
 ```typescript
-const child = fork('file.js');
+const child = fork('file.js')
 
 // With `await`
-const [message, _]: [WorkerPayload, unknown] = await once(child, 'message');
+const [message, _]: [WorkerPayload, unknown] = await once(child, 'message')
 
 // With Promise
-const messagePromise: Promise<[WorkerPayload, unknown]> = once(child, 'message');
+const messagePromise: Promise<[WorkerPayload, unknown]> = once(child, 'message')
 
 // Better yet would be to leave it as `any`, and validate the payload
 // at runtime with i.e. `ajv` + `json-schema-to-typescript`
@@ -74,20 +75,20 @@ _If the TypeScript definition does not contain an overload for the specified eve
 
 ```typescript
 interface CustomEmitter extends EventEmitter {
-    on(name: 'foo', listener: (a: string, b: number) => void): this;
+  on(name: 'foo', listener: (a: string, b: number) => void): this
 }
 
-const emitter: CustomEmitter = new EventEmitter();
+const emitter: CustomEmitter = new EventEmitter()
 
 // "foo" event is a defined overload, so it's properly typed
-const fooPromise = once(emitter, 'foo');
+const fooPromise = once(emitter, 'foo')
 //    ^ Promise<[a: string, b: number]>
 
 // "bar" event in not a defined overload, so it gets `unknown[]`
-const barPromise = once(emitter, 'bar');
+const barPromise = once(emitter, 'bar')
 //    ^ Promise<unknown[]>
 ```
 
 ### OnceOptions
 
--   `signal` - `AbortSignal` instance to unbind event handlers before the Promise has been fulfilled.
+- `signal` - `AbortSignal` instance to unbind event handlers before the Promise has been fulfilled.

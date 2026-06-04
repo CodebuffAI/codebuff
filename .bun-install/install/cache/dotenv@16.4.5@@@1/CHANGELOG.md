@@ -215,38 +215,38 @@ If you had values containing the backtick character, please quote those values w
 
 ### Changed
 
-* Hide comments and newlines from debug output ([#404](https://github.com/motdotla/dotenv/pull/404))
+- Hide comments and newlines from debug output ([#404](https://github.com/motdotla/dotenv/pull/404))
 
 ## [13.0.0](https://github.com/motdotla/dotenv/compare/v12.0.4...v13.0.0) (2022-01-16)
 
 ### Added
 
-* _Breaking:_ Add type file for `config.js` ([#539](https://github.com/motdotla/dotenv/pull/539))
+- _Breaking:_ Add type file for `config.js` ([#539](https://github.com/motdotla/dotenv/pull/539))
 
 ## [12.0.4](https://github.com/motdotla/dotenv/compare/v12.0.3...v12.0.4) (2022-01-16)
 
 ### Changed
 
-* README updates
-* Minor order adjustment to package json format
+- README updates
+- Minor order adjustment to package json format
 
 ## [12.0.3](https://github.com/motdotla/dotenv/compare/v12.0.2...v12.0.3) (2022-01-15)
 
 ### Changed
 
-* Simplified jsdoc for consistency across editors
+- Simplified jsdoc for consistency across editors
 
 ## [12.0.2](https://github.com/motdotla/dotenv/compare/v12.0.1...v12.0.2) (2022-01-15)
 
 ### Changed
 
-* Improve embedded jsdoc type documentation
+- Improve embedded jsdoc type documentation
 
 ## [12.0.1](https://github.com/motdotla/dotenv/compare/v12.0.0...v12.0.1) (2022-01-15)
 
 ### Changed
 
-* README updates and clarifications
+- README updates and clarifications
 
 ## [12.0.0](https://github.com/motdotla/dotenv/compare/v11.0.0...v12.0.0) (2022-01-15)
 

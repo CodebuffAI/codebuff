@@ -15,7 +15,7 @@ export type NormalizedSocketWriteArgs = [
  * and `Writable.prototype.end()`.
  */
 export function normalizeSocketWriteArgs(
-  args: WriteArgs
+  args: WriteArgs,
 ): NormalizedSocketWriteArgs {
   const normalized: NormalizedSocketWriteArgs = [args[0], undefined, undefined]
 

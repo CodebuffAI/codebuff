@@ -1,2 +1,2 @@
-import { toPath } from "../fp";
-export = toPath;
+import { toPath } from '../fp'
+export = toPath

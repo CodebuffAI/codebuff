@@ -1,4 +1,4 @@
-import { type TargetConfiguration } from 'nx/src/devkit-exports';
+import { type TargetConfiguration } from 'nx/src/devkit-exports'
 /**
  * Iterate through the current target in the project.json and its options comparing it to the target created by the Plugin itself
  * Delete matching properties from current target.
@@ -52,12 +52,23 @@ import { type TargetConfiguration } from 'nx/src/devkit-exports';
  * @param targetToMigrate The target from project.json
  * @param createdTarget The target created by the Plugin
  */
-export declare function deleteMatchingProperties(targetToMigrate: object, createdTarget: object): void;
-export declare function processTargetOutputs(target: TargetConfiguration, renamedOutputOptions: Array<{
-    newName: string;
-    oldName: string;
-}>, inferredTarget: TargetConfiguration, projectDetails: {
-    projectName: string;
-    projectRoot: string;
-}): void;
-export declare function toProjectRelativePath(path: string, projectRoot: string): string;
+export declare function deleteMatchingProperties(
+  targetToMigrate: object,
+  createdTarget: object,
+): void
+export declare function processTargetOutputs(
+  target: TargetConfiguration,
+  renamedOutputOptions: Array<{
+    newName: string
+    oldName: string
+  }>,
+  inferredTarget: TargetConfiguration,
+  projectDetails: {
+    projectName: string
+    projectRoot: string
+  },
+): void
+export declare function toProjectRelativePath(
+  path: string,
+  projectRoot: string,
+): string

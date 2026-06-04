@@ -1,2 +1,2 @@
-import { setWith } from "./index";
-export = setWith;
+import { setWith } from './index'
+export = setWith

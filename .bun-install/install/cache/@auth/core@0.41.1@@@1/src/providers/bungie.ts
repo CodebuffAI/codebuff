@@ -8,7 +8,7 @@
  *
  * @module providers/bungie
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add Bungie login to your page.
@@ -165,16 +165,16 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Bungie(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "bungie",
-    name: "Bungie",
-    type: "oauth",
-    authorization: "https://www.bungie.net/en/OAuth/Authorize?reauth=true",
-    token: "https://www.bungie.net/platform/app/oauth/token/",
+    id: 'bungie',
+    name: 'Bungie',
+    type: 'oauth',
+    authorization: 'https://www.bungie.net/en/OAuth/Authorize?reauth=true',
+    token: 'https://www.bungie.net/platform/app/oauth/token/',
     userinfo:
-      "https://www.bungie.net/platform/User/GetBungieAccount/{membershipId}/254/",
+      'https://www.bungie.net/platform/User/GetBungieAccount/{membershipId}/254/',
     profile(profile) {
       const { bungieNetUser: user } = profile.Response
 
@@ -183,7 +183,7 @@ export default function Bungie(
         name: user.displayName,
         email: null,
         image: `https://www.bungie.net${
-          user.profilePicturePath.startsWith("/") ? "" : "/"
+          user.profilePicturePath.startsWith('/') ? '' : '/'
         }${user.profilePicturePath}`,
       }
     },

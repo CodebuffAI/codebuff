@@ -1,2 +1,2 @@
-import { runInContext } from "./index";
-export = runInContext;
+import { runInContext } from './index'
+export = runInContext

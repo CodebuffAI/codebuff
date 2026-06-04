@@ -1,25 +1,25 @@
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface PingProfile extends Record<string, any> {
-    iss: string;
-    sub: string;
-    aud: string;
-    iat: number;
-    exp: number;
-    acr: string;
-    amr: [string];
-    auth_time: number;
-    at_hash: string;
-    sid: string;
-    preferred_username: string;
-    given_name: string;
-    picture: string;
-    updated_at: number;
-    name: string;
-    family_name: string;
-    email: string;
-    env: string;
-    org: string;
-    "p1.region": string;
+  iss: string
+  sub: string
+  aud: string
+  iat: number
+  exp: number
+  acr: string
+  amr: [string]
+  auth_time: number
+  at_hash: string
+  sid: string
+  preferred_username: string
+  given_name: string
+  picture: string
+  updated_at: number
+  name: string
+  family_name: string
+  email: string
+  env: string
+  org: string
+  'p1.region': string
 }
 /**
  * Add PingId login to your page.
@@ -53,5 +53,7 @@ export interface PingProfile extends Record<string, any> {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function PingId(options: OIDCUserConfig<PingProfile>): OIDCConfig<PingProfile>;
+export default function PingId(
+  options: OIDCUserConfig<PingProfile>,
+): OIDCConfig<PingProfile>
 //# sourceMappingURL=ping-id.d.ts.map

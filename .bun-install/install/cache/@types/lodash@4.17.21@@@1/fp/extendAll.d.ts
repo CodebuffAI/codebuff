@@ -1,2 +1,2 @@
-import { extendAll } from "../fp";
-export = extendAll;
+import { extendAll } from '../fp'
+export = extendAll

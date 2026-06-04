@@ -175,34 +175,34 @@ Necesitaras agregar el valor de otro variable en una de sus variables? Usa [dote
 
 ### Sincronizando
 
-Necesitas mentener sincronizados los archivos `.env` entre maquinas, entornos, o miembros del equipo? Usa 
+Necesitas mentener sincronizados los archivos `.env` entre maquinas, entornos, o miembros del equipo? Usa
 [dotenv-vault](https://github.com/dotenv-org/dotenv-vault).
 
 ## Ejemplos
 
 Vea [ejemplos](https://github.com/dotenv-org/examples) sobre el uso de dotenv con varios frameworks, lenguajes y configuraciones.
 
-* [nodejs](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs)
-* [nodejs (depurar en)](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs-debug)
-* [nodejs (anular en)](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs-override)
-* [esm](https://github.com/dotenv-org/examples/tree/master/dotenv-esm)
-* [esm (precarga)](https://github.com/dotenv-org/examples/tree/master/dotenv-esm-preload)
-* [typescript](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript)
-* [typescript parse](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript-parse)
-* [typescript config](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript-config)
-* [webpack](https://github.com/dotenv-org/examples/tree/master/dotenv-webpack)
-* [webpack (plugin)](https://github.com/dotenv-org/examples/tree/master/dotenv-webpack2)
-* [react](https://github.com/dotenv-org/examples/tree/master/dotenv-react)
-* [react (typescript)](https://github.com/dotenv-org/examples/tree/master/dotenv-react-typescript)
-* [express](https://github.com/dotenv-org/examples/tree/master/dotenv-express)
-* [nestjs](https://github.com/dotenv-org/examples/tree/master/dotenv-nestjs)
+- [nodejs](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs)
+- [nodejs (depurar en)](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs-debug)
+- [nodejs (anular en)](https://github.com/dotenv-org/examples/tree/master/dotenv-nodejs-override)
+- [esm](https://github.com/dotenv-org/examples/tree/master/dotenv-esm)
+- [esm (precarga)](https://github.com/dotenv-org/examples/tree/master/dotenv-esm-preload)
+- [typescript](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript)
+- [typescript parse](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript-parse)
+- [typescript config](https://github.com/dotenv-org/examples/tree/master/dotenv-typescript-config)
+- [webpack](https://github.com/dotenv-org/examples/tree/master/dotenv-webpack)
+- [webpack (plugin)](https://github.com/dotenv-org/examples/tree/master/dotenv-webpack2)
+- [react](https://github.com/dotenv-org/examples/tree/master/dotenv-react)
+- [react (typescript)](https://github.com/dotenv-org/examples/tree/master/dotenv-react-typescript)
+- [express](https://github.com/dotenv-org/examples/tree/master/dotenv-express)
+- [nestjs](https://github.com/dotenv-org/examples/tree/master/dotenv-nestjs)
 
 ## Documentación
 
 Dotenv expone dos funciones:
 
-* `configuración`
-* `analizar`
+- `configuración`
+- `analizar`
 
 ### Configuración
 
@@ -328,7 +328,7 @@ El motor de análisis actualmente admite las siguientes reglas:
 - las comillas internas se mantienen (piensa en JSON) (`JSON={"foo": "bar"}` se convierte en `{JSON:"{\"foo\": \"bar\"}"`)
 - los espacios en blanco se eliminan de ambos extremos de los valores no citanos (aprende más en [`trim`](https://developer.mozilla.org/es/docs/Web/JavaScript/Reference/Global_Objects/String/Trim)) (`FOO=  algo ` se convierte en `{FOO: 'algo'}`)
 - los valores entre comillas simples y dobles se escapan (`CITA_SIMPLE='citado'` se convierte en `{CITA_SIMPLE: "citado"}`)
-- los valores entre comillas simples y dobles mantienen los espacios en blanco en ambos extremos  (`FOO="  algo  "` se convierte en `{FOO: '  algo  '}`)
+- los valores entre comillas simples y dobles mantienen los espacios en blanco en ambos extremos (`FOO="  algo  "` se convierte en `{FOO: '  algo  '}`)
 - los valores entre comillas dobles expanden nuevas líneas (`MULTILINEA="nueva\nlínea"` se convierte en
 
 ```

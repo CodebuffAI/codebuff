@@ -1,2 +1,2 @@
-import { compose } from "../fp";
-export = compose;
+import { compose } from '../fp'
+export = compose

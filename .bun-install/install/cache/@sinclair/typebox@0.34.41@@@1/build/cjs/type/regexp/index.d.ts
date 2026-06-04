@@ -1,1 +1,1 @@
-export * from './regexp';
+export * from './regexp'

@@ -1,2 +1,2 @@
-import { reject } from "../fp";
-export = reject;
+import { reject } from '../fp'
+export = reject

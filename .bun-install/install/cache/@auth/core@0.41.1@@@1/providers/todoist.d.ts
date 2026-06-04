@@ -8,15 +8,15 @@
  *
  * @module providers/todoist
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * @see https://developer.todoist.com/sync/v9/#user
  */
 interface TodoistProfile extends Record<string, any> {
-    avatar_big: string;
-    email: string;
-    full_name: string;
-    id: string;
+  avatar_big: string
+  email: string
+  full_name: string
+  id: string
 }
 /**
  * Add Todoist login to your page.
@@ -71,6 +71,8 @@ interface TodoistProfile extends Record<string, any> {
  *
  * :::
  */
-export default function TodoistProvider<P extends TodoistProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
-export {};
+export default function TodoistProvider<P extends TodoistProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
+export {}
 //# sourceMappingURL=todoist.d.ts.map

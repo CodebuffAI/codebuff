@@ -8,7 +8,7 @@
  *
  * @module providers/netlify
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Netlify login to your page.
  *
@@ -62,5 +62,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Netlify(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Netlify(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=netlify.d.ts.map

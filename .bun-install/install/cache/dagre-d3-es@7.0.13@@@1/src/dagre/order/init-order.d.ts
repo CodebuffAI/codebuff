@@ -1,1 +1,1 @@
-export function initOrder(g: any): any[][];
+export function initOrder(g: any): any[][]

@@ -85,12 +85,12 @@ For [flat configuration](https://eslint.org/docs/latest/use/configure/configurat
 Import `eslint-plugin-prettier/recommended` and add it as the _last_ item in the configuration array in your `eslint.config.js` file so that `eslint-config-prettier` has the opportunity to override other configs:
 
 ```js
-const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended');
+const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended')
 
 module.exports = [
   // Any other config imports go at the top
   eslintPluginPrettierRecommended,
-];
+]
 ```
 
 This will:

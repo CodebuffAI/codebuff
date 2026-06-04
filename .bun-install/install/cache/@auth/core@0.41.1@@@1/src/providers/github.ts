@@ -9,13 +9,13 @@
  * @module providers/github
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface GitHubEmail {
   email: string
   primary: boolean
   verified: boolean
-  visibility: "public" | "private"
+  visibility: 'public' | 'private'
 }
 
 /** @see [Get the authenticated user](https://docs.github.com/en/rest/users/users#get-the-authenticated-user) */
@@ -128,20 +128,20 @@ export default function GitHub(
       /** The base URL of your GitHub Enterprise Server instance. */
       baseUrl?: string
     }
-  }
+  },
 ): OAuthConfig<GitHubProfile> {
-  const baseUrl = config?.enterprise?.baseUrl ?? "https://github.com"
+  const baseUrl = config?.enterprise?.baseUrl ?? 'https://github.com'
   const apiBaseUrl = config?.enterprise?.baseUrl
     ? `${config?.enterprise?.baseUrl}/api/v3`
-    : "https://api.github.com"
+    : 'https://api.github.com'
 
   return {
-    id: "github",
-    name: "GitHub",
-    type: "oauth",
+    id: 'github',
+    name: 'GitHub',
+    type: 'oauth',
     authorization: {
       url: `${baseUrl}/login/oauth/authorize`,
-      params: { scope: "read:user user:email" },
+      params: { scope: 'read:user user:email' },
     },
     token: `${baseUrl}/login/oauth/access_token`,
     userinfo: {
@@ -150,7 +150,7 @@ export default function GitHub(
         const profile = await fetch(provider.userinfo?.url as URL, {
           headers: {
             Authorization: `Bearer ${tokens.access_token}`,
-            "User-Agent": "authjs",
+            'User-Agent': 'authjs',
           },
         }).then(async (res) => await res.json())
 
@@ -160,7 +160,7 @@ export default function GitHub(
           const res = await fetch(`${apiBaseUrl}/user/emails`, {
             headers: {
               Authorization: `Bearer ${tokens.access_token}`,
-              "User-Agent": "authjs",
+              'User-Agent': 'authjs',
             },
           })
 
@@ -181,7 +181,7 @@ export default function GitHub(
         image: profile.avatar_url,
       }
     },
-    style: { bg: "#24292f", text: "#fff" },
+    style: { bg: '#24292f', text: '#fff' },
     options: config,
   }
 }

@@ -9,7 +9,7 @@
  * @module providers/zoom
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * See: https://developers.zoom.us/docs/integrations/oauth/#using-an-access-token
@@ -93,15 +93,15 @@ export interface ZoomProfile extends Record<string, any> {
  * :::
  */
 export default function Zoom(
-  config: OAuthUserConfig<ZoomProfile>
+  config: OAuthUserConfig<ZoomProfile>,
 ): OAuthConfig<ZoomProfile> {
   return {
-    id: "zoom",
-    name: "Zoom",
-    type: "oauth",
-    authorization: "https://zoom.us/oauth/authorize?scope",
-    token: "https://zoom.us/oauth/token",
-    userinfo: "https://api.zoom.us/v2/users/me",
+    id: 'zoom',
+    name: 'Zoom',
+    type: 'oauth',
+    authorization: 'https://zoom.us/oauth/authorize?scope',
+    token: 'https://zoom.us/oauth/token',
+    userinfo: 'https://api.zoom.us/v2/users/me',
     profile(profile) {
       return {
         id: profile.id,
@@ -111,8 +111,8 @@ export default function Zoom(
       }
     },
     style: {
-      bg: "#0b5cff",
-      text: "#fff",
+      bg: '#0b5cff',
+      text: '#fff',
     },
     options: config,
   }

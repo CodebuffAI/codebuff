@@ -8,7 +8,7 @@
  *
  * @module providers/threads
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * [User](https://developers.facebook.com/docs/threads/reference/user)
@@ -107,19 +107,19 @@ export interface ThreadsProfile {
  * :::
  */
 export default function Threads(
-  config: OAuthUserConfig<ThreadsProfile>
+  config: OAuthUserConfig<ThreadsProfile>,
 ): OAuthConfig<ThreadsProfile> {
   return {
-    id: "threads",
-    name: "Threads",
-    type: "oauth",
-    checks: ["state"],
-    authorization: "https://threads.net/oauth/authorize?scope=threads_basic",
-    token: "https://graph.threads.net/oauth/access_token",
+    id: 'threads',
+    name: 'Threads',
+    type: 'oauth',
+    checks: ['state'],
+    authorization: 'https://threads.net/oauth/authorize?scope=threads_basic',
+    token: 'https://graph.threads.net/oauth/access_token',
     userinfo:
-      "https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url",
+      'https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url',
     client: {
-      token_endpoint_auth_method: "client_secret_post",
+      token_endpoint_auth_method: 'client_secret_post',
     },
     profile({ data }) {
       return {
@@ -129,7 +129,7 @@ export default function Threads(
         image: data.threads_profile_picture_url || null,
       }
     },
-    style: { bg: "#000", text: "#fff" },
+    style: { bg: '#000', text: '#fff' },
     options: config,
   }
 }

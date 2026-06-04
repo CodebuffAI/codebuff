@@ -1,2 +1,2 @@
-import { mean } from "../fp";
-export = mean;
+import { mean } from '../fp'
+export = mean

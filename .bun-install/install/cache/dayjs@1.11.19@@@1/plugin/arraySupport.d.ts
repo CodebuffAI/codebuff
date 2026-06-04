@@ -2,7 +2,15 @@ import { PluginFunc } from 'dayjs'
 
 declare module 'dayjs' {
   interface ConfigTypeMap {
-    arraySupport: [number?, number?, number?, number?, number?, number?, number?]
+    arraySupport: [
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+      number?,
+    ]
   }
 }
 

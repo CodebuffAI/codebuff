@@ -1,2 +1,2 @@
-import { zipWith } from "./index";
-export = zipWith;
+import { zipWith } from './index'
+export = zipWith

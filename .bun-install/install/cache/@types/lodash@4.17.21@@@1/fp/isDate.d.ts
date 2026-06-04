@@ -1,2 +1,2 @@
-import { isDate } from "../fp";
-export = isDate;
+import { isDate } from '../fp'
+export = isDate

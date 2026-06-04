@@ -10,5 +10,5 @@
  *
  * @module @nx/devkit
  */
-export * from 'nx/src/devkit-exports';
-export * from './public-api';
+export * from 'nx/src/devkit-exports'
+export * from './public-api'

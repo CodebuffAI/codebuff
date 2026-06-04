@@ -22,14 +22,14 @@ A growable binary data writer with automatic buffer expansion.
 import {Writer} from '@jsonjoy.com/buffers/lib/Writer';
 
 const writer = new Writer();
-writer.u8(0x42);          // Write unsigned 8-bit integer
-writer.u16(0x1234);       // Write unsigned 16-bit integer
-writer.u32(0x12345678);   // Write unsigned 32-bit integer
+writer.u8(0x42); // Write unsigned 8-bit integer
+writer.u16(0x1234); // Write unsigned 16-bit integer
+writer.u32(0x12345678); // Write unsigned 32-bit integer
 writer.u64(0x123456789abcdefn); // Write unsigned 64-bit integer
-writer.f32(3.14);         // Write 32-bit float
+writer.f32(3.14); // Write 32-bit float
 writer.f64(3.141592653589793); // Write 64-bit float
-writer.utf8('Hello 🌍');  // Write UTF-8 string
-writer.ascii('Hello');    // Write ASCII string
+writer.utf8('Hello 🌍'); // Write UTF-8 string
+writer.ascii('Hello'); // Write ASCII string
 
 const data = writer.flush(); // Get written data as Uint8Array
 ```
@@ -44,13 +44,13 @@ import {Reader} from '@jsonjoy.com/buffers/lib/Reader';
 const reader = new Reader();
 reader.reset(someUint8Array);
 
-const byte = reader.u8();     // Read unsigned 8-bit integer
-const word = reader.u16();    // Read unsigned 16-bit integer
-const dword = reader.u32();   // Read unsigned 32-bit integer
-const qword = reader.u64();   // Read unsigned 64-bit integer
-const float = reader.f32();   // Read 32-bit float
-const double = reader.f64();  // Read 64-bit float
-const text = reader.utf8(5);  // Read UTF-8 string of 5 bytes
+const byte = reader.u8(); // Read unsigned 8-bit integer
+const word = reader.u16(); // Read unsigned 16-bit integer
+const dword = reader.u32(); // Read unsigned 32-bit integer
+const qword = reader.u64(); // Read unsigned 64-bit integer
+const float = reader.f32(); // Read 32-bit float
+const double = reader.f64(); // Read 64-bit float
+const text = reader.utf8(5); // Read UTF-8 string of 5 bytes
 const ascii = reader.ascii(5); // Read ASCII string of 5 characters
 ```
 
@@ -95,9 +95,9 @@ import {concat, concatList} from '@jsonjoy.com/buffers/lib/concat';
 import {copy} from '@jsonjoy.com/buffers/lib/copy';
 
 const buffer = b(0x48, 0x65, 0x6c, 0x6c, 0x6f); // Create from bytes
-const combined = concat(buffer1, buffer2);         // Concatenate two buffers
-const list = concatList([buf1, buf2, buf3]);      // Concatenate array of buffers
-const duplicate = copy(originalBuffer);           // Copy buffer
+const combined = concat(buffer1, buffer2); // Concatenate two buffers
+const list = concatList([buf1, buf2, buf3]); // Concatenate array of buffers
+const duplicate = copy(originalBuffer); // Copy buffer
 ```
 
 ### Comparison Functions
@@ -107,9 +107,9 @@ import {cmpUint8Array} from '@jsonjoy.com/buffers/lib/cmpUint8Array';
 import {cmpUint8Array2} from '@jsonjoy.com/buffers/lib/cmpUint8Array2';
 import {cmpUint8Array3} from '@jsonjoy.com/buffers/lib/cmpUint8Array3';
 
-const isEqual = cmpUint8Array(buf1, buf2);        // Returns boolean
-const comparison = cmpUint8Array2(buf1, buf2);    // Returns -1, 0, or 1 (byte-first)
-const comparison2 = cmpUint8Array3(buf1, buf2);   // Returns -1, 0, or 1 (length-first)
+const isEqual = cmpUint8Array(buf1, buf2); // Returns boolean
+const comparison = cmpUint8Array2(buf1, buf2); // Returns -1, 0, or 1 (byte-first)
+const comparison2 = cmpUint8Array3(buf1, buf2); // Returns -1, 0, or 1 (length-first)
 ```
 
 ### Type Checking
@@ -119,9 +119,15 @@ import {isUint8Array} from '@jsonjoy.com/buffers/lib/isUint8Array';
 import {isArrayBuffer} from '@jsonjoy.com/buffers/lib/isArrayBuffer';
 import {isFloat32} from '@jsonjoy.com/buffers/lib/isFloat32';
 
-if (isUint8Array(data)) { /* data is Uint8Array or Buffer */ }
-if (isArrayBuffer(data)) { /* data is ArrayBuffer */ }
-if (isFloat32(3.14)) { /* number can fit in float32 */ }
+if (isUint8Array(data)) {
+  /* data is Uint8Array or Buffer */
+}
+if (isArrayBuffer(data)) {
+  /* data is ArrayBuffer */
+}
+if (isFloat32(3.14)) {
+  /* number can fit in float32 */
+}
 ```
 
 ### Conversion Functions
@@ -131,9 +137,9 @@ import {toUint8Array} from '@jsonjoy.com/buffers/lib/toUint8Array';
 import {bufferToUint8Array} from '@jsonjoy.com/buffers/lib/bufferToUint8Array';
 import {toBuf} from '@jsonjoy.com/buffers/lib/toBuf';
 
-const uint8 = toUint8Array(data);           // Convert various types to Uint8Array
-const converted = bufferToUint8Array(buf);  // Convert Buffer to Uint8Array
-const encoded = toBuf('Hello 🌍');          // Convert string to UTF-8 bytes
+const uint8 = toUint8Array(data); // Convert various types to Uint8Array
+const converted = bufferToUint8Array(buf); // Convert Buffer to Uint8Array
+const encoded = toBuf('Hello 🌍'); // Convert string to UTF-8 bytes
 ```
 
 ### String Utilities
@@ -141,8 +147,8 @@ const encoded = toBuf('Hello 🌍');          // Convert string to UTF-8 bytes
 ```typescript
 import {ascii, utf8} from '@jsonjoy.com/buffers/lib/strings';
 
-const asciiBytes = ascii`Hello World`;      // ASCII string to bytes
-const utf8Bytes = utf8`Hello 🌍`;           // UTF-8 string to bytes
+const asciiBytes = ascii`Hello World`; // ASCII string to bytes
+const utf8Bytes = utf8`Hello 🌍`; // UTF-8 string to bytes
 ```
 
 ## UTF-8 Encoding/Decoding
@@ -156,6 +162,7 @@ const text = decodeUtf8(uint8Array, offset, length);
 ```
 
 The package includes multiple optimized UTF-8 decoding implementations that automatically choose the best strategy based on:
+
 - Environment (Node.js vs Browser)
 - String length
 - Available APIs
@@ -231,4 +238,3 @@ Full TypeScript support with comprehensive type definitions included.
 ## License
 
 Apache-2.0
-

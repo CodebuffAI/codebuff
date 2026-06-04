@@ -1,2 +1,2 @@
-import { updateWith } from "./index";
-export = updateWith;
+import { updateWith } from './index'
+export = updateWith

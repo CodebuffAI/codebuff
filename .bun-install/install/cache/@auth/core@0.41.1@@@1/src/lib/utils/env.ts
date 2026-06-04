@@ -1,6 +1,6 @@
-import type { AuthAction } from "../../types.js"
-import type { AuthConfig } from "../../index.js"
-import { setLogger } from "./logger.js"
+import type { AuthAction } from '../../types.js'
+import type { AuthConfig } from '../../index.js'
+import { setLogger } from './logger.js'
 
 /**
  *  Set default env variables on the config object
@@ -9,7 +9,7 @@ import { setLogger } from "./logger.js"
 export function setEnvDefaults(
   envObject: any,
   config: AuthConfig,
-  suppressBasePathWarning = false
+  suppressBasePathWarning = false,
 ) {
   try {
     const url = envObject.AUTH_URL
@@ -17,7 +17,7 @@ export function setEnvDefaults(
       if (config.basePath) {
         if (!suppressBasePathWarning) {
           const logger = setLogger(config)
-          logger.warn("env-url-basepath-redundant")
+          logger.warn('env-url-basepath-redundant')
         }
       } else {
         config.basePath = new URL(url).pathname
@@ -46,24 +46,24 @@ export function setEnvDefaults(
     envObject.AUTH_TRUST_HOST ??
     envObject.VERCEL ??
     envObject.CF_PAGES ??
-    envObject.NODE_ENV !== "production"
+    envObject.NODE_ENV !== 'production'
   )
   config.providers = config.providers.map((provider) => {
-    const { id } = typeof provider === "function" ? provider({}) : provider
-    const ID = id.toUpperCase().replace(/-/g, "_")
+    const { id } = typeof provider === 'function' ? provider({}) : provider
+    const ID = id.toUpperCase().replace(/-/g, '_')
     const clientId = envObject[`AUTH_${ID}_ID`]
     const clientSecret = envObject[`AUTH_${ID}_SECRET`]
     const issuer = envObject[`AUTH_${ID}_ISSUER`]
     const apiKey = envObject[`AUTH_${ID}_KEY`]
     const finalProvider =
-      typeof provider === "function"
+      typeof provider === 'function'
         ? provider({ clientId, clientSecret, issuer, apiKey })
         : provider
-    if (finalProvider.type === "oauth" || finalProvider.type === "oidc") {
+    if (finalProvider.type === 'oauth' || finalProvider.type === 'oidc') {
       finalProvider.clientId ??= clientId
       finalProvider.clientSecret ??= clientSecret
       finalProvider.issuer ??= issuer
-    } else if (finalProvider.type === "email") {
+    } else if (finalProvider.type === 'email') {
       finalProvider.apiKey ??= apiKey
     }
     return finalProvider
@@ -75,7 +75,7 @@ export function createActionURL(
   protocol: string,
   headers: Headers,
   envObject: any,
-  config: Pick<AuthConfig, "basePath" | "logger">
+  config: Pick<AuthConfig, 'basePath' | 'logger'>,
 ): URL {
   const basePath = config?.basePath
   const envUrl = envObject.AUTH_URL ?? envObject.NEXTAUTH_URL
@@ -83,30 +83,30 @@ export function createActionURL(
   let url: URL
   if (envUrl) {
     url = new URL(envUrl)
-    if (basePath && basePath !== "/" && url.pathname !== "/") {
+    if (basePath && basePath !== '/' && url.pathname !== '/') {
       if (url.pathname !== basePath) {
         const logger = setLogger(config)
-        logger.warn("env-url-basepath-mismatch")
+        logger.warn('env-url-basepath-mismatch')
       }
-      url.pathname = "/"
+      url.pathname = '/'
     }
   } else {
-    const detectedHost = headers.get("x-forwarded-host") ?? headers.get("host")
+    const detectedHost = headers.get('x-forwarded-host') ?? headers.get('host')
     const detectedProtocol =
-      headers.get("x-forwarded-proto") ?? protocol ?? "https"
-    const _protocol = detectedProtocol.endsWith(":")
+      headers.get('x-forwarded-proto') ?? protocol ?? 'https'
+    const _protocol = detectedProtocol.endsWith(':')
       ? detectedProtocol
-      : detectedProtocol + ":"
+      : detectedProtocol + ':'
 
     url = new URL(`${_protocol}//${detectedHost}`)
   }
 
   // remove trailing slash
-  const sanitizedUrl = url.toString().replace(/\/$/, "")
+  const sanitizedUrl = url.toString().replace(/\/$/, '')
 
   if (basePath) {
     // remove leading and trailing slash
-    const sanitizedBasePath = basePath?.replace(/(^\/|\/$)/g, "") ?? ""
+    const sanitizedBasePath = basePath?.replace(/(^\/|\/$)/g, '') ?? ''
     return new URL(`${sanitizedUrl}/${sanitizedBasePath}/${action}`)
   }
   return new URL(`${sanitizedUrl}/${action}`)

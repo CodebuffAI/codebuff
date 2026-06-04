@@ -8,10 +8,10 @@
  *
  * @module providers/pinterest
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface PinterestProfile extends Record<string, any> {
-  account_type: "BUSINESS" | "PINNER"
+  account_type: 'BUSINESS' | 'PINNER'
   profile_image: string
   website_url: string
   username: string
@@ -78,18 +78,18 @@ export interface PinterestProfile extends Record<string, any> {
  * :::
  */
 export default function PinterestProvider<P extends PinterestProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "pinterest",
-    name: "Pinterest",
-    type: "oauth",
+    id: 'pinterest',
+    name: 'Pinterest',
+    type: 'oauth',
     authorization: {
-      url: "https://www.pinterest.com/oauth",
-      params: { scope: "user_accounts:read" },
+      url: 'https://www.pinterest.com/oauth',
+      params: { scope: 'user_accounts:read' },
     },
-    token: "https://api.pinterest.com/v5/oauth/token",
-    userinfo: "https://api.pinterest.com/v5/user_account",
+    token: 'https://api.pinterest.com/v5/oauth/token',
+    userinfo: 'https://api.pinterest.com/v5/user_account',
     profile({ username, profile_image }) {
       return {
         id: username,
@@ -99,7 +99,7 @@ export default function PinterestProvider<P extends PinterestProfile>(
       }
     },
     style: {
-      brandColor: "#bd081c",
+      brandColor: '#bd081c',
     },
     options,
   }

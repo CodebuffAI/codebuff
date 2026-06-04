@@ -1,2 +1,2 @@
-export * from './required-from-mapped-result';
-export * from './required';
+export * from './required-from-mapped-result'
+export * from './required'

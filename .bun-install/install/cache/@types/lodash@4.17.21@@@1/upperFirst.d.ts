@@ -1,2 +1,2 @@
-import { upperFirst } from "./index";
-export = upperFirst;
+import { upperFirst } from './index'
+export = upperFirst

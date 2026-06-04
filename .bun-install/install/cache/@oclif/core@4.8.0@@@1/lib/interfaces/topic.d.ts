@@ -1,5 +1,5 @@
 export interface Topic {
-    description?: string | undefined;
-    hidden?: boolean | undefined;
-    name: string;
+  description?: string | undefined
+  hidden?: boolean | undefined
+  name: string
 }

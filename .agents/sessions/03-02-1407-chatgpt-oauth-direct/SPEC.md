@@ -1,9 +1,11 @@
 # SPEC — ChatGPT Subscription OAuth Direct Routing
 
 ## Overview
+
 Implement an **experimental, default-disabled** ChatGPT subscription OAuth feature that allows the local CLI to route eligible OpenAI-model **streaming** requests directly to OpenAI instead of Codebuff backend routing, mirroring the prior Claude OAuth architecture pattern.
 
 ## Protocol Assumptions (Explicit)
+
 Because this is unofficial/experimental, this implementation proceeds under the following explicit assumptions:
 
 1. OAuth authorize endpoint: `https://auth.openai.com/oauth/authorize`
@@ -20,6 +22,7 @@ Because this is unofficial/experimental, this implementation proceeds under the 
 If any assumption fails at runtime, the feature fails with explicit guidance and remains safely fallbackable only where policy allows.
 
 ## Requirements
+
 1. Add ChatGPT OAuth feature set, default disabled behind `CHATGPT_OAUTH_ENABLED = false`.
 2. Add a new CLI command and mode: `/connect:chatgpt` with dedicated banner flow.
 3. Implement browser-based PKCE code-paste flow (no device-code flow in this iteration).
@@ -35,14 +38,20 @@ If any assumption fails at runtime, the feature fails with explicit guidance and
    - `openai/gpt-5.2-codex`
    - plus selected nearby GPT/Codex IDs already present in repo config.
 10. Provide deterministic model normalization for direct requests (OpenRouter-style -> provider-native):
-   - Example: `openai/gpt-5.3-codex` -> `gpt-5.3-codex`
-   - Mapping table lives in constants and is used for prevalidation.
+
+- Example: `openai/gpt-5.3-codex` -> `gpt-5.3-codex`
+- Mapping table lives in constants and is used for prevalidation.
+
 11. Unsupported model handling must be deterministic and prevalidated:
-   - if model is not in allowlist/mapping for direct route, fail with explicit unsupported-model error (no fallback).
+
+- if model is not in allowlist/mapping for direct route, fail with explicit unsupported-model error (no fallback).
+
 12. Fallback policy:
-   - Rate-limit/overload classification: auto-fallback to Codebuff backend.
-   - Auth errors (401/403): fail explicitly with reconnect guidance (no fallback).
-   - All other direct errors: fail fast (no fallback), per user decision.
+
+- Rate-limit/overload classification: auto-fallback to Codebuff backend.
+- Auth errors (401/403): fail explicitly with reconnect guidance (no fallback).
+- All other direct errors: fail fast (no fallback), per user decision.
+
 13. Successful direct ChatGPT OAuth requests do **not** consume Codebuff credits.
 14. Add lightweight ChatGPT connection status surfacing in CLI (usage banner and/or bottom status line), without quota API dependency.
 15. Preserve existing Claude OAuth behavior unchanged.
@@ -51,6 +60,7 @@ If any assumption fails at runtime, the feature fails with explicit guidance and
 18. Never log OAuth tokens in analytics or error logs.
 
 ## Direct Request Transformation Rules
+
 Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 
 1. Rewrite `model` from `openai/*` format to provider-native mapped id.
@@ -59,19 +69,22 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 4. Do not inject Codex-specific required prefix by default in v1 (user preference), but structure code so optional future injection is easy.
 
 ## Error Classification Table
-| Class | Detection | Behavior |
-|---|---|---|
-| Rate limit | HTTP 429 or message/body contains rate-limit indicators | Fallback to backend (if no output emitted yet) |
-| Auth | HTTP 401/403 or auth-token-invalid indicators | Fail with reconnect guidance; no fallback |
-| Unsupported model | Local allowlist/mapping precheck failure | Fail explicit unsupported-model error; no fallback |
-| Other | Network timeout, 5xx, malformed payload, unknown 4xx | Fail fast; no fallback |
+
+| Class             | Detection                                               | Behavior                                           |
+| ----------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| Rate limit        | HTTP 429 or message/body contains rate-limit indicators | Fallback to backend (if no output emitted yet)     |
+| Auth              | HTTP 401/403 or auth-token-invalid indicators           | Fail with reconnect guidance; no fallback          |
+| Unsupported model | Local allowlist/mapping precheck failure                | Fail explicit unsupported-model error; no fallback |
+| Other             | Network timeout, 5xx, malformed payload, unknown 4xx    | Fail fast; no fallback                             |
 
 ## Routing Scope
+
 1. Direct routing applies only to `promptAiSdkStream` eligible requests.
 2. `promptAiSdk` and `promptAiSdkStructured` remain backend-only for this iteration.
 3. Backend routing remains unchanged for all non-eligible models and when feature disabled/disconnected.
 
 ## Credentials & Precedence Rules
+
 1. Credentials file schema extends with `chatgptOAuth` object.
 2. Precedence: env token override > persisted OAuth credentials > none.
 3. Env token produces synthetic non-refreshing credentials object.
@@ -79,6 +92,7 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 5. On refresh failure for persisted credentials, clear only `chatgptOAuth` entry (preserve other credentials).
 
 ## Feature Gating Matrix
+
 1. `CHATGPT_OAUTH_ENABLED = false`
    - hide `/connect:chatgpt` command and banner UX
    - disable direct routing even if env token exists
@@ -87,11 +101,13 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
    - enable direct routing for eligible models
 
 ## Logging/Redaction Requirements
+
 1. Never log raw access tokens, refresh tokens, authorization headers, or token response payloads.
 2. If callback URL is logged for debugging, redact query values for `code`, `access_token`, `refresh_token`, and similar sensitive keys.
 3. Analytics properties must not include token-bearing strings.
 
 ## Technical Approach
+
 1. Create `common/src/constants/chatgpt-oauth.ts`:
    - feature flag, endpoints, client id, redirect URI, env var name, model allowlist/mapping helpers.
 2. Export new constants via `common/src/constants/index.ts` so legacy `old-constants` re-export path includes them.
@@ -112,6 +128,7 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 13. Add temporary validation script (e.g., `scripts/chatgpt-oauth-validate.ts`) to exercise OAuth setup interactively.
 
 ## Acceptance Criteria
+
 1. With feature disabled, `/connect:chatgpt` is unavailable and no direct routing occurs.
 2. With feature enabled, user can run `/connect:chatgpt`, complete browser flow, paste code/URL, and connect.
 3. Eligible streaming requests on allowlisted `openai/*` models use direct OAuth path.
@@ -125,6 +142,7 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 11. Temporary validation script can run and guide manual OAuth exchange checks.
 
 ## Files to Create/Modify
+
 - Create: `common/src/constants/chatgpt-oauth.ts`
 - Create: `cli/src/utils/chatgpt-oauth.ts`
 - Create: `cli/src/components/chatgpt-connect-banner.tsx`
@@ -148,6 +166,7 @@ Before sending direct streaming requests to OpenAI, enforce strict sanitization:
 - Modify tests in SDK/CLI for new behavior.
 
 ## Out of Scope
+
 1. Device-code auth flow.
 2. Legal/policy guarantees around undocumented endpoints.
 3. Full quota/usage API integration for ChatGPT subscription plans.

@@ -1,1 +1,1 @@
-export * from './return-type';
+export * from './return-type'

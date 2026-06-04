@@ -15,7 +15,7 @@ npm install emoji-regex
 In [Node.js](https://nodejs.org/):
 
 ```js
-const emojiRegex = require('emoji-regex');
+const emojiRegex = require('emoji-regex')
 // Note: because the regular expression has the global flag set, this module
 // exports a function that returns the regex rather than exporting the regular
 // expression itself, to make it impossible to (accidentally) mutate the
@@ -26,13 +26,13 @@ const text = `
 \u{2194}\u{FE0F}: ↔️ default text presentation character rendered as emoji
 \u{1F469}: 👩 emoji modifier base (Emoji_Modifier_Base)
 \u{1F469}\u{1F3FF}: 👩🏿 emoji modifier base followed by a modifier
-`;
+`
 
-const regex = emojiRegex();
-let match;
-while (match = regex.exec(text)) {
-  const emoji = match[0];
-  console.log(`Matched sequence ${ emoji } — code points: ${ [...emoji].length }`);
+const regex = emojiRegex()
+let match
+while ((match = regex.exec(text))) {
+  const emoji = match[0]
+  console.log(`Matched sequence ${emoji} — code points: ${[...emoji].length}`)
 }
 ```
 
@@ -52,21 +52,21 @@ Matched sequence 👩🏿 — code points: 2
 To match emoji in their textual representation as well (i.e. emoji that are not `Emoji_Presentation` symbols and that aren’t forced to render as emoji by a variation selector), `require` the other regex:
 
 ```js
-const emojiRegex = require('emoji-regex/text.js');
+const emojiRegex = require('emoji-regex/text.js')
 ```
 
 Additionally, in environments which support ES2015 Unicode escapes, you may `require` ES2015-style versions of the regexes:
 
 ```js
-const emojiRegex = require('emoji-regex/es2015/index.js');
-const emojiRegexText = require('emoji-regex/es2015/text.js');
+const emojiRegex = require('emoji-regex/es2015/index.js')
+const emojiRegexText = require('emoji-regex/es2015/text.js')
 ```
 
 ## Author
 
-| [![twitter/mathias](https://gravatar.com/avatar/24e08a9ea84deb17ae121074d0f17125?s=70)](https://twitter.com/mathias "Follow @mathias on Twitter") |
-|---|
-| [Mathias Bynens](https://mathiasbynens.be/) |
+| [![twitter/mathias](https://gravatar.com/avatar/24e08a9ea84deb17ae121074d0f17125?s=70)](https://twitter.com/mathias 'Follow @mathias on Twitter') |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Mathias Bynens](https://mathiasbynens.be/)                                                                                                       |
 
 ## License
 

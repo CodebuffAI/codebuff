@@ -1,2 +1,2 @@
-import { differenceBy } from "../fp";
-export = differenceBy;
+import { differenceBy } from '../fp'
+export = differenceBy

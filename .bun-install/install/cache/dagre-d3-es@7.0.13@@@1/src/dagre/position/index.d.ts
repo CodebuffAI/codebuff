@@ -1,1 +1,1 @@
-export function position(g: any): void;
+export function position(g: any): void

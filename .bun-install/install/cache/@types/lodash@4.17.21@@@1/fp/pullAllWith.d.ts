@@ -1,2 +1,2 @@
-import { pullAllWith } from "../fp";
-export = pullAllWith;
+import { pullAllWith } from '../fp'
+export = pullAllWith

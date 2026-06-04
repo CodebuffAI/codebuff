@@ -1,2 +1,2 @@
-import { isUndefined } from "../fp";
-export = isUndefined;
+import { isUndefined } from '../fp'
+export = isUndefined

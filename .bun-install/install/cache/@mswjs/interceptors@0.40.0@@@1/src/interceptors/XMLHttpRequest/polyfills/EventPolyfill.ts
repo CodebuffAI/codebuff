@@ -24,7 +24,7 @@ export class EventPolyfill implements Event {
 
   constructor(
     type: string,
-    options?: { target: EventTarget; currentTarget: EventTarget }
+    options?: { target: EventTarget; currentTarget: EventTarget },
   ) {
     this.type = type
     this.target = options?.target || null

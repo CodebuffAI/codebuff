@@ -8,7 +8,7 @@
  *
  * @module providers/coinbase
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Coinbase login to your page.
  *
@@ -65,5 +65,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Coinbase(options: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Coinbase(
+  options: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=coinbase.d.ts.map

@@ -8,7 +8,7 @@
  *
  * @module providers/discord
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Corresponds to the user structure documented here:
@@ -140,27 +140,27 @@ export interface DiscordProfile extends Record<string, any> {
  * :::
  */
 export default function Discord<P extends DiscordProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "discord",
-    name: "Discord",
-    type: "oauth",
+    id: 'discord',
+    name: 'Discord',
+    type: 'oauth',
     authorization: {
-      url: "https://discord.com/api/oauth2/authorize",
-      params: { scope: "identify email" },
+      url: 'https://discord.com/api/oauth2/authorize',
+      params: { scope: 'identify email' },
     },
-    token: "https://discord.com/api/oauth2/token",
-    userinfo: "https://discord.com/api/users/@me",
+    token: 'https://discord.com/api/oauth2/token',
+    userinfo: 'https://discord.com/api/users/@me',
     profile(profile) {
       if (profile.avatar === null) {
         const defaultAvatarNumber =
-          profile.discriminator === "0"
+          profile.discriminator === '0'
             ? Number(BigInt(profile.id) >> BigInt(22)) % 6
             : parseInt(profile.discriminator) % 5
         profile.image_url = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`
       } else {
-        const format = profile.avatar.startsWith("a_") ? "gif" : "png"
+        const format = profile.avatar.startsWith('a_') ? 'gif' : 'png'
         profile.image_url = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`
       }
       return {
@@ -170,7 +170,7 @@ export default function Discord<P extends DiscordProfile>(
         image: profile.image_url,
       }
     },
-    style: { bg: "#5865F2", text: "#fff" },
+    style: { bg: '#5865F2', text: '#fff' },
     options,
   }
 }

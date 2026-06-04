@@ -1,4 +1,4 @@
-import type { WebAuthnProviderType } from "../../providers/webauthn.js"
+import type { WebAuthnProviderType } from '../../providers/webauthn.js'
 import type {
   Account,
   Authenticator,
@@ -7,36 +7,36 @@ import type {
   RequestInternal,
   ResponseInternal,
   User,
-} from "../../types.js"
-import type { Cookie } from "./cookie.js"
+} from '../../types.js'
+import type { Cookie } from './cookie.js'
 import {
   AdapterError,
   AuthError,
   InvalidProvider,
   MissingAdapter,
   WebAuthnVerificationError,
-} from "../../errors.js"
-import { webauthnChallenge } from "../actions/callback/oauth/checks.js"
+} from '../../errors.js'
+import { webauthnChallenge } from '../actions/callback/oauth/checks.js'
 import {
   type AuthenticationResponseJSON,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
-} from "@simplewebauthn/types"
+} from '@simplewebauthn/types'
 import type {
   Adapter,
   AdapterAccount,
   AdapterAuthenticator,
-} from "../../adapters.js"
-import type { GetUserInfo } from "../../providers/webauthn.js"
-import { randomString } from "./web.js"
+} from '../../adapters.js'
+import type { GetUserInfo } from '../../providers/webauthn.js'
+import { randomString } from './web.js'
 import type {
   VerifiedAuthenticationResponse,
   VerifiedRegistrationResponse,
-} from "@simplewebauthn/server"
+} from '@simplewebauthn/server'
 
-export type WebAuthnRegister = "register"
-export type WebAuthnAuthenticate = "authenticate"
+export type WebAuthnRegister = 'register'
+export type WebAuthnAuthenticate = 'authenticate'
 export type WebAuthnAction = WebAuthnRegister | WebAuthnAuthenticate
 
 type InternalOptionsWebAuthn = InternalOptions<WebAuthnProviderType> & {
@@ -55,7 +55,7 @@ type WebAuthnOptionsResponse = ResponseInternal & {
   body: WebAuthnOptionsResponseBody
 }
 
-export type CredentialDeviceType = "singleDevice" | "multiDevice"
+export type CredentialDeviceType = 'singleDevice' | 'multiDevice'
 interface InternalAuthenticator {
   providerAccountId: string
   credentialID: Uint8Array
@@ -80,24 +80,24 @@ type RGetUserInfo = Awaited<ReturnType<GetUserInfo>>
 export function inferWebAuthnOptions(
   action: WebAuthnAction | undefined,
   loggedIn: boolean,
-  userInfoResponse: RGetUserInfo
+  userInfoResponse: RGetUserInfo,
 ): WebAuthnAction | null {
   const { user, exists = false } = userInfoResponse ?? {}
 
   switch (action) {
-    case "authenticate": {
+    case 'authenticate': {
       /**
        * Always allow explicit authentication requests.
        */
-      return "authenticate"
+      return 'authenticate'
     }
-    case "register": {
+    case 'register': {
       /**
        * Registration is only allowed if:
        * - The user is logged in, meaning the user wants to register a new authenticator.
        * - The user is not logged in and provided user info that does NOT exist, meaning the user wants to register a new account.
        */
-      if (user && loggedIn === exists) return "register"
+      if (user && loggedIn === exists) return 'register'
       break
     }
     case undefined: {
@@ -111,12 +111,12 @@ export function inferWebAuthnOptions(
       if (!loggedIn) {
         if (user) {
           if (exists) {
-            return "authenticate"
+            return 'authenticate'
           } else {
-            return "register"
+            return 'register'
           }
         } else {
-          return "authenticate"
+          return 'authenticate'
         }
       }
       break
@@ -140,7 +140,7 @@ export async function getRegistrationResponse(
   options: InternalOptionsWebAuthn,
   request: RequestInternal,
   user: User & { email: string },
-  resCookies?: Cookie[]
+  resCookies?: Cookie[],
 ): Promise<WebAuthnOptionsResponse> {
   // Get registration options
   const regOptions = await getRegistrationOptions(options, request, user)
@@ -148,18 +148,18 @@ export async function getRegistrationResponse(
   const { cookie } = await webauthnChallenge.create(
     options,
     regOptions.challenge,
-    user
+    user,
   )
 
   return {
     status: 200,
     cookies: [...(resCookies ?? []), cookie],
     body: {
-      action: "register" as const,
+      action: 'register' as const,
       options: regOptions,
     },
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   }
 }
@@ -177,25 +177,25 @@ export async function getAuthenticationResponse(
   options: InternalOptionsWebAuthn,
   request: RequestInternal,
   user?: User,
-  resCookies?: Cookie[]
+  resCookies?: Cookie[],
 ): Promise<WebAuthnOptionsResponse> {
   // Get authentication options
   const authOptions = await getAuthenticationOptions(options, request, user)
   // Get signed cookie
   const { cookie } = await webauthnChallenge.create(
     options,
-    authOptions.challenge
+    authOptions.challenge,
   )
 
   return {
     status: 200,
     cookies: [...(resCookies ?? []), cookie],
     body: {
-      action: "authenticate" as const,
+      action: 'authenticate' as const,
       options: authOptions,
     },
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   }
 }
@@ -203,22 +203,22 @@ export async function getAuthenticationResponse(
 export async function verifyAuthenticate(
   options: InternalOptionsWebAuthn,
   request: RequestInternal,
-  resCookies: Cookie[]
+  resCookies: Cookie[],
 ): Promise<{ account: AdapterAccount; user: User }> {
   const { adapter, provider } = options
 
   // Get WebAuthn response from request body
   const data =
-    request.body && typeof request.body.data === "string"
+    request.body && typeof request.body.data === 'string'
       ? (JSON.parse(request.body.data) as unknown)
       : undefined
   if (
     !data ||
-    typeof data !== "object" ||
-    !("id" in data) ||
-    typeof data.id !== "string"
+    typeof data !== 'object' ||
+    !('id' in data) ||
+    typeof data.id !== 'string'
   ) {
-    throw new AuthError("Invalid WebAuthn Authentication response")
+    throw new AuthError('Invalid WebAuthn Authentication response')
   }
 
   // Reset the ID so we smooth out implementation differences
@@ -230,7 +230,7 @@ export async function verifyAuthenticate(
     throw new AuthError(
       `WebAuthn authenticator not found in database: ${JSON.stringify({
         credentialID,
-      })}`
+      })}`,
     )
   }
 
@@ -238,7 +238,7 @@ export async function verifyAuthenticate(
   const { challenge: expectedChallenge } = await webauthnChallenge.use(
     options,
     request.cookies,
-    resCookies
+    resCookies,
   )
 
   // Verify the response
@@ -262,7 +262,7 @@ export async function verifyAuthenticate(
   // Make sure the response was verified
   if (!verified) {
     throw new WebAuthnVerificationError(
-      "WebAuthn authentication response could not be verified"
+      'WebAuthn authentication response could not be verified',
     )
   }
 
@@ -271,7 +271,7 @@ export async function verifyAuthenticate(
     const { newCounter } = authenticationInfo
     await adapter.updateAuthenticatorCounter(
       authenticator.credentialID,
-      newCounter
+      newCounter,
     )
   } catch (e: any) {
     throw new AdapterError(
@@ -280,23 +280,23 @@ export async function verifyAuthenticate(
           credentialID,
           oldCounter: authenticator.counter,
           newCounter: authenticationInfo.newCounter,
-        }
+        },
       )}`,
-      e
+      e,
     )
   }
 
   // Get the account and user
   const account = await adapter.getAccount(
     authenticator.providerAccountId,
-    provider.id
+    provider.id,
   )
   if (!account) {
     throw new AuthError(
       `WebAuthn account not found in database: ${JSON.stringify({
         credentialID,
         providerAccountId: authenticator.providerAccountId,
-      })}`
+      })}`,
     )
   }
 
@@ -307,7 +307,7 @@ export async function verifyAuthenticate(
         credentialID,
         providerAccountId: authenticator.providerAccountId,
         userID: account.userId,
-      })}`
+      })}`,
     )
   }
 
@@ -320,22 +320,22 @@ export async function verifyAuthenticate(
 export async function verifyRegister(
   options: InternalOptions<WebAuthnProviderType>,
   request: RequestInternal,
-  resCookies: Cookie[]
+  resCookies: Cookie[],
 ): Promise<{ account: Account; user: User; authenticator: Authenticator }> {
   const { provider } = options
 
   // Get WebAuthn response from request body
   const data =
-    request.body && typeof request.body.data === "string"
+    request.body && typeof request.body.data === 'string'
       ? (JSON.parse(request.body.data) as unknown)
       : undefined
   if (
     !data ||
-    typeof data !== "object" ||
-    !("id" in data) ||
-    typeof data.id !== "string"
+    typeof data !== 'object' ||
+    !('id' in data) ||
+    typeof data.id !== 'string'
   ) {
-    throw new AuthError("Invalid WebAuthn Registration response")
+    throw new AuthError('Invalid WebAuthn Registration response')
   }
 
   // Get challenge from request cookies
@@ -343,7 +343,7 @@ export async function verifyRegister(
     await webauthnChallenge.use(options, request.cookies, resCookies)
   if (!user) {
     throw new AuthError(
-      "Missing user registration data in WebAuthn challenge cookie"
+      'Missing user registration data in WebAuthn challenge cookie',
     )
   }
 
@@ -365,7 +365,7 @@ export async function verifyRegister(
   // Make sure the response was verified
   if (!verification.verified || !verification.registrationInfo) {
     throw new WebAuthnVerificationError(
-      "WebAuthn registration response could not be verified"
+      'WebAuthn registration response could not be verified',
     )
   }
 
@@ -382,13 +382,13 @@ export async function verifyRegister(
     counter: verification.registrationInfo.counter,
     credentialID: toBase64(verification.registrationInfo.credentialID),
     credentialPublicKey: toBase64(
-      verification.registrationInfo.credentialPublicKey
+      verification.registrationInfo.credentialPublicKey,
     ),
     credentialBackedUp: verification.registrationInfo.credentialBackedUp,
     credentialDeviceType: verification.registrationInfo.credentialDeviceType,
     transports: transportsToString(
       (data as RegistrationResponseJSON).response
-        .transports as AuthenticatorTransport[]
+        .transports as AuthenticatorTransport[],
     ),
   }
 
@@ -411,13 +411,13 @@ export async function verifyRegister(
 async function getAuthenticationOptions(
   options: InternalOptionsWebAuthn,
   request: RequestInternal,
-  user?: User
+  user?: User,
 ) {
   const { provider, adapter } = options
 
   // Get the user's authenticators.
   const authenticators =
-    user && user["id"]
+    user && user['id']
       ? await adapter.listAuthenticatorsByUserId(user.id)
       : null
 
@@ -429,7 +429,7 @@ async function getAuthenticationOptions(
     rpID: relayingParty.id,
     allowCredentials: authenticators?.map((a) => ({
       id: fromBase64(a.credentialID),
-      type: "public-key",
+      type: 'public-key',
       transports: stringToTransports(a.transports),
     })),
   })
@@ -446,12 +446,12 @@ async function getAuthenticationOptions(
 async function getRegistrationOptions(
   options: InternalOptionsWebAuthn,
   request: RequestInternal,
-  user: User & { email: string }
+  user: User & { email: string },
 ) {
   const { provider, adapter } = options
 
   // Get the user's authenticators.
-  const authenticators = user["id"]
+  const authenticators = user['id']
     ? await adapter.listAuthenticatorsByUserId(user.id)
     : null
 
@@ -473,35 +473,35 @@ async function getRegistrationOptions(
     rpName: relayingParty.name,
     excludeCredentials: authenticators?.map((a) => ({
       id: fromBase64(a.credentialID),
-      type: "public-key",
+      type: 'public-key',
       transports: stringToTransports(a.transports),
     })),
   })
 }
 
 export function assertInternalOptionsWebAuthn(
-  options: InternalOptions
+  options: InternalOptions,
 ): InternalOptionsWebAuthn {
   const { provider, adapter } = options
 
   // Adapter is required for WebAuthn
   if (!adapter)
-    throw new MissingAdapter("An adapter is required for the WebAuthn provider")
+    throw new MissingAdapter('An adapter is required for the WebAuthn provider')
   // Provider must be WebAuthn
-  if (!provider || provider.type !== "webauthn") {
-    throw new InvalidProvider("Provider must be WebAuthn")
+  if (!provider || provider.type !== 'webauthn') {
+    throw new InvalidProvider('Provider must be WebAuthn')
   }
   // Narrow the options type for typed usage later
   return { ...options, provider, adapter }
 }
 
 function fromAdapterAuthenticator(
-  authenticator: AdapterAuthenticator
+  authenticator: AdapterAuthenticator,
 ): InternalAuthenticator {
   return {
     ...authenticator,
     credentialDeviceType:
-      authenticator.credentialDeviceType as InternalAuthenticator["credentialDeviceType"],
+      authenticator.credentialDeviceType as InternalAuthenticator['credentialDeviceType'],
     transports: stringToTransports(authenticator.transports),
     credentialID: fromBase64(authenticator.credentialID),
     credentialPublicKey: fromBase64(authenticator.credentialPublicKey),
@@ -509,23 +509,23 @@ function fromAdapterAuthenticator(
 }
 
 export function fromBase64(base64: string): Uint8Array {
-  return new Uint8Array(Buffer.from(base64, "base64"))
+  return new Uint8Array(Buffer.from(base64, 'base64'))
 }
 
 export function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64")
+  return Buffer.from(bytes).toString('base64')
 }
 
 export function transportsToString(
-  transports: InternalAuthenticator["transports"]
+  transports: InternalAuthenticator['transports'],
 ) {
-  return transports?.join(",")
+  return transports?.join(',')
 }
 
 export function stringToTransports(
-  tstring: string | undefined | null
-): InternalAuthenticator["transports"] {
+  tstring: string | undefined | null,
+): InternalAuthenticator['transports'] {
   return tstring
-    ? (tstring.split(",") as InternalAuthenticator["transports"])
+    ? (tstring.split(',') as InternalAuthenticator['transports'])
     : undefined
 }

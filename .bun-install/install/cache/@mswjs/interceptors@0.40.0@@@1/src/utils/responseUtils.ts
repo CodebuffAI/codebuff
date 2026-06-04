@@ -13,7 +13,7 @@ export function createServerErrorResponse(body: unknown): Response {
             message: body.message,
             stack: body.stack,
           }
-        : body
+        : body,
     ),
     {
       status: 500,
@@ -21,7 +21,7 @@ export function createServerErrorResponse(body: unknown): Response {
       headers: {
         'Content-Type': 'application/json',
       },
-    }
+    },
   )
 }
 

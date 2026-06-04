@@ -2,7 +2,7 @@ type EventWithTarget<E extends Event, T> = E & { target: T }
 
 export function bindEvent<E extends Event, T>(
   target: T,
-  event: E
+  event: E,
 ): EventWithTarget<E, T> {
   Object.defineProperties(event, {
     target: {

@@ -8,8 +8,8 @@
  *
  * @module providers/mailgun
  */
-import type { EmailConfig, EmailUserConfig } from "./index.js"
-import { html, text } from "../lib/utils/email.js"
+import type { EmailConfig, EmailUserConfig } from './index.js'
+import { html, text } from '../lib/utils/email.js'
 
 /**
  * Add Mailgun login to your page.
@@ -53,45 +53,45 @@ export default function MailGun(
      *
      * @default "US"
      */
-    region?: "US" | "EU"
-  }
+    region?: 'US' | 'EU'
+  },
 ): EmailConfig {
-  const { region = "US" } = config
+  const { region = 'US' } = config
   const servers = {
-    US: "api.mailgun.net",
-    EU: "api.eu.mailgun.net",
+    US: 'api.mailgun.net',
+    EU: 'api.eu.mailgun.net',
   }
   const apiServer = servers[region]
 
   return {
-    id: "mailgun",
-    type: "email",
-    name: "Mailgun",
-    from: "Auth.js <no-reply@authjs.dev>",
+    id: 'mailgun',
+    type: 'email',
+    name: 'Mailgun',
+    from: 'Auth.js <no-reply@authjs.dev>',
     maxAge: 24 * 60 * 60,
     async sendVerificationRequest(params) {
       const { identifier: to, provider, url, theme } = params
       const { host } = new URL(url)
-      const domain = provider.from?.split("@").at(1)
+      const domain = provider.from?.split('@').at(1)
 
-      if (!domain) throw new Error("malformed Mailgun domain")
+      if (!domain) throw new Error('malformed Mailgun domain')
 
       const form = new FormData()
-      form.append("from", `${provider.name} <${provider.from}>`)
-      form.append("to", to)
-      form.append("subject", `Sign in to ${host}`)
-      form.append("html", html({ host, url, theme }))
-      form.append("text", text({ host, url }))
+      form.append('from', `${provider.name} <${provider.from}>`)
+      form.append('to', to)
+      form.append('subject', `Sign in to ${host}`)
+      form.append('html', html({ host, url, theme }))
+      form.append('text', text({ host, url }))
 
       const res = await fetch(`https://${apiServer}/v3/${domain}/messages`, {
-        method: "POST",
+        method: 'POST',
         headers: {
           Authorization: `Basic ${btoa(`api:${provider.apiKey}`)}`,
         },
         body: form,
       })
 
-      if (!res.ok) throw new Error("Mailgun error: " + (await res.text()))
+      if (!res.ok) throw new Error('Mailgun error: ' + (await res.text()))
     },
     options: config,
   }

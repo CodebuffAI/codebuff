@@ -1,6 +1,6 @@
 ## Create Issue for new release
 
-- Create a file with name <i>YYYY-MM-DD-VERSION-release.md</i> in the [_posts](https://github.com/cytoscape/cytoscape.js-blog/tree/gh-pages/_posts) directory.
+- Create a file with name <i>YYYY-MM-DD-VERSION-release.md</i> in the [\_posts](https://github.com/cytoscape/cytoscape.js-blog/tree/gh-pages/_posts) directory.
 
 - Include these main points in the posts
   - layout
@@ -9,7 +9,6 @@
   - tags
   - New important features and who contributed to them.
   - Full list of changes.
-  
 - Sample blog post:
 
 ```

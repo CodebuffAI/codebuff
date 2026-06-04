@@ -8,9 +8,9 @@ CORS is a node.js package for providing a [connect](http://www.senchalabs.org/co
 
 ## Pull Requests Welcome
 
-* Include `'use strict';` in every javascript file.
-* 2 space indentation.
-* Please run the testing steps below before submitting.
+- Include `'use strict';` in every javascript file.
+- 2 space indentation.
+- Please run the testing steps below before submitting.
 
 ## Testing
 
@@ -25,8 +25,8 @@ $ npm test
 
 Related git repositories:
 
-* [https://github.com/TroyGoode/node-cors-server](https://github.com/TroyGoode/node-cors-server)
-* [https://github.com/TroyGoode/node-cors-client](https://github.com/TroyGoode/node-cors-client)
+- [https://github.com/TroyGoode/node-cors-server](https://github.com/TroyGoode/node-cors-server)
+- [https://github.com/TroyGoode/node-cors-client](https://github.com/TroyGoode/node-cors-client)
 
 ## License
 

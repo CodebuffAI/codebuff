@@ -9,7 +9,7 @@
  * @module providers/passage
  */
 
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /** @see [Supported Scopes](https://docs.passage.id/hosted-login/oidc-client-configuration#supported-scopes) */
 export interface PassageProfile {
@@ -88,15 +88,15 @@ export interface PassageProfile {
  * :::
  */
 export default function Passage(
-  config: OAuthUserConfig<PassageProfile>
+  config: OAuthUserConfig<PassageProfile>,
 ): OAuthConfig<PassageProfile> {
   return {
-    id: "passage",
-    name: "Passage",
-    type: "oidc",
-    client: { token_endpoint_auth_method: "client_secret_basic" },
+    id: 'passage',
+    name: 'Passage',
+    type: 'oidc',
+    client: { token_endpoint_auth_method: 'client_secret_basic' },
     style: {
-      brandColor: "#3d53f6",
+      brandColor: '#3d53f6',
     },
     options: config,
   }

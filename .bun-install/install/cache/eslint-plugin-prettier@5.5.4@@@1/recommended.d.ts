@@ -1,4 +1,4 @@
-import { Linter } from 'eslint';
+import { Linter } from 'eslint'
 
 // prettier-ignore
 type IfEqual<A, B, X = A, Y = B> =
@@ -7,6 +7,6 @@ type IfEqual<A, B, X = A, Y = B> =
     ? X
     : Y;
 
-declare const recommendedConfig: IfEqual<Linter.Config, Linter.FlatConfig>;
+declare const recommendedConfig: IfEqual<Linter.Config, Linter.FlatConfig>
 
-export = recommendedConfig;
+export = recommendedConfig

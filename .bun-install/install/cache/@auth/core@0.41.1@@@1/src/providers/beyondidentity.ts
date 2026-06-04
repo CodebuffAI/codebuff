@@ -9,7 +9,7 @@
  * @module providers/beyondidentity
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** @see [Beyond Identity Developer Docs](https://developer.beyondidentity.com/) */
 export interface BeyondIdentityProfile {
@@ -78,12 +78,12 @@ export interface BeyondIdentityProfile {
  */
 
 export default function BeyondIdentity(
-  config: OIDCUserConfig<BeyondIdentityProfile>
+  config: OIDCUserConfig<BeyondIdentityProfile>,
 ): OIDCConfig<BeyondIdentityProfile> {
   return {
-    id: "beyondidentity",
-    name: "Beyond Identity",
-    type: "oidc",
+    id: 'beyondidentity',
+    name: 'Beyond Identity',
+    type: 'oidc',
     profile(profile) {
       return {
         id: profile.sub,
@@ -94,8 +94,8 @@ export default function BeyondIdentity(
       }
     },
     style: {
-      bg: "#5077c5",
-      text: "#fff",
+      bg: '#5077c5',
+      text: '#fff',
     },
     options: config,
   }

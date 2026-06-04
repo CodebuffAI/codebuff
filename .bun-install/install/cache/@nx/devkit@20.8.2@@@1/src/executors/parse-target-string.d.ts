@@ -1,4 +1,4 @@
-import { ExecutorContext, ProjectGraph, Target } from 'nx/src/devkit-exports';
+import { ExecutorContext, ProjectGraph, Target } from 'nx/src/devkit-exports'
 /**
  * Parses a target string into {project, target, configuration}
  *
@@ -10,7 +10,10 @@ import { ExecutorContext, ProjectGraph, Target } from 'nx/src/devkit-exports';
  *
  * @param targetString - target reference
  */
-export declare function parseTargetString(targetString: string, projectGraph: ProjectGraph): Target;
+export declare function parseTargetString(
+  targetString: string,
+  projectGraph: ProjectGraph,
+): Target
 /**
  * Parses a target string into {project, target, configuration}. Passing a full
  * {@link ExecutorContext} enables the targetString to reference the current project.
@@ -22,7 +25,10 @@ export declare function parseTargetString(targetString: string, projectGraph: Pr
  * parseTargetString("proj:test:production", executorContext) // returns { project: "proj", target: "test", configuration: "production" }
  * ```
  */
-export declare function parseTargetString(targetString: string, ctx: ExecutorContext): Target;
+export declare function parseTargetString(
+  targetString: string,
+  ctx: ExecutorContext,
+): Target
 /**
  * Returns a string in the format "project:target[:configuration]" for the target
  *
@@ -35,4 +41,8 @@ export declare function parseTargetString(targetString: string, ctx: ExecutorCon
  * targetToTargetString({ project: "proj", target: "test", configuration: "production" }) // returns "proj:test:production"
  * ```
  */
-export declare function targetToTargetString({ project, target, configuration, }: Target): string;
+export declare function targetToTargetString({
+  project,
+  target,
+  configuration,
+}: Target): string

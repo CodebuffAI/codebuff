@@ -25,11 +25,13 @@ If your application will block browser main thread (for example `pthread_join`),
 
 ```js
 const ENVIRONMENT_IS_NODE =
-  typeof process === 'object' && process !== null &&
-  typeof process.versions === 'object' && process.versions !== null &&
-  typeof process.versions.node === 'string';
+  typeof process === 'object' &&
+  process !== null &&
+  typeof process.versions === 'object' &&
+  process.versions !== null &&
+  typeof process.versions.node === 'string'
 
-(function (main) {
+;(function (main) {
   if (ENVIRONMENT_IS_NODE) {
     main(require)
   } else {
@@ -39,11 +41,12 @@ const ENVIRONMENT_IS_NODE =
     }
     const nodeWasi = { WASI: globalThis.wasmUtil.WASI }
     const nodeWorkerThreads = {
-      Worker: globalThis.Worker
+      Worker: globalThis.Worker,
     }
     const _require = function (request) {
       if (request === 'node:wasi' || request === 'wasi') return nodeWasi
-      if (request === 'node:worker_threads' || request === 'worker_threads') return nodeWorkerThreads
+      if (request === 'node:worker_threads' || request === 'worker_threads')
+        return nodeWorkerThreads
       if (request === '@emnapi/wasi-threads') return globalThis.wasiThreads
       throw new Error('Can not find module: ' + request)
     }
@@ -55,7 +58,7 @@ const ENVIRONMENT_IS_NODE =
   const { WASIThreads } = require('@emnapi/wasi-threads')
 
   const wasi = new WASI({
-    version: 'preview1'
+    version: 'preview1',
   })
   const wasiThreads = new WASIThreads({
     wasi,
@@ -68,7 +71,7 @@ const ENVIRONMENT_IS_NODE =
       ? false
       : {
           size: 4 /** greater than actual needs (2) */,
-          strict: true
+          strict: true,
         },
 
     /**
@@ -79,14 +82,14 @@ const ENVIRONMENT_IS_NODE =
 
     onCreateWorker: () => {
       return new Worker('./worker.js', {
-        execArgv: ['--experimental-wasi-unstable-preview1']
+        execArgv: ['--experimental-wasi-unstable-preview1'],
       })
-    }
+    },
   })
   const memory = new WebAssembly.Memory({
     initial: 16777216 / 65536,
     maximum: 2147483648 / 65536,
-    shared: true
+    shared: true,
   })
   let input
   const file = 'path/to/your/wasi-module.wasm'
@@ -99,7 +102,7 @@ const ENVIRONMENT_IS_NODE =
   let { module, instance } = await WebAssembly.instantiate(input, {
     env: { memory },
     wasi_snapshot_preview1: wasi.wasiImport,
-    ...wasiThreads.getImportObject()
+    ...wasiThreads.getImportObject(),
   })
 
   wasiThreads.setup(instance, module, memory)
@@ -117,10 +120,12 @@ const ENVIRONMENT_IS_NODE =
 `worker.js`
 
 ```js
-(function (main) {
+;(function (main) {
   const ENVIRONMENT_IS_NODE =
-    typeof process === 'object' && process !== null &&
-    typeof process.versions === 'object' && process.versions !== null &&
+    typeof process === 'object' &&
+    process !== null &&
+    typeof process.versions === 'object' &&
+    process.versions !== null &&
     typeof process.versions.node === 'string'
 
   if (ENVIRONMENT_IS_NODE) {
@@ -141,11 +146,13 @@ const ENVIRONMENT_IS_NODE =
         require,
         Worker: nodeWorkerThreads.Worker,
         importScripts: function (f) {
-          (0, eval)(require('fs').readFileSync(f, 'utf8') + '//# sourceURL=' + f)
+          ;(0, eval)(
+            require('fs').readFileSync(f, 'utf8') + '//# sourceURL=' + f,
+          )
         },
         postMessage: function (msg) {
           parentPort.postMessage(msg)
-        }
+        },
       })
     }
 
@@ -163,21 +170,21 @@ const ENVIRONMENT_IS_NODE =
     const _init = function () {}
     main(_require, _init)
   }
-})(function main (require, init) {
+})(function main(require, init) {
   init()
 
   const { WASI } = require('wasi')
   const { ThreadMessageHandler, WASIThreads } = require('@emnapi/wasi-threads')
 
   const handler = new ThreadMessageHandler({
-    async onLoad ({ wasmModule, wasmMemory }) {
+    async onLoad({ wasmModule, wasmMemory }) {
       const wasi = new WASI({
-        version: 'preview1'
+        version: 'preview1',
       })
 
       const wasiThreads = new WASIThreads({
         wasi,
-        childThread: true
+        childThread: true,
       })
 
       const originalInstance = await WebAssembly.instantiate(wasmModule, {
@@ -185,14 +192,18 @@ const ENVIRONMENT_IS_NODE =
           memory: wasmMemory,
         },
         wasi_snapshot_preview1: wasi.wasiImport,
-        ...wasiThreads.getImportObject()
+        ...wasiThreads.getImportObject(),
       })
 
       // must call `initialize` instead of `start` in child thread
-      const instance = wasiThreads.initialize(originalInstance, wasmModule, wasmMemory)
+      const instance = wasiThreads.initialize(
+        originalInstance,
+        wasmModule,
+        wasmMemory,
+      )
 
       return { module: wasmModule, instance }
-    }
+    },
   })
 
   globalThis.onmessage = function (e) {

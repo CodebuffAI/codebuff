@@ -22,15 +22,15 @@ npm i dedent
 ```
 
 ```js
-import dedent from "dedent";
+import dedent from 'dedent'
 
 function usageExample() {
-	const first = dedent`A string that gets so long you need to break it over
+  const first = dedent`A string that gets so long you need to break it over
 											 multiple lines. Luckily dedent is here to keep it
 											 readable without lots of spaces ending up in the string
-											 itself.`;
+											 itself.`
 
-	const second = dedent`
+  const second = dedent`
 		Leading and trailing lines will be trimmed, so you can write something like
 		this and have it work as you expect:
 
@@ -39,16 +39,16 @@ function usageExample() {
 				 - and still have it do the right thing
 
 		That's all.
-	`;
+	`
 
-	const third = dedent(`
+  const third = dedent(`
 		Wait! I lied. Dedent can also be used as a function.
-	`);
+	`)
 
-	return first + "\n\n" + second + "\n\n" + third;
+  return first + '\n\n' + second + '\n\n' + third
 }
 
-console.log(usageExample());
+console.log(usageExample())
 ```
 
 ```plaintext
@@ -100,29 +100,29 @@ When an interpolation evaluates to a multi-line string, only its first line is p
 Enable `alignValues` to fix that visual jump. When `true`, for every multi-line interpolated value, each line after the first gets extra indentation appended so it starts in the same column as the first line.
 
 ```js
-import dedent from "dedent";
+import dedent from 'dedent'
 
 const list = dedent`
 	- apples
 	- bananas
 	- cherries
-`;
+`
 
 const withoutAlign = dedent`
 	List without alignValues (default):
 		${list}
 	Done.
-`;
+`
 
 const withAlign = dedent.withOptions({ alignValues: true })`
 	List with alignValues: true
 		${list}
 	Done.
-`;
+`
 
-console.log(withoutAlign);
-console.log("---");
-console.log(withAlign);
+console.log(withoutAlign)
+console.log('---')
+console.log(withAlign)
 ```
 
 ```plaintext
@@ -151,22 +151,22 @@ It defaults to:
 - `true`: when `dedent` is called as a string tag
 
 ```js
-import dedent from "dedent";
+import dedent from 'dedent'
 
 // "$hello!"
 dedent`
 	$hello!
-`;
+`
 
 // "\$hello!"
 dedent.withOptions({ escapeSpecialCharacters: false })`
 	$hello!
-`;
+`
 
 // "$hello!"
 dedent.withOptions({ escapeSpecialCharacters: true })`
 	$hello!
-`;
+`
 ```
 
 For more context, see [🚀 Feature: Add an option to disable special character escaping](https://github.com/dmnd/dedent/issues/63).
@@ -178,22 +178,22 @@ By default, dedent will trim leading and trailing whitespace from the overall st
 This can be disabled by setting `trimWhitespace: false`.
 
 ```js
-import dedent from "dedent";
+import dedent from 'dedent'
 
 // "hello!"
 dedent`
 	hello! 
-`;
+`
 
 // "\nhello! \n"
 dedent.withOptions({ trimWhitespace: false })`
 	hello! 
-`;
+`
 
 // "hello!"
 dedent.withOptions({ trimWhitespace: true })`
 	hello! 
-`;
+`
 ```
 
 ## License

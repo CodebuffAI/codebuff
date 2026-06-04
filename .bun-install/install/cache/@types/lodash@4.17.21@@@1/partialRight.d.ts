@@ -1,2 +1,2 @@
-import { partialRight } from "./index";
-export = partialRight;
+import { partialRight } from './index'
+export = partialRight

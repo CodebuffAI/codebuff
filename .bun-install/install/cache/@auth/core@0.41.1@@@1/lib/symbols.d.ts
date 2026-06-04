@@ -7,7 +7,7 @@
  * if you are implementing a framework that is already protected against CSRF attacks, you can skip this check by
  * passing this value to {@link AuthConfig.skipCSRFCheck}.
  */
-export declare const skipCSRFCheck: unique symbol;
+export declare const skipCSRFCheck: unique symbol
 /**
  * :::danger
  * This option is intended for framework authors.
@@ -17,7 +17,7 @@ export declare const skipCSRFCheck: unique symbol;
  * if you are implementing a framework you might want to get access to the raw internal response
  * by passing this value to {@link AuthConfig.raw}.
  */
-export declare const raw: unique symbol;
+export declare const raw: unique symbol
 /**
  * :::danger
  * This option allows you to override the default `fetch` function used by the provider
@@ -46,5 +46,5 @@ export declare const raw: unique symbol;
  * @see https://undici.nodejs.org/#/docs/api/ProxyAgent?id=example-basic-proxy-request-with-local-agent-dispatcher
  * @see https://authjs.dev/guides/corporate-proxy
  */
-export declare const customFetch: unique symbol;
+export declare const customFetch: unique symbol
 //# sourceMappingURL=symbols.d.ts.map

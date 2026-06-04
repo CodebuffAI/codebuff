@@ -8,7 +8,7 @@
  *
  * @module providers/cognito
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface CognitoProfile extends Record<string, any> {
   sub: string
@@ -80,14 +80,14 @@ export interface CognitoProfile extends Record<string, any> {
  * :::
  */
 export default function Cognito<P extends CognitoProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "cognito",
-    name: "Cognito",
-    type: "oidc",
+    id: 'cognito',
+    name: 'Cognito',
+    type: 'oidc',
     style: {
-      brandColor: "#C17B9E",
+      brandColor: '#C17B9E',
     },
     options,
   }

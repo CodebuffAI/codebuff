@@ -8,7 +8,7 @@
  *
  * @module providers/mailgun
  */
-import type { EmailConfig, EmailUserConfig } from "./index.js";
+import type { EmailConfig, EmailUserConfig } from './index.js'
 /**
  * Add Mailgun login to your page.
  *
@@ -44,12 +44,14 @@ import type { EmailConfig, EmailUserConfig } from "./index.js";
  *
  * :::
  */
-export default function MailGun(config: EmailUserConfig & {
+export default function MailGun(
+  config: EmailUserConfig & {
     /**
      * https://documentation.mailgun.com/docs/mailgun/api-reference/#base-url
      *
      * @default "US"
      */
-    region?: "US" | "EU";
-}): EmailConfig;
+    region?: 'US' | 'EU'
+  },
+): EmailConfig
 //# sourceMappingURL=mailgun.d.ts.map

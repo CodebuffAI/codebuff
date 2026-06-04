@@ -1,1 +1,1 @@
-export function isAcyclic(g: any): boolean;
+export function isAcyclic(g: any): boolean

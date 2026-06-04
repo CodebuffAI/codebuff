@@ -76,18 +76,15 @@ The two most used option types are a boolean option, and an option which takes i
 Example file: [split.js](./examples/split.js)
 
 ```js
-const { program } = require('commander');
+const { program } = require('commander')
 
-program
-  .option('--first')
-  .option('-s, --separator <char>')
-  .argument('<string>');
+program.option('--first').option('-s, --separator <char>').argument('<string>')
 
-program.parse();
+program.parse()
 
-const options = program.opts();
-const limit = options.first ? 1 : undefined;
-console.log(program.args[0].split(options.separator, limit));
+const options = program.opts()
+const limit = options.first ? 1 : undefined
+console.log(program.args[0].split(options.separator, limit))
 ```
 
 ```console
@@ -103,25 +100,26 @@ Here is a more complete program using a subcommand and with descriptions for the
 Example file: [string-util.js](./examples/string-util.js)
 
 ```js
-const { Command } = require('commander');
-const program = new Command();
+const { Command } = require('commander')
+const program = new Command()
 
 program
   .name('string-util')
   .description('CLI to some JavaScript string utilities')
-  .version('0.8.0');
+  .version('0.8.0')
 
-program.command('split')
+program
+  .command('split')
   .description('Split a string into substrings and display as an array')
   .argument('<string>', 'string to split')
   .option('--first', 'display just the first substring')
   .option('-s, --separator <char>', 'separator character', ',')
   .action((str, options) => {
-    const limit = options.first ? 1 : undefined;
-    console.log(str.split(options.separator, limit));
-  });
+    const limit = options.first ? 1 : undefined
+    console.log(str.split(options.separator, limit))
+  })
 
-program.parse();
+program.parse()
 ```
 
 ```console
@@ -151,27 +149,27 @@ This is used in the examples in this README for brevity.
 
 ```js
 // CommonJS (.cjs)
-const { program } = require('commander');
+const { program } = require('commander')
 ```
 
 For larger programs which may use commander in multiple ways, including unit testing, it is better to create a local Command object to use.
 
 ```js
 // CommonJS (.cjs)
-const { Command } = require('commander');
-const program = new Command();
+const { Command } = require('commander')
+const program = new Command()
 ```
 
 ```js
 // ECMAScript (.mjs)
-import { Command } from 'commander';
-const program = new Command();
+import { Command } from 'commander'
+const program = new Command()
 ```
 
 ```ts
 // TypeScript (.ts)
-import { Command } from 'commander';
-const program = new Command();
+import { Command } from 'commander'
+const program = new Command()
 ```
 
 ## Options
@@ -220,15 +218,15 @@ Example file: [options-common.js](./examples/options-common.js)
 program
   .option('-d, --debug', 'output extra debugging')
   .option('-s, --small', 'small pizza size')
-  .option('-p, --pizza-type <type>', 'flavour of pizza');
+  .option('-p, --pizza-type <type>', 'flavour of pizza')
 
-program.parse(process.argv);
+program.parse(process.argv)
 
-const options = program.opts();
-if (options.debug) console.log(options);
-console.log('pizza details:');
-if (options.small) console.log('- small pizza size');
-if (options.pizzaType) console.log(`- ${options.pizzaType}`);
+const options = program.opts()
+if (options.debug) console.log(options)
+console.log('pizza details:')
+if (options.small) console.log('- small pizza size')
+if (options.pizzaType) console.log(`- ${options.pizzaType}`)
 ```
 
 ```console
@@ -259,12 +257,15 @@ You can specify a default value for an option.
 Example file: [options-defaults.js](./examples/options-defaults.js)
 
 ```js
-program
-  .option('-c, --cheese <type>', 'add the specified type of cheese', 'blue');
+program.option(
+  '-c, --cheese <type>',
+  'add the specified type of cheese',
+  'blue',
+)
 
-program.parse();
+program.parse()
 
-console.log(`cheese: ${program.opts().cheese}`);
+console.log(`cheese: ${program.opts().cheese}`)
 ```
 
 ```console
@@ -289,12 +290,13 @@ program
   .option('--no-sauce', 'Remove sauce')
   .option('--cheese <flavour>', 'cheese flavour', 'mozzarella')
   .option('--no-cheese', 'plain with no cheese')
-  .parse();
+  .parse()
 
-const options = program.opts();
-const sauceStr = options.sauce ? 'sauce' : 'no sauce';
-const cheeseStr = (options.cheese === false) ? 'no cheese' : `${options.cheese} cheese`;
-console.log(`You ordered a pizza with ${sauceStr} and ${cheeseStr}`);
+const options = program.opts()
+const sauceStr = options.sauce ? 'sauce' : 'no sauce'
+const cheeseStr =
+  options.cheese === false ? 'no cheese' : `${options.cheese} cheese`
+console.log(`You ordered a pizza with ${sauceStr} and ${cheeseStr}`)
 ```
 
 ```console
@@ -314,15 +316,14 @@ You can specify an option which may be used as a boolean option but may optional
 Example file: [options-boolean-or-value.js](./examples/options-boolean-or-value.js)
 
 ```js
-program
-  .option('-c, --cheese [type]', 'Add cheese with optional type');
+program.option('-c, --cheese [type]', 'Add cheese with optional type')
 
-program.parse(process.argv);
+program.parse(process.argv)
 
-const options = program.opts();
-if (options.cheese === undefined) console.log('no cheese');
-else if (options.cheese === true) console.log('add cheese');
-else console.log(`add cheese type ${options.cheese}`);
+const options = program.opts()
+if (options.cheese === undefined) console.log('no cheese')
+else if (options.cheese === true) console.log('add cheese')
+else console.log(`add cheese type ${options.cheese}`)
 ```
 
 ```console
@@ -347,10 +348,9 @@ You may specify a required (mandatory) option using `.requiredOption()`. The opt
 Example file: [options-required.js](./examples/options-required.js)
 
 ```js
-program
-  .requiredOption('-c, --cheese <type>', 'pizza must have cheese');
+program.requiredOption('-c, --cheese <type>', 'pizza must have cheese')
 
-program.parse();
+program.parse()
 ```
 
 ```console
@@ -370,12 +370,12 @@ Example file: [options-variadic.js](./examples/options-variadic.js)
 ```js
 program
   .option('-n, --number <numbers...>', 'specify numbers')
-  .option('-l, --letter [letters...]', 'specify letters');
+  .option('-l, --letter [letters...]', 'specify letters')
 
-program.parse();
+program.parse()
 
-console.log('Options: ', program.opts());
-console.log('Remaining arguments: ', program.args);
+console.log('Options: ', program.opts())
+console.log('Remaining arguments: ', program.args)
 ```
 
 ```console
@@ -397,7 +397,7 @@ For information about possible ambiguous cases, see [options taking varying argu
 The optional `version` method adds handling for displaying the command version. The default option flags are `-V` and `--version`, and when present the command prints the version number and exits.
 
 ```js
-program.version('0.0.1');
+program.version('0.0.1')
 ```
 
 ```console
@@ -409,7 +409,7 @@ You may change the flags and description by passing additional parameters to the
 the same syntax for flags as the `option` method.
 
 ```js
-program.version('0.0.1', '-v, --vers', 'output the current version');
+program.version('0.0.1', '-v, --vers', 'output the current version')
 ```
 
 ### More configuration
@@ -422,12 +422,33 @@ Example files: [options-extra.js](./examples/options-extra.js), [options-env.js]
 ```js
 program
   .addOption(new Option('-s, --secret').hideHelp())
-  .addOption(new Option('-t, --timeout <delay>', 'timeout in seconds').default(60, 'one minute'))
-  .addOption(new Option('-d, --drink <size>', 'drink size').choices(['small', 'medium', 'large']))
+  .addOption(
+    new Option('-t, --timeout <delay>', 'timeout in seconds').default(
+      60,
+      'one minute',
+    ),
+  )
+  .addOption(
+    new Option('-d, --drink <size>', 'drink size').choices([
+      'small',
+      'medium',
+      'large',
+    ]),
+  )
   .addOption(new Option('-p, --port <number>', 'port number').env('PORT'))
-  .addOption(new Option('--donate [amount]', 'optional donation in dollars').preset('20').argParser(parseFloat))
-  .addOption(new Option('--disable-server', 'disables the server').conflicts('port'))
-  .addOption(new Option('--free-drink', 'small drink included free ').implies({ drink: 'small' }));
+  .addOption(
+    new Option('--donate [amount]', 'optional donation in dollars')
+      .preset('20')
+      .argParser(parseFloat),
+  )
+  .addOption(
+    new Option('--disable-server', 'disables the server').conflicts('port'),
+  )
+  .addOption(
+    new Option('--free-drink', 'small drink included free ').implies({
+      drink: 'small',
+    }),
+  )
 ```
 
 ```console
@@ -469,41 +490,45 @@ Example file: [options-custom-processing.js](./examples/options-custom-processin
 ```js
 function myParseInt(value, dummyPrevious) {
   // parseInt takes a string and a radix
-  const parsedValue = parseInt(value, 10);
+  const parsedValue = parseInt(value, 10)
   if (isNaN(parsedValue)) {
-    throw new commander.InvalidArgumentError('Not a number.');
+    throw new commander.InvalidArgumentError('Not a number.')
   }
-  return parsedValue;
+  return parsedValue
 }
 
 function increaseVerbosity(dummyValue, previous) {
-  return previous + 1;
+  return previous + 1
 }
 
 function collect(value, previous) {
-  return previous.concat([value]);
+  return previous.concat([value])
 }
 
 function commaSeparatedList(value, dummyPrevious) {
-  return value.split(',');
+  return value.split(',')
 }
 
 program
   .option('-f, --float <number>', 'float argument', parseFloat)
   .option('-i, --integer <number>', 'integer argument', myParseInt)
-  .option('-v, --verbose', 'verbosity that can be increased', increaseVerbosity, 0)
+  .option(
+    '-v, --verbose',
+    'verbosity that can be increased',
+    increaseVerbosity,
+    0,
+  )
   .option('-c, --collect <value>', 'repeatable value', collect, [])
   .option('-l, --list <items>', 'comma separated list', commaSeparatedList)
-;
 
-program.parse();
+program.parse()
 
-const options = program.opts();
-if (options.float !== undefined) console.log(`float: ${options.float}`);
-if (options.integer !== undefined) console.log(`integer: ${options.integer}`);
-if (options.verbose > 0) console.log(`verbosity: ${options.verbose}`);
-if (options.collect.length > 0) console.log(options.collect);
-if (options.list !== undefined) console.log(options.list);
+const options = program.opts()
+if (options.float !== undefined) console.log(`float: ${options.float}`)
+if (options.integer !== undefined) console.log(`integer: ${options.integer}`)
+if (options.verbose > 0) console.log(`verbosity: ${options.verbose}`)
+if (options.collect.length > 0) console.log(options.collect)
+if (options.list !== undefined) console.log(options.list)
 ```
 
 ```console
@@ -536,19 +561,18 @@ program
   .command('clone <source> [destination]')
   .description('clone a repository into a newly created directory')
   .action((source, destination) => {
-    console.log('clone command called');
-  });
+    console.log('clone command called')
+  })
 
 // Command implemented using stand-alone executable file, indicated by adding description as second parameter to `.command`.
 // Returns `this` for adding more commands.
 program
   .command('start <service>', 'start named service')
-  .command('stop [service]', 'stop named service, or all if no name supplied');
+  .command('stop [service]', 'stop named service, or all if no name supplied')
 
 // Command prepared separately.
 // Returns `this` for adding more commands.
-program
-  .addCommand(build.makeBuildCommand());
+program.addCommand(build.makeBuildCommand())
 ```
 
 Configuration options can be passed with the call to `.command()` and `.addCommand()`. Specifying `hidden: true` will
@@ -579,13 +603,13 @@ program
   .argument('<username>', 'user to login')
   .argument('[password]', 'password for user, if required', 'no password given')
   .action((username, password) => {
-    console.log('username:', username);
-    console.log('password:', password);
-  });
+    console.log('username:', username)
+    console.log('password:', password)
+  })
 ```
 
- The last argument of a command can be variadic, and only the last argument.  To make an argument variadic you
- append `...` to the argument name. A variadic argument is passed to the action handler as an array. For example:
+The last argument of a command can be variadic, and only the last argument. To make an argument variadic you
+append `...` to the argument name. A variadic argument is passed to the action handler as an array. For example:
 
 ```js
 program
@@ -594,16 +618,15 @@ program
   .argument('<dirs...>')
   .action(function (dirs) {
     dirs.forEach((dir) => {
-      console.log('rmdir %s', dir);
-    });
-  });
+      console.log('rmdir %s', dir)
+    })
+  })
 ```
 
 There is a convenience method to add multiple arguments at once, but without descriptions:
 
 ```js
-program
-  .arguments('<username> <password>');
+program.arguments('<username> <password>')
 ```
 
 #### More configuration
@@ -614,8 +637,19 @@ Example file: [arguments-extra.js](./examples/arguments-extra.js)
 
 ```js
 program
-  .addArgument(new commander.Argument('<drink-size>', 'drink cup size').choices(['small', 'medium', 'large']))
-  .addArgument(new commander.Argument('[timeout]', 'timeout in seconds').default(60, 'one minute'))
+  .addArgument(
+    new commander.Argument('<drink-size>', 'drink cup size').choices([
+      'small',
+      'medium',
+      'large',
+    ]),
+  )
+  .addArgument(
+    new commander.Argument('[timeout]', 'timeout in seconds').default(
+      60,
+      'one minute',
+    ),
+  )
 ```
 
 #### Custom argument processing
@@ -636,9 +670,8 @@ program
   .argument('<first>', 'integer argument', myParseInt)
   .argument('[second]', 'integer argument', myParseInt, 1000)
   .action((first, second) => {
-    console.log(`${first} + ${second} = ${first + second}`);
+    console.log(`${first} + ${second} = ${first + second}`)
   })
-;
 ```
 
 ### Action handler
@@ -655,11 +688,11 @@ program
   .option('-d, --debug', 'display some debugging')
   .action((name, options, command) => {
     if (options.debug) {
-      console.error('Called %s with options %o', command.name(), options);
+      console.error('Called %s with options %o', command.name(), options)
     }
-    const title = options.title ? `${options.title} ` : '';
-    console.log(`Thank-you ${title}${name}`);
-  });
+    const title = options.title ? `${options.title} ` : ''
+    console.log(`Thank-you ${title}${name}`)
+  })
 ```
 
 If you prefer, you can work with the command directly and skip declaring the parameters for the action handler. The `this` keyword is set to the running command and can be used from a function expression (but not from an arrow function).
@@ -671,21 +704,21 @@ program
   .command('serve')
   .argument('<script>')
   .option('-p, --port <number>', 'port number', 80)
-  .action(function() {
-    console.error('Run script %s on port %s', this.args[0], this.opts().port);
-  });
+  .action(function () {
+    console.error('Run script %s on port %s', this.args[0], this.opts().port)
+  })
 ```
 
 You may supply an `async` action handler, in which case you call `.parseAsync` rather than `.parse`.
 
 ```js
-async function run() { /* code goes here */ }
+async function run() {
+  /* code goes here */
+}
 
 async function main() {
-  program
-    .command('run')
-    .action(run);
-  await program.parseAsync(process.argv);
+  program.command('run').action(run)
+  await program.parseAsync(process.argv)
 }
 ```
 
@@ -708,10 +741,12 @@ program
   .version('0.1.0')
   .command('install [package-names...]', 'install one or more packages')
   .command('search [query]', 'search with optional query')
-  .command('update', 'update installed packages', { executableFile: 'myUpdateSubCommand' })
-  .command('list', 'list packages installed', { isDefault: true });
+  .command('update', 'update installed packages', {
+    executableFile: 'myUpdateSubCommand',
+  })
+  .command('list', 'list packages installed', { isDefault: true })
 
-program.parse(process.argv);
+program.parse(process.argv)
 ```
 
 If the program is designed to be installed globally, make sure the executables have proper modes, like `755`.
@@ -727,21 +762,23 @@ program
   .option('-t, --trace', 'display trace statements for commands')
   .hook('preAction', (thisCommand, actionCommand) => {
     if (thisCommand.opts().trace) {
-      console.log(`About to call action handler for subcommand: ${actionCommand.name()}`);
-      console.log('arguments: %O', actionCommand.args);
-      console.log('options: %o', actionCommand.opts());
+      console.log(
+        `About to call action handler for subcommand: ${actionCommand.name()}`,
+      )
+      console.log('arguments: %O', actionCommand.args)
+      console.log('options: %o', actionCommand.opts())
     }
-  });
+  })
 ```
 
 The callback hook can be `async`, in which case you call `.parseAsync` rather than `.parse`. You can add multiple hooks per event.
 
 The supported events are:
 
-| event name | when hook called | callback parameters |
-| :-- | :-- | :-- |
-| `preAction`, `postAction` |  before/after action handler for this command and its nested subcommands |   `(thisCommand, actionCommand)` |
-| `preSubcommand` | before parsing direct subcommand  | `(thisCommand, subcommand)` |
+| event name                | when hook called                                                        | callback parameters            |
+| :------------------------ | :---------------------------------------------------------------------- | :----------------------------- |
+| `preAction`, `postAction` | before/after action handler for this command and its nested subcommands | `(thisCommand, actionCommand)` |
+| `preSubcommand`           | before parsing direct subcommand                                        | `(thisCommand, subcommand)`    |
 
 For an overview of the life cycle events see [parsing life cycle and hooks](./docs/parsing-and-hooks.md).
 
@@ -785,13 +822,15 @@ You can add extra text to be displayed along with the built-in help.
 Example file: [custom-help](./examples/custom-help)
 
 ```js
-program
-  .option('-f, --foo', 'enable some foo');
+program.option('-f, --foo', 'enable some foo')
 
-program.addHelpText('after', `
+program.addHelpText(
+  'after',
+  `
 
 Example call:
-  $ custom-help --help`);
+  $ custom-help --help`,
+)
 ```
 
 Yields the following help output:
@@ -827,9 +866,9 @@ The default behaviour for usage errors is to just display a short error message.
 You can change the behaviour to show the full help or a custom help message after an error.
 
 ```js
-program.showHelpAfterError();
+program.showHelpAfterError()
 // or
-program.showHelpAfterError('(add --help for additional information)');
+program.showHelpAfterError('(add --help for additional information)')
 ```
 
 ```console
@@ -842,7 +881,7 @@ The default behaviour is to suggest correct spelling after an error for an unkno
 can disable this.
 
 ```js
-program.showSuggestionAfterError(false);
+program.showSuggestionAfterError(false)
 ```
 
 ```console
@@ -868,8 +907,8 @@ fall back to using the script name from the full arguments passed into `.parse()
 depending on how your program is launched, so you may wish to specify it explicitly.
 
 ```js
-program.name('pizza');
-const pm = new Command('pm');
+program.name('pizza')
+const pm = new Command('pm')
 ```
 
 Subcommands get a name when specified using `.command()`. If you create the subcommand yourself to use with `.addCommand()`,
@@ -880,9 +919,7 @@ then set the name using `.name()` or in the Command constructor.
 This allows you to customise the usage description in the first line of the help. Given:
 
 ```js
-program
-  .name("my-command")
-  .usage("[global options] command")
+program.name('my-command').usage('[global options] command')
 ```
 
 The help will start with:
@@ -897,12 +934,10 @@ The description appears in the help for the command. You can optionally supply a
 summary to use when listed as a subcommand of the program.
 
 ```js
-program
-  .command("duplicate")
-  .summary("make a copy")
+program.command('duplicate').summary('make a copy')
   .description(`Make a copy of the current project.
 This may require additional disk space.
-  `);
+  `)
 ```
 
 ### .helpOption(flags, description)
@@ -910,8 +945,7 @@ This may require additional disk space.
 By default, every command has a help option. You may change the default help flags and description. Pass false to disable the built-in help option.
 
 ```js
-program
-  .helpOption('-e, --HELP', 'read more information');
+program.helpOption('-e, --HELP', 'read more information')
 ```
 
 (Or use `.addHelpOption()` to add an option you construct yourself.)
@@ -923,7 +957,7 @@ A help command is added by default if your command has subcommands. You can expl
 You can both turn on and customise the help command by supplying the name and description:
 
 ```js
-program.helpCommand('assist [command]', 'show assistance');
+program.helpCommand('assist [command]', 'show assistance')
 ```
 
 (Or use `.addHelpCommand()` to add a command you construct yourself.)
@@ -951,8 +985,8 @@ You can execute custom actions by listening to command and option events.
 
 ```js
 program.on('option:verbose', function () {
-  process.env.VERBOSE = this.opts().verbose;
-});
+  process.env.VERBOSE = this.opts().verbose
+})
 ```
 
 ## Bits and pieces
@@ -970,9 +1004,9 @@ Or call with an array of strings to parse, and optionally where the user argumen
 For example:
 
 ```js
-program.parse(); // parse process.argv and auto-detect electron and special node flags
-program.parse(process.argv); // assume argv[0] is app and argv[1] is script
-program.parse(['--port', '80'], { from: 'user' }); // just user supplied arguments, nothing special about argv[0]
+program.parse() // parse process.argv and auto-detect electron and special node flags
+program.parse(process.argv) // assume argv[0] is app and argv[1] is script
+program.parse(['--port', '80'], { from: 'user' }) // just user supplied arguments, nothing special about argv[0]
 ```
 
 Use parseAsync instead of parse if any of your action handlers are async.
@@ -1024,9 +1058,9 @@ program
   .option('-d, --debug')
   .action((commandAndOptions) => {
     if (commandAndOptions.debug) {
-      console.error(`Called ${commandAndOptions.name()}`);
+      console.error(`Called ${commandAndOptions.name()}`)
     }
-  });
+  })
 ```
 
 ### TypeScript
@@ -1050,8 +1084,8 @@ node -r ts-node/register pm.ts
 This factory function creates a new command. It is exported and may be used instead of using `new`, like:
 
 ```js
-const { createCommand } = require('commander');
-const program = createCommand();
+const { createCommand } = require('commander')
+const program = createCommand()
 ```
 
 `createCommand` is also a method of the Command object, and creates a new command rather than a subcommand. This gets used internally
@@ -1077,9 +1111,9 @@ If you are using VSCode to debug executable subcommands you need to set the `"au
 ### npm run-script
 
 By default, when you call your program using run-script, `npm` will parse any options on the command-line and they will not reach your program. Use
- `--` to stop the npm option parsing and pass through all the arguments.
+`--` to stop the npm option parsing and pass through all the arguments.
 
- The synopsis for [npm run-script](https://docs.npmjs.com/cli/v9/commands/npm-run-script) explicitly shows the `--` for this reason:
+The synopsis for [npm run-script](https://docs.npmjs.com/cli/v9/commands/npm-run-script) explicitly shows the `--` for this reason:
 
 ```console
 npm run-script <command> [-- <args>]
@@ -1093,8 +1127,11 @@ As well as the error message, you can optionally specify the `exitCode` (used wi
 and `code` (used with `CommanderError`).
 
 ```js
-program.error('Password must be longer than four characters');
-program.error('Custom processing has failed', { exitCode: 2, code: 'my.custom.error' });
+program.error('Password must be longer than four characters')
+program.error('Custom processing has failed', {
+  exitCode: 2,
+  code: 'my.custom.error',
+})
 ```
 
 ### Override exit and output handling
@@ -1107,10 +1144,10 @@ Commander expects the callback to terminate the normal program flow, and will ca
 The normal display of error messages or version or help is not affected by the override which is called after the display.
 
 ```js
-program.exitOverride();
+program.exitOverride()
 
 try {
-  program.parse(process.argv);
+  program.parse(process.argv)
 } catch (err) {
   // custom processing...
 }
@@ -1124,17 +1161,16 @@ Example file: [configure-output.js](./examples/configure-output.js)
 ```js
 function errorColor(str) {
   // Add ANSI escape codes to display text in red.
-  return `\x1b[31m${str}\x1b[0m`;
+  return `\x1b[31m${str}\x1b[0m`
 }
 
-program
-  .configureOutput({
-    // Visibly override write routines as example!
-    writeOut: (str) => process.stdout.write(`[OUT] ${str}`),
-    writeErr: (str) => process.stdout.write(`[ERR] ${str}`),
-    // Highlight errors in color.
-    outputError: (str, write) => write(errorColor(str))
-  });
+program.configureOutput({
+  // Visibly override write routines as example!
+  writeOut: (str) => process.stdout.write(`[OUT] ${str}`),
+  writeErr: (str) => process.stdout.write(`[ERR] ${str}`),
+  // Highlight errors in color.
+  outputError: (str, write) => write(errorColor(str)),
+})
 ```
 
 ### Additional documentation

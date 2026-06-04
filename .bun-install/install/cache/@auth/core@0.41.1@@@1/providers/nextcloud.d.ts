@@ -8,91 +8,91 @@
  *
  * @module providers/nextcloud
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Represents the Nextcloud user profile data returned from the `/ocs/v1.php/cloud/users/`.
  * @see [Check out the documentation for more details](https://docs.nextcloud.com/server/latest/admin_manual/configuration_user/instruction_set_for_users.html#get-data-of-a-single-user)
  */
 export interface NextcloudProfile extends Record<string, any> {
-    /**
-     * The user's username.
-     * @example "frank"
-     */
-    id: string;
-    /**
-     * The email address associated with the user.
-     * @example "frank@domain.tld"
-     */
-    email: string | null;
-    /**
-     * The display name of the user.
-     * @example "Frank K."
-     */
-    displayname: string;
-    /**
-     * The phone number of the user.
-     */
-    phone: string;
-    /**
-     * The address of the user.
-     * @example "Foobar 12, 12345 Town"
-     */
-    address: string;
-    /**
-     * The website URL of the user.
-     * @example "https://nextcloud.com"
-     */
-    website: string;
-    /**
-     * The user's Twitter handle.
-     * @example "Nextcloud"
-     */
-    twitter: string;
-    /**
-     * The user's Fediverse handle.
-     */
-    fediverse: string;
-    /**
-     * The organization associated with the user.
-     */
-    organisation: string;
-    /**
-     * The role or position of the user.
-     */
-    role: string;
-    /**
-     * The headline or brief description of the user.
-     */
-    headline: string;
-    /**
-     * The biography or detailed description of the user.
-     */
-    biography: string;
-    /**
-     * An array of group names that the user belongs to.
-     * @example ["admin", "group1", "group2"]
-     */
-    groups: string[];
-    /**
-     * The language preference of the user.
-     * @example "en"
-     */
-    language: string;
-    /**
-     * The locale or language locale of the user.
-     * @example "en_US"
-     */
-    locale: string;
-    /**
-     * Indicates whether the user account is enabled or disabled.
-     * @example true
-     */
-    enabled: boolean;
-    /**
-     * The storage location of the user's files.
-     * @example "/path/to/nextcloud/data/frank"
-     */
-    storageLocation: string;
+  /**
+   * The user's username.
+   * @example "frank"
+   */
+  id: string
+  /**
+   * The email address associated with the user.
+   * @example "frank@domain.tld"
+   */
+  email: string | null
+  /**
+   * The display name of the user.
+   * @example "Frank K."
+   */
+  displayname: string
+  /**
+   * The phone number of the user.
+   */
+  phone: string
+  /**
+   * The address of the user.
+   * @example "Foobar 12, 12345 Town"
+   */
+  address: string
+  /**
+   * The website URL of the user.
+   * @example "https://nextcloud.com"
+   */
+  website: string
+  /**
+   * The user's Twitter handle.
+   * @example "Nextcloud"
+   */
+  twitter: string
+  /**
+   * The user's Fediverse handle.
+   */
+  fediverse: string
+  /**
+   * The organization associated with the user.
+   */
+  organisation: string
+  /**
+   * The role or position of the user.
+   */
+  role: string
+  /**
+   * The headline or brief description of the user.
+   */
+  headline: string
+  /**
+   * The biography or detailed description of the user.
+   */
+  biography: string
+  /**
+   * An array of group names that the user belongs to.
+   * @example ["admin", "group1", "group2"]
+   */
+  groups: string[]
+  /**
+   * The language preference of the user.
+   * @example "en"
+   */
+  language: string
+  /**
+   * The locale or language locale of the user.
+   * @example "en_US"
+   */
+  locale: string
+  /**
+   * Indicates whether the user account is enabled or disabled.
+   * @example true
+   */
+  enabled: boolean
+  /**
+   * The storage location of the user's files.
+   * @example "/path/to/nextcloud/data/frank"
+   */
+  storageLocation: string
 }
 /**
  * Add Nextcloud login to your page.
@@ -146,5 +146,7 @@ export interface NextcloudProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Nextcloud(options: OAuthUserConfig<NextcloudProfile>): OAuthConfig<NextcloudProfile>;
+export default function Nextcloud(
+  options: OAuthUserConfig<NextcloudProfile>,
+): OAuthConfig<NextcloudProfile>
 //# sourceMappingURL=nextcloud.d.ts.map

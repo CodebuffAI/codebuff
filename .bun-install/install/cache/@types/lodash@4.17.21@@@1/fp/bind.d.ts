@@ -1,2 +1,2 @@
-import { bind } from "../fp";
-export = bind;
+import { bind } from '../fp'
+export = bind

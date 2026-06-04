@@ -1,2 +1,2 @@
-import { isNative } from "../fp";
-export = isNative;
+import { isNative } from '../fp'
+export = isNative

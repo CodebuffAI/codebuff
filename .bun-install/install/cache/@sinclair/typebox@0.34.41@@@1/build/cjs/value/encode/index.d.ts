@@ -1,1 +1,1 @@
-export * from './encode';
+export * from './encode'

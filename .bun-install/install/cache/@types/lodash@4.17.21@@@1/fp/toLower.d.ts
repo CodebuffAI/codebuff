@@ -1,2 +1,2 @@
-import { toLower } from "../fp";
-export = toLower;
+import { toLower } from '../fp'
+export = toLower

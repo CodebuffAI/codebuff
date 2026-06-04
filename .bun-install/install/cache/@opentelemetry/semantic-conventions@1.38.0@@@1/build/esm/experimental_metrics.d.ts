@@ -5,7 +5,7 @@
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHENTICATION_AUTHENTICATE_DURATION: "aspnetcore.authentication.authenticate.duration";
+export declare const METRIC_ASPNETCORE_AUTHENTICATION_AUTHENTICATE_DURATION: 'aspnetcore.authentication.authenticate.duration'
 /**
  * The total number of times a scheme is challenged.
  *
@@ -13,7 +13,7 @@ export declare const METRIC_ASPNETCORE_AUTHENTICATION_AUTHENTICATE_DURATION: "as
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHENTICATION_CHALLENGES: "aspnetcore.authentication.challenges";
+export declare const METRIC_ASPNETCORE_AUTHENTICATION_CHALLENGES: 'aspnetcore.authentication.challenges'
 /**
  * The total number of times an authenticated user attempts to access a resource they are not permitted to access.
  *
@@ -21,7 +21,7 @@ export declare const METRIC_ASPNETCORE_AUTHENTICATION_CHALLENGES: "aspnetcore.au
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHENTICATION_FORBIDS: "aspnetcore.authentication.forbids";
+export declare const METRIC_ASPNETCORE_AUTHENTICATION_FORBIDS: 'aspnetcore.authentication.forbids'
 /**
  * The total number of times a principal is signed in with a scheme.
  *
@@ -29,7 +29,7 @@ export declare const METRIC_ASPNETCORE_AUTHENTICATION_FORBIDS: "aspnetcore.authe
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_INS: "aspnetcore.authentication.sign_ins";
+export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_INS: 'aspnetcore.authentication.sign_ins'
 /**
  * The total number of times a principal is signed out with a scheme.
  *
@@ -37,7 +37,7 @@ export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_INS: "aspnetcore.auth
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_OUTS: "aspnetcore.authentication.sign_outs";
+export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_OUTS: 'aspnetcore.authentication.sign_outs'
 /**
  * The total number of authorization attempts.
  *
@@ -45,7 +45,7 @@ export declare const METRIC_ASPNETCORE_AUTHENTICATION_SIGN_OUTS: "aspnetcore.aut
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_AUTHORIZATION_ATTEMPTS: "aspnetcore.authorization.attempts";
+export declare const METRIC_ASPNETCORE_AUTHORIZATION_ATTEMPTS: 'aspnetcore.authorization.attempts'
 /**
  * The duration of authenticate attempts. The authenticate metrics is recorded by sign in methods such as PasswordSignInAsync and TwoFactorSignInAsync.
  *
@@ -53,7 +53,7 @@ export declare const METRIC_ASPNETCORE_AUTHORIZATION_ATTEMPTS: "aspnetcore.autho
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_AUTHENTICATE_DURATION: "aspnetcore.identity.sign_in.authenticate.duration";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_AUTHENTICATE_DURATION: 'aspnetcore.identity.sign_in.authenticate.duration'
 /**
  * The total number of check password attempts. Checks that the account is in a state that can log in and that the password is valid using the UserManager.CheckPasswordAsync method.
  *
@@ -61,7 +61,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_AUTHENTICATE_DURATION: "
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_CHECK_PASSWORD_ATTEMPTS: "aspnetcore.identity.sign_in.check_password_attempts";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_CHECK_PASSWORD_ATTEMPTS: 'aspnetcore.identity.sign_in.check_password_attempts'
 /**
  * The total number of calls to sign in user principals.
  *
@@ -69,7 +69,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_CHECK_PASSWORD_ATTEMPTS:
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_INS: "aspnetcore.identity.sign_in.sign_ins";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_INS: 'aspnetcore.identity.sign_in.sign_ins'
 /**
  * The total number of calls to sign out user principals.
  *
@@ -77,7 +77,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_INS: "aspnetcore.id
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_OUTS: "aspnetcore.identity.sign_in.sign_outs";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_OUTS: 'aspnetcore.identity.sign_in.sign_outs'
 /**
  * The total number of two factor clients forgotten.
  *
@@ -85,7 +85,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_SIGN_OUTS: "aspnetcore.i
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_FORGOTTEN: "aspnetcore.identity.sign_in.two_factor_clients_forgotten";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_FORGOTTEN: 'aspnetcore.identity.sign_in.two_factor_clients_forgotten'
 /**
  * The total number of two factor clients remembered.
  *
@@ -93,7 +93,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_FORGO
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_REMEMBERED: "aspnetcore.identity.sign_in.two_factor_clients_remembered";
+export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_REMEMBERED: 'aspnetcore.identity.sign_in.two_factor_clients_remembered'
 /**
  * The number of check password attempts. Only checks whether the password is valid and not whether the user account is in a state that can log in.
  *
@@ -101,7 +101,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_SIGN_IN_TWO_FACTOR_CLIENTS_REMEM
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_CHECK_PASSWORD_ATTEMPTS: "aspnetcore.identity.user.check_password_attempts";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_CHECK_PASSWORD_ATTEMPTS: 'aspnetcore.identity.user.check_password_attempts'
 /**
  * The duration of user creation operations.
  *
@@ -109,7 +109,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_CHECK_PASSWORD_ATTEMPTS: "a
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_CREATE_DURATION: "aspnetcore.identity.user.create.duration";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_CREATE_DURATION: 'aspnetcore.identity.user.create.duration'
 /**
  * The duration of user deletion operations.
  *
@@ -117,7 +117,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_CREATE_DURATION: "aspnetcor
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_DELETE_DURATION: "aspnetcore.identity.user.delete.duration";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_DELETE_DURATION: 'aspnetcore.identity.user.delete.duration'
 /**
  * The total number of token generations.
  *
@@ -125,7 +125,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_DELETE_DURATION: "aspnetcor
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_GENERATED_TOKENS: "aspnetcore.identity.user.generated_tokens";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_GENERATED_TOKENS: 'aspnetcore.identity.user.generated_tokens'
 /**
  * The duration of user update operations.
  *
@@ -133,7 +133,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_GENERATED_TOKENS: "aspnetco
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_UPDATE_DURATION: "aspnetcore.identity.user.update.duration";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_UPDATE_DURATION: 'aspnetcore.identity.user.update.duration'
 /**
  * The total number of token verification attempts.
  *
@@ -141,7 +141,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_UPDATE_DURATION: "aspnetcor
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_IDENTITY_USER_VERIFY_TOKEN_ATTEMPTS: "aspnetcore.identity.user.verify_token_attempts";
+export declare const METRIC_ASPNETCORE_IDENTITY_USER_VERIFY_TOKEN_ATTEMPTS: 'aspnetcore.identity.user.verify_token_attempts'
 /**
  * Total number of bytes allocated by the memory pool. Allocation occurs when a memory rental request exceeds the available pooled memory.
  *
@@ -149,7 +149,7 @@ export declare const METRIC_ASPNETCORE_IDENTITY_USER_VERIFY_TOKEN_ATTEMPTS: "asp
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_MEMORY_POOL_ALLOCATED: "aspnetcore.memory_pool.allocated";
+export declare const METRIC_ASPNETCORE_MEMORY_POOL_ALLOCATED: 'aspnetcore.memory_pool.allocated'
 /**
  * Total number of bytes evicted from the memory pool. Eviction occurs when idle pooled memory is reclaimed.
  *
@@ -157,7 +157,7 @@ export declare const METRIC_ASPNETCORE_MEMORY_POOL_ALLOCATED: "aspnetcore.memory
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_MEMORY_POOL_EVICTED: "aspnetcore.memory_pool.evicted";
+export declare const METRIC_ASPNETCORE_MEMORY_POOL_EVICTED: 'aspnetcore.memory_pool.evicted'
 /**
  * Number of bytes currently pooled and available for reuse.
  *
@@ -165,7 +165,7 @@ export declare const METRIC_ASPNETCORE_MEMORY_POOL_EVICTED: "aspnetcore.memory_p
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_MEMORY_POOL_POOLED: "aspnetcore.memory_pool.pooled";
+export declare const METRIC_ASPNETCORE_MEMORY_POOL_POOLED: 'aspnetcore.memory_pool.pooled'
 /**
  * Total number of bytes rented from the memory pool.
  *
@@ -173,31 +173,31 @@ export declare const METRIC_ASPNETCORE_MEMORY_POOL_POOLED: "aspnetcore.memory_po
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_ASPNETCORE_MEMORY_POOL_RENTED: "aspnetcore.memory_pool.rented";
+export declare const METRIC_ASPNETCORE_MEMORY_POOL_RENTED: 'aspnetcore.memory_pool.rented'
 /**
  * Number of active client instances.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_AZURE_COSMOSDB_CLIENT_ACTIVE_INSTANCE_COUNT: "azure.cosmosdb.client.active_instance.count";
+export declare const METRIC_AZURE_COSMOSDB_CLIENT_ACTIVE_INSTANCE_COUNT: 'azure.cosmosdb.client.active_instance.count'
 /**
  * [Request units](https://learn.microsoft.com/azure/cosmos-db/request-units) consumed by the operation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_AZURE_COSMOSDB_CLIENT_OPERATION_REQUEST_CHARGE: "azure.cosmosdb.client.operation.request_charge";
+export declare const METRIC_AZURE_COSMOSDB_CLIENT_OPERATION_REQUEST_CHARGE: 'azure.cosmosdb.client.operation.request_charge'
 /**
  * The number of pipeline runs currently active in the system by state.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CICD_PIPELINE_RUN_ACTIVE: "cicd.pipeline.run.active";
+export declare const METRIC_CICD_PIPELINE_RUN_ACTIVE: 'cicd.pipeline.run.active'
 /**
  * Duration of a pipeline run grouped by pipeline, state and result.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CICD_PIPELINE_RUN_DURATION: "cicd.pipeline.run.duration";
+export declare const METRIC_CICD_PIPELINE_RUN_DURATION: 'cicd.pipeline.run.duration'
 /**
  * The number of errors encountered in pipeline runs (eg. compile, test failures).
  *
@@ -206,20 +206,20 @@ export declare const METRIC_CICD_PIPELINE_RUN_DURATION: "cicd.pipeline.run.durat
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CICD_PIPELINE_RUN_ERRORS: "cicd.pipeline.run.errors";
+export declare const METRIC_CICD_PIPELINE_RUN_ERRORS: 'cicd.pipeline.run.errors'
 /**
  * The number of errors in a component of the CICD system (eg. controller, scheduler, agent).
  *
  * @note Errors in pipeline run execution are explicitly excluded. Ie a test failure is not counted in this metric.
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CICD_SYSTEM_ERRORS: "cicd.system.errors";
+export declare const METRIC_CICD_SYSTEM_ERRORS: 'cicd.system.errors'
 /**
  * The number of workers on the CICD system by state.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CICD_WORKER_COUNT: "cicd.worker.count";
+export declare const METRIC_CICD_WORKER_COUNT: 'cicd.worker.count'
 /**
  * Total CPU time consumed.
  *
@@ -227,7 +227,7 @@ export declare const METRIC_CICD_WORKER_COUNT: "cicd.worker.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_CPU_TIME: "container.cpu.time";
+export declare const METRIC_CONTAINER_CPU_TIME: 'container.cpu.time'
 /**
  * Container's CPU usage, measured in cpus. Range from 0 to the number of allocatable CPUs.
  *
@@ -235,7 +235,7 @@ export declare const METRIC_CONTAINER_CPU_TIME: "container.cpu.time";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_CPU_USAGE: "container.cpu.usage";
+export declare const METRIC_CONTAINER_CPU_USAGE: 'container.cpu.usage'
 /**
  * Disk bytes for the container.
  *
@@ -243,7 +243,7 @@ export declare const METRIC_CONTAINER_CPU_USAGE: "container.cpu.usage";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_DISK_IO: "container.disk.io";
+export declare const METRIC_CONTAINER_DISK_IO: 'container.disk.io'
 /**
  * Container filesystem available bytes.
  *
@@ -254,7 +254,7 @@ export declare const METRIC_CONTAINER_DISK_IO: "container.disk.io";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_FILESYSTEM_AVAILABLE: "container.filesystem.available";
+export declare const METRIC_CONTAINER_FILESYSTEM_AVAILABLE: 'container.filesystem.available'
 /**
  * Container filesystem capacity.
  *
@@ -265,7 +265,7 @@ export declare const METRIC_CONTAINER_FILESYSTEM_AVAILABLE: "container.filesyste
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_FILESYSTEM_CAPACITY: "container.filesystem.capacity";
+export declare const METRIC_CONTAINER_FILESYSTEM_CAPACITY: 'container.filesystem.capacity'
 /**
  * Container filesystem usage.
  *
@@ -278,7 +278,7 @@ export declare const METRIC_CONTAINER_FILESYSTEM_CAPACITY: "container.filesystem
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_FILESYSTEM_USAGE: "container.filesystem.usage";
+export declare const METRIC_CONTAINER_FILESYSTEM_USAGE: 'container.filesystem.usage'
 /**
  * Container memory available.
  *
@@ -288,7 +288,7 @@ export declare const METRIC_CONTAINER_FILESYSTEM_USAGE: "container.filesystem.us
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_MEMORY_AVAILABLE: "container.memory.available";
+export declare const METRIC_CONTAINER_MEMORY_AVAILABLE: 'container.memory.available'
 /**
  * Container memory paging faults.
  *
@@ -297,7 +297,7 @@ export declare const METRIC_CONTAINER_MEMORY_AVAILABLE: "container.memory.availa
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_MEMORY_PAGING_FAULTS: "container.memory.paging.faults";
+export declare const METRIC_CONTAINER_MEMORY_PAGING_FAULTS: 'container.memory.paging.faults'
 /**
  * Container memory RSS.
  *
@@ -306,7 +306,7 @@ export declare const METRIC_CONTAINER_MEMORY_PAGING_FAULTS: "container.memory.pa
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_MEMORY_RSS: "container.memory.rss";
+export declare const METRIC_CONTAINER_MEMORY_RSS: 'container.memory.rss'
 /**
  * Memory usage of the container.
  *
@@ -314,7 +314,7 @@ export declare const METRIC_CONTAINER_MEMORY_RSS: "container.memory.rss";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_MEMORY_USAGE: "container.memory.usage";
+export declare const METRIC_CONTAINER_MEMORY_USAGE: 'container.memory.usage'
 /**
  * Container memory working set.
  *
@@ -323,7 +323,7 @@ export declare const METRIC_CONTAINER_MEMORY_USAGE: "container.memory.usage";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_MEMORY_WORKING_SET: "container.memory.working_set";
+export declare const METRIC_CONTAINER_MEMORY_WORKING_SET: 'container.memory.working_set'
 /**
  * Network bytes for the container.
  *
@@ -331,7 +331,7 @@ export declare const METRIC_CONTAINER_MEMORY_WORKING_SET: "container.memory.work
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_NETWORK_IO: "container.network.io";
+export declare const METRIC_CONTAINER_NETWORK_IO: 'container.network.io'
 /**
  * The time the container has been running.
  *
@@ -340,7 +340,7 @@ export declare const METRIC_CONTAINER_NETWORK_IO: "container.network.io";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CONTAINER_UPTIME: "container.uptime";
+export declare const METRIC_CONTAINER_UPTIME: 'container.uptime'
 /**
  * Deprecated. Use `system.cpu.frequency` instead.
  *
@@ -348,7 +348,7 @@ export declare const METRIC_CONTAINER_UPTIME: "container.uptime";
  *
  * @deprecated Replaced by `system.cpu.frequency`.
  */
-export declare const METRIC_CPU_FREQUENCY: "cpu.frequency";
+export declare const METRIC_CPU_FREQUENCY: 'cpu.frequency'
 /**
  * Deprecated. Use `system.cpu.time` instead.
  *
@@ -356,7 +356,7 @@ export declare const METRIC_CPU_FREQUENCY: "cpu.frequency";
  *
  * @deprecated Replaced by `system.cpu.time`.
  */
-export declare const METRIC_CPU_TIME: "cpu.time";
+export declare const METRIC_CPU_TIME: 'cpu.time'
 /**
  * Deprecated. Use `system.cpu.utilization` instead.
  *
@@ -364,7 +364,7 @@ export declare const METRIC_CPU_TIME: "cpu.time";
  *
  * @deprecated Replaced by `system.cpu.utilization`.
  */
-export declare const METRIC_CPU_UTILIZATION: "cpu.utilization";
+export declare const METRIC_CPU_UTILIZATION: 'cpu.utilization'
 /**
  * The total number of objects collected inside a generation since interpreter start.
  *
@@ -372,7 +372,7 @@ export declare const METRIC_CPU_UTILIZATION: "cpu.utilization";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CPYTHON_GC_COLLECTED_OBJECTS: "cpython.gc.collected_objects";
+export declare const METRIC_CPYTHON_GC_COLLECTED_OBJECTS: 'cpython.gc.collected_objects'
 /**
  * The number of times a generation was collected since interpreter start.
  *
@@ -380,7 +380,7 @@ export declare const METRIC_CPYTHON_GC_COLLECTED_OBJECTS: "cpython.gc.collected_
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CPYTHON_GC_COLLECTIONS: "cpython.gc.collections";
+export declare const METRIC_CPYTHON_GC_COLLECTIONS: 'cpython.gc.collections'
 /**
  * The total number of objects which were found to be uncollectable inside a generation since interpreter start.
  *
@@ -388,61 +388,61 @@ export declare const METRIC_CPYTHON_GC_COLLECTIONS: "cpython.gc.collections";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_CPYTHON_GC_UNCOLLECTABLE_OBJECTS: "cpython.gc.uncollectable_objects";
+export declare const METRIC_CPYTHON_GC_UNCOLLECTABLE_OBJECTS: 'cpython.gc.uncollectable_objects'
 /**
  * The number of connections that are currently in state described by the `state` attribute.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_COUNT: "db.client.connection.count";
+export declare const METRIC_DB_CLIENT_CONNECTION_COUNT: 'db.client.connection.count'
 /**
  * The time it took to create a new connection.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_CREATE_TIME: "db.client.connection.create_time";
+export declare const METRIC_DB_CLIENT_CONNECTION_CREATE_TIME: 'db.client.connection.create_time'
 /**
  * The maximum number of idle open connections allowed.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_IDLE_MAX: "db.client.connection.idle.max";
+export declare const METRIC_DB_CLIENT_CONNECTION_IDLE_MAX: 'db.client.connection.idle.max'
 /**
  * The minimum number of idle open connections allowed.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_IDLE_MIN: "db.client.connection.idle.min";
+export declare const METRIC_DB_CLIENT_CONNECTION_IDLE_MIN: 'db.client.connection.idle.min'
 /**
  * The maximum number of open connections allowed.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_MAX: "db.client.connection.max";
+export declare const METRIC_DB_CLIENT_CONNECTION_MAX: 'db.client.connection.max'
 /**
  * The number of current pending requests for an open connection.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_PENDING_REQUESTS: "db.client.connection.pending_requests";
+export declare const METRIC_DB_CLIENT_CONNECTION_PENDING_REQUESTS: 'db.client.connection.pending_requests'
 /**
  * The number of connection timeouts that have occurred trying to obtain a connection from the pool.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_TIMEOUTS: "db.client.connection.timeouts";
+export declare const METRIC_DB_CLIENT_CONNECTION_TIMEOUTS: 'db.client.connection.timeouts'
 /**
  * The time between borrowing a connection and returning it to the pool.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_USE_TIME: "db.client.connection.use_time";
+export declare const METRIC_DB_CLIENT_CONNECTION_USE_TIME: 'db.client.connection.use_time'
 /**
  * The time it took to obtain an open connection from the pool.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTION_WAIT_TIME: "db.client.connection.wait_time";
+export declare const METRIC_DB_CLIENT_CONNECTION_WAIT_TIME: 'db.client.connection.wait_time'
 /**
  * Deprecated, use `db.client.connection.create_time` instead. Note: the unit also changed from `ms` to `s`.
  *
@@ -450,7 +450,7 @@ export declare const METRIC_DB_CLIENT_CONNECTION_WAIT_TIME: "db.client.connectio
  *
  * @deprecated Replaced by `db.client.connection.create_time` with unit `s`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_CREATE_TIME: "db.client.connections.create_time";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_CREATE_TIME: 'db.client.connections.create_time'
 /**
  * Deprecated, use `db.client.connection.idle.max` instead.
  *
@@ -458,7 +458,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_CREATE_TIME: "db.client.connec
  *
  * @deprecated Replaced by `db.client.connection.idle.max`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MAX: "db.client.connections.idle.max";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MAX: 'db.client.connections.idle.max'
 /**
  * Deprecated, use `db.client.connection.idle.min` instead.
  *
@@ -466,7 +466,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MAX: "db.client.connectio
  *
  * @deprecated Replaced by `db.client.connection.idle.min`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MIN: "db.client.connections.idle.min";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MIN: 'db.client.connections.idle.min'
 /**
  * Deprecated, use `db.client.connection.max` instead.
  *
@@ -474,7 +474,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_IDLE_MIN: "db.client.connectio
  *
  * @deprecated Replaced by `db.client.connection.max`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_MAX: "db.client.connections.max";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_MAX: 'db.client.connections.max'
 /**
  * Deprecated, use `db.client.connection.pending_requests` instead.
  *
@@ -482,7 +482,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_MAX: "db.client.connections.ma
  *
  * @deprecated Replaced by `db.client.connection.pending_requests`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_PENDING_REQUESTS: "db.client.connections.pending_requests";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_PENDING_REQUESTS: 'db.client.connections.pending_requests'
 /**
  * Deprecated, use `db.client.connection.timeouts` instead.
  *
@@ -490,7 +490,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_PENDING_REQUESTS: "db.client.c
  *
  * @deprecated Replaced by `db.client.connection.timeouts`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_TIMEOUTS: "db.client.connections.timeouts";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_TIMEOUTS: 'db.client.connections.timeouts'
 /**
  * Deprecated, use `db.client.connection.count` instead.
  *
@@ -498,7 +498,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_TIMEOUTS: "db.client.connectio
  *
  * @deprecated Replaced by `db.client.connection.count`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_USAGE: "db.client.connections.usage";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_USAGE: 'db.client.connections.usage'
 /**
  * Deprecated, use `db.client.connection.use_time` instead. Note: the unit also changed from `ms` to `s`.
  *
@@ -506,7 +506,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_USAGE: "db.client.connections.
  *
  * @deprecated Replaced by `db.client.connection.use_time` with unit `s`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_USE_TIME: "db.client.connections.use_time";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_USE_TIME: 'db.client.connections.use_time'
 /**
  * Deprecated, use `db.client.connection.wait_time` instead. Note: the unit also changed from `ms` to `s`.
  *
@@ -514,7 +514,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_USE_TIME: "db.client.connectio
  *
  * @deprecated Replaced by `db.client.connection.wait_time` with unit `s`.
  */
-export declare const METRIC_DB_CLIENT_CONNECTIONS_WAIT_TIME: "db.client.connections.wait_time";
+export declare const METRIC_DB_CLIENT_CONNECTIONS_WAIT_TIME: 'db.client.connections.wait_time'
 /**
  * Deprecated, use `azure.cosmosdb.client.active_instance.count` instead.
  *
@@ -522,7 +522,7 @@ export declare const METRIC_DB_CLIENT_CONNECTIONS_WAIT_TIME: "db.client.connecti
  *
  * @deprecated Replaced by `azure.cosmosdb.client.active_instance.count`.
  */
-export declare const METRIC_DB_CLIENT_COSMOSDB_ACTIVE_INSTANCE_COUNT: "db.client.cosmosdb.active_instance.count";
+export declare const METRIC_DB_CLIENT_COSMOSDB_ACTIVE_INSTANCE_COUNT: 'db.client.cosmosdb.active_instance.count'
 /**
  * Deprecated, use `azure.cosmosdb.client.operation.request_charge` instead.
  *
@@ -530,103 +530,103 @@ export declare const METRIC_DB_CLIENT_COSMOSDB_ACTIVE_INSTANCE_COUNT: "db.client
  *
  * @deprecated Replaced by `azure.cosmosdb.client.operation.request_charge`.
  */
-export declare const METRIC_DB_CLIENT_COSMOSDB_OPERATION_REQUEST_CHARGE: "db.client.cosmosdb.operation.request_charge";
+export declare const METRIC_DB_CLIENT_COSMOSDB_OPERATION_REQUEST_CHARGE: 'db.client.cosmosdb.operation.request_charge'
 /**
  * The actual number of records returned by the database operation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DB_CLIENT_RESPONSE_RETURNED_ROWS: "db.client.response.returned_rows";
+export declare const METRIC_DB_CLIENT_RESPONSE_RETURNED_ROWS: 'db.client.response.returned_rows'
 /**
  * Measures the time taken to perform a DNS lookup.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_DNS_LOOKUP_DURATION: "dns.lookup.duration";
+export declare const METRIC_DNS_LOOKUP_DURATION: 'dns.lookup.duration'
 /**
  * Number of invocation cold starts.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_COLDSTARTS: "faas.coldstarts";
+export declare const METRIC_FAAS_COLDSTARTS: 'faas.coldstarts'
 /**
  * Distribution of CPU usage per invocation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_CPU_USAGE: "faas.cpu_usage";
+export declare const METRIC_FAAS_CPU_USAGE: 'faas.cpu_usage'
 /**
  * Number of invocation errors.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_ERRORS: "faas.errors";
+export declare const METRIC_FAAS_ERRORS: 'faas.errors'
 /**
  * Measures the duration of the function's initialization, such as a cold start.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_INIT_DURATION: "faas.init_duration";
+export declare const METRIC_FAAS_INIT_DURATION: 'faas.init_duration'
 /**
  * Number of successful invocations.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_INVOCATIONS: "faas.invocations";
+export declare const METRIC_FAAS_INVOCATIONS: 'faas.invocations'
 /**
  * Measures the duration of the function's logic execution.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_INVOKE_DURATION: "faas.invoke_duration";
+export declare const METRIC_FAAS_INVOKE_DURATION: 'faas.invoke_duration'
 /**
  * Distribution of max memory usage per invocation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_MEM_USAGE: "faas.mem_usage";
+export declare const METRIC_FAAS_MEM_USAGE: 'faas.mem_usage'
 /**
  * Distribution of net I/O usage per invocation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_NET_IO: "faas.net_io";
+export declare const METRIC_FAAS_NET_IO: 'faas.net_io'
 /**
  * Number of invocation timeouts.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_FAAS_TIMEOUTS: "faas.timeouts";
+export declare const METRIC_FAAS_TIMEOUTS: 'faas.timeouts'
 /**
  * GenAI operation duration.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GEN_AI_CLIENT_OPERATION_DURATION: "gen_ai.client.operation.duration";
+export declare const METRIC_GEN_AI_CLIENT_OPERATION_DURATION: 'gen_ai.client.operation.duration'
 /**
  * Number of input and output tokens used.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GEN_AI_CLIENT_TOKEN_USAGE: "gen_ai.client.token.usage";
+export declare const METRIC_GEN_AI_CLIENT_TOKEN_USAGE: 'gen_ai.client.token.usage'
 /**
  * Generative AI server request duration such as time-to-last byte or last output token.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GEN_AI_SERVER_REQUEST_DURATION: "gen_ai.server.request.duration";
+export declare const METRIC_GEN_AI_SERVER_REQUEST_DURATION: 'gen_ai.server.request.duration'
 /**
  * Time per output token generated after the first token for successful responses.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GEN_AI_SERVER_TIME_PER_OUTPUT_TOKEN: "gen_ai.server.time_per_output_token";
+export declare const METRIC_GEN_AI_SERVER_TIME_PER_OUTPUT_TOKEN: 'gen_ai.server.time_per_output_token'
 /**
  * Time to generate first token for successful responses.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GEN_AI_SERVER_TIME_TO_FIRST_TOKEN: "gen_ai.server.time_to_first_token";
+export declare const METRIC_GEN_AI_SERVER_TIME_TO_FIRST_TOKEN: 'gen_ai.server.time_to_first_token'
 /**
  * Heap size target percentage configured by the user, otherwise 100.
  *
@@ -634,7 +634,7 @@ export declare const METRIC_GEN_AI_SERVER_TIME_TO_FIRST_TOKEN: "gen_ai.server.ti
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_CONFIG_GOGC: "go.config.gogc";
+export declare const METRIC_GO_CONFIG_GOGC: 'go.config.gogc'
 /**
  * Count of live goroutines.
  *
@@ -642,7 +642,7 @@ export declare const METRIC_GO_CONFIG_GOGC: "go.config.gogc";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_GOROUTINE_COUNT: "go.goroutine.count";
+export declare const METRIC_GO_GOROUTINE_COUNT: 'go.goroutine.count'
 /**
  * Memory allocated to the heap by the application.
  *
@@ -650,7 +650,7 @@ export declare const METRIC_GO_GOROUTINE_COUNT: "go.goroutine.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_MEMORY_ALLOCATED: "go.memory.allocated";
+export declare const METRIC_GO_MEMORY_ALLOCATED: 'go.memory.allocated'
 /**
  * Count of allocations to the heap by the application.
  *
@@ -658,7 +658,7 @@ export declare const METRIC_GO_MEMORY_ALLOCATED: "go.memory.allocated";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_MEMORY_ALLOCATIONS: "go.memory.allocations";
+export declare const METRIC_GO_MEMORY_ALLOCATIONS: 'go.memory.allocations'
 /**
  * Heap size target for the end of the GC cycle.
  *
@@ -666,7 +666,7 @@ export declare const METRIC_GO_MEMORY_ALLOCATIONS: "go.memory.allocations";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_MEMORY_GC_GOAL: "go.memory.gc.goal";
+export declare const METRIC_GO_MEMORY_GC_GOAL: 'go.memory.gc.goal'
 /**
  * Go runtime memory limit configured by the user, if a limit exists.
  *
@@ -674,7 +674,7 @@ export declare const METRIC_GO_MEMORY_GC_GOAL: "go.memory.gc.goal";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_MEMORY_LIMIT: "go.memory.limit";
+export declare const METRIC_GO_MEMORY_LIMIT: 'go.memory.limit'
 /**
  * Memory used by the Go runtime.
  *
@@ -682,7 +682,7 @@ export declare const METRIC_GO_MEMORY_LIMIT: "go.memory.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_MEMORY_USED: "go.memory.used";
+export declare const METRIC_GO_MEMORY_USED: 'go.memory.used'
 /**
  * The number of OS threads that can execute user-level Go code simultaneously.
  *
@@ -690,7 +690,7 @@ export declare const METRIC_GO_MEMORY_USED: "go.memory.used";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_PROCESSOR_LIMIT: "go.processor.limit";
+export declare const METRIC_GO_PROCESSOR_LIMIT: 'go.processor.limit'
 /**
  * The time goroutines have spent in the scheduler in a runnable state before actually running.
  *
@@ -698,25 +698,25 @@ export declare const METRIC_GO_PROCESSOR_LIMIT: "go.processor.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_GO_SCHEDULE_DURATION: "go.schedule.duration";
+export declare const METRIC_GO_SCHEDULE_DURATION: 'go.schedule.duration'
 /**
  * Number of active HTTP requests.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_CLIENT_ACTIVE_REQUESTS: "http.client.active_requests";
+export declare const METRIC_HTTP_CLIENT_ACTIVE_REQUESTS: 'http.client.active_requests'
 /**
  * The duration of the successfully established outbound HTTP connections.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_CLIENT_CONNECTION_DURATION: "http.client.connection.duration";
+export declare const METRIC_HTTP_CLIENT_CONNECTION_DURATION: 'http.client.connection.duration'
 /**
  * Number of outbound HTTP connections that are currently active or idle on the client.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_CLIENT_OPEN_CONNECTIONS: "http.client.open_connections";
+export declare const METRIC_HTTP_CLIENT_OPEN_CONNECTIONS: 'http.client.open_connections'
 /**
  * Size of HTTP client request bodies.
  *
@@ -724,7 +724,7 @@ export declare const METRIC_HTTP_CLIENT_OPEN_CONNECTIONS: "http.client.open_conn
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_CLIENT_REQUEST_BODY_SIZE: "http.client.request.body.size";
+export declare const METRIC_HTTP_CLIENT_REQUEST_BODY_SIZE: 'http.client.request.body.size'
 /**
  * Size of HTTP client response bodies.
  *
@@ -732,13 +732,13 @@ export declare const METRIC_HTTP_CLIENT_REQUEST_BODY_SIZE: "http.client.request.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_CLIENT_RESPONSE_BODY_SIZE: "http.client.response.body.size";
+export declare const METRIC_HTTP_CLIENT_RESPONSE_BODY_SIZE: 'http.client.response.body.size'
 /**
  * Number of active HTTP server requests.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_SERVER_ACTIVE_REQUESTS: "http.server.active_requests";
+export declare const METRIC_HTTP_SERVER_ACTIVE_REQUESTS: 'http.server.active_requests'
 /**
  * Size of HTTP server request bodies.
  *
@@ -746,7 +746,7 @@ export declare const METRIC_HTTP_SERVER_ACTIVE_REQUESTS: "http.server.active_req
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_SERVER_REQUEST_BODY_SIZE: "http.server.request.body.size";
+export declare const METRIC_HTTP_SERVER_REQUEST_BODY_SIZE: 'http.server.request.body.size'
 /**
  * Size of HTTP server response bodies.
  *
@@ -754,103 +754,103 @@ export declare const METRIC_HTTP_SERVER_REQUEST_BODY_SIZE: "http.server.request.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HTTP_SERVER_RESPONSE_BODY_SIZE: "http.server.response.body.size";
+export declare const METRIC_HTTP_SERVER_RESPONSE_BODY_SIZE: 'http.server.response.body.size'
 /**
  * Remaining fraction of battery charge.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_BATTERY_CHARGE: "hw.battery.charge";
+export declare const METRIC_HW_BATTERY_CHARGE: 'hw.battery.charge'
 /**
  * Lower limit of battery charge fraction to ensure proper operation.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_BATTERY_CHARGE_LIMIT: "hw.battery.charge.limit";
+export declare const METRIC_HW_BATTERY_CHARGE_LIMIT: 'hw.battery.charge.limit'
 /**
  * Time left before battery is completely charged or discharged.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_BATTERY_TIME_LEFT: "hw.battery.time_left";
+export declare const METRIC_HW_BATTERY_TIME_LEFT: 'hw.battery.time_left'
 /**
  * CPU current frequency.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_CPU_SPEED: "hw.cpu.speed";
+export declare const METRIC_HW_CPU_SPEED: 'hw.cpu.speed'
 /**
  * CPU maximum frequency.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_CPU_SPEED_LIMIT: "hw.cpu.speed.limit";
+export declare const METRIC_HW_CPU_SPEED_LIMIT: 'hw.cpu.speed.limit'
 /**
  * Energy consumed by the component.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_ENERGY: "hw.energy";
+export declare const METRIC_HW_ENERGY: 'hw.energy'
 /**
  * Number of errors encountered by the component.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_ERRORS: "hw.errors";
+export declare const METRIC_HW_ERRORS: 'hw.errors'
 /**
  * Fan speed in revolutions per minute.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_FAN_SPEED: "hw.fan.speed";
+export declare const METRIC_HW_FAN_SPEED: 'hw.fan.speed'
 /**
  * Speed limit in rpm.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_FAN_SPEED_LIMIT: "hw.fan.speed.limit";
+export declare const METRIC_HW_FAN_SPEED_LIMIT: 'hw.fan.speed.limit'
 /**
  * Fan speed expressed as a fraction of its maximum speed.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_FAN_SPEED_RATIO: "hw.fan.speed_ratio";
+export declare const METRIC_HW_FAN_SPEED_RATIO: 'hw.fan.speed_ratio'
 /**
  * Received and transmitted bytes by the GPU.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_GPU_IO: "hw.gpu.io";
+export declare const METRIC_HW_GPU_IO: 'hw.gpu.io'
 /**
  * Size of the GPU memory.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_GPU_MEMORY_LIMIT: "hw.gpu.memory.limit";
+export declare const METRIC_HW_GPU_MEMORY_LIMIT: 'hw.gpu.memory.limit'
 /**
  * GPU memory used.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_GPU_MEMORY_USAGE: "hw.gpu.memory.usage";
+export declare const METRIC_HW_GPU_MEMORY_USAGE: 'hw.gpu.memory.usage'
 /**
  * Fraction of GPU memory used.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_GPU_MEMORY_UTILIZATION: "hw.gpu.memory.utilization";
+export declare const METRIC_HW_GPU_MEMORY_UTILIZATION: 'hw.gpu.memory.utilization'
 /**
  * Fraction of time spent in a specific task.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_GPU_UTILIZATION: "hw.gpu.utilization";
+export declare const METRIC_HW_GPU_UTILIZATION: 'hw.gpu.utilization'
 /**
  * Ambient (external) temperature of the physical host.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_HOST_AMBIENT_TEMPERATURE: "hw.host.ambient_temperature";
+export declare const METRIC_HW_HOST_AMBIENT_TEMPERATURE: 'hw.host.ambient_temperature'
 /**
  * Total energy consumed by the entire physical host, in joules.
  *
@@ -858,13 +858,13 @@ export declare const METRIC_HW_HOST_AMBIENT_TEMPERATURE: "hw.host.ambient_temper
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_HOST_ENERGY: "hw.host.energy";
+export declare const METRIC_HW_HOST_ENERGY: 'hw.host.energy'
 /**
  * By how many degrees Celsius the temperature of the physical host can be increased, before reaching a warning threshold on one of the internal sensors.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_HOST_HEATING_MARGIN: "hw.host.heating_margin";
+export declare const METRIC_HW_HOST_HEATING_MARGIN: 'hw.host.heating_margin'
 /**
  * Instantaneous power consumed by the entire physical host in Watts (`hw.host.energy` is preferred).
  *
@@ -872,79 +872,79 @@ export declare const METRIC_HW_HOST_HEATING_MARGIN: "hw.host.heating_margin";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_HOST_POWER: "hw.host.power";
+export declare const METRIC_HW_HOST_POWER: 'hw.host.power'
 /**
  * Size of the logical disk.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_LOGICAL_DISK_LIMIT: "hw.logical_disk.limit";
+export declare const METRIC_HW_LOGICAL_DISK_LIMIT: 'hw.logical_disk.limit'
 /**
  * Logical disk space usage.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_LOGICAL_DISK_USAGE: "hw.logical_disk.usage";
+export declare const METRIC_HW_LOGICAL_DISK_USAGE: 'hw.logical_disk.usage'
 /**
  * Logical disk space utilization as a fraction.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_LOGICAL_DISK_UTILIZATION: "hw.logical_disk.utilization";
+export declare const METRIC_HW_LOGICAL_DISK_UTILIZATION: 'hw.logical_disk.utilization'
 /**
  * Size of the memory module.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_MEMORY_SIZE: "hw.memory.size";
+export declare const METRIC_HW_MEMORY_SIZE: 'hw.memory.size'
 /**
  * Link speed.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_NETWORK_BANDWIDTH_LIMIT: "hw.network.bandwidth.limit";
+export declare const METRIC_HW_NETWORK_BANDWIDTH_LIMIT: 'hw.network.bandwidth.limit'
 /**
  * Utilization of the network bandwidth as a fraction.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_NETWORK_BANDWIDTH_UTILIZATION: "hw.network.bandwidth.utilization";
+export declare const METRIC_HW_NETWORK_BANDWIDTH_UTILIZATION: 'hw.network.bandwidth.utilization'
 /**
  * Received and transmitted network traffic in bytes.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_NETWORK_IO: "hw.network.io";
+export declare const METRIC_HW_NETWORK_IO: 'hw.network.io'
 /**
  * Received and transmitted network traffic in packets (or frames).
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_NETWORK_PACKETS: "hw.network.packets";
+export declare const METRIC_HW_NETWORK_PACKETS: 'hw.network.packets'
 /**
  * Link status: `1` (up) or `0` (down).
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_NETWORK_UP: "hw.network.up";
+export declare const METRIC_HW_NETWORK_UP: 'hw.network.up'
 /**
  * Endurance remaining for this SSD disk.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_PHYSICAL_DISK_ENDURANCE_UTILIZATION: "hw.physical_disk.endurance_utilization";
+export declare const METRIC_HW_PHYSICAL_DISK_ENDURANCE_UTILIZATION: 'hw.physical_disk.endurance_utilization'
 /**
  * Size of the disk.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_PHYSICAL_DISK_SIZE: "hw.physical_disk.size";
+export declare const METRIC_HW_PHYSICAL_DISK_SIZE: 'hw.physical_disk.size'
 /**
  * Value of the corresponding [S.M.A.R.T.](https://wikipedia.org/wiki/S.M.A.R.T.) (Self-Monitoring, Analysis, and Reporting Technology) attribute.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_PHYSICAL_DISK_SMART: "hw.physical_disk.smart";
+export declare const METRIC_HW_PHYSICAL_DISK_SMART: 'hw.physical_disk.smart'
 /**
  * Instantaneous power consumed by the component.
  *
@@ -952,25 +952,25 @@ export declare const METRIC_HW_PHYSICAL_DISK_SMART: "hw.physical_disk.smart";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_POWER: "hw.power";
+export declare const METRIC_HW_POWER: 'hw.power'
 /**
  * Maximum power output of the power supply.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_POWER_SUPPLY_LIMIT: "hw.power_supply.limit";
+export declare const METRIC_HW_POWER_SUPPLY_LIMIT: 'hw.power_supply.limit'
 /**
  * Current power output of the power supply.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_POWER_SUPPLY_USAGE: "hw.power_supply.usage";
+export declare const METRIC_HW_POWER_SUPPLY_USAGE: 'hw.power_supply.usage'
 /**
  * Utilization of the power supply as a fraction of its maximum output.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_POWER_SUPPLY_UTILIZATION: "hw.power_supply.utilization";
+export declare const METRIC_HW_POWER_SUPPLY_UTILIZATION: 'hw.power_supply.utilization'
 /**
  * Operational status: `1` (true) or `0` (false) for each of the possible states.
  *
@@ -978,55 +978,55 @@ export declare const METRIC_HW_POWER_SUPPLY_UTILIZATION: "hw.power_supply.utiliz
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_STATUS: "hw.status";
+export declare const METRIC_HW_STATUS: 'hw.status'
 /**
  * Operations performed by the tape drive.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_TAPE_DRIVE_OPERATIONS: "hw.tape_drive.operations";
+export declare const METRIC_HW_TAPE_DRIVE_OPERATIONS: 'hw.tape_drive.operations'
 /**
  * Temperature in degrees Celsius.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_TEMPERATURE: "hw.temperature";
+export declare const METRIC_HW_TEMPERATURE: 'hw.temperature'
 /**
  * Temperature limit in degrees Celsius.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_TEMPERATURE_LIMIT: "hw.temperature.limit";
+export declare const METRIC_HW_TEMPERATURE_LIMIT: 'hw.temperature.limit'
 /**
  * Voltage measured by the sensor.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_VOLTAGE: "hw.voltage";
+export declare const METRIC_HW_VOLTAGE: 'hw.voltage'
 /**
  * Voltage limit in Volts.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_VOLTAGE_LIMIT: "hw.voltage.limit";
+export declare const METRIC_HW_VOLTAGE_LIMIT: 'hw.voltage.limit'
 /**
  * Nominal (expected) voltage.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_HW_VOLTAGE_NOMINAL: "hw.voltage.nominal";
+export declare const METRIC_HW_VOLTAGE_NOMINAL: 'hw.voltage.nominal'
 /**
  * Number of buffers in the pool.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_BUFFER_COUNT: "jvm.buffer.count";
+export declare const METRIC_JVM_BUFFER_COUNT: 'jvm.buffer.count'
 /**
  * Measure of total memory capacity of buffers.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_BUFFER_MEMORY_LIMIT: "jvm.buffer.memory.limit";
+export declare const METRIC_JVM_BUFFER_MEMORY_LIMIT: 'jvm.buffer.memory.limit'
 /**
  * Deprecated, use `jvm.buffer.memory.used` instead.
  *
@@ -1034,25 +1034,25 @@ export declare const METRIC_JVM_BUFFER_MEMORY_LIMIT: "jvm.buffer.memory.limit";
  *
  * @deprecated Replaced by `jvm.buffer.memory.used`.
  */
-export declare const METRIC_JVM_BUFFER_MEMORY_USAGE: "jvm.buffer.memory.usage";
+export declare const METRIC_JVM_BUFFER_MEMORY_USAGE: 'jvm.buffer.memory.usage'
 /**
  * Measure of memory used by buffers.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_BUFFER_MEMORY_USED: "jvm.buffer.memory.used";
+export declare const METRIC_JVM_BUFFER_MEMORY_USED: 'jvm.buffer.memory.used'
 /**
  * Number of open file descriptors as reported by the JVM.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_FILE_DESCRIPTOR_COUNT: "jvm.file_descriptor.count";
+export declare const METRIC_JVM_FILE_DESCRIPTOR_COUNT: 'jvm.file_descriptor.count'
 /**
  * Measure of initial memory requested.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_MEMORY_INIT: "jvm.memory.init";
+export declare const METRIC_JVM_MEMORY_INIT: 'jvm.memory.init'
 /**
  * Average CPU load of the whole system for the last minute as reported by the JVM.
  *
@@ -1060,7 +1060,7 @@ export declare const METRIC_JVM_MEMORY_INIT: "jvm.memory.init";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_SYSTEM_CPU_LOAD_1M: "jvm.system.cpu.load_1m";
+export declare const METRIC_JVM_SYSTEM_CPU_LOAD_1M: 'jvm.system.cpu.load_1m'
 /**
  * Recent CPU utilization for the whole system as reported by the JVM.
  *
@@ -1068,7 +1068,7 @@ export declare const METRIC_JVM_SYSTEM_CPU_LOAD_1M: "jvm.system.cpu.load_1m";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_JVM_SYSTEM_CPU_UTILIZATION: "jvm.system.cpu.utilization";
+export declare const METRIC_JVM_SYSTEM_CPU_UTILIZATION: 'jvm.system.cpu.utilization'
 /**
  * Maximum CPU resource limit set for the container.
  *
@@ -1076,7 +1076,7 @@ export declare const METRIC_JVM_SYSTEM_CPU_UTILIZATION: "jvm.system.cpu.utilizat
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_CPU_LIMIT: "k8s.container.cpu.limit";
+export declare const METRIC_K8S_CONTAINER_CPU_LIMIT: 'k8s.container.cpu.limit'
 /**
  * The ratio of container CPU usage to its CPU limit.
  *
@@ -1084,7 +1084,7 @@ export declare const METRIC_K8S_CONTAINER_CPU_LIMIT: "k8s.container.cpu.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_CPU_LIMIT_UTILIZATION: "k8s.container.cpu.limit_utilization";
+export declare const METRIC_K8S_CONTAINER_CPU_LIMIT_UTILIZATION: 'k8s.container.cpu.limit_utilization'
 /**
  * CPU resource requested for the container.
  *
@@ -1092,13 +1092,13 @@ export declare const METRIC_K8S_CONTAINER_CPU_LIMIT_UTILIZATION: "k8s.container.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_CPU_REQUEST: "k8s.container.cpu.request";
+export declare const METRIC_K8S_CONTAINER_CPU_REQUEST: 'k8s.container.cpu.request'
 /**
  * The ratio of container CPU usage to its CPU request.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_CPU_REQUEST_UTILIZATION: "k8s.container.cpu.request_utilization";
+export declare const METRIC_K8S_CONTAINER_CPU_REQUEST_UTILIZATION: 'k8s.container.cpu.request_utilization'
 /**
  * Maximum ephemeral storage resource limit set for the container.
  *
@@ -1106,7 +1106,7 @@ export declare const METRIC_K8S_CONTAINER_CPU_REQUEST_UTILIZATION: "k8s.containe
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_LIMIT: "k8s.container.ephemeral_storage.limit";
+export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_LIMIT: 'k8s.container.ephemeral_storage.limit'
 /**
  * Ephemeral storage resource requested for the container.
  *
@@ -1114,7 +1114,7 @@ export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_LIMIT: "k8s.containe
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_REQUEST: "k8s.container.ephemeral_storage.request";
+export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_REQUEST: 'k8s.container.ephemeral_storage.request'
 /**
  * Maximum memory resource limit set for the container.
  *
@@ -1122,7 +1122,7 @@ export declare const METRIC_K8S_CONTAINER_EPHEMERAL_STORAGE_REQUEST: "k8s.contai
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_MEMORY_LIMIT: "k8s.container.memory.limit";
+export declare const METRIC_K8S_CONTAINER_MEMORY_LIMIT: 'k8s.container.memory.limit'
 /**
  * Memory resource requested for the container.
  *
@@ -1130,7 +1130,7 @@ export declare const METRIC_K8S_CONTAINER_MEMORY_LIMIT: "k8s.container.memory.li
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_MEMORY_REQUEST: "k8s.container.memory.request";
+export declare const METRIC_K8S_CONTAINER_MEMORY_REQUEST: 'k8s.container.memory.request'
 /**
  * Indicates whether the container is currently marked as ready to accept traffic, based on its readiness probe (1 = ready, 0 = not ready).
  *
@@ -1139,7 +1139,7 @@ export declare const METRIC_K8S_CONTAINER_MEMORY_REQUEST: "k8s.container.memory.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_READY: "k8s.container.ready";
+export declare const METRIC_K8S_CONTAINER_READY: 'k8s.container.ready'
 /**
  * Describes how many times the container has restarted (since the last counter reset).
  *
@@ -1151,7 +1151,7 @@ export declare const METRIC_K8S_CONTAINER_READY: "k8s.container.ready";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_RESTART_COUNT: "k8s.container.restart.count";
+export declare const METRIC_K8S_CONTAINER_RESTART_COUNT: 'k8s.container.restart.count'
 /**
  * Describes the number of K8s containers that are currently in a state for a given reason.
  *
@@ -1160,7 +1160,7 @@ export declare const METRIC_K8S_CONTAINER_RESTART_COUNT: "k8s.container.restart.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_STATUS_REASON: "k8s.container.status.reason";
+export declare const METRIC_K8S_CONTAINER_STATUS_REASON: 'k8s.container.status.reason'
 /**
  * Describes the number of K8s containers that are currently in a given state.
  *
@@ -1169,7 +1169,7 @@ export declare const METRIC_K8S_CONTAINER_STATUS_REASON: "k8s.container.status.r
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_STATUS_STATE: "k8s.container.status.state";
+export declare const METRIC_K8S_CONTAINER_STATUS_STATE: 'k8s.container.status.state'
 /**
  * Maximum storage resource limit set for the container.
  *
@@ -1177,7 +1177,7 @@ export declare const METRIC_K8S_CONTAINER_STATUS_STATE: "k8s.container.status.st
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_STORAGE_LIMIT: "k8s.container.storage.limit";
+export declare const METRIC_K8S_CONTAINER_STORAGE_LIMIT: 'k8s.container.storage.limit'
 /**
  * Storage resource requested for the container.
  *
@@ -1185,7 +1185,7 @@ export declare const METRIC_K8S_CONTAINER_STORAGE_LIMIT: "k8s.container.storage.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CONTAINER_STORAGE_REQUEST: "k8s.container.storage.request";
+export declare const METRIC_K8S_CONTAINER_STORAGE_REQUEST: 'k8s.container.storage.request'
 /**
  * Deprecated, use `k8s.cronjob.job.active` instead.
  *
@@ -1196,7 +1196,7 @@ export declare const METRIC_K8S_CONTAINER_STORAGE_REQUEST: "k8s.container.storag
  *
  * @deprecated Replaced by `k8s.cronjob.job.active`.
  */
-export declare const METRIC_K8S_CRONJOB_ACTIVE_JOBS: "k8s.cronjob.active_jobs";
+export declare const METRIC_K8S_CRONJOB_ACTIVE_JOBS: 'k8s.cronjob.active_jobs'
 /**
  * The number of actively running jobs for a cronjob.
  *
@@ -1205,7 +1205,7 @@ export declare const METRIC_K8S_CRONJOB_ACTIVE_JOBS: "k8s.cronjob.active_jobs";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_CRONJOB_JOB_ACTIVE: "k8s.cronjob.job.active";
+export declare const METRIC_K8S_CRONJOB_JOB_ACTIVE: 'k8s.cronjob.job.active'
 /**
  * Deprecated, use `k8s.daemonset.node.current_scheduled` instead.
  *
@@ -1216,7 +1216,7 @@ export declare const METRIC_K8S_CRONJOB_JOB_ACTIVE: "k8s.cronjob.job.active";
  *
  * @deprecated Replaced by `k8s.daemonset.node.current_scheduled`.
  */
-export declare const METRIC_K8S_DAEMONSET_CURRENT_SCHEDULED_NODES: "k8s.daemonset.current_scheduled_nodes";
+export declare const METRIC_K8S_DAEMONSET_CURRENT_SCHEDULED_NODES: 'k8s.daemonset.current_scheduled_nodes'
 /**
  * Deprecated, use `k8s.daemonset.node.desired_scheduled` instead.
  *
@@ -1227,7 +1227,7 @@ export declare const METRIC_K8S_DAEMONSET_CURRENT_SCHEDULED_NODES: "k8s.daemonse
  *
  * @deprecated Replaced by `k8s.daemonset.node.desired_scheduled`.
  */
-export declare const METRIC_K8S_DAEMONSET_DESIRED_SCHEDULED_NODES: "k8s.daemonset.desired_scheduled_nodes";
+export declare const METRIC_K8S_DAEMONSET_DESIRED_SCHEDULED_NODES: 'k8s.daemonset.desired_scheduled_nodes'
 /**
  * Deprecated, use `k8s.daemonset.node.misscheduled` instead.
  *
@@ -1238,7 +1238,7 @@ export declare const METRIC_K8S_DAEMONSET_DESIRED_SCHEDULED_NODES: "k8s.daemonse
  *
  * @deprecated Replaced by `k8s.daemonset.node.misscheduled`.
  */
-export declare const METRIC_K8S_DAEMONSET_MISSCHEDULED_NODES: "k8s.daemonset.misscheduled_nodes";
+export declare const METRIC_K8S_DAEMONSET_MISSCHEDULED_NODES: 'k8s.daemonset.misscheduled_nodes'
 /**
  * Number of nodes that are running at least 1 daemon pod and are supposed to run the daemon pod.
  *
@@ -1247,7 +1247,7 @@ export declare const METRIC_K8S_DAEMONSET_MISSCHEDULED_NODES: "k8s.daemonset.mis
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DAEMONSET_NODE_CURRENT_SCHEDULED: "k8s.daemonset.node.current_scheduled";
+export declare const METRIC_K8S_DAEMONSET_NODE_CURRENT_SCHEDULED: 'k8s.daemonset.node.current_scheduled'
 /**
  * Number of nodes that should be running the daemon pod (including nodes currently running the daemon pod).
  *
@@ -1256,7 +1256,7 @@ export declare const METRIC_K8S_DAEMONSET_NODE_CURRENT_SCHEDULED: "k8s.daemonset
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DAEMONSET_NODE_DESIRED_SCHEDULED: "k8s.daemonset.node.desired_scheduled";
+export declare const METRIC_K8S_DAEMONSET_NODE_DESIRED_SCHEDULED: 'k8s.daemonset.node.desired_scheduled'
 /**
  * Number of nodes that are running the daemon pod, but are not supposed to run the daemon pod.
  *
@@ -1265,7 +1265,7 @@ export declare const METRIC_K8S_DAEMONSET_NODE_DESIRED_SCHEDULED: "k8s.daemonset
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DAEMONSET_NODE_MISSCHEDULED: "k8s.daemonset.node.misscheduled";
+export declare const METRIC_K8S_DAEMONSET_NODE_MISSCHEDULED: 'k8s.daemonset.node.misscheduled'
 /**
  * Number of nodes that should be running the daemon pod and have one or more of the daemon pod running and ready.
  *
@@ -1274,7 +1274,7 @@ export declare const METRIC_K8S_DAEMONSET_NODE_MISSCHEDULED: "k8s.daemonset.node
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DAEMONSET_NODE_READY: "k8s.daemonset.node.ready";
+export declare const METRIC_K8S_DAEMONSET_NODE_READY: 'k8s.daemonset.node.ready'
 /**
  * Deprecated, use `k8s.daemonset.node.ready` instead.
  *
@@ -1285,7 +1285,7 @@ export declare const METRIC_K8S_DAEMONSET_NODE_READY: "k8s.daemonset.node.ready"
  *
  * @deprecated Replaced by `k8s.daemonset.node.ready`.
  */
-export declare const METRIC_K8S_DAEMONSET_READY_NODES: "k8s.daemonset.ready_nodes";
+export declare const METRIC_K8S_DAEMONSET_READY_NODES: 'k8s.daemonset.ready_nodes'
 /**
  * Deprecated, use `k8s.deployment.pod.available` instead.
  *
@@ -1296,7 +1296,7 @@ export declare const METRIC_K8S_DAEMONSET_READY_NODES: "k8s.daemonset.ready_node
  *
  * @deprecated Replaced by `k8s.deployment.pod.available`.
  */
-export declare const METRIC_K8S_DEPLOYMENT_AVAILABLE_PODS: "k8s.deployment.available_pods";
+export declare const METRIC_K8S_DEPLOYMENT_AVAILABLE_PODS: 'k8s.deployment.available_pods'
 /**
  * Deprecated, use `k8s.deployment.pod.desired` instead.
  *
@@ -1307,7 +1307,7 @@ export declare const METRIC_K8S_DEPLOYMENT_AVAILABLE_PODS: "k8s.deployment.avail
  *
  * @deprecated Replaced by `k8s.deployment.pod.desired`.
  */
-export declare const METRIC_K8S_DEPLOYMENT_DESIRED_PODS: "k8s.deployment.desired_pods";
+export declare const METRIC_K8S_DEPLOYMENT_DESIRED_PODS: 'k8s.deployment.desired_pods'
 /**
  * Total number of available replica pods (ready for at least minReadySeconds) targeted by this deployment.
  *
@@ -1316,7 +1316,7 @@ export declare const METRIC_K8S_DEPLOYMENT_DESIRED_PODS: "k8s.deployment.desired
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DEPLOYMENT_POD_AVAILABLE: "k8s.deployment.pod.available";
+export declare const METRIC_K8S_DEPLOYMENT_POD_AVAILABLE: 'k8s.deployment.pod.available'
 /**
  * Number of desired replica pods in this deployment.
  *
@@ -1325,7 +1325,7 @@ export declare const METRIC_K8S_DEPLOYMENT_POD_AVAILABLE: "k8s.deployment.pod.av
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_DEPLOYMENT_POD_DESIRED: "k8s.deployment.pod.desired";
+export declare const METRIC_K8S_DEPLOYMENT_POD_DESIRED: 'k8s.deployment.pod.desired'
 /**
  * Deprecated, use `k8s.hpa.pod.current` instead.
  *
@@ -1336,7 +1336,7 @@ export declare const METRIC_K8S_DEPLOYMENT_POD_DESIRED: "k8s.deployment.pod.desi
  *
  * @deprecated Replaced by `k8s.hpa.pod.current`.
  */
-export declare const METRIC_K8S_HPA_CURRENT_PODS: "k8s.hpa.current_pods";
+export declare const METRIC_K8S_HPA_CURRENT_PODS: 'k8s.hpa.current_pods'
 /**
  * Deprecated, use `k8s.hpa.pod.desired` instead.
  *
@@ -1347,7 +1347,7 @@ export declare const METRIC_K8S_HPA_CURRENT_PODS: "k8s.hpa.current_pods";
  *
  * @deprecated Replaced by `k8s.hpa.pod.desired`.
  */
-export declare const METRIC_K8S_HPA_DESIRED_PODS: "k8s.hpa.desired_pods";
+export declare const METRIC_K8S_HPA_DESIRED_PODS: 'k8s.hpa.desired_pods'
 /**
  * Deprecated, use `k8s.hpa.pod.max` instead.
  *
@@ -1358,7 +1358,7 @@ export declare const METRIC_K8S_HPA_DESIRED_PODS: "k8s.hpa.desired_pods";
  *
  * @deprecated Replaced by `k8s.hpa.pod.max`.
  */
-export declare const METRIC_K8S_HPA_MAX_PODS: "k8s.hpa.max_pods";
+export declare const METRIC_K8S_HPA_MAX_PODS: 'k8s.hpa.max_pods'
 /**
  * Target average utilization, in percentage, for CPU resource in HPA config.
  *
@@ -1369,7 +1369,7 @@ export declare const METRIC_K8S_HPA_MAX_PODS: "k8s.hpa.max_pods";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_UTILIZATION: "k8s.hpa.metric.target.cpu.average_utilization";
+export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_UTILIZATION: 'k8s.hpa.metric.target.cpu.average_utilization'
 /**
  * Target average value for CPU resource in HPA config.
  *
@@ -1380,7 +1380,7 @@ export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_UTILIZATION: "k8s.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_VALUE: "k8s.hpa.metric.target.cpu.average_value";
+export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_VALUE: 'k8s.hpa.metric.target.cpu.average_value'
 /**
  * Target value for CPU resource in HPA config.
  *
@@ -1391,7 +1391,7 @@ export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_AVERAGE_VALUE: "k8s.hpa.me
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_VALUE: "k8s.hpa.metric.target.cpu.value";
+export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_VALUE: 'k8s.hpa.metric.target.cpu.value'
 /**
  * Deprecated, use `k8s.hpa.pod.min` instead.
  *
@@ -1402,7 +1402,7 @@ export declare const METRIC_K8S_HPA_METRIC_TARGET_CPU_VALUE: "k8s.hpa.metric.tar
  *
  * @deprecated Replaced by `k8s.hpa.pod.min`.
  */
-export declare const METRIC_K8S_HPA_MIN_PODS: "k8s.hpa.min_pods";
+export declare const METRIC_K8S_HPA_MIN_PODS: 'k8s.hpa.min_pods'
 /**
  * Current number of replica pods managed by this horizontal pod autoscaler, as last seen by the autoscaler.
  *
@@ -1411,7 +1411,7 @@ export declare const METRIC_K8S_HPA_MIN_PODS: "k8s.hpa.min_pods";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_POD_CURRENT: "k8s.hpa.pod.current";
+export declare const METRIC_K8S_HPA_POD_CURRENT: 'k8s.hpa.pod.current'
 /**
  * Desired number of replica pods managed by this horizontal pod autoscaler, as last calculated by the autoscaler.
  *
@@ -1420,7 +1420,7 @@ export declare const METRIC_K8S_HPA_POD_CURRENT: "k8s.hpa.pod.current";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_POD_DESIRED: "k8s.hpa.pod.desired";
+export declare const METRIC_K8S_HPA_POD_DESIRED: 'k8s.hpa.pod.desired'
 /**
  * The upper limit for the number of replica pods to which the autoscaler can scale up.
  *
@@ -1429,7 +1429,7 @@ export declare const METRIC_K8S_HPA_POD_DESIRED: "k8s.hpa.pod.desired";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_POD_MAX: "k8s.hpa.pod.max";
+export declare const METRIC_K8S_HPA_POD_MAX: 'k8s.hpa.pod.max'
 /**
  * The lower limit for the number of replica pods to which the autoscaler can scale down.
  *
@@ -1438,7 +1438,7 @@ export declare const METRIC_K8S_HPA_POD_MAX: "k8s.hpa.pod.max";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_HPA_POD_MIN: "k8s.hpa.pod.min";
+export declare const METRIC_K8S_HPA_POD_MIN: 'k8s.hpa.pod.min'
 /**
  * Deprecated, use `k8s.job.pod.active` instead.
  *
@@ -1449,7 +1449,7 @@ export declare const METRIC_K8S_HPA_POD_MIN: "k8s.hpa.pod.min";
  *
  * @deprecated Replaced by `k8s.job.pod.active`.
  */
-export declare const METRIC_K8S_JOB_ACTIVE_PODS: "k8s.job.active_pods";
+export declare const METRIC_K8S_JOB_ACTIVE_PODS: 'k8s.job.active_pods'
 /**
  * Deprecated, use `k8s.job.pod.desired_successful` instead.
  *
@@ -1460,7 +1460,7 @@ export declare const METRIC_K8S_JOB_ACTIVE_PODS: "k8s.job.active_pods";
  *
  * @deprecated Replaced by `k8s.job.pod.desired_successful`.
  */
-export declare const METRIC_K8S_JOB_DESIRED_SUCCESSFUL_PODS: "k8s.job.desired_successful_pods";
+export declare const METRIC_K8S_JOB_DESIRED_SUCCESSFUL_PODS: 'k8s.job.desired_successful_pods'
 /**
  * Deprecated, use `k8s.job.pod.failed` instead.
  *
@@ -1471,7 +1471,7 @@ export declare const METRIC_K8S_JOB_DESIRED_SUCCESSFUL_PODS: "k8s.job.desired_su
  *
  * @deprecated Replaced by `k8s.job.pod.failed`.
  */
-export declare const METRIC_K8S_JOB_FAILED_PODS: "k8s.job.failed_pods";
+export declare const METRIC_K8S_JOB_FAILED_PODS: 'k8s.job.failed_pods'
 /**
  * Deprecated, use `k8s.job.pod.max_parallel` instead.
  *
@@ -1482,7 +1482,7 @@ export declare const METRIC_K8S_JOB_FAILED_PODS: "k8s.job.failed_pods";
  *
  * @deprecated Replaced by `k8s.job.pod.max_parallel`.
  */
-export declare const METRIC_K8S_JOB_MAX_PARALLEL_PODS: "k8s.job.max_parallel_pods";
+export declare const METRIC_K8S_JOB_MAX_PARALLEL_PODS: 'k8s.job.max_parallel_pods'
 /**
  * The number of pending and actively running pods for a job.
  *
@@ -1491,7 +1491,7 @@ export declare const METRIC_K8S_JOB_MAX_PARALLEL_PODS: "k8s.job.max_parallel_pod
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_JOB_POD_ACTIVE: "k8s.job.pod.active";
+export declare const METRIC_K8S_JOB_POD_ACTIVE: 'k8s.job.pod.active'
 /**
  * The desired number of successfully finished pods the job should be run with.
  *
@@ -1500,7 +1500,7 @@ export declare const METRIC_K8S_JOB_POD_ACTIVE: "k8s.job.pod.active";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_JOB_POD_DESIRED_SUCCESSFUL: "k8s.job.pod.desired_successful";
+export declare const METRIC_K8S_JOB_POD_DESIRED_SUCCESSFUL: 'k8s.job.pod.desired_successful'
 /**
  * The number of pods which reached phase Failed for a job.
  *
@@ -1509,7 +1509,7 @@ export declare const METRIC_K8S_JOB_POD_DESIRED_SUCCESSFUL: "k8s.job.pod.desired
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_JOB_POD_FAILED: "k8s.job.pod.failed";
+export declare const METRIC_K8S_JOB_POD_FAILED: 'k8s.job.pod.failed'
 /**
  * The max desired number of pods the job should run at any given time.
  *
@@ -1518,7 +1518,7 @@ export declare const METRIC_K8S_JOB_POD_FAILED: "k8s.job.pod.failed";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_JOB_POD_MAX_PARALLEL: "k8s.job.pod.max_parallel";
+export declare const METRIC_K8S_JOB_POD_MAX_PARALLEL: 'k8s.job.pod.max_parallel'
 /**
  * The number of pods which reached phase Succeeded for a job.
  *
@@ -1527,7 +1527,7 @@ export declare const METRIC_K8S_JOB_POD_MAX_PARALLEL: "k8s.job.pod.max_parallel"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_JOB_POD_SUCCESSFUL: "k8s.job.pod.successful";
+export declare const METRIC_K8S_JOB_POD_SUCCESSFUL: 'k8s.job.pod.successful'
 /**
  * Deprecated, use `k8s.job.pod.successful` instead.
  *
@@ -1538,13 +1538,13 @@ export declare const METRIC_K8S_JOB_POD_SUCCESSFUL: "k8s.job.pod.successful";
  *
  * @deprecated Replaced by `k8s.job.pod.successful`.
  */
-export declare const METRIC_K8S_JOB_SUCCESSFUL_PODS: "k8s.job.successful_pods";
+export declare const METRIC_K8S_JOB_SUCCESSFUL_PODS: 'k8s.job.successful_pods'
 /**
  * Describes number of K8s namespaces that are currently in a given phase.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NAMESPACE_PHASE: "k8s.namespace.phase";
+export declare const METRIC_K8S_NAMESPACE_PHASE: 'k8s.namespace.phase'
 /**
  * Deprecated, use `k8s.node.cpu.allocatable` instead.
  *
@@ -1552,7 +1552,7 @@ export declare const METRIC_K8S_NAMESPACE_PHASE: "k8s.namespace.phase";
  *
  * @deprecated Replaced by `k8s.node.cpu.allocatable`.
  */
-export declare const METRIC_K8S_NODE_ALLOCATABLE_CPU: "k8s.node.allocatable.cpu";
+export declare const METRIC_K8S_NODE_ALLOCATABLE_CPU: 'k8s.node.allocatable.cpu'
 /**
  * Deprecated, use `k8s.node.ephemeral_storage.allocatable` instead.
  *
@@ -1560,7 +1560,7 @@ export declare const METRIC_K8S_NODE_ALLOCATABLE_CPU: "k8s.node.allocatable.cpu"
  *
  * @deprecated Replaced by `k8s.node.ephemeral_storage.allocatable`.
  */
-export declare const METRIC_K8S_NODE_ALLOCATABLE_EPHEMERAL_STORAGE: "k8s.node.allocatable.ephemeral_storage";
+export declare const METRIC_K8S_NODE_ALLOCATABLE_EPHEMERAL_STORAGE: 'k8s.node.allocatable.ephemeral_storage'
 /**
  * Deprecated, use `k8s.node.memory.allocatable` instead.
  *
@@ -1568,7 +1568,7 @@ export declare const METRIC_K8S_NODE_ALLOCATABLE_EPHEMERAL_STORAGE: "k8s.node.al
  *
  * @deprecated Replaced by `k8s.node.memory.allocatable`.
  */
-export declare const METRIC_K8S_NODE_ALLOCATABLE_MEMORY: "k8s.node.allocatable.memory";
+export declare const METRIC_K8S_NODE_ALLOCATABLE_MEMORY: 'k8s.node.allocatable.memory'
 /**
  * Deprecated, use `k8s.node.pod.allocatable` instead.
  *
@@ -1576,7 +1576,7 @@ export declare const METRIC_K8S_NODE_ALLOCATABLE_MEMORY: "k8s.node.allocatable.m
  *
  * @deprecated Replaced by `k8s.node.pod.allocatable`.
  */
-export declare const METRIC_K8S_NODE_ALLOCATABLE_PODS: "k8s.node.allocatable.pods";
+export declare const METRIC_K8S_NODE_ALLOCATABLE_PODS: 'k8s.node.allocatable.pods'
 /**
  * Describes the condition of a particular Node.
  *
@@ -1584,13 +1584,13 @@ export declare const METRIC_K8S_NODE_ALLOCATABLE_PODS: "k8s.node.allocatable.pod
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_CONDITION_STATUS: "k8s.node.condition.status";
+export declare const METRIC_K8S_NODE_CONDITION_STATUS: 'k8s.node.condition.status'
 /**
  * Amount of cpu allocatable on the node.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_CPU_ALLOCATABLE: "k8s.node.cpu.allocatable";
+export declare const METRIC_K8S_NODE_CPU_ALLOCATABLE: 'k8s.node.cpu.allocatable'
 /**
  * Total CPU time consumed.
  *
@@ -1598,7 +1598,7 @@ export declare const METRIC_K8S_NODE_CPU_ALLOCATABLE: "k8s.node.cpu.allocatable"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_CPU_TIME: "k8s.node.cpu.time";
+export declare const METRIC_K8S_NODE_CPU_TIME: 'k8s.node.cpu.time'
 /**
  * Node's CPU usage, measured in cpus. Range from 0 to the number of allocatable CPUs.
  *
@@ -1606,13 +1606,13 @@ export declare const METRIC_K8S_NODE_CPU_TIME: "k8s.node.cpu.time";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_CPU_USAGE: "k8s.node.cpu.usage";
+export declare const METRIC_K8S_NODE_CPU_USAGE: 'k8s.node.cpu.usage'
 /**
  * Amount of ephemeral-storage allocatable on the node.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_EPHEMERAL_STORAGE_ALLOCATABLE: "k8s.node.ephemeral_storage.allocatable";
+export declare const METRIC_K8S_NODE_EPHEMERAL_STORAGE_ALLOCATABLE: 'k8s.node.ephemeral_storage.allocatable'
 /**
  * Node filesystem available bytes.
  *
@@ -1623,7 +1623,7 @@ export declare const METRIC_K8S_NODE_EPHEMERAL_STORAGE_ALLOCATABLE: "k8s.node.ep
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_FILESYSTEM_AVAILABLE: "k8s.node.filesystem.available";
+export declare const METRIC_K8S_NODE_FILESYSTEM_AVAILABLE: 'k8s.node.filesystem.available'
 /**
  * Node filesystem capacity.
  *
@@ -1634,7 +1634,7 @@ export declare const METRIC_K8S_NODE_FILESYSTEM_AVAILABLE: "k8s.node.filesystem.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_FILESYSTEM_CAPACITY: "k8s.node.filesystem.capacity";
+export declare const METRIC_K8S_NODE_FILESYSTEM_CAPACITY: 'k8s.node.filesystem.capacity'
 /**
  * Node filesystem usage.
  *
@@ -1647,13 +1647,13 @@ export declare const METRIC_K8S_NODE_FILESYSTEM_CAPACITY: "k8s.node.filesystem.c
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_FILESYSTEM_USAGE: "k8s.node.filesystem.usage";
+export declare const METRIC_K8S_NODE_FILESYSTEM_USAGE: 'k8s.node.filesystem.usage'
 /**
  * Amount of memory allocatable on the node.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_ALLOCATABLE: "k8s.node.memory.allocatable";
+export declare const METRIC_K8S_NODE_MEMORY_ALLOCATABLE: 'k8s.node.memory.allocatable'
 /**
  * Node memory available.
  *
@@ -1662,7 +1662,7 @@ export declare const METRIC_K8S_NODE_MEMORY_ALLOCATABLE: "k8s.node.memory.alloca
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_AVAILABLE: "k8s.node.memory.available";
+export declare const METRIC_K8S_NODE_MEMORY_AVAILABLE: 'k8s.node.memory.available'
 /**
  * Node memory paging faults.
  *
@@ -1671,7 +1671,7 @@ export declare const METRIC_K8S_NODE_MEMORY_AVAILABLE: "k8s.node.memory.availabl
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_PAGING_FAULTS: "k8s.node.memory.paging.faults";
+export declare const METRIC_K8S_NODE_MEMORY_PAGING_FAULTS: 'k8s.node.memory.paging.faults'
 /**
  * Node memory RSS.
  *
@@ -1680,7 +1680,7 @@ export declare const METRIC_K8S_NODE_MEMORY_PAGING_FAULTS: "k8s.node.memory.pagi
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_RSS: "k8s.node.memory.rss";
+export declare const METRIC_K8S_NODE_MEMORY_RSS: 'k8s.node.memory.rss'
 /**
  * Memory usage of the Node.
  *
@@ -1688,7 +1688,7 @@ export declare const METRIC_K8S_NODE_MEMORY_RSS: "k8s.node.memory.rss";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_USAGE: "k8s.node.memory.usage";
+export declare const METRIC_K8S_NODE_MEMORY_USAGE: 'k8s.node.memory.usage'
 /**
  * Node memory working set.
  *
@@ -1697,25 +1697,25 @@ export declare const METRIC_K8S_NODE_MEMORY_USAGE: "k8s.node.memory.usage";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_MEMORY_WORKING_SET: "k8s.node.memory.working_set";
+export declare const METRIC_K8S_NODE_MEMORY_WORKING_SET: 'k8s.node.memory.working_set'
 /**
  * Node network errors.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_NETWORK_ERRORS: "k8s.node.network.errors";
+export declare const METRIC_K8S_NODE_NETWORK_ERRORS: 'k8s.node.network.errors'
 /**
  * Network bytes for the Node.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_NETWORK_IO: "k8s.node.network.io";
+export declare const METRIC_K8S_NODE_NETWORK_IO: 'k8s.node.network.io'
 /**
  * Amount of pods allocatable on the node.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_POD_ALLOCATABLE: "k8s.node.pod.allocatable";
+export declare const METRIC_K8S_NODE_POD_ALLOCATABLE: 'k8s.node.pod.allocatable'
 /**
  * The time the Node has been running.
  *
@@ -1724,7 +1724,7 @@ export declare const METRIC_K8S_NODE_POD_ALLOCATABLE: "k8s.node.pod.allocatable"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_NODE_UPTIME: "k8s.node.uptime";
+export declare const METRIC_K8S_NODE_UPTIME: 'k8s.node.uptime'
 /**
  * Total CPU time consumed.
  *
@@ -1732,7 +1732,7 @@ export declare const METRIC_K8S_NODE_UPTIME: "k8s.node.uptime";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_CPU_TIME: "k8s.pod.cpu.time";
+export declare const METRIC_K8S_POD_CPU_TIME: 'k8s.pod.cpu.time'
 /**
  * Pod's CPU usage, measured in cpus. Range from 0 to the number of allocatable CPUs.
  *
@@ -1740,7 +1740,7 @@ export declare const METRIC_K8S_POD_CPU_TIME: "k8s.pod.cpu.time";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_CPU_USAGE: "k8s.pod.cpu.usage";
+export declare const METRIC_K8S_POD_CPU_USAGE: 'k8s.pod.cpu.usage'
 /**
  * Pod filesystem available bytes.
  *
@@ -1751,7 +1751,7 @@ export declare const METRIC_K8S_POD_CPU_USAGE: "k8s.pod.cpu.usage";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_FILESYSTEM_AVAILABLE: "k8s.pod.filesystem.available";
+export declare const METRIC_K8S_POD_FILESYSTEM_AVAILABLE: 'k8s.pod.filesystem.available'
 /**
  * Pod filesystem capacity.
  *
@@ -1762,7 +1762,7 @@ export declare const METRIC_K8S_POD_FILESYSTEM_AVAILABLE: "k8s.pod.filesystem.av
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_FILESYSTEM_CAPACITY: "k8s.pod.filesystem.capacity";
+export declare const METRIC_K8S_POD_FILESYSTEM_CAPACITY: 'k8s.pod.filesystem.capacity'
 /**
  * Pod filesystem usage.
  *
@@ -1775,7 +1775,7 @@ export declare const METRIC_K8S_POD_FILESYSTEM_CAPACITY: "k8s.pod.filesystem.cap
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_FILESYSTEM_USAGE: "k8s.pod.filesystem.usage";
+export declare const METRIC_K8S_POD_FILESYSTEM_USAGE: 'k8s.pod.filesystem.usage'
 /**
  * Pod memory available.
  *
@@ -1784,7 +1784,7 @@ export declare const METRIC_K8S_POD_FILESYSTEM_USAGE: "k8s.pod.filesystem.usage"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_MEMORY_AVAILABLE: "k8s.pod.memory.available";
+export declare const METRIC_K8S_POD_MEMORY_AVAILABLE: 'k8s.pod.memory.available'
 /**
  * Pod memory paging faults.
  *
@@ -1793,7 +1793,7 @@ export declare const METRIC_K8S_POD_MEMORY_AVAILABLE: "k8s.pod.memory.available"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_MEMORY_PAGING_FAULTS: "k8s.pod.memory.paging.faults";
+export declare const METRIC_K8S_POD_MEMORY_PAGING_FAULTS: 'k8s.pod.memory.paging.faults'
 /**
  * Pod memory RSS.
  *
@@ -1802,7 +1802,7 @@ export declare const METRIC_K8S_POD_MEMORY_PAGING_FAULTS: "k8s.pod.memory.paging
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_MEMORY_RSS: "k8s.pod.memory.rss";
+export declare const METRIC_K8S_POD_MEMORY_RSS: 'k8s.pod.memory.rss'
 /**
  * Memory usage of the Pod.
  *
@@ -1810,7 +1810,7 @@ export declare const METRIC_K8S_POD_MEMORY_RSS: "k8s.pod.memory.rss";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_MEMORY_USAGE: "k8s.pod.memory.usage";
+export declare const METRIC_K8S_POD_MEMORY_USAGE: 'k8s.pod.memory.usage'
 /**
  * Pod memory working set.
  *
@@ -1819,19 +1819,19 @@ export declare const METRIC_K8S_POD_MEMORY_USAGE: "k8s.pod.memory.usage";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_MEMORY_WORKING_SET: "k8s.pod.memory.working_set";
+export declare const METRIC_K8S_POD_MEMORY_WORKING_SET: 'k8s.pod.memory.working_set'
 /**
  * Pod network errors.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_NETWORK_ERRORS: "k8s.pod.network.errors";
+export declare const METRIC_K8S_POD_NETWORK_ERRORS: 'k8s.pod.network.errors'
 /**
  * Network bytes for the Pod.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_NETWORK_IO: "k8s.pod.network.io";
+export declare const METRIC_K8S_POD_NETWORK_IO: 'k8s.pod.network.io'
 /**
  * Describes number of K8s Pods that are currently in a given phase.
  *
@@ -1840,7 +1840,7 @@ export declare const METRIC_K8S_POD_NETWORK_IO: "k8s.pod.network.io";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_STATUS_PHASE: "k8s.pod.status.phase";
+export declare const METRIC_K8S_POD_STATUS_PHASE: 'k8s.pod.status.phase'
 /**
  * Describes the number of K8s Pods that are currently in a state for a given reason.
  *
@@ -1849,7 +1849,7 @@ export declare const METRIC_K8S_POD_STATUS_PHASE: "k8s.pod.status.phase";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_STATUS_REASON: "k8s.pod.status.reason";
+export declare const METRIC_K8S_POD_STATUS_REASON: 'k8s.pod.status.reason'
 /**
  * The time the Pod has been running.
  *
@@ -1858,7 +1858,7 @@ export declare const METRIC_K8S_POD_STATUS_REASON: "k8s.pod.status.reason";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_UPTIME: "k8s.pod.uptime";
+export declare const METRIC_K8S_POD_UPTIME: 'k8s.pod.uptime'
 /**
  * Pod volume storage space available.
  *
@@ -1869,7 +1869,7 @@ export declare const METRIC_K8S_POD_UPTIME: "k8s.pod.uptime";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_AVAILABLE: "k8s.pod.volume.available";
+export declare const METRIC_K8S_POD_VOLUME_AVAILABLE: 'k8s.pod.volume.available'
 /**
  * Pod volume total capacity.
  *
@@ -1880,7 +1880,7 @@ export declare const METRIC_K8S_POD_VOLUME_AVAILABLE: "k8s.pod.volume.available"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_CAPACITY: "k8s.pod.volume.capacity";
+export declare const METRIC_K8S_POD_VOLUME_CAPACITY: 'k8s.pod.volume.capacity'
 /**
  * The total inodes in the filesystem of the Pod's volume.
  *
@@ -1891,7 +1891,7 @@ export declare const METRIC_K8S_POD_VOLUME_CAPACITY: "k8s.pod.volume.capacity";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_INODE_COUNT: "k8s.pod.volume.inode.count";
+export declare const METRIC_K8S_POD_VOLUME_INODE_COUNT: 'k8s.pod.volume.inode.count'
 /**
  * The free inodes in the filesystem of the Pod's volume.
  *
@@ -1902,7 +1902,7 @@ export declare const METRIC_K8S_POD_VOLUME_INODE_COUNT: "k8s.pod.volume.inode.co
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_INODE_FREE: "k8s.pod.volume.inode.free";
+export declare const METRIC_K8S_POD_VOLUME_INODE_FREE: 'k8s.pod.volume.inode.free'
 /**
  * The inodes used by the filesystem of the Pod's volume.
  *
@@ -1915,7 +1915,7 @@ export declare const METRIC_K8S_POD_VOLUME_INODE_FREE: "k8s.pod.volume.inode.fre
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_INODE_USED: "k8s.pod.volume.inode.used";
+export declare const METRIC_K8S_POD_VOLUME_INODE_USED: 'k8s.pod.volume.inode.used'
 /**
  * Pod volume usage.
  *
@@ -1928,7 +1928,7 @@ export declare const METRIC_K8S_POD_VOLUME_INODE_USED: "k8s.pod.volume.inode.use
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_POD_VOLUME_USAGE: "k8s.pod.volume.usage";
+export declare const METRIC_K8S_POD_VOLUME_USAGE: 'k8s.pod.volume.usage'
 /**
  * Deprecated, use `k8s.replicaset.pod.available` instead.
  *
@@ -1939,7 +1939,7 @@ export declare const METRIC_K8S_POD_VOLUME_USAGE: "k8s.pod.volume.usage";
  *
  * @deprecated Replaced by `k8s.replicaset.pod.available`.
  */
-export declare const METRIC_K8S_REPLICASET_AVAILABLE_PODS: "k8s.replicaset.available_pods";
+export declare const METRIC_K8S_REPLICASET_AVAILABLE_PODS: 'k8s.replicaset.available_pods'
 /**
  * Deprecated, use `k8s.replicaset.pod.desired` instead.
  *
@@ -1950,7 +1950,7 @@ export declare const METRIC_K8S_REPLICASET_AVAILABLE_PODS: "k8s.replicaset.avail
  *
  * @deprecated Replaced by `k8s.replicaset.pod.desired`.
  */
-export declare const METRIC_K8S_REPLICASET_DESIRED_PODS: "k8s.replicaset.desired_pods";
+export declare const METRIC_K8S_REPLICASET_DESIRED_PODS: 'k8s.replicaset.desired_pods'
 /**
  * Total number of available replica pods (ready for at least minReadySeconds) targeted by this replicaset.
  *
@@ -1959,7 +1959,7 @@ export declare const METRIC_K8S_REPLICASET_DESIRED_PODS: "k8s.replicaset.desired
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_REPLICASET_POD_AVAILABLE: "k8s.replicaset.pod.available";
+export declare const METRIC_K8S_REPLICASET_POD_AVAILABLE: 'k8s.replicaset.pod.available'
 /**
  * Number of desired replica pods in this replicaset.
  *
@@ -1968,7 +1968,7 @@ export declare const METRIC_K8S_REPLICASET_POD_AVAILABLE: "k8s.replicaset.pod.av
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_REPLICASET_POD_DESIRED: "k8s.replicaset.pod.desired";
+export declare const METRIC_K8S_REPLICASET_POD_DESIRED: 'k8s.replicaset.pod.desired'
 /**
  * Deprecated, use `k8s.replicationcontroller.pod.available` instead.
  *
@@ -1976,7 +1976,7 @@ export declare const METRIC_K8S_REPLICASET_POD_DESIRED: "k8s.replicaset.pod.desi
  *
  * @deprecated Replaced by `k8s.replicationcontroller.pod.available`.
  */
-export declare const METRIC_K8S_REPLICATION_CONTROLLER_AVAILABLE_PODS: "k8s.replication_controller.available_pods";
+export declare const METRIC_K8S_REPLICATION_CONTROLLER_AVAILABLE_PODS: 'k8s.replication_controller.available_pods'
 /**
  * Deprecated, use `k8s.replicationcontroller.pod.desired` instead.
  *
@@ -1984,7 +1984,7 @@ export declare const METRIC_K8S_REPLICATION_CONTROLLER_AVAILABLE_PODS: "k8s.repl
  *
  * @deprecated Replaced by `k8s.replicationcontroller.pod.desired`.
  */
-export declare const METRIC_K8S_REPLICATION_CONTROLLER_DESIRED_PODS: "k8s.replication_controller.desired_pods";
+export declare const METRIC_K8S_REPLICATION_CONTROLLER_DESIRED_PODS: 'k8s.replication_controller.desired_pods'
 /**
  * Deprecated, use `k8s.replicationcontroller.pod.available` instead.
  *
@@ -1992,7 +1992,7 @@ export declare const METRIC_K8S_REPLICATION_CONTROLLER_DESIRED_PODS: "k8s.replic
  *
  * @deprecated Replaced by `k8s.replicationcontroller.pod.available`.
  */
-export declare const METRIC_K8S_REPLICATIONCONTROLLER_AVAILABLE_PODS: "k8s.replicationcontroller.available_pods";
+export declare const METRIC_K8S_REPLICATIONCONTROLLER_AVAILABLE_PODS: 'k8s.replicationcontroller.available_pods'
 /**
  * Deprecated, use `k8s.replicationcontroller.pod.desired` instead.
  *
@@ -2000,7 +2000,7 @@ export declare const METRIC_K8S_REPLICATIONCONTROLLER_AVAILABLE_PODS: "k8s.repli
  *
  * @deprecated Replaced by `k8s.replicationcontroller.pod.desired`.
  */
-export declare const METRIC_K8S_REPLICATIONCONTROLLER_DESIRED_PODS: "k8s.replicationcontroller.desired_pods";
+export declare const METRIC_K8S_REPLICATIONCONTROLLER_DESIRED_PODS: 'k8s.replicationcontroller.desired_pods'
 /**
  * Total number of available replica pods (ready for at least minReadySeconds) targeted by this replication controller.
  *
@@ -2009,7 +2009,7 @@ export declare const METRIC_K8S_REPLICATIONCONTROLLER_DESIRED_PODS: "k8s.replica
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_AVAILABLE: "k8s.replicationcontroller.pod.available";
+export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_AVAILABLE: 'k8s.replicationcontroller.pod.available'
 /**
  * Number of desired replica pods in this replication controller.
  *
@@ -2018,7 +2018,7 @@ export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_AVAILABLE: "k8s.replic
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_DESIRED: "k8s.replicationcontroller.pod.desired";
+export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_DESIRED: 'k8s.replicationcontroller.pod.desired'
 /**
  * The CPU limits in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2028,7 +2028,7 @@ export declare const METRIC_K8S_REPLICATIONCONTROLLER_POD_DESIRED: "k8s.replicat
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_HARD: "k8s.resourcequota.cpu.limit.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_HARD: 'k8s.resourcequota.cpu.limit.hard'
 /**
  * The CPU limits in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2038,7 +2038,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_HARD: "k8s.resourcequota
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_USED: "k8s.resourcequota.cpu.limit.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_USED: 'k8s.resourcequota.cpu.limit.used'
 /**
  * The CPU requests in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2048,7 +2048,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_CPU_LIMIT_USED: "k8s.resourcequota
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_HARD: "k8s.resourcequota.cpu.request.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_HARD: 'k8s.resourcequota.cpu.request.hard'
 /**
  * The CPU requests in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2058,7 +2058,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_HARD: "k8s.resourcequo
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_USED: "k8s.resourcequota.cpu.request.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_USED: 'k8s.resourcequota.cpu.request.used'
 /**
  * The sum of local ephemeral storage limits in the namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2068,7 +2068,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_CPU_REQUEST_USED: "k8s.resourcequo
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD: "k8s.resourcequota.ephemeral_storage.limit.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD: 'k8s.resourcequota.ephemeral_storage.limit.hard'
 /**
  * The sum of local ephemeral storage limits in the namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2078,7 +2078,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD: "k8s
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_USED: "k8s.resourcequota.ephemeral_storage.limit.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_USED: 'k8s.resourcequota.ephemeral_storage.limit.used'
 /**
  * The sum of local ephemeral storage requests in the namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2088,7 +2088,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_LIMIT_USED: "k8s
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_HARD: "k8s.resourcequota.ephemeral_storage.request.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_HARD: 'k8s.resourcequota.ephemeral_storage.request.hard'
 /**
  * The sum of local ephemeral storage requests in the namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2098,7 +2098,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_HARD: "k
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_USED: "k8s.resourcequota.ephemeral_storage.request.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_USED: 'k8s.resourcequota.ephemeral_storage.request.used'
 /**
  * The huge page requests in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2108,7 +2108,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_EPHEMERAL_STORAGE_REQUEST_USED: "k
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: "k8s.resourcequota.hugepage_count.request.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: 'k8s.resourcequota.hugepage_count.request.hard'
 /**
  * The huge page requests in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2118,7 +2118,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: "k8s.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_USED: "k8s.resourcequota.hugepage_count.request.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_USED: 'k8s.resourcequota.hugepage_count.request.used'
 /**
  * The memory limits in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2128,7 +2128,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_HUGEPAGE_COUNT_REQUEST_USED: "k8s.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_HARD: "k8s.resourcequota.memory.limit.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_HARD: 'k8s.resourcequota.memory.limit.hard'
 /**
  * The memory limits in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2138,7 +2138,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_HARD: "k8s.resourcequ
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_USED: "k8s.resourcequota.memory.limit.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_USED: 'k8s.resourcequota.memory.limit.used'
 /**
  * The memory requests in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2148,7 +2148,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_LIMIT_USED: "k8s.resourcequ
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_HARD: "k8s.resourcequota.memory.request.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_HARD: 'k8s.resourcequota.memory.request.hard'
 /**
  * The memory requests in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2158,7 +2158,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_HARD: "k8s.resource
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_USED: "k8s.resourcequota.memory.request.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_USED: 'k8s.resourcequota.memory.request.used'
 /**
  * The object count limits in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2168,7 +2168,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_MEMORY_REQUEST_USED: "k8s.resource
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_HARD: "k8s.resourcequota.object_count.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_HARD: 'k8s.resourcequota.object_count.hard'
 /**
  * The object count limits in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2178,7 +2178,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_HARD: "k8s.resourcequ
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_USED: "k8s.resourcequota.object_count.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_USED: 'k8s.resourcequota.object_count.used'
 /**
  * The total number of PersistentVolumeClaims that can exist in the namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2191,7 +2191,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_OBJECT_COUNT_USED: "k8s.resourcequ
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_HARD: "k8s.resourcequota.persistentvolumeclaim_count.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_HARD: 'k8s.resourcequota.persistentvolumeclaim_count.hard'
 /**
  * The total number of PersistentVolumeClaims that can exist in the namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2204,7 +2204,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_HARD: 
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_USED: "k8s.resourcequota.persistentvolumeclaim_count.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_USED: 'k8s.resourcequota.persistentvolumeclaim_count.used'
 /**
  * The storage requests in a specific namespace.
  * The value represents the configured quota limit of the resource in the namespace.
@@ -2217,7 +2217,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_PERSISTENTVOLUMECLAIM_COUNT_USED: 
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_HARD: "k8s.resourcequota.storage.request.hard";
+export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_HARD: 'k8s.resourcequota.storage.request.hard'
 /**
  * The storage requests in a specific namespace.
  * The value represents the current observed total usage of the resource in the namespace.
@@ -2230,7 +2230,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_HARD: "k8s.resourc
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_USED: "k8s.resourcequota.storage.request.used";
+export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_USED: 'k8s.resourcequota.storage.request.used'
 /**
  * Deprecated, use `k8s.statefulset.pod.current` instead.
  *
@@ -2241,7 +2241,7 @@ export declare const METRIC_K8S_RESOURCEQUOTA_STORAGE_REQUEST_USED: "k8s.resourc
  *
  * @deprecated Replaced by `k8s.statefulset.pod.current`.
  */
-export declare const METRIC_K8S_STATEFULSET_CURRENT_PODS: "k8s.statefulset.current_pods";
+export declare const METRIC_K8S_STATEFULSET_CURRENT_PODS: 'k8s.statefulset.current_pods'
 /**
  * Deprecated, use `k8s.statefulset.pod.desired` instead.
  *
@@ -2252,7 +2252,7 @@ export declare const METRIC_K8S_STATEFULSET_CURRENT_PODS: "k8s.statefulset.curre
  *
  * @deprecated Replaced by `k8s.statefulset.pod.desired`.
  */
-export declare const METRIC_K8S_STATEFULSET_DESIRED_PODS: "k8s.statefulset.desired_pods";
+export declare const METRIC_K8S_STATEFULSET_DESIRED_PODS: 'k8s.statefulset.desired_pods'
 /**
  * The number of replica pods created by the statefulset controller from the statefulset version indicated by currentRevision.
  *
@@ -2261,7 +2261,7 @@ export declare const METRIC_K8S_STATEFULSET_DESIRED_PODS: "k8s.statefulset.desir
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_STATEFULSET_POD_CURRENT: "k8s.statefulset.pod.current";
+export declare const METRIC_K8S_STATEFULSET_POD_CURRENT: 'k8s.statefulset.pod.current'
 /**
  * Number of desired replica pods in this statefulset.
  *
@@ -2270,7 +2270,7 @@ export declare const METRIC_K8S_STATEFULSET_POD_CURRENT: "k8s.statefulset.pod.cu
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_STATEFULSET_POD_DESIRED: "k8s.statefulset.pod.desired";
+export declare const METRIC_K8S_STATEFULSET_POD_DESIRED: 'k8s.statefulset.pod.desired'
 /**
  * The number of replica pods created for this statefulset with a Ready Condition.
  *
@@ -2279,7 +2279,7 @@ export declare const METRIC_K8S_STATEFULSET_POD_DESIRED: "k8s.statefulset.pod.de
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_STATEFULSET_POD_READY: "k8s.statefulset.pod.ready";
+export declare const METRIC_K8S_STATEFULSET_POD_READY: 'k8s.statefulset.pod.ready'
 /**
  * Number of replica pods created by the statefulset controller from the statefulset version indicated by updateRevision.
  *
@@ -2288,7 +2288,7 @@ export declare const METRIC_K8S_STATEFULSET_POD_READY: "k8s.statefulset.pod.read
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_K8S_STATEFULSET_POD_UPDATED: "k8s.statefulset.pod.updated";
+export declare const METRIC_K8S_STATEFULSET_POD_UPDATED: 'k8s.statefulset.pod.updated'
 /**
  * Deprecated, use `k8s.statefulset.pod.ready` instead.
  *
@@ -2299,7 +2299,7 @@ export declare const METRIC_K8S_STATEFULSET_POD_UPDATED: "k8s.statefulset.pod.up
  *
  * @deprecated Replaced by `k8s.statefulset.pod.ready`.
  */
-export declare const METRIC_K8S_STATEFULSET_READY_PODS: "k8s.statefulset.ready_pods";
+export declare const METRIC_K8S_STATEFULSET_READY_PODS: 'k8s.statefulset.ready_pods'
 /**
  * Deprecated, use `k8s.statefulset.pod.updated` instead.
  *
@@ -2310,7 +2310,7 @@ export declare const METRIC_K8S_STATEFULSET_READY_PODS: "k8s.statefulset.ready_p
  *
  * @deprecated Replaced by `k8s.statefulset.pod.updated`.
  */
-export declare const METRIC_K8S_STATEFULSET_UPDATED_PODS: "k8s.statefulset.updated_pods";
+export declare const METRIC_K8S_STATEFULSET_UPDATED_PODS: 'k8s.statefulset.updated_pods'
 /**
  * Number of messages that were delivered to the application.
  *
@@ -2319,7 +2319,7 @@ export declare const METRIC_K8S_STATEFULSET_UPDATED_PODS: "k8s.statefulset.updat
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_MESSAGING_CLIENT_CONSUMED_MESSAGES: "messaging.client.consumed.messages";
+export declare const METRIC_MESSAGING_CLIENT_CONSUMED_MESSAGES: 'messaging.client.consumed.messages'
 /**
  * Duration of messaging operation initiated by a producer or consumer client.
  *
@@ -2327,7 +2327,7 @@ export declare const METRIC_MESSAGING_CLIENT_CONSUMED_MESSAGES: "messaging.clien
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_MESSAGING_CLIENT_OPERATION_DURATION: "messaging.client.operation.duration";
+export declare const METRIC_MESSAGING_CLIENT_OPERATION_DURATION: 'messaging.client.operation.duration'
 /**
  * Deprecated. Use `messaging.client.sent.messages` instead.
  *
@@ -2335,7 +2335,7 @@ export declare const METRIC_MESSAGING_CLIENT_OPERATION_DURATION: "messaging.clie
  *
  * @deprecated Replaced by `messaging.client.sent.messages`.
  */
-export declare const METRIC_MESSAGING_CLIENT_PUBLISHED_MESSAGES: "messaging.client.published.messages";
+export declare const METRIC_MESSAGING_CLIENT_PUBLISHED_MESSAGES: 'messaging.client.published.messages'
 /**
  * Number of messages producer attempted to send to the broker.
  *
@@ -2343,7 +2343,7 @@ export declare const METRIC_MESSAGING_CLIENT_PUBLISHED_MESSAGES: "messaging.clie
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_MESSAGING_CLIENT_SENT_MESSAGES: "messaging.client.sent.messages";
+export declare const METRIC_MESSAGING_CLIENT_SENT_MESSAGES: 'messaging.client.sent.messages'
 /**
  * Duration of processing operation.
  *
@@ -2351,7 +2351,7 @@ export declare const METRIC_MESSAGING_CLIENT_SENT_MESSAGES: "messaging.client.se
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_MESSAGING_PROCESS_DURATION: "messaging.process.duration";
+export declare const METRIC_MESSAGING_PROCESS_DURATION: 'messaging.process.duration'
 /**
  * Deprecated. Use `messaging.client.consumed.messages` instead.
  *
@@ -2359,7 +2359,7 @@ export declare const METRIC_MESSAGING_PROCESS_DURATION: "messaging.process.durat
  *
  * @deprecated Replaced by `messaging.client.consumed.messages`.
  */
-export declare const METRIC_MESSAGING_PROCESS_MESSAGES: "messaging.process.messages";
+export declare const METRIC_MESSAGING_PROCESS_MESSAGES: 'messaging.process.messages'
 /**
  * Deprecated. Use `messaging.client.operation.duration` instead.
  *
@@ -2367,7 +2367,7 @@ export declare const METRIC_MESSAGING_PROCESS_MESSAGES: "messaging.process.messa
  *
  * @deprecated Replaced by `messaging.client.operation.duration`.
  */
-export declare const METRIC_MESSAGING_PUBLISH_DURATION: "messaging.publish.duration";
+export declare const METRIC_MESSAGING_PUBLISH_DURATION: 'messaging.publish.duration'
 /**
  * Deprecated. Use `messaging.client.sent.messages` instead.
  *
@@ -2375,7 +2375,7 @@ export declare const METRIC_MESSAGING_PUBLISH_DURATION: "messaging.publish.durat
  *
  * @deprecated Replaced by `messaging.client.sent.messages`.
  */
-export declare const METRIC_MESSAGING_PUBLISH_MESSAGES: "messaging.publish.messages";
+export declare const METRIC_MESSAGING_PUBLISH_MESSAGES: 'messaging.publish.messages'
 /**
  * Deprecated. Use `messaging.client.operation.duration` instead.
  *
@@ -2383,7 +2383,7 @@ export declare const METRIC_MESSAGING_PUBLISH_MESSAGES: "messaging.publish.messa
  *
  * @deprecated Replaced by `messaging.client.operation.duration`.
  */
-export declare const METRIC_MESSAGING_RECEIVE_DURATION: "messaging.receive.duration";
+export declare const METRIC_MESSAGING_RECEIVE_DURATION: 'messaging.receive.duration'
 /**
  * Deprecated. Use `messaging.client.consumed.messages` instead.
  *
@@ -2391,7 +2391,7 @@ export declare const METRIC_MESSAGING_RECEIVE_DURATION: "messaging.receive.durat
  *
  * @deprecated Replaced by `messaging.client.consumed.messages`.
  */
-export declare const METRIC_MESSAGING_RECEIVE_MESSAGES: "messaging.receive.messages";
+export declare const METRIC_MESSAGING_RECEIVE_MESSAGES: 'messaging.receive.messages'
 /**
  * Reports the count of kernel NFS client TCP segments and UDP datagrams handled.
  *
@@ -2399,7 +2399,7 @@ export declare const METRIC_MESSAGING_RECEIVE_MESSAGES: "messaging.receive.messa
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_NET_COUNT: "nfs.client.net.count";
+export declare const METRIC_NFS_CLIENT_NET_COUNT: 'nfs.client.net.count'
 /**
  * Reports the count of kernel NFS client TCP connections accepted.
  *
@@ -2407,19 +2407,19 @@ export declare const METRIC_NFS_CLIENT_NET_COUNT: "nfs.client.net.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_NET_TCP_CONNECTION_ACCEPTED: "nfs.client.net.tcp.connection.accepted";
+export declare const METRIC_NFS_CLIENT_NET_TCP_CONNECTION_ACCEPTED: 'nfs.client.net.tcp.connection.accepted'
 /**
  * Reports the count of kernel NFSv4+ client operations.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_OPERATION_COUNT: "nfs.client.operation.count";
+export declare const METRIC_NFS_CLIENT_OPERATION_COUNT: 'nfs.client.operation.count'
 /**
  * Reports the count of kernel NFS client procedures.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_PROCEDURE_COUNT: "nfs.client.procedure.count";
+export declare const METRIC_NFS_CLIENT_PROCEDURE_COUNT: 'nfs.client.procedure.count'
 /**
  * Reports the count of kernel NFS client RPC authentication refreshes.
  *
@@ -2427,7 +2427,7 @@ export declare const METRIC_NFS_CLIENT_PROCEDURE_COUNT: "nfs.client.procedure.co
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_RPC_AUTHREFRESH_COUNT: "nfs.client.rpc.authrefresh.count";
+export declare const METRIC_NFS_CLIENT_RPC_AUTHREFRESH_COUNT: 'nfs.client.rpc.authrefresh.count'
 /**
  * Reports the count of kernel NFS client RPCs sent, regardless of whether they're accepted/rejected by the server.
  *
@@ -2435,7 +2435,7 @@ export declare const METRIC_NFS_CLIENT_RPC_AUTHREFRESH_COUNT: "nfs.client.rpc.au
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_RPC_COUNT: "nfs.client.rpc.count";
+export declare const METRIC_NFS_CLIENT_RPC_COUNT: 'nfs.client.rpc.count'
 /**
  * Reports the count of kernel NFS client RPC retransmits.
  *
@@ -2443,7 +2443,7 @@ export declare const METRIC_NFS_CLIENT_RPC_COUNT: "nfs.client.rpc.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_CLIENT_RPC_RETRANSMIT_COUNT: "nfs.client.rpc.retransmit.count";
+export declare const METRIC_NFS_CLIENT_RPC_RETRANSMIT_COUNT: 'nfs.client.rpc.retransmit.count'
 /**
  * Reports the count of kernel NFS server stale file handles.
  *
@@ -2451,7 +2451,7 @@ export declare const METRIC_NFS_CLIENT_RPC_RETRANSMIT_COUNT: "nfs.client.rpc.ret
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_FH_STALE_COUNT: "nfs.server.fh.stale.count";
+export declare const METRIC_NFS_SERVER_FH_STALE_COUNT: 'nfs.server.fh.stale.count'
 /**
  * Reports the count of kernel NFS server bytes returned to receive and transmit (read and write) requests.
  *
@@ -2459,7 +2459,7 @@ export declare const METRIC_NFS_SERVER_FH_STALE_COUNT: "nfs.server.fh.stale.coun
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_IO: "nfs.server.io";
+export declare const METRIC_NFS_SERVER_IO: 'nfs.server.io'
 /**
  * Reports the count of kernel NFS server TCP segments and UDP datagrams handled.
  *
@@ -2467,7 +2467,7 @@ export declare const METRIC_NFS_SERVER_IO: "nfs.server.io";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_NET_COUNT: "nfs.server.net.count";
+export declare const METRIC_NFS_SERVER_NET_COUNT: 'nfs.server.net.count'
 /**
  * Reports the count of kernel NFS server TCP connections accepted.
  *
@@ -2475,25 +2475,25 @@ export declare const METRIC_NFS_SERVER_NET_COUNT: "nfs.server.net.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_NET_TCP_CONNECTION_ACCEPTED: "nfs.server.net.tcp.connection.accepted";
+export declare const METRIC_NFS_SERVER_NET_TCP_CONNECTION_ACCEPTED: 'nfs.server.net.tcp.connection.accepted'
 /**
  * Reports the count of kernel NFSv4+ server operations.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_OPERATION_COUNT: "nfs.server.operation.count";
+export declare const METRIC_NFS_SERVER_OPERATION_COUNT: 'nfs.server.operation.count'
 /**
  * Reports the count of kernel NFS server procedures.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_PROCEDURE_COUNT: "nfs.server.procedure.count";
+export declare const METRIC_NFS_SERVER_PROCEDURE_COUNT: 'nfs.server.procedure.count'
 /**
  * Reports the kernel NFS server reply cache request count by cache hit status.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_REPCACHE_REQUESTS: "nfs.server.repcache.requests";
+export declare const METRIC_NFS_SERVER_REPCACHE_REQUESTS: 'nfs.server.repcache.requests'
 /**
  * Reports the count of kernel NFS server RPCs handled.
  *
@@ -2502,7 +2502,7 @@ export declare const METRIC_NFS_SERVER_REPCACHE_REQUESTS: "nfs.server.repcache.r
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_RPC_COUNT: "nfs.server.rpc.count";
+export declare const METRIC_NFS_SERVER_RPC_COUNT: 'nfs.server.rpc.count'
 /**
  * Reports the count of kernel NFS server available threads.
  *
@@ -2510,7 +2510,7 @@ export declare const METRIC_NFS_SERVER_RPC_COUNT: "nfs.server.rpc.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NFS_SERVER_THREAD_COUNT: "nfs.server.thread.count";
+export declare const METRIC_NFS_SERVER_THREAD_COUNT: 'nfs.server.thread.count'
 /**
  * Event loop maximum delay.
  *
@@ -2518,7 +2518,7 @@ export declare const METRIC_NFS_SERVER_THREAD_COUNT: "nfs.server.thread.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MAX: "nodejs.eventloop.delay.max";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MAX: 'nodejs.eventloop.delay.max'
 /**
  * Event loop mean delay.
  *
@@ -2526,7 +2526,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MAX: "nodejs.eventloop.delay.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MEAN: "nodejs.eventloop.delay.mean";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MEAN: 'nodejs.eventloop.delay.mean'
 /**
  * Event loop minimum delay.
  *
@@ -2534,7 +2534,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MEAN: "nodejs.eventloop.delay
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MIN: "nodejs.eventloop.delay.min";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MIN: 'nodejs.eventloop.delay.min'
 /**
  * Event loop 50 percentile delay.
  *
@@ -2542,7 +2542,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_MIN: "nodejs.eventloop.delay.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P50: "nodejs.eventloop.delay.p50";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P50: 'nodejs.eventloop.delay.p50'
 /**
  * Event loop 90 percentile delay.
  *
@@ -2550,7 +2550,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P50: "nodejs.eventloop.delay.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P90: "nodejs.eventloop.delay.p90";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P90: 'nodejs.eventloop.delay.p90'
 /**
  * Event loop 99 percentile delay.
  *
@@ -2558,7 +2558,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P90: "nodejs.eventloop.delay.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P99: "nodejs.eventloop.delay.p99";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P99: 'nodejs.eventloop.delay.p99'
 /**
  * Event loop standard deviation delay.
  *
@@ -2566,7 +2566,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_P99: "nodejs.eventloop.delay.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_DELAY_STDDEV: "nodejs.eventloop.delay.stddev";
+export declare const METRIC_NODEJS_EVENTLOOP_DELAY_STDDEV: 'nodejs.eventloop.delay.stddev'
 /**
  * Cumulative duration of time the event loop has been in each state.
  *
@@ -2574,7 +2574,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_DELAY_STDDEV: "nodejs.eventloop.del
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_TIME: "nodejs.eventloop.time";
+export declare const METRIC_NODEJS_EVENTLOOP_TIME: 'nodejs.eventloop.time'
 /**
  * Event loop utilization.
  *
@@ -2582,7 +2582,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_TIME: "nodejs.eventloop.time";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_NODEJS_EVENTLOOP_UTILIZATION: "nodejs.eventloop.utilization";
+export declare const METRIC_NODEJS_EVENTLOOP_UTILIZATION: 'nodejs.eventloop.utilization'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2593,7 +2593,7 @@ export declare const METRIC_NODEJS_EVENTLOOP_UTILIZATION: "nodejs.eventloop.util
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_HARD: "openshift.clusterquota.cpu.limit.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_HARD: 'openshift.clusterquota.cpu.limit.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2604,7 +2604,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_HARD: "openshift.cl
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_USED: "openshift.clusterquota.cpu.limit.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_USED: 'openshift.clusterquota.cpu.limit.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2615,7 +2615,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_LIMIT_USED: "openshift.cl
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_HARD: "openshift.clusterquota.cpu.request.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_HARD: 'openshift.clusterquota.cpu.request.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2626,7 +2626,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_HARD: "openshift.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_USED: "openshift.clusterquota.cpu.request.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_USED: 'openshift.clusterquota.cpu.request.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2637,7 +2637,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_CPU_REQUEST_USED: "openshift.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD: "openshift.clusterquota.ephemeral_storage.limit.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD: 'openshift.clusterquota.ephemeral_storage.limit.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2648,7 +2648,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_HARD:
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_USED: "openshift.clusterquota.ephemeral_storage.limit.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_USED: 'openshift.clusterquota.ephemeral_storage.limit.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2659,7 +2659,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_LIMIT_USED:
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_HARD: "openshift.clusterquota.ephemeral_storage.request.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_HARD: 'openshift.clusterquota.ephemeral_storage.request.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2670,7 +2670,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_HAR
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_USED: "openshift.clusterquota.ephemeral_storage.request.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_USED: 'openshift.clusterquota.ephemeral_storage.request.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2681,7 +2681,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_EPHEMERAL_STORAGE_REQUEST_USE
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: "openshift.clusterquota.hugepage_count.request.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: 'openshift.clusterquota.hugepage_count.request.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2692,7 +2692,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_HARD: 
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_USED: "openshift.clusterquota.hugepage_count.request.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_USED: 'openshift.clusterquota.hugepage_count.request.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2703,7 +2703,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_HUGEPAGE_COUNT_REQUEST_USED: 
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_HARD: "openshift.clusterquota.memory.limit.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_HARD: 'openshift.clusterquota.memory.limit.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2714,7 +2714,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_HARD: "openshift
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_USED: "openshift.clusterquota.memory.limit.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_USED: 'openshift.clusterquota.memory.limit.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2725,7 +2725,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_LIMIT_USED: "openshift
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_HARD: "openshift.clusterquota.memory.request.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_HARD: 'openshift.clusterquota.memory.request.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2736,7 +2736,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_HARD: "openshi
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_USED: "openshift.clusterquota.memory.request.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_USED: 'openshift.clusterquota.memory.request.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2747,7 +2747,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_MEMORY_REQUEST_USED: "openshi
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_OBJECT_COUNT_HARD: "openshift.clusterquota.object_count.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_OBJECT_COUNT_HARD: 'openshift.clusterquota.object_count.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2758,35 +2758,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_OBJECT_COUNT_HARD: "openshift
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_OBJECT_COUNT_USED: "openshift.clusterquota.object_count.used";
-/**
- * The enforced hard limit of the resource across all projects.
- *
- * @note This metric is retrieved from the `Status.Total.Hard` field of the
- * [K8s ResourceQuotaStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcequotastatus-v1-core)
- * of the
- * [ClusterResourceQuota](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/schedule_and_quota_apis/clusterresourcequota-quota-openshift-io-v1#status-total).
- *
- * The `k8s.storageclass.name` should be required when a resource quota is defined for a specific
- * storage class.
- *
- * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
- */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_PERSISTENTVOLUMECLAIM_COUNT_HARD: "openshift.clusterquota.persistentvolumeclaim_count.hard";
-/**
- * The current observed total usage of the resource across all projects.
- *
- * @note This metric is retrieved from the `Status.Total.Used` field of the
- * [K8s ResourceQuotaStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcequotastatus-v1-core)
- * of the
- * [ClusterResourceQuota](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/schedule_and_quota_apis/clusterresourcequota-quota-openshift-io-v1#status-total).
- *
- * The `k8s.storageclass.name` should be required when a resource quota is defined for a specific
- * storage class.
- *
- * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
- */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_PERSISTENTVOLUMECLAIM_COUNT_USED: "openshift.clusterquota.persistentvolumeclaim_count.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_OBJECT_COUNT_USED: 'openshift.clusterquota.object_count.used'
 /**
  * The enforced hard limit of the resource across all projects.
  *
@@ -2800,7 +2772,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_PERSISTENTVOLUMECLAIM_COUNT_U
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_HARD: "openshift.clusterquota.storage.request.hard";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_PERSISTENTVOLUMECLAIM_COUNT_HARD: 'openshift.clusterquota.persistentvolumeclaim_count.hard'
 /**
  * The current observed total usage of the resource across all projects.
  *
@@ -2814,7 +2786,35 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_HARD: "opensh
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_USED: "openshift.clusterquota.storage.request.used";
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_PERSISTENTVOLUMECLAIM_COUNT_USED: 'openshift.clusterquota.persistentvolumeclaim_count.used'
+/**
+ * The enforced hard limit of the resource across all projects.
+ *
+ * @note This metric is retrieved from the `Status.Total.Hard` field of the
+ * [K8s ResourceQuotaStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcequotastatus-v1-core)
+ * of the
+ * [ClusterResourceQuota](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/schedule_and_quota_apis/clusterresourcequota-quota-openshift-io-v1#status-total).
+ *
+ * The `k8s.storageclass.name` should be required when a resource quota is defined for a specific
+ * storage class.
+ *
+ * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
+ */
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_HARD: 'openshift.clusterquota.storage.request.hard'
+/**
+ * The current observed total usage of the resource across all projects.
+ *
+ * @note This metric is retrieved from the `Status.Total.Used` field of the
+ * [K8s ResourceQuotaStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcequotastatus-v1-core)
+ * of the
+ * [ClusterResourceQuota](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/schedule_and_quota_apis/clusterresourcequota-quota-openshift-io-v1#status-total).
+ *
+ * The `k8s.storageclass.name` should be required when a resource quota is defined for a specific
+ * storage class.
+ *
+ * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
+ */
+export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_USED: 'openshift.clusterquota.storage.request.used'
 /**
  * The number of log records for which the export has finished, either successful or failed.
  *
@@ -2824,7 +2824,7 @@ export declare const METRIC_OPENSHIFT_CLUSTERQUOTA_STORAGE_REQUEST_USED: "opensh
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_LOG_EXPORTED: "otel.sdk.exporter.log.exported";
+export declare const METRIC_OTEL_SDK_EXPORTER_LOG_EXPORTED: 'otel.sdk.exporter.log.exported'
 /**
  * The number of log records which were passed to the exporter, but that have not been exported yet (neither successful, nor failed).
  *
@@ -2832,7 +2832,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_LOG_EXPORTED: "otel.sdk.exporter.l
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_LOG_INFLIGHT: "otel.sdk.exporter.log.inflight";
+export declare const METRIC_OTEL_SDK_EXPORTER_LOG_INFLIGHT: 'otel.sdk.exporter.log.inflight'
 /**
  * The number of metric data points for which the export has finished, either successful or failed.
  *
@@ -2842,7 +2842,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_LOG_INFLIGHT: "otel.sdk.exporter.l
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_EXPORTED: "otel.sdk.exporter.metric_data_point.exported";
+export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_EXPORTED: 'otel.sdk.exporter.metric_data_point.exported'
 /**
  * The number of metric data points which were passed to the exporter, but that have not been exported yet (neither successful, nor failed).
  *
@@ -2850,7 +2850,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_EXPORTED: "otel.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_INFLIGHT: "otel.sdk.exporter.metric_data_point.inflight";
+export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_INFLIGHT: 'otel.sdk.exporter.metric_data_point.inflight'
 /**
  * The duration of exporting a batch of telemetry records.
  *
@@ -2860,7 +2860,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_METRIC_DATA_POINT_INFLIGHT: "otel.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_OPERATION_DURATION: "otel.sdk.exporter.operation.duration";
+export declare const METRIC_OTEL_SDK_EXPORTER_OPERATION_DURATION: 'otel.sdk.exporter.operation.duration'
 /**
  * The number of spans for which the export has finished, either successful or failed.
  *
@@ -2870,7 +2870,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_OPERATION_DURATION: "otel.sdk.expo
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED: "otel.sdk.exporter.span.exported";
+export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED: 'otel.sdk.exporter.span.exported'
 /**
  * Deprecated, use `otel.sdk.exporter.span.exported` instead.
  *
@@ -2878,7 +2878,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED: "otel.sdk.exporter.
  *
  * @deprecated Replaced by `otel.sdk.exporter.span.exported`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED_COUNT: "otel.sdk.exporter.span.exported.count";
+export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED_COUNT: 'otel.sdk.exporter.span.exported.count'
 /**
  * The number of spans which were passed to the exporter, but that have not been exported yet (neither successful, nor failed).
  *
@@ -2886,7 +2886,7 @@ export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_EXPORTED_COUNT: "otel.sdk.exp
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_INFLIGHT: "otel.sdk.exporter.span.inflight";
+export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_INFLIGHT: 'otel.sdk.exporter.span.inflight'
 /**
  * Deprecated, use `otel.sdk.exporter.span.inflight` instead.
  *
@@ -2894,13 +2894,13 @@ export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_INFLIGHT: "otel.sdk.exporter.
  *
  * @deprecated Replaced by `otel.sdk.exporter.span.inflight`.
  */
-export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_INFLIGHT_COUNT: "otel.sdk.exporter.span.inflight.count";
+export declare const METRIC_OTEL_SDK_EXPORTER_SPAN_INFLIGHT_COUNT: 'otel.sdk.exporter.span.inflight.count'
 /**
  * The number of logs submitted to enabled SDK Loggers.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_LOG_CREATED: "otel.sdk.log.created";
+export declare const METRIC_OTEL_SDK_LOG_CREATED: 'otel.sdk.log.created'
 /**
  * The duration of the collect operation of the metric reader.
  *
@@ -2909,7 +2909,7 @@ export declare const METRIC_OTEL_SDK_LOG_CREATED: "otel.sdk.log.created";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_METRIC_READER_COLLECTION_DURATION: "otel.sdk.metric_reader.collection.duration";
+export declare const METRIC_OTEL_SDK_METRIC_READER_COLLECTION_DURATION: 'otel.sdk.metric_reader.collection.duration'
 /**
  * The number of log records for which the processing has finished, either successful or failed.
  *
@@ -2919,7 +2919,7 @@ export declare const METRIC_OTEL_SDK_METRIC_READER_COLLECTION_DURATION: "otel.sd
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_PROCESSED: "otel.sdk.processor.log.processed";
+export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_PROCESSED: 'otel.sdk.processor.log.processed'
 /**
  * The maximum number of log records the queue of a given instance of an SDK Log Record processor can hold.
  *
@@ -2927,7 +2927,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_PROCESSED: "otel.sdk.processo
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_CAPACITY: "otel.sdk.processor.log.queue.capacity";
+export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_CAPACITY: 'otel.sdk.processor.log.queue.capacity'
 /**
  * The number of log records in the queue of a given instance of an SDK log processor.
  *
@@ -2935,7 +2935,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_CAPACITY: "otel.sdk.pro
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_SIZE: "otel.sdk.processor.log.queue.size";
+export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_SIZE: 'otel.sdk.processor.log.queue.size'
 /**
  * The number of spans for which the processing has finished, either successful or failed.
  *
@@ -2944,7 +2944,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_LOG_QUEUE_SIZE: "otel.sdk.process
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED: "otel.sdk.processor.span.processed";
+export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED: 'otel.sdk.processor.span.processed'
 /**
  * Deprecated, use `otel.sdk.processor.span.processed` instead.
  *
@@ -2952,7 +2952,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED: "otel.sdk.process
  *
  * @deprecated Replaced by `otel.sdk.processor.span.processed`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED_COUNT: "otel.sdk.processor.span.processed.count";
+export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED_COUNT: 'otel.sdk.processor.span.processed.count'
 /**
  * The maximum number of spans the queue of a given instance of an SDK span processor can hold.
  *
@@ -2960,7 +2960,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_PROCESSED_COUNT: "otel.sdk.p
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_CAPACITY: "otel.sdk.processor.span.queue.capacity";
+export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_CAPACITY: 'otel.sdk.processor.span.queue.capacity'
 /**
  * The number of spans in the queue of a given instance of an SDK span processor.
  *
@@ -2968,7 +2968,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_CAPACITY: "otel.sdk.pr
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_SIZE: "otel.sdk.processor.span.queue.size";
+export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_SIZE: 'otel.sdk.processor.span.queue.size'
 /**
  * Use `otel.sdk.span.started` minus `otel.sdk.span.live` to derive this value.
  *
@@ -2976,7 +2976,7 @@ export declare const METRIC_OTEL_SDK_PROCESSOR_SPAN_QUEUE_SIZE: "otel.sdk.proces
  *
  * @deprecated Obsoleted.
  */
-export declare const METRIC_OTEL_SDK_SPAN_ENDED: "otel.sdk.span.ended";
+export declare const METRIC_OTEL_SDK_SPAN_ENDED: 'otel.sdk.span.ended'
 /**
  * Use `otel.sdk.span.started` minus `otel.sdk.span.live` to derive this value.
  *
@@ -2984,13 +2984,13 @@ export declare const METRIC_OTEL_SDK_SPAN_ENDED: "otel.sdk.span.ended";
  *
  * @deprecated Obsoleted.
  */
-export declare const METRIC_OTEL_SDK_SPAN_ENDED_COUNT: "otel.sdk.span.ended.count";
+export declare const METRIC_OTEL_SDK_SPAN_ENDED_COUNT: 'otel.sdk.span.ended.count'
 /**
  * The number of created spans with `recording=true` for which the end operation has not been called yet.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_SPAN_LIVE: "otel.sdk.span.live";
+export declare const METRIC_OTEL_SDK_SPAN_LIVE: 'otel.sdk.span.live'
 /**
  * Deprecated, use `otel.sdk.span.live` instead.
  *
@@ -2998,7 +2998,7 @@ export declare const METRIC_OTEL_SDK_SPAN_LIVE: "otel.sdk.span.live";
  *
  * @deprecated Replaced by `otel.sdk.span.live`.
  */
-export declare const METRIC_OTEL_SDK_SPAN_LIVE_COUNT: "otel.sdk.span.live.count";
+export declare const METRIC_OTEL_SDK_SPAN_LIVE_COUNT: 'otel.sdk.span.live.count'
 /**
  * The number of created spans.
  *
@@ -3006,67 +3006,67 @@ export declare const METRIC_OTEL_SDK_SPAN_LIVE_COUNT: "otel.sdk.span.live.count"
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_OTEL_SDK_SPAN_STARTED: "otel.sdk.span.started";
+export declare const METRIC_OTEL_SDK_SPAN_STARTED: 'otel.sdk.span.started'
 /**
  * Number of times the process has been context switched.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_CONTEXT_SWITCHES: "process.context_switches";
+export declare const METRIC_PROCESS_CONTEXT_SWITCHES: 'process.context_switches'
 /**
  * Total CPU seconds broken down by different states.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_CPU_TIME: "process.cpu.time";
+export declare const METRIC_PROCESS_CPU_TIME: 'process.cpu.time'
 /**
  * Difference in process.cpu.time since the last measurement, divided by the elapsed time and number of CPUs available to the process.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_CPU_UTILIZATION: "process.cpu.utilization";
+export declare const METRIC_PROCESS_CPU_UTILIZATION: 'process.cpu.utilization'
 /**
  * Disk bytes transferred.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_DISK_IO: "process.disk.io";
+export declare const METRIC_PROCESS_DISK_IO: 'process.disk.io'
 /**
  * The amount of physical memory in use.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_MEMORY_USAGE: "process.memory.usage";
+export declare const METRIC_PROCESS_MEMORY_USAGE: 'process.memory.usage'
 /**
  * The amount of committed virtual memory.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_MEMORY_VIRTUAL: "process.memory.virtual";
+export declare const METRIC_PROCESS_MEMORY_VIRTUAL: 'process.memory.virtual'
 /**
  * Network bytes transferred.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_NETWORK_IO: "process.network.io";
+export declare const METRIC_PROCESS_NETWORK_IO: 'process.network.io'
 /**
  * Number of file descriptors in use by the process.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_OPEN_FILE_DESCRIPTOR_COUNT: "process.open_file_descriptor.count";
+export declare const METRIC_PROCESS_OPEN_FILE_DESCRIPTOR_COUNT: 'process.open_file_descriptor.count'
 /**
  * Number of page faults the process has made.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_PAGING_FAULTS: "process.paging.faults";
+export declare const METRIC_PROCESS_PAGING_FAULTS: 'process.paging.faults'
 /**
  * Process threads count.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_THREAD_COUNT: "process.thread.count";
+export declare const METRIC_PROCESS_THREAD_COUNT: 'process.thread.count'
 /**
  * The time the process has been running.
  *
@@ -3075,7 +3075,7 @@ export declare const METRIC_PROCESS_THREAD_COUNT: "process.thread.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_PROCESS_UPTIME: "process.uptime";
+export declare const METRIC_PROCESS_UPTIME: 'process.uptime'
 /**
  * Measures the duration of outbound RPC.
  *
@@ -3086,7 +3086,7 @@ export declare const METRIC_PROCESS_UPTIME: "process.uptime";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_CLIENT_DURATION: "rpc.client.duration";
+export declare const METRIC_RPC_CLIENT_DURATION: 'rpc.client.duration'
 /**
  * Measures the size of RPC request messages (uncompressed).
  *
@@ -3094,7 +3094,7 @@ export declare const METRIC_RPC_CLIENT_DURATION: "rpc.client.duration";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_CLIENT_REQUEST_SIZE: "rpc.client.request.size";
+export declare const METRIC_RPC_CLIENT_REQUEST_SIZE: 'rpc.client.request.size'
 /**
  * Measures the number of messages received per RPC.
  *
@@ -3106,7 +3106,7 @@ export declare const METRIC_RPC_CLIENT_REQUEST_SIZE: "rpc.client.request.size";
  *
  * @deprecated Removed, no replacement at this time.
  */
-export declare const METRIC_RPC_CLIENT_REQUESTS_PER_RPC: "rpc.client.requests_per_rpc";
+export declare const METRIC_RPC_CLIENT_REQUESTS_PER_RPC: 'rpc.client.requests_per_rpc'
 /**
  * Measures the size of RPC response messages (uncompressed).
  *
@@ -3114,7 +3114,7 @@ export declare const METRIC_RPC_CLIENT_REQUESTS_PER_RPC: "rpc.client.requests_pe
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_CLIENT_RESPONSE_SIZE: "rpc.client.response.size";
+export declare const METRIC_RPC_CLIENT_RESPONSE_SIZE: 'rpc.client.response.size'
 /**
  * Measures the number of messages sent per RPC.
  *
@@ -3126,7 +3126,7 @@ export declare const METRIC_RPC_CLIENT_RESPONSE_SIZE: "rpc.client.response.size"
  *
  * @deprecated Removed, no replacement at this time.
  */
-export declare const METRIC_RPC_CLIENT_RESPONSES_PER_RPC: "rpc.client.responses_per_rpc";
+export declare const METRIC_RPC_CLIENT_RESPONSES_PER_RPC: 'rpc.client.responses_per_rpc'
 /**
  * Measures the duration of inbound RPC.
  *
@@ -3137,7 +3137,7 @@ export declare const METRIC_RPC_CLIENT_RESPONSES_PER_RPC: "rpc.client.responses_
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_SERVER_DURATION: "rpc.server.duration";
+export declare const METRIC_RPC_SERVER_DURATION: 'rpc.server.duration'
 /**
  * Measures the size of RPC request messages (uncompressed).
  *
@@ -3145,7 +3145,7 @@ export declare const METRIC_RPC_SERVER_DURATION: "rpc.server.duration";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_SERVER_REQUEST_SIZE: "rpc.server.request.size";
+export declare const METRIC_RPC_SERVER_REQUEST_SIZE: 'rpc.server.request.size'
 /**
  * Measures the number of messages received per RPC.
  *
@@ -3157,7 +3157,7 @@ export declare const METRIC_RPC_SERVER_REQUEST_SIZE: "rpc.server.request.size";
  *
  * @deprecated Removed, no replacement at this time.
  */
-export declare const METRIC_RPC_SERVER_REQUESTS_PER_RPC: "rpc.server.requests_per_rpc";
+export declare const METRIC_RPC_SERVER_REQUESTS_PER_RPC: 'rpc.server.requests_per_rpc'
 /**
  * Measures the size of RPC response messages (uncompressed).
  *
@@ -3165,7 +3165,7 @@ export declare const METRIC_RPC_SERVER_REQUESTS_PER_RPC: "rpc.server.requests_pe
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_RPC_SERVER_RESPONSE_SIZE: "rpc.server.response.size";
+export declare const METRIC_RPC_SERVER_RESPONSE_SIZE: 'rpc.server.response.size'
 /**
  * Measures the number of messages sent per RPC.
  *
@@ -3177,45 +3177,45 @@ export declare const METRIC_RPC_SERVER_RESPONSE_SIZE: "rpc.server.response.size"
  *
  * @deprecated Removed, no replacement at this time.
  */
-export declare const METRIC_RPC_SERVER_RESPONSES_PER_RPC: "rpc.server.responses_per_rpc";
+export declare const METRIC_RPC_SERVER_RESPONSES_PER_RPC: 'rpc.server.responses_per_rpc'
 /**
  * Operating frequency of the logical CPU in Hertz.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_CPU_FREQUENCY: "system.cpu.frequency";
+export declare const METRIC_SYSTEM_CPU_FREQUENCY: 'system.cpu.frequency'
 /**
  * Reports the number of logical (virtual) processor cores created by the operating system to manage multitasking.
  *
  * @note Calculated by multiplying the number of sockets by the number of cores per socket, and then by the number of threads per core
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_CPU_LOGICAL_COUNT: "system.cpu.logical.count";
+export declare const METRIC_SYSTEM_CPU_LOGICAL_COUNT: 'system.cpu.logical.count'
 /**
  * Reports the number of actual physical processor cores on the hardware.
  *
  * @note Calculated by multiplying the number of sockets by the number of cores per socket
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_CPU_PHYSICAL_COUNT: "system.cpu.physical.count";
+export declare const METRIC_SYSTEM_CPU_PHYSICAL_COUNT: 'system.cpu.physical.count'
 /**
  * Seconds each logical CPU spent on each mode.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_CPU_TIME: "system.cpu.time";
+export declare const METRIC_SYSTEM_CPU_TIME: 'system.cpu.time'
 /**
  * For each logical CPU, the utilization is calculated as the change in cumulative CPU time (cpu.time) over a measurement interval, divided by the elapsed time.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_CPU_UTILIZATION: "system.cpu.utilization";
+export declare const METRIC_SYSTEM_CPU_UTILIZATION: 'system.cpu.utilization'
 /**
  * Disk bytes transferred.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_IO: "system.disk.io";
+export declare const METRIC_SYSTEM_DISK_IO: 'system.disk.io'
 /**
  * Time disk spent activated.
  *
@@ -3228,19 +3228,19 @@ export declare const METRIC_SYSTEM_DISK_IO: "system.disk.io";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_IO_TIME: "system.disk.io_time";
+export declare const METRIC_SYSTEM_DISK_IO_TIME: 'system.disk.io_time'
 /**
  * The total storage capacity of the disk.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_LIMIT: "system.disk.limit";
+export declare const METRIC_SYSTEM_DISK_LIMIT: 'system.disk.limit'
 /**
  * The number of disk reads/writes merged into single physical disk access operations.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_MERGED: "system.disk.merged";
+export declare const METRIC_SYSTEM_DISK_MERGED: 'system.disk.merged'
 /**
  * Sum of the time each operation took to complete.
  *
@@ -3251,19 +3251,19 @@ export declare const METRIC_SYSTEM_DISK_MERGED: "system.disk.merged";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_OPERATION_TIME: "system.disk.operation_time";
+export declare const METRIC_SYSTEM_DISK_OPERATION_TIME: 'system.disk.operation_time'
 /**
  * Disk operations count.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_DISK_OPERATIONS: "system.disk.operations";
+export declare const METRIC_SYSTEM_DISK_OPERATIONS: 'system.disk.operations'
 /**
  * The total storage capacity of the filesystem.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_FILESYSTEM_LIMIT: "system.filesystem.limit";
+export declare const METRIC_SYSTEM_FILESYSTEM_LIMIT: 'system.filesystem.limit'
 /**
  * Reports a filesystem's space usage across different states.
  *
@@ -3272,13 +3272,13 @@ export declare const METRIC_SYSTEM_FILESYSTEM_LIMIT: "system.filesystem.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_FILESYSTEM_USAGE: "system.filesystem.usage";
+export declare const METRIC_SYSTEM_FILESYSTEM_USAGE: 'system.filesystem.usage'
 /**
  * Fraction of filesystem bytes used.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_FILESYSTEM_UTILIZATION: "system.filesystem.utilization";
+export declare const METRIC_SYSTEM_FILESYSTEM_UTILIZATION: 'system.filesystem.utilization'
 /**
  * An estimate of how much memory is available for starting new applications, without causing swapping.
  *
@@ -3290,7 +3290,7 @@ export declare const METRIC_SYSTEM_FILESYSTEM_UTILIZATION: "system.filesystem.ut
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_LINUX_MEMORY_AVAILABLE: "system.linux.memory.available";
+export declare const METRIC_SYSTEM_LINUX_MEMORY_AVAILABLE: 'system.linux.memory.available'
 /**
  * Reports the memory used by the Linux kernel for managing caches of frequently used objects.
  *
@@ -3300,13 +3300,13 @@ export declare const METRIC_SYSTEM_LINUX_MEMORY_AVAILABLE: "system.linux.memory.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_LINUX_MEMORY_SLAB_USAGE: "system.linux.memory.slab.usage";
+export declare const METRIC_SYSTEM_LINUX_MEMORY_SLAB_USAGE: 'system.linux.memory.slab.usage'
 /**
  * Total virtual memory available in the system.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_MEMORY_LIMIT: "system.memory.limit";
+export declare const METRIC_SYSTEM_MEMORY_LIMIT: 'system.memory.limit'
 /**
  * Shared memory used (mostly by tmpfs).
  *
@@ -3315,25 +3315,25 @@ export declare const METRIC_SYSTEM_MEMORY_LIMIT: "system.memory.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_MEMORY_SHARED: "system.memory.shared";
+export declare const METRIC_SYSTEM_MEMORY_SHARED: 'system.memory.shared'
 /**
  * Reports memory in use by state.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_MEMORY_USAGE: "system.memory.usage";
+export declare const METRIC_SYSTEM_MEMORY_USAGE: 'system.memory.usage'
 /**
  * Percentage of memory bytes in use.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_MEMORY_UTILIZATION: "system.memory.utilization";
+export declare const METRIC_SYSTEM_MEMORY_UTILIZATION: 'system.memory.utilization'
 /**
  * The number of connections.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_NETWORK_CONNECTION_COUNT: "system.network.connection.count";
+export declare const METRIC_SYSTEM_NETWORK_CONNECTION_COUNT: 'system.network.connection.count'
 /**
  * Deprecated, use `system.network.connection.count` instead.
  *
@@ -3341,7 +3341,7 @@ export declare const METRIC_SYSTEM_NETWORK_CONNECTION_COUNT: "system.network.con
  *
  * @deprecated Replaced by `system.network.connection.count`.
  */
-export declare const METRIC_SYSTEM_NETWORK_CONNECTIONS: "system.network.connections";
+export declare const METRIC_SYSTEM_NETWORK_CONNECTIONS: 'system.network.connections'
 /**
  * Count of packets that are dropped or discarded even though there was no error.
  *
@@ -3355,7 +3355,7 @@ export declare const METRIC_SYSTEM_NETWORK_CONNECTIONS: "system.network.connecti
  *
  * @deprecated Replaced by `system.network.packet.dropped`.
  */
-export declare const METRIC_SYSTEM_NETWORK_DROPPED: "system.network.dropped";
+export declare const METRIC_SYSTEM_NETWORK_DROPPED: 'system.network.dropped'
 /**
  * Count of network errors detected.
  *
@@ -3367,19 +3367,19 @@ export declare const METRIC_SYSTEM_NETWORK_DROPPED: "system.network.dropped";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_NETWORK_ERRORS: "system.network.errors";
+export declare const METRIC_SYSTEM_NETWORK_ERRORS: 'system.network.errors'
 /**
  * The number of bytes transmitted and received.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_NETWORK_IO: "system.network.io";
+export declare const METRIC_SYSTEM_NETWORK_IO: 'system.network.io'
 /**
  * The number of packets transferred.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_NETWORK_PACKET_COUNT: "system.network.packet.count";
+export declare const METRIC_SYSTEM_NETWORK_PACKET_COUNT: 'system.network.packet.count'
 /**
  * Count of packets that are dropped or discarded even though there was no error.
  *
@@ -3391,7 +3391,7 @@ export declare const METRIC_SYSTEM_NETWORK_PACKET_COUNT: "system.network.packet.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_NETWORK_PACKET_DROPPED: "system.network.packet.dropped";
+export declare const METRIC_SYSTEM_NETWORK_PACKET_DROPPED: 'system.network.packet.dropped'
 /**
  * The number of packets transferred.
  *
@@ -3399,43 +3399,43 @@ export declare const METRIC_SYSTEM_NETWORK_PACKET_DROPPED: "system.network.packe
  *
  * @deprecated Replaced by `system.network.packet.count`.
  */
-export declare const METRIC_SYSTEM_NETWORK_PACKETS: "system.network.packets";
+export declare const METRIC_SYSTEM_NETWORK_PACKETS: 'system.network.packets'
 /**
  * The number of page faults.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PAGING_FAULTS: "system.paging.faults";
+export declare const METRIC_SYSTEM_PAGING_FAULTS: 'system.paging.faults'
 /**
  * The number of paging operations.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PAGING_OPERATIONS: "system.paging.operations";
+export declare const METRIC_SYSTEM_PAGING_OPERATIONS: 'system.paging.operations'
 /**
  * Unix swap or windows pagefile usage.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PAGING_USAGE: "system.paging.usage";
+export declare const METRIC_SYSTEM_PAGING_USAGE: 'system.paging.usage'
 /**
  * Swap (unix) or pagefile (windows) utilization.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PAGING_UTILIZATION: "system.paging.utilization";
+export declare const METRIC_SYSTEM_PAGING_UTILIZATION: 'system.paging.utilization'
 /**
  * Total number of processes in each state.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PROCESS_COUNT: "system.process.count";
+export declare const METRIC_SYSTEM_PROCESS_COUNT: 'system.process.count'
 /**
  * Total number of processes created over uptime of the host.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_PROCESS_CREATED: "system.process.created";
+export declare const METRIC_SYSTEM_PROCESS_CREATED: 'system.process.created'
 /**
  * The time the system has been running.
  *
@@ -3444,7 +3444,7 @@ export declare const METRIC_SYSTEM_PROCESS_CREATED: "system.process.created";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_SYSTEM_UPTIME: "system.uptime";
+export declare const METRIC_SYSTEM_UPTIME: 'system.uptime'
 /**
  * Garbage collection duration.
  *
@@ -3452,7 +3452,7 @@ export declare const METRIC_SYSTEM_UPTIME: "system.uptime";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_V8JS_GC_DURATION: "v8js.gc.duration";
+export declare const METRIC_V8JS_GC_DURATION: 'v8js.gc.duration'
 /**
  * Deprecated, use `v8js.memory.heap.space.available_size` instead.
  *
@@ -3460,7 +3460,7 @@ export declare const METRIC_V8JS_GC_DURATION: "v8js.gc.duration";
  *
  * @deprecated Replaced by `v8js.memory.heap.space.available_size`.
  */
-export declare const METRIC_V8JS_HEAP_SPACE_AVAILABLE_SIZE: "v8js.heap.space.available_size";
+export declare const METRIC_V8JS_HEAP_SPACE_AVAILABLE_SIZE: 'v8js.heap.space.available_size'
 /**
  * Deprecated, use `v8js.memory.heap.space.physical_size` instead.
  *
@@ -3468,7 +3468,7 @@ export declare const METRIC_V8JS_HEAP_SPACE_AVAILABLE_SIZE: "v8js.heap.space.ava
  *
  * @deprecated Replaced by `v8js.memory.heap.space.physical_size`.
  */
-export declare const METRIC_V8JS_HEAP_SPACE_PHYSICAL_SIZE: "v8js.heap.space.physical_size";
+export declare const METRIC_V8JS_HEAP_SPACE_PHYSICAL_SIZE: 'v8js.heap.space.physical_size'
 /**
  * Total heap memory size pre-allocated.
  *
@@ -3476,7 +3476,7 @@ export declare const METRIC_V8JS_HEAP_SPACE_PHYSICAL_SIZE: "v8js.heap.space.phys
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_V8JS_MEMORY_HEAP_LIMIT: "v8js.memory.heap.limit";
+export declare const METRIC_V8JS_MEMORY_HEAP_LIMIT: 'v8js.memory.heap.limit'
 /**
  * Heap space available size.
  *
@@ -3484,7 +3484,7 @@ export declare const METRIC_V8JS_MEMORY_HEAP_LIMIT: "v8js.memory.heap.limit";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_AVAILABLE_SIZE: "v8js.memory.heap.space.available_size";
+export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_AVAILABLE_SIZE: 'v8js.memory.heap.space.available_size'
 /**
  * Committed size of a heap space.
  *
@@ -3492,7 +3492,7 @@ export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_AVAILABLE_SIZE: "v8js.memory.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_PHYSICAL_SIZE: "v8js.memory.heap.space.physical_size";
+export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_PHYSICAL_SIZE: 'v8js.memory.heap.space.physical_size'
 /**
  * Heap Memory size allocated.
  *
@@ -3500,43 +3500,43 @@ export declare const METRIC_V8JS_MEMORY_HEAP_SPACE_PHYSICAL_SIZE: "v8js.memory.h
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_V8JS_MEMORY_HEAP_USED: "v8js.memory.heap.used";
+export declare const METRIC_V8JS_MEMORY_HEAP_USED: 'v8js.memory.heap.used'
 /**
  * The number of changes (pull requests/merge requests/changelists) in a repository, categorized by their state (e.g. open or merged).
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_CHANGE_COUNT: "vcs.change.count";
+export declare const METRIC_VCS_CHANGE_COUNT: 'vcs.change.count'
 /**
  * The time duration a change (pull request/merge request/changelist) has been in a given state.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_CHANGE_DURATION: "vcs.change.duration";
+export declare const METRIC_VCS_CHANGE_DURATION: 'vcs.change.duration'
 /**
  * The amount of time since its creation it took a change (pull request/merge request/changelist) to get the first approval.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_CHANGE_TIME_TO_APPROVAL: "vcs.change.time_to_approval";
+export declare const METRIC_VCS_CHANGE_TIME_TO_APPROVAL: 'vcs.change.time_to_approval'
 /**
  * The amount of time since its creation it took a change (pull request/merge request/changelist) to get merged into the target(base) ref.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_CHANGE_TIME_TO_MERGE: "vcs.change.time_to_merge";
+export declare const METRIC_VCS_CHANGE_TIME_TO_MERGE: 'vcs.change.time_to_merge'
 /**
  * The number of unique contributors to a repository.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_CONTRIBUTOR_COUNT: "vcs.contributor.count";
+export declare const METRIC_VCS_CONTRIBUTOR_COUNT: 'vcs.contributor.count'
 /**
  * The number of refs of type branch or tag in a repository.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_REF_COUNT: "vcs.ref.count";
+export declare const METRIC_VCS_REF_COUNT: 'vcs.ref.count'
 /**
  * The number of lines added/removed in a ref (branch) relative to the ref from the `vcs.ref.base.name` attribute.
  *
@@ -3546,7 +3546,7 @@ export declare const METRIC_VCS_REF_COUNT: "vcs.ref.count";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_REF_LINES_DELTA: "vcs.ref.lines_delta";
+export declare const METRIC_VCS_REF_LINES_DELTA: 'vcs.ref.lines_delta'
 /**
  * The number of revisions (commits) a ref (branch) is ahead/behind the branch from the `vcs.ref.base.name` attribute.
  *
@@ -3555,17 +3555,17 @@ export declare const METRIC_VCS_REF_LINES_DELTA: "vcs.ref.lines_delta";
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_REF_REVISIONS_DELTA: "vcs.ref.revisions_delta";
+export declare const METRIC_VCS_REF_REVISIONS_DELTA: 'vcs.ref.revisions_delta'
 /**
  * Time a ref (branch) created from the default branch (trunk) has existed. The `ref.type` attribute will always be `branch`.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_REF_TIME: "vcs.ref.time";
+export declare const METRIC_VCS_REF_TIME: 'vcs.ref.time'
 /**
  * The number of repositories in an organization.
  *
  * @experimental This metric is experimental and is subject to breaking changes in minor releases of `@opentelemetry/semantic-conventions`.
  */
-export declare const METRIC_VCS_REPOSITORY_COUNT: "vcs.repository.count";
+export declare const METRIC_VCS_REPOSITORY_COUNT: 'vcs.repository.count'
 //# sourceMappingURL=experimental_metrics.d.ts.map

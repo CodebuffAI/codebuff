@@ -161,8 +161,8 @@
  * @module adapters
  */
 
-import { ProviderType } from "./providers/index.js"
-import type { Account, Authenticator, Awaitable, User } from "./types.js"
+import { ProviderType } from './providers/index.js'
+import type { Account, Authenticator, Awaitable, User } from './types.js'
 // TODO: Discuss if we should expose methods to serialize and deserialize
 // the data? Many adapters share this logic, so it could be useful to
 // have a common implementation.
@@ -190,7 +190,7 @@ export interface AdapterUser extends User {
  */
 export type AdapterAccountType = Extract<
   ProviderType,
-  "oauth" | "oidc" | "email" | "webauthn"
+  'oauth' | 'oidc' | 'email' | 'webauthn'
 >
 
 /**
@@ -304,7 +304,7 @@ export interface Adapter {
    * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
    */
   getUserByAccount?(
-    providerAccountId: Pick<AdapterAccount, "provider" | "providerAccountId">
+    providerAccountId: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
   ): Awaitable<AdapterUser | null>
   /**
    * Updates a user in the database and returns it.
@@ -312,7 +312,7 @@ export interface Adapter {
    * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
    */
   updateUser?(
-    user: Partial<AdapterUser> & Pick<AdapterUser, "id">
+    user: Partial<AdapterUser> & Pick<AdapterUser, 'id'>,
   ): Awaitable<AdapterUser>
   /**
    * @todo This method is currently not invoked yet.
@@ -320,7 +320,7 @@ export interface Adapter {
    * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
    */
   deleteUser?(
-    userId: string
+    userId: string,
   ): Promise<void> | Awaitable<AdapterUser | null | undefined>
   /**
    * This method is invoked internally (but optionally can be used for manual linking).
@@ -329,11 +329,11 @@ export interface Adapter {
    * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
    */
   linkAccount?(
-    account: AdapterAccount
+    account: AdapterAccount,
   ): Promise<void> | Awaitable<AdapterAccount | null | undefined>
   /** @todo This method is currently not invoked yet. */
   unlinkAccount?(
-    providerAccountId: Pick<AdapterAccount, "provider" | "providerAccountId">
+    providerAccountId: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
   ): Promise<void> | Awaitable<AdapterAccount | undefined>
   /**
    * Creates a session for the user and returns it.
@@ -355,7 +355,7 @@ export interface Adapter {
    * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
    */
   getSessionAndUser?(
-    sessionToken: string
+    sessionToken: string,
   ): Awaitable<{ session: AdapterSession; user: AdapterUser } | null>
   /**
    * Updates a session in the database and returns it.
@@ -363,7 +363,7 @@ export interface Adapter {
    * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
    */
   updateSession?(
-    session: Partial<AdapterSession> & Pick<AdapterSession, "sessionToken">
+    session: Partial<AdapterSession> & Pick<AdapterSession, 'sessionToken'>,
   ): Awaitable<AdapterSession | null | undefined>
   /**
    * Deletes a session from the database. It is preferred that this method also
@@ -372,7 +372,7 @@ export interface Adapter {
    * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
    */
   deleteSession?(
-    sessionToken: string
+    sessionToken: string,
   ): Promise<void> | Awaitable<AdapterSession | null | undefined>
   /**
    * Creates a verification token and returns it.
@@ -380,7 +380,7 @@ export interface Adapter {
    * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
    */
   createVerificationToken?(
-    verificationToken: VerificationToken
+    verificationToken: VerificationToken,
   ): Awaitable<VerificationToken | null | undefined>
   /**
    * Return verification token from the database and deletes it
@@ -398,8 +398,8 @@ export interface Adapter {
    * If an account is not found, the adapter must return `null`.
    */
   getAccount?(
-    providerAccountId: AdapterAccount["providerAccountId"],
-    provider: AdapterAccount["provider"]
+    providerAccountId: AdapterAccount['providerAccountId'],
+    provider: AdapterAccount['provider'],
   ): Awaitable<AdapterAccount | null>
   /**
    * Returns an authenticator from its credentialID.
@@ -407,7 +407,7 @@ export interface Adapter {
    * If an authenticator is not found, the adapter must return `null`.
    */
   getAuthenticator?(
-    credentialID: AdapterAuthenticator["credentialID"]
+    credentialID: AdapterAuthenticator['credentialID'],
   ): Awaitable<AdapterAuthenticator | null>
   /**
    * Create a new authenticator.
@@ -415,7 +415,7 @@ export interface Adapter {
    * If the creation fails, the adapter must throw an error.
    */
   createAuthenticator?(
-    authenticator: AdapterAuthenticator
+    authenticator: AdapterAuthenticator,
   ): Awaitable<AdapterAuthenticator>
   /**
    * Returns all authenticators from a user.
@@ -424,7 +424,7 @@ export interface Adapter {
    * If the retrieval fails for some other reason, the adapter must throw an error.
    */
   listAuthenticatorsByUserId?(
-    userId: AdapterAuthenticator["userId"]
+    userId: AdapterAuthenticator['userId'],
   ): Awaitable<AdapterAuthenticator[]>
   /**
    * Updates an authenticator's counter.
@@ -432,8 +432,8 @@ export interface Adapter {
    * If the update fails, the adapter must throw an error.
    */
   updateAuthenticatorCounter?(
-    credentialID: AdapterAuthenticator["credentialID"],
-    newCounter: AdapterAuthenticator["counter"]
+    credentialID: AdapterAuthenticator['credentialID'],
+    newCounter: AdapterAuthenticator['counter'],
   ): Awaitable<AdapterAuthenticator>
 }
 
@@ -444,14 +444,14 @@ const isoDateRE =
 /** Determines if a given value can be parsed into `Date` */
 export function isDate(value: unknown): value is string {
   return (
-    typeof value === "string" &&
+    typeof value === 'string' &&
     isoDateRE.test(value) &&
     !isNaN(Date.parse(value))
   )
 }
 
 // @ts-expect-error For compatibility with older versions of NextAuth.js
-declare module "next-auth/adapters" {
+declare module 'next-auth/adapters' {
   type JsonObject = {
     [Key in string]?: JsonValue
   }
@@ -459,7 +459,7 @@ declare module "next-auth/adapters" {
   type JsonPrimitive = string | number | boolean | null
   type JsonValue = JsonPrimitive | JsonObject | JsonArray
   interface AdapterAccount {
-    type: "oauth" | "email" | "oidc"
+    type: 'oauth' | 'email' | 'oidc'
     [key: string]: JsonValue | undefined
   }
 }

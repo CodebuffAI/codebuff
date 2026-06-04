@@ -1,1 +1,1 @@
-export * from 'nx/src/devkit-testing-exports';
+export * from 'nx/src/devkit-testing-exports'

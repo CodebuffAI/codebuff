@@ -1,2 +1,2 @@
-import { memoize } from "../fp";
-export = memoize;
+import { memoize } from '../fp'
+export = memoize

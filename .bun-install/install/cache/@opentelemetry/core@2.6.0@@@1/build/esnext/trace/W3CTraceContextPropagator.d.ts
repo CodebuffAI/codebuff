@@ -1,6 +1,12 @@
-import { Context, SpanContext, TextMapGetter, TextMapPropagator, TextMapSetter } from '@opentelemetry/api';
-export declare const TRACE_PARENT_HEADER = "traceparent";
-export declare const TRACE_STATE_HEADER = "tracestate";
+import {
+  Context,
+  SpanContext,
+  TextMapGetter,
+  TextMapPropagator,
+  TextMapSetter,
+} from '@opentelemetry/api'
+export declare const TRACE_PARENT_HEADER = 'traceparent'
+export declare const TRACE_STATE_HEADER = 'tracestate'
 /**
  * Parses information from the [traceparent] span tag and converts it into {@link SpanContext}
  * @param traceParent - A meta property that comes from server.
@@ -11,7 +17,9 @@ export declare const TRACE_STATE_HEADER = "tracestate";
  *     for example: '{version}-{traceId}-{spanId}-{sampleDecision}'
  *     For more information see {@link https://www.w3.org/TR/trace-context/}
  */
-export declare function parseTraceParent(traceParent: string): SpanContext | null;
+export declare function parseTraceParent(
+  traceParent: string,
+): SpanContext | null
 /**
  * Propagates {@link SpanContext} through Trace Context format propagation.
  *
@@ -19,8 +27,8 @@ export declare function parseTraceParent(traceParent: string): SpanContext | nul
  * https://www.w3.org/TR/trace-context/
  */
 export declare class W3CTraceContextPropagator implements TextMapPropagator {
-    inject(context: Context, carrier: unknown, setter: TextMapSetter): void;
-    extract(context: Context, carrier: unknown, getter: TextMapGetter): Context;
-    fields(): string[];
+  inject(context: Context, carrier: unknown, setter: TextMapSetter): void
+  extract(context: Context, carrier: unknown, getter: TextMapGetter): Context
+  fields(): string[]
 }
 //# sourceMappingURL=W3CTraceContextPropagator.d.ts.map

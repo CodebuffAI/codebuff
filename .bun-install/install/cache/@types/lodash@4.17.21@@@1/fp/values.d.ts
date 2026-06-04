@@ -1,2 +1,2 @@
-import { values } from "../fp";
-export = values;
+import { values } from '../fp'
+export = values

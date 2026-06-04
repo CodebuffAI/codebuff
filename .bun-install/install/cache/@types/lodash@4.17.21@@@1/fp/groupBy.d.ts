@@ -1,2 +1,2 @@
-import { groupBy } from "../fp";
-export = groupBy;
+import { groupBy } from '../fp'
+export = groupBy

@@ -1,4 +1,4 @@
-import { GeneratedColumnConfig, and, eq, getTableColumns } from "drizzle-orm"
+import { GeneratedColumnConfig, and, eq, getTableColumns } from 'drizzle-orm'
 import {
   PgColumn,
   PgDatabase,
@@ -10,7 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
-} from "drizzle-orm/pg-core"
+} from 'drizzle-orm/pg-core'
 
 import type {
   Adapter,
@@ -20,97 +20,97 @@ import type {
   AdapterSession,
   AdapterUser,
   VerificationToken,
-} from "@auth/core/adapters"
-import { Awaitable } from "@auth/core/types"
+} from '@auth/core/adapters'
+import { Awaitable } from '@auth/core/types'
 
 export function defineTables(
-  schema: Partial<DefaultPostgresSchema> = {}
+  schema: Partial<DefaultPostgresSchema> = {},
 ): Required<DefaultPostgresSchema> {
   const usersTable =
     schema.usersTable ??
-    (pgTable("user", {
-      id: text("id")
+    (pgTable('user', {
+      id: text('id')
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-      name: text("name"),
-      email: text("email").unique(),
-      emailVerified: timestamp("emailVerified", { mode: "date" }),
-      image: text("image"),
+      name: text('name'),
+      email: text('email').unique(),
+      emailVerified: timestamp('emailVerified', { mode: 'date' }),
+      image: text('image'),
     }) satisfies DefaultPostgresUsersTable)
 
   const accountsTable =
     schema.accountsTable ??
     (pgTable(
-      "account",
+      'account',
       {
-        userId: text("userId")
+        userId: text('userId')
           .notNull()
-          .references(() => usersTable.id, { onDelete: "cascade" }),
-        type: text("type").$type<AdapterAccountType>().notNull(),
-        provider: text("provider").notNull(),
-        providerAccountId: text("providerAccountId").notNull(),
-        refresh_token: text("refresh_token"),
-        access_token: text("access_token"),
-        expires_at: integer("expires_at"),
-        token_type: text("token_type"),
-        scope: text("scope"),
-        id_token: text("id_token"),
-        session_state: text("session_state"),
+          .references(() => usersTable.id, { onDelete: 'cascade' }),
+        type: text('type').$type<AdapterAccountType>().notNull(),
+        provider: text('provider').notNull(),
+        providerAccountId: text('providerAccountId').notNull(),
+        refresh_token: text('refresh_token'),
+        access_token: text('access_token'),
+        expires_at: integer('expires_at'),
+        token_type: text('token_type'),
+        scope: text('scope'),
+        id_token: text('id_token'),
+        session_state: text('session_state'),
       },
       (account) => ({
         compositePk: primaryKey({
           columns: [account.provider, account.providerAccountId],
         }),
-      })
+      }),
     ) satisfies DefaultPostgresAccountsTable)
 
   const sessionsTable =
     schema.sessionsTable ??
-    (pgTable("session", {
-      sessionToken: text("sessionToken").primaryKey(),
-      userId: text("userId")
+    (pgTable('session', {
+      sessionToken: text('sessionToken').primaryKey(),
+      userId: text('userId')
         .notNull()
-        .references(() => usersTable.id, { onDelete: "cascade" }),
-      expires: timestamp("expires", { mode: "date" }).notNull(),
+        .references(() => usersTable.id, { onDelete: 'cascade' }),
+      expires: timestamp('expires', { mode: 'date' }).notNull(),
     }) satisfies DefaultPostgresSessionsTable)
 
   const verificationTokensTable =
     schema.verificationTokensTable ??
     (pgTable(
-      "verificationToken",
+      'verificationToken',
       {
-        identifier: text("identifier").notNull(),
-        token: text("token").notNull(),
-        expires: timestamp("expires", { mode: "date" }).notNull(),
+        identifier: text('identifier').notNull(),
+        token: text('token').notNull(),
+        expires: timestamp('expires', { mode: 'date' }).notNull(),
       },
       (verificationToken) => ({
         compositePk: primaryKey({
           columns: [verificationToken.identifier, verificationToken.token],
         }),
-      })
+      }),
     ) satisfies DefaultPostgresVerificationTokenTable)
 
   const authenticatorsTable =
     schema.authenticatorsTable ??
     (pgTable(
-      "authenticator",
+      'authenticator',
       {
-        credentialID: text("credentialID").notNull().unique(),
-        userId: text("userId")
+        credentialID: text('credentialID').notNull().unique(),
+        userId: text('userId')
           .notNull()
-          .references(() => usersTable.id, { onDelete: "cascade" }),
-        providerAccountId: text("providerAccountId").notNull(),
-        credentialPublicKey: text("credentialPublicKey").notNull(),
-        counter: integer("counter").notNull(),
-        credentialDeviceType: text("credentialDeviceType").notNull(),
-        credentialBackedUp: boolean("credentialBackedUp").notNull(),
-        transports: text("transports"),
+          .references(() => usersTable.id, { onDelete: 'cascade' }),
+        providerAccountId: text('providerAccountId').notNull(),
+        credentialPublicKey: text('credentialPublicKey').notNull(),
+        counter: integer('counter').notNull(),
+        credentialDeviceType: text('credentialDeviceType').notNull(),
+        credentialBackedUp: boolean('credentialBackedUp').notNull(),
+        transports: text('transports'),
       },
       (authenticator) => ({
         compositePK: primaryKey({
           columns: [authenticator.userId, authenticator.credentialID],
         }),
-      })
+      }),
     ) satisfies DefaultPostgresAuthenticatorTable)
 
   return {
@@ -124,7 +124,7 @@ export function defineTables(
 
 export function PostgresDrizzleAdapter(
   client: PgDatabase<PgQueryResultHKT, any>,
-  schema?: DefaultPostgresSchema
+  schema?: DefaultPostgresSchema,
 ): Adapter {
   const {
     usersTable,
@@ -137,7 +137,7 @@ export function PostgresDrizzleAdapter(
   return {
     async createUser(data: AdapterUser) {
       const { id, ...insertData } = data
-      const hasDefaultId = getTableColumns(usersTable)["id"]["hasDefault"]
+      const hasDefaultId = getTableColumns(usersTable)['id']['hasDefault']
 
       return client
         .insert(usersTable)
@@ -151,7 +151,7 @@ export function PostgresDrizzleAdapter(
         .from(usersTable)
         .where(eq(usersTable.id, userId))
         .then((res) =>
-          res.length > 0 ? res[0] : null
+          res.length > 0 ? res[0] : null,
         ) as Awaitable<AdapterUser | null>
     },
     async getUserByEmail(email: string) {
@@ -160,7 +160,7 @@ export function PostgresDrizzleAdapter(
         .from(usersTable)
         .where(eq(usersTable.email, email))
         .then((res) =>
-          res.length > 0 ? res[0] : null
+          res.length > 0 ? res[0] : null,
         ) as Awaitable<AdapterUser | null>
     },
     async createSession(data: {
@@ -188,9 +188,9 @@ export function PostgresDrizzleAdapter(
         user: AdapterUser
       } | null>
     },
-    async updateUser(data: Partial<AdapterUser> & Pick<AdapterUser, "id">) {
+    async updateUser(data: Partial<AdapterUser> & Pick<AdapterUser, 'id'>) {
       if (!data.id) {
-        throw new Error("No user id.")
+        throw new Error('No user id.')
       }
 
       const [result] = await client
@@ -200,13 +200,13 @@ export function PostgresDrizzleAdapter(
         .returning()
 
       if (!result) {
-        throw new Error("No user found.")
+        throw new Error('No user found.')
       }
 
       return result as Awaitable<AdapterUser>
     },
     async updateSession(
-      data: Partial<AdapterSession> & Pick<AdapterSession, "sessionToken">
+      data: Partial<AdapterSession> & Pick<AdapterSession, 'sessionToken'>,
     ) {
       return client
         .update(sessionsTable)
@@ -219,7 +219,7 @@ export function PostgresDrizzleAdapter(
       await client.insert(accountsTable).values(data)
     },
     async getUserByAccount(
-      account: Pick<AdapterAccount, "provider" | "providerAccountId">
+      account: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
     ) {
       const result = await client
         .select({
@@ -231,8 +231,8 @@ export function PostgresDrizzleAdapter(
         .where(
           and(
             eq(accountsTable.provider, account.provider),
-            eq(accountsTable.providerAccountId, account.providerAccountId)
-          )
+            eq(accountsTable.providerAccountId, account.providerAccountId),
+          ),
         )
         .then((res) => res[0])
 
@@ -257,8 +257,8 @@ export function PostgresDrizzleAdapter(
         .where(
           and(
             eq(verificationTokensTable.identifier, params.identifier),
-            eq(verificationTokensTable.token, params.token)
-          )
+            eq(verificationTokensTable.token, params.token),
+          ),
         )
         .returning()
         .then((res) => (res.length > 0 ? res[0] : null))
@@ -267,15 +267,15 @@ export function PostgresDrizzleAdapter(
       await client.delete(usersTable).where(eq(usersTable.id, id))
     },
     async unlinkAccount(
-      params: Pick<AdapterAccount, "provider" | "providerAccountId">
+      params: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
     ) {
       await client
         .delete(accountsTable)
         .where(
           and(
             eq(accountsTable.provider, params.provider),
-            eq(accountsTable.providerAccountId, params.providerAccountId)
-          )
+            eq(accountsTable.providerAccountId, params.providerAccountId),
+          ),
         )
     },
     async getAccount(providerAccountId: string, provider: string) {
@@ -285,8 +285,8 @@ export function PostgresDrizzleAdapter(
         .where(
           and(
             eq(accountsTable.provider, provider),
-            eq(accountsTable.providerAccountId, providerAccountId)
-          )
+            eq(accountsTable.providerAccountId, providerAccountId),
+          ),
         )
         .then((res) => res[0] ?? null) as Promise<AdapterAccount | null>
     },
@@ -319,7 +319,7 @@ export function PostgresDrizzleAdapter(
         .returning()
         .then((res) => res[0])
 
-      if (!authenticator) throw new Error("Authenticator not found.")
+      if (!authenticator) throw new Error('Authenticator not found.')
 
       return authenticator as Awaitable<AdapterAuthenticator>
     },
@@ -329,30 +329,30 @@ export function PostgresDrizzleAdapter(
 type DefaultPostgresColumn<
   T extends {
     data: string | number | boolean | Date
-    dataType: "string" | "number" | "boolean" | "date"
+    dataType: 'string' | 'number' | 'boolean' | 'date'
     notNull: boolean
     isPrimaryKey?: boolean
     columnType:
-      | "PgVarchar"
-      | "PgText"
-      | "PgBoolean"
-      | "PgTimestamp"
-      | "PgInteger"
-      | "PgUUID"
+      | 'PgVarchar'
+      | 'PgText'
+      | 'PgBoolean'
+      | 'PgTimestamp'
+      | 'PgInteger'
+      | 'PgUUID'
   },
 > = PgColumn<{
   name: string
   isAutoincrement: boolean
-  isPrimaryKey: T["isPrimaryKey"] extends true ? true : false
+  isPrimaryKey: T['isPrimaryKey'] extends true ? true : false
   hasRuntimeDefault: boolean
-  generated: GeneratedColumnConfig<T["data"]> | undefined
-  columnType: T["columnType"]
-  data: T["data"]
+  generated: GeneratedColumnConfig<T['data']> | undefined
+  columnType: T['columnType']
+  data: T['data']
   driverParam: string | number | boolean
-  notNull: T["notNull"]
+  notNull: T['notNull']
   hasDefault: boolean
   enumValues: any
-  dataType: T["dataType"]
+  dataType: T['dataType']
   tableName: string
 }>
 
@@ -360,38 +360,38 @@ export type DefaultPostgresUsersTable = PgTableWithColumns<{
   name: string
   columns: {
     id: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText" | "PgUUID"
+      columnType: 'PgVarchar' | 'PgText' | 'PgUUID'
       isPrimaryKey: true
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     name: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
-      dataType: "string"
+      dataType: 'string'
     }>
     email: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
-      dataType: "string"
+      dataType: 'string'
     }>
     emailVerified: DefaultPostgresColumn<{
-      dataType: "date"
-      columnType: "PgTimestamp"
+      dataType: 'date'
+      columnType: 'PgTimestamp'
       data: Date
       notNull: boolean
     }>
     image: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
   }
-  dialect: "pg"
+  dialect: 'pg'
   schema: string | undefined
 }>
 
@@ -399,73 +399,73 @@ export type DefaultPostgresAccountsTable = PgTableWithColumns<{
   name: string
   columns: {
     userId: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText" | "PgUUID"
+      columnType: 'PgVarchar' | 'PgText' | 'PgUUID'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     type: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     provider: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     providerAccountId: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
     }>
     refresh_token: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
     access_token: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
     expires_at: DefaultPostgresColumn<{
-      dataType: "number"
-      columnType: "PgInteger"
+      dataType: 'number'
+      columnType: 'PgInteger'
       data: number
       notNull: boolean
     }>
     token_type: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
     scope: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
     id_token: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
     session_state: DefaultPostgresColumn<{
-      dataType: "string"
-      columnType: "PgVarchar" | "PgText"
+      dataType: 'string'
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: boolean
     }>
   }
-  dialect: "pg"
+  dialect: 'pg'
   schema: string | undefined
 }>
 
@@ -473,26 +473,26 @@ export type DefaultPostgresSessionsTable = PgTableWithColumns<{
   name: string
   columns: {
     sessionToken: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       isPrimaryKey: true
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     userId: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText" | "PgUUID"
+      columnType: 'PgVarchar' | 'PgText' | 'PgUUID'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     expires: DefaultPostgresColumn<{
-      dataType: "date"
-      columnType: "PgTimestamp"
+      dataType: 'date'
+      columnType: 'PgTimestamp'
       data: Date
       notNull: true
     }>
   }
-  dialect: "pg"
+  dialect: 'pg'
   schema: string | undefined
 }>
 
@@ -500,25 +500,25 @@ export type DefaultPostgresVerificationTokenTable = PgTableWithColumns<{
   name: string
   columns: {
     identifier: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     token: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     expires: DefaultPostgresColumn<{
-      dataType: "date"
-      columnType: "PgTimestamp"
+      dataType: 'date'
+      columnType: 'PgTimestamp'
       data: Date
       notNull: true
     }>
   }
-  dialect: "pg"
+  dialect: 'pg'
   schema: string | undefined
 }>
 
@@ -526,55 +526,55 @@ export type DefaultPostgresAuthenticatorTable = PgTableWithColumns<{
   name: string
   columns: {
     credentialID: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     userId: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText" | "PgUUID"
+      columnType: 'PgVarchar' | 'PgText' | 'PgUUID'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     providerAccountId: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     credentialPublicKey: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     counter: DefaultPostgresColumn<{
-      columnType: "PgInteger"
+      columnType: 'PgInteger'
       data: number
       notNull: true
-      dataType: "number"
+      dataType: 'number'
     }>
     credentialDeviceType: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: true
-      dataType: "string"
+      dataType: 'string'
     }>
     credentialBackedUp: DefaultPostgresColumn<{
-      columnType: "PgBoolean"
+      columnType: 'PgBoolean'
       data: boolean
       notNull: true
-      dataType: "boolean"
+      dataType: 'boolean'
     }>
     transports: DefaultPostgresColumn<{
-      columnType: "PgVarchar" | "PgText"
+      columnType: 'PgVarchar' | 'PgText'
       data: string
       notNull: false
-      dataType: "string"
+      dataType: 'string'
     }>
   }
-  dialect: "pg"
+  dialect: 'pg'
   schema: string | undefined
 }>
 

@@ -1,1 +1,1 @@
-export * from './constructor';
+export * from './constructor'

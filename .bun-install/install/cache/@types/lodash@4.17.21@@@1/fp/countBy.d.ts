@@ -1,2 +1,2 @@
-import { countBy } from "../fp";
-export = countBy;
+import { countBy } from '../fp'
+export = countBy

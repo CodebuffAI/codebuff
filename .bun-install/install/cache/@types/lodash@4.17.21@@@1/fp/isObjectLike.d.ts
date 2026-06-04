@@ -1,2 +1,2 @@
-import { isObjectLike } from "../fp";
-export = isObjectLike;
+import { isObjectLike } from '../fp'
+export = isObjectLike

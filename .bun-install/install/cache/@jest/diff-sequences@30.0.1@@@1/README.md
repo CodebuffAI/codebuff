@@ -34,17 +34,17 @@ To use `diff` as the name of the default export from this package, do either of 
 Call `diff` with the **lengths** of sequences and your **callback** functions:
 
 ```js
-const a = ['a', 'b', 'c', 'a', 'b', 'b', 'a'];
-const b = ['c', 'b', 'a', 'b', 'a', 'c'];
+const a = ['a', 'b', 'c', 'a', 'b', 'b', 'a']
+const b = ['c', 'b', 'a', 'b', 'a', 'c']
 
 function isCommon(aIndex, bIndex) {
-  return a[aIndex] === b[bIndex];
+  return a[aIndex] === b[bIndex]
 }
 function foundSubsequence(nCommon, aCommon, bCommon) {
   // see examples
 }
 
-diff(a.length, b.length, isCommon, foundSubsequence);
+diff(a.length, b.length, isCommon, foundSubsequence)
 ```
 
 ## Example of longest common subsequence
@@ -74,23 +74,23 @@ Various packages which implement the Myers algorithm will **always agree** on th
 ```js
 // Return length of longest common subsequence according to === operator.
 function countCommonItems(a, b) {
-  let n = 0;
+  let n = 0
   function isCommon(aIndex, bIndex) {
-    return a[aIndex] === b[bIndex];
+    return a[aIndex] === b[bIndex]
   }
   function foundSubsequence(nCommon) {
-    n += nCommon;
+    n += nCommon
   }
 
-  diff(a.length, b.length, isCommon, foundSubsequence);
+  diff(a.length, b.length, isCommon, foundSubsequence)
 
-  return n;
+  return n
 }
 
 const commonLength = countCommonItems(
   ['a', 'b', 'c', 'a', 'b', 'b', 'a'],
   ['c', 'b', 'a', 'b', 'a', 'c'],
-);
+)
 ```
 
 | category of items  |                expression | value |
@@ -116,24 +116,24 @@ In this example, `6 - 7` is:
 ```js
 // Return array of items in longest common subsequence according to Object.is method.
 const findCommonItems = (a, b) => {
-  const array = [];
+  const array = []
   diff(
     a.length,
     b.length,
     (aIndex, bIndex) => Object.is(a[aIndex], b[bIndex]),
     (nCommon, aCommon) => {
       for (; nCommon !== 0; nCommon -= 1, aCommon += 1) {
-        array.push(a[aCommon]);
+        array.push(a[aCommon])
       }
     },
-  );
-  return array;
-};
+  )
+  return array
+}
 
 const commonItems = findCommonItems(
   ['a', 'b', 'c', 'a', 'b', 'b', 'a'],
   ['c', 'b', 'a', 'b', 'a', 'c'],
-);
+)
 ```
 
 | `i` | `commonItems[i]` | `aIndex` |
@@ -160,10 +160,10 @@ const diffIndexIntervals = (a, aStart, aEnd, b, bStart, bEnd) => {
     (nCommon, aCommon, bCommon) => {
       // aStart + aCommon, bStart + bCommon
     },
-  );
+  )
 
   // After the last common subsequence, do any remaining work.
-};
+}
 ```
 
 ## Example of callback functions to emulate diff command
@@ -178,62 +178,62 @@ Linux or Unix has a `diff` command to compare files line by line. Its output is 
 // Given zero-based half-open range [start, end) of array indexes,
 // return one-based closed range [start + 1, end] as string.
 const getRange = (start, end) =>
-  start + 1 === end ? `${start + 1}` : `${start + 1},${end}`;
+  start + 1 === end ? `${start + 1}` : `${start + 1},${end}`
 
 // Given index intervals of lines to delete or insert, or both, or neither,
 // push formatted diff lines onto array.
 const pushDelIns = (aLines, aIndex, aEnd, bLines, bIndex, bEnd, array) => {
-  const deleteLines = aIndex !== aEnd;
-  const insertLines = bIndex !== bEnd;
-  const changeLines = deleteLines && insertLines;
+  const deleteLines = aIndex !== aEnd
+  const insertLines = bIndex !== bEnd
+  const changeLines = deleteLines && insertLines
   if (changeLines) {
-    array.push(`${getRange(aIndex, aEnd)}c${getRange(bIndex, bEnd)}`);
+    array.push(`${getRange(aIndex, aEnd)}c${getRange(bIndex, bEnd)}`)
   } else if (deleteLines) {
-    array.push(`${getRange(aIndex, aEnd)}d${String(bIndex)}`);
+    array.push(`${getRange(aIndex, aEnd)}d${String(bIndex)}`)
   } else if (insertLines) {
-    array.push(`${String(aIndex)}a${getRange(bIndex, bEnd)}`);
+    array.push(`${String(aIndex)}a${getRange(bIndex, bEnd)}`)
   } else {
-    return;
+    return
   }
 
   for (; aIndex !== aEnd; aIndex += 1) {
-    array.push(`< ${aLines[aIndex]}`); // delete is less than
+    array.push(`< ${aLines[aIndex]}`) // delete is less than
   }
 
   if (changeLines) {
-    array.push('---');
+    array.push('---')
   }
 
   for (; bIndex !== bEnd; bIndex += 1) {
-    array.push(`> ${bLines[bIndex]}`); // insert is greater than
+    array.push(`> ${bLines[bIndex]}`) // insert is greater than
   }
-};
+}
 
 // Given content of two files, return emulated output of diff utility.
 const findShortestEditScript = (a, b) => {
-  const aLines = a.split('\n');
-  const bLines = b.split('\n');
-  const aLength = aLines.length;
-  const bLength = bLines.length;
+  const aLines = a.split('\n')
+  const bLines = b.split('\n')
+  const aLength = aLines.length
+  const bLength = bLines.length
 
-  const isCommon = (aIndex, bIndex) => aLines[aIndex] === bLines[bIndex];
+  const isCommon = (aIndex, bIndex) => aLines[aIndex] === bLines[bIndex]
 
-  let aIndex = 0;
-  let bIndex = 0;
-  const array = [];
+  let aIndex = 0
+  let bIndex = 0
+  const array = []
   const foundSubsequence = (nCommon, aCommon, bCommon) => {
-    pushDelIns(aLines, aIndex, aCommon, bLines, bIndex, bCommon, array);
-    aIndex = aCommon + nCommon; // number of lines compared in a
-    bIndex = bCommon + nCommon; // number of lines compared in b
-  };
+    pushDelIns(aLines, aIndex, aCommon, bLines, bIndex, bCommon, array)
+    aIndex = aCommon + nCommon // number of lines compared in a
+    bIndex = bCommon + nCommon // number of lines compared in b
+  }
 
-  diff(aLength, bLength, isCommon, foundSubsequence);
+  diff(aLength, bLength, isCommon, foundSubsequence)
 
   // After the last common subsequence, push remaining change lines.
-  pushDelIns(aLines, aIndex, aLength, bLines, bIndex, bLength, array);
+  pushDelIns(aLines, aIndex, aLength, bLines, bIndex, bLength, array)
 
-  return array.length === 0 ? '' : `${array.join('\n')}\n`;
-};
+  return array.length === 0 ? '' : `${array.join('\n')}\n`
+}
 ```
 
 ## Example of callback functions to format diff lines
@@ -245,47 +245,47 @@ Here is simplified code to format **changed and unchanged lines** in expected an
 const formatDiffLines = (a, b) => {
   // Jest depends on pretty-format package to serialize objects as strings.
   // Unindented for comparison to avoid distracting differences:
-  const aLinesUn = format(a, {indent: 0 /*, other options*/}).split('\n');
-  const bLinesUn = format(b, {indent: 0 /*, other options*/}).split('\n');
+  const aLinesUn = format(a, { indent: 0 /*, other options*/ }).split('\n')
+  const bLinesUn = format(b, { indent: 0 /*, other options*/ }).split('\n')
   // Indented to display changed and unchanged lines:
-  const aLinesIn = format(a, {indent: 2 /*, other options*/}).split('\n');
-  const bLinesIn = format(b, {indent: 2 /*, other options*/}).split('\n');
+  const aLinesIn = format(a, { indent: 2 /*, other options*/ }).split('\n')
+  const bLinesIn = format(b, { indent: 2 /*, other options*/ }).split('\n')
 
-  const aLength = aLinesIn.length; // Validate: aLinesUn.length === aLength
-  const bLength = bLinesIn.length; // Validate: bLinesUn.length === bLength
+  const aLength = aLinesIn.length // Validate: aLinesUn.length === aLength
+  const bLength = bLinesIn.length // Validate: bLinesUn.length === bLength
 
-  const isCommon = (aIndex, bIndex) => aLinesUn[aIndex] === bLinesUn[bIndex];
+  const isCommon = (aIndex, bIndex) => aLinesUn[aIndex] === bLinesUn[bIndex]
 
   // Only because the GitHub Flavored Markdown doc collapses adjacent spaces,
   // this example code and the following table represent spaces as middle dots.
-  let aIndex = 0;
-  let bIndex = 0;
-  const array = [];
+  let aIndex = 0
+  let bIndex = 0
+  const array = []
   const foundSubsequence = (nCommon, aCommon, bCommon) => {
     for (; aIndex !== aCommon; aIndex += 1) {
-      array.push(`-·${aLinesIn[aIndex]}`); // delete is minus
+      array.push(`-·${aLinesIn[aIndex]}`) // delete is minus
     }
     for (; bIndex !== bCommon; bIndex += 1) {
-      array.push(`+·${bLinesIn[bIndex]}`); // insert is plus
+      array.push(`+·${bLinesIn[bIndex]}`) // insert is plus
     }
     for (; nCommon !== 0; nCommon -= 1, aIndex += 1, bIndex += 1) {
       // For common lines, received indentation seems more intuitive.
-      array.push(`··${bLinesIn[bIndex]}`); // common is space
+      array.push(`··${bLinesIn[bIndex]}`) // common is space
     }
-  };
+  }
 
-  diff(aLength, bLength, isCommon, foundSubsequence);
+  diff(aLength, bLength, isCommon, foundSubsequence)
 
   // After the last common subsequence, push remaining change lines.
   for (; aIndex !== aLength; aIndex += 1) {
-    array.push(`-·${aLinesIn[aIndex]}`);
+    array.push(`-·${aLinesIn[aIndex]}`)
   }
   for (; bIndex !== bLength; bIndex += 1) {
-    array.push(`+·${bLinesIn[bIndex]}`);
+    array.push(`+·${bLinesIn[bIndex]}`)
   }
 
-  return array;
-};
+  return array
+}
 
 const expected = {
   searching: '',
@@ -293,7 +293,7 @@ const expected = {
     ascending: true,
     fieldKey: 'what',
   },
-};
+}
 const received = {
   searching: '',
   sorting: [
@@ -302,9 +302,9 @@ const received = {
       fieldKey: 'what',
     },
   ],
-};
+}
 
-const diffLines = formatDiffLines(expected, received);
+const diffLines = formatDiffLines(expected, received)
 ```
 
 If N is the sum of lengths of sequences and L is length of a longest common subsequence, then N – L is length of an array of diff lines. In this example, N is 7 + 9, L is 5, and N – L is 11.
@@ -330,47 +330,45 @@ Here is simplified code to find changed and unchanged substrings **within adjace
 ```js
 // Return diff items for strings (compatible with diff-match-patch package).
 const findDiffItems = (a, b) => {
-  const isCommon = (aIndex, bIndex) => a[aIndex] === b[bIndex];
+  const isCommon = (aIndex, bIndex) => a[aIndex] === b[bIndex]
 
-  let aIndex = 0;
-  let bIndex = 0;
-  const array = [];
+  let aIndex = 0
+  let bIndex = 0
+  const array = []
   const foundSubsequence = (nCommon, aCommon, bCommon) => {
     if (aIndex !== aCommon) {
-      array.push([-1, a.slice(aIndex, aCommon)]); // delete is -1
+      array.push([-1, a.slice(aIndex, aCommon)]) // delete is -1
     }
     if (bIndex !== bCommon) {
-      array.push([1, b.slice(bIndex, bCommon)]); // insert is 1
+      array.push([1, b.slice(bIndex, bCommon)]) // insert is 1
     }
 
-    aIndex = aCommon + nCommon; // number of characters compared in a
-    bIndex = bCommon + nCommon; // number of characters compared in b
-    array.push([0, a.slice(aCommon, aIndex)]); // common is 0
-  };
+    aIndex = aCommon + nCommon // number of characters compared in a
+    bIndex = bCommon + nCommon // number of characters compared in b
+    array.push([0, a.slice(aCommon, aIndex)]) // common is 0
+  }
 
-  diff(a.length, b.length, isCommon, foundSubsequence);
+  diff(a.length, b.length, isCommon, foundSubsequence)
 
   // After the last common subsequence, push remaining change items.
   if (aIndex !== a.length) {
-    array.push([-1, a.slice(aIndex)]);
+    array.push([-1, a.slice(aIndex)])
   }
   if (bIndex !== b.length) {
-    array.push([1, b.slice(bIndex)]);
+    array.push([1, b.slice(bIndex)])
   }
 
-  return array;
-};
+  return array
+}
 
-const expectedDeleted = ['"sorting": Object {', '"ascending": true,'].join(
-  '\n',
-);
+const expectedDeleted = ['"sorting": Object {', '"ascending": true,'].join('\n')
 const receivedInserted = [
   '"sorting": Array [',
   'Object {',
   '"descending": false,',
-].join('\n');
+].join('\n')
 
-const diffItems = findDiffItems(expectedDeleted, receivedInserted);
+const diffItems = findDiffItems(expectedDeleted, receivedInserted)
 ```
 
 | `i` | `diffItems[i][0]` | `diffItems[i][1]` |

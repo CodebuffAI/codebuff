@@ -1,1 +1,1 @@
-export * as ValuePointer from './pointer';
+export * as ValuePointer from './pointer'

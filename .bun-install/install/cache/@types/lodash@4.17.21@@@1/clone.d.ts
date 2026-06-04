@@ -1,2 +1,2 @@
-import { clone } from "./index";
-export = clone;
+import { clone } from './index'
+export = clone

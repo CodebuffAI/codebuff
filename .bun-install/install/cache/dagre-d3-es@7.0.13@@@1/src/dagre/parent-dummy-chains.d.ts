@@ -1,1 +1,1 @@
-export function parentDummyChains(g: any): void;
+export function parentDummyChains(g: any): void

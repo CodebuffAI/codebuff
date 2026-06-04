@@ -8,7 +8,7 @@
  *
  * @module providers/roblox
  */
-import type { OIDCUserConfig, OIDCConfig } from "./index.js"
+import type { OIDCUserConfig, OIDCConfig } from './index.js'
 
 /**
  * Corresponds to the user structure documented here:
@@ -79,16 +79,16 @@ export interface RobloxProfile extends Record<string, any> {
  * :::
  */
 export default function Roblox(
-  options: OIDCUserConfig<RobloxProfile>
+  options: OIDCUserConfig<RobloxProfile>,
 ): OIDCConfig<RobloxProfile> {
   return {
-    id: "roblox",
-    name: "Roblox",
-    type: "oidc",
-    authorization: { params: { scope: "openid profile" } },
-    issuer: "https://apis.roblox.com/oauth/",
-    checks: ["pkce", "state"],
-    style: { bg: "#5865F2", text: "#fff" },
+    id: 'roblox',
+    name: 'Roblox',
+    type: 'oidc',
+    authorization: { params: { scope: 'openid profile' } },
+    issuer: 'https://apis.roblox.com/oauth/',
+    checks: ['pkce', 'state'],
+    style: { bg: '#5865F2', text: '#fff' },
     options,
   }
 }

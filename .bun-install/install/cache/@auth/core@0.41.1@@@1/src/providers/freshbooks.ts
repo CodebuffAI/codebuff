@@ -8,7 +8,7 @@
  *
  * @module providers/freshbooks
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add FreshBooks login to your page.
@@ -64,15 +64,15 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function Freshbooks(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "freshbooks",
-    name: "Freshbooks",
-    type: "oauth",
-    authorization: "https://auth.freshbooks.com/service/auth/oauth/authorize",
-    token: "https://api.freshbooks.com/auth/oauth/token",
-    userinfo: "https://api.freshbooks.com/auth/api/v1/users/me",
+    id: 'freshbooks',
+    name: 'Freshbooks',
+    type: 'oauth',
+    authorization: 'https://auth.freshbooks.com/service/auth/oauth/authorize',
+    token: 'https://api.freshbooks.com/auth/oauth/token',
+    userinfo: 'https://api.freshbooks.com/auth/api/v1/users/me',
     async profile(profile) {
       return {
         id: profile.response.id,
@@ -82,8 +82,8 @@ export default function Freshbooks(
       }
     },
     style: {
-      bg: "#0075dd",
-      text: "#fff",
+      bg: '#0075dd',
+      text: '#fff',
     },
     options,
   }

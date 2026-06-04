@@ -1,1 +1,1 @@
-export declare function flush(ms?: number): Promise<void>;
+export declare function flush(ms?: number): Promise<void>

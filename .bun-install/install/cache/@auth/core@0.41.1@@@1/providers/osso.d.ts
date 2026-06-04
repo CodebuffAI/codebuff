@@ -8,7 +8,7 @@
  *
  * @module providers/osso
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add Osso login to your page.
  *
@@ -75,5 +75,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Osso(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function Osso(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=osso.d.ts.map

@@ -13,5 +13,10 @@
  * - `experimental-webauthn`: Experimental WebAuthn feature is enabled.
  *
  */
-export type WarningCode = "debug-enabled" | "csrf-disabled" | "env-url-basepath-redundant" | "env-url-basepath-mismatch" | "experimental-webauthn";
+export type WarningCode =
+  | 'debug-enabled'
+  | 'csrf-disabled'
+  | 'env-url-basepath-redundant'
+  | 'env-url-basepath-mismatch'
+  | 'experimental-webauthn'
 //# sourceMappingURL=warnings.d.ts.map

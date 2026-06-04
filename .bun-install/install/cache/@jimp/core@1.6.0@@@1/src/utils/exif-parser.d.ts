@@ -1,13 +1,13 @@
-declare module "exif-parser" {
+declare module 'exif-parser' {
   export interface ExifData {
     tags?: {
-      Orientation?: number;
-    };
+      Orientation?: number
+    }
   }
 
   function create(data: Buffer): {
-    parse: () => ExifData;
-  };
+    parse: () => ExifData
+  }
 
-  export { create };
+  export { create }
 }

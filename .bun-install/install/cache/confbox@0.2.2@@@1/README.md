@@ -68,7 +68,7 @@ import {
   stringifyTOML,
   parseINI,
   stringifyINI,
-} from "confbox";
+} from 'confbox'
 ```
 
 **CDN** (Deno, Bun and Browsers)
@@ -87,7 +87,7 @@ import {
   stringifyTOML,
   parseINI,
   stringifyINI,
-} from "https://esm.sh/confbox";
+} from 'https://esm.sh/confbox'
 ```
 
 <!-- /automd -->

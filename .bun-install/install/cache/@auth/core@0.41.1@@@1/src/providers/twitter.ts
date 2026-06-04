@@ -8,7 +8,7 @@
  *
  * @module providers/twitter
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * [Users lookup](https://developer.x.com/en/docs/twitter-api/users/lookup/api-reference/get-users-me)
@@ -182,17 +182,17 @@ export interface TwitterProfile {
  * :::
  */
 export default function Twitter(
-  config: OAuthUserConfig<TwitterProfile>
+  config: OAuthUserConfig<TwitterProfile>,
 ): OAuthConfig<TwitterProfile> {
   return {
-    id: "twitter",
-    name: "Twitter",
-    type: "oauth",
-    checks: ["pkce", "state"],
+    id: 'twitter',
+    name: 'Twitter',
+    type: 'oauth',
+    checks: ['pkce', 'state'],
     authorization:
-      "https://x.com/i/oauth2/authorize?scope=users.read tweet.read offline.access",
-    token: "https://api.x.com/2/oauth2/token",
-    userinfo: "https://api.x.com/2/users/me?user.fields=profile_image_url",
+      'https://x.com/i/oauth2/authorize?scope=users.read tweet.read offline.access',
+    token: 'https://api.x.com/2/oauth2/token',
+    userinfo: 'https://api.x.com/2/users/me?user.fields=profile_image_url',
     profile({ data }) {
       return {
         id: data.id,
@@ -201,7 +201,7 @@ export default function Twitter(
         image: data.profile_image_url,
       }
     },
-    style: { bg: "#1da1f2", text: "#fff" },
+    style: { bg: '#1da1f2', text: '#fff' },
     options: config,
   }
 }

@@ -123,13 +123,123 @@ function unwrapStructuredProposalOutput(
 }
 
 /**
+ * A normalized per-file proposal result extracted from the implementor's
+ * structured output. `file` is the changed path; `value` is the json payload
+ * that extractDiff/extractFilePath/extractTransactionFiles already understand.
+ */
+type NormalizedProposalResult = {
+  file: string
+  value: Record<string, unknown>
+}
+
+/** Pull the file path out of a proposal tool call's input. */
+function proposalToolCallFile(input: Record<string, unknown>): string | null {
+  for (const key of ['path', 'file_path', 'file', '__proposalFile'] as const) {
+    const candidate = input[key]
+    if (typeof candidate === 'string' && candidate) return candidate
+  }
+  return null
+}
+
+/** Whether a normalized result actually carries a renderable diff. */
+function resultHasDiff(value: Record<string, unknown>): boolean {
+  return (
+    (typeof value.unifiedDiff === 'string' && value.unifiedDiff.trim() !== '') ||
+    (typeof value.patch === 'string' && value.patch.trim() !== '') ||
+    Array.isArray(value.files)
+  )
+}
+
+/**
+ * Build a file -> diff-bearing-result map from the implementor's `toolResults`.
+ *
+ * The implementor's `toolCalls` (successful only) and `toolResults` (successful
+ * PLUS genuine failures) are compiled from different filters, so pairing them
+ * by array index silently mismatches a successful call with a diff-less failed
+ * result and the card renders "no changes". Pairing by file path is
+ * index-independent and only keeps results that carry a real diff.
+ */
+function indexProposalResultsByFile(
+  toolResults: unknown[],
+): Map<string, Record<string, unknown>> {
+  const byFile = new Map<string, Record<string, unknown>>()
+  for (const rawResult of toolResults) {
+    const entry = Array.isArray(rawResult) ? rawResult[0] : rawResult
+    if (!entry || typeof entry !== 'object') continue
+    const value = entry as Record<string, unknown>
+    const file =
+      typeof value.file === 'string'
+        ? value.file
+        : typeof value.path === 'string'
+          ? value.path
+          : null
+    if (!file) continue
+    // Prefer a diff-bearing result; never let a later failed-only result for
+    // the same file overwrite a captured successful diff.
+    if (byFile.has(file) && !resultHasDiff(value)) continue
+    byFile.set(file, value)
+  }
+  return byFile
+}
+
+/**
+ * Parse the implementor's `unifiedDiffs` string into per-file entries.
+ *
+ * `summarizeLedger` always concatenates successful proposal diffs as
+ * `--- <path> ---\n<diff>` blocks joined by blank lines. This is the
+ * authoritative, always-present signal for what changed, so it is the
+ * reliable fallback when `toolCalls`/`toolResults` are missing or misaligned.
+ */
+function parseUnifiedDiffsString(
+  unifiedDiffs: unknown,
+): NormalizedProposalResult[] {
+  if (typeof unifiedDiffs !== 'string' || unifiedDiffs.trim() === '') return []
+
+  const entries: NormalizedProposalResult[] = []
+  const headerRegex = /^--- (.+?) ---$/
+  let currentFile: string | null = null
+  let currentLines: string[] = []
+
+  const flush = () => {
+    if (currentFile && currentLines.length > 0) {
+      const diff = currentLines.join('\n').trim()
+      if (diff) {
+        entries.push({
+          file: currentFile,
+          value: { file: currentFile, unifiedDiff: diff },
+        })
+      }
+    }
+    currentLines = []
+  }
+
+  for (const line of unifiedDiffs.split('\n')) {
+    const headerMatch = line.match(headerRegex)
+    if (headerMatch) {
+      flush()
+      currentFile = headerMatch[1].trim()
+      continue
+    }
+    if (currentFile) currentLines.push(line)
+  }
+  flush()
+
+  return entries
+}
+
+/**
  * Synthesize edit tool blocks from a proposal/implementor agent's structured
- * output (`{ toolCalls, toolResults }`).
+ * output (`{ toolCalls, toolResults, unifiedDiffs }`).
  *
  * Proposal agents can finish without ever streaming live tool blocks, so the
  * card has nothing to render and falsely shows "no changes" even though the
  * structured output already knows which files changed. This makes the card
  * deterministic: if the structured result lists edits, the card shows them.
+ *
+ * Results are paired to calls by FILE PATH (not array index) because the
+ * implementor compiles `toolCalls` and `toolResults` from different filters.
+ * When no call has a diff-bearing result, the always-present `unifiedDiffs`
+ * string is parsed as the authoritative fallback.
  */
 export function synthesizeProposalToolBlocks(
   resultValue: unknown,
@@ -138,24 +248,37 @@ export function synthesizeProposalToolBlocks(
   if (!value) return []
 
   const toolCalls = Array.isArray(value.toolCalls) ? value.toolCalls : []
-  if (toolCalls.length === 0) return []
   const toolResults = Array.isArray(value.toolResults) ? value.toolResults : []
+  const resultsByFile = indexProposalResultsByFile(toolResults)
 
   const blocks: ToolContentBlock[] = []
+  const coveredFiles = new Set<string>()
+  let anyBlockHasDiff = false
+
   toolCalls.forEach((toolCall, index) => {
     if (!toolCall || typeof toolCall !== 'object') return
     const toolName = (toolCall as Record<string, unknown>).toolName
     if (typeof toolName !== 'string') return
-    const input = (toolCall as Record<string, unknown>).input ?? {}
+    const input =
+      ((toolCall as Record<string, unknown>).input as Record<string, unknown>) ??
+      {}
 
-    // toolResults entries are arrays of per-call result objects; wrap the first
-    // entry as the outputRaw json part shape that extractDiff/extractTransactionFiles expect.
-    const rawResult = toolResults[index]
-    const firstEntry = Array.isArray(rawResult) ? rawResult[0] : rawResult
-    const outputRaw =
-      firstEntry && typeof firstEntry === 'object'
-        ? [{ type: 'json', value: firstEntry }]
-        : undefined
+    // Pair by file path so a successful call is never matched to a diff-less
+    // failed result. Fall back to index pairing only when the call carries no
+    // discoverable file path (e.g. propose_edit_transaction with edits[]).
+    const file = proposalToolCallFile(input)
+    let matched = file ? resultsByFile.get(file) : undefined
+    if (!matched) {
+      const rawResult = toolResults[index]
+      const firstEntry = Array.isArray(rawResult) ? rawResult[0] : rawResult
+      if (firstEntry && typeof firstEntry === 'object') {
+        matched = firstEntry as Record<string, unknown>
+      }
+    }
+
+    const outputRaw = matched ? [{ type: 'json', value: matched }] : undefined
+    if (file) coveredFiles.add(file)
+    if (matched && resultHasDiff(matched)) anyBlockHasDiff = true
 
     blocks.push({
       type: 'tool',
@@ -165,6 +288,23 @@ export function synthesizeProposalToolBlocks(
       ...(outputRaw ? { outputRaw } : {}),
     })
   })
+
+  // Authoritative fallback: if the tool calls produced no diff-bearing blocks
+  // (empty/misaligned/diff-less), synthesize from the unifiedDiffs string so
+  // the card still shows the real changes instead of "no changes".
+  if (!anyBlockHasDiff) {
+    for (const entry of parseUnifiedDiffsString(value.unifiedDiffs)) {
+      if (coveredFiles.has(entry.file)) continue
+      coveredFiles.add(entry.file)
+      blocks.push({
+        type: 'tool',
+        toolCallId: `synthetic-proposal-diff-${blocks.length}`,
+        toolName: 'propose_str_replace',
+        input: { path: entry.file },
+        outputRaw: [{ type: 'json', value: entry.value }],
+      })
+    }
+  }
 
   return blocks
 }
@@ -404,12 +544,27 @@ export function extractValueForKey(output: string, key: string): string | null {
 /**
  * Extract file path from tool block.
  */
+function extractFilePathFromOutputRaw(outputRaw: unknown): string | null {
+  const value =
+    Array.isArray(outputRaw) && outputRaw[0]?.value
+      ? (outputRaw[0].value as Record<string, unknown>)
+      : typeof outputRaw === 'object' && outputRaw !== null
+        ? (outputRaw as Record<string, unknown>)
+        : null
+
+  if (!value) return null
+  if (typeof value.file === 'string') return value.file
+  if (typeof value.path === 'string') return value.path
+  return null
+}
+
 export function extractFilePath(toolBlock: ToolContentBlock): string | null {
   const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
   const input = toolBlock.input as Record<string, unknown>
 
   return (
     extractValueForKey(outputStr, 'file') ||
+    extractFilePathFromOutputRaw(toolBlock.outputRaw) ||
     (typeof input?.path === 'string' ? input.path : null) ||
     (typeof input?.file_path === 'string' ? input.file_path : null)
   )

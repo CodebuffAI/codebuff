@@ -1,2 +1,2 @@
-import { always } from "../fp";
-export = always;
+import { always } from '../fp'
+export = always

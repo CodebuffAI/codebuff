@@ -1,2 +1,2 @@
-import { replace } from "../fp";
-export = replace;
+import { replace } from '../fp'
+export = replace

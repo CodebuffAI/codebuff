@@ -17,6 +17,6 @@ export function decodeBuffer(buffer: ArrayBuffer, encoding?: string): string {
 export function toArrayBuffer(array: Uint8Array): ArrayBuffer {
   return array.buffer.slice(
     array.byteOffset,
-    array.byteOffset + array.byteLength
+    array.byteOffset + array.byteLength,
   )
 }

@@ -1,2 +1,2 @@
-import { flip } from "../fp";
-export = flip;
+import { flip } from '../fp'
+export = flip

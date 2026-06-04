@@ -1,4 +1,4 @@
-import { ArgInput } from './parser';
+import { ArgInput } from './parser'
 /**
  * Infer the args that are returned by Command.parse. This is useful for when you want to assign the args as a class property.
  *
@@ -19,4 +19,4 @@ import { ArgInput } from './parser';
  *   }
  * }
  */
-export type InferredArgs<T> = T extends ArgInput<infer F> ? F : unknown;
+export type InferredArgs<T> = T extends ArgInput<infer F> ? F : unknown

@@ -103,7 +103,7 @@ export interface ParseOptions {
  */
 export function parse(
   str: string,
-  options?: ParseOptions
+  options?: ParseOptions,
 ): Record<string, string | undefined> {
   const obj: Record<string, string | undefined> = new NullObject()
   const len = str.length
@@ -114,15 +114,15 @@ export function parse(
   let index = 0
 
   do {
-    const eqIdx = str.indexOf("=", index)
+    const eqIdx = str.indexOf('=', index)
     if (eqIdx === -1) break // No more cookie pairs.
 
-    const colonIdx = str.indexOf(";", index)
+    const colonIdx = str.indexOf(';', index)
     const endIdx = colonIdx === -1 ? len : colonIdx
 
     if (eqIdx > endIdx) {
       // backtrack on prior semicolon
-      index = str.lastIndexOf(";", eqIdx - 1) + 1
+      index = str.lastIndexOf(';', eqIdx - 1) + 1
       continue
     }
 
@@ -228,7 +228,7 @@ export interface SerializeOptions {
    *
    * More information about priority levels can be found in [the specification](https://tools.ietf.org/html/draft-west-cookie-priority-00#section-4.1).
    */
-  priority?: "low" | "medium" | "high"
+  priority?: 'low' | 'medium' | 'high'
   /**
    * Specifies the value for the [`SameSite` `Set-Cookie` attribute](https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-09#section-5.4.7).
    *
@@ -239,7 +239,7 @@ export interface SerializeOptions {
    *
    * More information about enforcement levels can be found in [the specification](https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-09#section-5.4.7).
    */
-  sameSite?: boolean | "lax" | "strict" | "none"
+  sameSite?: boolean | 'lax' | 'strict' | 'none'
 }
 
 /**
@@ -254,7 +254,7 @@ export interface SerializeOptions {
 export function serialize(
   name: string,
   val: string,
-  options?: SerializeOptions
+  options?: SerializeOptions,
 ): string {
   const enc = options?.encode || encodeURIComponent
 
@@ -268,7 +268,7 @@ export function serialize(
     throw new TypeError(`argument val is invalid: ${val}`)
   }
 
-  let str = name + "=" + value
+  let str = name + '=' + value
   if (!options) return str
 
   if (options.maxAge !== undefined) {
@@ -276,7 +276,7 @@ export function serialize(
       throw new TypeError(`option maxAge is invalid: ${options.maxAge}`)
     }
 
-    str += "; Max-Age=" + options.maxAge
+    str += '; Max-Age=' + options.maxAge
   }
 
   if (options.domain) {
@@ -284,7 +284,7 @@ export function serialize(
       throw new TypeError(`option domain is invalid: ${options.domain}`)
     }
 
-    str += "; Domain=" + options.domain
+    str += '; Domain=' + options.domain
   }
 
   if (options.path) {
@@ -292,7 +292,7 @@ export function serialize(
       throw new TypeError(`option path is invalid: ${options.path}`)
     }
 
-    str += "; Path=" + options.path
+    str += '; Path=' + options.path
   }
 
   if (options.expires) {
@@ -303,35 +303,35 @@ export function serialize(
       throw new TypeError(`option expires is invalid: ${options.expires}`)
     }
 
-    str += "; Expires=" + options.expires.toUTCString()
+    str += '; Expires=' + options.expires.toUTCString()
   }
 
   if (options.httpOnly) {
-    str += "; HttpOnly"
+    str += '; HttpOnly'
   }
 
   if (options.secure) {
-    str += "; Secure"
+    str += '; Secure'
   }
 
   if (options.partitioned) {
-    str += "; Partitioned"
+    str += '; Partitioned'
   }
 
   if (options.priority) {
     const priority =
-      typeof options.priority === "string"
+      typeof options.priority === 'string'
         ? options.priority.toLowerCase()
         : undefined
     switch (priority) {
-      case "low":
-        str += "; Priority=Low"
+      case 'low':
+        str += '; Priority=Low'
         break
-      case "medium":
-        str += "; Priority=Medium"
+      case 'medium':
+        str += '; Priority=Medium'
         break
-      case "high":
-        str += "; Priority=High"
+      case 'high':
+        str += '; Priority=High'
         break
       default:
         throw new TypeError(`option priority is invalid: ${options.priority}`)
@@ -340,19 +340,19 @@ export function serialize(
 
   if (options.sameSite) {
     const sameSite =
-      typeof options.sameSite === "string"
+      typeof options.sameSite === 'string'
         ? options.sameSite.toLowerCase()
         : options.sameSite
     switch (sameSite) {
       case true:
-      case "strict":
-        str += "; SameSite=Strict"
+      case 'strict':
+        str += '; SameSite=Strict'
         break
-      case "lax":
-        str += "; SameSite=Lax"
+      case 'lax':
+        str += '; SameSite=Lax'
         break
-      case "none":
-        str += "; SameSite=None"
+      case 'none':
+        str += '; SameSite=None'
         break
       default:
         throw new TypeError(`option sameSite is invalid: ${options.sameSite}`)
@@ -366,7 +366,7 @@ export function serialize(
  * URL-decode string value. Optimized to skip native call when no %.
  */
 function decode(str: string): string {
-  if (str.indexOf("%") === -1) return str
+  if (str.indexOf('%') === -1) return str
 
   try {
     return decodeURIComponent(str)
@@ -379,5 +379,5 @@ function decode(str: string): string {
  * Determine if value is a Date.
  */
 function isDate(val: any): val is Date {
-  return __toString.call(val) === "[object Date]"
+  return __toString.call(val) === '[object Date]'
 }

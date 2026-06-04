@@ -1,2 +1,2 @@
-import { zipWith } from "../fp";
-export = zipWith;
+import { zipWith } from '../fp'
+export = zipWith

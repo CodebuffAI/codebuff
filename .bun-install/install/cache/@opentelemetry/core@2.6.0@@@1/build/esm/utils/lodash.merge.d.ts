@@ -26,5 +26,5 @@
  * _.isPlainObject(Object.create(null));
  * // => true
  */
-export declare function isPlainObject(value: any): boolean;
+export declare function isPlainObject(value: any): boolean
 //# sourceMappingURL=lodash.merge.d.ts.map

@@ -10,4 +10,4 @@
  *
  * @param fullPathToDir - directory path
  */
-export declare function offsetFromRoot(fullPathToDir: string): string;
+export declare function offsetFromRoot(fullPathToDir: string): string

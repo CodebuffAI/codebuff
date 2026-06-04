@@ -1,13 +1,13 @@
-import { expect, test, describe } from "vitest";
+import { expect, test, describe } from 'vitest'
 
-import { makeTestImage } from "@jimp/test-utils";
-import { createJimp } from "@jimp/core";
+import { makeTestImage } from '@jimp/test-utils'
+import { createJimp } from '@jimp/core'
 
-import { methods } from "./index.js";
+import { methods } from './index.js'
 
-const jimp = createJimp({ plugins: [methods] });
+const jimp = createJimp({ plugins: [methods] })
 
-describe("Mask", () => {
+describe('Mask', () => {
   const imgSrcOpaq = jimp.fromBitmap(
     // prettier-ignore
     makeTestImage(
@@ -16,7 +16,7 @@ describe("Mask", () => {
       "■□▴□▾□",
       "■□■▴■▾"
     ),
-  );
+  )
   const imgSrcAlpa = jimp.fromBitmap(
     // prettier-ignore
     makeTestImage(
@@ -24,7 +24,7 @@ describe("Mask", () => {
       "▴▵▾▿",
       "▴▵▾▿"
     ),
-  );
+  )
   const maskGrayBig = jimp.fromBitmap(
     // prettier-ignore
     makeTestImage(
@@ -33,7 +33,7 @@ describe("Mask", () => {
       "8CFFC8",
       "048840"
     ),
-  );
+  )
   const maskGraySmall = jimp.fromBitmap(
     // prettier-ignore
     makeTestImage(
@@ -41,7 +41,7 @@ describe("Mask", () => {
       "369C",
       "69CF"
     ),
-  );
+  )
   const maskColor = jimp.fromBitmap(
     // prettier-ignore
     makeTestImage(
@@ -49,47 +49,47 @@ describe("Mask", () => {
       "▪▪▰▰",
       "□□□□"
     ),
-  );
+  )
 
-  test("Affect opaque image with a gray mask with the same size", () => {
-    expect(imgSrcOpaq.clone().mask(maskGrayBig)).toMatchSnapshot();
-  });
+  test('Affect opaque image with a gray mask with the same size', () => {
+    expect(imgSrcOpaq.clone().mask(maskGrayBig)).toMatchSnapshot()
+  })
 
-  test("Affect opaque image with a gray mask with the same size, blited", () => {
+  test('Affect opaque image with a gray mask with the same size, blited', () => {
     expect(
       imgSrcOpaq.clone().mask({ src: maskGrayBig, x: 1, y: 1 }),
-    ).toMatchSnapshot();
-  });
+    ).toMatchSnapshot()
+  })
 
-  test("Affect opaque image with a gray mask with the same size, blited negative", () => {
+  test('Affect opaque image with a gray mask with the same size, blited negative', () => {
     expect(
       imgSrcOpaq.clone().mask({ src: maskGrayBig, x: -1, y: -1 }),
-    ).toMatchSnapshot();
-  });
+    ).toMatchSnapshot()
+  })
 
-  test("Affect opaque image with a smaller gray mask", () => {
-    expect(imgSrcOpaq.clone().mask(maskGraySmall)).toMatchSnapshot();
-  });
+  test('Affect opaque image with a smaller gray mask', () => {
+    expect(imgSrcOpaq.clone().mask(maskGraySmall)).toMatchSnapshot()
+  })
 
-  test("Affect opaque image with a smaller gray mask, blited", () => {
+  test('Affect opaque image with a smaller gray mask, blited', () => {
     expect(
       imgSrcOpaq.clone().mask({ src: maskGraySmall, x: 1, y: 1 }),
-    ).toMatchSnapshot();
-  });
+    ).toMatchSnapshot()
+  })
 
-  test("Affect alpha image with a bigger gray mask", () => {
-    expect(imgSrcAlpa.clone().mask(maskGrayBig)).toMatchSnapshot();
-  });
+  test('Affect alpha image with a bigger gray mask', () => {
+    expect(imgSrcAlpa.clone().mask(maskGrayBig)).toMatchSnapshot()
+  })
 
-  test("Affect alpha image with a bigger gray mask, blited", () => {
+  test('Affect alpha image with a bigger gray mask, blited', () => {
     expect(
       imgSrcAlpa.clone().mask({ src: maskGrayBig, x: -1, y: -1 }),
-    ).toMatchSnapshot();
-  });
+    ).toMatchSnapshot()
+  })
 
-  test("Affect opaque image with a colored mask", () => {
+  test('Affect opaque image with a colored mask', () => {
     expect(
       imgSrcOpaq.clone().mask({ src: maskColor, x: 1, y: 1 }),
-    ).toMatchSnapshot();
-  });
-});
+    ).toMatchSnapshot()
+  })
+})

@@ -1,2 +1,2 @@
-import { isSymbol } from "./index";
-export = isSymbol;
+import { isSymbol } from './index'
+export = isSymbol

@@ -1,6 +1,7 @@
 [![Build Status](https://github.com/kaelzhang/node-comment-json/actions/workflows/nodejs.yml/badge.svg)](https://github.com/kaelzhang/node-comment-json/actions/workflows/nodejs.yml)
 [![Coverage](https://codecov.io/gh/kaelzhang/node-comment-json/branch/master/graph/badge.svg)](https://codecov.io/gh/kaelzhang/node-comment-json)
 [![npm module downloads per month](http://img.shields.io/npm/dm/comment-json.svg)](https://www.npmjs.org/package/comment-json)
+
 <!-- optional appveyor tst
 [![Windows Build Status](https://ci.appveyor.com/api/projects/status/github/kaelzhang/node-comment-json?branch=master&svg=true)](https://ci.appveyor.com/project/kaelzhang/node-comment-json)
 -->
@@ -76,7 +77,7 @@ const {
   stringify,
   assign,
   moveComments,
-  removeComments
+  removeComments,
 } = require('comment-json')
 const fs = require('fs')
 
@@ -107,7 +108,7 @@ const sorted = assign(
   {},
   parsed,
   // You could also use your custom sorting function
-  Object.keys(parsed).sort()
+  Object.keys(parsed).sort(),
 )
 
 console.log(stringify(sorted, null, 2))
@@ -164,7 +165,7 @@ If the `content` is:
 ```
 
 ```js
-const {inspect} = require('util')
+const { inspect } = require('util')
 
 const parsed = parse(content)
 
@@ -172,8 +173,8 @@ console.log(
   inspect(parsed, {
     // Since 4.0.0, symbol properties of comments are not enumerable,
     // use `showHidden: true` to print them
-    showHidden: true
-  })
+    showHidden: true,
+  }),
 )
 
 console.log(Object.keys(parsed))
@@ -314,14 +315,20 @@ Furthermore, a type `CommentDescriptor` is provided for enforcing properly forma
 
 ```ts
 import {
-  CommentDescriptor, CommentSymbol, parse, CommentArray
+  CommentDescriptor,
+  CommentSymbol,
+  parse,
+  CommentArray,
 } from 'comment-json'
 
 const parsed = parse(`{ /* test */ "foo": "bar" }`)
- // typescript only allows properly formatted symbol names here
+// typescript only allows properly formatted symbol names here
 const symbolName: CommentDescriptor = 'before:foo'
 
-console.log((parsed as CommentArray<string>)[Symbol.for(symbolName) as CommentSymbol][0].value)
+console.log(
+  (parsed as CommentArray<string>)[Symbol.for(symbolName) as CommentSymbol][0]
+    .value,
+)
 ```
 
 In this example, casting to `Symbol.for(symbolName)` to `CommentSymbol` is mandatory.
@@ -450,9 +457,12 @@ const parsed = parse(`// before all
   "foo": "bar"
 }`)
 
-const obj = assign({
-  bar: 'baz'
-}, parsed)
+const obj = assign(
+  {
+    bar: 'baz',
+  },
+  parsed,
+)
 
 stringify(obj, null, 2)
 // // before all
@@ -468,9 +478,13 @@ stringify(obj, null, 2)
 But if argument `keys` is specified and is not empty, then comment ` before all`, which belongs to non-properties, will **NOT** be copied.
 
 ```js
-const obj = assign({
-  bar: 'baz'
-}, parsed, ['foo'])
+const obj = assign(
+  {
+    bar: 'baz',
+  },
+  parsed,
+  ['foo'],
+)
 
 stringify(obj, null, 2)
 // {
@@ -483,9 +497,13 @@ stringify(obj, null, 2)
 Specifying the argument `keys` as an empty array indicates that it will only copy non-property symbols of comments
 
 ```js
-const obj = assign({
-  bar: 'baz'
-}, parsed, [])
+const obj = assign(
+  {
+    bar: 'baz',
+  },
+  parsed,
+  [],
+)
 
 stringify(obj, null, 2)
 // // before all
@@ -499,7 +517,7 @@ Non-property symbols include:
 ```js
 Symbol.for('before-all')
 Symbol.for('before')
-Symbol.for('after')      // only for stringify
+Symbol.for('after') // only for stringify
 Symbol.for('after-all')
 ```
 
@@ -518,7 +536,7 @@ Symbol.for('after-all')
 This method is used to move comments from one location to another within objects. It's particularly useful when you need to reorganize comments or move them between different comment positions.
 
 ```js
-const {parse, stringify, moveComments} = require('comment-json')
+const { parse, stringify, moveComments } = require('comment-json')
 
 const obj = parse(`{
   "foo": 1, // comment after foo
@@ -526,10 +544,7 @@ const obj = parse(`{
 }`)
 
 // Move comment from `after 'foo'` to `after`
-moveComments(obj, obj,
-  { where: 'after', key: 'foo' },
-  { where: 'after' }
-)
+moveComments(obj, obj, { where: 'after', key: 'foo' }, { where: 'after' })
 
 obj.baz = 3
 
@@ -551,10 +566,7 @@ const obj = parse(`// top comment
 }`)
 
 // Move top comment to bottom
-moveComments(obj, obj,
-  { kind: 'before-all' },
-  { kind: 'after-all' }
-)
+moveComments(obj, obj, { kind: 'before-all' }, { kind: 'after-all' })
 
 console.log(stringify(obj, null, 2))
 // {
@@ -573,9 +585,11 @@ const source = parse(`{
 const target = { bar: 2 }
 
 // Move comment from source to target
-moveComments(source, target,
+moveComments(
+  source,
+  target,
   { kind: 'after-value', key: 'foo' },
-  { kind: 'before', key: 'bar' }
+  { kind: 'before', key: 'bar' },
 )
 
 console.log(stringify(target, null, 2))
@@ -595,9 +609,11 @@ const obj = parse(`{
 }`)
 
 // By default, comments are appended (override = false)
-moveComments(obj, obj,
+moveComments(
+  obj,
+  obj,
   { kind: 'after-value', key: 'foo' },
-  { kind: 'before', key: 'foo' }
+  { kind: 'before', key: 'foo' },
 )
 
 console.log(stringify(obj, null, 2))
@@ -609,10 +625,12 @@ console.log(stringify(obj, null, 2))
 // }
 
 // With override = true, existing comments are replaced
-moveComments(obj, obj,
+moveComments(
+  obj,
+  obj,
   { kind: 'before', key: 'bar' },
   { kind: 'before', key: 'foo' },
-  true // override existing comments
+  true, // override existing comments
 )
 ```
 
@@ -628,7 +646,7 @@ This method is used to remove comments from a specific location within objects. 
 ### Basic usage
 
 ```js
-const {parse, stringify, removeComments} = require('comment-json')
+const { parse, stringify, removeComments } = require('comment-json')
 
 const obj = parse(`{
   // comment before foo
@@ -676,7 +694,7 @@ All arrays of the parsed object are `CommentArray`s.
 The constructor of `CommentArray` could be accessed by:
 
 ```js
-const {CommentArray} = require('comment-json')
+const { CommentArray } = require('comment-json')
 ```
 
 If we modify a comment array, its comment symbol properties could be handled automatically.
@@ -772,13 +790,13 @@ And it will print:
 `comment-json` implements the TC39 proposal [proposal-json-parse-with-source](https://github.com/tc39/proposal-json-parse-with-source)
 
 ```js
-const {parse, stringify} = require('comment-json')
+const { parse, stringify } = require('comment-json')
 
 const parsed = parse(
   `{"foo": 9007199254740993}`,
   // The reviver function now has a 3rd param that contains the string source.
-  (key, value, {source}) =>
-    /^[0-9]+$/.test(source) ? BigInt(source) : value
+  (key, value, { source }) =>
+    /^[0-9]+$/.test(source) ? BigInt(source) : value,
 )
 
 console.log(parsed)
@@ -788,10 +806,10 @@ console.log(parsed)
 
 stringify(parsed, (key, val) =>
   typeof value === 'bigint'
-    // Pay attention that
-    //   JSON.rawJSON is supported in node >= 21
-    ? JSON.rawJSON(String(val))
-    : value
+    ? // Pay attention that
+      //   JSON.rawJSON is supported in node >= 21
+      JSON.rawJSON(String(val))
+    : value,
 )
 // {"foo":9007199254740993}
 ```

@@ -9,4 +9,6 @@ export interface TreeShakeableConfig {}
  * For the full bundle (default), resolves to T (extensions guaranteed present).
  * For the slim bundle (augmented with { optional: true }), resolves to T | undefined.
  */
-export type TreeShakeable<T> = 'optional' extends keyof TreeShakeableConfig ? T | undefined : T
+export type TreeShakeable<T> = 'optional' extends keyof TreeShakeableConfig
+  ? T | undefined
+  : T

@@ -6,7 +6,7 @@
  *  '1f441-fe0f-200d-1f5e8-fe0f' => [0x1f441, 0xfe0f, 0x200d, 0x1f5e8, 0xfe0f]
  *  '\\uD83D\\uDC41\\uFE0F\\u200D\\uD83D\\uDDE8\\uFE0F' => [0x1f441, 0xfe0f, 0x200d, 0x1f5e8, 0xfe0f]
  */
-declare function getEmojiSequenceFromString(value: string): number[];
+declare function getEmojiSequenceFromString(value: string): number[]
 /**
  * Convert emoji sequence or keyword
  *
@@ -15,7 +15,7 @@ declare function getEmojiSequenceFromString(value: string): number[];
  *
  * This is used to treat keywords, like ':cat:' differently when converting strings to sequences
  */
-declare function getSequenceFromEmojiStringOrKeyword(value: string): number[];
+declare function getSequenceFromEmojiStringOrKeyword(value: string): number[]
 /**
  * Split emoji sequence by joiner
  *
@@ -24,7 +24,10 @@ declare function getSequenceFromEmojiStringOrKeyword(value: string): number[];
  * Example:
  * 	[0x1FAF1, 0x1F3FB, 0x200D, 0x1FAF2, 0x1F3FC] => [[0x1FAF1, 0x1F3FB], [0x1FAF2, 0x1F3FC]]
  */
-declare function splitEmojiSequences(sequence: number[], separator?: number): number[][];
+declare function splitEmojiSequences(
+  sequence: number[],
+  separator?: number,
+): number[][]
 /**
  * Join emoji sequences
  *
@@ -33,9 +36,18 @@ declare function splitEmojiSequences(sequence: number[], separator?: number): nu
  * Example:
  * 	[[0x1FAF1, 0x1F3FB], [0x1FAF2, 0x1F3FC]] => [0x1FAF1, 0x1F3FB, 0x200D, 0x1FAF2, 0x1F3FC]
  */
-declare function joinEmojiSequences(sequences: number[][], separator?: number): number[];
+declare function joinEmojiSequences(
+  sequences: number[][],
+  separator?: number,
+): number[]
 /**
  * Get unqualified sequence
  */
-declare function getUnqualifiedEmojiSequence(sequence: number[]): number[];
-export { getEmojiSequenceFromString, getSequenceFromEmojiStringOrKeyword, getUnqualifiedEmojiSequence, joinEmojiSequences, splitEmojiSequences };
+declare function getUnqualifiedEmojiSequence(sequence: number[]): number[]
+export {
+  getEmojiSequenceFromString,
+  getSequenceFromEmojiStringOrKeyword,
+  getUnqualifiedEmojiSequence,
+  joinEmojiSequences,
+  splitEmojiSequences,
+}

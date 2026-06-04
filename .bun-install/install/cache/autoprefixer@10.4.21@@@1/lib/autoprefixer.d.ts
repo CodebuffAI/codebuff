@@ -7,11 +7,11 @@ declare function autoprefixer<T extends string[]>(
 
 declare function autoprefixer(
   browsers: string[],
-  options?: autoprefixer.Options
+  options?: autoprefixer.Options,
 ): Plugin & autoprefixer.ExportedAPI
 
 declare function autoprefixer(
-  options?: autoprefixer.Options
+  options?: autoprefixer.Options,
 ): Plugin & autoprefixer.ExportedAPI
 
 declare namespace autoprefixer {

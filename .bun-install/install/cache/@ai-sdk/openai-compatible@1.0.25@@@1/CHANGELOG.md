@@ -191,7 +191,7 @@
     }),
     prompt,
     n: 10,
-  });
+  })
   ```
 
   After
@@ -205,7 +205,7 @@
     providerOptions: {
       luma: { pollIntervalMillis: 5 },
     },
-  });
+  })
   ```
 
   Pull Request: https://github.com/vercel/ai/pull/6180
@@ -597,7 +597,7 @@
     }),
     prompt,
     n: 10,
-  });
+  })
   ```
 
   After
@@ -611,7 +611,7 @@
     providerOptions: {
       luma: { pollIntervalMillis: 5 },
     },
-  });
+  })
   ```
 
   Pull Request: https://github.com/vercel/ai/pull/6180

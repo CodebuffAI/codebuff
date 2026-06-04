@@ -2345,6 +2345,125 @@ describe('editor agent', () => {
         ),
       ).toBe(false)
     })
+
+    test('does not retry (orphaning the artifact) when a proposal succeeded this step but the ledger snapshot is stale', () => {
+      // getPublicAgentState snapshots proposalLedger BEFORE the step's tool
+      // calls execute, so a propose_* call that just succeeded this step is in
+      // the live runtime ledger but NOT yet in the agentState.proposalLedger
+      // snapshot the loop sees. Firing a PROPOSAL_RETRY here would call
+      // startNewProposalAttempt and orphan that just-recorded successful
+      // artifact (the "diffs generated, then proposal shows no changes" bug).
+      // The loop must detect the propose_* call in messageHistory and stop
+      // instead of retrying.
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { allowReadOnlyTools: true },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      // The step emitted a propose_str_replace tool call (visible in
+      // messageHistory), but the proposalLedger snapshot is empty because it
+      // was captured before the tool executed. Build the state manually so the
+      // ledger does NOT reflect the just-emitted proposal.
+      const staleSnapshotState = {
+        ...createMockAgentState([
+          ...initialMessages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_str_replace',
+                input: {
+                  path: 'src/a.ts',
+                  replacements: [{ oldString: 'old', newString: 'new' }],
+                },
+              },
+            ],
+          },
+        ]),
+        // Force the stale (pre-append) snapshot: empty ledger.
+        proposalLedger: [],
+      } as any
+
+      const result = generator.next({
+        agentState: staleSnapshotState,
+        toolResult: [],
+        stepsComplete: true,
+      })
+
+      // Must NOT yield a set_messages PROPOSAL_RETRY (which would bump the
+      // attempt and orphan the artifact). It should instead finalize.
+      expect((result.value as any).toolName).not.toBe('set_messages')
+      expect((result.value as any).toolName).toBe('set_output')
+      expect((result.value as any).input.stopReason).toBe('noCompletionSignal')
+    })
+
+    test('does not treat prior-attempt proposal calls as current stale proposals', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { allowReadOnlyTools: false },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const stateAfterRetryWithNoCurrentProposal = {
+        ...createMockAgentState([
+          ...initialMessages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_str_replace',
+                input: {
+                  path: 'src/a.ts',
+                  replacements: [{ oldString: 'stale', newString: 'new' }],
+                },
+              },
+            ],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Retry with better context' }],
+            tags: ['PROPOSAL_RETRY'],
+          },
+        ]),
+        proposalLedger: [],
+      } as any
+
+      const result = generator.next({
+        agentState: stateAfterRetryWithNoCurrentProposal,
+        toolResult: [],
+        stepsComplete: true,
+      })
+
+      expect((result.value as any).toolName).toBe('set_messages')
+      expect((result.value as any).input.messages.at(-1).tags).toContain(
+        'PROPOSAL_RETRY',
+      )
+    })
   })
 
   describe('multi-prompt editor', () => {
@@ -6951,7 +7070,7 @@ describe('editor agent', () => {
       )
     })
 
-    test('applies the chosen proposal via a plain str_replace remap', () => {
+    test('applies the chosen proposal via ledger final content when available', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
         { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
@@ -7041,11 +7160,7 @@ describe('editor agent', () => {
         input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
       })
 
-      // The apply phase replays the chosen proposal's propose_str_replace as a
-      // real str_replace against current disk content (the upstream behavior).
-      // The __proposal* metadata is stripped before applying, so the real edit
-      // carries only the original path/replacements.
-      const strReplaceApply = generator.next({
+      const readBaseContent = generator.next({
         agentState: mockAgentState,
         toolResult: [
           {
@@ -7054,24 +7169,38 @@ describe('editor agent', () => {
           },
         ],
         stepsComplete: false,
-      }).value as ToolCall<'str_replace'>
+      }).value as ToolCall<'read_files'>
 
-      expect(strReplaceApply).toMatchObject({
-        toolName: 'str_replace',
+      expect(readBaseContent).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+      })
+
+      // The apply phase uses the ledger's resolved final content instead of
+      // replaying a stale str_replace anchor from proposal time.
+      const writeFileApply = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'current disk content\n' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'write_file'>
+
+      expect(writeFileApply).toMatchObject({
+        toolName: 'write_file',
         input: {
           path: 'src/a.ts',
-          replacements: [
-            {
-              oldString: 'stale anchor from proposal time',
-              newString: 'anchor replay should not be used',
-            },
-          ],
+          instructions: 'Apply resolved editor proposal content',
+          content: 'fresh resolved proposal content\n',
         },
       })
-      expect(JSON.stringify(strReplaceApply.input)).not.toContain(
+      expect(JSON.stringify(writeFileApply.input)).not.toContain(
         '__proposalFinalContent',
       )
-      expect(JSON.stringify(strReplaceApply.input)).not.toContain(
+      expect(JSON.stringify(writeFileApply.input)).not.toContain(
         '__proposalBaseContent',
       )
 

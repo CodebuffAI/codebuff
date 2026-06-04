@@ -35,10 +35,10 @@ bun add @discordjs/formatters
 ## Example usage
 
 ````ts
-import { codeBlock } from '@discordjs/formatters';
+import { codeBlock } from '@discordjs/formatters'
 
-const formattedCode = codeBlock('hello world!');
-console.log(formattedCode);
+const formattedCode = codeBlock('hello world!')
+console.log(formattedCode)
 
 // Prints:
 // ```

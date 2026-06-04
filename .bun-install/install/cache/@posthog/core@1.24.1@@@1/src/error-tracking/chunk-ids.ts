@@ -12,8 +12,12 @@ let parsedStackResults: Record<StackString, CachedResult> | undefined
 let lastKeysCount: number | undefined
 let cachedFilenameChunkIds: ChunkIdMapType | undefined
 
-export function getFilenameToChunkIdMap(stackParser: StackParser): ChunkIdMapType | undefined {
-  const chunkIdMap = (globalThis as any)._posthogChunkIds as ChunkIdMapType | undefined
+export function getFilenameToChunkIdMap(
+  stackParser: StackParser,
+): ChunkIdMapType | undefined {
+  const chunkIdMap = (globalThis as any)._posthogChunkIds as
+    | ChunkIdMapType
+    | undefined
   if (!chunkIdMap) {
     return undefined
   }
@@ -26,33 +30,36 @@ export function getFilenameToChunkIdMap(stackParser: StackParser): ChunkIdMapTyp
 
   lastKeysCount = chunkIdKeys.length
 
-  cachedFilenameChunkIds = chunkIdKeys.reduce<Record<string, string>>((acc, stackKey) => {
-    if (!parsedStackResults) {
-      parsedStackResults = {}
-    }
+  cachedFilenameChunkIds = chunkIdKeys.reduce<Record<string, string>>(
+    (acc, stackKey) => {
+      if (!parsedStackResults) {
+        parsedStackResults = {}
+      }
 
-    const result = parsedStackResults[stackKey]
+      const result = parsedStackResults[stackKey]
 
-    if (result) {
-      acc[result[0]] = result[1]
-    } else {
-      const parsedStack = stackParser(stackKey)
+      if (result) {
+        acc[result[0]] = result[1]
+      } else {
+        const parsedStack = stackParser(stackKey)
 
-      for (let i = parsedStack.length - 1; i >= 0; i--) {
-        const stackFrame = parsedStack[i]
-        const filename = stackFrame?.filename
-        const chunkId = chunkIdMap[stackKey]
+        for (let i = parsedStack.length - 1; i >= 0; i--) {
+          const stackFrame = parsedStack[i]
+          const filename = stackFrame?.filename
+          const chunkId = chunkIdMap[stackKey]
 
-        if (filename && chunkId) {
-          acc[filename] = chunkId
-          parsedStackResults[stackKey] = [filename, chunkId]
-          break
+          if (filename && chunkId) {
+            acc[filename] = chunkId
+            parsedStackResults[stackKey] = [filename, chunkId]
+            break
+          }
         }
       }
-    }
 
-    return acc
-  }, {})
+      return acc
+    },
+    {},
+  )
 
   return cachedFilenameChunkIds
 }

@@ -14,7 +14,7 @@ const defaultSource = {
 it('has a pending state upon construction', () => {
   const controller = new RequestController(
     new Request('http://localhost'),
-    defaultSource
+    defaultSource,
   )
 
   expect(controller.handled).toBeInstanceOf(Promise)
@@ -78,27 +78,27 @@ it('handles the request when calling ".errorWith()" with an arbitrary object', a
 it('throws when calling "respondWith" multiple times', async () => {
   const controller = new RequestController(
     new Request('http://localhost'),
-    defaultSource
+    defaultSource,
   )
   controller.respondWith(new Response('hello world'))
 
   expect(() => controller.respondWith(new Response('second response'))).toThrow(
     new InterceptorError(
-      'Failed to respond to the "GET http://localhost/" request with "200 OK": the request has already been handled (2)'
-    )
+      'Failed to respond to the "GET http://localhost/" request with "200 OK": the request has already been handled (2)',
+    ),
   )
 })
 
 it('throws when calling "errorWith" multiple times', async () => {
   const controller = new RequestController(
     new Request('http://localhost'),
-    defaultSource
+    defaultSource,
   )
   controller.errorWith(new Error('Oops!'))
 
   expect(() => controller.errorWith(new Error('second error'))).toThrow(
     new InterceptorError(
-      'Failed to error the "GET http://localhost/" request with "Error: second error": the request has already been handled (3)'
-    )
+      'Failed to error the "GET http://localhost/" request with "Error: second error": the request has already been handled (3)',
+    ),
   )
 })

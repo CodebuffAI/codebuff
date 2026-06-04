@@ -6,23 +6,23 @@
  */
 
 export declare type Callbacks = {
-  foundSubsequence: FoundSubsequence;
-  isCommon: IsCommon;
-};
+  foundSubsequence: FoundSubsequence
+  isCommon: IsCommon
+}
 
 declare function diffSequence(
   aLength: number,
   bLength: number,
   isCommon: IsCommon,
   foundSubsequence: FoundSubsequence,
-): void;
-export default diffSequence;
+): void
+export default diffSequence
 
 declare type FoundSubsequence = (
   nCommon: number, // caller can assume: 0 < nCommon
   aCommon: number, // caller can assume: 0 <= aCommon && aCommon < aLength
   bCommon: number,
-) => void;
+) => void
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -34,6 +34,6 @@ declare type FoundSubsequence = (
 declare type IsCommon = (
   aIndex: number, // caller can assume: 0 <= aIndex && aIndex < aLength
   bIndex: number,
-) => boolean;
+) => boolean
 
-export {};
+export {}

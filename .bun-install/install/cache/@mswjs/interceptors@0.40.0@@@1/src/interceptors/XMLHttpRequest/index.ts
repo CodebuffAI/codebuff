@@ -27,7 +27,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     invariant(
       !(PureXMLHttpRequest as any)[IS_PATCHED_MODULE],
-      'Failed to patch the "XMLHttpRequest" module: already patched.'
+      'Failed to patch the "XMLHttpRequest" module: already patched.',
     )
 
     globalThis.XMLHttpRequest = createXMLHttpRequestProxy({
@@ -37,7 +37,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
 
     logger.info(
       'native "XMLHttpRequest" module patched!',
-      globalThis.XMLHttpRequest.name
+      globalThis.XMLHttpRequest.name,
     )
 
     Object.defineProperty(globalThis.XMLHttpRequest, IS_PATCHED_MODULE, {
@@ -54,7 +54,7 @@ export class XMLHttpRequestInterceptor extends Interceptor<HttpRequestEventMap> 
       globalThis.XMLHttpRequest = PureXMLHttpRequest
       logger.info(
         'native "XMLHttpRequest" module restored!',
-        globalThis.XMLHttpRequest.name
+        globalThis.XMLHttpRequest.name,
       )
     })
   }

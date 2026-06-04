@@ -1,2 +1,2 @@
-import { isBuffer } from "../fp";
-export = isBuffer;
+import { isBuffer } from '../fp'
+export = isBuffer

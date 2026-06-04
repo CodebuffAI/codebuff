@@ -1,2 +1,2 @@
-import { prop } from "../fp";
-export = prop;
+import { prop } from '../fp'
+export = prop

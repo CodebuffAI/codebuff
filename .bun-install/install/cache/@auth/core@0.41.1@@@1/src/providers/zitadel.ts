@@ -9,7 +9,7 @@
  * @module providers/zitadel
  */
 
-import type { OIDCConfig, OAuthUserConfig } from "./index.js"
+import type { OIDCConfig, OAuthUserConfig } from './index.js'
 
 /**
  * The returned user profile from ZITADEL when using the profile callback. See the standard claims reference [here](https://zitadel.com/docs/apis/openidoauth/claims#standard-claims).
@@ -117,12 +117,12 @@ export interface ZitadelProfile extends Record<string, any> {
  * :::
  */
 export default function ZITADEL<P extends ZitadelProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OIDCConfig<P> {
   return {
-    id: "zitadel",
-    name: "ZITADEL",
-    type: "oidc",
+    id: 'zitadel',
+    name: 'ZITADEL',
+    type: 'oidc',
     options,
   }
 }

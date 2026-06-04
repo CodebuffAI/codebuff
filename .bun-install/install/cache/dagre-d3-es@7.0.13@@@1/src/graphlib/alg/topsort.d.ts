@@ -1,5 +1,5 @@
-export function topsort(g: any): any[];
+export function topsort(g: any): any[]
 export namespace topsort {
-    export { CycleException };
+  export { CycleException }
 }
-export function CycleException(): void;
+export function CycleException(): void

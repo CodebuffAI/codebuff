@@ -21,10 +21,14 @@ const getLocalPaths = (startPath: string): string[] => {
 }
 
 export const buildLocalBinaryPaths = (cwd: string): string[] => {
-  const possibleLocations = ['node_modules/.bin', 'node_modules/.pnpm/node_modules/.bin']
+  const possibleLocations = [
+    'node_modules/.bin',
+    'node_modules/.pnpm/node_modules/.bin',
+  ]
 
-  const localPaths = getLocalPaths(path.resolve(cwd)).flatMap((localPath: string) =>
-    possibleLocations.map((location) => path.join(localPath, location))
+  const localPaths = getLocalPaths(path.resolve(cwd)).flatMap(
+    (localPath: string) =>
+      possibleLocations.map((location) => path.join(localPath, location)),
   )
 
   return localPaths
@@ -36,7 +40,7 @@ export function resolveBinaryPath(
     path: string
     // We start traversing the file system tree from this directory and we go up until we find the binary
     cwd: string
-  }
+  },
 ): string {
   const envLocations = options.path.split(path.delimiter)
   const localLocations = buildLocalBinaryPaths(options.cwd)

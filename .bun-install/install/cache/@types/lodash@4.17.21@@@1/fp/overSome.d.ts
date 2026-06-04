@@ -1,2 +1,2 @@
-import { overSome } from "../fp";
-export = overSome;
+import { overSome } from '../fp'
+export = overSome

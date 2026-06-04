@@ -11,7 +11,7 @@
  * @module providers/logto
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Logto when using the profile callback. [Reference](https://docs.logto.io/quick-starts/next-auth#scopes-and-claims). */
 export interface LogtoProfile {
@@ -98,15 +98,15 @@ export interface LogtoProfile {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Logto(
-  options: OIDCUserConfig<LogtoProfile>
+  options: OIDCUserConfig<LogtoProfile>,
 ): OIDCConfig<LogtoProfile> {
   return {
-    id: "logto",
-    name: "Logto",
-    type: "oidc",
+    id: 'logto',
+    name: 'Logto',
+    type: 'oidc',
     authorization: {
       params: {
-        scope: "offline_access openid email profile",
+        scope: 'offline_access openid email profile',
       },
     },
     profile(profile) {

@@ -1,2 +1,2 @@
-import { isArrayBuffer } from "./index";
-export = isArrayBuffer;
+import { isArrayBuffer } from './index'
+export = isArrayBuffer

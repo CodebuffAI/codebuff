@@ -7,7 +7,7 @@ import { SurveyValidationRule, SurveyValidationType } from '../types'
 export function getValidationError(
   value: string,
   rules: SurveyValidationRule[] | undefined,
-  optional: boolean | undefined
+  optional: boolean | undefined,
 ): string | false {
   const trimmed = value.trim()
 
@@ -27,13 +27,19 @@ export function getValidationError(
       switch (rule.type) {
         case SurveyValidationType.MinLength:
           if (rule.value !== undefined && trimmed.length < rule.value) {
-            return rule.errorMessage ?? `Please enter at least ${rule.value} characters`
+            return (
+              rule.errorMessage ??
+              `Please enter at least ${rule.value} characters`
+            )
           }
           break
 
         case SurveyValidationType.MaxLength:
           if (rule.value !== undefined && trimmed.length > rule.value) {
-            return rule.errorMessage ?? `Please enter no more than ${rule.value} characters`
+            return (
+              rule.errorMessage ??
+              `Please enter no more than ${rule.value} characters`
+            )
           }
           break
       }
@@ -48,7 +54,7 @@ export function getValidationError(
  */
 export function getLengthFromRules(
   rules: SurveyValidationRule[] | undefined,
-  type: SurveyValidationType
+  type: SurveyValidationType,
 ): number | undefined {
   if (!rules) return undefined
   const rule = rules.find((r) => r.type === type)
@@ -63,7 +69,10 @@ export function getLengthFromRules(
  * - Required questions: min=1 is redundant (required already means "enter something")
  * - Optional questions: min=1 is useless (user can skip, or if they type anything it's ≥1 char)
  */
-export function getRequirementsHint(minLength: number | undefined, maxLength: number | undefined): string | undefined {
+export function getRequirementsHint(
+  minLength: number | undefined,
+  maxLength: number | undefined,
+): string | undefined {
   // Skip showing hint for min=1 - it's always redundant/useless
   const effectiveMin = minLength === 1 ? undefined : minLength
 

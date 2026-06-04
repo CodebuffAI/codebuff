@@ -8,7 +8,7 @@
  *
  * @module providers/foursquare
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add FourSquare login to your page.
  *
@@ -65,7 +65,9 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function Foursquare(options: OAuthUserConfig<Record<string, any>> & {
-    apiVersion?: string;
-}): OAuthConfig<Record<string, any>>;
+export default function Foursquare(
+  options: OAuthUserConfig<Record<string, any>> & {
+    apiVersion?: string
+  },
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=foursquare.d.ts.map

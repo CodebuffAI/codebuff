@@ -1,2 +1,2 @@
-import { uniq } from "../fp";
-export = uniq;
+import { uniq } from '../fp'
+export = uniq

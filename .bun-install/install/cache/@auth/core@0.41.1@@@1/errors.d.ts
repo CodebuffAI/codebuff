@@ -1,4 +1,36 @@
-type ErrorType = "AccessDenied" | "AdapterError" | "CallbackRouteError" | "ErrorPageLoop" | "EventError" | "InvalidCallbackUrl" | "CredentialsSignin" | "InvalidEndpoints" | "InvalidCheck" | "JWTSessionError" | "MissingAdapter" | "MissingAdapterMethods" | "MissingAuthorize" | "MissingSecret" | "OAuthAccountNotLinked" | "OAuthCallbackError" | "OAuthProfileParseError" | "SessionTokenError" | "OAuthSignInError" | "EmailSignInError" | "SignOutError" | "UnknownAction" | "UnsupportedStrategy" | "InvalidProvider" | "UntrustedHost" | "Verification" | "MissingCSRF" | "AccountNotLinked" | "DuplicateConditionalUI" | "MissingWebAuthnAutocomplete" | "WebAuthnVerificationError" | "ExperimentalFeatureNotEnabled";
+type ErrorType =
+  | 'AccessDenied'
+  | 'AdapterError'
+  | 'CallbackRouteError'
+  | 'ErrorPageLoop'
+  | 'EventError'
+  | 'InvalidCallbackUrl'
+  | 'CredentialsSignin'
+  | 'InvalidEndpoints'
+  | 'InvalidCheck'
+  | 'JWTSessionError'
+  | 'MissingAdapter'
+  | 'MissingAdapterMethods'
+  | 'MissingAuthorize'
+  | 'MissingSecret'
+  | 'OAuthAccountNotLinked'
+  | 'OAuthCallbackError'
+  | 'OAuthProfileParseError'
+  | 'SessionTokenError'
+  | 'OAuthSignInError'
+  | 'EmailSignInError'
+  | 'SignOutError'
+  | 'UnknownAction'
+  | 'UnsupportedStrategy'
+  | 'InvalidProvider'
+  | 'UntrustedHost'
+  | 'Verification'
+  | 'MissingCSRF'
+  | 'AccountNotLinked'
+  | 'DuplicateConditionalUI'
+  | 'MissingWebAuthnAutocomplete'
+  | 'WebAuthnVerificationError'
+  | 'ExperimentalFeatureNotEnabled'
 /**
  * Base error class for all Auth.js errors.
  * It's optimized to be printed in the server logs in a nicely formatted way
@@ -6,17 +38,16 @@ type ErrorType = "AccessDenied" | "AdapterError" | "CallbackRouteError" | "Error
  * @noInheritDoc
  */
 export declare class AuthError extends Error {
-    type: ErrorType;
-    cause?: Record<string, unknown> & {
-        err?: Error;
-    };
+  type: ErrorType
+  cause?: Record<string, unknown> & {
+    err?: Error
+  }
 }
 /**
  * Thrown when the user's sign-in attempt failed.
  * @noInheritDoc
  */
-export declare class SignInError extends AuthError {
-}
+export declare class SignInError extends AuthError {}
 /**
  * One of the database [`Adapter` methods](https://authjs.dev/reference/core/adapters#methods)
  * failed during execution.
@@ -32,7 +63,7 @@ export declare class SignInError extends AuthError {
  * @noInheritDoc
  */
 export declare class AdapterError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when the execution of the [`signIn` callback](https://authjs.dev/reference/core/types#signin) fails
@@ -40,7 +71,7 @@ export declare class AdapterError extends AuthError {
  * @noInheritDoc
  */
 export declare class AccessDenied extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * This error occurs when the user cannot finish login.
@@ -83,7 +114,7 @@ export declare class AccessDenied extends AuthError {
  * @noInheritDoc
  */
 export declare class CallbackRouteError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when Auth.js is misconfigured and accidentally tried to require authentication on a custom error page.
@@ -95,7 +126,7 @@ export declare class CallbackRouteError extends AuthError {
  * @noInheritDoc
  */
 export declare class ErrorPageLoop extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * One of the [`events` methods](https://authjs.dev/reference/core/types#eventcallbacks)
@@ -107,7 +138,7 @@ export declare class ErrorPageLoop extends AuthError {
  * @noInheritDoc
  */
 export declare class EventError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when Auth.js is unable to verify a `callbackUrl` value.
@@ -121,7 +152,7 @@ export declare class EventError extends AuthError {
  * @noInheritDoc
  */
 export declare class InvalidCallbackUrl extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Can be thrown from the `authorize` callback of the Credentials provider.
@@ -131,19 +162,19 @@ export declare class InvalidCallbackUrl extends AuthError {
  * @noInheritDoc
  */
 export declare class CredentialsSignin extends SignInError {
-    static type: string;
-    /**
-     * The error code that is set in the `code` query parameter of the redirect URL.
-     *
-     *
-     * ⚠ NOTE: This property is going to be included in the URL, so make sure it does not hint at sensitive errors.
-     *
-     * The full error is always logged on the server, if you need to debug.
-     *
-     * Generally, we don't recommend hinting specifically if the user had either a wrong username or password specifically,
-     * try rather something like "Invalid credentials".
-     */
-    code: string;
+  static type: string
+  /**
+   * The error code that is set in the `code` query parameter of the redirect URL.
+   *
+   *
+   * ⚠ NOTE: This property is going to be included in the URL, so make sure it does not hint at sensitive errors.
+   *
+   * The full error is always logged on the server, if you need to debug.
+   *
+   * Generally, we don't recommend hinting specifically if the user had either a wrong username or password specifically,
+   * try rather something like "Invalid credentials".
+   */
+  code: string
 }
 /**
  * One of the configured OAuth or OIDC providers is missing the `authorization`, `token` or `userinfo`, or `issuer` configuration.
@@ -153,7 +184,7 @@ export declare class CredentialsSignin extends SignInError {
  * @noInheritDoc
  */
 export declare class InvalidEndpoints extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when a PKCE, state or nonce OAuth check could not be performed.
@@ -163,7 +194,7 @@ export declare class InvalidEndpoints extends AuthError {
  * @noInheritDoc
  */
 export declare class InvalidCheck extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Logged on the server when Auth.js could not decode or encode a JWT-based (`strategy: "jwt"`) session.
@@ -178,7 +209,7 @@ export declare class InvalidCheck extends AuthError {
  * @noInheritDoc
  */
 export declare class JWTSessionError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown if Auth.js is misconfigured. This could happen if you configured an Email provider but did not set up a database adapter,
@@ -189,7 +220,7 @@ export declare class JWTSessionError extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingAdapter extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown similarily to [`MissingAdapter`](https://authjs.dev/reference/core/errors#missingadapter), but only some required methods were missing.
@@ -200,7 +231,7 @@ export declare class MissingAdapter extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingAdapterMethods extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when a Credentials provider is missing the `authorize` configuration.
@@ -210,7 +241,7 @@ export declare class MissingAdapterMethods extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingAuthorize extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Auth.js requires a secret or multiple secrets to be set, but none was not found. This is used to encrypt cookies, JWTs and other sensitive data.
@@ -227,7 +258,7 @@ export declare class MissingAuthorize extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingSecret extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when an Email address is already associated with an account
@@ -243,7 +274,7 @@ export declare class MissingSecret extends AuthError {
  * @noInheritDoc
  */
 export declare class OAuthAccountNotLinked extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when an OAuth provider returns an error during the sign in process.
@@ -253,7 +284,7 @@ export declare class OAuthAccountNotLinked extends SignInError {
  * @noInheritDoc
  */
 export declare class OAuthCallbackError extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * This error occurs during an OAuth sign in attempt when the provider's
@@ -262,7 +293,7 @@ export declare class OAuthCallbackError extends SignInError {
  * @noInheritDoc
  */
 export declare class OAuthProfileParseError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Logged on the server when Auth.js could not retrieve a session from the database (`strategy: "database"`).
@@ -273,7 +304,7 @@ export declare class OAuthProfileParseError extends AuthError {
  * @noInheritDoc
  */
 export declare class SessionTokenError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Happens when login by [OAuth](https://authjs.dev/getting-started/authentication/oauth) could not be started.
@@ -292,7 +323,7 @@ export declare class SessionTokenError extends AuthError {
  * @noInheritDoc
  */
 export declare class OAuthSignInError extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * Happens when the login by an [Email provider](https://authjs.dev/getting-started/authentication/email) could not be started.
@@ -306,7 +337,7 @@ export declare class OAuthSignInError extends SignInError {
  * @noInheritDoc
  */
 export declare class EmailSignInError extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * Represents an error that occurs during the sign-out process. This error
@@ -319,7 +350,7 @@ export declare class EmailSignInError extends SignInError {
  * @noInheritDoc
  */
 export declare class SignOutError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Auth.js was requested to handle an operation that it does not support.
@@ -328,7 +359,7 @@ export declare class SignOutError extends AuthError {
  * @noInheritDoc
  */
 export declare class UnknownAction extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when a Credentials provider is present but the JWT strategy (`strategy: "jwt"`) is not enabled.
@@ -337,14 +368,14 @@ export declare class UnknownAction extends AuthError {
  * @noInheritDoc
  */
 export declare class UnsupportedStrategy extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when an endpoint was incorrectly called without a provider, or with an unsupported provider.
  * @noInheritDoc
  */
 export declare class InvalidProvider extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when the `trustHost` option was not set to `true`.
@@ -359,7 +390,7 @@ export declare class InvalidProvider extends AuthError {
  * @noInheritDoc
  */
 export declare class UntrustedHost extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * The user's email/token combination was invalid.
@@ -368,7 +399,7 @@ export declare class UntrustedHost extends AuthError {
  * @noInheritDoc
  */
 export declare class Verification extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Error for missing CSRF tokens in client-side actions (`signIn`, `signOut`, `useSession#update`).
@@ -382,7 +413,7 @@ export declare class Verification extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingCSRF extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when multiple providers have `enableConditionalUI` set to `true`.
@@ -390,7 +421,7 @@ export declare class MissingCSRF extends SignInError {
  * @noInheritDoc
  */
 export declare class DuplicateConditionalUI extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when a WebAuthn provider has `enableConditionalUI` set to `true` but no formField has `webauthn` in its autocomplete param.
@@ -399,14 +430,14 @@ export declare class DuplicateConditionalUI extends AuthError {
  * @noInheritDoc
  */
 export declare class MissingWebAuthnAutocomplete extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when a WebAuthn provider fails to verify a client response.
  * @noInheritDoc
  */
 export declare class WebAuthnVerificationError extends AuthError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when an Email address is already associated with an account
@@ -416,14 +447,14 @@ export declare class WebAuthnVerificationError extends AuthError {
  * @noInheritDoc
  */
 export declare class AccountNotLinked extends SignInError {
-    static type: string;
+  static type: string
 }
 /**
  * Thrown when an experimental feature is used but not enabled.
  * @noInheritDoc
  */
 export declare class ExperimentalFeatureNotEnabled extends AuthError {
-    static type: string;
+  static type: string
 }
-export {};
+export {}
 //# sourceMappingURL=errors.d.ts.map

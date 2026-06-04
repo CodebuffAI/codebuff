@@ -1,5 +1,6 @@
 import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
+import { EditTransactionComponent } from './edit-transaction'
 import { GlobComponent } from './glob'
 import { GravityIndexComponent } from './gravity-index'
 import { ListDirectoryComponent } from './list-directory'
@@ -41,12 +42,14 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [RenderUIComponent.toolName, RenderUIComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
   [StrReplaceComponent.toolName, StrReplaceComponent],
+  [EditTransactionComponent.toolName, EditTransactionComponent],
   [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],
   [WriteFileComponent.toolName, WriteFileComponent],
   [TaskCompleteComponent.toolName, TaskCompleteComponent],
   // Propose tools reuse the same rendering as their base counterparts
   ['propose_str_replace', StrReplaceComponent],
   ['propose_write_file', WriteFileComponent],
+  ['propose_edit_transaction', EditTransactionComponent],
   [SkillComponent.toolName, SkillComponent],
 ])
 

@@ -1,1 +1,1 @@
-export declare const SINGLE_COMMAND_CLI_SYMBOL: string;
+export declare const SINGLE_COMMAND_CLI_SYMBOL: string

@@ -47,6 +47,6 @@ it('normalizes .write(chunk, callback)', () => {
 it('normalizes .write(chunk, encoding, callback)', () => {
   const callback = () => {}
   expect(
-    normalizeSocketWriteArgs([Buffer.from('hello'), 'utf8', callback])
+    normalizeSocketWriteArgs([Buffer.from('hello'), 'utf8', callback]),
   ).toEqual([Buffer.from('hello'), 'utf8', callback])
 })

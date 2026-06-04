@@ -1,2 +1,2 @@
-import { endsWith } from "./index";
-export = endsWith;
+import { endsWith } from './index'
+export = endsWith

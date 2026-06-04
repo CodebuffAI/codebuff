@@ -8,7 +8,7 @@
  *
  * @module providers/okta
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface OktaProfile extends Record<string, any> {
   iss: string
@@ -98,14 +98,14 @@ export interface OktaProfile extends Record<string, any> {
  * :::
  */
 export default function Okta<P extends OktaProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "okta",
-    name: "Okta",
-    type: "oidc",
-    style: { bg: "#000", text: "#fff" },
-    checks: ["pkce", "state"],
+    id: 'okta',
+    name: 'Okta',
+    type: 'oidc',
+    style: { bg: '#000', text: '#fff' },
+    checks: ['pkce', 'state'],
     options,
   }
 }

@@ -1,2 +1,2 @@
-import { pad } from "../fp";
-export = pad;
+import { pad } from '../fp'
+export = pad

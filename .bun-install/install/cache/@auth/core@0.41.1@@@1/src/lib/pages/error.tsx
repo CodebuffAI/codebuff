@@ -1,4 +1,4 @@
-import type { ErrorPageParam, Theme } from "../../types.js"
+import type { ErrorPageParam, Theme } from '../../types.js'
 
 /**
  * The following errors are passed as error query parameters to the default or overridden error page.
@@ -21,13 +21,13 @@ interface ErrorView {
 
 /** Renders an error page. */
 export default function ErrorPage(props: ErrorProps) {
-  const { url, error = "default", theme } = props
+  const { url, error = 'default', theme } = props
   const signinPageUrl = `${url}/signin`
 
-  const errors: Record<ErrorPageParam | "default", ErrorView> = {
+  const errors: Record<ErrorPageParam | 'default', ErrorView> = {
     default: {
       status: 200,
-      heading: "Error",
+      heading: 'Error',
       message: (
         <p>
           <a className="site" href={url?.origin}>
@@ -38,7 +38,7 @@ export default function ErrorPage(props: ErrorProps) {
     },
     Configuration: {
       status: 500,
-      heading: "Server error",
+      heading: 'Server error',
       message: (
         <div>
           <p>There is a problem with the server configuration.</p>
@@ -48,7 +48,7 @@ export default function ErrorPage(props: ErrorProps) {
     },
     AccessDenied: {
       status: 403,
-      heading: "Access Denied",
+      heading: 'Access Denied',
       message: (
         <div>
           <p>You do not have permission to sign in.</p>
@@ -62,7 +62,7 @@ export default function ErrorPage(props: ErrorProps) {
     },
     Verification: {
       status: 403,
-      heading: "Unable to sign in",
+      heading: 'Unable to sign in',
       message: (
         <div>
           <p>The sign in link is no longer valid.</p>

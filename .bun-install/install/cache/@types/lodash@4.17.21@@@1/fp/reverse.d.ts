@@ -1,2 +1,2 @@
-import { reverse } from "../fp";
-export = reverse;
+import { reverse } from '../fp'
+export = reverse

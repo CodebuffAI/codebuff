@@ -1,2 +1,2 @@
-import { isLength } from "./index";
-export = isLength;
+import { isLength } from './index'
+export = isLength

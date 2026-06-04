@@ -1,5 +1,5 @@
-import { ESLint } from 'eslint';
+import { ESLint } from 'eslint'
 
-declare const eslintPluginPrettier: ESLint.Plugin;
+declare const eslintPluginPrettier: ESLint.Plugin
 
-export = eslintPluginPrettier;
+export = eslintPluginPrettier

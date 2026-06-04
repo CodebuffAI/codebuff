@@ -7,7 +7,7 @@
  * if you are implementing a framework that is already protected against CSRF attacks, you can skip this check by
  * passing this value to {@link AuthConfig.skipCSRFCheck}.
  */
-export const skipCSRFCheck = Symbol("skip-csrf-check")
+export const skipCSRFCheck = Symbol('skip-csrf-check')
 
 /**
  * :::danger
@@ -18,7 +18,7 @@ export const skipCSRFCheck = Symbol("skip-csrf-check")
  * if you are implementing a framework you might want to get access to the raw internal response
  * by passing this value to {@link AuthConfig.raw}.
  */
-export const raw = Symbol("return-type-raw")
+export const raw = Symbol('return-type-raw')
 
 /**
  * :::danger
@@ -48,7 +48,7 @@ export const raw = Symbol("return-type-raw")
  * @see https://undici.nodejs.org/#/docs/api/ProxyAgent?id=example-basic-proxy-request-with-local-agent-dispatcher
  * @see https://authjs.dev/guides/corporate-proxy
  */
-export const customFetch = Symbol("custom-fetch")
+export const customFetch = Symbol('custom-fetch')
 
 /**
  * @internal
@@ -57,4 +57,4 @@ export const customFetch = Symbol("custom-fetch")
  *
  * **Do not use or you will be fired.**
  */
-export const conformInternal = Symbol("conform-internal")
+export const conformInternal = Symbol('conform-internal')

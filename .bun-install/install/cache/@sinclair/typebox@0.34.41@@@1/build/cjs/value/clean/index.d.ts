@@ -1,1 +1,1 @@
-export * from './clean';
+export * from './clean'

@@ -1,2 +1,2 @@
-import { flattenDeep } from "./index";
-export = flattenDeep;
+import { flattenDeep } from './index'
+export = flattenDeep

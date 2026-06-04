@@ -13,12 +13,12 @@ npm install cli-cursor
 ## Usage
 
 ```js
-import cliCursor from 'cli-cursor';
+import cliCursor from 'cli-cursor'
 
-cliCursor.hide();
+cliCursor.hide()
 
-const unicornsAreAwesome = true;
-cliCursor.toggle(unicornsAreAwesome);
+const unicornsAreAwesome = true
+cliCursor.toggle(unicornsAreAwesome)
 ```
 
 ## API

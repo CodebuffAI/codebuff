@@ -11,7 +11,7 @@
  * @module providers/descope
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Descope when using the profile callback.
  * [See Load User](https://docs.descope.com/api/openapi/usermanagement/operation/LoadUser/)
@@ -91,15 +91,15 @@ export interface DescopeProfile {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Descope(
-  config: OIDCUserConfig<DescopeProfile>
+  config: OIDCUserConfig<DescopeProfile>,
 ): OIDCConfig<DescopeProfile> {
   config.issuer ??= `https://api.descope.com/${config.clientId}`
   return {
-    id: "descope",
-    name: "Descope",
-    type: "oidc",
-    style: { bg: "#1C1C23", text: "#ffffff" },
-    checks: ["pkce", "state"],
+    id: 'descope',
+    name: 'Descope',
+    type: 'oidc',
+    style: { bg: '#1C1C23', text: '#ffffff' },
+    checks: ['pkce', 'state'],
     options: config,
   }
 }

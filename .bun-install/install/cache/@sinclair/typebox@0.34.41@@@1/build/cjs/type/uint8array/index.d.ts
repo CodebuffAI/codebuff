@@ -1,1 +1,1 @@
-export * from './uint8array';
+export * from './uint8array'

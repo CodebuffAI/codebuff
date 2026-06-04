@@ -7,13 +7,13 @@ import {
   CredentialsSignin,
   InvalidProvider,
   Verification,
-} from "../../../errors.js"
-import { handleLoginOrRegister } from "./handle-login.js"
-import { handleOAuth } from "./oauth/callback.js"
-import { state } from "./oauth/checks.js"
-import { createHash } from "../../utils/web.js"
+} from '../../../errors.js'
+import { handleLoginOrRegister } from './handle-login.js'
+import { handleOAuth } from './oauth/callback.js'
+import { state } from './oauth/checks.js'
+import { createHash } from '../../utils/web.js'
 
-import type { AdapterSession } from "../../../adapters.js"
+import type { AdapterSession } from '../../../adapters.js'
 import type {
   Account,
   Authenticator,
@@ -21,23 +21,23 @@ import type {
   RequestInternal,
   ResponseInternal,
   User,
-} from "../../../types.js"
-import type { Cookie, SessionStore } from "../../utils/cookie.js"
+} from '../../../types.js'
+import type { Cookie, SessionStore } from '../../utils/cookie.js'
 import {
   assertInternalOptionsWebAuthn,
   verifyAuthenticate,
   verifyRegister,
-} from "../../utils/webauthn-utils.js"
+} from '../../utils/webauthn-utils.js'
 
 /** Handle callbacks from login services */
 export async function callback(
   request: RequestInternal,
   options: InternalOptions,
   sessionStore: SessionStore,
-  cookies: Cookie[]
+  cookies: Cookie[],
 ): Promise<ResponseInternal> {
   if (!options.provider)
-    throw new InvalidProvider("Callback route called without provider")
+    throw new InvalidProvider('Callback route called without provider')
   const { query, body, method, headers } = request
   const {
     provider,
@@ -52,14 +52,14 @@ export async function callback(
     logger,
   } = options
 
-  const useJwtSession = sessionStrategy === "jwt"
+  const useJwtSession = sessionStrategy === 'jwt'
 
   try {
-    if (provider.type === "oauth" || provider.type === "oidc") {
+    if (provider.type === 'oauth' || provider.type === 'oidc') {
       // Use body if the response mode is set to form_post. For all other cases, use query
       const params =
-        provider.authorization?.url.searchParams.get("response_mode") ===
-        "form_post"
+        provider.authorization?.url.searchParams.get('response_mode') ===
+        'form_post'
           ? body
           : query
 
@@ -75,7 +75,7 @@ export async function callback(
           new URL(parsedState.origin).origin !== options.url.origin
         if (shouldRedirect) {
           const proxyRedirect = `${parsedState.origin}?${new URLSearchParams(params)}`
-          logger.debug("Proxy redirecting to", proxyRedirect)
+          logger.debug('Proxy redirecting to', proxyRedirect)
           return { redirect: proxyRedirect, cookies }
         }
       }
@@ -83,14 +83,14 @@ export async function callback(
       const authorizationResult = await handleOAuth(
         params,
         request.cookies,
-        options
+        options,
       )
 
       if (authorizationResult.cookies.length) {
         cookies.push(...authorizationResult.cookies)
       }
 
-      logger.debug("authorization result", authorizationResult)
+      logger.debug('authorization result', authorizationResult)
 
       const {
         user: userFromProvider,
@@ -126,7 +126,7 @@ export async function callback(
           account,
           profile: OAuthProfile,
         },
-        options
+        options,
       )
       if (redirect) return { redirect, cookies }
 
@@ -134,7 +134,7 @@ export async function callback(
         sessionStore.value,
         userFromProvider,
         account,
-        options
+        options,
       )
 
       if (useJwtSession) {
@@ -150,7 +150,7 @@ export async function callback(
           account,
           profile: OAuthProfile,
           isNewUser,
-          trigger: isNewUser ? "signUp" : "signIn",
+          trigger: isNewUser ? 'signUp' : 'signIn',
         })
 
         // Clear cookies if token is null
@@ -195,23 +195,23 @@ export async function callback(
       if (isNewUser && pages.newUser) {
         return {
           redirect: `${pages.newUser}${
-            pages.newUser.includes("?") ? "&" : "?"
+            pages.newUser.includes('?') ? '&' : '?'
           }${new URLSearchParams({ callbackUrl })}`,
           cookies,
         }
       }
 
       return { redirect: callbackUrl, cookies }
-    } else if (provider.type === "email") {
+    } else if (provider.type === 'email') {
       const paramToken = query?.token as string | undefined
       const paramIdentifier = query?.email as string | undefined
 
       if (!paramToken) {
         const e = new TypeError(
-          "Missing token. The sign-in URL was manually opened without token or the link was not sent correctly in the email.",
-          { cause: { hasToken: !!paramToken } }
+          'Missing token. The sign-in URL was manually opened without token or the link was not sent correctly in the email.',
+          { cause: { hasToken: !!paramToken } },
         )
-        e.name = "Configuration"
+        e.name = 'Configuration'
         throw e
       }
 
@@ -243,7 +243,7 @@ export async function callback(
       const account: Account = {
         providerAccountId: user.email,
         userId: user.id,
-        type: "email" as const,
+        type: 'email' as const,
         provider: provider.id,
       }
 
@@ -259,7 +259,7 @@ export async function callback(
         sessionStore.value,
         user,
         account,
-        options
+        options,
       )
 
       if (useJwtSession) {
@@ -274,7 +274,7 @@ export async function callback(
           user: loggedInUser,
           account,
           isNewUser,
-          trigger: isNewUser ? "signUp" : "signIn",
+          trigger: isNewUser ? 'signUp' : 'signIn',
         })
 
         // Clear cookies if token is null
@@ -314,7 +314,7 @@ export async function callback(
       if (isNewUser && pages.newUser) {
         return {
           redirect: `${pages.newUser}${
-            pages.newUser.includes("?") ? "&" : "?"
+            pages.newUser.includes('?') ? '&' : '?'
           }${new URLSearchParams({ callbackUrl })}`,
           cookies,
         }
@@ -322,17 +322,17 @@ export async function callback(
 
       // Callback URL is already verified at this point, so safe to use if specified
       return { redirect: callbackUrl, cookies }
-    } else if (provider.type === "credentials" && method === "POST") {
+    } else if (provider.type === 'credentials' && method === 'POST') {
       const credentials = body ?? {}
 
       // TODO: Forward the original request as is, instead of reconstructing it
       Object.entries(query ?? {}).forEach(([k, v]) =>
-        url.searchParams.set(k, v)
+        url.searchParams.set(k, v),
       )
       const userFromAuthorize = await provider.authorize(
         credentials,
         // prettier-ignore
-        new Request(url, { headers, method, body: JSON.stringify(body) })
+        new Request(url, { headers, method, body: JSON.stringify(body) }),
       )
       const user = userFromAuthorize
 
@@ -341,13 +341,13 @@ export async function callback(
 
       const account = {
         providerAccountId: user.id,
-        type: "credentials",
+        type: 'credentials',
         provider: provider.id,
       } satisfies Account
 
       const redirect = await handleAuthorized(
         { user, account, credentials },
-        options
+        options,
       )
       if (redirect) return { redirect, cookies }
 
@@ -363,7 +363,7 @@ export async function callback(
         user,
         account,
         isNewUser: false,
-        trigger: "signIn",
+        trigger: 'signIn',
       })
 
       // Clear cookies if token is null
@@ -388,14 +388,14 @@ export async function callback(
       await events.signIn?.({ user, account })
 
       return { redirect: callbackUrl, cookies }
-    } else if (provider.type === "webauthn" && method === "POST") {
+    } else if (provider.type === 'webauthn' && method === 'POST') {
       // Get callback action from request. It should be either "authenticate" or "register"
       const action = request.body?.action
       if (
-        typeof action !== "string" ||
-        (action !== "authenticate" && action !== "register")
+        typeof action !== 'string' ||
+        (action !== 'authenticate' && action !== 'register')
       ) {
-        throw new AuthError("Invalid action parameter")
+        throw new AuthError('Invalid action parameter')
       }
       // Return an error if the adapter is missing or if the provider
       // is not a webauthn provider.
@@ -406,11 +406,11 @@ export async function callback(
       let account: Account
       let authenticator: Authenticator | undefined
       switch (action) {
-        case "authenticate": {
+        case 'authenticate': {
           const verified = await verifyAuthenticate(
             localOptions,
             request,
-            cookies
+            cookies,
           )
 
           user = verified.user
@@ -418,7 +418,7 @@ export async function callback(
 
           break
         }
-        case "register": {
+        case 'register': {
           const verified = await verifyRegister(options, request, cookies)
 
           user = verified.user
@@ -442,12 +442,12 @@ export async function callback(
         sessionStore.value,
         user,
         account,
-        options
+        options,
       )
 
       if (!currentAccount) {
         // This is mostly for type checking. It should never actually happen.
-        throw new AuthError("Error creating or finding account")
+        throw new AuthError('Error creating or finding account')
       }
 
       // Create new authenticator if needed
@@ -471,7 +471,7 @@ export async function callback(
           user: loggedInUser,
           account: currentAccount,
           isNewUser,
-          trigger: isNewUser ? "signUp" : "signIn",
+          trigger: isNewUser ? 'signUp' : 'signIn',
         })
 
         // Clear cookies if token is null
@@ -515,7 +515,7 @@ export async function callback(
       if (isNewUser && pages.newUser) {
         return {
           redirect: `${pages.newUser}${
-            pages.newUser.includes("?") ? "&" : "?"
+            pages.newUser.includes('?') ? '&' : '?'
           }${new URLSearchParams({ callbackUrl })}`,
           cookies,
         }
@@ -526,19 +526,19 @@ export async function callback(
     }
 
     throw new InvalidProvider(
-      `Callback for provider type (${provider.type}) is not supported`
+      `Callback for provider type (${provider.type}) is not supported`,
     )
   } catch (e) {
     if (e instanceof AuthError) throw e
     const error = new CallbackRouteError(e as Error, { provider: provider.id })
-    logger.debug("callback route error details", { method, query, body })
+    logger.debug('callback route error details', { method, query, body })
     throw error
   }
 }
 
 async function handleAuthorized(
-  params: Parameters<InternalOptions["callbacks"]["signIn"]>[0],
-  config: InternalOptions
+  params: Parameters<InternalOptions['callbacks']['signIn']>[0],
+  config: InternalOptions,
 ): Promise<string | undefined> {
   let authorized
   const { signIn, redirect } = config.callbacks
@@ -548,7 +548,7 @@ async function handleAuthorized(
     if (e instanceof AuthError) throw e
     throw new AccessDenied(e as Error)
   }
-  if (!authorized) throw new AccessDenied("AccessDenied")
-  if (typeof authorized !== "string") return
+  if (!authorized) throw new AccessDenied('AccessDenied')
+  if (typeof authorized !== 'string') return
   return await redirect({ url: authorized, baseUrl: config.url.origin })
 }

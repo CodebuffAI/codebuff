@@ -1,2 +1,2 @@
-import { tap } from "../fp";
-export = tap;
+import { tap } from '../fp'
+export = tap

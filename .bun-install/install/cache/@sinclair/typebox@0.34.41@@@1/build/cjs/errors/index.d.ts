@@ -1,2 +1,2 @@
-export * from './errors';
-export * from './function';
+export * from './errors'
+export * from './function'

@@ -1,7 +1,7 @@
 // Polyfill for ES2022's .at() method on string/array prototypes, added to TypeScript in 4.6.
 
 interface RelativeIndexable<T> {
-    at(index: number): T | undefined;
+  at(index: number): T | undefined
 }
 
 interface String extends RelativeIndexable<string> {}

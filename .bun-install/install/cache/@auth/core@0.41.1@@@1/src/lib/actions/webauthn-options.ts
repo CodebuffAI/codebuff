@@ -3,15 +3,15 @@ import type {
   RequestInternal,
   ResponseInternal,
   User,
-} from "../../types.js"
-import type { Cookie, SessionStore } from "../utils/cookie.js"
-import { getLoggedInUser } from "../utils/session.js"
+} from '../../types.js'
+import type { Cookie, SessionStore } from '../utils/cookie.js'
+import { getLoggedInUser } from '../utils/session.js'
 import {
   assertInternalOptionsWebAuthn,
   inferWebAuthnOptions,
   getAuthenticationResponse,
   getRegistrationResponse,
-} from "../utils/webauthn-utils.js"
+} from '../utils/webauthn-utils.js'
 
 /**
  * Returns authentication or registration options for a WebAuthn flow
@@ -21,7 +21,7 @@ export async function webAuthnOptions(
   request: RequestInternal,
   options: InternalOptions,
   sessionStore: SessionStore,
-  cookies: Cookie[]
+  cookies: Cookie[],
   // @ts-expect-error issue with returning from a switch case
 ): Promise<ResponseInternal> {
   // Return an error if the adapter is missing or if the provider
@@ -34,16 +34,16 @@ export async function webAuthnOptions(
 
   // Action must be either "register", "authenticate", or undefined
   if (
-    action !== "register" &&
-    action !== "authenticate" &&
-    typeof action !== "undefined"
+    action !== 'register' &&
+    action !== 'authenticate' &&
+    typeof action !== 'undefined'
   ) {
     return {
       status: 400,
-      body: { error: "Invalid action" },
+      body: { error: 'Invalid action' },
       cookies,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     }
   }
@@ -66,34 +66,34 @@ export async function webAuthnOptions(
   const decision = inferWebAuthnOptions(
     action,
     !!sessionUser,
-    getUserInfoResponse
+    getUserInfoResponse,
   )
 
   switch (decision) {
-    case "authenticate":
+    case 'authenticate':
       return getAuthenticationResponse(
         narrowOptions,
         request,
         userInfo,
-        cookies
+        cookies,
       )
-    case "register":
-      if (typeof userInfo?.email === "string") {
+    case 'register':
+      if (typeof userInfo?.email === 'string') {
         return getRegistrationResponse(
           narrowOptions,
           request,
           userInfo as User & { email: string },
-          cookies
+          cookies,
         )
       }
       break
     default:
       return {
         status: 400,
-        body: { error: "Invalid request" },
+        body: { error: 'Invalid request' },
         cookies,
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
       }
   }

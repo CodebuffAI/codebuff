@@ -16,6 +16,7 @@ import {
   insertPlanBlock,
   nestBlockUnderParent,
   transformAskUserBlocks,
+  updateBlocksRecursively,
   updateToolBlockWithOutput,
 } from './message-block-helpers'
 import {
@@ -480,6 +481,39 @@ const handleSpawnAgentsResult = (
   })
 }
 
+const appendResultOnlyToolBlockToAgent = (
+  blocks: ContentBlock[],
+  event: PrintModeToolResult,
+): ContentBlock[] => {
+  if (!event.agentId) return blocks
+
+  return updateBlocksRecursively(blocks, event.agentId, (block) => {
+    if (block.type !== 'agent') return block
+    const existingBlocks = block.blocks ?? []
+    if (
+      existingBlocks.some(
+        (child) => child.type === 'tool' && child.toolCallId === event.toolCallId,
+      )
+    ) {
+      return block
+    }
+
+    const resultOnlyToolBlock: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: event.toolCallId,
+      toolName: event.toolName as ToolName,
+      input: {},
+      outputRaw: event.output,
+      agentId: event.agentId,
+    }
+
+    return {
+      ...block,
+      blocks: [...existingBlocks, resultOnlyToolBlock],
+    }
+  })
+}
+
 const handleToolResult = (
   state: EventHandlerState,
   event: PrintModeToolResult,
@@ -503,12 +537,13 @@ const handleToolResult = (
     return
   }
 
-  state.message.updater.updateAiMessageBlocks((blocks) =>
-    updateToolBlockWithOutput(blocks, {
+  state.message.updater.updateAiMessageBlocks((blocks) => {
+    const updatedBlocks = updateToolBlockWithOutput(blocks, {
       toolCallId: event.toolCallId,
       toolOutput: event.output,
-    }),
-  )
+    })
+    return appendResultOnlyToolBlockToAgent(updatedBlocks, event)
+  })
 
   updateStreamingAgents(state, { remove: event.toolCallId })
 }

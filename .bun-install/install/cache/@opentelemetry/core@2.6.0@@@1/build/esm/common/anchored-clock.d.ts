@@ -1,8 +1,8 @@
 export interface Clock {
-    /**
-     * Return the current time in milliseconds from some epoch such as the Unix epoch or process start
-     */
-    now(): number;
+  /**
+   * Return the current time in milliseconds from some epoch such as the Unix epoch or process start
+   */
+  now(): number
 }
 /**
  * A utility for returning wall times anchored to a given point in time. Wall time measurements will
@@ -22,20 +22,20 @@ export interface Clock {
  * https://github.com/open-telemetry/opentelemetry-java/blob/main/sdk/trace/src/main/java/io/opentelemetry/sdk/trace/AnchoredClock.java
  */
 export declare class AnchoredClock implements Clock {
-    private _monotonicClock;
-    private _epochMillis;
-    private _performanceMillis;
-    /**
-     * Create a new AnchoredClock anchored to the current time returned by systemClock.
-     *
-     * @param systemClock should be a clock that returns the number of milliseconds since January 1 1970 such as Date
-     * @param monotonicClock should be a clock that counts milliseconds monotonically such as window.performance or perf_hooks.performance
-     */
-    constructor(systemClock: Clock, monotonicClock: Clock);
-    /**
-     * Returns the current time by adding the number of milliseconds since the
-     * AnchoredClock was created to the creation epoch time
-     */
-    now(): number;
+  private _monotonicClock
+  private _epochMillis
+  private _performanceMillis
+  /**
+   * Create a new AnchoredClock anchored to the current time returned by systemClock.
+   *
+   * @param systemClock should be a clock that returns the number of milliseconds since January 1 1970 such as Date
+   * @param monotonicClock should be a clock that counts milliseconds monotonically such as window.performance or perf_hooks.performance
+   */
+  constructor(systemClock: Clock, monotonicClock: Clock)
+  /**
+   * Returns the current time by adding the number of milliseconds since the
+   * AnchoredClock was created to the creation epoch time
+   */
+  now(): number
 }
 //# sourceMappingURL=anchored-clock.d.ts.map

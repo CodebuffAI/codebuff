@@ -1,1 +1,1 @@
-export function rank(g: any): void;
+export function rank(g: any): void

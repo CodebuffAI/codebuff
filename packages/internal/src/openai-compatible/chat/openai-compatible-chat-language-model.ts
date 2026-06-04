@@ -1,7 +1,4 @@
 import {
-  InvalidResponseDataError
-} from '@ai-sdk/provider';
-import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonErrorResponseHandler,
@@ -457,9 +454,12 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         isActiveText = false;
       }
 
-      // go through all tool calls and send the ones that are not finished
+      // go through all tool calls and send the ones that are not finished.
+      // Skip any phantom tool call that ended up with an empty name (a
+      // continuation fragment that was never merged into a real call); flushing
+      // it would produce a "Tool '' not found" error downstream.
       for (const toolCall of toolCalls.filter(
-        toolCall => !toolCall.hasFinished,
+        toolCall => !toolCall.hasFinished && toolCall.function?.name,
       )) {
         controller.enqueue({
           type: 'tool-input-end',
@@ -640,11 +640,69 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 );
 
                 if (toolCalls[index] == null) {
-                  if (toolCallDelta.function?.name == null) {
-                    throw new InvalidResponseDataError({
-                      data: toolCallDelta,
-                      message: `Expected 'function.name' to be a string.`,
-                    });
+                  // Some OpenAI-compatible providers (e.g. certain Bedrock
+                  // proxies) violate the streaming protocol by emitting a
+                  // continuation of an in-progress tool call as a *new*
+                  // tool_calls entry with a shifted/duplicate `index` and an
+                  // empty ("") or missing `function.name`. The standard guard
+                  // only rejects `name == null`, so an empty-string name slips
+                  // through and creates a phantom, empty-named tool call. That
+                  // splits one logical call into two broken halves: the real
+                  // call is left with truncated (unparsable) arguments and the
+                  // phantom call holds the orphaned argument suffix.
+                  //
+                  // To be robust, treat a delta with a falsy name for an
+                  // unknown index as a continuation of the most-recently
+                  // created unfinished tool call: append its arguments there
+                  // (which typically completes the truncated JSON) instead of
+                  // creating a phantom bucket. If there is no unfinished call
+                  // to attach to, drop the stray fragment rather than throwing.
+                  if (
+                    toolCallDelta.function?.name == null ||
+                    toolCallDelta.function.name === ''
+                  ) {
+                    let lastUnfinished:
+                      | (typeof toolCalls)[number]
+                      | undefined;
+                    for (let j = toolCalls.length - 1; j >= 0; j--) {
+                      const candidate = toolCalls[j];
+                      if (candidate != null && !candidate.hasFinished) {
+                        lastUnfinished = candidate;
+                        break;
+                      }
+                    }
+
+                    if (lastUnfinished != null) {
+                      const argDelta = toolCallDelta.function?.arguments ?? '';
+                      if (argDelta.length > 0) {
+                        lastUnfinished.function!.arguments += argDelta;
+                        controller.enqueue({
+                          type: 'tool-input-delta',
+                          id: lastUnfinished.id,
+                          delta: argDelta,
+                        });
+                      }
+
+                      if (
+                        lastUnfinished.function?.name != null &&
+                        isParsableJson(lastUnfinished.function.arguments)
+                      ) {
+                        controller.enqueue({
+                          type: 'tool-input-end',
+                          id: lastUnfinished.id,
+                        });
+                        controller.enqueue({
+                          type: 'tool-call',
+                          toolCallId: lastUnfinished.id ?? generateId(),
+                          toolName: lastUnfinished.function.name,
+                          input: lastUnfinished.function.arguments,
+                          providerMetadata: lastUnfinished.providerMetadata,
+                        });
+                        lastUnfinished.hasFinished = true;
+                      }
+                    }
+
+                    continue;
                   }
 
                   // UPDATED (James): Generate an ID if the provider doesn't include one (e.g., GLM models)

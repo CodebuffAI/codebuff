@@ -1,2 +1,2 @@
-import { findLastIndex } from "./index";
-export = findLastIndex;
+import { findLastIndex } from './index'
+export = findLastIndex

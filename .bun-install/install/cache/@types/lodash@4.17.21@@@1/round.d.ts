@@ -1,2 +1,2 @@
-import { round } from "./index";
-export = round;
+import { round } from './index'
+export = round

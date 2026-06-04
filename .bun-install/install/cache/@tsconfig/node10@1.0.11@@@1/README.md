@@ -15,7 +15,7 @@ Add to your `tsconfig.json`:
 
 ---
 
-The `tsconfig.json`: 
+The `tsconfig.json`:
 
 ```jsonc
 {
@@ -29,10 +29,9 @@ The `tsconfig.json`:
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "moduleResolution": "node"
-  }
+    "moduleResolution": "node",
+  },
 }
-
 ```
 
 You can find the [code here](https://github.com/tsconfig/bases/blob/master/bases/node10.json).

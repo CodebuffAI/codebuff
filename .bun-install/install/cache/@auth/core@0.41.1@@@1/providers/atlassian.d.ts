@@ -10,25 +10,25 @@
  *
  * @module providers/atlassian
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /** The returned user profile from Atlassian when using the profile callback. */
 export interface AtlassianProfile extends Record<string, any> {
-    /**
-     * The user's atlassian account ID
-     */
-    account_id: string;
-    /**
-     * The user name
-     */
-    name: string;
-    /**
-     * The user's email
-     */
-    email: string;
-    /**
-     * The user's profile picture
-     */
-    picture: string;
+  /**
+   * The user's atlassian account ID
+   */
+  account_id: string
+  /**
+   * The user name
+   */
+  name: string
+  /**
+   * The user's email
+   */
+  email: string
+  /**
+   * The user's profile picture
+   */
+  picture: string
 }
 /**
  * ### Setup
@@ -90,5 +90,7 @@ export interface AtlassianProfile extends Record<string, any> {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Atlassian(options: OAuthUserConfig<AtlassianProfile>): OAuthConfig<AtlassianProfile>;
+export default function Atlassian(
+  options: OAuthUserConfig<AtlassianProfile>,
+): OAuthConfig<AtlassianProfile>
 //# sourceMappingURL=atlassian.d.ts.map

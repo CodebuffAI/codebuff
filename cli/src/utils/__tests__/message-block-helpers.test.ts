@@ -1142,11 +1142,75 @@ describe('updateToolBlockWithOutput', () => {
         input: { command: 'cmd' },
       },
     ]
+    const toolOutput = [{ value: { stdout: 'out', stderr: 'err' } }]
     const result = updateToolBlockWithOutput(blocks, {
       toolCallId: 'tool-123',
-      toolOutput: [{ value: { stdout: 'out', stderr: 'err' } }],
+      toolOutput,
     })
     expect((result[0] as ToolContentBlock).output).toBe('outerr')
+    expect((result[0] as ToolContentBlock).outputRaw).toBe(toolOutput)
+  })
+
+  test('summarizes edit_transaction output without dumping patches', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'tool-123',
+        toolName: 'edit_transaction',
+        input: { edits: [{ id: 'edit-a', path: 'src/a.ts' }] },
+      },
+    ]
+    const toolOutput = [
+      {
+        type: 'json',
+        value: {
+          message: 'Atomic edit_transaction prepared 2 file change(s).',
+          files: [
+            { path: 'src/a.ts', patch: '@@ huge patch A' },
+            { path: 'src/b.ts', patch: '@@ huge patch B' },
+          ],
+        },
+      },
+    ]
+
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-123',
+      toolOutput,
+    })
+    const toolBlock = result[0] as ToolContentBlock
+
+    expect(toolBlock.output).toBe(
+      'Atomic edit_transaction prepared 2 file change(s).\n- src/a.ts\n- src/b.ts',
+    )
+    expect(toolBlock.output).not.toContain('huge patch')
+    expect(toolBlock.outputRaw).toBe(toolOutput)
+  })
+
+  test('summarizes failed edit_transaction output', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'tool-123',
+        toolName: 'edit_transaction',
+        input: { edits: [] },
+      },
+    ]
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-123',
+      toolOutput: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: 'Atomic edit_transaction aborted.',
+            failures: [],
+          },
+        },
+      ],
+    })
+
+    expect((result[0] as ToolContentBlock).output).toBe(
+      'Atomic edit_transaction aborted.',
+    )
   })
 
   test('does not update non-matching tool block', () => {

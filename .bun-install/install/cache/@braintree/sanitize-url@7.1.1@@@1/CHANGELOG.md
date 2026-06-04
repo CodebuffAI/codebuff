@@ -3,7 +3,6 @@
 ## 7.1.1
 
 - DevDependency Changes
-
   - happy-dom to 15.11.6
 
 - Update (sub-)dependencies
@@ -67,15 +66,15 @@
 ```js
 // decodes to javacript:alert('XSS')
 const vulnerableUrl =
-  "&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041";
+  '&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041'
 
-sanitizeUrl(vulnerableUrl); // 'about:blank'
+sanitizeUrl(vulnerableUrl) // 'about:blank'
 
-const okUrl = "https://example.com/" + vulnerableUrl;
+const okUrl = 'https://example.com/' + vulnerableUrl
 
 // since the javascript bit is in the path instead of the protocol
 // this is successfully sanitized
-sanitizeUrl(okUrl); // 'https://example.com/javascript:alert('XSS');
+sanitizeUrl(okUrl) // 'https://example.com/javascript:alert('XSS');
 ```
 
 ## 5.0.2

@@ -1,2 +1,2 @@
-import { words } from "../fp";
-export = words;
+import { words } from '../fp'
+export = words

@@ -1,0 +1,107 @@
+import { TextAttributes } from '@opentui/core'
+
+import { DiffViewer } from './diff-viewer'
+import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
+
+import type { ToolRenderConfig, ToolBlock } from './types'
+
+type TransactionFile = {
+  path: string
+  diff: string | null
+}
+
+function getTransactionValue(toolBlock: ToolBlock): Record<string, unknown> | null {
+  const outputRaw = toolBlock.outputRaw
+  if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
+    return outputRaw[0].value as Record<string, unknown>
+  }
+  if (typeof outputRaw === 'object' && outputRaw !== null) {
+    return outputRaw as Record<string, unknown>
+  }
+  return null
+}
+
+function getTransactionFiles(toolBlock: ToolBlock): TransactionFile[] {
+  const value = getTransactionValue(toolBlock)
+  if (!value || !Array.isArray(value.files)) return []
+
+  return value.files
+    .map((file) => {
+      const entry = file as Record<string, unknown>
+      const path =
+        typeof entry.path === 'string'
+          ? entry.path
+          : typeof entry.file === 'string'
+            ? entry.file
+            : ''
+      if (!path) return null
+      const diff =
+        typeof entry.patch === 'string'
+          ? entry.patch
+          : typeof entry.unifiedDiff === 'string'
+            ? entry.unifiedDiff
+            : null
+      return { path, diff }
+    })
+    .filter((entry): entry is TransactionFile => Boolean(entry))
+}
+
+function getTransactionError(toolBlock: ToolBlock): string | null {
+  const value = getTransactionValue(toolBlock)
+  if (!value) return null
+  if (typeof value.errorMessage === 'string') return value.errorMessage
+  if (typeof value.error === 'string') return value.error
+  return null
+}
+
+const TransactionHeader = ({ name }: { name: string }) => {
+  const theme = useTheme()
+  return (
+    <text style={{ wrapMode: 'word' }}>
+      <span fg={theme.foreground}>• </span>
+      <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+        {name}
+      </span>
+    </text>
+  )
+}
+
+export const EditTransactionComponent = defineToolComponent({
+  toolName: 'edit_transaction',
+
+  render(toolBlock): ToolRenderConfig {
+    const files = getTransactionFiles(toolBlock)
+    const error = getTransactionError(toolBlock)
+    const isProposed = String(toolBlock.toolName).startsWith('propose_')
+    const title = isProposed ? 'Propose transaction' : 'Edit transaction'
+    const collapsedPreview = error
+      ? error.split('\n')[0]
+      : files.length > 0
+        ? `${title} • ${files.length} file${files.length === 1 ? '' : 's'}`
+        : `${title} pending...`
+
+    return {
+      collapsedPreview,
+      content: (
+        <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+          <TransactionHeader name={title} />
+          {error ? (
+            <box style={{ paddingLeft: 2, width: '100%' }}>
+              <text style={{ wrapMode: 'word' }}>{error}</text>
+            </box>
+          ) : null}
+          {files.map((file) => (
+            <box
+              key={file.path}
+              style={{ flexDirection: 'column', paddingLeft: 2, width: '100%' }}
+            >
+              <text style={{ wrapMode: 'word' }}>{file.path}</text>
+              {file.diff ? <DiffViewer diffText={file.diff} /> : null}
+            </box>
+          ))}
+        </box>
+      ),
+    }
+  },
+})

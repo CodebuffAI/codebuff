@@ -57,7 +57,7 @@ it('returns false and prints an error for implicitly non-configurable global pro
 
   expect(hasConfigurableGlobal('_implicitlyNonConfigurable')).toBe(false)
   expect(console.error).toHaveBeenCalledWith(
-    '[MSW] Failed to apply interceptor: the global `_implicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+    '[MSW] Failed to apply interceptor: the global `_implicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.',
   )
 })
 
@@ -69,7 +69,7 @@ it('returns false and prints an error for explicitly non-configurable global pro
 
   expect(hasConfigurableGlobal('_explicitlyNonConfigurable')).toBe(false)
   expect(console.error).toHaveBeenCalledWith(
-    '[MSW] Failed to apply interceptor: the global `_explicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+    '[MSW] Failed to apply interceptor: the global `_explicitlyNonConfigurable` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.',
   )
 })
 
@@ -78,6 +78,6 @@ it('returns false and prints an error for global property that only has a getter
 
   expect(hasConfigurableGlobal('_onlyGetter')).toBe(false)
   expect(console.error).toHaveBeenCalledWith(
-    '[MSW] Failed to apply interceptor: the global `_onlyGetter` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.'
+    '[MSW] Failed to apply interceptor: the global `_onlyGetter` property is non-configurable. This is likely an issue with your environment. If you are using a framework, please open an issue about this in their repository.',
   )
 })

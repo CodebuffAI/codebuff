@@ -11,12 +11,16 @@ const geckoREgex =
 const geckoEvalRegex = /(\S+) line (\d+)(?: > eval line \d+)* > eval/i
 
 export const geckoStackLineParser: StackLineParser = (line) => {
-  const parts = geckoREgex.exec(line) as null | [string, string, string, string, string, string]
+  const parts = geckoREgex.exec(line) as
+    | null
+    | [string, string, string, string, string, string]
 
   if (parts) {
     const isEval = parts[3] && parts[3].indexOf(' > eval') > -1
     if (isEval) {
-      const subMatch = geckoEvalRegex.exec(parts[3]) as null | [string, string, string]
+      const subMatch = geckoEvalRegex.exec(parts[3]) as
+        | null
+        | [string, string, string]
 
       if (subMatch) {
         // throw out eval line/column and use top-most line number
@@ -31,7 +35,12 @@ export const geckoStackLineParser: StackLineParser = (line) => {
     let func = parts[1] || UNKNOWN_FUNCTION
     ;[func, filename] = extractSafariExtensionDetails(func, filename)
 
-    return createFrame(filename, func, parts[4] ? +parts[4] : undefined, parts[5] ? +parts[5] : undefined)
+    return createFrame(
+      filename,
+      func,
+      parts[4] ? +parts[4] : undefined,
+      parts[5] ? +parts[5] : undefined,
+    )
   }
 
   return

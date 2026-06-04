@@ -6,7 +6,7 @@ it('does not interfere with default constructors', () => {
     class {
       constructor(public name: string) {}
     },
-    {}
+    {},
   )
 
   const instance = new ProxyClass('John')
@@ -86,13 +86,16 @@ it('infer prototype descriptors', () => {
 
 it('spies on the constructor', () => {
   const OriginalClass = class {
-    constructor(public name: string, public age: number) {}
+    constructor(
+      public name: string,
+      public age: number,
+    ) {}
   }
 
   const constructorCall = vi.fn<
     (
       args: ConstructorParameters<typeof OriginalClass>,
-      next: () => typeof OriginalClass
+      next: () => typeof OriginalClass,
     ) => typeof OriginalClass
   >((args, next) => next())
 
@@ -105,7 +108,7 @@ it('spies on the constructor', () => {
   expect(constructorCall).toHaveBeenCalledTimes(1)
   expect(constructorCall).toHaveBeenCalledWith(
     ['John', 32],
-    expect.any(Function)
+    expect.any(Function),
   )
 })
 
@@ -128,7 +131,7 @@ it('spies on property setters', () => {
   expect(setProperty).toHaveBeenCalledTimes(1)
   expect(setProperty).toHaveBeenCalledWith(
     ['foo', 'next'],
-    expect.any(Function)
+    expect.any(Function),
   )
 })
 
@@ -138,7 +141,7 @@ it('spies on method calls', () => {
     {
       greet: (name: string) => `hello ${name}`,
     },
-    { methodCall }
+    { methodCall },
   )
 
   proxy.greet('Clair')
@@ -146,7 +149,7 @@ it('spies on method calls', () => {
   expect(methodCall).toHaveBeenCalledTimes(1)
   expect(methodCall).toHaveBeenCalledWith(
     ['greet', ['Clair']],
-    expect.any(Function)
+    expect.any(Function),
   )
 })
 

@@ -8,7 +8,7 @@
  *
  * @module providers/identity-server4
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 /**
  * Add IdentityServer4 login to your page.
@@ -67,12 +67,12 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js"
  * :::
  */
 export default function IdentityServer4(
-  options: OAuthUserConfig<Record<string, any>>
+  options: OAuthUserConfig<Record<string, any>>,
 ): OAuthConfig<Record<string, any>> {
   return {
-    id: "identity-server4",
-    name: "IdentityServer4",
-    type: "oidc",
+    id: 'identity-server4',
+    name: 'IdentityServer4',
+    type: 'oidc',
     options,
   }
 }

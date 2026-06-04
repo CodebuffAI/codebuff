@@ -28,8 +28,8 @@ const arg = require('arg');
 
 // `options` is an optional parameter
 const args = arg(
-	spec,
-	(options = { permissive: false, argv: process.argv.slice(2) })
+  spec,
+  (options = { permissive: false, argv: process.argv.slice(2) })
 );
 ```
 
@@ -44,19 +44,19 @@ $ node ./hello.js --verbose -vvv --port=1234 -n 'My name' foo bar --tag qux --ta
 const arg = require('arg');
 
 const args = arg({
-	// Types
-	'--help': Boolean,
-	'--version': Boolean,
-	'--verbose': arg.COUNT, // Counts the number of times --verbose is passed
-	'--port': Number, // --port <number> or --port=<number>
-	'--name': String, // --name <string> or --name=<string>
-	'--tag': [String], // --tag <string> or --tag=<string>
+  // Types
+  '--help': Boolean,
+  '--version': Boolean,
+  '--verbose': arg.COUNT, // Counts the number of times --verbose is passed
+  '--port': Number, // --port <number> or --port=<number>
+  '--name': String, // --name <string> or --name=<string>
+  '--tag': [String], // --tag <string> or --tag=<string>
 
-	// Aliases
-	'-v': '--verbose',
-	'-n': '--name', // -n <string>; result is stored in --name
-	'--label': '--name' // --label <string> or --label=<string>;
-	//     result is stored in --name
+  // Aliases
+  '-v': '--verbose',
+  '-n': '--name', // -n <string>; result is stored in --name
+  '--label': '--name' // --label <string> or --label=<string>;
+  //     result is stored in --name
 });
 
 console.log(args);
@@ -100,30 +100,30 @@ For custom handlers that wish to behave as flags, you may pass the function thro
 const arg = require('arg');
 
 const argv = [
-	'--foo',
-	'bar',
-	'-ff',
-	'baz',
-	'--foo',
-	'--foo',
-	'qux',
-	'-fff',
-	'qix'
+  '--foo',
+  'bar',
+  '-ff',
+  'baz',
+  '--foo',
+  '--foo',
+  'qux',
+  '-fff',
+  'qix'
 ];
 
 function myHandler(value, argName, previousValue) {
-	/* `value` is always `true` */
-	return 'na ' + (previousValue || 'batman!');
+  /* `value` is always `true` */
+  return 'na ' + (previousValue || 'batman!');
 }
 
 const args = arg(
-	{
-		'--foo': arg.flag(myHandler),
-		'-f': '--foo'
-	},
-	{
-		argv
-	}
+  {
+    '--foo': arg.flag(myHandler),
+    '-f': '--foo'
+  },
+  {
+    argv
+  }
 );
 
 console.log(args);
@@ -145,13 +145,13 @@ const arg = require('arg');
 const argv = ['-AAAA', '-BBBB'];
 
 const args = arg(
-	{
-		'-A': arg.COUNT,
-		'-B': [Boolean]
-	},
-	{
-		argv
-	}
+  {
+    '-A': arg.COUNT,
+    '-B': [Boolean]
+  },
+  {
+    argv
+  }
 );
 
 console.log(args);
@@ -177,12 +177,12 @@ For example:
 
 ```javascript
 const args = arg(
-	{
-		'--foo': String
-	},
-	{
-		argv: ['hello', '--foo', 'world']
-	}
+  {
+    '--foo': String
+  },
+  {
+    argv: ['hello', '--foo', 'world']
+  }
 );
 ```
 
@@ -190,8 +190,8 @@ results in:
 
 ```javascript
 const args = {
-	_: ['hello'],
-	'--foo': 'world'
+  _: ['hello'],
+  '--foo': 'world'
 };
 ```
 
@@ -207,24 +207,24 @@ For example:
 const arg = require('arg');
 
 const argv = [
-	'--foo',
-	'hello',
-	'--qux',
-	'qix',
-	'--bar',
-	'12345',
-	'hello again'
+  '--foo',
+  'hello',
+  '--qux',
+  'qix',
+  '--bar',
+  '12345',
+  'hello again'
 ];
 
 const args = arg(
-	{
-		'--foo': String,
-		'--bar': Number
-	},
-	{
-		argv,
-		permissive: true
-	}
+  {
+    '--foo': String,
+    '--bar': Number
+  },
+  {
+    argv,
+    permissive: true
+  }
 );
 ```
 
@@ -232,9 +232,9 @@ results in:
 
 ```javascript
 const args = {
-	_: ['--qux', 'qix', 'hello again'],
-	'--foo': 'hello',
-	'--bar': 12345
+  _: ['--qux', 'qix', 'hello again'],
+  '--foo': 'hello',
+  '--bar': 12345
 };
 ```
 
@@ -251,14 +251,14 @@ const arg = require('arg');
 const argv = ['--foo', 'hello', '--bar'];
 
 const args = arg(
-	{
-		'--foo': Boolean,
-		'--bar': Boolean
-	},
-	{
-		argv,
-		stopAtPositional: true
-	}
+  {
+    '--foo': Boolean,
+    '--bar': Boolean
+  },
+  {
+    argv,
+    stopAtPositional: true
+  }
 );
 ```
 
@@ -266,8 +266,8 @@ results in:
 
 ```javascript
 const args = {
-	_: ['hello', '--bar'],
-	'--foo': true
+  _: ['hello', '--bar'],
+  '--foo': true
 };
 ```
 
@@ -283,13 +283,13 @@ If an unknown option (not defined in the spec object) is passed, an error with c
 ```js
 // cli.js
 try {
-	require('arg')({ '--hi': String });
+  require('arg')({ '--hi': String });
 } catch (err) {
-	if (err.code === 'ARG_UNKNOWN_OPTION') {
-		console.log(err.message);
-	} else {
-		throw err;
-	}
+  if (err.code === 'ARG_UNKNOWN_OPTION') {
+    console.log(err.message);
+  } else {
+    throw err;
+  }
 }
 ```
 

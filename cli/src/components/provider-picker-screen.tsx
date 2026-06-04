@@ -16,6 +16,8 @@ export type ProviderPickerPresetId =
   | 'ollama'
   | 'codex'
   | 'glm'
+  | 'bedrock'
+  | 'freemodel'
 
 export type ProviderPickerSelection =
   | { type: 'preset'; preset: ProviderPickerPresetId }
@@ -87,6 +89,24 @@ const DEFAULT_PRESETS: ProviderPickerPreset[] = [
     env: 'GLM_API_KEY',
     category: 'API Providers',
     aliases: ['zai', 'z.ai', 'bigmodel'],
+  },
+  {
+    id: 'bedrock',
+    label: 'AWS Bedrock',
+    description:
+      'AWS Bedrock OpenAI-compatible endpoint. Update baseURL to your region.',
+    env: 'AWS_BEARER_TOKEN_BEDROCK',
+    category: 'API Providers',
+    aliases: ['aws', 'amazon bedrock', 'bedrock'],
+  },
+  {
+    id: 'freemodel',
+    label: 'Free Model',
+    description:
+      'Free Model OpenAI-compatible endpoint with gpt-5.5, gpt-5.4, gpt-5.4-mini, and gpt-5.3-codex.',
+    env: 'FREEMODEL_API_KEY',
+    category: 'API Providers',
+    aliases: ['freemodel', 'free model', 'gpt-5.5-free'],
   },
 ]
 

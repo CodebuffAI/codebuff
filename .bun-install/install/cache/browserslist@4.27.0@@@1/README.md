@@ -6,13 +6,13 @@
 The config to share target browsers and Node.js versions between different
 front-end tools. It is used in:
 
-* [Autoprefixer]
-* [Babel]
-* [postcss-preset-env]
-* [eslint-plugin-compat]
-* [stylelint-no-unsupported-browser-features]
-* [postcss-normalize]
-* [obsolete-webpack-plugin]
+- [Autoprefixer]
+- [Babel]
+- [postcss-preset-env]
+- [eslint-plugin-compat]
+- [stylelint-no-unsupported-browser-features]
+- [postcss-normalize]
+- [obsolete-webpack-plugin]
 
 All tools will find target browsers automatically,
 when you add the following to `package.json`:
@@ -50,16 +50,17 @@ You can check how config works at our playground: [`browsersl.ist`](https://brow
 </div>
 
 [stylelint-no-unsupported-browser-features]: https://github.com/ismay/stylelint-no-unsupported-browser-features
-[obsolete-webpack-plugin]:                   https://github.com/ElemeFE/obsolete-webpack-plugin
-[eslint-plugin-compat]:                      https://github.com/amilajack/eslint-plugin-compat
-[Browserslist Example]:                      https://github.com/browserslist/browserslist-example
-[postcss-preset-env]:                        https://github.com/csstools/postcss-plugins/tree/main/plugin-packs/postcss-preset-env
-[postcss-normalize]:                         https://github.com/csstools/postcss-normalize
-[`browsersl.ist`]:                           https://browsersl.ist/
-[`caniuse-lite`]:                            https://github.com/ben-eb/caniuse-lite
-[Autoprefixer]:                              https://github.com/postcss/autoprefixer
-[Can I Use]:                                 https://caniuse.com/
-[Babel]:                                     https://github.com/babel/babel/tree/master/packages/babel-preset-env
+[obsolete-webpack-plugin]: https://github.com/ElemeFE/obsolete-webpack-plugin
+[eslint-plugin-compat]: https://github.com/amilajack/eslint-plugin-compat
+[Browserslist Example]: https://github.com/browserslist/browserslist-example
+[postcss-preset-env]: https://github.com/csstools/postcss-plugins/tree/main/plugin-packs/postcss-preset-env
+[postcss-normalize]: https://github.com/csstools/postcss-normalize
+[`browsersl.ist`]: https://browsersl.ist/
+[`caniuse-lite`]: https://github.com/ben-eb/caniuse-lite
+[Autoprefixer]: https://github.com/postcss/autoprefixer
+[Can I Use]: https://caniuse.com/
+[Babel]: https://github.com/babel/babel/tree/master/packages/babel-preset-env
 
 ## Docs
+
 Read full docs **[here](https://github.com/browserslist/browserslist#readme)**.

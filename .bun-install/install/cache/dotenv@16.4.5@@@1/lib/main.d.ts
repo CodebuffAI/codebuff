@@ -1,9 +1,9 @@
 // TypeScript Version: 3.0
 /// <reference types="node" />
-import type { URL } from 'url';
+import type { URL } from 'url'
 
 export interface DotenvParseOutput {
-  [name: string]: string;
+  [name: string]: string
 }
 
 /**
@@ -15,8 +15,8 @@ export interface DotenvParseOutput {
  * @returns an object with keys and values based on `src`. example: `{ DB_HOST : 'localhost' }`
  */
 export function parse<T extends DotenvParseOutput = DotenvParseOutput>(
-  src: string | Buffer
-): T;
+  src: string | Buffer,
+): T
 
 export interface DotenvConfigOptions {
   /**
@@ -28,7 +28,7 @@ export interface DotenvConfigOptions {
    * example: `require('dotenv').config({ path: '/custom/path/to/.env' })`
    * example: `require('dotenv').config({ path: ['/path/to/first.env', '/path/to/second.env'] })`
    */
-  path?: string | string[] | URL;
+  path?: string | string[] | URL
 
   /**
    * Default: `utf8`
@@ -37,7 +37,7 @@ export interface DotenvConfigOptions {
    *
    * example: `require('dotenv').config({ encoding: 'latin1' })`
    */
-  encoding?: string;
+  encoding?: string
 
   /**
    * Default: `false`
@@ -46,7 +46,7 @@ export interface DotenvConfigOptions {
    *
    * example: `require('dotenv').config({ debug: process.env.DEBUG })`
    */
-  debug?: boolean;
+  debug?: boolean
 
   /**
    * Default: `false`
@@ -55,7 +55,7 @@ export interface DotenvConfigOptions {
    *
    * example: `require('dotenv').config({ override: true })`
    */
-  override?: boolean;
+  override?: boolean
 
   /**
    * Default: `process.env`
@@ -64,7 +64,7 @@ export interface DotenvConfigOptions {
    *
    * example: `const processEnv = {}; require('dotenv').config({ processEnv: processEnv })`
    */
-  processEnv?: DotenvPopulateInput;
+  processEnv?: DotenvPopulateInput
 
   /**
    * Default: `undefined`
@@ -73,12 +73,12 @@ export interface DotenvConfigOptions {
    *
    * example: `require('dotenv').config({ DOTENV_KEY: 'dotenv://:key_1234…@dotenvx.com/vault/.env.vault?environment=production' })`
    */
-  DOTENV_KEY?: string;
+  DOTENV_KEY?: string
 }
 
 export interface DotenvConfigOutput {
-  error?: Error;
-  parsed?: DotenvParseOutput;
+  error?: Error
+  parsed?: DotenvParseOutput
 }
 
 export interface DotenvPopulateOptions {
@@ -89,7 +89,7 @@ export interface DotenvPopulateOptions {
    *
    * example: `require('dotenv').config({ debug: process.env.DEBUG })`
    */
-  debug?: boolean;
+  debug?: boolean
 
   /**
    * Default: `false`
@@ -98,11 +98,11 @@ export interface DotenvPopulateOptions {
    *
    * example: `require('dotenv').config({ override: true })`
    */
-  override?: boolean;
+  override?: boolean
 }
 
 export interface DotenvPopulateInput {
-  [name: string]: string;
+  [name: string]: string
 }
 
 /**
@@ -114,7 +114,7 @@ export interface DotenvPopulateInput {
  * @returns an object with a `parsed` key if successful or `error` key if an error occurred. example: { parsed: { KEY: 'value' } }
  *
  */
-export function config(options?: DotenvConfigOptions): DotenvConfigOutput;
+export function config(options?: DotenvConfigOptions): DotenvConfigOutput
 
 /**
  * Loads `.env` file contents into process.env.
@@ -125,7 +125,7 @@ export function config(options?: DotenvConfigOptions): DotenvConfigOutput;
  * @returns an object with a `parsed` key if successful or `error` key if an error occurred. example: { parsed: { KEY: 'value' } }
  *
  */
-export function configDotenv(options?: DotenvConfigOptions): DotenvConfigOutput;
+export function configDotenv(options?: DotenvConfigOptions): DotenvConfigOutput
 
 /**
  * Loads `source` json contents into `target` like process.env.
@@ -138,7 +138,11 @@ export function configDotenv(options?: DotenvConfigOptions): DotenvConfigOutput;
  * @returns {void}
  *
  */
-export function populate(processEnv: DotenvPopulateInput, parsed: DotenvPopulateInput, options?: DotenvConfigOptions): void;
+export function populate(
+  processEnv: DotenvPopulateInput,
+  parsed: DotenvPopulateInput,
+  options?: DotenvConfigOptions,
+): void
 
 /**
  * Decrypt ciphertext
@@ -150,4 +154,4 @@ export function populate(processEnv: DotenvPopulateInput, parsed: DotenvPopulate
  * @returns {string}
  *
  */
-export function decrypt(encrypted: string, keyStr: string): string;
+export function decrypt(encrypted: string, keyStr: string): string

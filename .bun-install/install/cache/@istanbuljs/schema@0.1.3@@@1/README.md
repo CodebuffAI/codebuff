@@ -10,9 +10,9 @@ Schemas describing various structures used by nyc and istanbuljs
 ## Usage
 
 ```js
-const {nyc} = require('@istanbuljs/schema').defaults;
+const { nyc } = require('@istanbuljs/schema').defaults
 
-console.log(`Default exclude list:\n\t* ${nyc.exclude.join('\n\t* ')}`);
+console.log(`Default exclude list:\n\t* ${nyc.exclude.join('\n\t* ')}`)
 ```
 
 ## `@istanbuljs/schema` for enterprise

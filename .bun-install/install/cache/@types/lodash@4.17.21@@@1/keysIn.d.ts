@@ -1,2 +1,2 @@
-import { keysIn } from "./index";
-export = keysIn;
+import { keysIn } from './index'
+export = keysIn

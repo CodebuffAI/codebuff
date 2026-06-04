@@ -1,2 +1,2 @@
-import { unset } from "../fp";
-export = unset;
+import { unset } from '../fp'
+export = unset

@@ -12,7 +12,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Thank you, [@shunkica](https://github.com/shunkica), for your contributions
 
-
 ## [0.8.10](https://github.com/xmldom/xmldom/compare/0.8.9...0.8.10)
 
 ### Fixed
@@ -21,7 +20,6 @@ Thank you, [@shunkica](https://github.com/shunkica), for your contributions
 
 Thank you, [@qtow](https://github.com/qtow), for your contributions
 
-
 ## [0.8.9](https://github.com/xmldom/xmldom/compare/0.8.8...0.8.9)
 
 ### Fixed
@@ -29,7 +27,6 @@ Thank you, [@qtow](https://github.com/qtow), for your contributions
 - Set nodeName property in ProcessingInstruction [`#509`](https://github.com/xmldom/xmldom/pull/509) / [`#505`](https://github.com/xmldom/xmldom/issues/505)
 
 Thank you, [@cjbarth](https://github.com/cjbarth), for your contributions
-
 
 ## [0.8.8](https://github.com/xmldom/xmldom/compare/0.8.7...0.8.8)
 
@@ -47,7 +44,6 @@ Thank you, [@zorkow](https://github.com/zorkow), for your contributions
 
 Thank you, [@bulandent](https://github.com/bulandent), for your contributions
 
-
 ## [0.7.10](https://github.com/xmldom/xmldom/compare/0.7.9...0.7.10)
 
 ### Fixed
@@ -55,7 +51,6 @@ Thank you, [@bulandent](https://github.com/bulandent), for your contributions
 - properly parse closing where the last attribute has no value [`#485`](https://github.com/xmldom/xmldom/pull/485) / [`#486`](https://github.com/xmldom/xmldom/issues/486)
 
 Thank you, [@bulandent](https://github.com/bulandent), for your contributions
-
 
 ## [0.8.6](https://github.com/xmldom/xmldom/compare/0.8.5...0.8.6)
 
@@ -65,7 +60,6 @@ Thank you, [@bulandent](https://github.com/bulandent), for your contributions
 
 Thank you, [@edemaine](https://github.com/edemaine), [@pedro-l9](https://github.com/pedro-l9), for your contributions
 
-
 ## [0.8.5](https://github.com/xmldom/xmldom/compare/0.8.4...0.8.5)
 
 ### Fixed
@@ -73,7 +67,6 @@ Thank you, [@edemaine](https://github.com/edemaine), [@pedro-l9](https://github.
 - fix: Restore ES5 compatibility [`#452`](https://github.com/xmldom/xmldom/pull/452) / [`#453`](https://github.com/xmldom/xmldom/issues/453)
 
 Thank you, [@fengxinming](https://github.com/fengxinming), for your contributions
-
 
 ## [0.8.4](https://github.com/xmldom/xmldom/compare/0.8.3...0.8.4)
 
@@ -87,21 +80,22 @@ Thank you, [@fengxinming](https://github.com/fengxinming), for your contribution
 
 Thank you, [@frumioj](https://github.com/frumioj), [@cjbarth](https://github.com/cjbarth), [@markgollnick](https://github.com/markgollnick) for your contributions
 
-
 ## [0.8.3](https://github.com/xmldom/xmldom/compare/0.8.3...0.8.2)
 
 ### Fixed
+
 - Avoid iterating over prototype properties [`#437`](https://github.com/xmldom/xmldom/pull/437) / [`#436`](https://github.com/xmldom/xmldom/issues/436)
 
 Thank you, [@Supraja9726](https://github.com/Supraja9726) for your contributions
 
-
 ## [0.8.2](https://github.com/xmldom/xmldom/compare/0.8.1...0.8.2)
 
 ### Fixed
+
 - fix(dom): Serialize `&gt;` as specified (#395) [`#58`](https://github.com/xmldom/xmldom/issues/58)
 
 ### Other
+
 - docs: Add `nodeType` values to public interface description [`#396`](https://github.com/xmldom/xmldom/pull/396)
 - test: Add executable examples for node and typescript [`#317`](https://github.com/xmldom/xmldom/pull/317)
 - fix(dom): Serialize `&gt;` as specified [`#395`](https://github.com/xmldom/xmldom/pull/395)
@@ -114,18 +108,20 @@ Thank you [@niklasl](https://github.com/niklasl), [@cburatto](https://github.com
 ## [0.8.1](https://github.com/xmldom/xmldom/compare/0.8.0...0.8.1)
 
 ### Fixes
+
 - Only use own properties in entityMap [`#374`](https://github.com/xmldom/xmldom/pull/374)
 
 ### Docs
+
 - Add security policy [`#365`](https://github.com/xmldom/xmldom/pull/365)
 - changelog: Correct contributor name and link [`#366`](https://github.com/xmldom/xmldom/pull/366)
 - Describe release/publish steps [`#358`](https://github.com/xmldom/xmldom/pull/358), [`#376`](https://github.com/xmldom/xmldom/pull/376)
 - Add snyk package health badge [`#360`](https://github.com/xmldom/xmldom/pull/360)
 
-
 ## [0.8.0](https://github.com/xmldom/xmldom/compare/0.7.5...0.8.0)
 
 ### Fixed
+
 - Normalize all line endings according to XML specs [1.0](https://w3.org/TR/xml/#sec-line-ends) and [1.1](https://www.w3.org/TR/xml11/#sec-line-ends) \
   BREAKING CHANGE: Certain combination of line break characters are normalized to a single `\n` before parsing takes place and will no longer be preserved.
   - [`#303`](https://github.com/xmldom/xmldom/issues/303) / [`#307`](https://github.com/xmldom/xmldom/pull/307)
@@ -138,6 +134,7 @@ Thank you [@niklasl](https://github.com/niklasl), [@cburatto](https://github.com
 - dom: Remove all links as part of `removeChild` [`#343`](https://github.com/xmldom/xmldom/issues/343) / [`#355`](https://github.com/xmldom/xmldom/pull/355)
 
 ### Chore
+
 - ci: Restore latest tested node version to 16.x [`#325`](https://github.com/xmldom/xmldom/pull/325)
 - ci: Split test and lint steps into jobs [`#111`](https://github.com/xmldom/xmldom/issues/111) / [`#304`](https://github.com/xmldom/xmldom/pull/304)
 - Pinned and updated devDependencies
@@ -207,16 +204,18 @@ Thank you [@marrus-sh](https://github.com/marrus-sh), [@victorandree](https://gi
   Thank you, [@kachkaev](https://github.com/kachkaev)
 
 ### Chore:
+
 - package.json: remove author, maintainers, etc. [`#279`](https://github.com/xmldom/xmldom/pull/279)
 
-## 0.7.0 
+## 0.7.0
 
 [Commits](https://github.com/xmldom/xmldom/compare/0.6.0...0.7.0)
 
 Due to [`#271`](https://github.com/xmldom/xmldom/issue/271) this version was published as
+
 - unscoped `xmldom` package to github (git tags [`0.7.0`](https://github.com/xmldom/xmldom/tree/0.7.0) and [`0.7.0+unscoped`](https://github.com/xmldom/xmldom/tree/0.7.0%2Bunscoped))
 - scoped `@xmldom/xmldom` package to npm (git tag `0.7.0+scoped`)
-For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issuecomment-902172483)
+  For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issuecomment-902172483)
 
 ### Fixes:
 
@@ -226,9 +225,9 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 - Handle whitespace in closing tags [`#267`](https://github.com/xmldom/xmldom/pull/267)
 - Update `DOMImplementation` according to recent specs [`#210`](https://github.com/xmldom/xmldom/pull/210)  
   BREAKING CHANGE: Only if you "passed features to be marked as available as a constructor arguments" and expected it to "magically work".
-- No longer serializes any namespaces with an empty URI [`#244`](https://github.com/xmldom/xmldom/pull/244)   
+- No longer serializes any namespaces with an empty URI [`#244`](https://github.com/xmldom/xmldom/pull/244)  
   (related to [`#168`](https://github.com/xmldom/xmldom/pull/168) released in 0.6.0)  
-  BREAKING CHANGE: Only if you rely on ["unsetting" a namespace prefix](https://github.com/xmldom/xmldom/pull/168#issuecomment-886984994) by setting it to an empty string 
+  BREAKING CHANGE: Only if you rely on ["unsetting" a namespace prefix](https://github.com/xmldom/xmldom/pull/168#issuecomment-886984994) by setting it to an empty string
 - Set `localName` as part of `Document.createElement` [`#229`](https://github.com/xmldom/xmldom/pull/229), thank you, [@rrthomas](https://github.com/rrthomas)
 
 ### CI
@@ -256,6 +255,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 [Commits](https://github.com/xmldom/xmldom/compare/0.4.0...0.5.0)
 
 ### Fixes
+
 - Avoid misinterpretation of malicious XML input - [`GHSA-h6q6-9hqw-rwfv`](https://github.com/xmldom/xmldom/security/advisories/GHSA-h6q6-9hqw-rwfv) (CVE-2021-21366)
   - Improve error reporting; throw on duplicate attribute\
     BREAKING CHANGE: It is currently not clear how to consistently deal with duplicate attributes, so it's also safer for our users to fail when detecting them.
@@ -265,6 +265,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
     - create a new `Error` type `ParseError` and export it
     - Throw `ParseError` from `errorHandler.fatalError` and prevent those from being caught in `XMLReader`.
     - export `DOMHandler` constructor as `__DOMHandler`
+
   - Preserve quotes in DOCTYPE declaration
     Since the only purpose of parsing the DOCTYPE is to be able to restore it when serializing, we decided that it would be best to leave the parsed `publicId` and `systemId` as is, including any quotes.
     BREAKING CHANGE: If somebody relies on the actual unquoted values of those ids, they will need to take care of either single or double quotes and the right escaping.
@@ -276,9 +277,10 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 - Fix breaking preprocessors' directives when parsing attributes [`#171`](https://github.com/xmldom/xmldom/pull/171)
 - fix(dom): Escape `]]&gt;` when serializing CharData [`#181`](https://github.com/xmldom/xmldom/pull/181)
 - Switch to (only) MIT license (drop problematic LGPL license option) [`#178`](https://github.com/xmldom/xmldom/pull/178)
-- Export DOMException; remove custom assertions; etc.  [`#174`](https://github.com/xmldom/xmldom/pull/174)
+- Export DOMException; remove custom assertions; etc. [`#174`](https://github.com/xmldom/xmldom/pull/174)
 
 ### Docs
+
 - Update MDN links in `readme.md` [`#188`](https://github.com/xmldom/xmldom/pull/188)
 
 ## 0.4.0
@@ -286,6 +288,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 [Commits](https://github.com/xmldom/xmldom/compare/0.3.0...0.4.0)
 
 ### Fixes
+
 - **BREAKING** Restore `&nbsp;` behavior from v0.1.27 [`#67`](https://github.com/xmldom/xmldom/pull/67)
 - **BREAKING** Typecheck source param before parsing [`#113`](https://github.com/xmldom/xmldom/pull/113)
 - Include documents in package files list [`#156`](https://github.com/xmldom/xmldom/pull/156)
@@ -295,6 +298,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 - fix: Convert all line separators to LF [`#66`](https://github.com/xmldom/xmldom/pull/66)
 
 ### Docs
+
 - Update CHANGELOG.md through version 0.3.0 [`#63`](https://github.com/xmldom/xmldom/pull/63)
 - Update badges [`#78`](https://github.com/xmldom/xmldom/pull/78)
 - Add .editorconfig file [`#104`](https://github.com/xmldom/xmldom/pull/104)
@@ -302,6 +306,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 - Modernize & improve the example in readme.md [`#81`](https://github.com/xmldom/xmldom/pull/81)
 
 ### CI
+
 - Add Stryker Mutator [`#70`](https://github.com/xmldom/xmldom/pull/70)
 - Add Stryker action to update dashboard [`#77`](https://github.com/xmldom/xmldom/pull/77)
 - Add Node GitHub action workflow [`#64`](https://github.com/xmldom/xmldom/pull/64)
@@ -315,6 +320,7 @@ For more details look at [`#278`](https://github.com/xmldom/xmldom/pull/278#issu
 - Updated devDependencies
 
 ### Other
+
 - Remove files that are not of any use [`#131`](https://github.com/xmldom/xmldom/pull/131), [`#65`](https://github.com/xmldom/xmldom/pull/65), [`#33`](https://github.com/xmldom/xmldom/pull/33)
 
 ## 0.3.0
@@ -357,6 +363,7 @@ The patch versions (`v0.1.29` - `v0.1.31`) that have been released on the [v0.1.
 After the last commit to the original repository <https://github.com/jindw/xmldom> on the 9th of May 2017, the first commit to <https://github.com/xmldom/xmldom> is from the 19th of December 2019. [The fork has been announced in the original repository on the 2nd of March 2020.](https://github.com/jindw/xmldom/issues/259)
 
 The versions listed below have been published to one or both of the following packages:
+
 - <https://www.npmjs.com/package/xmldom-alpha>
 - <https://www.npmjs.com/package/xmldom>
 
@@ -370,9 +377,10 @@ A timeline of all the changes that happened from that version until `0.3.0` is a
 [Commits](https://github.com/xmldom/xmldom/compare/v0.1.27...xmldom-alpha@v0.1.28)
 
 Published by @jindw on the 9th of May 2017 as
+
 - `xmldom-alpha@0.1.28`
 
-- **BREAKING** includes [regression regarding `&nbsp;` (issue #57)](https://github.com/xmldom/xmldom/issues/57) 
+- **BREAKING** includes [regression regarding `&nbsp;` (issue #57)](https://github.com/xmldom/xmldom/issues/57)
 - [Fix `license` field in `package.json`](https://github.com/jindw/xmldom/pull/178)
 - [Conditional converting of HTML entities](https://github.com/jindw/xmldom/pull/80)
 - Fix `dom.js` serialization issue for missing document element ([example that failed on `toString()` before this change](https://github.com/xmldom/xmldom/blob/a58dcf7a265522e80ce520fe3be0cddb1b976f6f/test/parse/unclosedcomment.js#L10-L11))
@@ -380,9 +388,10 @@ Published by @jindw on the 9th of May 2017 as
 
 ## 0.1.27
 
-Published by @jindw on the 28th of Nov 2016 as 
+Published by @jindw on the 28th of Nov 2016 as
+
 - `xmldom@0.1.27`
-- `xmldom-alpha@0.1.27` 
+- `xmldom-alpha@0.1.27`
 
 - Various bug fixes.
 
@@ -395,7 +404,8 @@ as `xmldom@0.1.26`
 
 ## 0.1.25
 
-Published on the 18th of Nov 2016 as 
+Published on the 18th of Nov 2016 as
+
 - `xmldom@0.1.25`
 
 - Details unknown
@@ -403,6 +413,7 @@ Published on the 18th of Nov 2016 as
 ## 0.1.24
 
 Published on the 27th of November 2016 as
+
 - `xmldom@0.1.24`
 - `xmldom-alpha@0.1.24`
 
@@ -411,6 +422,7 @@ Published on the 27th of November 2016 as
 ## 0.1.23
 
 Published on the 5th of May 2016 as
+
 - `xmldom-alpha@0.1.23`
 
 - Add namespace support for nest node serialize.
@@ -463,6 +475,6 @@ Published on the 5th of May 2016 as
 ## 0.1.8
 
 - Add: some test case from node-o3-xml(excludes xpath support)
-- Fix: remove existed attribute before setting  (bug introduced in v0.1.5)
+- Fix: remove existed attribute before setting (bug introduced in v0.1.5)
 - Fix: index direct access for childNodes and any NodeList collection(not w3c standard)
 - Fix: remove last child bug

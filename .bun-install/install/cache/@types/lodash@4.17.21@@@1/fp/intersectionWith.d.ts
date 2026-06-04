@@ -1,2 +1,2 @@
-import { intersectionWith } from "../fp";
-export = intersectionWith;
+import { intersectionWith } from '../fp'
+export = intersectionWith

@@ -11,7 +11,7 @@
  * @module providers/asgardeo
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Asgardeo when using the profile callback. */
 export interface AsgardeoProfile extends Record<string, any> {
@@ -102,16 +102,16 @@ export interface AsgardeoProfile extends Record<string, any> {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Asgardeo(
-  config: OIDCUserConfig<AsgardeoProfile>
+  config: OIDCUserConfig<AsgardeoProfile>,
 ): OIDCConfig<AsgardeoProfile> {
   return {
-    id: "asgardeo",
-    name: "Asgardeo",
-    type: "oidc",
+    id: 'asgardeo',
+    name: 'Asgardeo',
+    type: 'oidc',
     wellKnown: `${config?.issuer}/oauth2/token/.well-known/openid-configuration`,
     style: {
-      bg: "#000",
-      text: "#fff",
+      bg: '#000',
+      text: '#fff',
     },
     options: config,
   }

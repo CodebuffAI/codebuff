@@ -1,2 +1,2 @@
-import { nth } from "./index";
-export = nth;
+import { nth } from './index'
+export = nth

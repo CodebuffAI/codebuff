@@ -8,7 +8,7 @@
  *
  * @module providers/facebook
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 interface FacebookPictureData {
   url: string
@@ -83,22 +83,22 @@ export interface FacebookProfile extends Record<string, any> {
  * :::
  */
 export default function Facebook<P extends FacebookProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "facebook",
-    name: "Facebook",
-    type: "oauth",
+    id: 'facebook',
+    name: 'Facebook',
+    type: 'oauth',
     authorization: {
-      url: "https://www.facebook.com/v19.0/dialog/oauth",
+      url: 'https://www.facebook.com/v19.0/dialog/oauth',
       params: {
-        scope: "email",
+        scope: 'email',
       },
     },
-    token: "https://graph.facebook.com/oauth/access_token",
+    token: 'https://graph.facebook.com/oauth/access_token',
     userinfo: {
       // https://developers.facebook.com/docs/graph-api/reference/user/#fields
-      url: "https://graph.facebook.com/me?fields=id,name,email,picture",
+      url: 'https://graph.facebook.com/me?fields=id,name,email,picture',
       async request({ tokens, provider }) {
         return await fetch(provider.userinfo?.url as URL, {
           headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -113,7 +113,7 @@ export default function Facebook<P extends FacebookProfile>(
         image: profile.picture.data.url,
       }
     },
-    style: { bg: "#006aff", text: "#fff" },
+    style: { bg: '#006aff', text: '#fff' },
     options,
   }
 }

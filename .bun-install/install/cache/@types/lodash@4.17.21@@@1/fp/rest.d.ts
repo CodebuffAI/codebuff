@@ -1,2 +1,2 @@
-import { rest } from "../fp";
-export = rest;
+import { rest } from '../fp'
+export = rest

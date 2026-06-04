@@ -9,14 +9,19 @@ export function isGzipSupported(): boolean {
 /**
  * Gzip a string using Compression Streams API if it's available
  */
-export async function gzipCompress(input: string, isDebug = true): Promise<Blob | null> {
+export async function gzipCompress(
+  input: string,
+  isDebug = true,
+): Promise<Blob | null> {
   try {
     // Turn the string into a stream using a Blob, and then compress it
     const dataStream = new Blob([input], {
       type: 'text/plain',
     }).stream()
 
-    const compressedStream = dataStream.pipeThrough(new CompressionStream('gzip'))
+    const compressedStream = dataStream.pipeThrough(
+      new CompressionStream('gzip'),
+    )
 
     // Using a Response to easily extract the readablestream value. Decoding into a string for fetch
     return await new Response(compressedStream).blob()

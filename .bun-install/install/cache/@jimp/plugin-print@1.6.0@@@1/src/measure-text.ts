@@ -1,84 +1,84 @@
-import { BmFont } from "./types.js";
+import { BmFont } from './types.js'
 
 export function measureText(font: BmFont, text: string) {
-  let x = 0;
+  let x = 0
 
   for (let i = 0; i < text.length; i++) {
-    const char = text[i]!;
-    const fontChar = font.chars[char];
+    const char = text[i]!
+    const fontChar = font.chars[char]
 
     if (fontChar) {
-      const fontKerning = font.kernings[char];
-      const nextChar = text[i + 1];
+      const fontKerning = font.kernings[char]
+      const nextChar = text[i + 1]
       const kerning =
         fontKerning && nextChar && fontKerning[nextChar]
           ? fontKerning[nextChar] || 0
-          : 0;
+          : 0
 
-      x += (fontChar.xadvance || 0) + kerning;
+      x += (fontChar.xadvance || 0) + kerning
     }
   }
 
-  return x;
+  return x
 }
 
 export function splitLines(font: BmFont, text: string, maxWidth: number) {
-  const words = text.replace(/[\r\n]+/g, " \n").split(" ");
+  const words = text.replace(/[\r\n]+/g, ' \n').split(' ')
 
-  const lines: string[][] = [];
-  let currentLine: string[] = [];
-  let longestLine = 0;
+  const lines: string[][] = []
+  let currentLine: string[] = []
+  let longestLine = 0
 
   words.forEach((word) => {
-    const wordWidth = measureText(font, word + (words.length > 1 ? " " : ""));
+    const wordWidth = measureText(font, word + (words.length > 1 ? ' ' : ''))
 
     // If a word is longer than the allowable width we need to split it across lines.
     if (wordWidth > maxWidth) {
-      const characterIterator = word[Symbol.iterator]();
+      const characterIterator = word[Symbol.iterator]()
 
-      let current = "";
+      let current = ''
 
       for (const char of characterIterator) {
-        const nextLine = [...currentLine, current + char].join(" ");
-        const length = measureText(font, nextLine);
+        const nextLine = [...currentLine, current + char].join(' ')
+        const length = measureText(font, nextLine)
 
         if (length < maxWidth) {
-          current += char;
+          current += char
         } else if (length > maxWidth) {
-          lines.push([...currentLine, current]);
-          currentLine = [];
-          current = char;
+          lines.push([...currentLine, current])
+          currentLine = []
+          current = char
         } else {
-          lines.push([...currentLine, current + char]);
-          currentLine = [];
-          current = "";
+          lines.push([...currentLine, current + char])
+          currentLine = []
+          current = ''
         }
       }
 
-      return;
+      return
     }
 
-    const line = [...currentLine, word].join(" ");
-    const length = measureText(font, line);
+    const line = [...currentLine, word].join(' ')
+    const length = measureText(font, line)
 
-    if (length <= maxWidth && !word.includes("\n")) {
+    if (length <= maxWidth && !word.includes('\n')) {
       if (length > longestLine) {
-        longestLine = length;
+        longestLine = length
       }
 
-      currentLine.push(word);
+      currentLine.push(word)
     } else {
-      lines.push(currentLine);
-      currentLine = [word.replace("\n", "")];
+      lines.push(currentLine)
+      currentLine = [word.replace('\n', '')]
     }
-  });
+  })
 
-  lines.push(currentLine);
+  lines.push(currentLine)
 
   return {
     lines,
     longestLine,
-  };
+  }
 }
 
 export function measureTextHeight(
@@ -86,7 +86,7 @@ export function measureTextHeight(
   text: string,
   maxWidth: number,
 ) {
-  const { lines } = splitLines(font, text, maxWidth);
+  const { lines } = splitLines(font, text, maxWidth)
 
-  return lines.length * font.common.lineHeight;
+  return lines.length * font.common.lineHeight
 }

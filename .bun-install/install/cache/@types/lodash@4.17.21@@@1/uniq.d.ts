@@ -1,2 +1,2 @@
-import { uniq } from "./index";
-export = uniq;
+import { uniq } from './index'
+export = uniq

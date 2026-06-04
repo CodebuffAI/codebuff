@@ -1,2 +1,2 @@
-import { takeRight } from "./index";
-export = takeRight;
+import { takeRight } from './index'
+export = takeRight

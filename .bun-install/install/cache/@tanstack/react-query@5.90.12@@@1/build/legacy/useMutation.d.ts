@@ -1,6 +1,14 @@
-import { UseMutationOptions, UseMutationResult } from './types.js';
-import { DefaultError, QueryClient } from '@tanstack/query-core';
+import { UseMutationOptions, UseMutationResult } from './types.js'
+import { DefaultError, QueryClient } from '@tanstack/query-core'
 
-declare function useMutation<TData = unknown, TError = DefaultError, TVariables = void, TOnMutateResult = unknown>(options: UseMutationOptions<TData, TError, TVariables, TOnMutateResult>, queryClient?: QueryClient): UseMutationResult<TData, TError, TVariables, TOnMutateResult>;
+declare function useMutation<
+  TData = unknown,
+  TError = DefaultError,
+  TVariables = void,
+  TOnMutateResult = unknown,
+>(
+  options: UseMutationOptions<TData, TError, TVariables, TOnMutateResult>,
+  queryClient?: QueryClient,
+): UseMutationResult<TData, TError, TVariables, TOnMutateResult>
 
-export { useMutation };
+export { useMutation }

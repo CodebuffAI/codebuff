@@ -1,2 +1,2 @@
-import { forOwnRight } from "../fp";
-export = forOwnRight;
+import { forOwnRight } from '../fp'
+export = forOwnRight

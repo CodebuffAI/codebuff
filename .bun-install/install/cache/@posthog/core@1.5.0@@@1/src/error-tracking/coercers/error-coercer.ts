@@ -20,7 +20,10 @@ export class ErrorCoercer implements ErrorTrackingCoercer<Error> {
     return err.name || err.constructor.name
   }
 
-  private getMessage(err: Error & { message: { error?: Error } }, _ctx: CoercingContext): string {
+  private getMessage(
+    err: Error & { message: { error?: Error } },
+    _ctx: CoercingContext,
+  ): string {
     const message = err.message
 
     if (message.error && typeof message.error.message === 'string') {

@@ -8,9 +8,12 @@ export async function spawnLocal(
     stdio: 'inherit' | 'ignore'
     cwd: string
     stdin?: string
-  }
+  },
 ): Promise<void> {
-  const stdioOption = options.stdin !== undefined ? ['pipe' as const, options.stdio, options.stdio] : options.stdio
+  const stdioOption =
+    options.stdin !== undefined
+      ? ['pipe' as const, options.stdio, options.stdio]
+      : options.stdio
 
   const child = spawn(executable, [...args], {
     stdio: stdioOption,

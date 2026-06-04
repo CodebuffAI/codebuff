@@ -1,2 +1,2 @@
-import { isEqual } from "./index";
-export = isEqual;
+import { isEqual } from './index'
+export = isEqual

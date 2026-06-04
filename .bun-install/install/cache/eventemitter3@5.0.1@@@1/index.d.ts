@@ -4,27 +4,27 @@
  */
 declare class EventEmitter<
   EventTypes extends EventEmitter.ValidEventTypes = string | symbol,
-  Context extends any = any
+  Context extends any = any,
 > {
-  static prefixed: string | boolean;
+  static prefixed: string | boolean
 
   /**
    * Return an array listing the events for which the emitter has registered
    * listeners.
    */
-  eventNames(): Array<EventEmitter.EventNames<EventTypes>>;
+  eventNames(): Array<EventEmitter.EventNames<EventTypes>>
 
   /**
    * Return the listeners registered for a given event.
    */
   listeners<T extends EventEmitter.EventNames<EventTypes>>(
-    event: T
-  ): Array<EventEmitter.EventListener<EventTypes, T>>;
+    event: T,
+  ): Array<EventEmitter.EventListener<EventTypes, T>>
 
   /**
    * Return the number of listeners listening to a given event.
    */
-  listenerCount(event: EventEmitter.EventNames<EventTypes>): number;
+  listenerCount(event: EventEmitter.EventNames<EventTypes>): number
 
   /**
    * Calls each of the listeners registered for a given event.
@@ -32,7 +32,7 @@ declare class EventEmitter<
   emit<T extends EventEmitter.EventNames<EventTypes>>(
     event: T,
     ...args: EventEmitter.EventArgs<EventTypes, T>
-  ): boolean;
+  ): boolean
 
   /**
    * Add a listener for a given event.
@@ -40,13 +40,13 @@ declare class EventEmitter<
   on<T extends EventEmitter.EventNames<EventTypes>>(
     event: T,
     fn: EventEmitter.EventListener<EventTypes, T>,
-    context?: Context
-  ): this;
+    context?: Context,
+  ): this
   addListener<T extends EventEmitter.EventNames<EventTypes>>(
     event: T,
     fn: EventEmitter.EventListener<EventTypes, T>,
-    context?: Context
-  ): this;
+    context?: Context,
+  ): this
 
   /**
    * Add a one-time listener for a given event.
@@ -54,8 +54,8 @@ declare class EventEmitter<
   once<T extends EventEmitter.EventNames<EventTypes>>(
     event: T,
     fn: EventEmitter.EventListener<EventTypes, T>,
-    context?: Context
-  ): this;
+    context?: Context,
+  ): this
 
   /**
    * Remove the listeners of a given event.
@@ -64,31 +64,31 @@ declare class EventEmitter<
     event: T,
     fn?: EventEmitter.EventListener<EventTypes, T>,
     context?: Context,
-    once?: boolean
-  ): this;
+    once?: boolean,
+  ): this
   off<T extends EventEmitter.EventNames<EventTypes>>(
     event: T,
     fn?: EventEmitter.EventListener<EventTypes, T>,
     context?: Context,
-    once?: boolean
-  ): this;
+    once?: boolean,
+  ): this
 
   /**
    * Remove all listeners, or those of the specified event.
    */
-  removeAllListeners(event?: EventEmitter.EventNames<EventTypes>): this;
+  removeAllListeners(event?: EventEmitter.EventNames<EventTypes>): this
 }
 
 declare namespace EventEmitter {
   export interface ListenerFn<Args extends any[] = any[]> {
-    (...args: Args): void;
+    (...args: Args): void
   }
 
   export interface EventEmitterStatic {
     new <
       EventTypes extends ValidEventTypes = string | symbol,
-      Context = any
-    >(): EventEmitter<EventTypes, Context>;
+      Context = any,
+    >(): EventEmitter<EventTypes, Context>
   }
 
   /**
@@ -100,36 +100,36 @@ declare namespace EventEmitter {
    * }
    * ```
    */
-  export type ValidEventTypes = string | symbol | object;
+  export type ValidEventTypes = string | symbol | object
 
   export type EventNames<T extends ValidEventTypes> = T extends string | symbol
     ? T
-    : keyof T;
+    : keyof T
 
   export type ArgumentMap<T extends object> = {
     [K in keyof T]: T[K] extends (...args: any[]) => void
       ? Parameters<T[K]>
       : T[K] extends any[]
-      ? T[K]
-      : any[];
-  };
+        ? T[K]
+        : any[]
+  }
 
   export type EventListener<
     T extends ValidEventTypes,
-    K extends EventNames<T>
+    K extends EventNames<T>,
   > = T extends string | symbol
     ? (...args: any[]) => void
     : (
         ...args: ArgumentMap<Exclude<T, string | symbol>>[Extract<K, keyof T>]
-      ) => void;
+      ) => void
 
   export type EventArgs<
     T extends ValidEventTypes,
-    K extends EventNames<T>
-  > = Parameters<EventListener<T, K>>;
+    K extends EventNames<T>,
+  > = Parameters<EventListener<T, K>>
 
-  export const EventEmitter: EventEmitterStatic;
+  export const EventEmitter: EventEmitterStatic
 }
 
 export { EventEmitter }
-export default EventEmitter;
+export default EventEmitter

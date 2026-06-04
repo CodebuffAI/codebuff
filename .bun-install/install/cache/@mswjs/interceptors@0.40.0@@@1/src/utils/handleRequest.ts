@@ -21,10 +21,10 @@ interface HandleRequestOptions {
 }
 
 export async function handleRequest(
-  options: HandleRequestOptions
+  options: HandleRequestOptions,
 ): Promise<void> {
   const handleResponse = async (
-    response: Response | Error | Record<string, any>
+    response: Response | Error | Record<string, any>,
   ) => {
     if (response instanceof Error) {
       await options.controller.errorWith(response)
@@ -105,7 +105,7 @@ export async function handleRequest(
       () => {
         requestAbortPromise.reject(options.request.signal.reason)
       },
-      { once: true }
+      { once: true },
     )
   }
 
@@ -170,7 +170,7 @@ export async function handleRequest(
              */
             await options.controller.errorWith(reason)
           },
-        }
+        },
       )
 
       await emitAsync(options.emitter, 'unhandledException', {
@@ -191,7 +191,7 @@ export async function handleRequest(
 
     // Otherwise, coerce unhandled exceptions to a 500 Internal Server Error response.
     await options.controller.respondWith(
-      createServerErrorResponse(result.error)
+      createServerErrorResponse(result.error),
     )
     return
   }

@@ -7,7 +7,7 @@ import { Emitter, EventMap } from 'strict-event-emitter'
  */
 export async function emitAsync<
   Events extends EventMap,
-  EventName extends keyof Events
+  EventName extends keyof Events,
 >(
   emitter: Emitter<Events>,
   eventName: EventName,

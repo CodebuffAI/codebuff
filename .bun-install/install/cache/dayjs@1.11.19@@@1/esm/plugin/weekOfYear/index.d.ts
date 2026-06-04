@@ -7,6 +7,6 @@ declare module 'dayjs/esm' {
   interface Dayjs {
     week(): number
 
-    week(value : number): Dayjs
+    week(value: number): Dayjs
   }
 }

@@ -40,18 +40,18 @@ The most basic prompt is a function returning a string that'll be rendered in th
 Wrapping the rendering function with `createPrompt()` will setup the rendering layer, inject the state management utilities, and wait until the `done` callback is called.
 
 ```ts
-import { createPrompt } from '@inquirer/core';
+import { createPrompt } from '@inquirer/core'
 
 const input = createPrompt((config, done) => {
   // Implement logic
 
-  return '? My question';
-});
+  return '? My question'
+})
 
 // And it is then called as
 const answer = await input({
   /* config */
-});
+})
 ```
 
 ## Hooks
@@ -154,10 +154,10 @@ All default prompts, and most custom ones, uses a prefix at the beginning of the
 
 ```ts
 const input = createPrompt((config, done) => {
-  const prefix = usePrefix({ status });
+  const prefix = usePrefix({ status })
 
-  return `${prefix} My question`;
-});
+  return `${prefix} My question`
+})
 ```
 
 #### Pagination
@@ -190,18 +190,18 @@ As we saw earlier, the rendering function should return a string, and eventually
 
 ```ts
 const input = createPrompt((config, done) => {
-  const [value, setValue] = useState();
+  const [value, setValue] = useState()
 
   useKeypress((key, readline) => {
     if (key.name === 'enter') {
-      done(answer);
+      done(answer)
     } else {
-      setValue(readline.line);
+      setValue(readline.line)
     }
-  });
+  })
 
-  return `? ${config.message} ${value}`;
-});
+  return `? ${config.message} ${value}`
+})
 ```
 
 The rendering function can also return a tuple of 2 string (`[string, string]`.) The first string represents the prompt. The second one is content to render under the prompt, like an error message. The text input cursor will appear after the first string.
@@ -210,8 +210,8 @@ The rendering function can also return a tuple of 2 string (`[string, string]`.)
 const number = createPrompt((config, done) => {
   // Add some logic here
 
-  return [`? My question ${input}`, `! The input must be a number`];
-});
+  return [`? My question ${input}`, `! The input must be a number`]
+})
 ```
 
 ### Typescript
@@ -226,7 +226,7 @@ const input = createPrompt<string, { message: string }>(// ...
 The first one is the type of the resolved value
 
 ```ts
-const answer: string = await input();
+const answer: string = await input()
 ```
 
 The second one is the type of the prompt config; in other words the interface the created prompt will provide to users.
@@ -234,7 +234,7 @@ The second one is the type of the prompt config; in other words the interface th
 ```ts
 const answer = await input({
   message: 'My question',
-});
+})
 ```
 
 ## Key utilities
@@ -255,66 +255,66 @@ Theming utilities will allow you to expose customization of the prompt style. In
 To allow standard customization:
 
 ```ts
-import { createPrompt, usePrefix, makeTheme, type Theme } from '@inquirer/core';
-import type { PartialDeep } from '@inquirer/type';
+import { createPrompt, usePrefix, makeTheme, type Theme } from '@inquirer/core'
+import type { PartialDeep } from '@inquirer/type'
 
 type PromptConfig = {
-  theme?: PartialDeep<Theme>;
-};
+  theme?: PartialDeep<Theme>
+}
 
 export default createPrompt<string, PromptConfig>((config, done) => {
-  const theme = makeTheme(config.theme);
+  const theme = makeTheme(config.theme)
 
-  const prefix = usePrefix({ status, theme });
+  const prefix = usePrefix({ status, theme })
 
-  return `${prefix} ${theme.style.highlight('hello')}`;
-});
+  return `${prefix} ${theme.style.highlight('hello')}`
+})
 ```
 
 To setup a custom theme:
 
 ```ts
-import { createPrompt, makeTheme, type Theme } from '@inquirer/core';
-import type { PartialDeep } from '@inquirer/type';
+import { createPrompt, makeTheme, type Theme } from '@inquirer/core'
+import type { PartialDeep } from '@inquirer/type'
 
-type PromptTheme = {};
+type PromptTheme = {}
 
 const promptTheme: PromptTheme = {
   icon: '!',
-};
+}
 
 type PromptConfig = {
-  theme?: PartialDeep<Theme<PromptTheme>>;
-};
+  theme?: PartialDeep<Theme<PromptTheme>>
+}
 
 export default createPrompt<string, PromptConfig>((config, done) => {
-  const theme = makeTheme(promptTheme, config.theme);
+  const theme = makeTheme(promptTheme, config.theme)
 
-  const prefix = usePrefix({ status, theme });
+  const prefix = usePrefix({ status, theme })
 
-  return `${prefix} ${theme.icon}`;
-});
+  return `${prefix} ${theme.icon}`
+})
 ```
 
 The [default theme keys cover](https://github.com/SBoudrias/Inquirer.js/blob/main/packages/core/src/lib/theme.ts):
 
 ```ts
 type DefaultTheme = {
-  prefix: string | { idle: string; done: string };
+  prefix: string | { idle: string; done: string }
   spinner: {
-    interval: number;
-    frames: string[];
-  };
+    interval: number
+    frames: string[]
+  }
   style: {
-    answer: (text: string) => string;
-    message: (text: string, status: 'idle' | 'done' | 'loading') => string;
-    error: (text: string) => string;
-    defaultAnswer: (text: string) => string;
-    help: (text: string) => string;
-    highlight: (text: string) => string;
-    key: (text: string) => string;
-  };
-};
+    answer: (text: string) => string
+    message: (text: string, status: 'idle' | 'done' | 'loading') => string
+    error: (text: string) => string
+    defaultAnswer: (text: string) => string
+    help: (text: string) => string
+    highlight: (text: string) => string
+    key: (text: string) => string
+  }
+}
 ```
 
 # Examples
@@ -331,7 +331,7 @@ You can refer to any `@inquirer/prompts` prompts for real examples:
 - [Expand Prompt](https://github.com/SBoudrias/Inquirer.js/blob/main/packages/expand/src/index.ts)
 
 ```ts
-import colors from 'yoctocolors';
+import colors from 'yoctocolors'
 import {
   createPrompt,
   useState,
@@ -339,42 +339,42 @@ import {
   isEnterKey,
   usePrefix,
   type Status,
-} from '@inquirer/core';
+} from '@inquirer/core'
 
 const confirm = createPrompt<boolean, { message: string; default?: boolean }>(
   (config, done) => {
-    const [status, setStatus] = useState<Status>('idle');
-    const [value, setValue] = useState('');
-    const prefix = usePrefix({});
+    const [status, setStatus] = useState<Status>('idle')
+    const [value, setValue] = useState('')
+    const prefix = usePrefix({})
 
     useKeypress((key, rl) => {
       if (isEnterKey(key)) {
-        const answer = value ? /^y(es)?/i.test(value) : config.default !== false;
-        setValue(answer ? 'yes' : 'no');
-        setStatus('done');
-        done(answer);
+        const answer = value ? /^y(es)?/i.test(value) : config.default !== false
+        setValue(answer ? 'yes' : 'no')
+        setStatus('done')
+        done(answer)
       } else {
-        setValue(rl.line);
+        setValue(rl.line)
       }
-    });
+    })
 
-    let formattedValue = value;
-    let defaultValue = '';
+    let formattedValue = value
+    let defaultValue = ''
     if (status === 'done') {
-      formattedValue = colors.cyan(value);
+      formattedValue = colors.cyan(value)
     } else {
-      defaultValue = colors.dim(config.default === false ? ' (y/N)' : ' (Y/n)');
+      defaultValue = colors.dim(config.default === false ? ' (y/N)' : ' (Y/n)')
     }
 
-    const message = colors.bold(config.message);
-    return `${prefix} ${message}${defaultValue} ${formattedValue}`;
+    const message = colors.bold(config.message)
+    return `${prefix} ${message}${defaultValue} ${formattedValue}`
   },
-);
+)
 
 /**
  *  Which then can be used like this:
  */
-const answer = await confirm({ message: 'Do you want to continue?' });
+const answer = await confirm({ message: 'Do you want to continue?' })
 ```
 
 # License

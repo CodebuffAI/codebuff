@@ -1,2 +1,2 @@
-import { split } from "./index";
-export = split;
+import { split } from './index'
+export = split

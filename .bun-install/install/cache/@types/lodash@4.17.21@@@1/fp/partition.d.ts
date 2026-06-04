@@ -1,2 +1,2 @@
-import { partition } from "../fp";
-export = partition;
+import { partition } from '../fp'
+export = partition

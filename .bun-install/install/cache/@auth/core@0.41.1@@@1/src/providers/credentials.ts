@@ -1,14 +1,15 @@
-import type { CommonProviderOptions } from "./index.js"
-import type { Awaitable, User } from "../types.js"
-import type { JSX } from "preact"
+import type { CommonProviderOptions } from './index.js'
+import type { Awaitable, User } from '../types.js'
+import type { JSX } from 'preact'
 
 /**
  * Besides providing type safety inside {@link CredentialsConfig.authorize}
  * it also determines how the credentials input fields will be rendered
  * on the default sign in page.
  */
-export interface CredentialInput
-  extends Partial<JSX.IntrinsicElements["input"]> {
+export interface CredentialInput extends Partial<
+  JSX.IntrinsicElements['input']
+> {
   label?: string
 }
 
@@ -19,7 +20,7 @@ export interface CredentialsConfig<
     CredentialInput
   >,
 > extends CommonProviderOptions {
-  type: "credentials"
+  type: 'credentials'
   credentials: CredentialsInputs
   /**
    * Gives full control over how you handle the credentials received from the user.
@@ -70,11 +71,11 @@ export interface CredentialsConfig<
      */
     credentials: Partial<Record<keyof CredentialsInputs, unknown>>,
     /** The original request. */
-    request: Request
+    request: Request,
   ) => Awaitable<User | null>
 }
 
-export type CredentialsProviderId = "credentials"
+export type CredentialsProviderId = 'credentials'
 
 /**
  * The Credentials provider allows you to handle signing in with arbitrary credentials,
@@ -146,9 +147,9 @@ export default function Credentials<
   >,
 >(config: Partial<CredentialsConfig<CredentialsInputs>>): CredentialsConfig {
   return {
-    id: "credentials",
-    name: "Credentials",
-    type: "credentials",
+    id: 'credentials',
+    name: 'Credentials',
+    type: 'credentials',
     credentials: {},
     authorize: () => null,
     // @ts-expect-error

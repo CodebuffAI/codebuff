@@ -71,19 +71,20 @@ Tested in Node 14+.
 
 ## Usage for tooling developers
 
-*If you are an end user (i.e. a user of a tool that uses cosmiconfig, like `prettier` or `stylelint`),
-you can skip down to [the end user section](#usage-for-end-users).*
+_If you are an end user (i.e. a user of a tool that uses cosmiconfig, like `prettier` or `stylelint`),
+you can skip down to [the end user section](#usage-for-end-users)._
 
 Create a Cosmiconfig explorer, then either `search` for or directly `load` a configuration file.
 
 ```js
-const { cosmiconfig, cosmiconfigSync } = require('cosmiconfig');
+const { cosmiconfig, cosmiconfigSync } = require('cosmiconfig')
 // ...
-const explorer = cosmiconfig(moduleName);
+const explorer = cosmiconfig(moduleName)
 
 // Search for a configuration by walking up directories.
 // See documentation for search, below.
-explorer.search()
+explorer
+  .search()
   .then((result) => {
     // result.config is the parsed configuration object.
     // result.filepath is the path to the config file that was found.
@@ -91,18 +92,18 @@ explorer.search()
   })
   .catch((error) => {
     // Do something constructive.
-  });
+  })
 
 // Load a configuration directly when you know where it should be.
 // The result object is the same as for search.
 // See documentation for load, below.
-explorer.load(pathToConfig).then(/* ... */);
+explorer.load(pathToConfig).then(/* ... */)
 
 // You can also search and load synchronously.
-const explorerSync = cosmiconfigSync(moduleName);
+const explorerSync = cosmiconfigSync(moduleName)
 
-const searchedFor = explorerSync.search();
-const loaded = explorerSync.load(pathToConfig);
+const searchedFor = explorerSync.search()
+const loaded = explorerSync.load(pathToConfig)
 ```
 
 ## Result
@@ -118,7 +119,7 @@ The result object you get from `search` or `load` has the following properties:
 ### cosmiconfig()
 
 ```js
-const { cosmiconfig } = require('cosmiconfig');
+const { cosmiconfig } = require('cosmiconfig')
 const explorer = cosmiconfig(moduleName, /* optional */ cosmiconfigOptions)
 ```
 
@@ -138,7 +139,9 @@ You may not need them, and should first read about the functions you'll use.
 ### explorer.search()
 
 ```js
-explorer.search([searchFrom]).then(result => { /* ... */ })
+explorer.search([searchFrom]).then((result) => {
+  /* ... */
+})
 ```
 
 Searches for a configuration file. Returns a Promise that resolves with a [result] or with `null`, if no configuration file is found.
@@ -165,7 +168,7 @@ Here's how your default [`search()`] will work:
     move up one directory level and try again, recursing until there is one.
 - If at any point a parsable configuration is found, the [`search()`] Promise resolves with its [result] \(or, with [`explorerSync.search()`], the [result] is returned).
 - If no configuration object is found, the [`search()`] Promise resolves with `null` (or, with [`explorerSync.search()`], `null` is returned).
-- If a configuration object is found *but is malformed* (causing a parsing error), the [`search()`] Promise rejects with that error (so you should `.catch()` it). (Or, with [`explorerSync.search()`], the error is thrown.)
+- If a configuration object is found _but is malformed_ (causing a parsing error), the [`search()`] Promise rejects with that error (so you should `.catch()` it). (Or, with [`explorerSync.search()`], the error is thrown.)
 
 **If you know exactly where your configuration file should be, you can use [`load()`], instead.**
 
@@ -186,7 +189,9 @@ If it's a file, the search starts in that file's directory.
 ### explorer.load()
 
 ```js
-explorer.load(loadPath).then(result => { /* ... */ })
+explorer.load(loadPath).then((result) => {
+  /* ... */
+})
 ```
 
 Loads a configuration file. Returns a Promise that resolves with a [result] or rejects with an error (if the file does not exist or cannot be loaded).
@@ -194,11 +199,11 @@ Loads a configuration file. Returns a Promise that resolves with a [result] or r
 Use `load` if you already know where the configuration file is and you just need to load it.
 
 ```js
-explorer.load('load/this/file.json'); // Tries to load load/this/file.json.
+explorer.load('load/this/file.json') // Tries to load load/this/file.json.
 ```
 
 If you load a `package.json` file, the result will be derived from whatever property is specified as your [`packageProp`].
-`package.yaml` will work as well if you specify these file names in your [`searchPlaces`]. 
+`package.yaml` will work as well if you specify these file names in your [`searchPlaces`].
 
 You can do the same thing synchronously with [`explorerSync.load()`].
 
@@ -219,18 +224,21 @@ Performs both [`clearLoadCache()`] and [`clearSearchCache()`].
 ### cosmiconfigSync()
 
 ```js
-const { cosmiconfigSync } = require('cosmiconfig');
-const explorerSync = cosmiconfigSync(moduleName, /* optional */ cosmiconfigOptions)
+const { cosmiconfigSync } = require('cosmiconfig')
+const explorerSync = cosmiconfigSync(
+  moduleName,
+  /* optional */ cosmiconfigOptions,
+)
 ```
 
-Creates a *synchronous* cosmiconfig instance ("explorerSync") configured according to the arguments, and initializes its caches.
+Creates a _synchronous_ cosmiconfig instance ("explorerSync") configured according to the arguments, and initializes its caches.
 
 See [`cosmiconfig()`](#cosmiconfig-1).
 
 ### explorerSync.search()
 
 ```js
-const result = explorerSync.search([searchFrom]);
+const result = explorerSync.search([searchFrom])
 ```
 
 Synchronous version of [`explorer.search()`].
@@ -240,7 +248,7 @@ Returns a [result] or `null`.
 ### explorerSync.load()
 
 ```js
-const result = explorerSync.load(loadPath);
+const result = explorerSync.load(loadPath)
 ```
 
 Synchronous version of [`explorer.load()`].
@@ -280,7 +288,7 @@ The strategy that should be used to determine which directories to check for con
   where a different set of file names is checked:
 
 ```js
-[
+;[
   `config`,
   `config.json`,
   `config.yaml`,
@@ -288,7 +296,7 @@ The strategy that should be used to determine which directories to check for con
   `config.js`,
   `config.ts`,
   `config.cjs`,
-  `config.mjs`
+  `config.mjs`,
 ]
 ```
 
@@ -305,7 +313,7 @@ Each place is relative to the directory being searched, and the places are check
 For the [asynchronous API](#asynchronous-api), these are the default `searchPlaces`:
 
 ```js
-[
+;[
   'package.json',
   `.${moduleName}rc`,
   `.${moduleName}rc.json`,
@@ -327,7 +335,7 @@ For the [asynchronous API](#asynchronous-api), these are the default `searchPlac
   `${moduleName}.config.ts`,
   `${moduleName}.config.mjs`,
   `${moduleName}.config.cjs`,
-];
+]
 ```
 
 For the [synchronous API](#synchronous-api), the only difference is that `.mjs` files are not included. See ["Loading JS modules"] for more information.
@@ -347,21 +355,21 @@ Examples, with a module named `porgy`:
 
 ```js
 // Disallow extensions on rc files:
-['package.json', '.porgyrc', 'porgy.config.js']
+;['package.json', '.porgyrc', 'porgy.config.js']
 ```
 
 ```js
 // Limit the options dramatically:
-['package.json', '.porgyrc']
+;['package.json', '.porgyrc']
 ```
 
 ```js
 // Maybe you want to look for a wide variety of JS flavors:
-[
+;[
   'porgy.config.js',
   'porgy.config.mjs',
   'porgy.config.ts',
-  'porgy.config.coffee'
+  'porgy.config.coffee',
 ]
 // ^^ You will need to designate a custom loader to tell
 // Cosmiconfig how to handle `.coffee` files.
@@ -369,12 +377,12 @@ Examples, with a module named `porgy`:
 
 ```js
 // Look within a .config/ subdirectory of every searched directory:
-[
+;[
   'package.json',
   '.porgyrc',
   '.config/.porgyrc',
   '.porgyrc.json',
-  '.config/.porgyrc.json'
+  '.config/.porgyrc.json',
 ]
 ```
 
@@ -390,9 +398,9 @@ Cosmiconfig exposes its default loaders on the named export `defaultLoaders` and
 **Default `loaders`:**
 
 ```js
-const { defaultLoaders, defaultLoadersSync } = require('cosmiconfig');
+const { defaultLoaders, defaultLoadersSync } = require('cosmiconfig')
 
-console.log(Object.entries(defaultLoaders));
+console.log(Object.entries(defaultLoaders))
 // [
 //   [ '.mjs', [Function: loadJs] ],
 //   [ '.cjs', [Function: loadJs] ],
@@ -404,7 +412,7 @@ console.log(Object.entries(defaultLoaders));
 //   [ 'noExt', [Function: loadYaml] ]
 // ]
 
-console.log(Object.entries(defaultLoadersSync));
+console.log(Object.entries(defaultLoadersSync))
 // [
 //   [ '.cjs', [Function: loadJsSync] ],
 //   [ '.js', [Function: loadJsSync] ],
@@ -416,21 +424,21 @@ console.log(Object.entries(defaultLoadersSync));
 // ]
 ```
 
-(YAML is a superset of JSON; which means YAML parsers can parse JSON; which is how extensionless files can be either YAML *or* JSON with only one parser.)
+(YAML is a superset of JSON; which means YAML parsers can parse JSON; which is how extensionless files can be either YAML _or_ JSON with only one parser.)
 
-**If you provide a `loaders` object, your object will be *merged* with the defaults.**
+**If you provide a `loaders` object, your object will be _merged_ with the defaults.**
 So you can override one or two without having to override them all.
 
-**Keys in `loaders`** are extensions (starting with a period), or `noExt` to specify the loader for files *without* extensions, like `.myapprc`.
+**Keys in `loaders`** are extensions (starting with a period), or `noExt` to specify the loader for files _without_ extensions, like `.myapprc`.
 
 **Values in `loaders`** are a loader function (described below) whose values are loader functions.
 
-**The most common use case for custom loaders value is to load extensionless `rc` files as strict JSON**, instead of JSON *or* YAML (the default).
+**The most common use case for custom loaders value is to load extensionless `rc` files as strict JSON**, instead of JSON _or_ YAML (the default).
 To accomplish that, provide the following `loaders` value:
 
 ```js
 {
-  noExt: defaultLoaders['.json'];
+  noExt: defaultLoaders['.json']
 }
 ```
 
@@ -448,7 +456,10 @@ If you want to load files that are not handled by the loader functions Cosmiconf
 type SyncLoader = (filepath: string, content: string) => Object | null
 
 // Async
-type AsyncLoader = (filepath: string, content: string) => Object | null | Promise<Object | null>
+type AsyncLoader = (
+  filepath: string,
+  content: string,
+) => Object | null | Promise<Object | null>
 ```
 
 Cosmiconfig reads the file when it checks whether the file exists, so it will provide you with both the file's path and its content.
@@ -467,30 +478,30 @@ Examples:
 // Allow JSON5 syntax:
 cosmiconfig('foo', {
   loaders: {
-    '.json': json5Loader
-  }
-});
+    '.json': json5Loader,
+  },
+})
 
 // Allow a special configuration syntax of your own creation:
 cosmiconfig('foo', {
   loaders: {
-    '.special': specialLoader
-  }
-});
+    '.special': specialLoader,
+  },
+})
 
 // Allow many flavors of JS, using custom loaders:
 cosmiconfig('foo', {
   loaders: {
-    '.coffee': coffeeScriptLoader
-  }
-});
+    '.coffee': coffeeScriptLoader,
+  },
+})
 
 // Allow many flavors of JS but rely on require hooks:
 cosmiconfig('foo', {
   loaders: {
-    '.coffee': defaultLoaders['.js']
-  }
-});
+    '.coffee': defaultLoaders['.js'],
+  },
+})
 ```
 
 ### packageProp
@@ -507,7 +518,7 @@ For example, the value `'configs.myPackage'` or `['configs', 'myPackage']` will 
 ```json
 {
   "configs": {
-    "myPackage": {"option":  "value"}
+    "myPackage": { "option": "value" }
   }
 }
 ```
@@ -518,7 +529,7 @@ If nested property names within the path include periods, you need to use an arr
 {
   "configs": {
     "foo.bar": {
-      "baz": {"option":  "value"}
+      "baz": { "option": "value" }
     }
   }
 }
@@ -559,7 +570,7 @@ A function that transforms the parsed configuration. Receives the [result].
 If using [`search()`] or [`load()`] \(which are async), the transform function can return the transformed result or return a Promise that resolves with the transformed result.
 If using `cosmiconfigSync`, [`search()`] or [`load()`], the function must be synchronous and return the transformed result.
 
-The reason you might use this option — instead of simply applying your transform function some other way — is that *the transformed result will be cached*. If your transformation involves additional filesystem I/O or other potentially slow processing, you can use this option to avoid repeating those steps every time a given configuration is searched or loaded.
+The reason you might use this option — instead of simply applying your transform function some other way — is that _the transformed result will be cached_. If your transformation involves additional filesystem I/O or other potentially slow processing, you can use this option to avoid repeating those steps every time a given configuration is searched or loaded.
 
 ### ignoreEmptySearchPlaces
 
@@ -727,7 +738,7 @@ which will be processed in declaration order;
 that means that the last entry will win if there are conflicting properties.
 
 It is also possible to import file formats other than the importing format
-as long as they are supported by the loaders specified by the developer of the tool you're configuring. 
+as long as they are supported by the loaders specified by the developer of the tool you're configuring.
 
 ```yaml
 $import: [first.yml, second.json, third.config.js]
@@ -740,43 +751,23 @@ Please note that this project is released with a [Contributor Code of Conduct](C
 And please do participate!
 
 [result]: #result
-
 [`load()`]: #explorerload
-
 [`search()`]: #explorersearch
-
 [`clearloadcache()`]: #explorerclearloadcache
-
 [`clearsearchcache()`]: #explorerclearsearchcache
-
 [`cosmiconfig()`]: #cosmiconfig
-
 [`cosmiconfigSync()`]: #cosmiconfigsync
-
 [`clearcaches()`]: #explorerclearcaches
-
 [`packageprop`]: #packageprop
-
 [`cache`]: #cache
-
 [`stopdir`]: #stopdir
-
 [`searchplaces`]: #searchplaces
-
 [`loaders`]: #loaders
-
 [`cosmiconfigoptions`]: #cosmiconfigoptions
-
 [`explorerSync.search()`]: #explorersyncsearch
-
 [`explorerSync.load()`]: #explorersyncload
-
 [`explorer.search()`]: #explorersearch
-
 [`explorer.load()`]: #explorerload
-
 ["Loading JS modules"]: #loading-js-modules
-
 [`env-paths`]: https://github.com/sindresorhus/env-paths
-
 [search strategies]: #searchstrategy

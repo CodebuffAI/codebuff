@@ -1,2 +1,2 @@
-import { isNil } from "../fp";
-export = isNil;
+import { isNil } from '../fp'
+export = isNil

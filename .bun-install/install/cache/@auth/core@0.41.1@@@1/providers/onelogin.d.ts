@@ -8,7 +8,7 @@
  *
  * @module providers/onelogin
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * Add OneLogin login to your page.
  *
@@ -61,5 +61,7 @@ import type { OAuthConfig, OAuthUserConfig } from "./index.js";
  *
  * :::
  */
-export default function OneLogin(config: OAuthUserConfig<Record<string, any>>): OAuthConfig<Record<string, any>>;
+export default function OneLogin(
+  config: OAuthUserConfig<Record<string, any>>,
+): OAuthConfig<Record<string, any>>
 //# sourceMappingURL=onelogin.d.ts.map

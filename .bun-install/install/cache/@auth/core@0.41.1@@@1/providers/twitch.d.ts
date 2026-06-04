@@ -8,12 +8,12 @@
  *
  * @module providers/twitch
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface TwitchProfile extends Record<string, any> {
-    sub: string;
-    preferred_username: string;
-    email: string;
-    picture: string;
+  sub: string
+  preferred_username: string
+  email: string
+  picture: string
 }
 /**
  * Add Twitch login to your page.
@@ -67,5 +67,7 @@ export interface TwitchProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Twitch(config: OIDCUserConfig<TwitchProfile>): OIDCConfig<TwitchProfile>;
+export default function Twitch(
+  config: OIDCUserConfig<TwitchProfile>,
+): OIDCConfig<TwitchProfile>
 //# sourceMappingURL=twitch.d.ts.map

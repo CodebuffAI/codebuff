@@ -1,2 +1,2 @@
-import { toLower } from "./index";
-export = toLower;
+import { toLower } from './index'
+export = toLower

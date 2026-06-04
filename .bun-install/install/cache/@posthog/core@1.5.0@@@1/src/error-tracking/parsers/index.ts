@@ -39,7 +39,9 @@ export { nodeStackLineParser } from './node'
 const WEBPACK_ERROR_REGEXP = /\(error: (.*)\)/
 const STACKTRACE_FRAME_LIMIT = 50
 
-export function reverseAndStripFrames(stack: ReadonlyArray<StackFrame>): StackFrame[] {
+export function reverseAndStripFrames(
+  stack: ReadonlyArray<StackFrame>,
+): StackFrame[] {
   if (!stack.length) {
     return []
   }
@@ -78,7 +80,9 @@ export function createStackParser(...parsers: StackLineParser[]): StackParser {
 
       // https://github.com/getsentry/sentry-javascript/issues/5459
       // Remove webpack (error: *) wrappers
-      const cleanedLine = WEBPACK_ERROR_REGEXP.test(line) ? line.replace(WEBPACK_ERROR_REGEXP, '$1') : line
+      const cleanedLine = WEBPACK_ERROR_REGEXP.test(line)
+        ? line.replace(WEBPACK_ERROR_REGEXP, '$1')
+        : line
 
       // https://github.com/getsentry/sentry-javascript/issues/7813
       // Skip Error: lines

@@ -3,7 +3,7 @@
  * @param {string} string String
  * @returns {number} Byte length
  */
-export function length(string: string): number;
+export function length(string: string): number
 
 /**
  * Reads UTF8 bytes as a string.
@@ -12,7 +12,7 @@ export function length(string: string): number;
  * @param {number} end Source end
  * @returns {string} String read
  */
-export function read(buffer: Uint8Array, start: number, end: number): string;
+export function read(buffer: Uint8Array, start: number, end: number): string
 
 /**
  * Writes a string as UTF8 bytes.
@@ -21,4 +21,8 @@ export function read(buffer: Uint8Array, start: number, end: number): string;
  * @param {number} offset Destination offset
  * @returns {number} Bytes written
  */
-export function write(string: string, buffer: Uint8Array, offset: number): number;
+export function write(
+  string: string,
+  buffer: Uint8Array,
+  offset: number,
+): number

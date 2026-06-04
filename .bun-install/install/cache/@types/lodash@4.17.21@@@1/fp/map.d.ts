@@ -1,2 +1,2 @@
-import { map } from "../fp";
-export = map;
+import { map } from '../fp'
+export = map

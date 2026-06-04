@@ -1,10 +1,10 @@
-import { EmojiComponentsTree } from "./tree.js";
+import { EmojiComponentsTree } from './tree.js'
 /**
  * Base type to extend
  */
 interface BaseSequenceItem {
-  sequence: number[];
-  sequenceKey?: string;
+  sequence: number[]
+  sequenceKey?: string
 }
 /**
  * Find missing emojis
@@ -13,5 +13,8 @@ interface BaseSequenceItem {
  * be copied. To identify which emojis to copy, source object should include
  * something like `iconName` key that points to icon sequence represents.
  */
-declare function findMissingEmojis<T extends BaseSequenceItem>(sequences: T[], testDataTree: EmojiComponentsTree): T[];
-export { findMissingEmojis };
+declare function findMissingEmojis<T extends BaseSequenceItem>(
+  sequences: T[],
+  testDataTree: EmojiComponentsTree,
+): T[]
+export { findMissingEmojis }

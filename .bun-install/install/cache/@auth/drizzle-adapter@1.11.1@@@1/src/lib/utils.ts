@@ -1,13 +1,13 @@
 import type {
   MySqlQueryResultHKT,
   PreparedQueryHKTBase,
-} from "drizzle-orm/mysql-core"
-import { MySqlDatabase } from "drizzle-orm/mysql-core"
-import { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core"
-import { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core"
-import { DefaultMySqlSchema } from "./mysql.js"
-import { DefaultPostgresSchema } from "./pg.js"
-import { DefaultSQLiteSchema } from "./sqlite.js"
+} from 'drizzle-orm/mysql-core'
+import { MySqlDatabase } from 'drizzle-orm/mysql-core'
+import { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
+import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
+import { DefaultMySqlSchema } from './mysql.js'
+import { DefaultPostgresSchema } from './pg.js'
+import { DefaultSQLiteSchema } from './sqlite.js'
 
 type AnyPostgresDatabase = PgDatabase<PgQueryResultHKT, any>
 type AnyMySqlDatabase = MySqlDatabase<
@@ -15,7 +15,7 @@ type AnyMySqlDatabase = MySqlDatabase<
   PreparedQueryHKTBase,
   any
 >
-type AnySQLiteDatabase = BaseSQLiteDatabase<"sync" | "async", any, any>
+type AnySQLiteDatabase = BaseSQLiteDatabase<'sync' | 'async', any, any>
 
 export type SqlFlavorOptions =
   | AnyPostgresDatabase

@@ -40,8 +40,8 @@ export class WebSocketClassTransport
             data,
             origin: this.socket.url,
             cancelable: true,
-          })
-        )
+          }),
+        ),
       )
     }
   }
@@ -51,13 +51,13 @@ export class WebSocketClassTransport
     callback: StrictEventListenerOrEventListenerObject<
       WebSocketTransportEventMap[EventType]
     > | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void {
     return super.addEventListener(type, callback as EventListener, options)
   }
 
   public dispatchEvent<EventType extends keyof WebSocketTransportEventMap>(
-    event: WebSocketTransportEventMap[EventType]
+    event: WebSocketTransportEventMap[EventType],
   ): boolean {
     return super.dispatchEvent(event)
   }
@@ -86,8 +86,8 @@ export class WebSocketClassTransport
             new MessageEvent('message', {
               data,
               origin: this.socket.url,
-            })
-          )
+            }),
+          ),
         )
       }
 
@@ -97,7 +97,7 @@ export class WebSocketClassTransport
           () => {
             dispatchEvent()
           },
-          { once: true }
+          { once: true },
         )
       } else {
         dispatchEvent()

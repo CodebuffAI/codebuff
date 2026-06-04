@@ -1,2 +1,2 @@
-import { toNumber } from "../fp";
-export = toNumber;
+import { toNumber } from '../fp'
+export = toNumber

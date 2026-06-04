@@ -126,7 +126,7 @@ describe('apply', () => {
     const setupSpy = vi.spyOn(
       interceptor,
       // @ts-expect-error Protected property spy.
-      'setup'
+      'setup',
     )
 
     // Intentionally apply the same interceptor multiple times.
@@ -151,7 +151,7 @@ describe('apply', () => {
     const setupSpy = vi.spyOn(
       interceptor,
       // @ts-expect-error Protected property spy.
-      'setup'
+      'setup',
     )
     interceptor.apply()
 

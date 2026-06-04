@@ -1207,6 +1207,81 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       },
     },
   },
+  bedrock: {
+    id: 'bedrock',
+    label: 'AWS Bedrock',
+    description:
+      'AWS Bedrock OpenAI-compatible endpoint. Update baseURL to your region.',
+    envHelp: 'export AWS_BEARER_TOKEN_BEDROCK="your_bedrock_api_key"',
+    config: {
+      defaultModel: 'bedrock/apac.anthropic.claude-sonnet-4-6',
+      modes: {
+        default: 'bedrock/apac.anthropic.claude-sonnet-4-6',
+        lite: 'bedrock/apac.anthropic.claude-haiku-4-5-20251001-v1:0',
+        max: 'bedrock/apac.anthropic.claude-opus-4-8',
+        plan: 'bedrock/apac.anthropic.claude-sonnet-4-6',
+      },
+      editorMultiPrompt: {
+        proposalModels: [
+          'bedrock/apac.anthropic.claude-sonnet-4-6',
+          'bedrock/apac.anthropic.claude-opus-4-8',
+          'bedrock/apac.anthropic.claude-sonnet-4-5-20250929-v1:0',
+        ],
+        selectorModel: 'bedrock/apac.anthropic.claude-opus-4-8',
+      },
+      providers: {
+        bedrock: {
+          type: 'openai-compatible',
+          baseURL: 'https://bedrock-mantle.ap-northeast-1.api.aws/v1',
+          apiKeyEnv: 'AWS_BEARER_TOKEN_BEDROCK',
+          supportsStructuredOutputs: false,
+          models: [
+            'apac.anthropic.claude-opus-4-8',
+            'apac.anthropic.claude-sonnet-4-6',
+            'apac.anthropic.claude-sonnet-4-5-20250929-v1:0',
+            'apac.anthropic.claude-haiku-4-5-20251001-v1:0',
+            'apac.anthropic.claude-sonnet-4-20250514-v1:0',
+            'us.amazon.nova-premier-v1:0',
+            'us.amazon.nova-pro-v1:0',
+            'us.meta.llama3-3-70b-instruct-v1:0',
+          ],
+        },
+      },
+    },
+  },
+  freemodel: {
+    id: 'freemodel',
+    label: 'Free Model',
+    description:
+      'Free Model OpenAI-compatible endpoint with gpt-5.5 for flagship coding and gpt-5.4-mini for lite mode.',
+    envHelp: 'export FREEMODEL_API_KEY="your_freemodel_api_key"',
+    config: {
+      defaultModel: 'freemodel/gpt-5.5',
+      modes: {
+        default: 'freemodel/gpt-5.5',
+        lite: 'freemodel/gpt-5.4-mini',
+        max: 'freemodel/gpt-5.5',
+        plan: 'freemodel/gpt-5.5',
+      },
+      editorMultiPrompt: {
+        proposalModels: [
+          'freemodel/gpt-5.5',
+          'freemodel/gpt-5.4',
+          'freemodel/gpt-5.3-codex',
+        ],
+        selectorModel: 'freemodel/gpt-5.5',
+      },
+      providers: {
+        freemodel: {
+          type: 'openai-compatible',
+          baseURL: 'https://vip-sg.freemodel.dev/v1',
+          apiKeyEnv: 'FREEMODEL_API_KEY',
+          supportsStructuredOutputs: false,
+          models: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'],
+        },
+      },
+    },
+  },
 } satisfies Record<string, OpenbuffProviderPreset>
 
 export function createProviderPresetConfig(

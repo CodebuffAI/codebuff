@@ -32,7 +32,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
     invariant(
       !(pureFetch as any)[IS_PATCHED_MODULE],
-      'Failed to patch the "fetch" module: already patched.'
+      'Failed to patch the "fetch" module: already patched.',
     )
 
     globalThis.fetch = async (input, init) => {
@@ -76,7 +76,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
           // Perform the intercepted request as-is.
           const { error: responseError, data: originalResponse } = await until(
-            () => pureFetch(request)
+            () => pureFetch(request),
           )
 
           if (responseError) {
@@ -143,7 +143,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
                 },
                 (reason) => {
                   responsePromise.reject(reason)
-                }
+                },
               )
               return
             }
@@ -179,7 +179,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.logger.info(
         'emitting the "request" event for %s listener(s)...',
-        this.emitter.listenerCount('request')
+        this.emitter.listenerCount('request'),
       )
 
       await handleRequest({
@@ -207,7 +207,7 @@ export class FetchInterceptor extends Interceptor<HttpRequestEventMap> {
 
       this.logger.info(
         'restored native "globalThis.fetch"!',
-        globalThis.fetch.name
+        globalThis.fetch.name,
       )
     })
   }

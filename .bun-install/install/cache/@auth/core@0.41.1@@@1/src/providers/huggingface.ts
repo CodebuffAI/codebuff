@@ -9,7 +9,7 @@
  * @module providers/huggingface
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 export interface HuggingfaceProfile {
   /**
@@ -104,7 +104,7 @@ export interface HuggingfaceProfile {
      *
      * Access to the organization needs to be granted to the oauth app for this field to be present.
      */
-    roleInOrg?: "admin" | "write" | "read" | "contributor"
+    roleInOrg?: 'admin' | 'write' | 'read' | 'contributor'
     /**
      * User needs to re-authenticate to access the organization.
      *
@@ -133,7 +133,7 @@ export interface HuggingfaceProfile {
       /**
        * The role of the user in the resource group.
        */
-      role: "read" | "write" | "admin" | "contributor"
+      role: 'read' | 'write' | 'admin' | 'contributor'
     }>
   }>
 }
@@ -216,18 +216,18 @@ export interface HuggingfaceProfile {
  * :::
  */
 export default function Huggingface(
-  options: OIDCUserConfig<HuggingfaceProfile>
+  options: OIDCUserConfig<HuggingfaceProfile>,
 ): OIDCConfig<HuggingfaceProfile> {
   return {
-    id: "huggingface",
-    name: "Hugging Face",
-    type: "oidc",
-    issuer: "https://huggingface.co",
-    checks: ["state", "pkce"],
+    id: 'huggingface',
+    name: 'Hugging Face',
+    type: 'oidc',
+    issuer: 'https://huggingface.co',
+    checks: ['state', 'pkce'],
 
     style: {
-      bg: "#FFD21E",
-      text: "#000",
+      bg: '#FFD21E',
+      text: '#000',
     },
     options,
   }

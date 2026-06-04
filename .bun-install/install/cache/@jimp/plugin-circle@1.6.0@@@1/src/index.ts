@@ -1,5 +1,5 @@
-import { JimpClass } from "@jimp/types";
-import { z } from "zod";
+import { JimpClass } from '@jimp/types'
+import { z } from 'zod'
 
 const CircleOptionsSchema = z.object({
   /** the x position to draw the circle */
@@ -8,9 +8,9 @@ const CircleOptionsSchema = z.object({
   y: z.number().optional(),
   /** the radius of the circle */
   radius: z.number().min(0).optional(),
-});
+})
 
-export type CircleOptions = z.infer<typeof CircleOptionsSchema>;
+export type CircleOptions = z.infer<typeof CircleOptionsSchema>
 
 export const methods = {
   /**
@@ -27,30 +27,30 @@ export const methods = {
    * ```
    */
   circle<I extends JimpClass>(image: I, options: CircleOptions = {}) {
-    const parsed = CircleOptionsSchema.parse(options);
+    const parsed = CircleOptionsSchema.parse(options)
     const radius =
       parsed.radius ||
       (image.bitmap.width > image.bitmap.height
         ? image.bitmap.height
-        : image.bitmap.width) / 2;
+        : image.bitmap.width) / 2
 
     const center = {
-      x: typeof parsed.x === "number" ? parsed.x : image.bitmap.width / 2,
-      y: typeof parsed.y === "number" ? parsed.y : image.bitmap.height / 2,
-    };
+      x: typeof parsed.x === 'number' ? parsed.x : image.bitmap.width / 2,
+      y: typeof parsed.y === 'number' ? parsed.y : image.bitmap.height / 2,
+    }
 
     image.scan((x, y, idx) => {
       const curR = Math.sqrt(
         Math.pow(x - center.x, 2) + Math.pow(y - center.y, 2),
-      );
+      )
 
       if (radius - curR <= 0.0) {
-        image.bitmap.data[idx + 3] = 0;
+        image.bitmap.data[idx + 3] = 0
       } else if (radius - curR < 1.0) {
-        image.bitmap.data[idx + 3] = 255 * (radius - curR);
+        image.bitmap.data[idx + 3] = 255 * (radius - curR)
       }
-    });
+    })
 
-    return image;
+    return image
   },
-};
+}

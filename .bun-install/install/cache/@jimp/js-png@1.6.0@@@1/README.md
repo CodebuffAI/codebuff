@@ -26,10 +26,10 @@ Sets the color type used when saving as PNG format (one of 0, 2, 4, 6)
 ### Filter Types
 
 ```js
-Jimp.PNG_FILTER_AUTO;
-Jimp.PNG_FILTER_NONE;
-Jimp.PNG_FILTER_SUB;
-Jimp.PNG_FILTER_UP;
-Jimp.PNG_FILTER_AVERAGE;
-Jimp.PNG_FILTER_PATH;
+Jimp.PNG_FILTER_AUTO
+Jimp.PNG_FILTER_NONE
+Jimp.PNG_FILTER_SUB
+Jimp.PNG_FILTER_UP
+Jimp.PNG_FILTER_AVERAGE
+Jimp.PNG_FILTER_PATH
 ```

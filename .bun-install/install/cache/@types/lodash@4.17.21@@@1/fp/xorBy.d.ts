@@ -1,2 +1,2 @@
-import { xorBy } from "../fp";
-export = xorBy;
+import { xorBy } from '../fp'
+export = xorBy

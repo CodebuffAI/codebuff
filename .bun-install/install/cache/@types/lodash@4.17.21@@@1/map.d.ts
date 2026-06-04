@@ -1,2 +1,2 @@
-import { map } from "./index";
-export = map;
+import { map } from './index'
+export = map

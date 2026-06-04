@@ -17,7 +17,7 @@ export function getClientRequestBodyStream(request: Request): Readable {
 
   invariant(
     rawRequest instanceof ClientRequest,
-    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getClientRequestBodyStream" function with the requests issued by "http.clientRequest".`
+    `Failed to retrieve raw request body stream: request is not an instance of "http.ClientRequest". Note that you can only use the "getClientRequestBodyStream" function with the requests issued by "http.clientRequest".`,
   )
 
   const requestBodyStream = Reflect.get(request, kRawRequestBodyStream)
@@ -25,7 +25,7 @@ export function getClientRequestBodyStream(request: Request): Readable {
   invariant(
     requestBodyStream instanceof Readable,
     'Failed to retrieve raw request body stream: corrupted stream (%s)',
-    typeof requestBodyStream
+    typeof requestBodyStream,
   )
 
   return requestBodyStream
@@ -33,7 +33,7 @@ export function getClientRequestBodyStream(request: Request): Readable {
 
 export function setRawRequestBodyStream(
   request: Request,
-  stream: Readable
+  stream: Readable,
 ): void {
   Reflect.set(request, kRawRequestBodyStream, stream)
 }

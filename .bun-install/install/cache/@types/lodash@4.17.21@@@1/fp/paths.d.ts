@@ -1,2 +1,2 @@
-import { paths } from "../fp";
-export = paths;
+import { paths } from '../fp'
+export = paths

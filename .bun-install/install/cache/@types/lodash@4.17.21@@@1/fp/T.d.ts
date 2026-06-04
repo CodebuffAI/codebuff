@@ -1,2 +1,2 @@
-import { T } from "../fp";
-export = T;
+import { T } from '../fp'
+export = T

@@ -76,47 +76,60 @@ import {
   RESTPostAPIWebhookWithTokenJSONBody,
   Snowflake,
   APIGuildScheduledEvent,
-} from 'discord-api-types/v10';
-import { GuildChannel, Guild, PermissionOverwrites } from './index.js';
+} from 'discord-api-types/v10'
+import { GuildChannel, Guild, PermissionOverwrites } from './index.js'
 
-export type RawActivityData = GatewayActivity;
+export type RawActivityData = GatewayActivity
 
-export type RawApplicationData = RawClientApplicationData | RawIntegrationApplicationData;
-export type RawClientApplicationData = GatewayReadyDispatchData['application'] | APIMessage['application'];
-export type RawIntegrationApplicationData = APIGuildIntegrationApplication | Partial<APIApplication>;
+export type RawApplicationData =
+  | RawClientApplicationData
+  | RawIntegrationApplicationData
+export type RawClientApplicationData =
+  | GatewayReadyDispatchData['application']
+  | APIMessage['application']
+export type RawIntegrationApplicationData =
+  | APIGuildIntegrationApplication
+  | Partial<APIApplication>
 
-export type RawApplicationCommandData = APIApplicationCommand;
+export type RawApplicationCommandData = APIApplicationCommand
 
 export type RawChannelData =
   | RawGuildChannelData
   | RawThreadChannelData
   | RawDMChannelData
-  | RawPartialGroupDMChannelData;
-export type RawDMChannelData = APIChannel | APIInteractionDataResolvedChannel;
-export type RawGuildChannelData = APIChannel | APIInteractionDataResolvedChannel | Required<APIPartialChannel>;
-export type RawPartialGroupDMChannelData = APIChannel | Required<APIPartialChannel>;
-export type RawThreadChannelData = APIChannel | APIInteractionDataResolvedChannel;
+  | RawPartialGroupDMChannelData
+export type RawDMChannelData = APIChannel | APIInteractionDataResolvedChannel
+export type RawGuildChannelData =
+  | APIChannel
+  | APIInteractionDataResolvedChannel
+  | Required<APIPartialChannel>
+export type RawPartialGroupDMChannelData =
+  | APIChannel
+  | Required<APIPartialChannel>
+export type RawThreadChannelData =
+  | APIChannel
+  | APIInteractionDataResolvedChannel
 
 export type RawEmojiData =
   | RawGuildEmojiData
   | RawReactionEmojiData
   | GatewayActivityEmoji
-  | Omit<Partial<APIPartialEmoji>, 'animated'>;
-export type RawApplicationEmojiData = APIEmoji;
-export type RawGuildEmojiData = APIEmoji;
-export type RawReactionEmojiData = APIEmoji | APIPartialEmoji;
+  | Omit<Partial<APIPartialEmoji>, 'animated'>
+export type RawApplicationEmojiData = APIEmoji
+export type RawGuildEmojiData = APIEmoji
+export type RawReactionEmojiData = APIEmoji | APIPartialEmoji
 
-export type RawGuildAuditLogData = APIAuditLog;
+export type RawGuildAuditLogData = APIAuditLog
 
-export type RawGuildAuditLogEntryData = APIAuditLogEntry;
+export type RawGuildAuditLogEntryData = APIAuditLogEntry
 
-export type RawGuildBanData = GatewayGuildBanAddDispatchData | APIBan;
+export type RawGuildBanData = GatewayGuildBanAddDispatchData | APIBan
 
-export type RawGuildData = APIGuild | APIUnavailableGuild;
-export type RawAnonymousGuildData = RawGuildData | RawInviteGuildData;
-export type RawBaseGuildData = RawAnonymousGuildData | RawOAuth2GuildData;
-export type RawInviteGuildData = APIPartialGuild;
-export type RawOAuth2GuildData = RESTAPIPartialCurrentUserGuild;
+export type RawGuildData = APIGuild | APIUnavailableGuild
+export type RawAnonymousGuildData = RawGuildData | RawInviteGuildData
+export type RawBaseGuildData = RawAnonymousGuildData | RawOAuth2GuildData
+export type RawInviteGuildData = APIPartialGuild
+export type RawOAuth2GuildData = RESTAPIPartialCurrentUserGuild
 
 export type RawGuildMemberData =
   | APIGuildMember
@@ -125,35 +138,36 @@ export type RawGuildMemberData =
   | GatewayGuildMemberAddDispatchData
   | GatewayGuildMemberUpdateDispatchData
   | Required<RESTPatchAPICurrentGuildMemberNicknameJSONBody>
-  | { user: { id: Snowflake } };
-export type RawThreadMemberData = APIThreadMember;
+  | { user: { id: Snowflake } }
+export type RawThreadMemberData = APIThreadMember
 
-export type RawGuildPreviewData = APIGuildPreview;
+export type RawGuildPreviewData = APIGuildPreview
 
-export type RawGuildScheduledEventData = APIGuildScheduledEvent;
+export type RawGuildScheduledEventData = APIGuildScheduledEvent
 
-export type RawGuildTemplateData = APITemplate;
+export type RawGuildTemplateData = APITemplate
 
-export type RawIntegrationData = APIGuildIntegration;
+export type RawIntegrationData = APIGuildIntegration
 
-export type RawInteractionData = GatewayInteractionCreateDispatchData;
-export type RawCommandInteractionData = APIApplicationCommandInteraction;
-export type RawMessageComponentInteractionData = APIMessageComponentInteraction;
-export type RawMessageButtonInteractionData = APIMessageButtonInteractionData;
-export type RawMessageSelectMenuInteractionData = APIMessageSelectMenuInteractionData;
+export type RawInteractionData = GatewayInteractionCreateDispatchData
+export type RawCommandInteractionData = APIApplicationCommandInteraction
+export type RawMessageComponentInteractionData = APIMessageComponentInteraction
+export type RawMessageButtonInteractionData = APIMessageButtonInteractionData
+export type RawMessageSelectMenuInteractionData =
+  APIMessageSelectMenuInteractionData
 
 export type RawInviteData =
   | APIExtendedInvite
   | APIInvite
   | (GatewayInviteCreateDispatchData & { channel: GuildChannel; guild: Guild })
-  | (GatewayInviteDeleteDispatchData & { channel: GuildChannel; guild: Guild });
+  | (GatewayInviteDeleteDispatchData & { channel: GuildChannel; guild: Guild })
 
-export type RawInviteStageInstance = APIInviteStageInstance;
+export type RawInviteStageInstance = APIInviteStageInstance
 
-export type RawMessageData = APIMessage;
-export type RawPartialMessageData = GatewayMessageUpdateDispatchData;
+export type RawMessageData = APIMessage
+export type RawPartialMessageData = GatewayMessageUpdateDispatchData
 
-export type RawAttachmentData = APIAttachment;
+export type RawAttachmentData = APIAttachment
 
 export type RawMessagePayloadData =
   | RESTPostAPIChannelMessageJSONBody
@@ -163,49 +177,52 @@ export type RawMessagePayloadData =
   | RESTPostAPIInteractionCallbackFormDataBody
   | RESTPatchAPIInteractionOriginalResponseJSONBody
   | RESTPostAPIInteractionFollowupJSONBody
-  | RESTPatchAPIInteractionFollowupJSONBody;
+  | RESTPatchAPIInteractionFollowupJSONBody
 
-export type RawMessageReactionData = APIReaction | GatewayMessageReactionAddDispatchData;
+export type RawMessageReactionData =
+  | APIReaction
+  | GatewayMessageReactionAddDispatchData
 
-export type RawPermissionOverwriteData = APIOverwrite | PermissionOverwrites;
+export type RawPermissionOverwriteData = APIOverwrite | PermissionOverwrites
 
-export type RawPresenceData = GatewayPresenceUpdate;
+export type RawPresenceData = GatewayPresenceUpdate
 
-export type RawRoleData = APIRole;
+export type RawRoleData = APIRole
 
-export type RawRichPresenceAssets = GatewayActivityAssets;
+export type RawRichPresenceAssets = GatewayActivityAssets
 
 export type RawStageInstanceData =
   | APIStageInstance
-  | (Partial<APIStageInstance> & Pick<APIStageInstance, 'id' | 'channel_id' | 'guild_id'>);
+  | (Partial<APIStageInstance> &
+      Pick<APIStageInstance, 'id' | 'channel_id' | 'guild_id'>)
 
-export type RawStickerData = APISticker | APIStickerItem;
+export type RawStickerData = APISticker | APIStickerItem
 
-export type RawStickerPackData = APIStickerPack;
+export type RawStickerPackData = APIStickerPack
 
-export type RawTeamData = APITeam;
+export type RawTeamData = APITeam
 
-export type RawTeamMemberData = APITeamMember;
+export type RawTeamMemberData = APITeamMember
 
-export type RawTypingData = GatewayTypingStartDispatchData;
+export type RawTypingData = GatewayTypingStartDispatchData
 
 export type RawUserData =
   | (APIUser & { member?: Omit<APIGuildMember, 'user'> })
-  | (GatewayPresenceUpdate['user'] & Pick<APIUser, 'username'>);
+  | (GatewayPresenceUpdate['user'] & Pick<APIUser, 'username'>)
 
-export type RawVoiceRegionData = APIVoiceRegion;
+export type RawVoiceRegionData = APIVoiceRegion
 
-export type RawVoiceStateData = APIVoiceState | Omit<APIVoiceState, 'guild_id'>;
+export type RawVoiceStateData = APIVoiceState | Omit<APIVoiceState, 'guild_id'>
 
 export type RawWebhookData =
   | APIWebhook
   | RESTGetAPIWebhookWithTokenResult
-  | (Partial<APIWebhook> & Required<Pick<APIWebhook, 'id' | 'guild_id'>>);
+  | (Partial<APIWebhook> & Required<Pick<APIWebhook, 'id' | 'guild_id'>>)
 
-export type RawWelcomeChannelData = APIGuildWelcomeScreenChannel;
+export type RawWelcomeChannelData = APIGuildWelcomeScreenChannel
 
-export type RawWelcomeScreenData = APIGuildWelcomeScreen;
+export type RawWelcomeScreenData = APIGuildWelcomeScreen
 
-export type RawWidgetData = APIGuildWidget;
+export type RawWidgetData = APIGuildWidget
 
-export type RawWidgetMemberData = APIGuildWidgetMember;
+export type RawWidgetMemberData = APIGuildWidgetMember

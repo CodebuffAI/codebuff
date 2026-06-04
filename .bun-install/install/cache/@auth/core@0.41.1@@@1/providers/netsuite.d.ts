@@ -8,47 +8,47 @@
  *
  * @module providers/netsuite
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface OAuthNetSuiteOptions {
-    /**
-     *  The prompt options - also viewable below
-     *
-     *  @link https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_160855585734.html
-     *
-     * 	authorization.params.prompt
-     *
-     * The optional prompt parameter provides additional control of when the login/consent screen appears. Following are the values you can use with the prompt parameter:
-     * "none" - the consent screen does not appear. If there is no active session, the application returns an error.
-     * "login" - the user must authenticate even if there is an active session.
-     * This option only works if the application sends the request to the account-specific domain.
-     * "consent" - the consent screen appears every time. The user must authenticate if there is no active session.
-     * login consent or consent login - the consent screen appears every time, and the user must authenticate even if there is an active session and allow the connection to the NetSuite. Similar to GitHub, Google, and Facebook data consent screens.
-     */
-    prompt: string | "none" | "login" | "consent";
-    /**
-     * EX: TSTDRV1234567 or 81555 for prod
-     */
-    accountID: string;
-    /**
-     * restlets rest_webservices or restlets or rest_webservices suiteanalytics_connect restlets
-     */
-    scope: string;
-    /**
-     * Either a restlet or suitelet returning runtime info or record info -> RESTlet recommended
-     */
-    userinfo: string;
+  /**
+   *  The prompt options - also viewable below
+   *
+   *  @link https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_160855585734.html
+   *
+   * 	authorization.params.prompt
+   *
+   * The optional prompt parameter provides additional control of when the login/consent screen appears. Following are the values you can use with the prompt parameter:
+   * "none" - the consent screen does not appear. If there is no active session, the application returns an error.
+   * "login" - the user must authenticate even if there is an active session.
+   * This option only works if the application sends the request to the account-specific domain.
+   * "consent" - the consent screen appears every time. The user must authenticate if there is no active session.
+   * login consent or consent login - the consent screen appears every time, and the user must authenticate even if there is an active session and allow the connection to the NetSuite. Similar to GitHub, Google, and Facebook data consent screens.
+   */
+  prompt: string | 'none' | 'login' | 'consent'
+  /**
+   * EX: TSTDRV1234567 or 81555 for prod
+   */
+  accountID: string
+  /**
+   * restlets rest_webservices or restlets or rest_webservices suiteanalytics_connect restlets
+   */
+  scope: string
+  /**
+   * Either a restlet or suitelet returning runtime info or record info -> RESTlet recommended
+   */
+  userinfo: string
 }
 export interface NetSuiteProfile {
-    id: number;
-    name: string;
-    email: string;
-    location: number;
-    role: number;
-    roleId?: string;
-    roleCenter?: string;
-    contact?: number;
-    subsidiary?: number;
-    department?: number;
+  id: number
+  name: string
+  email: string
+  location: number
+  role: number
+  roleId?: string
+  roleCenter?: string
+  contact?: number
+  subsidiary?: number
+  department?: number
 }
 /**
  * Add Netsuite login to your page and make requests to:
@@ -185,5 +185,7 @@ export interface NetSuiteProfile {
  * :::
  *
  */
-export default function NetSuite<P extends NetSuiteProfile>(config: OAuthUserConfig<P> & OAuthNetSuiteOptions): OAuthConfig<P>;
+export default function NetSuite<P extends NetSuiteProfile>(
+  config: OAuthUserConfig<P> & OAuthNetSuiteOptions,
+): OAuthConfig<P>
 //# sourceMappingURL=netsuite.d.ts.map

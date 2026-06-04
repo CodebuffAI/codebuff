@@ -12,7 +12,7 @@
 import WebAuthn, {
   WebAuthnConfig,
   DEFAULT_WEBAUTHN_TIMEOUT,
-} from "./webauthn.js"
+} from './webauthn.js'
 
 /**
  * Add Passkey login to your page.
@@ -67,20 +67,20 @@ import WebAuthn, {
  * :::
  */
 export default function Passkey(
-  config: Partial<WebAuthnConfig>
+  config: Partial<WebAuthnConfig>,
 ): WebAuthnConfig {
   return WebAuthn({
-    id: "passkey",
-    name: "Passkey",
+    id: 'passkey',
+    name: 'Passkey',
     authenticationOptions: {
       timeout: DEFAULT_WEBAUTHN_TIMEOUT,
-      userVerification: "required",
+      userVerification: 'required',
     },
     registrationOptions: {
       timeout: DEFAULT_WEBAUTHN_TIMEOUT,
       authenticatorSelection: {
-        residentKey: "required",
-        userVerification: "required",
+        residentKey: 'required',
+        userVerification: 'required',
       },
     },
     verifyAuthenticationOptions: {

@@ -272,7 +272,10 @@ export type FeatureFlagResultOptions = {
   sendEvent?: boolean
 }
 
-export type PostHogFlagsResponse = Omit<PostHogRemoteConfig, 'hasFeatureFlags'> & {
+export type PostHogFlagsResponse = Omit<
+  PostHogRemoteConfig,
+  'hasFeatureFlags'
+> & {
   featureFlags: {
     [key: string]: FeatureFlagValue
   }
@@ -343,7 +346,10 @@ export type PostHogV1FlagsResponse = Omit<PostHogFlagsResponse, 'flags'>
 /**
  * Models the response from the v2 `/flags` endpoint.
  */
-export type PostHogV2FlagsResponse = Omit<PostHogFlagsResponse, 'featureFlags' | 'featureFlagPayloads'>
+export type PostHogV2FlagsResponse = Omit<
+  PostHogFlagsResponse,
+  'featureFlags' | 'featureFlagPayloads'
+>
 
 /**
  * The format of the flags object in persisted storage
@@ -351,7 +357,10 @@ export type PostHogV2FlagsResponse = Omit<PostHogFlagsResponse, 'featureFlags' |
  * When we pull flags from persistence, we can normalize them to PostHogFeatureFlagDetails
  * so that we can support v1 and v2 of the API.
  */
-export type PostHogFlagsStorageFormat = Pick<PostHogFeatureFlagDetails, 'flags'> &
+export type PostHogFlagsStorageFormat = Pick<
+  PostHogFeatureFlagDetails,
+  'flags'
+> &
   Partial<Pick<PostHogFlagsResponse, 'requestId' | 'evaluatedAt'>> & {
     errorsWhileComputingFlags?: boolean
     quotaLimited?: string[]
@@ -365,9 +374,19 @@ export type PostHogFlagsAndPayloadsResponse = Partial<
   Pick<PostHogFlagsResponse, 'featureFlags' | 'featureFlagPayloads'>
 >
 
-export type JsonType = string | number | boolean | null | { [key: string]: JsonType } | Array<JsonType> | JsonType[]
+export type JsonType =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonType }
+  | Array<JsonType>
+  | JsonType[]
 
-export type FetchLike = (url: string, options: PostHogFetchOptions) => Promise<PostHogFetchResponse>
+export type FetchLike = (
+  url: string,
+  options: PostHogFetchOptions,
+) => Promise<PostHogFetchResponse>
 
 /**
  * Error type constants for the $feature_flag_error property.
@@ -395,7 +414,10 @@ export const FeatureFlagError = {
 } as const
 
 export type FeatureFlagErrorType =
-  | (typeof FeatureFlagError)[Exclude<keyof typeof FeatureFlagError, 'apiError'>]
+  | (typeof FeatureFlagError)[Exclude<
+      keyof typeof FeatureFlagError,
+      'apiError'
+    >]
   | ReturnType<typeof FeatureFlagError.apiError>
   | string
 
@@ -496,7 +518,11 @@ export enum SurveyType {
   ExternalSurvey = 'external_survey',
 }
 
-export type SurveyQuestion = BasicSurveyQuestion | LinkSurveyQuestion | RatingSurveyQuestion | MultipleSurveyQuestion
+export type SurveyQuestion =
+  | BasicSurveyQuestion
+  | LinkSurveyQuestion
+  | RatingSurveyQuestion
+  | MultipleSurveyQuestion
 
 export enum SurveyQuestionDescriptionContentType {
   Html = 'html',
@@ -523,7 +549,11 @@ type SurveyQuestionBase = {
   optional?: boolean
   buttonText?: string
   originalQuestionIndex: number
-  branching?: NextQuestionBranching | EndBranching | ResponseBasedBranching | SpecificQuestionBranching
+  branching?:
+    | NextQuestionBranching
+    | EndBranching
+    | ResponseBasedBranching
+    | SpecificQuestionBranching
   validation?: SurveyValidationRule[]
 }
 

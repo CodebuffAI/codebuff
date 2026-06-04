@@ -8,36 +8,36 @@
  *
  * @module providers/threads
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 /**
  * [User](https://developers.facebook.com/docs/threads/reference/user)
  */
 export interface ThreadsProfile {
-    data: {
-        /**
-         * Unique identifier of this user. This is returned as a string in order to avoid complications with languages and tools
-         * that cannot handle large integers.
-         */
-        id: string;
-        /**
-         * The Threads handle (username) of this user.
-         *
-         * To return this field, add `fields=username` in the authorization request's query parameter.
-         */
-        username?: string;
-        /**
-         * The URL to the profile image for this user, as shown on the user's profile.
-         *
-         * To return this field, add `fields=threads_profile_picture_url` in the authorization request's query parameter.
-         */
-        threads_profile_picture_url?: string;
-        /**
-         * The text of this user's profile biography (also known as bio), if the user provided one.
-         *
-         * To return this field, add `fields=threads_biography` in the authorization request's query parameter.
-         */
-        threads_biography?: string;
-    };
+  data: {
+    /**
+     * Unique identifier of this user. This is returned as a string in order to avoid complications with languages and tools
+     * that cannot handle large integers.
+     */
+    id: string
+    /**
+     * The Threads handle (username) of this user.
+     *
+     * To return this field, add `fields=username` in the authorization request's query parameter.
+     */
+    username?: string
+    /**
+     * The URL to the profile image for this user, as shown on the user's profile.
+     *
+     * To return this field, add `fields=threads_profile_picture_url` in the authorization request's query parameter.
+     */
+    threads_profile_picture_url?: string
+    /**
+     * The text of this user's profile biography (also known as bio), if the user provided one.
+     *
+     * To return this field, add `fields=threads_biography` in the authorization request's query parameter.
+     */
+    threads_biography?: string
+  }
 }
 /**
  * Add Threads login to your page.
@@ -104,5 +104,7 @@ export interface ThreadsProfile {
  *
  * :::
  */
-export default function Threads(config: OAuthUserConfig<ThreadsProfile>): OAuthConfig<ThreadsProfile>;
+export default function Threads(
+  config: OAuthUserConfig<ThreadsProfile>,
+): OAuthConfig<ThreadsProfile>
 //# sourceMappingURL=threads.d.ts.map

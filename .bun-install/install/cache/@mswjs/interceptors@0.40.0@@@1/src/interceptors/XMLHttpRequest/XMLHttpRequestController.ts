@@ -33,7 +33,7 @@ export class XMLHttpRequestController {
     args: {
       request: Request
       requestId: string
-    }
+    },
   ) => Promise<void>
   public onResponse?: (
     this: XMLHttpRequestController,
@@ -42,7 +42,7 @@ export class XMLHttpRequestController {
       isMockedResponse: boolean
       request: Request
       requestId: string
-    }
+    },
   ) => void;
 
   [kIsRequestHandled]: boolean;
@@ -59,7 +59,7 @@ export class XMLHttpRequestController {
 
   constructor(
     readonly initialRequest: XMLHttpRequest,
-    public logger: Logger
+    public logger: Logger,
   ) {
     this[kIsRequestHandled] = false
 
@@ -74,7 +74,7 @@ export class XMLHttpRequestController {
         switch (propertyName) {
           case 'ontimeout': {
             const eventName = propertyName.slice(
-              2
+              2,
             ) as keyof XMLHttpRequestEventTargetEventMap
 
             /**
@@ -149,7 +149,7 @@ export class XMLHttpRequestController {
                    * the ambiguous response body, as the request's "responseType" may differ.
                    * @see https://xhr.spec.whatwg.org/#the-response-attribute
                    */
-                  this.request.response
+                  this.request.response,
                 )
 
                 // Notify the consumer about the response.
@@ -185,7 +185,7 @@ export class XMLHttpRequestController {
                 if (!this[kIsRequestHandled]) {
                   this.logger.info(
                     'request callback settled but request has not been handled (readystate %d), performing as-is...',
-                    this.request.readyState
+                    this.request.readyState,
                   )
 
                   /**
@@ -200,7 +200,7 @@ export class XMLHttpRequestController {
                   if (IS_NODE) {
                     this.request.setRequestHeader(
                       INTERNAL_REQUEST_ID_HEADER_NAME,
-                      this.requestId!
+                      this.requestId!,
                     )
                   }
 
@@ -236,7 +236,7 @@ export class XMLHttpRequestController {
             case 'ontimeout':
             case 'onloadend': {
               const eventName = propertyName.slice(
-                2
+                2,
               ) as keyof XMLHttpRequestEventTargetEventMap
 
               this.registerUploadEvent(eventName, nextValue as Function)
@@ -259,13 +259,13 @@ export class XMLHttpRequestController {
             }
           }
         },
-      })
+      }),
     )
   }
 
   private registerEvent(
     eventName: keyof XMLHttpRequestEventTargetEventMap,
-    listener: Function
+    listener: Function,
   ): void {
     const prevEvents = this.events.get(eventName) || []
     const nextEvents = prevEvents.concat(listener)
@@ -276,7 +276,7 @@ export class XMLHttpRequestController {
 
   private registerUploadEvent(
     eventName: keyof XMLHttpRequestEventTargetEventMap,
-    listener: Function
+    listener: Function,
   ): void {
     const prevEvents = this.uploadEvents.get(eventName) || []
     const nextEvents = prevEvents.concat(listener)
@@ -306,7 +306,7 @@ export class XMLHttpRequestController {
      */
     if (this[kFetchRequest]) {
       const totalRequestBodyLength = await getBodyByteLength(
-        this[kFetchRequest]
+        this[kFetchRequest],
       )
 
       this.trigger('loadstart', this.request.upload, {
@@ -331,7 +331,7 @@ export class XMLHttpRequestController {
     this.logger.info(
       'responding with a mocked response: %d %s',
       response.status,
-      response.statusText
+      response.statusText,
     )
 
     define(this.request, 'status', response.status)
@@ -353,7 +353,7 @@ export class XMLHttpRequestController {
         this.logger.info(
           'resolved response header "%s" to',
           args[0],
-          headerValue
+          headerValue,
         )
 
         return headerValue
@@ -384,7 +384,7 @@ export class XMLHttpRequestController {
 
           return allHeaders
         },
-      }
+      },
     )
 
     // Update the response getters to resolve against the mocked response.
@@ -474,7 +474,7 @@ export class XMLHttpRequestController {
   get response(): unknown {
     this.logger.info(
       'getResponse (responseType: %s)',
-      this.request.responseType
+      this.request.responseType,
     )
 
     if (this.request.readyState !== this.request.DONE) {
@@ -506,7 +506,7 @@ export class XMLHttpRequestController {
         this.logger.info(
           'resolved response Blob (mime type: %s)',
           responseBlob,
-          mimeType
+          mimeType,
         )
 
         return responseBlob
@@ -517,7 +517,7 @@ export class XMLHttpRequestController {
         this.logger.info(
           'resolving "%s" response type as text',
           this.request.responseType,
-          responseText
+          responseText,
         )
 
         return responseText
@@ -533,7 +533,7 @@ export class XMLHttpRequestController {
      */
     invariant(
       this.request.responseType === '' || this.request.responseType === 'text',
-      'InvalidStateError: The object is in invalid state.'
+      'InvalidStateError: The object is in invalid state.',
     )
 
     if (
@@ -553,7 +553,7 @@ export class XMLHttpRequestController {
     invariant(
       this.request.responseType === '' ||
         this.request.responseType === 'document',
-      'InvalidStateError: The object is in invalid state.'
+      'InvalidStateError: The object is in invalid state.',
     )
 
     if (this.request.readyState !== this.request.DONE) {
@@ -564,7 +564,7 @@ export class XMLHttpRequestController {
 
     if (typeof DOMParser === 'undefined') {
       console.warn(
-        'Cannot retrieve XMLHttpRequest response body as XML: DOMParser is not defined. You are likely using an environment that is not browser or does not polyfill browser globals correctly.'
+        'Cannot retrieve XMLHttpRequest response body as XML: DOMParser is not defined. You are likely using an environment that is not browser or does not polyfill browser globals correctly.',
       )
       return null
     }
@@ -572,7 +572,7 @@ export class XMLHttpRequestController {
     if (isDomParserSupportedType(contentType)) {
       return new DOMParser().parseFromString(
         this.responseBufferToText(),
-        contentType
+        contentType,
       )
     }
 
@@ -599,7 +599,7 @@ export class XMLHttpRequestController {
     this.logger.info(
       'setReadyState: %d -> %d',
       this.request.readyState,
-      nextReadyState
+      nextReadyState,
     )
 
     if (this.request.readyState === nextReadyState) {
@@ -628,7 +628,7 @@ export class XMLHttpRequestController {
   >(
     eventName: EventName,
     target: XMLHttpRequest | XMLHttpRequestUpload,
-    options?: ProgressEventInit
+    options?: ProgressEventInit,
   ): void {
     const callback = (target as XMLHttpRequest)[`on${eventName}`]
     const event = createEvent(target, eventName, options)
@@ -650,7 +650,7 @@ export class XMLHttpRequestController {
         this.logger.info(
           'found %d listener(s) for "%s" event, calling...',
           listeners.length,
-          eventName
+          eventName,
         )
 
         listeners.forEach((listener) => listener.call(target, event))
@@ -662,7 +662,7 @@ export class XMLHttpRequestController {
    * Converts this `XMLHttpRequest` instance into a Fetch API `Request` instance.
    */
   private toFetchApiRequest(
-    body: XMLHttpRequestBodyInit | Document | null | undefined
+    body: XMLHttpRequestBodyInit | Document | null | undefined,
   ): Request {
     this.logger.info('converting request to a Fetch API Request...')
 
@@ -699,7 +699,7 @@ export class XMLHttpRequestController {
           case 'delete': {
             const [headerName] = args as [string]
             console.warn(
-              `XMLHttpRequest: Cannot remove a "${headerName}" header from the Fetch API representation of the "${fetchRequest.method} ${fetchRequest.url}" request. XMLHttpRequest headers cannot be removed.`
+              `XMLHttpRequest: Cannot remove a "${headerName}" header from the Fetch API representation of the "${fetchRequest.method} ${fetchRequest.url}" request. XMLHttpRequest headers cannot be removed.`,
             )
             break
           }
@@ -735,7 +735,7 @@ function toAbsoluteUrl(url: string | URL): URL {
 function define(
   target: object,
   property: string | symbol,
-  value: unknown
+  value: unknown,
 ): void {
   Reflect.defineProperty(target, property, {
     // Ensure writable properties to allow redefining readonly properties.

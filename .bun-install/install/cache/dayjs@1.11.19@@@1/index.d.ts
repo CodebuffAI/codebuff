@@ -1,12 +1,21 @@
 /// <reference path="./locale/index.d.ts" />
 
-export = dayjs;
+export = dayjs
 
-declare function dayjs (date?: dayjs.ConfigType): dayjs.Dayjs
+declare function dayjs(date?: dayjs.ConfigType): dayjs.Dayjs
 
-declare function dayjs (date?: dayjs.ConfigType, format?: dayjs.OptionType, strict?: boolean): dayjs.Dayjs
+declare function dayjs(
+  date?: dayjs.ConfigType,
+  format?: dayjs.OptionType,
+  strict?: boolean,
+): dayjs.Dayjs
 
-declare function dayjs (date?: dayjs.ConfigType, format?: dayjs.OptionType, locale?: string, strict?: boolean): dayjs.Dayjs
+declare function dayjs(
+  date?: dayjs.ConfigType,
+  format?: dayjs.OptionType,
+  locale?: string,
+  strict?: boolean,
+): dayjs.Dayjs
 
 declare namespace dayjs {
   interface ConfigTypeMap {
@@ -15,23 +24,43 @@ declare namespace dayjs {
 
   export type ConfigType = ConfigTypeMap[keyof ConfigTypeMap]
 
-  export interface FormatObject { locale?: string, format?: string, utc?: boolean }
+  export interface FormatObject {
+    locale?: string
+    format?: string
+    utc?: boolean
+  }
 
   export type OptionType = FormatObject | string | string[]
 
   export type UnitTypeShort = 'd' | 'D' | 'M' | 'y' | 'h' | 'm' | 's' | 'ms'
 
-  export type UnitTypeLong = 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'month' | 'year' | 'date'
+  export type UnitTypeLong =
+    | 'millisecond'
+    | 'second'
+    | 'minute'
+    | 'hour'
+    | 'day'
+    | 'month'
+    | 'year'
+    | 'date'
 
-  export type UnitTypeLongPlural = 'milliseconds' | 'seconds' | 'minutes' | 'hours' | 'days' | 'months' | 'years' | 'dates'
-  
-  export type UnitType = UnitTypeLong | UnitTypeLongPlural | UnitTypeShort;
+  export type UnitTypeLongPlural =
+    | 'milliseconds'
+    | 'seconds'
+    | 'minutes'
+    | 'hours'
+    | 'days'
+    | 'months'
+    | 'years'
+    | 'dates'
 
-  export type OpUnitType = UnitType | "week" | "weeks" | 'w';
-  export type QUnitType = UnitType | "quarter" | "quarters" | 'Q';
-  export type ManipulateType = Exclude<OpUnitType, 'date' | 'dates'>;
+  export type UnitType = UnitTypeLong | UnitTypeLongPlural | UnitTypeShort
+
+  export type OpUnitType = UnitType | 'week' | 'weeks' | 'w'
+  export type QUnitType = UnitType | 'quarter' | 'quarters' | 'Q'
+  export type ManipulateType = Exclude<OpUnitType, 'date' | 'dates'>
   class Dayjs {
-    constructor (config?: ConfigType)
+    constructor(config?: ConfigType)
     /**
      * All Day.js objects are immutable. Still, `dayjs#clone` can create a clone of the current object if you need one.
      * ```
@@ -300,7 +329,11 @@ declare namespace dayjs {
      *
      * Docs: https://day.js.org/docs/en/display/difference
      */
-    diff(date?: ConfigType, unit?: QUnitType | OpUnitType, float?: boolean): number
+    diff(
+      date?: ConfigType,
+      unit?: QUnitType | OpUnitType,
+      float?: boolean,
+    ): number
     /**
      * This returns the number of **milliseconds** since the Unix Epoch of the Day.js object.
      * ```
@@ -415,15 +448,23 @@ declare namespace dayjs {
     locale(preset: string | ILocale, object?: Partial<ILocale>): Dayjs
   }
 
-  export type PluginFunc<T = unknown> = (option: T, c: typeof Dayjs, d: typeof dayjs) => void
+  export type PluginFunc<T = unknown> = (
+    option: T,
+    c: typeof Dayjs,
+    d: typeof dayjs,
+  ) => void
 
   export function extend<T = unknown>(plugin: PluginFunc<T>, option?: T): Dayjs
 
-  export function locale(preset?: string | ILocale, object?: Partial<ILocale>, isLocal?: boolean): string
+  export function locale(
+    preset?: string | ILocale,
+    object?: Partial<ILocale>,
+    isLocal?: boolean,
+  ): string
 
   export function isDayjs(d: any): d is Dayjs
 
   export function unix(t: number): Dayjs
 
-  const Ls : { [key: string] :  ILocale }
+  const Ls: { [key: string]: ILocale }
 }

@@ -8,7 +8,7 @@
  *
  * @module providers/duende-identity-server6
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js"
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 
 export interface DuendeISUser extends Record<string, any> {
   email: string
@@ -90,12 +90,12 @@ export interface DuendeISUser extends Record<string, any> {
  * :::
  */
 export default function DuendeIdentityServer6<P extends DuendeISUser>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "duende-identity-server6",
-    name: "DuendeIdentityServer6",
-    type: "oidc",
+    id: 'duende-identity-server6',
+    name: 'DuendeIdentityServer6',
+    type: 'oidc',
     options,
   }
 }

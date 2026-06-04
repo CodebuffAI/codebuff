@@ -1,4 +1,9 @@
-export function intersectEllipse(node: any, rx: any, ry: any, point: any): {
-    x: any;
-    y: any;
-};
+export function intersectEllipse(
+  node: any,
+  rx: any,
+  ry: any,
+  point: any,
+): {
+  x: any
+  y: any
+}

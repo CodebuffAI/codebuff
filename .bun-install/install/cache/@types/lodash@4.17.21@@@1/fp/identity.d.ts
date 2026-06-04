@@ -1,2 +1,2 @@
-import { identity } from "../fp";
-export = identity;
+import { identity } from '../fp'
+export = identity

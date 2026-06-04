@@ -1,4 +1,8 @@
-import { CoercingContext, ErrorTrackingCoercer, ExceptionLike } from '@/error-tracking/types'
+import {
+  CoercingContext,
+  ErrorTrackingCoercer,
+  ExceptionLike,
+} from '@/error-tracking/types'
 import { isBuiltin, isString } from '@/utils'
 
 export class DOMExceptionCoercer implements ErrorTrackingCoercer<DOMException> {
@@ -23,7 +27,8 @@ export class DOMExceptionCoercer implements ErrorTrackingCoercer<DOMException> {
   }
 
   private getValue(err: DOMException) {
-    const name = err.name || (this.isDOMError(err) ? 'DOMError' : 'DOMException')
+    const name =
+      err.name || (this.isDOMError(err) ? 'DOMError' : 'DOMException')
     const message = err.message ? `${name}: ${err.message}` : name
     return message
   }

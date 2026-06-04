@@ -1,2 +1,2 @@
-import { intersection } from "./index";
-export = intersection;
+import { intersection } from './index'
+export = intersection

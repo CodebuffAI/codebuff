@@ -10,23 +10,23 @@
  *
  * @module providers/frontegg
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 /** The returned user profile from Frontegg when using the profile callback. [Reference](https://docs.frontegg.com/docs/admin-portal-profile). */
 export interface FronteggProfile {
-    /** The user's unique Frontegg ID */
-    sub: string;
-    /** The user's name */
-    name: string;
-    /** The user's email */
-    email: string;
-    /** A boolean indicating if the user's email is verified */
-    email_verified: boolean;
-    /** The user's picture */
-    profilePictureUrl: string;
-    /** The user's roles */
-    roles: string[];
-    /** The user's custom attributes */
-    [claim: string]: unknown;
+  /** The user's unique Frontegg ID */
+  sub: string
+  /** The user's name */
+  name: string
+  /** The user's email */
+  email: string
+  /** A boolean indicating if the user's email is verified */
+  email_verified: boolean
+  /** The user's picture */
+  profilePictureUrl: string
+  /** The user's roles */
+  roles: string[]
+  /** The user's custom attributes */
+  [claim: string]: unknown
 }
 /**
  *
@@ -91,5 +91,7 @@ export interface FronteggProfile {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Frontegg(options: OIDCUserConfig<FronteggProfile>): OIDCConfig<FronteggProfile>;
+export default function Frontegg(
+  options: OIDCUserConfig<FronteggProfile>,
+): OIDCConfig<FronteggProfile>
 //# sourceMappingURL=frontegg.d.ts.map

@@ -1,3 +1,3 @@
-import type { TSchema } from '../schema/index';
+import type { TSchema } from '../schema/index'
 /** Fast undefined check used for properties of type undefined */
-export declare function ExtendsUndefinedCheck(schema: TSchema): boolean;
+export declare function ExtendsUndefinedCheck(schema: TSchema): boolean

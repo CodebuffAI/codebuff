@@ -8,12 +8,12 @@
  *
  * @module providers/salesforce
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface SalesforceProfile extends Record<string, any> {
-    sub: string;
-    nickname: string;
-    email: string;
-    picture: string;
+  sub: string
+  nickname: string
+  email: string
+  picture: string
 }
 /**
  * ### Setup
@@ -55,5 +55,7 @@ export interface SalesforceProfile extends Record<string, any> {
  * the spec by the provider. You can open an issue, but if the problem is non-compliance with the spec,
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
-export default function Salesforce(options: OIDCUserConfig<SalesforceProfile>): OIDCConfig<SalesforceProfile>;
+export default function Salesforce(
+  options: OIDCUserConfig<SalesforceProfile>,
+): OIDCConfig<SalesforceProfile>
 //# sourceMappingURL=salesforce.d.ts.map

@@ -1,20 +1,20 @@
-import { type Tree } from 'nx/src/devkit-exports';
+import { type Tree } from 'nx/src/devkit-exports'
 /**
  * Specify what should be done when a file is generated but already exists on the system
  */
 export declare enum OverwriteStrategy {
-    Overwrite = "overwrite",
-    KeepExisting = "keepExisting",
-    ThrowIfExisting = "throwIfExisting"
+  Overwrite = 'overwrite',
+  KeepExisting = 'keepExisting',
+  ThrowIfExisting = 'throwIfExisting',
 }
 /**
  * Options for the generateFiles function
  */
 export interface GenerateFilesOptions {
-    /**
-     * Specify what should be done when a file is generated but already exists on the system
-     */
-    overwriteStrategy?: OverwriteStrategy;
+  /**
+   * Specify what should be done when a file is generated but already exists on the system
+   */
+  overwriteStrategy?: OverwriteStrategy
 }
 /**
  * Generates a folder of files based on provided templates.
@@ -39,6 +39,12 @@ export interface GenerateFilesOptions {
  * @param substitutions - an object of key-value pairs
  * @param options - See {@link GenerateFilesOptions}
  */
-export declare function generateFiles(tree: Tree, srcFolder: string, target: string, substitutions: {
-    [k: string]: any;
-}, options?: GenerateFilesOptions): void;
+export declare function generateFiles(
+  tree: Tree,
+  srcFolder: string,
+  target: string,
+  substitutions: {
+    [k: string]: any
+  },
+  options?: GenerateFilesOptions,
+): void

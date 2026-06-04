@@ -1,5 +1,5 @@
 function isObject(item: unknown): item is object {
-  return item !== null && typeof item === "object"
+  return item !== null && typeof item === 'object'
 }
 
 /** Deep merge two or more objects */
@@ -19,7 +19,7 @@ export function merge<T extends Record<string, unknown>>(
             : {}
         merge(
           (target as Record<string, unknown>)[key] as T,
-          source[key] as Record<string, unknown>
+          source[key] as Record<string, unknown>,
         )
       } else if (source[key] !== undefined)
         (target as Record<string, unknown>)[key] = source[key]

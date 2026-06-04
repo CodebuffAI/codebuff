@@ -19,8 +19,8 @@ The package exports a `parse` function that has two parameters:
 ```ts
 declare function parse<T extends DiagramAST>(
   diagramType: keyof typeof initializers,
-  text: string
-): T;
+  text: string,
+): T
 ```
 
 ## How does a Langium-based parser work?

@@ -1,2 +1,2 @@
-import { hasIn } from "../fp";
-export = hasIn;
+import { hasIn } from '../fp'
+export = hasIn

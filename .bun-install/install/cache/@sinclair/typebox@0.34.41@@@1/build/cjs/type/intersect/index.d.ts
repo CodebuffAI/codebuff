@@ -1,3 +1,3 @@
-export * from './intersect-evaluated';
-export * from './intersect-type';
-export * from './intersect';
+export * from './intersect-evaluated'
+export * from './intersect-type'
+export * from './intersect'

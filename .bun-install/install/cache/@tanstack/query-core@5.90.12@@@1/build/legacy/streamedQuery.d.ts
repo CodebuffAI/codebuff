@@ -1,20 +1,35 @@
-import { I as QueryKey, a1 as QueryFunctionContext, Y as QueryFunction } from './hydration-DksKBgQq.js';
-import './removable.js';
-import './subscribable.js';
+import {
+  I as QueryKey,
+  a1 as QueryFunctionContext,
+  Y as QueryFunction,
+} from './hydration-DksKBgQq.js'
+import './removable.js'
+import './subscribable.js'
 
 type BaseStreamedQueryParams<TQueryFnData, TQueryKey extends QueryKey> = {
-    streamFn: (context: QueryFunctionContext<TQueryKey>) => AsyncIterable<TQueryFnData> | Promise<AsyncIterable<TQueryFnData>>;
-    refetchMode?: 'append' | 'reset' | 'replace';
-};
-type SimpleStreamedQueryParams<TQueryFnData, TQueryKey extends QueryKey> = BaseStreamedQueryParams<TQueryFnData, TQueryKey> & {
-    reducer?: never;
-    initialValue?: never;
-};
-type ReducibleStreamedQueryParams<TQueryFnData, TData, TQueryKey extends QueryKey> = BaseStreamedQueryParams<TQueryFnData, TQueryKey> & {
-    reducer: (acc: TData, chunk: TQueryFnData) => TData;
-    initialValue: TData;
-};
-type StreamedQueryParams<TQueryFnData, TData, TQueryKey extends QueryKey> = SimpleStreamedQueryParams<TQueryFnData, TQueryKey> | ReducibleStreamedQueryParams<TQueryFnData, TData, TQueryKey>;
+  streamFn: (
+    context: QueryFunctionContext<TQueryKey>,
+  ) => AsyncIterable<TQueryFnData> | Promise<AsyncIterable<TQueryFnData>>
+  refetchMode?: 'append' | 'reset' | 'replace'
+}
+type SimpleStreamedQueryParams<
+  TQueryFnData,
+  TQueryKey extends QueryKey,
+> = BaseStreamedQueryParams<TQueryFnData, TQueryKey> & {
+  reducer?: never
+  initialValue?: never
+}
+type ReducibleStreamedQueryParams<
+  TQueryFnData,
+  TData,
+  TQueryKey extends QueryKey,
+> = BaseStreamedQueryParams<TQueryFnData, TQueryKey> & {
+  reducer: (acc: TData, chunk: TQueryFnData) => TData
+  initialValue: TData
+}
+type StreamedQueryParams<TQueryFnData, TData, TQueryKey extends QueryKey> =
+  | SimpleStreamedQueryParams<TQueryFnData, TQueryKey>
+  | ReducibleStreamedQueryParams<TQueryFnData, TData, TQueryKey>
 /**
  * This is a helper function to create a query function that streams data from an AsyncIterable.
  * Data will be an Array of all the chunks received.
@@ -29,6 +44,18 @@ type StreamedQueryParams<TQueryFnData, TData, TQueryKey extends QueryKey> = Simp
  * Defaults to a function that appends chunks to the end of the array.
  * @param initialValue - Initial value to be used while the first chunk is being fetched, and returned if the stream yields no values.
  */
-declare function streamedQuery<TQueryFnData = unknown, TData = Array<TQueryFnData>, TQueryKey extends QueryKey = QueryKey>({ streamFn, refetchMode, reducer, initialValue, }: StreamedQueryParams<TQueryFnData, TData, TQueryKey>): QueryFunction<TData, TQueryKey>;
+declare function streamedQuery<
+  TQueryFnData = unknown,
+  TData = Array<TQueryFnData>,
+  TQueryKey extends QueryKey = QueryKey,
+>({
+  streamFn,
+  refetchMode,
+  reducer,
+  initialValue,
+}: StreamedQueryParams<TQueryFnData, TData, TQueryKey>): QueryFunction<
+  TData,
+  TQueryKey
+>
 
-export { streamedQuery };
+export { streamedQuery }

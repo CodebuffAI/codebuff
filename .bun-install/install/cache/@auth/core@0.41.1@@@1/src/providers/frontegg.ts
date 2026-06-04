@@ -11,7 +11,7 @@
  * @module providers/frontegg
  */
 
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 /** The returned user profile from Frontegg when using the profile callback. [Reference](https://docs.frontegg.com/docs/admin-portal-profile). */
 export interface FronteggProfile {
@@ -95,12 +95,12 @@ export interface FronteggProfile {
  * we might not pursue a resolution. You can ask for more help in [Discussions](https://authjs.dev/new/github-discussions).
  */
 export default function Frontegg(
-  options: OIDCUserConfig<FronteggProfile>
+  options: OIDCUserConfig<FronteggProfile>,
 ): OIDCConfig<FronteggProfile> {
   return {
-    id: "frontegg",
-    name: "Frontegg",
-    type: "oidc",
+    id: 'frontegg',
+    name: 'Frontegg',
+    type: 'oidc',
     authorization: `${options.issuer}/oauth/authorize`,
     token: `${options.issuer}/oauth/token`,
     userinfo: `${options.issuer}/identity/resources/users/v2/me`,

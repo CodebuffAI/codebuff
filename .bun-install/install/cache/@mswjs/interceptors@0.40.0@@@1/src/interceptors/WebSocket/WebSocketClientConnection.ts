@@ -19,19 +19,19 @@ export abstract class WebSocketClientConnectionProtocol {
   public abstract close(code?: number, reason?: string): void
 
   public abstract addEventListener<
-    EventType extends keyof WebSocketClientEventMap
+    EventType extends keyof WebSocketClientEventMap,
   >(
     type: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
-    options?: AddEventListenerOptions | boolean
+    options?: AddEventListenerOptions | boolean,
   ): void
 
   public abstract removeEventListener<
-    EventType extends keyof WebSocketClientEventMap
+    EventType extends keyof WebSocketClientEventMap,
   >(
     event: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
-    options?: EventListenerOptions | boolean
+    options?: EventListenerOptions | boolean,
   ): void
 }
 
@@ -40,9 +40,7 @@ export abstract class WebSocketClientConnectionProtocol {
  * client connection. The user can control the connection,
  * send and receive events.
  */
-export class WebSocketClientConnection
-  implements WebSocketClientConnectionProtocol
-{
+export class WebSocketClientConnection implements WebSocketClientConnectionProtocol {
   public readonly id: string
   public readonly url: URL
 
@@ -50,7 +48,7 @@ export class WebSocketClientConnection
 
   constructor(
     public readonly socket: WebSocket,
-    private readonly transport: WebSocketTransport
+    private readonly transport: WebSocketTransport,
   ) {
     this.id = createRequestId()
     this.url = new URL(socket.url)
@@ -65,7 +63,7 @@ export class WebSocketClientConnection
           data: event.data,
           origin: event.origin,
           cancelable: true,
-        })
+        }),
       )
 
       this[kEmitter].dispatchEvent(message)
@@ -89,7 +87,7 @@ export class WebSocketClientConnection
      */
     this.transport.addEventListener('close', (event) => {
       this[kEmitter].dispatchEvent(
-        bindEvent(this.socket, new CloseEvent('close', event))
+        bindEvent(this.socket, new CloseEvent('close', event)),
       )
     })
   }
@@ -100,7 +98,7 @@ export class WebSocketClientConnection
   public addEventListener<EventType extends keyof WebSocketClientEventMap>(
     type: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
-    options?: AddEventListenerOptions | boolean
+    options?: AddEventListenerOptions | boolean,
   ): void {
     if (!Reflect.has(listener, kBoundListener)) {
       const boundListener = listener.bind(this.socket)
@@ -117,7 +115,7 @@ export class WebSocketClientConnection
     this[kEmitter].addEventListener(
       type,
       Reflect.get(listener, kBoundListener) as EventListener,
-      options
+      options,
     )
   }
 
@@ -127,12 +125,12 @@ export class WebSocketClientConnection
   public removeEventListener<EventType extends keyof WebSocketClientEventMap>(
     event: EventType,
     listener: WebSocketEventListener<WebSocketClientEventMap[EventType]>,
-    options?: EventListenerOptions | boolean
+    options?: EventListenerOptions | boolean,
   ): void {
     this[kEmitter].removeEventListener(
       event,
       Reflect.get(listener, kBoundListener) as EventListener,
-      options
+      options,
     )
   }
 

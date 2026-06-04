@@ -1,2 +1,2 @@
-import { defaultsDeepAll } from "../fp";
-export = defaultsDeepAll;
+import { defaultsDeepAll } from '../fp'
+export = defaultsDeepAll

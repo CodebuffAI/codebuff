@@ -8,15 +8,15 @@
  *
  * @module providers/eveonline
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface EVEOnlineProfile extends Record<string, any> {
-    CharacterID: number;
-    CharacterName: string;
-    ExpiresOn: string;
-    Scopes: string;
-    TokenType: string;
-    CharacterOwnerHash: string;
-    IntellectualProperty: string;
+  CharacterID: number
+  CharacterName: string
+  ExpiresOn: string
+  Scopes: string
+  TokenType: string
+  CharacterOwnerHash: string
+  IntellectualProperty: string
 }
 /**
  * Add EveOnline login to your page.
@@ -90,5 +90,7 @@ export interface EVEOnlineProfile extends Record<string, any> {
  *
  * :::
  */
-export default function EVEOnline<P extends EVEOnlineProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
+export default function EVEOnline<P extends EVEOnlineProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
 //# sourceMappingURL=eveonline.d.ts.map

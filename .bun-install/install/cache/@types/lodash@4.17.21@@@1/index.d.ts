@@ -11,11 +11,11 @@
 /// <reference path="./common/string.d.ts" />
 /// <reference path="./common/util.d.ts" />
 
-export = _;
-export as namespace _;
+export = _
+export as namespace _
 
-declare const _: _.LoDashStatic;
+declare const _: _.LoDashStatic
 declare namespace _ {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface -- (This will be augmented)
-    interface LoDashStatic {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface -- (This will be augmented)
+  interface LoDashStatic {}
 }

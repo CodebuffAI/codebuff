@@ -1,2 +1,2 @@
-import { curryRightN } from "../fp";
-export = curryRightN;
+import { curryRightN } from '../fp'
+export = curryRightN

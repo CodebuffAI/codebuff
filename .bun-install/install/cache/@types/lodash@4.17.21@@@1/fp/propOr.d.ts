@@ -1,2 +1,2 @@
-import { propOr } from "../fp";
-export = propOr;
+import { propOr } from '../fp'
+export = propOr

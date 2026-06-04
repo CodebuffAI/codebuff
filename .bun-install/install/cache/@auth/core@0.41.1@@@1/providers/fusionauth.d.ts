@@ -8,31 +8,31 @@
  *
  * @module providers/fusionauth
  */
-import type { OAuthConfig, OAuthUserConfig } from "./oauth.js";
+import type { OAuthConfig, OAuthUserConfig } from './oauth.js'
 /**
  * This is the default openid signature returned from FusionAuth
  * it can be customized using [lambda functions](https://fusionauth.io/docs/v1/tech/lambdas)
  */
 export interface FusionAuthProfile extends Record<string, any> {
-    aud: string;
-    exp: number;
-    iat: number;
-    iss: string;
-    sub: string;
-    jti: string;
-    authenticationType: string;
-    email: string;
-    email_verified: boolean;
-    preferred_username?: string;
-    name?: string;
-    given_name?: string;
-    middle_name?: string;
-    family_name?: string;
-    at_hash: string;
-    c_hash: string;
-    scope: string;
-    sid: string;
-    picture?: string;
+  aud: string
+  exp: number
+  iat: number
+  iss: string
+  sub: string
+  jti: string
+  authenticationType: string
+  email: string
+  email_verified: boolean
+  preferred_username?: string
+  name?: string
+  given_name?: string
+  middle_name?: string
+  family_name?: string
+  at_hash: string
+  c_hash: string
+  scope: string
+  sid: string
+  picture?: string
 }
 /**
  * Add FusionAuth login to your page.
@@ -273,7 +273,9 @@ declare module 'next-auth' {
  *
  *
  */
-export default function FusionAuth<P extends FusionAuthProfile>(options: OAuthUserConfig<P> & {
-    tenantId?: string;
-}): OAuthConfig<P>;
+export default function FusionAuth<P extends FusionAuthProfile>(
+  options: OAuthUserConfig<P> & {
+    tenantId?: string
+  },
+): OAuthConfig<P>
 //# sourceMappingURL=fusionauth.d.ts.map

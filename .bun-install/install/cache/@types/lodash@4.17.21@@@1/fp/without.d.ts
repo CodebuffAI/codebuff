@@ -1,2 +1,2 @@
-import { without } from "../fp";
-export = without;
+import { without } from '../fp'
+export = without

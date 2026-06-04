@@ -1,5 +1,5 @@
-import { JimpClass, JimpClassSchema } from "@jimp/types";
-import { z } from "zod";
+import { JimpClass, JimpClassSchema } from '@jimp/types'
+import { z } from 'zod'
 
 const MaskOptionsObjectSchema = z.object({
   src: JimpClassSchema,
@@ -7,11 +7,11 @@ const MaskOptionsObjectSchema = z.object({
   x: z.number().optional(),
   /** the y position to draw the image */
   y: z.number().optional(),
-});
+})
 
-const MaskOptionsSchema = z.union([JimpClassSchema, MaskOptionsObjectSchema]);
+const MaskOptionsSchema = z.union([JimpClassSchema, MaskOptionsObjectSchema])
 
-export type MaskOptions = z.infer<typeof MaskOptionsSchema>;
+export type MaskOptions = z.infer<typeof MaskOptionsSchema>
 
 export const methods = {
   /**
@@ -30,42 +30,42 @@ export const methods = {
    * ```
    */
   mask<I extends JimpClass>(image: I, options: MaskOptions) {
-    MaskOptionsSchema.parse(options);
+    MaskOptionsSchema.parse(options)
 
-    let src: JimpClass;
-    let x: number;
-    let y: number;
+    let src: JimpClass
+    let x: number
+    let y: number
 
-    if ("bitmap" in options) {
-      src = options as unknown as JimpClass;
-      x = 0;
-      y = 0;
+    if ('bitmap' in options) {
+      src = options as unknown as JimpClass
+      x = 0
+      y = 0
     } else {
-      src = options.src as unknown as JimpClass;
-      x = options.x ?? 0;
-      y = options.y ?? 0;
+      src = options.src as unknown as JimpClass
+      x = options.x ?? 0
+      y = options.y ?? 0
     }
 
     // round input
-    x = Math.round(x);
-    y = Math.round(y);
+    x = Math.round(x)
+    y = Math.round(y)
 
-    const w = image.bitmap.width;
-    const h = image.bitmap.height;
+    const w = image.bitmap.width
+    const h = image.bitmap.height
 
     src.scan(function (sx, sy, idx) {
-      const destX = x + sx;
-      const destY = y + sy;
+      const destX = x + sx
+      const destY = y + sy
 
       if (destX >= 0 && destY >= 0 && destX < w && destY < h) {
-        const dstIdx = image.getPixelIndex(destX, destY);
-        const { data } = src.bitmap;
-        const avg = (data[idx + 0]! + data[idx + 1]! + data[idx + 2]!) / 3;
+        const dstIdx = image.getPixelIndex(destX, destY)
+        const { data } = src.bitmap
+        const avg = (data[idx + 0]! + data[idx + 1]! + data[idx + 2]!) / 3
 
-        image.bitmap.data[dstIdx + 3] *= avg / 255;
+        image.bitmap.data[dstIdx + 3] *= avg / 255
       }
-    });
+    })
 
-    return image;
+    return image
   },
-};
+}

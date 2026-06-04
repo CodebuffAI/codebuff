@@ -8,29 +8,29 @@
  *
  * @module providers/keycloak
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js";
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 export interface KeycloakProfile extends Record<string, any> {
-    exp: number;
-    iat: number;
-    auth_time: number;
-    jti: string;
-    iss: string;
-    aud: string;
-    sub: string;
-    typ: string;
-    azp: string;
-    session_state: string;
-    at_hash: string;
-    acr: string;
-    sid: string;
-    email_verified: boolean;
-    name: string;
-    preferred_username: string;
-    given_name: string;
-    family_name: string;
-    email: string;
-    picture: string;
-    user: any;
+  exp: number
+  iat: number
+  auth_time: number
+  jti: string
+  iss: string
+  aud: string
+  sub: string
+  typ: string
+  azp: string
+  session_state: string
+  at_hash: string
+  acr: string
+  sid: string
+  email_verified: boolean
+  name: string
+  preferred_username: string
+  given_name: string
+  family_name: string
+  email: string
+  picture: string
+  user: any
 }
 /**
  * Add Keycloak login to your page.
@@ -96,5 +96,7 @@ export interface KeycloakProfile extends Record<string, any> {
  *
  * :::
  */
-export default function Keycloak<P extends KeycloakProfile>(options: OIDCUserConfig<P>): OIDCConfig<P>;
+export default function Keycloak<P extends KeycloakProfile>(
+  options: OIDCUserConfig<P>,
+): OIDCConfig<P>
 //# sourceMappingURL=keycloak.d.ts.map

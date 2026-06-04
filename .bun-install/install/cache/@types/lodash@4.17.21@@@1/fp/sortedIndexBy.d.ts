@@ -1,2 +1,2 @@
-import { sortedIndexBy } from "../fp";
-export = sortedIndexBy;
+import { sortedIndexBy } from '../fp'
+export = sortedIndexBy

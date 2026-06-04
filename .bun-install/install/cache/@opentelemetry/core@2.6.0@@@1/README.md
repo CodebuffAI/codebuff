@@ -23,11 +23,11 @@ This package provides default implementations of the OpenTelemetry API for trace
 OpenTelemetry provides a text-based approach to propagate context to remote services using the [W3C Trace Context](https://www.w3.org/TR/trace-context/) HTTP headers.
 
 ```js
-const api = require("@opentelemetry/api");
-const { W3CTraceContextPropagator } = require("@opentelemetry/core");
+const api = require('@opentelemetry/api')
+const { W3CTraceContextPropagator } = require('@opentelemetry/core')
 
 /* Set Global Propagator */
-api.propagation.setGlobalPropagator(new W3CTraceContextPropagator());
+api.propagation.setGlobalPropagator(new W3CTraceContextPropagator())
 ```
 
 #### Composite Propagator
@@ -37,11 +37,11 @@ Combines multiple propagators into a single propagator.
 > This is used as a default Propagator
 
 ```js
-const api = require("@opentelemetry/api");
-const { CompositePropagator } = require("@opentelemetry/core");
+const api = require('@opentelemetry/api')
+const { CompositePropagator } = require('@opentelemetry/core')
 
 /* Set Global Propagator */
-api.propagation.setGlobalPropagator(new CompositePropagator());
+api.propagation.setGlobalPropagator(new CompositePropagator())
 ```
 
 #### Baggage Propagator
@@ -49,11 +49,11 @@ api.propagation.setGlobalPropagator(new CompositePropagator());
 Provides a text-based approach to propagate [baggage](https://w3c.github.io/baggage/) to remote services using the [OpenTelemetry Baggage Propagation](https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/baggage/api.md#baggage-propagation) HTTP headers.
 
 ```js
-const api = require("@opentelemetry/api");
-const { W3CBaggagePropagator } = require("@opentelemetry/core");
+const api = require('@opentelemetry/api')
+const { W3CBaggagePropagator } = require('@opentelemetry/core')
 
 /* Set Global Propagator */
-api.propagation.setGlobalPropagator(new W3CBaggagePropagator());
+api.propagation.setGlobalPropagator(new W3CBaggagePropagator())
 ```
 
 ## Useful links

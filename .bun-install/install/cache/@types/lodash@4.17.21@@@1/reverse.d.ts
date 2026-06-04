@@ -1,2 +1,2 @@
-import { reverse } from "./index";
-export = reverse;
+import { reverse } from './index'
+export = reverse

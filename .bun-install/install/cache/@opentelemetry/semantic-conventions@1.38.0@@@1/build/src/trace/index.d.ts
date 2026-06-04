@@ -1,2 +1,2 @@
-export * from './SemanticAttributes';
+export * from './SemanticAttributes'
 //# sourceMappingURL=index.d.ts.map

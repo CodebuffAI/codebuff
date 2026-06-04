@@ -23,24 +23,27 @@ export {
   PREFIX_AFTER_VALUE,
   PREFIX_AFTER,
   PREFIX_BEFORE_ALL,
-  PREFIX_AFTER_ALL
+  PREFIX_AFTER_ALL,
 }
 
 // Use the constant types to build CommentPrefix
-export type PropertyCommentPrefix = typeof PREFIX_BEFORE
+export type PropertyCommentPrefix =
+  | typeof PREFIX_BEFORE
   | typeof PREFIX_AFTER_PROP
   | typeof PREFIX_AFTER_COLON
   | typeof PREFIX_AFTER_VALUE
   | typeof PREFIX_AFTER
 
-export type NonPropertyCommentPrefix = typeof PREFIX_BEFORE
+export type NonPropertyCommentPrefix =
+  | typeof PREFIX_BEFORE
   | typeof PREFIX_AFTER
   | typeof PREFIX_BEFORE_ALL
   | typeof PREFIX_AFTER_ALL
 
 export type CommentPrefix = PropertyCommentPrefix | NonPropertyCommentPrefix
 
-export type CommentDescriptor = `${PropertyCommentPrefix}:${string}`
+export type CommentDescriptor =
+  | `${PropertyCommentPrefix}:${string}`
   | NonPropertyCommentPrefix
 
 export type CommentSymbol = typeof commentSymbol
@@ -49,7 +52,8 @@ export class CommentArray<TValue> extends Array<TValue> {
   [commentSymbol]: CommentToken[]
 }
 
-export type CommentJSONValue = number
+export type CommentJSONValue =
+  | number
   | string
   | null
   | boolean
@@ -89,7 +93,7 @@ export interface Location {
 export type Reviver = (
   k: number | string,
   v: unknown,
-  context?: { source?: string }
+  context?: { source?: string },
 ) => unknown
 
 /**
@@ -102,7 +106,7 @@ export type Reviver = (
 export function parse(
   json: string,
   reviver?: Reviver | null,
-  removesComments?: boolean
+  removesComments?: boolean,
 ): CommentJSONValue
 
 /**
@@ -113,12 +117,12 @@ export function parse(
  */
 export function stringify(
   value: unknown,
-  replacer?: (
-    (key: string, value: unknown) => unknown
-  ) | Array<number | string> | null,
-  space?: string | number
+  replacer?:
+    | ((key: string, value: unknown) => unknown)
+    | Array<number | string>
+    | null,
+  space?: string | number,
 ): string
-
 
 export function tokenize(input: string, config?: TokenizeOptions): Token[]
 
@@ -146,7 +150,7 @@ export function assign<TTarget, TSource>(
   source: TSource,
   // Although it actually accepts more key types and filters then,
   // we set the type of `keys` stricter
-  keys?: readonly (number | string)[]
+  keys?: readonly (number | string)[],
 ): TTarget
 
 interface CommentPosition {
@@ -167,7 +171,7 @@ export function moveComments(
   target: CommentJSONValue | undefined,
   from: CommentPosition,
   to: CommentPosition,
-  override?: boolean
+  override?: boolean,
 ): void
 
 /**
@@ -177,6 +181,5 @@ export function moveComments(
  */
 export function removeComments(
   target: CommentJSONValue,
-  location: CommentPosition
+  location: CommentPosition,
 ): void
-

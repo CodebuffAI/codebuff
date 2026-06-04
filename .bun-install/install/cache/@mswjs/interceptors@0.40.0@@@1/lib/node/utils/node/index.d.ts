@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { Readable } from 'node:stream'
 
 /**
  * Returns the request body stream of the given request.
@@ -7,7 +7,10 @@ import { Readable } from 'node:stream';
  * the `http.ClientRequest` instance.
  * You must rely on the web stream consumers for other request clients.
  */
-declare function getClientRequestBodyStream(request: Request): Readable;
-declare function setRawRequestBodyStream(request: Request, stream: Readable): void;
+declare function getClientRequestBodyStream(request: Request): Readable
+declare function setRawRequestBodyStream(
+  request: Request,
+  stream: Readable,
+): void
 
-export { getClientRequestBodyStream, setRawRequestBodyStream };
+export { getClientRequestBodyStream, setRawRequestBodyStream }

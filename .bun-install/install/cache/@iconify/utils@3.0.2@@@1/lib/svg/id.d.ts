@@ -14,5 +14,8 @@
 /**
  * Replace IDs in SVG output with unique IDs
  */
-declare function replaceIDs(body: string, prefix?: string | ((id: string) => string)): string;
-export { replaceIDs };
+declare function replaceIDs(
+  body: string,
+  prefix?: string | ((id: string) => string),
+): string
+export { replaceIDs }

@@ -1,2 +1,2 @@
-import { stubTrue } from "./index";
-export = stubTrue;
+import { stubTrue } from './index'
+export = stubTrue

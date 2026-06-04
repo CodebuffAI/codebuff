@@ -1,1 +1,1 @@
-export * from './instance-type';
+export * from './instance-type'

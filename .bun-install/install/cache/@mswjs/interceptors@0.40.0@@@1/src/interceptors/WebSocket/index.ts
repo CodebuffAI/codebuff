@@ -79,14 +79,14 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
   protected setup(): void {
     const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(
       globalThis,
-      'WebSocket'
+      'WebSocket',
     )
 
     const WebSocketProxy = new Proxy(globalThis.WebSocket, {
       construct: (
         target,
         args: ConstructorParameters<typeof globalThis.WebSocket>,
-        newTarget
+        newTarget,
       ) => {
         const [url, protocols] = args
 
@@ -108,7 +108,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
             const server = new WebSocketServerConnection(
               socket,
               transport,
-              createConnection
+              createConnection,
             )
 
             const hasConnectionListeners =
@@ -181,7 +181,7 @@ export class WebSocketInterceptor extends Interceptor<WebSocketEventMap> {
       Object.defineProperty(
         globalThis,
         'WebSocket',
-        originalWebSocketDescriptor!
+        originalWebSocketDescriptor!,
       )
     })
   }

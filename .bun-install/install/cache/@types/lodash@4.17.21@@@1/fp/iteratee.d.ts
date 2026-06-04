@@ -1,2 +1,2 @@
-import { iteratee } from "../fp";
-export = iteratee;
+import { iteratee } from '../fp'
+export = iteratee

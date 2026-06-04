@@ -8,7 +8,7 @@
  *
  * @module providers/ory-hydra
  */
-import type { OIDCConfig, OIDCUserConfig } from "./index.js"
+import type { OIDCConfig, OIDCUserConfig } from './index.js'
 
 export interface OryHydraProfile extends Record<string, any> {
   iss: string
@@ -78,15 +78,15 @@ export interface OryHydraProfile extends Record<string, any> {
  * :::
  */
 export default function OryHydra<P extends OryHydraProfile>(
-  options: OIDCUserConfig<P>
+  options: OIDCUserConfig<P>,
 ): OIDCConfig<P> {
   return {
-    id: "hydra",
-    name: "Hydra",
-    type: "oidc",
+    id: 'hydra',
+    name: 'Hydra',
+    type: 'oidc',
     style: {
-      bg: "#fff",
-      text: "#0F172A",
+      bg: '#fff',
+      text: '#0F172A',
     },
     options,
   }

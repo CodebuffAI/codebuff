@@ -160,8 +160,8 @@
  *
  * @module adapters
  */
-import { ProviderType } from "./providers/index.js";
-import type { Account, Authenticator, Awaitable, User } from "./types.js";
+import { ProviderType } from './providers/index.js'
+import type { Account, Authenticator, Awaitable, User } from './types.js'
 /**
  * A user represents a person who can sign in to the application.
  * If a user does not exist yet, it will be created when they sign in for the first time,
@@ -169,20 +169,23 @@ import type { Account, Authenticator, Awaitable, User } from "./types.js";
  * A corresponding account is also created and linked to the user.
  */
 export interface AdapterUser extends User {
-    /** A unique identifier for the user. */
-    id: string;
-    /** The user's email address. */
-    email: string;
-    /**
-     * Whether the user has verified their email address via an [Email provider](https://authjs.dev/getting-started/authentication/email).
-     * It is `null` if the user has not signed in with the Email provider yet, or the date of the first successful signin.
-     */
-    emailVerified: Date | null;
+  /** A unique identifier for the user. */
+  id: string
+  /** The user's email address. */
+  email: string
+  /**
+   * Whether the user has verified their email address via an [Email provider](https://authjs.dev/getting-started/authentication/email).
+   * It is `null` if the user has not signed in with the Email provider yet, or the date of the first successful signin.
+   */
+  emailVerified: Date | null
 }
 /**
  * The type of account.
  */
-export type AdapterAccountType = Extract<ProviderType, "oauth" | "oidc" | "email" | "webauthn">;
+export type AdapterAccountType = Extract<
+  ProviderType,
+  'oauth' | 'oidc' | 'email' | 'webauthn'
+>
 /**
  * An account is a connection between a user and a provider.
  *
@@ -193,33 +196,33 @@ export type AdapterAccountType = Extract<ProviderType, "oauth" | "oidc" | "email
  * One user can have multiple accounts.
  */
 export interface AdapterAccount extends Account {
-    userId: string;
-    type: AdapterAccountType;
+  userId: string
+  type: AdapterAccountType
 }
 /**
  * A session holds information about a user's current signin state.
  */
 export interface AdapterSession {
-    /**
-     * A randomly generated value that is used to look up the session in the database
-     * when using `"database"` `AuthConfig.strategy` option.
-     * This value is saved in a secure, HTTP-Only cookie on the client.
-     */
-    sessionToken: string;
-    /** Connects the active session to a user in the database */
-    userId: string;
-    /**
-     * The absolute date when the session expires.
-     *
-     * If a session is accessed prior to its expiry date,
-     * it will be extended based on the `maxAge` option as defined in by `SessionOptions.maxAge`.
-     * It is never extended more than once in a period defined by `SessionOptions.updateAge`.
-     *
-     * If a session is accessed past its expiry date,
-     * it will be removed from the database to clean up inactive sessions.
-     *
-     */
-    expires: Date;
+  /**
+   * A randomly generated value that is used to look up the session in the database
+   * when using `"database"` `AuthConfig.strategy` option.
+   * This value is saved in a secure, HTTP-Only cookie on the client.
+   */
+  sessionToken: string
+  /** Connects the active session to a user in the database */
+  userId: string
+  /**
+   * The absolute date when the session expires.
+   *
+   * If a session is accessed prior to its expiry date,
+   * it will be extended based on the `maxAge` option as defined in by `SessionOptions.maxAge`.
+   * It is never extended more than once in a period defined by `SessionOptions.updateAge`.
+   *
+   * If a session is accessed past its expiry date,
+   * it will be removed from the database to clean up inactive sessions.
+   *
+   */
+  expires: Date
 }
 /**
  * A verification token is a temporary token that is used to sign in a user via their email address.
@@ -230,23 +233,23 @@ export interface AdapterSession {
  * The token is then deleted from the database.
  */
 export interface VerificationToken {
-    /** The user's email address. */
-    identifier: string;
-    /** The absolute date when the token expires. */
-    expires: Date;
-    /**
-     * A [hashed](https://en.wikipedia.org/wiki/Hash_function) token, using the `AuthConfig.secret` value.
-     */
-    token: string;
+  /** The user's email address. */
+  identifier: string
+  /** The absolute date when the token expires. */
+  expires: Date
+  /**
+   * A [hashed](https://en.wikipedia.org/wiki/Hash_function) token, using the `AuthConfig.secret` value.
+   */
+  token: string
 }
 /**
  * An authenticator represents a credential authenticator assigned to a user.
  */
 export interface AdapterAuthenticator extends Authenticator {
-    /**
-     * User ID of the authenticator.
-     */
-    userId: string;
+  /**
+   * User ID of the authenticator.
+   */
+  userId: string
 }
 /**
  * An adapter is an object with function properties (methods) that read and write data from a data source.
@@ -266,147 +269,175 @@ export interface AdapterAuthenticator extends Authenticator {
  * :::
  */
 export interface Adapter {
-    /**
-     * Creates a user in the database and returns it.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    createUser?(user: AdapterUser): Awaitable<AdapterUser>;
-    /**
-     * Returns a user from the database via the user id.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    getUser?(id: string): Awaitable<AdapterUser | null>;
-    /**
-     * Returns a user from the database via the user's email address.
-     *
-     * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
-     */
-    getUserByEmail?(email: string): Awaitable<AdapterUser | null>;
-    /**
-     * Using the provider id and the id of the user for a specific account, get the user.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    getUserByAccount?(providerAccountId: Pick<AdapterAccount, "provider" | "providerAccountId">): Awaitable<AdapterUser | null>;
-    /**
-     * Updates a user in the database and returns it.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    updateUser?(user: Partial<AdapterUser> & Pick<AdapterUser, "id">): Awaitable<AdapterUser>;
-    /**
-     * @todo This method is currently not invoked yet.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    deleteUser?(userId: string): Promise<void> | Awaitable<AdapterUser | null | undefined>;
-    /**
-     * This method is invoked internally (but optionally can be used for manual linking).
-     * It creates an [Account](https://authjs.dev/reference/core/adapters#models) in the database.
-     *
-     * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
-     */
-    linkAccount?(account: AdapterAccount): Promise<void> | Awaitable<AdapterAccount | null | undefined>;
-    /** @todo This method is currently not invoked yet. */
-    unlinkAccount?(providerAccountId: Pick<AdapterAccount, "provider" | "providerAccountId">): Promise<void> | Awaitable<AdapterAccount | undefined>;
-    /**
-     * Creates a session for the user and returns it.
-     *
-     * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
-     */
-    createSession?(session: {
-        sessionToken: string;
-        userId: string;
-        expires: Date;
-    }): Awaitable<AdapterSession>;
-    /**
-     * Returns a session and a userfrom the database in one go.
-     *
-     * :::tip
-     * If the database supports joins, it's recommended to reduce the number of database queries.
-     * :::
-     *
-     * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
-     */
-    getSessionAndUser?(sessionToken: string): Awaitable<{
-        session: AdapterSession;
-        user: AdapterUser;
-    } | null>;
-    /**
-     * Updates a session in the database and returns it.
-     *
-     * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
-     */
-    updateSession?(session: Partial<AdapterSession> & Pick<AdapterSession, "sessionToken">): Awaitable<AdapterSession | null | undefined>;
-    /**
-     * Deletes a session from the database. It is preferred that this method also
-     * returns the session that is being deleted for logging purposes.
-     *
-     * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
-     */
-    deleteSession?(sessionToken: string): Promise<void> | Awaitable<AdapterSession | null | undefined>;
-    /**
-     * Creates a verification token and returns it.
-     *
-     * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
-     */
-    createVerificationToken?(verificationToken: VerificationToken): Awaitable<VerificationToken | null | undefined>;
-    /**
-     * Return verification token from the database and deletes it
-     * so it can only be used once.
-     *
-     * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
-     */
-    useVerificationToken?(params: {
-        identifier: string;
-        token: string;
-    }): Awaitable<VerificationToken | null>;
-    /**
-     * Get account by provider account id and provider.
-     *
-     * If an account is not found, the adapter must return `null`.
-     */
-    getAccount?(providerAccountId: AdapterAccount["providerAccountId"], provider: AdapterAccount["provider"]): Awaitable<AdapterAccount | null>;
-    /**
-     * Returns an authenticator from its credentialID.
-     *
-     * If an authenticator is not found, the adapter must return `null`.
-     */
-    getAuthenticator?(credentialID: AdapterAuthenticator["credentialID"]): Awaitable<AdapterAuthenticator | null>;
-    /**
-     * Create a new authenticator.
-     *
-     * If the creation fails, the adapter must throw an error.
-     */
-    createAuthenticator?(authenticator: AdapterAuthenticator): Awaitable<AdapterAuthenticator>;
-    /**
-     * Returns all authenticators from a user.
-     *
-     * If a user is not found, the adapter should still return an empty array.
-     * If the retrieval fails for some other reason, the adapter must throw an error.
-     */
-    listAuthenticatorsByUserId?(userId: AdapterAuthenticator["userId"]): Awaitable<AdapterAuthenticator[]>;
-    /**
-     * Updates an authenticator's counter.
-     *
-     * If the update fails, the adapter must throw an error.
-     */
-    updateAuthenticatorCounter?(credentialID: AdapterAuthenticator["credentialID"], newCounter: AdapterAuthenticator["counter"]): Awaitable<AdapterAuthenticator>;
+  /**
+   * Creates a user in the database and returns it.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  createUser?(user: AdapterUser): Awaitable<AdapterUser>
+  /**
+   * Returns a user from the database via the user id.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  getUser?(id: string): Awaitable<AdapterUser | null>
+  /**
+   * Returns a user from the database via the user's email address.
+   *
+   * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
+   */
+  getUserByEmail?(email: string): Awaitable<AdapterUser | null>
+  /**
+   * Using the provider id and the id of the user for a specific account, get the user.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  getUserByAccount?(
+    providerAccountId: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
+  ): Awaitable<AdapterUser | null>
+  /**
+   * Updates a user in the database and returns it.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  updateUser?(
+    user: Partial<AdapterUser> & Pick<AdapterUser, 'id'>,
+  ): Awaitable<AdapterUser>
+  /**
+   * @todo This method is currently not invoked yet.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  deleteUser?(
+    userId: string,
+  ): Promise<void> | Awaitable<AdapterUser | null | undefined>
+  /**
+   * This method is invoked internally (but optionally can be used for manual linking).
+   * It creates an [Account](https://authjs.dev/reference/core/adapters#models) in the database.
+   *
+   * See also [User management](https://authjs.dev/guides/creating-a-database-adapter#user-management)
+   */
+  linkAccount?(
+    account: AdapterAccount,
+  ): Promise<void> | Awaitable<AdapterAccount | null | undefined>
+  /** @todo This method is currently not invoked yet. */
+  unlinkAccount?(
+    providerAccountId: Pick<AdapterAccount, 'provider' | 'providerAccountId'>,
+  ): Promise<void> | Awaitable<AdapterAccount | undefined>
+  /**
+   * Creates a session for the user and returns it.
+   *
+   * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
+   */
+  createSession?(session: {
+    sessionToken: string
+    userId: string
+    expires: Date
+  }): Awaitable<AdapterSession>
+  /**
+   * Returns a session and a userfrom the database in one go.
+   *
+   * :::tip
+   * If the database supports joins, it's recommended to reduce the number of database queries.
+   * :::
+   *
+   * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
+   */
+  getSessionAndUser?(sessionToken: string): Awaitable<{
+    session: AdapterSession
+    user: AdapterUser
+  } | null>
+  /**
+   * Updates a session in the database and returns it.
+   *
+   * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
+   */
+  updateSession?(
+    session: Partial<AdapterSession> & Pick<AdapterSession, 'sessionToken'>,
+  ): Awaitable<AdapterSession | null | undefined>
+  /**
+   * Deletes a session from the database. It is preferred that this method also
+   * returns the session that is being deleted for logging purposes.
+   *
+   * See also [Database Session management](https://authjs.dev/guides/creating-a-database-adapter#database-session-management)
+   */
+  deleteSession?(
+    sessionToken: string,
+  ): Promise<void> | Awaitable<AdapterSession | null | undefined>
+  /**
+   * Creates a verification token and returns it.
+   *
+   * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
+   */
+  createVerificationToken?(
+    verificationToken: VerificationToken,
+  ): Awaitable<VerificationToken | null | undefined>
+  /**
+   * Return verification token from the database and deletes it
+   * so it can only be used once.
+   *
+   * See also [Verification tokens](https://authjs.dev/guides/creating-a-database-adapter#verification-tokens)
+   */
+  useVerificationToken?(params: {
+    identifier: string
+    token: string
+  }): Awaitable<VerificationToken | null>
+  /**
+   * Get account by provider account id and provider.
+   *
+   * If an account is not found, the adapter must return `null`.
+   */
+  getAccount?(
+    providerAccountId: AdapterAccount['providerAccountId'],
+    provider: AdapterAccount['provider'],
+  ): Awaitable<AdapterAccount | null>
+  /**
+   * Returns an authenticator from its credentialID.
+   *
+   * If an authenticator is not found, the adapter must return `null`.
+   */
+  getAuthenticator?(
+    credentialID: AdapterAuthenticator['credentialID'],
+  ): Awaitable<AdapterAuthenticator | null>
+  /**
+   * Create a new authenticator.
+   *
+   * If the creation fails, the adapter must throw an error.
+   */
+  createAuthenticator?(
+    authenticator: AdapterAuthenticator,
+  ): Awaitable<AdapterAuthenticator>
+  /**
+   * Returns all authenticators from a user.
+   *
+   * If a user is not found, the adapter should still return an empty array.
+   * If the retrieval fails for some other reason, the adapter must throw an error.
+   */
+  listAuthenticatorsByUserId?(
+    userId: AdapterAuthenticator['userId'],
+  ): Awaitable<AdapterAuthenticator[]>
+  /**
+   * Updates an authenticator's counter.
+   *
+   * If the update fails, the adapter must throw an error.
+   */
+  updateAuthenticatorCounter?(
+    credentialID: AdapterAuthenticator['credentialID'],
+    newCounter: AdapterAuthenticator['counter'],
+  ): Awaitable<AdapterAuthenticator>
 }
 /** Determines if a given value can be parsed into `Date` */
-export declare function isDate(value: unknown): value is string;
-declare module "next-auth/adapters" {
-    type JsonObject = {
-        [Key in string]?: JsonValue;
-    };
-    type JsonArray = JsonValue[];
-    type JsonPrimitive = string | number | boolean | null;
-    type JsonValue = JsonPrimitive | JsonObject | JsonArray;
-    interface AdapterAccount {
-        type: "oauth" | "email" | "oidc";
-        [key: string]: JsonValue | undefined;
-    }
+export declare function isDate(value: unknown): value is string
+declare module 'next-auth/adapters' {
+  type JsonObject = {
+    [Key in string]?: JsonValue
+  }
+  type JsonArray = JsonValue[]
+  type JsonPrimitive = string | number | boolean | null
+  type JsonValue = JsonPrimitive | JsonObject | JsonArray
+  interface AdapterAccount {
+    type: 'oauth' | 'email' | 'oidc'
+    [key: string]: JsonValue | undefined
+  }
 }
 //# sourceMappingURL=adapters.d.ts.map

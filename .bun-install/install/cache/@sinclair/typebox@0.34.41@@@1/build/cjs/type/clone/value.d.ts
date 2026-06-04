@@ -1,2 +1,2 @@
 /** Clones a value */
-export declare function Clone<T>(value: T): T;
+export declare function Clone<T>(value: T): T

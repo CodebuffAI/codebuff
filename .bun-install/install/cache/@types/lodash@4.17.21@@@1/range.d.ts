@@ -1,2 +1,2 @@
-import { range } from "./index";
-export = range;
+import { range } from './index'
+export = range

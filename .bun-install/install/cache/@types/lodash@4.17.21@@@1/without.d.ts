@@ -1,2 +1,2 @@
-import { without } from "./index";
-export = without;
+import { without } from './index'
+export = without

@@ -8,12 +8,12 @@
  *
  * @module providers/hubspot
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 interface HubSpotProfile extends Record<string, any> {
-    user: string;
-    user_id: string;
-    hub_domain: string;
-    hub_id: string;
+  user: string
+  user_id: string
+  hub_domain: string
+  hub_id: string
 }
 /**
  * Add HubSpot login to your page.
@@ -71,6 +71,8 @@ interface HubSpotProfile extends Record<string, any> {
  *
  * :::
  */
-export default function HubSpot<P extends HubSpotProfile>(options: OAuthUserConfig<P>): OAuthConfig<P>;
-export {};
+export default function HubSpot<P extends HubSpotProfile>(
+  options: OAuthUserConfig<P>,
+): OAuthConfig<P>
+export {}
 //# sourceMappingURL=hubspot.d.ts.map

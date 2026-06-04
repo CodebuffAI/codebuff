@@ -1,1 +1,1 @@
-export * from './constructor-parameters';
+export * from './constructor-parameters'

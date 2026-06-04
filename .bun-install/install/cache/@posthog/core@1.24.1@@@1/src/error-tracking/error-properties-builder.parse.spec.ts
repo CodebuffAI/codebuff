@@ -7,7 +7,7 @@ describe('ErrorPropertiesBuilder', () => {
     const errorPropertiesBuilder = new ErrorPropertiesBuilder(
       [],
       createStackParser('web:javascript', chromeStackLineParser),
-      []
+      [],
     )
 
     function parseStack(error: Error): StackFrame[] | undefined {
@@ -20,7 +20,7 @@ describe('ErrorPropertiesBuilder', () => {
           stack: error.stack,
           synthetic: false,
         },
-        ctx
+        ctx,
       )
       return exception.stack
     }

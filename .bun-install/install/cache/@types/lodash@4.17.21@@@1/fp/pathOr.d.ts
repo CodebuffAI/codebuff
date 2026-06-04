@@ -1,2 +1,2 @@
-import { pathOr } from "../fp";
-export = pathOr;
+import { pathOr } from '../fp'
+export = pathOr

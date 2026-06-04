@@ -15,13 +15,20 @@
  * limitations under the License.
  *
  */
-import * as Protobuf from 'protobufjs';
-export declare type Options = Protobuf.IParseOptions & Protobuf.IConversionOptions & {
-    includeDirs?: string[];
-};
-export declare function loadProtosWithOptions(filename: string | string[], options?: Options): Promise<Protobuf.Root>;
-export declare function loadProtosWithOptionsSync(filename: string | string[], options?: Options): Protobuf.Root;
+import * as Protobuf from 'protobufjs'
+export declare type Options = Protobuf.IParseOptions &
+  Protobuf.IConversionOptions & {
+    includeDirs?: string[]
+  }
+export declare function loadProtosWithOptions(
+  filename: string | string[],
+  options?: Options,
+): Promise<Protobuf.Root>
+export declare function loadProtosWithOptionsSync(
+  filename: string | string[],
+  options?: Options,
+): Protobuf.Root
 /**
  * Load Google's well-known proto files that aren't exposed by Protobuf.js.
  */
-export declare function addCommonProtos(): void;
+export declare function addCommonProtos(): void

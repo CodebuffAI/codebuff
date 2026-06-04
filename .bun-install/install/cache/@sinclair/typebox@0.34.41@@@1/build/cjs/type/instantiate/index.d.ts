@@ -1,1 +1,1 @@
-export * from './instantiate';
+export * from './instantiate'

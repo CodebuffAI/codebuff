@@ -1,23 +1,27 @@
-type EmojiStatus = 'component' | 'fully-qualified' | 'minimally-qualified' | 'unqualified';
-declare const componentStatus: EmojiStatus;
+type EmojiStatus =
+  | 'component'
+  | 'fully-qualified'
+  | 'minimally-qualified'
+  | 'unqualified'
+declare const componentStatus: EmojiStatus
 /**
  * Base item
  */
 interface BaseEmojiTestDataItem {
-  group: string;
-  subgroup: string;
-  version: string;
+  group: string
+  subgroup: string
+  version: string
 }
 /**
  * Test data item
  */
 interface EmojiTestDataItem extends BaseEmojiTestDataItem {
-  sequence: number[];
-  emoji: string;
-  status: EmojiStatus;
-  name: string;
+  sequence: number[]
+  emoji: string
+  status: EmojiStatus
+  name: string
 }
-type EmojiTestData = Record<string, EmojiTestDataItem>;
+type EmojiTestData = Record<string, EmojiTestDataItem>
 /**
  * Get all emoji sequences from test file
  *
@@ -41,5 +45,12 @@ type EmojiTestData = Record<string, EmojiTestDataItem>;
  * 	value.status = 'fully-qualified'
  * 	other properties in value are identical for all versions
  */
-declare function parseEmojiTestFile(data: string): EmojiTestData;
-export { BaseEmojiTestDataItem, EmojiStatus, EmojiTestData, EmojiTestDataItem, componentStatus, parseEmojiTestFile };
+declare function parseEmojiTestFile(data: string): EmojiTestData
+export {
+  BaseEmojiTestDataItem,
+  EmojiStatus,
+  EmojiTestData,
+  EmojiTestDataItem,
+  componentStatus,
+  parseEmojiTestFile,
+}

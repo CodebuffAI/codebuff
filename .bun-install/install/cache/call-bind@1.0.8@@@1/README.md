@@ -20,27 +20,27 @@ npm install --save call-bind
 ## Usage/Examples
 
 ```js
-const assert = require('assert');
-const callBind = require('call-bind');
-const callBound = require('call-bind/callBound');
+const assert = require('assert')
+const callBind = require('call-bind')
+const callBound = require('call-bind/callBound')
 
 function f(a, b) {
-	assert.equal(this, 1);
-	assert.equal(a, 2);
-	assert.equal(b, 3);
-	assert.equal(arguments.length, 2);
+  assert.equal(this, 1)
+  assert.equal(a, 2)
+  assert.equal(b, 3)
+  assert.equal(arguments.length, 2)
 }
 
-const fBound = callBind(f);
+const fBound = callBind(f)
 
-const slice = callBound('Array.prototype.slice');
+const slice = callBound('Array.prototype.slice')
 
-delete Function.prototype.call;
-delete Function.prototype.bind;
+delete Function.prototype.call
+delete Function.prototype.bind
 
-fBound(1, 2, 3);
+fBound(1, 2, 3)
 
-assert.deepEqual(slice([1, 2, 3, 4], 1, -1), [2, 3]);
+assert.deepEqual(slice([1, 2, 3, 4], 1, -1), [2, 3])
 ```
 
 ## Tests

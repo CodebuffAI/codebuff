@@ -8,7 +8,7 @@
  *
  * @module providers/trakt
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface TraktUser extends Record<string, any> {
   username: string
@@ -86,22 +86,22 @@ export interface TraktUser extends Record<string, any> {
  * :::
  */
 export default function Trakt<P extends TraktUser>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "trakt",
-    name: "Trakt",
-    type: "oauth",
-    authorization: "https://trakt.tv/oauth/authorize?scope=",
-    token: "https://api.trakt.tv/oauth/token",
+    id: 'trakt',
+    name: 'Trakt',
+    type: 'oauth',
+    authorization: 'https://trakt.tv/oauth/authorize?scope=',
+    token: 'https://api.trakt.tv/oauth/token',
     userinfo: {
-      url: "https://api.trakt.tv/users/me?extended=full",
+      url: 'https://api.trakt.tv/users/me?extended=full',
       async request({ tokens, provider }) {
         return await fetch(provider.userinfo?.url as URL, {
           headers: {
             Authorization: `Bearer ${tokens.access_token}`,
-            "trakt-api-version": "2",
-            "trakt-api-key": provider.clientId,
+            'trakt-api-version': '2',
+            'trakt-api-key': provider.clientId,
           },
         }).then(async (res) => await res.json())
       },
@@ -114,7 +114,7 @@ export default function Trakt<P extends TraktUser>(
         image: profile.images.avatar.full, // trakt does not allow hotlinking
       }
     },
-    style: { bg: "#ED2224", text: "#fff" },
+    style: { bg: '#ED2224', text: '#fff' },
     options,
   }
 }

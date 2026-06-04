@@ -23,7 +23,7 @@ export class ErrorPropertiesBuilder {
   constructor(
     private coercers: ErrorTrackingCoercer<any>[],
     private stackParser: StackParser,
-    private modifiers: StackFrameModifierFn[] = []
+    private modifiers: StackFrameModifierFn[] = [],
   ) {}
 
   buildFromUnknown(input: unknown, hint: EventHint = {}): ErrorProperties {
@@ -32,20 +32,36 @@ export class ErrorPropertiesBuilder {
       handled: true,
       type: 'generic',
     }
-    const coercingContext: CoercingContext = this.buildCoercingContext(mechanism, hint, 0)
+    const coercingContext: CoercingContext = this.buildCoercingContext(
+      mechanism,
+      hint,
+      0,
+    )
     const exceptionWithCause = coercingContext.apply(input)
     const parsingContext: ParsingContext = this.buildParsingContext(hint)
-    const exceptionWithStack = this.parseStacktrace(exceptionWithCause, parsingContext)
-    const exceptionList = this.convertToExceptionList(exceptionWithStack, mechanism)
+    const exceptionWithStack = this.parseStacktrace(
+      exceptionWithCause,
+      parsingContext,
+    )
+    const exceptionList = this.convertToExceptionList(
+      exceptionWithStack,
+      mechanism,
+    )
     return {
       $exception_list: exceptionList,
       $exception_level: 'error',
     }
   }
 
-  async modifyFrames(exceptionList: ErrorProperties['$exception_list']): Promise<ErrorProperties['$exception_list']> {
+  async modifyFrames(
+    exceptionList: ErrorProperties['$exception_list'],
+  ): Promise<ErrorProperties['$exception_list']> {
     for (const exc of exceptionList) {
-      if (exc.stacktrace && exc.stacktrace.frames && isArray(exc.stacktrace.frames)) {
+      if (
+        exc.stacktrace &&
+        exc.stacktrace.frames &&
+        isArray(exc.stacktrace.frames)
+      ) {
         exc.stacktrace.frames = await this.applyModifiers(exc.stacktrace.frames)
       }
     }
@@ -61,19 +77,28 @@ export class ErrorPropertiesBuilder {
     }
   }
 
-  private parseStacktrace(err: ExceptionLike, ctx: ParsingContext): ParsedException {
+  private parseStacktrace(
+    err: ExceptionLike,
+    ctx: ParsingContext,
+  ): ParsedException {
     let cause: ParsedException | undefined = undefined
     if (err.cause != null) {
       cause = this.parseStacktrace(err.cause, ctx)
     }
     let stack: StackFrame[] | undefined = undefined
     if (err.stack != '' && err.stack != null) {
-      stack = this.applyChunkIds(this.stackParser(err.stack, err.synthetic ? ctx.skipFirstLines : 0), ctx.chunkIdMap)
+      stack = this.applyChunkIds(
+        this.stackParser(err.stack, err.synthetic ? ctx.skipFirstLines : 0),
+        ctx.chunkIdMap,
+      )
     }
     return { ...err, cause, stack }
   }
 
-  private applyChunkIds(frames: StackFrame[], chunkIdMap?: ChunkIdMapType): StackFrame[] {
+  private applyChunkIds(
+    frames: StackFrame[],
+    chunkIdMap?: ChunkIdMapType,
+  ): StackFrame[] {
     return frames.map((frame) => {
       if (frame.filename && chunkIdMap) {
         frame.chunk_id = chunkIdMap[frame.filename]
@@ -82,7 +107,10 @@ export class ErrorPropertiesBuilder {
     })
   }
 
-  private applyCoercers(input: unknown, ctx: CoercingContext): ExceptionLike | undefined {
+  private applyCoercers(
+    input: unknown,
+    ctx: CoercingContext,
+  ): ExceptionLike | undefined {
     for (const adapter of this.coercers) {
       if (adapter.match(input)) {
         return adapter.coerce(input, ctx)
@@ -99,7 +127,10 @@ export class ErrorPropertiesBuilder {
     return newFrames
   }
 
-  private convertToExceptionList(exceptionWithStack: ParsedException, mechanism: Mechanism): ExceptionList {
+  private convertToExceptionList(
+    exceptionWithStack: ParsedException,
+    mechanism: Mechanism,
+  ): ExceptionList {
     const currentException: Exception = {
       type: exceptionWithStack.type,
       value: exceptionWithStack.value,
@@ -122,7 +153,7 @@ export class ErrorPropertiesBuilder {
         ...this.convertToExceptionList(exceptionWithStack.cause, {
           ...mechanism,
           handled: true,
-        })
+        }),
       )
     }
     return exceptionList
@@ -136,7 +167,11 @@ export class ErrorPropertiesBuilder {
     return context
   }
 
-  public buildCoercingContext(mechanism: Mechanism, hint: EventHint, depth: number = 0): CoercingContext {
+  public buildCoercingContext(
+    mechanism: Mechanism,
+    hint: EventHint,
+    depth: number = 0,
+  ): CoercingContext {
     const coerce = (input: unknown, depth: number) => {
       if (depth <= MAX_CAUSE_RECURSION) {
         const ctx = this.buildCoercingContext(mechanism, hint, depth)

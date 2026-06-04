@@ -1,2 +1,2 @@
-import { isElement } from "../fp";
-export = isElement;
+import { isElement } from '../fp'
+export = isElement

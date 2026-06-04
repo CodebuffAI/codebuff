@@ -9,7 +9,7 @@ it('returns a URL based on the basic RequestOptions', () => {
       protocol: 'https:',
       host: '127.0.0.1',
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('https://127.0.0.1/resource')
 })
 
@@ -19,7 +19,7 @@ it('inherits protocol and port from http.Agent, if set', () => {
       host: '127.0.0.1',
       path: '/',
       agent: new HttpAgent(),
-    }).href
+    }).href,
   ).toBe('http://127.0.0.1/')
 })
 
@@ -31,7 +31,7 @@ it('inherits protocol and port from https.Agent, if set', () => {
       agent: new HttpsAgent({
         port: 3080,
       }),
-    }).href
+    }).href,
   ).toBe('https://127.0.0.1:3080/')
 })
 
@@ -40,7 +40,7 @@ it('resolves protocol to "http" given no explicit protocol and no certificate', 
     getUrlByRequestOptions({
       host: '127.0.0.1',
       path: '/',
-    }).href
+    }).href,
   ).toBe('http://127.0.0.1/')
 })
 
@@ -50,7 +50,7 @@ it('resolves protocol to "https" given no explicit protocol, but certificate', (
       host: '127.0.0.1',
       path: '/secure',
       cert: '<!-- SSL certificate -->',
-    }).href
+    }).href,
   ).toBe('https://127.0.0.1/secure')
 })
 
@@ -60,7 +60,7 @@ it('resolves protocol to "https" given no explicit protocol, but port is 443', (
       host: '127.0.0.1',
       port: 443,
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('https://127.0.0.1/resource')
 })
 
@@ -72,7 +72,7 @@ it('resolves protocol to "https" given no explicit protocol, but agent port is 4
         port: 443,
       }),
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('https://127.0.0.1/resource')
 })
 
@@ -83,7 +83,7 @@ it('respects explicitly provided port', () => {
       host: '127.0.0.1',
       port: 4002,
       path: '/',
-    }).href
+    }).href,
   ).toBe('http://127.0.0.1:4002/')
 })
 
@@ -118,7 +118,7 @@ it('supports "hostname" and "port"', () => {
   }
 
   expect(getUrlByRequestOptions(options).href).toBe(
-    'https://127.0.0.1:1234/resource'
+    'https://127.0.0.1:1234/resource',
   )
 })
 
@@ -130,9 +130,7 @@ it('use "hostname" if both "hostname" and "host" are specified', () => {
     path: '/resource',
   }
 
-  expect(getUrlByRequestOptions(options).href).toBe(
-    'https://hostname/resource'
-  )
+  expect(getUrlByRequestOptions(options).href).toBe('https://hostname/resource')
 })
 
 it('parses "host" in IPv6', () => {
@@ -140,16 +138,15 @@ it('parses "host" in IPv6', () => {
     getUrlByRequestOptions({
       host: '::1',
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('http://[::1]/resource')
 
   expect(
     getUrlByRequestOptions({
       host: '[::1]',
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('http://[::1]/resource')
-
 })
 
 it('parses "host" and "port" in IPv6', () => {
@@ -158,6 +155,6 @@ it('parses "host" and "port" in IPv6', () => {
       host: '::1',
       port: 3001,
       path: '/resource',
-    }).href
+    }).href,
   ).toBe('http://[::1]:3001/resource')
 })

@@ -11,8 +11,8 @@ This package provides utility functions and classes for make ESLint custom rules
 
 For examples:
 
--   [`getStaticValue`](https://eslint-community.github.io/eslint-utils/api/ast-utils.html#getstaticvalue) evaluates static value on AST.
--   [`ReferenceTracker`](https://eslint-community.github.io/eslint-utils/api/scope-utils.html#referencetracker-class) checks the members of modules/globals as handling assignments and destructuring.
+- [`getStaticValue`](https://eslint-community.github.io/eslint-utils/api/ast-utils.html#getstaticvalue) evaluates static value on AST.
+- [`ReferenceTracker`](https://eslint-community.github.io/eslint-utils/api/scope-utils.html#referencetracker-class) checks the members of modules/globals as handling assignments and destructuring.
 
 ## 📖 Usage
 
@@ -30,8 +30,8 @@ Please use GitHub's Issues/PRs.
 
 ### Development Tools
 
--   `npm run test-coverage` runs tests and measures coverage.
--   `npm run clean` removes the coverage result of `npm run test-coverage` command.
--   `npm run coverage` shows the coverage result of the last `npm run test-coverage` command.
--   `npm run lint` runs ESLint.
--   `npm run watch` runs tests on each file change.
+- `npm run test-coverage` runs tests and measures coverage.
+- `npm run clean` removes the coverage result of `npm run test-coverage` command.
+- `npm run coverage` shows the coverage result of the last `npm run test-coverage` command.
+- `npm run lint` runs ESLint.
+- `npm run watch` runs tests on each file change.

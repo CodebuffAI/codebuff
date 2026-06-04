@@ -8,22 +8,22 @@
  *
  * @module providers/concept2
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js";
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 export interface Concept2Profile extends Record<string, any> {
-    id: number;
-    username: string;
-    first_name: string;
-    last_name: string;
-    gender: string;
-    dob: string;
-    email: string;
-    country: string;
-    profile_image: string;
-    age_restricted: boolean;
-    email_permission: boolean | null;
-    max_heart_rate: number | null;
-    weight: number | null;
-    logbook_privacy: string | null;
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+  gender: string
+  dob: string
+  email: string
+  country: string
+  profile_image: string
+  age_restricted: boolean
+  email_permission: boolean | null
+  max_heart_rate: number | null
+  weight: number | null
+  logbook_privacy: string | null
 }
 /**
  * Add Concept2 login to your page.
@@ -77,5 +77,7 @@ export interface Concept2Profile extends Record<string, any> {
  *
  * :::
  */
-export default function Concept2(options: OAuthUserConfig<Concept2Profile>): OAuthConfig<Concept2Profile>;
+export default function Concept2(
+  options: OAuthUserConfig<Concept2Profile>,
+): OAuthConfig<Concept2Profile>
 //# sourceMappingURL=concept2.d.ts.map

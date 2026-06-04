@@ -8,7 +8,7 @@
  *
  * @module providers/eveonline
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface EVEOnlineProfile extends Record<string, any> {
   CharacterID: number
@@ -93,17 +93,17 @@ export interface EVEOnlineProfile extends Record<string, any> {
  * :::
  */
 export default function EVEOnline<P extends EVEOnlineProfile>(
-  options: OAuthUserConfig<P>
+  options: OAuthUserConfig<P>,
 ): OAuthConfig<P> {
   return {
-    id: "eveonline",
-    name: "EVE Online",
-    type: "oauth",
+    id: 'eveonline',
+    name: 'EVE Online',
+    type: 'oauth',
     authorization:
-      "https://login.eveonline.com/v2/oauth/authorize?scope=publicData",
-    token: "https://login.eveonline.com/v2/oauth/token",
-    userinfo: "https://login.eveonline.com/oauth/verify",
-    checks: ["state"],
+      'https://login.eveonline.com/v2/oauth/authorize?scope=publicData',
+    token: 'https://login.eveonline.com/v2/oauth/token',
+    userinfo: 'https://login.eveonline.com/oauth/verify',
+    checks: ['state'],
     profile(profile) {
       return {
         id: String(profile.CharacterID),

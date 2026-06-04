@@ -20,11 +20,11 @@ export interface WebSocketTransport {
     listener: StrictEventListenerOrEventListenerObject<
       WebSocketTransportEventMap[EventType]
     > | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void
 
   dispatchEvent<EventType extends keyof WebSocketTransportEventMap>(
-    event: WebSocketTransportEventMap[EventType]
+    event: WebSocketTransportEventMap[EventType],
   ): boolean
 
   /**

@@ -8,7 +8,7 @@
  *
  * @module providers/dribbble
  */
-import type { OAuthConfig, OAuthUserConfig } from "./index.js"
+import type { OAuthConfig, OAuthUserConfig } from './index.js'
 
 export interface DribbbleProfile extends Record<string, any> {
   id: number
@@ -87,21 +87,21 @@ export default function Dribbble<P extends DribbbleProfile>(
      *
      * @default public
      */
-    scope?: "public" | "public upload"
-  }
+    scope?: 'public' | 'public upload'
+  },
 ): OAuthConfig<P> {
   return {
-    id: "dribbble",
-    name: "Dribbble",
-    type: "oauth",
+    id: 'dribbble',
+    name: 'Dribbble',
+    type: 'oauth',
 
     authorization: {
-      url: "https://dribbble.com/oauth/authorize",
+      url: 'https://dribbble.com/oauth/authorize',
       params: { scope: options.scope },
     },
 
-    token: "https://dribbble.com/oauth/token",
-    userinfo: "https://api.dribbble.com/v2/user",
+    token: 'https://dribbble.com/oauth/token',
+    userinfo: 'https://api.dribbble.com/v2/user',
 
     profile(profile) {
       return {
@@ -113,8 +113,8 @@ export default function Dribbble<P extends DribbbleProfile>(
     },
 
     style: {
-      text: "#fff",
-      bg: "#000",
+      text: '#fff',
+      bg: '#000',
     },
 
     options,

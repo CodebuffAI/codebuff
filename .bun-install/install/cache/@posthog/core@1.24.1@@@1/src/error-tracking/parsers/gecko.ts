@@ -10,13 +10,20 @@ const geckoREgex =
   /^\s*(.*?)(?:\((.*?)\))?(?:^|@)?((?:[-a-z]+)?:\/.*?|\[native code\]|[^@]*(?:bundle|\d+\.js)|\/[\w\-. /=]+)(?::(\d+))?(?::(\d+))?\s*$/i
 const geckoEvalRegex = /(\S+) line (\d+)(?: > eval line \d+)* > eval/i
 
-export const geckoStackLineParser: StackLineParser = (line: string, platform: Platform) => {
-  const parts = geckoREgex.exec(line) as null | [string, string, string, string, string, string]
+export const geckoStackLineParser: StackLineParser = (
+  line: string,
+  platform: Platform,
+) => {
+  const parts = geckoREgex.exec(line) as
+    | null
+    | [string, string, string, string, string, string]
 
   if (parts) {
     const isEval = parts[3] && parts[3].indexOf(' > eval') > -1
     if (isEval) {
-      const subMatch = geckoEvalRegex.exec(parts[3]) as null | [string, string, string]
+      const subMatch = geckoEvalRegex.exec(parts[3]) as
+        | null
+        | [string, string, string]
 
       if (subMatch) {
         // throw out eval line/column and use top-most line number
@@ -31,7 +38,13 @@ export const geckoStackLineParser: StackLineParser = (line: string, platform: Pl
     let func = parts[1] || UNKNOWN_FUNCTION
     ;[func, filename] = extractSafariExtensionDetails(func, filename)
 
-    return createFrame(platform, filename, func, parts[4] ? +parts[4] : undefined, parts[5] ? +parts[5] : undefined)
+    return createFrame(
+      platform,
+      filename,
+      func,
+      parts[4] ? +parts[4] : undefined,
+      parts[5] ? +parts[5] : undefined,
+    )
   }
 
   return

@@ -1,1 +1,1 @@
-export function positionNodes(selection: any, g: any): void;
+export function positionNodes(selection: any, g: any): void
