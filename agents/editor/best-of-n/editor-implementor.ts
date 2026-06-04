@@ -319,8 +319,15 @@ Write out your complete implementation now. Do not write any final summary.`,
           break
         }
 
-        // Pure failure (no usable diff anywhere): retry. The runtime starts a
-        // fresh ledger attempt when it applies this PROPOSAL_RETRY message.
+        // Pure failure (no usable diff anywhere): retry only when the agent can
+        // gather fresh context. Direct no-read mode cannot repair a stale
+        // oldString by following the usual "read first" recovery prompt.
+        if (!canUseReadOnlyTools && hasFailedProposalToolResult) {
+          stopReason = 'noCompletionSignal'
+          break
+        }
+        // The runtime starts a fresh ledger attempt when it applies this
+        // PROPOSAL_RETRY message.
         yield buildProposalRetryToolCall({
           messageHistory: agentState.messageHistory ?? [],
           text: buildProposalRetryPrompt(proposalToolResults),
@@ -360,6 +367,7 @@ Write out your complete implementation now. Do not write any final summary.`,
             summary: finalSummary,
             stopReason: finalStopReason,
             stepsTaken: completedProposalSteps,
+            canUseReadOnlyTools,
           }),
           stopReason: finalStopReason,
           ...(toolCalls.length === 0 && !unifiedDiffs
@@ -1148,10 +1156,12 @@ Write out your complete implementation now. Do not write any final summary.`,
         summary: LedgerSummary
         stopReason: string
         stepsTaken: number
+        canUseReadOnlyTools: boolean
       }): Record<string, any> {
         const { messageHistory, summary, stepsTaken } = input
         return {
           stepsTaken,
+          canUseReadOnlyTools: input.canUseReadOnlyTools,
           readOnlyToolCallCount: countToolCallsInMessages(
             messageHistory,
             isReadOnlyToolName,

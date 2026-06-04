@@ -2247,6 +2247,79 @@ describe('editor agent', () => {
       expect(retryText).toContain('propose_write_file')
     })
 
+    test('does not retry failed no-read proposal tool results in the same agent', () => {
+      const implementor = createBestOfNImplementor({
+        model: 'gpt-5',
+        allowReadOnlyTools: false,
+      })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { allowReadOnlyTools: false },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const result = generator.next({
+        agentState: createMockAgentState([
+          ...initialMessages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_str_replace',
+                input: {
+                  path: 'src/example.ts',
+                  replacements: [
+                    { oldString: 'stale', newString: 'new' },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolName: 'propose_str_replace',
+            content: [
+              {
+                type: 'json',
+                value: {
+                  file: 'src/example.ts',
+                  errorMessage:
+                    'The old string "stale" was not found. No change to the file',
+                },
+              },
+            ],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: false,
+      })
+
+      expect(result.value).toMatchObject({
+        toolName: 'set_output',
+        includeToolCall: false,
+        input: {
+          stopReason: 'noCompletionSignal',
+          proposalProgress: {
+            canUseReadOnlyTools: false,
+            proposalToolCallCount: 0,
+            successfulProposalResultCount: 0,
+            failedProposalResultCount: 1,
+          },
+        },
+      })
+    })
+
     test('salvages partially failed proposal results that also contain a unified diff', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
@@ -2926,7 +2999,10 @@ describe('editor agent', () => {
     test('uses direct retry when failed exploration gathered exact file context', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
-        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update src/a.ts' }],
+        },
       ])
       const generator = multiPromptEditor.handleSteps!({
         agentState: mockAgentState,
@@ -2936,7 +3012,7 @@ describe('editor agent', () => {
           warn: () => {},
           error: () => {},
         } as any,
-        params: { prompts: ['minimal'] },
+        params: { prompts: ['Update src/a.ts'] },
       })
 
       expect(
@@ -2944,9 +3020,17 @@ describe('editor agent', () => {
       ).toBe('set_messages')
 
       expect(
-        generator.next({
+        (generator.next({
           agentState: mockAgentState,
           toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>).toolName,
+      ).toBe('read_files')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [{ type: 'json', value: [] }],
           stepsComplete: false,
         }).value as ToolCall<'spawn_agents'>,
       ).toMatchObject({
@@ -2997,6 +3081,84 @@ describe('editor agent', () => {
       expect(directRetry.input.agents[0].params?.proposalContext).toContain(
         'export const current = true',
       )
+    })
+
+    test('keeps read-only tools when retry context misses explicit target files', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update src/target.ts' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['Update src/target.ts'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        (generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>).toolName,
+      ).toBe('read_files')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [{ type: 'json', value: [] }],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
+      })
+
+      const retry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  stopReason: 'noProposal',
+                  errorMessage:
+                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                  readOnlyContext:
+                    'Read-only context gathered by previous proposal attempt:\n\nFile: src/unrelated.ts\nexport const unrelated = true\n',
+                  proposalProgress: {
+                    stepsTaken: 4,
+                    readOnlyToolCallCount: 3,
+                    proposalToolCallCount: 0,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(retry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-1',
+      )
+      expect(retry.input.agents[0].params?.allowReadOnlyTools).toBe(true)
     })
 
     test('uses direct proposal mode when explicit file prefetch supplies exact content', () => {

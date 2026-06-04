@@ -118,6 +118,7 @@ function* handleStepsMultiPrompt({
   type ProposedToolCall = { toolName: string; input: any }
   type ProposalProgress = {
     stepsTaken?: number
+    canUseReadOnlyTools?: boolean
     readOnlyToolCallCount?: number
     proposalToolCallCount?: number
     successfulProposalResultCount?: number
@@ -1628,17 +1629,35 @@ function* handleStepsMultiPrompt({
       }
     }
 
-    // After a read-only attempt already failed to emit proposal tools, any
-    // exact file context it gathered is enough to switch to the no-read direct
-    // proposal agent. Requiring the global target hints to match here is too
-    // brittle for "continue" runs where the real task scope lives in strategy
-    // prompts or summarized history.
-    if (shouldRetryWithoutReadOnlyTools(params.lastResult)) return true
+    const requiredPaths = getRequiredDirectProposalContextPaths()
+    if (requiredPaths.length > 0) {
+      return requiredPaths.every((path) => usablePathSet.has(path))
+    }
+
+    // If the task has no explicit target path, stay conservative on recovery:
+    // direct no-read mode is only useful for a single exact file context. Larger
+    // or ambiguous retries should keep read-only tools so the model can verify
+    // missing files instead of editing unrelated context from memory.
+    if (shouldRetryWithoutReadOnlyTools(params.lastResult)) {
+      return (
+        proposalOrchestrationPlan.expectedTouchedFileCount <= 1 &&
+        usableFileContextPaths.length === 1
+      )
+    }
 
     const expectedPaths = knownProposalPaths().map(normalizeProposalPath)
     if (expectedPaths.length === 0) return true
 
     return expectedPaths.some((path) => usablePathSet.has(path))
+  }
+
+  function getRequiredDirectProposalContextPaths(): string[] {
+    return dedupeStrings(
+      proposalOrchestrationPlan.targetFileHints
+        .filter(shouldPrefetchPath)
+        .map((path) => normalizeProposalPath(path))
+        .filter(Boolean),
+    )
   }
 
   function getUsableDirectFileContextPaths(context: string): string[] {
@@ -1678,6 +1697,12 @@ function* handleStepsMultiPrompt({
     const progress = isObject((result as any).proposalProgress)
       ? (result as any).proposalProgress
       : undefined
+    if (
+      Number(progress?.failedProposalResultCount ?? 0) > 0 &&
+      Number(progress?.successfulProposalResultCount ?? 0) === 0
+    ) {
+      return false
+    }
     const failure = summarizeProposalFailure(result).toLowerCase()
     const stopReason =
       typeof (result as any).stopReason === 'string'
