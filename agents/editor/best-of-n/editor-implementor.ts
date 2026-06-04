@@ -226,15 +226,26 @@ Write out your complete implementation now. Do not write any final summary.`,
         if (hasSuccessfulProposalToolResult && !hasFailedProposalToolResult) {
           const proposalSignalCount =
             latestProposalToolCalls.length + proposalToolResults.length
+          const completionSignalSeen = hasProposalCompletionSignal(
+            agentState.messageHistory ?? [],
+          )
+          const hasNewProposalSignal =
+            proposalSignalCount > lastProposalSignalCount
+          const promptedCompletionBeforeCoverage =
+            completionSignalSeen &&
+            hasNewProposalSignal &&
+            hasIncompleteKnownProposalCoverage({
+              proposedFileCount: summary.proposedFiles.length,
+              hasAnyProposal: summary.successfulCount > 0,
+            })
+
           if (
             shouldStopAfterProposalSignal({
               proposalSignalCount,
               step,
               proposedFileCount: summary.proposedFiles.length,
               hasAnyProposal: summary.successfulCount > 0,
-              completionSignalSeen: hasProposalCompletionSignal(
-                agentState.messageHistory ?? [],
-              ),
+              completionSignalSeen,
               stepsComplete: result.stepsComplete === true,
               hasReadOnlyActivityThisStep: hasCurrentReadOnlyToolResult(
                 result.toolResult,
@@ -242,6 +253,12 @@ Write out your complete implementation now. Do not write any final summary.`,
             })
           ) {
             break
+          }
+          if (promptedCompletionBeforeCoverage) {
+            yield buildProposalContinuationToolCall({
+              messageHistory: agentState.messageHistory ?? [],
+              text: buildIncompleteBundleContinuationPrompt(summary),
+            })
           }
           readOnlyOnlySteps = 0
           continue
@@ -898,7 +915,10 @@ Write out your complete implementation now. Do not write any final summary.`,
           stopReason = 'cleanProposal'
           return true
         }
-        if (completionSignalSeen) {
+        if (
+          completionSignalSeen &&
+          (coverage.satisfiesKnownScope || coverage.requiredFileCount === 0)
+        ) {
           stopReason = 'cleanProposal'
           return true
         }
@@ -966,13 +986,18 @@ Write out your complete implementation now. Do not write any final summary.`,
         if (!collectProposalBundle) {
           return 'cleanProposal'
         }
-        if (hasProposalCompletionSignal(messageHistory)) {
-          return 'cleanProposal'
-        }
-        return getProposalCoverageAssessment({
+        const coverage = getProposalCoverageAssessment({
           proposedFileCount: summary.proposedFiles.length,
           hasAnyProposal: summary.successfulCount > 0,
-        }).canCleanAfterQuiescence
+        })
+
+        if (
+          hasProposalCompletionSignal(messageHistory) &&
+          (coverage.satisfiesKnownScope || coverage.requiredFileCount === 0)
+        ) {
+          return 'cleanProposal'
+        }
+        return coverage.canCleanAfterQuiescence
           ? 'cleanProposal'
           : 'noCompletionSignal'
       }
@@ -1041,6 +1066,18 @@ Write out your complete implementation now. Do not write any final summary.`,
         }
       }
 
+      function hasIncompleteKnownProposalCoverage(input: {
+        proposedFileCount: number
+        hasAnyProposal: boolean
+      }): boolean {
+        const coverage = getProposalCoverageAssessment(input)
+        return (
+          coverage.hasAnyProposal &&
+          coverage.requiredFileCount > 0 &&
+          !coverage.satisfiesKnownScope
+        )
+      }
+
       function getKnownRequiredProposalFileCount(): number {
         if (proposalBudget.expectedTouchedFileCount > 1) {
           return proposalBudget.expectedTouchedFileCount
@@ -1075,6 +1112,30 @@ Write out your complete implementation now. Do not write any final summary.`,
                   },
                 ],
                 tags: ['PROPOSAL_RETRY'],
+              },
+            ],
+          },
+          includeToolCall: false,
+        }
+      }
+
+      function buildProposalContinuationToolCall(input: {
+        messageHistory: any[]
+        text: string
+      }): any {
+        return {
+          toolName: 'set_messages',
+          input: {
+            messages: [
+              ...input.messageHistory,
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: input.text,
+                  },
+                ],
               },
             ],
           },
@@ -1426,6 +1487,37 @@ Emit valid XML proposal tool calls with no markdown fences:
 <codebuff_tool_call>
 {"cb_tool_name":"propose_write_file","path":"path/to/file","instructions":"what changed","content":"complete file content"}
 </codebuff_tool_call>`
+      }
+
+      function buildIncompleteBundleContinuationPrompt(
+        summary: LedgerSummary,
+      ): string {
+        const requiredFileCount = getKnownRequiredProposalFileCount()
+        const proposedFiles = summary.proposedFiles.slice(0, 20)
+        const targetHints = getProposalTargetFileHints()
+        const missingHintText =
+          targetHints.length > 0
+            ? ` Expected target files from the parent plan: ${targetHints.join(
+                ', ',
+              )}.`
+            : ''
+
+        return `You wrote PROPOSAL_BUNDLE_COMPLETE before the known file scope was covered. The current proposal bundle has ${summary.proposedFiles.length} of ${requiredFileCount} required file(s): ${
+          proposedFiles.length > 0 ? proposedFiles.join(', ') : 'none'
+        }.${missingHintText}
+
+Continue the same proposal bundle. Do not start over and do not summarize. Emit propose_str_replace/propose_write_file calls for the missing required file edits only, using read-only tools first if exact current context is still missing. Write PROPOSAL_BUNDLE_COMPLETE only after the bundle covers all ${requiredFileCount} required file(s).`
+      }
+
+      function getProposalTargetFileHints(): string[] {
+        const plan = params?.proposalOrchestrationPlan
+        if (!plan || typeof plan !== 'object') return []
+        const hints = Array.isArray(plan.targetFileHints)
+          ? plan.targetFileHints
+          : []
+        return hints
+          .filter((hint: unknown): hint is string => typeof hint === 'string')
+          .slice(0, 12)
       }
 
       function buildReadOnlyContextFromMessages(messages: any[]): string {

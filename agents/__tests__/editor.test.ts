@@ -942,6 +942,130 @@ describe('editor agent', () => {
       })
     })
 
+    test('bundle mode continues when completion marker arrives before explicit file coverage', () => {
+      const implementor = createBestOfNImplementor({ model: 'gpt-5' })
+      const initialMessages = [
+        { role: 'user', content: [{ type: 'text', text: 'Initial' }] },
+      ]
+      const generator = implementor.handleSteps!({
+        agentState: createMockAgentState(initialMessages),
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: {
+          allowReadOnlyTools: true,
+          proposalBundleMode: true,
+          expectedTouchedFileCount: 2,
+          expectsMultipleFiles: true,
+          proposalOrchestrationPlan: {
+            targetFileHints: ['src/a.ts', 'src/b.ts'],
+          },
+        },
+      })
+
+      expect(generator.next().value).toBe('STEP')
+
+      const firstProposalMessages = [
+        ...initialMessages,
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'propose_write_file',
+              input: {
+                path: 'src/a.ts',
+                instructions: 'Add A',
+                content: 'export const a = 1\n',
+              },
+            },
+            { type: 'text', text: 'PROPOSAL_BUNDLE_COMPLETE' },
+          ],
+        },
+        {
+          role: 'tool',
+          toolName: 'propose_write_file',
+          content: [
+            {
+              type: 'json',
+              value: { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            },
+          ],
+        },
+      ]
+
+      const continuation = generator.next({
+        agentState: createMockAgentState(firstProposalMessages),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_messages'>
+
+      expect(continuation.toolName).toBe('set_messages')
+      const continuationMessage = continuation.input.messages.at(-1)
+      expect(continuationMessage.tags).toBeUndefined()
+      expect(continuationMessage.content[0].text).toContain(
+        'before the known file scope was covered',
+      )
+      expect(continuationMessage.content[0].text).toContain('src/a.ts')
+      expect(continuationMessage.content[0].text).toContain('src/b.ts')
+
+      expect(generator.next().value).toBe('STEP')
+
+      const output = generator.next({
+        agentState: createMockAgentState([
+          ...continuation.input.messages,
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolName: 'propose_write_file',
+                input: {
+                  path: 'src/b.ts',
+                  instructions: 'Add B',
+                  content: 'export const b = 2\n',
+                },
+              },
+              { type: 'text', text: 'PROPOSAL_BUNDLE_COMPLETE' },
+            ],
+          },
+          {
+            role: 'tool',
+            toolName: 'propose_write_file',
+            content: [
+              {
+                type: 'json',
+                value: { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+              },
+            ],
+          },
+        ]),
+        toolResult: [],
+        stepsComplete: true,
+      }).value as ToolCall<'set_output'>
+
+      expect(output).toMatchObject({
+        toolName: 'set_output',
+        input: {
+          stopReason: 'cleanProposal',
+          proposalBudget: {
+            expectedTouchedFileCount: 2,
+            expectsMultipleFiles: true,
+          },
+          toolResults: [
+            { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+            { file: 'src/b.ts', unifiedDiff: '@@ diff B' },
+          ],
+        },
+        includeToolCall: false,
+      })
+      expect((output.input as any).toolCalls.map((call: any) => call.input.path))
+        .toEqual(['src/a.ts', 'src/b.ts'])
+    })
+
     test('bundle mode keeps one-file output partial when task context expects multiple files and no marker', () => {
       const implementor = createBestOfNImplementor({ model: 'gpt-5' })
       const initialMessages = [
@@ -1879,11 +2003,22 @@ describe('editor agent', () => {
           },
         ])
 
-        const result = generator.next({
+        let result = generator.next({
           agentState: updatedState,
           toolResult: [],
           stepsComplete: false,
         })
+
+        if ((result.value as any).toolName === 'set_messages') {
+          expect(generator.next().value).toBe('STEP')
+          result = generator.next({
+            agentState: createMockAgentState(
+              (result.value as ToolCall<'set_messages'>).input.messages,
+            ),
+            toolResult: [],
+            stepsComplete: true,
+          })
+        }
 
         return (result.value as any).input.proposalBudget
       }
@@ -4069,6 +4204,461 @@ describe('editor agent', () => {
       expect((outputCall.input as any).reason).toContain(
         'verificationPassed=true',
       )
+    })
+
+    test('objective pipeline completes explicit coverage shortfalls before verification', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update two related files' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['multi-file'], forceObjectiveVerification: true },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'src/a.ts',
+                          replacements: [
+                            { oldString: 'oldA', newString: 'newA' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'src/a.ts', unifiedDiff: '@@ diff A' },
+                    ],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    stopReason: 'cleanProposal',
+                    proposalBudget: {
+                      maxProposalSteps: 10,
+                      maxReadOnlyOnlySteps: 3,
+                      maxBundleProposalTurns: 5,
+                      expectedTouchedFileCount: 2,
+                      hasExplicitExpectedTouchedFileCount: true,
+                      complexity: 'complex',
+                      hasPrefetchedContext: true,
+                      evidence: ['filePaths:2'],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'list_directory'>,
+      ).toMatchObject({
+        toolName: 'list_directory',
+        input: { path: '.' },
+      })
+
+      const completionRead = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { entries: [{ name: 'README.md' }] },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(completionRead).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+        includeToolCall: false,
+      })
+
+      const completionSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'oldA' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(completionSpawn.input.agents[0].prompt).toBe(
+        'Complete Proposal #1',
+      )
+      expect(completionSpawn.input.agents[0].params?.proposalPhase).toBe(
+        'completion',
+      )
+
+      const validationRead = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'src/a.ts',
+                        replacements: [
+                          { oldString: 'oldA', newString: 'newA' },
+                        ],
+                      },
+                    },
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'src/b.ts',
+                        replacements: [
+                          { oldString: 'oldB', newString: 'newB' },
+                        ],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    { file: 'src/a.ts', unifiedDiff: '@@ complete A' },
+                    { file: 'src/b.ts', unifiedDiff: '@@ complete B' },
+                  ],
+                  unifiedDiffs:
+                    '--- src/a.ts ---\n@@ complete A\n\n--- src/b.ts ---\n@@ complete B',
+                  stopReason: 'cleanProposal',
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(validationRead).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts', 'src/b.ts'] },
+        includeToolCall: false,
+      })
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              { path: 'src/a.ts', content: 'oldA' },
+              { path: 'src/b.ts', content: 'oldB' },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'src/a.ts',
+          replacements: [{ oldString: 'oldA', newString: 'newA' }],
+        },
+      })
+    })
+
+    test('objective pipeline rejects repairs that keep explicit coverage shortfalls', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Update two related files' }],
+        },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['multi-file'], forceObjectiveVerification: true },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'agents/editor/a.ts',
+                          replacements: [
+                            { oldString: 'oldA', newString: 'newA' },
+                          ],
+                        },
+                      },
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'agents/editor/b.ts',
+                          replacements: [
+                            { oldString: 'oldB', newString: 'newB' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      { file: 'agents/editor/a.ts', unifiedDiff: '@@ diff A' },
+                      { file: 'agents/editor/b.ts', unifiedDiff: '@@ diff B' },
+                    ],
+                    unifiedDiffs:
+                      '--- agents/editor/a.ts ---\n@@ diff A\n\n--- agents/editor/b.ts ---\n@@ diff B',
+                    stopReason: 'cleanProposal',
+                    proposalBudget: {
+                      maxProposalSteps: 10,
+                      maxReadOnlyOnlySteps: 3,
+                      maxBundleProposalTurns: 5,
+                      expectedTouchedFileCount: 2,
+                      hasExplicitExpectedTouchedFileCount: true,
+                      complexity: 'complex',
+                      hasPrefetchedContext: true,
+                      evidence: ['filePaths:2'],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'list_directory'>,
+      ).toMatchObject({
+        toolName: 'list_directory',
+        input: { path: '.' },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: {
+                entries: [
+                  { name: 'package.json' },
+                  { name: 'bun.lockb' },
+                  { name: 'tsconfig.json' },
+                ],
+              },
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['package.json'] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'package.json',
+                  content: JSON.stringify({
+                    scripts: { typecheck: 'tsc --noEmit' },
+                    workspaces: ['agents'],
+                  }),
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/package.json'] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'agents/package.json',
+                  content: JSON.stringify({
+                    scripts: { typecheck: 'tsc --noEmit' },
+                  }),
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/editor/a.ts', 'agents/editor/b.ts'] },
+      })
+
+      const isolatedVerify = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              { path: 'agents/editor/a.ts', content: 'oldA' },
+              { path: 'agents/editor/b.ts', content: 'oldB' },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'run_terminal_command'>
+
+      expect(isolatedVerify.toolName).toBe('run_terminal_command')
+
+      const repairRead = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              exitCode: 1,
+              stdout: `${JSON.stringify({
+                outputs: [
+                  {
+                    kind: 'typecheck',
+                    label: 'Typecheck (agents)',
+                    command: "cd 'agents' && bun run typecheck",
+                    exitCode: 1,
+                    stdout: 'Type error',
+                    stderr: '',
+                  },
+                ],
+              })}\n`,
+              stderr: '',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(repairRead).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/editor/a.ts', 'agents/editor/b.ts'] },
+        includeToolCall: false,
+      })
+
+      const repairSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              { path: 'agents/editor/a.ts', content: 'oldA' },
+              { path: 'agents/editor/b.ts', content: 'oldB' },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(repairSpawn.input.agents[0].prompt).toBe('Repair Proposal #1')
+      expect(repairSpawn.input.agents[0].params?.proposalPhase).toBe('repair')
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [
+                    {
+                      toolName: 'propose_str_replace',
+                      input: {
+                        path: 'agents/editor/a.ts',
+                        replacements: [
+                          { oldString: 'oldA', newString: 'repairA' },
+                        ],
+                      },
+                    },
+                  ],
+                  toolResults: [
+                    { file: 'agents/editor/a.ts', unifiedDiff: '@@ repair A' },
+                  ],
+                  unifiedDiffs: '--- agents/editor/a.ts ---\n@@ repair A',
+                  stopReason: 'cleanProposal',
+                  proposalBudget: {
+                    maxProposalSteps: 10,
+                    maxReadOnlyOnlySteps: 3,
+                    maxBundleProposalTurns: 5,
+                    expectedTouchedFileCount: 2,
+                    hasExplicitExpectedTouchedFileCount: true,
+                    complexity: 'complex',
+                    hasPrefetchedContext: true,
+                    evidence: ['filePaths:2'],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).error).toContain(
+        'Best proposal (Proposal #1) failed verification',
+      )
+      expect((outputCall.input as any).appliedProposalLabel).toBe('Proposal #1')
     })
 
     test('objective pipeline keeps selector improvements diagnostic after clean apply', () => {

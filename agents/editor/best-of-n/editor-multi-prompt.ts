@@ -409,19 +409,51 @@ function* handleStepsMultiPrompt({
     const verificationResults: CandidateVerificationResult<Implementation>[] = []
 
     for (const candidate of usableImplementations) {
-      const validationResult = yield* validateImplementationEdits(candidate)
+      let candidateToVerify = candidate
+
+      if (shouldCompletePartialBeforeApplying(candidate)) {
+        const completedCandidate =
+          yield* completePartialImplementation(candidate)
+        if (completedCandidate) {
+          candidateToVerify = completedCandidate
+        } else {
+          const coverageWarning =
+            buildPreApplyCoverageWarning(candidate) ||
+            `${getImplementationLabel(candidate)} is incomplete; it changed ${new Set(
+              extractImplementationFilePaths(candidate),
+            ).size} file(s) but the task expected ${
+              candidate.proposalBudget?.expectedTouchedFileCount ?? 'more'
+            }.`
+          verificationResults.push({
+            candidateId: candidate.id,
+            appliedCleanly: false,
+            typecheckPassed: null,
+            testsPassed: null,
+            verificationAttempted: false,
+            verificationPassed: false,
+            verificationErrors: [coverageWarning],
+            repairRoundsUsed: 0,
+            diffSize: getImplementationDiffSize(candidate),
+            finalImplementation: candidate,
+          })
+          continue
+        }
+      }
+
+      const validationResult =
+        yield* validateImplementationEdits(candidateToVerify)
       let typecheckPassed: boolean | null = null
       let testsPassed: boolean | null = null
       let verificationAttempted = false
       let verificationPassed = false
       let verificationErrors: string[] = []
       let repairRoundsUsed = 0
-      let finalImplementation = candidate
+      let finalImplementation = candidateToVerify
 
       if (validationResult.success) {
         const verifyResult = yield* verifyImplementationInIsolatedWorkspace(
           projectInfo,
-          candidate,
+          candidateToVerify,
         )
         typecheckPassed = verifyResult.typecheckPassed
         testsPassed = verifyResult.testsPassed
@@ -431,7 +463,7 @@ function* handleStepsMultiPrompt({
         verificationErrors = verifyResult.errors
 
         const maxRepairRounds = 2
-        let currentImplementation = candidate
+        let currentImplementation = candidateToVerify
         // The candidate's edits already applied cleanly in this branch, so
         // repair should see those applied results (not an empty array) for
         // the same 'what actually applied' context the validation-failure
@@ -484,7 +516,7 @@ function* handleStepsMultiPrompt({
         }
       } else {
         const repaired = yield* repairFailedImplementation({
-          failedImplementation: candidate,
+          failedImplementation: candidateToVerify,
           appliedToolResults: validationResult.toolResults,
         })
 
@@ -521,7 +553,7 @@ function* handleStepsMultiPrompt({
       verificationResults.push({
         candidateId: candidate.id,
         appliedCleanly:
-          validationResult.success || finalImplementation !== candidate,
+          validationResult.success || finalImplementation !== candidateToVerify,
         typecheckPassed,
         testsPassed,
         verificationAttempted,
@@ -686,6 +718,35 @@ function* handleStepsMultiPrompt({
           selectionSource = 'selector'
         }
       }
+    }
+
+    const preApplyCoverageWarning =
+      buildPreApplyCoverageWarning(chosenImplementation)
+    if (preApplyCoverageWarning) {
+      yield {
+        toolName: 'set_output',
+        input: {
+          error: buildIncompleteCoverageError(preApplyCoverageWarning),
+          chosenStrategy: chosenImplementation.strategy,
+          ...buildSelectionOutputFields({
+            selectedImplementation: chosenImplementation,
+            appliedImplementation: chosenImplementation,
+            selectionSource,
+            selectorChoiceId,
+          }),
+          suggestedImprovements:
+            'The selected proposal did not cover the explicitly expected file count, so it was not applied to the workspace.',
+          proposalSummary: buildProposalSummary({
+            selectedImplementation: chosenImplementation,
+            appliedImplementation: chosenImplementation,
+            applyFailures: [preApplyCoverageWarning],
+            selectorNotes: suggestedImprovements,
+            coverageWarning: preApplyCoverageWarning,
+          }),
+        },
+        includeToolCall: false,
+      } satisfies ToolCall<'set_output'>
+      return
     }
 
     // 5. Guard: refuse to apply proposals that failed verification. The ranker
@@ -2101,12 +2162,17 @@ function* handleStepsMultiPrompt({
     const base =
       'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context or read. If you need to import or use a utility or type, you MUST first verify its exact export/path/API using read-files, code_search, or glob tools. If you cannot find or verify its existence in the codebase, DO NOT invent it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
 
+    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
+    const expectedScope =
+      orchestrationPlan.expectedTouchedFileCount > 1
+        ? ` This task is expected to edit ${orchestrationPlan.expectedTouchedFileCount} file(s). Expected target files from the parent plan: ${targetHints.length > 0 ? targetHints.join(', ') : 'not explicitly known'}. Do not write PROPOSAL_BUNDLE_COMPLETE until the proposal includes all required files.`
+        : ''
+
     if (orchestrationPlan.mode !== 'large-bundle') {
-      return base
+      return `${base}${expectedScope}`
     }
 
-    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
-    return `${base} Large-task orchestration is active: prioritize the supplied proposalOrchestrationPlan and proposalContext before additional searching. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. Keep read-only exploration bounded to exact missing context; do not wander into unrelated absolute paths or one-file-at-a-time indefinite loops. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle.`
+    return `${base}${expectedScope} Large-task orchestration is active: prioritize the supplied proposalOrchestrationPlan and proposalContext before additional searching. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. Keep read-only exploration bounded to exact missing context; do not wander into unrelated absolute paths or one-file-at-a-time indefinite loops. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle.`
   }
 
   function buildDirectProposalRequirements(
@@ -2115,12 +2181,17 @@ function* handleStepsMultiPrompt({
     const base =
       'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. This direct no-read mode is only used when the parent has supplied exact current file content; do not guess beyond it. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, do not fabricate an edit: emit no proposal calls rather than editing unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
 
+    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
+    const expectedScope =
+      orchestrationPlan.expectedTouchedFileCount > 1
+        ? ` This task is expected to edit ${orchestrationPlan.expectedTouchedFileCount} file(s). Expected target files from the parent plan: ${targetHints.length > 0 ? targetHints.join(', ') : 'not explicitly known'}. Do not write PROPOSAL_BUNDLE_COMPLETE until the proposal includes all required files.`
+        : ''
+
     if (orchestrationPlan.mode !== 'large-bundle') {
-      return base
+      return `${base}${expectedScope}`
     }
 
-    const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
-    return `${base} Large-task direct retry is active because a previous attempt gathered/read searched context but did not emit proposal edits. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle instead of searching.`
+    return `${base}${expectedScope} Large-task direct retry is active because a previous attempt gathered/read searched context but did not emit proposal edits. Start from these likely target files when relevant: ${targetHints.length > 0 ? targetHints.join(', ') : 'none identified'}. If the task requires more files than the hints show, include the additional required files, but still return one coherent proposal bundle instead of searching.`
   }
 
   function buildProposalOrchestrationPlan(params: {
@@ -3453,7 +3524,10 @@ function* handleStepsMultiPrompt({
       unverifiedPaths: getUnverifiedStrReplacePaths(completionResult),
       stopReason: completedStopReason,
       proposalProgress: completionResult.proposalProgress,
-      proposalBudget: completionResult.proposalBudget,
+      proposalBudget: mergeFollowupProposalBudget({
+        followupBudget: completionResult.proposalBudget,
+        sourceBudget: partialImplementation.proposalBudget,
+      }),
       partial: false,
       phase: 'completion',
       sourceProposalId:
@@ -4148,7 +4222,11 @@ function* handleStepsMultiPrompt({
 
     if (
       !isUsableProposal(repairResult) ||
-      isPartialProposalResult(repairResult)
+      isPartialProposalResult(repairResult) ||
+      !hasRequiredFollowupCoverageEvidence({
+        followupResult: repairResult,
+        sourceImplementation: failedImplementation,
+      })
     ) {
       return undefined
     }
@@ -4164,7 +4242,10 @@ function* handleStepsMultiPrompt({
       unverifiedPaths: getUnverifiedStrReplacePaths(repairResult),
       stopReason: repairResult.stopReason,
       proposalProgress: repairResult.proposalProgress,
-      proposalBudget: repairResult.proposalBudget,
+      proposalBudget: mergeFollowupProposalBudget({
+        followupBudget: repairResult.proposalBudget,
+        sourceBudget: failedImplementation.proposalBudget,
+      }),
       partial: false,
       phase: 'repair',
       sourceProposalId:
@@ -4298,6 +4379,14 @@ function* handleStepsMultiPrompt({
   }): boolean {
     const { completionResult, partialImplementation } = params
     if (!isUsableProposal(completionResult)) return false
+    if (
+      !hasRequiredFollowupCoverageEvidence({
+        followupResult: completionResult,
+        sourceImplementation: partialImplementation,
+      })
+    ) {
+      return false
+    }
     if (!isPartialProposalResult(completionResult)) return true
 
     const completionToolResults =
@@ -4328,6 +4417,61 @@ function* handleStepsMultiPrompt({
     return completionFiles.size > 0
   }
 
+  function hasRequiredFollowupCoverageEvidence(params: {
+    followupResult: ProposalResult | ProposalFailure | undefined
+    sourceImplementation: Implementation
+  }): boolean {
+    const { followupResult, sourceImplementation } = params
+    if (!isUsableProposal(followupResult)) return false
+
+    const followupFiles = dedupeStrings(
+      extractProposalResultFilePaths(followupResult).map(normalizeProposalPath),
+    )
+    const expectedTouchedFileCount = Math.max(
+      followupResult.proposalBudget?.expectedTouchedFileCount ?? 0,
+      sourceImplementation.proposalBudget?.expectedTouchedFileCount ?? 0,
+    )
+    const hasExplicitExpectedTouchedFileCount =
+      followupResult.proposalBudget?.hasExplicitExpectedTouchedFileCount ===
+        true ||
+      sourceImplementation.proposalBudget?.hasExplicitExpectedTouchedFileCount ===
+        true
+
+    return !(
+      hasExplicitExpectedTouchedFileCount &&
+      expectedTouchedFileCount > followupFiles.length &&
+      followupFiles.length > 0
+    )
+  }
+
+  function mergeFollowupProposalBudget(params: {
+    followupBudget: ProposalResult['proposalBudget'] | undefined
+    sourceBudget: ProposalResult['proposalBudget'] | undefined
+  }): ProposalResult['proposalBudget'] | undefined {
+    const { followupBudget, sourceBudget } = params
+    if (!followupBudget && !sourceBudget) return undefined
+    const merged = {
+      ...(sourceBudget ?? {}),
+      ...(followupBudget ?? {}),
+    } as ProposalResult['proposalBudget']
+    if (!merged) return undefined
+
+    const expectedTouchedFileCount = Math.max(
+      sourceBudget?.expectedTouchedFileCount ?? 0,
+      followupBudget?.expectedTouchedFileCount ?? 0,
+    )
+    if (expectedTouchedFileCount > 0) {
+      merged.expectedTouchedFileCount = expectedTouchedFileCount
+    }
+    if (
+      sourceBudget?.hasExplicitExpectedTouchedFileCount === true ||
+      followupBudget?.hasExplicitExpectedTouchedFileCount === true
+    ) {
+      merged.hasExplicitExpectedTouchedFileCount = true
+    }
+    return merged
+  }
+
   function shouldCompletePartialBeforeApplying(
     implementation: Implementation,
   ): boolean {
@@ -4342,6 +4486,29 @@ function* handleStepsMultiPrompt({
     ).size
 
     return proposedFileCount > 0 && proposedFileCount < expectedTouchedFileCount
+  }
+
+  function buildPreApplyCoverageWarning(
+    implementation: Implementation,
+  ): string {
+    const proposedFiles = dedupeStrings(
+      extractImplementationFilePaths(implementation).map(normalizeProposalPath),
+    )
+    const expectedTouchedFileCount =
+      implementation.proposalBudget?.expectedTouchedFileCount ?? 0
+    const hasExplicitExpectedTouchedFileCount =
+      implementation.proposalBudget?.hasExplicitExpectedTouchedFileCount ===
+      true
+
+    if (
+      hasExplicitExpectedTouchedFileCount &&
+      expectedTouchedFileCount > proposedFiles.length &&
+      proposedFiles.length > 0
+    ) {
+      return `Coverage warning: proposed ${proposedFiles.length} of ${expectedTouchedFileCount} expected file(s). Planned files: ${proposedFiles.join(', ')}.`
+    }
+
+    return ''
   }
 
   function extractAppliedEditFilePaths(appliedToolResults: any[]): string[] {
@@ -4396,7 +4563,7 @@ function* handleStepsMultiPrompt({
   }
 
   function buildIncompleteCoverageError(coverageWarning: string): string {
-    return `Failed to fully apply the chosen implementation: it did not apply every file it proposed to edit, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
+    return `Failed to fully apply the chosen implementation: it did not cover every explicitly expected file or apply every file it proposed to edit, so this run is reported as a failure rather than a partial success. ${coverageWarning}`
   }
 
   function getInitialProposalLabel(index: number): string {

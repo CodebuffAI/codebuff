@@ -1,60 +1,72 @@
-# Development
+# Development Guide
 
-## Getting Started
+As a Bring Your Own Key (BYOK), local-first fork, developing Openbuff is highly streamlined. Since there is no required hosted backend or remote credit system, most development tasks center around the CLI and SDK running locally on your machine with your own configured LLM keys.
 
-Start the web server first:
+## Getting Started (CLI & SDK Development)
 
-```bash
-bun up
-```
+To develop the CLI locally, you do not need to run a web server or database. Simply configure your local providers and run the CLI developer task directly:
 
-Then start the CLI separately:
+1. **Install Dependencies:**
+   ```bash
+   bun install
+   ```
 
-```bash
-bun start-cli
-```
+2. **Configure Your API Keys:**
+   Set up your preferred OpenAI-compatible provider keys in your shell:
+   ```bash
+   export OPENAI_API_KEY="your-api-key"
+   # Or for other providers:
+   # export OPENROUTER_API_KEY="your-key"
+   ```
 
-Other service commands:
+3. **Start the CLI in Development Mode:**
+   ```bash
+   bun start-cli
+   ```
+   This will boot the terminal UI (TUI) client in your current terminal session, pointing to the local monorepo source.
 
-```bash
-bun ps    # check running services
-bun down  # stop services
-```
+## Optional Backend & Integration Services
 
-## Worktrees
+While Openbuff is focused entirely on the local BYOK model, the repository retains the upstream web/database monorepo stack for compatibility and integration testing. If you are developing features that interact with these legacy layers or running full-stack integration tests:
 
-To run multiple stacks on different ports, create `.env.development.local`:
+1. **Start Services (Web & DB):**
+   ```bash
+   bun up
+   ```
+   This starts the local Postgres database, Docker containers, and the Next.js web application.
 
-```bash
-PORT=3001
-NEXT_PUBLIC_WEB_PORT=3001
-NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3001
-```
+2. **Check Status / Stop Services:**
+   ```bash
+   bun ps    # Check running services
+   bun down  # Stop all docker services
+   ```
 
-## Logs
-
-Logs are in `debug/console/` (`db.log`, `studio.log`, `sdk.log`, `web.log`).
+3. **Logs:**
+   Log outputs for different components are written to `debug/console/` (e.g., `db.log`, `studio.log`, `sdk.log`, `web.log`).
 
 ## Package Management
 
-- Use `bun install`, `bun run ...` (avoid `npm`).
+- Always use `bun` for package management: `bun install`, `bun add <pkg>`, `bun run ...` (avoid `npm` or `yarn` inside the workspace to keep lockfiles consistent).
 
-## Database Migrations
+## Database Migrations (Legacy/Optional)
 
-Edit schema using Drizzle's TS DSL (don't hand-write migration SQL), then run the internal DB scripts to generate/apply migrations.
+If modifying the upstream schema in `packages/internal/src/db/`:
+- Edit the schema using Drizzle's TypeScript DSL.
+- Avoid hand-writing migration SQL.
+- Run the internal DB scripts to generate and apply migrations locally.
 
-## Running Scripts Against Prod
+## Running Tests
 
-Scripts in `scripts/` connect to whatever environment Infisical injects. To run a script against the production database and services, prefix it with `infisical run --env=prod`:
-
-```bash
-infisical run --env=prod -- bun scripts/<name>.ts
-```
-
-You can also inline a one-off query:
+To run the local test suite:
 
 ```bash
-infisical run --env=prod -- bun -e "import db from '@codebuff/internal/db'; /* ... */"
+cd cli
+bun test
 ```
 
-Add `--silent` to suppress the Infisical banner. Default env is `dev` — always pass `--env=prod` explicitly when you want prod. Prefer read-only queries; coordinate before running anything that writes.
+For comprehensive E2E terminal testing (which requires `tmux`):
+- See [cli/src/__tests__/README.md](../cli/src/__tests__/README.md) for detailed instructions on E2E test runs.
+
+## CLI Command References
+
+When adding commands or updating help text, ensure they are written using the `openbuff` namespace rather than the upstream `codebuff`. Ensure any legacy command parsers for `codebuff` redirect or handle flags seamlessly in local mode.
