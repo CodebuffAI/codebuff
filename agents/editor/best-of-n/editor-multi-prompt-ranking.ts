@@ -4,6 +4,7 @@ export interface CandidateVerificationResult<Implementation> {
   typecheckPassed: boolean | null
   testsPassed: boolean | null
   verificationAttempted: boolean
+  verificationConclusive: boolean
   verificationPassed: boolean
   verificationErrors: string[]
   repairRoundsUsed: number
@@ -24,6 +25,7 @@ export function sameVerificationTier<Implementation>(
 ): boolean {
   return (
     a.verificationPassed === b.verificationPassed &&
+    a.verificationConclusive === b.verificationConclusive &&
     a.verificationAttempted === b.verificationAttempted &&
     (a.typecheckPassed === true) === (b.typecheckPassed === true) &&
     (a.testsPassed === true) === (b.testsPassed === true) &&
@@ -37,6 +39,10 @@ export function rankVerifiedResults<Implementation>(
   return [...results].sort((a, b) => {
     if (a.verificationPassed !== b.verificationPassed) {
       return a.verificationPassed ? -1 : 1
+    }
+
+    if (a.verificationConclusive !== b.verificationConclusive) {
+      return a.verificationConclusive ? 1 : -1
     }
 
     if (a.verificationAttempted !== b.verificationAttempted) {

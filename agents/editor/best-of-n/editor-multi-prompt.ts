@@ -430,6 +430,7 @@ function* handleStepsMultiPrompt({
             typecheckPassed: null,
             testsPassed: null,
             verificationAttempted: false,
+            verificationConclusive: false,
             verificationPassed: false,
             verificationErrors: [coverageWarning],
             repairRoundsUsed: 0,
@@ -445,6 +446,7 @@ function* handleStepsMultiPrompt({
       let typecheckPassed: boolean | null = null
       let testsPassed: boolean | null = null
       let verificationAttempted = false
+      let verificationConclusive = false
       let verificationPassed = false
       let verificationErrors: string[] = []
       let repairRoundsUsed = 0
@@ -458,8 +460,9 @@ function* handleStepsMultiPrompt({
         typecheckPassed = verifyResult.typecheckPassed
         testsPassed = verifyResult.testsPassed
         verificationAttempted = verifyResult.verificationAttempted
+        verificationConclusive = verifyResult.verificationConclusive
         verificationPassed =
-          verifyResult.verificationAttempted && verifyResult.errors.length === 0
+          verifyResult.verificationConclusive && verifyResult.errors.length === 0
         verificationErrors = verifyResult.errors
 
         const maxRepairRounds = 2
@@ -472,6 +475,7 @@ function* handleStepsMultiPrompt({
 
         while (
           verificationAttempted &&
+          verificationConclusive &&
           !verificationPassed &&
           repairRoundsUsed < maxRepairRounds
         ) {
@@ -499,8 +503,9 @@ function* handleStepsMultiPrompt({
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
             verificationAttempted = repairedVerify.verificationAttempted
+            verificationConclusive = repairedVerify.verificationConclusive
             verificationPassed =
-              repairedVerify.verificationAttempted &&
+              repairedVerify.verificationConclusive &&
               repairedVerify.errors.length === 0
             verificationErrors = repairedVerify.errors
             currentImplementation = repaired
@@ -532,8 +537,9 @@ function* handleStepsMultiPrompt({
             typecheckPassed = repairedVerify.typecheckPassed
             testsPassed = repairedVerify.testsPassed
             verificationAttempted = repairedVerify.verificationAttempted
+            verificationConclusive = repairedVerify.verificationConclusive
             verificationPassed =
-              repairedVerify.verificationAttempted &&
+              repairedVerify.verificationConclusive &&
               repairedVerify.errors.length === 0
             verificationErrors = repairedVerify.errors
             finalImplementation = repaired
@@ -557,6 +563,7 @@ function* handleStepsMultiPrompt({
         typecheckPassed,
         testsPassed,
         verificationAttempted,
+        verificationConclusive,
         verificationPassed,
         verificationErrors,
         repairRoundsUsed,
@@ -604,7 +611,7 @@ function* handleStepsMultiPrompt({
     if (highestTierImplementations.length === 1) {
       // If only one candidate achieved the highest tier, select it directly and deterministically!
       chosenImplementation = highestTierImplementations[0]
-      selectionReason = `Objective rank: candidate was the only proposal to achieve the highest tier (verificationAttempted=${bestResult.verificationAttempted}, verificationPassed=${bestResult.verificationPassed}, typecheckPassed=${bestResult.typecheckPassed === true}, testsPassed=${bestResult.testsPassed === true}, appliedCleanly=${bestResult.appliedCleanly}).`
+      selectionReason = `Objective rank: candidate was the only proposal to achieve the highest tier (verificationAttempted=${bestResult.verificationAttempted}, verificationConclusive=${bestResult.verificationConclusive}, verificationPassed=${bestResult.verificationPassed}, typecheckPassed=${bestResult.typecheckPassed === true}, testsPassed=${bestResult.testsPassed === true}, appliedCleanly=${bestResult.appliedCleanly}).`
     } else {
       // Break ties using the LLM selector (best-of-n-selector2)!
       const selectorImplementations = getSelectorCandidateImplementations(
@@ -752,12 +759,17 @@ function* handleStepsMultiPrompt({
     // 5. Guard: refuse to apply proposals that failed verification. The ranker
     // always produces a "winner" even when every candidate fails, so without
     // this gate a broken proposal silently overwrites user code.
-    if (bestResult.verificationAttempted && !bestResult.verificationPassed) {
+    if (
+      bestResult.verificationAttempted &&
+      bestResult.verificationConclusive &&
+      !bestResult.verificationPassed
+    ) {
       const diagnosticLines = [
         `Best proposal (${getImplementationLabel(chosenImplementation)}) failed verification:`,
         `  typecheckPassed: ${bestResult.typecheckPassed}`,
         `  testsPassed: ${bestResult.testsPassed}`,
         `  appliedCleanly: ${bestResult.appliedCleanly}`,
+        `  verificationConclusive: ${bestResult.verificationConclusive}`,
         `  repairRoundsUsed: ${bestResult.repairRoundsUsed}`,
       ]
       if (bestResult.verificationErrors.length > 0) {
@@ -4993,6 +5005,7 @@ function* handleStepsMultiPrompt({
 
   type VerificationResult = {
     verificationAttempted: boolean
+    verificationConclusive: boolean
     typecheckPassed: boolean | null
     testsPassed: boolean | null
     errors: string[]
@@ -5265,6 +5278,7 @@ function* handleStepsMultiPrompt({
     if (commands.length === 0) {
       return {
         verificationAttempted: false,
+        verificationConclusive: false,
         typecheckPassed,
         testsPassed,
         errors,
@@ -5309,6 +5323,7 @@ function* handleStepsMultiPrompt({
 
     return {
       verificationAttempted: true,
+      verificationConclusive: parsed !== undefined,
       typecheckPassed,
       testsPassed,
       errors,
@@ -5702,6 +5717,7 @@ try {
   ): boolean {
     return (
       a.verificationPassed === b.verificationPassed &&
+      a.verificationConclusive === b.verificationConclusive &&
       a.verificationAttempted === b.verificationAttempted &&
       (a.typecheckPassed === true) === (b.typecheckPassed === true) &&
       (a.testsPassed === true) === (b.testsPassed === true) &&
@@ -5715,6 +5731,9 @@ try {
     return [...results].sort((a, b) => {
       if (a.verificationPassed !== b.verificationPassed) {
         return a.verificationPassed ? -1 : 1
+      }
+      if (a.verificationConclusive !== b.verificationConclusive) {
+        return a.verificationConclusive ? 1 : -1
       }
       if (a.verificationAttempted !== b.verificationAttempted) {
         return a.verificationAttempted ? -1 : 1

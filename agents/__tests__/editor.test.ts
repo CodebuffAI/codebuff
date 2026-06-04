@@ -4206,6 +4206,212 @@ describe('editor agent', () => {
       )
     })
 
+    test('objective pipeline does not repair inconclusive verifier wrapper failures', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'], forceObjectiveVerification: true },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'editor-implementor-proposal-1' }] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_str_replace',
+                        input: {
+                          path: 'agents/editor/a.ts',
+                          replacements: [
+                            { oldString: 'old', newString: 'new' },
+                          ],
+                        },
+                      },
+                    ],
+                    toolResults: [
+                      {
+                        file: 'agents/editor/a.ts',
+                        unifiedDiff: '@@ -1 +1 @@\n-old\n+new',
+                      },
+                    ],
+                    unifiedDiffs: '--- agents/editor/a.ts ---\n@@ diff',
+                    stopReason: 'cleanProposal',
+                  },
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'list_directory'>,
+      ).toMatchObject({
+        toolName: 'list_directory',
+        input: { path: '.' },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: {
+                entries: [
+                  { name: 'package.json' },
+                  { name: 'bun.lockb' },
+                  { name: 'tsconfig.json' },
+                ],
+              },
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['package.json'] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'package.json',
+                  content: JSON.stringify({
+                    scripts: {
+                      typecheck: 'tsc --noEmit',
+                    },
+                    workspaces: ['agents'],
+                  }),
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/package.json'] },
+      })
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [
+                {
+                  path: 'agents/package.json',
+                  content: JSON.stringify({
+                    scripts: {
+                      typecheck: 'bun x tsc --noEmit -p tsconfig.json',
+                    },
+                  }),
+                },
+              ],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'read_files'>,
+      ).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['agents/editor/a.ts'] },
+      })
+
+      const isolatedVerify = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'agents/editor/a.ts', content: 'old' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'run_terminal_command'>
+
+      expect(isolatedVerify.toolName).toBe('run_terminal_command')
+
+      const applyCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: {
+              exitCode: 1,
+              stdout: 'verification wrapper crashed before sentinel\n',
+              stderr: 'no CODEBUFF_VERIFY_RESULT_BASE64 output\n',
+            },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'str_replace'>
+
+      expect(applyCall.toolName).not.toBe('spawn_agents')
+      expect(applyCall).toMatchObject({
+        toolName: 'str_replace',
+        input: {
+          path: 'agents/editor/a.ts',
+          replacements: [{ oldString: 'old', newString: 'new' }],
+        },
+      })
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: { file: 'agents/editor/a.ts', unifiedDiff: '@@ applied' },
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).reason).toContain(
+        'verificationAttempted=true',
+      )
+      expect((outputCall.input as any).reason).toContain(
+        'verificationConclusive=false',
+      )
+      expect((outputCall.input as any).reason).toContain(
+        'verificationPassed=false',
+      )
+      expect((outputCall.input as any).proposalSummary?.applyFailures).toEqual(
+        [],
+      )
+    })
+
     test('objective pipeline completes explicit coverage shortfalls before verification', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([
