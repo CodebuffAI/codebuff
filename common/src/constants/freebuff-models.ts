@@ -95,7 +95,7 @@ const DEEPSEEK_V4_PRO_MODEL = {
 const MIMO_V25_PRO_MODEL = {
   id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   displayName: 'MiMo 2.5 Pro',
-  tagline: 'Smartest & Slower',
+  tagline: 'Smartest & Slow',
   availability: 'always',
 } as const satisfies FreebuffModelOption
 
