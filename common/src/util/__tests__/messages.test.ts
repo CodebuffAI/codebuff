@@ -191,6 +191,68 @@ describe('convertCbToModelMessages', () => {
     })
   })
 
+  describe('lone surrogate sanitization', () => {
+    // A lone (unpaired) UTF-16 surrogate — e.g. produced by slicing a file read
+    // in the middle of an emoji — serializes to a syntactically-valid \uXXXX
+    // escape that JS JSON.parse accepts but strict server-side parsers
+    // (serde_json) reject with "unexpected end of hex escape", fatally aborting
+    // the agent on every subsequent request. The converter must neutralize it.
+    const LONE_HIGH = '\uD83D' // high surrogate of 😀 with the low half dropped
+    const REPLACEMENT = '�'
+
+    const assertWellFormed = (value: unknown): void => {
+      const json = JSON.stringify(value)
+      // matchAll over lone surrogates: there should be none left.
+      const lone = json.match(
+        /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+      )
+      expect(lone).toBeNull()
+    }
+
+    it('sanitizes a lone surrogate in a user text part', () => {
+      const result = convertCbToModelMessages({
+        messages: [userMessage(`hello ${LONE_HIGH} world`)],
+        includeCacheControl: false,
+      })
+      assertWellFormed(result)
+      expect(JSON.stringify(result)).toContain(`hello ${REPLACEMENT} world`)
+    })
+
+    it('sanitizes a lone surrogate nested in a tool result value', () => {
+      const result = convertCbToModelMessages({
+        messages: [
+          {
+            role: 'tool',
+            toolName: 'read_files',
+            toolCallId: 'call_1',
+            content: jsonToolResult([
+              { path: 'big.ts', content: `truncated${LONE_HIGH}` },
+            ]),
+          },
+        ],
+        includeCacheControl: false,
+      })
+      assertWellFormed(result)
+    })
+
+    it('sanitizes a lone surrogate in a system message string', () => {
+      const result = convertCbToModelMessages({
+        messages: [systemMessage(`prompt ${LONE_HIGH}`)],
+        includeCacheControl: false,
+      })
+      assertWellFormed(result)
+    })
+
+    it('leaves valid surrogate pairs (emoji) intact', () => {
+      const result = convertCbToModelMessages({
+        messages: [userMessage('keep the 😀 emoji')],
+        includeCacheControl: false,
+      })
+      assertWellFormed(result)
+      expect(JSON.stringify(result)).toContain('keep the 😀 emoji')
+    })
+  })
+
   describe('tool message conversion', () => {
     it('should convert tool messages with JSON output', () => {
       const messages: Message[] = [
