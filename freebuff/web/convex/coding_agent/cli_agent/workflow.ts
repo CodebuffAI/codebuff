@@ -246,12 +246,6 @@ export const handleWorkflowComplete = internalMutation({
         const failedResult = result as { kind: "failed"; error: string };
         const errorMessage = failedResult.error || "Workflow failed";
 
-        await ctx.db.patch(messageId, {
-          state: "Error",
-          state_message: errorMessage,
-          isStreaming: false,
-        });
-
         // Check if this was a timeout (action exceeded 10 minute limit)
         // Timeout errors typically contain "deadline exceeded" or similar
         const isTimeout =
@@ -259,6 +253,14 @@ export const handleWorkflowComplete = internalMutation({
           errorMessage.toLowerCase().includes("deadline exceeded") ||
           errorMessage.toLowerCase().includes("timed out") ||
           errorMessage.toLowerCase().includes("execution time");
+
+        await ctx.db.patch(messageId, {
+          state: isTimeout ? "Cancelled" : "Error",
+          state_message: isTimeout
+            ? "Maximum time limit for a prompt reached. Engagement required to continue."
+            : errorMessage,
+          isStreaming: false,
+        });
 
         // If timeout occurred and we have tracking info, schedule credit deduction
         // Charges a flat $0.50 = 500K credits for timeouts

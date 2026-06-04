@@ -199,7 +199,8 @@ export const sweepTimedOutFreebuffRuns = internalMutation({
       await ctx.db.patch(latestRunDoc._id, {
         status: "timed_out",
         timed_out_at: now,
-        error: "Freebuff run timed out after 10 minutes.",
+        error:
+          "Maximum time limit for a prompt reached. Engagement required to continue.",
         last_event_at: now,
       });
 
@@ -208,14 +209,15 @@ export const sweepTimedOutFreebuffRuns = internalMutation({
           (message.assistant_stream ?? []) as AssistantStreamItem[],
         );
         assistantStream.push({
-          type: "error",
-          title: "Freebuff timed out",
+          type: "timeout_continue",
+          title: "Time limit reached",
           content:
-            "Freebuff run timed out after 10 minutes. Try a smaller prompt or break the request into steps.",
+            "Maximum time limit for a prompt reached. Engagement required to continue.",
         });
         await ctx.db.patch(latestRunDoc.message_id, {
-          state: "Error",
-          state_message: "Freebuff run timed out after 10 minutes.",
+          state: "Cancelled",
+          state_message:
+            "Maximum time limit for a prompt reached. Engagement required to continue.",
           isStreaming: false,
           assistant_stream: assistantStream,
         });

@@ -11,6 +11,8 @@ import {
   Wrench,
   Sparkles as SparklesIcon,
   ExternalLink,
+  Clock,
+  Play,
 } from "lucide-react";
 import React, {
   useImperativeHandle,
@@ -149,7 +151,7 @@ export interface AgentChatMessagesRef {
 interface AgentChatMessagesProps {
   project: FunctionReturnType<typeof api.project.getProjectData>;
   projectSemanticIdentifier: string;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string) => void | Promise<unknown>;
   onCreateNewThread?: () => void;
   messagesStatus?:
     | "LoadingFirstPage"
@@ -260,6 +262,27 @@ type AssistantStreamItemType = {
   status?: string;
   content: string;
 };
+
+const TIME_LIMIT_CONTINUE_MESSAGE = "continue";
+
+function isPromptTimeLimitText(text?: string | null) {
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes("timed out after 10 minutes") ||
+    normalized.includes("10 minute limit") ||
+    normalized.includes("10-minute limit") ||
+    normalized.includes("maximum time limit")
+  );
+}
+
+function isPromptTimeLimitItem(item: AssistantStreamItemType) {
+  return (
+    item.type === "timeout_continue" ||
+    isPromptTimeLimitText(item.title) ||
+    isPromptTimeLimitText(item.content)
+  );
+}
 
 type AgentMessageForAd =
   | FunctionReturnType<
@@ -764,6 +787,57 @@ const ActivityGroup: React.FC<{
   );
 };
 
+const TimeLimitContinuePanel: React.FC<{
+  onContinue?: () => void | Promise<unknown>;
+}> = ({ onContinue }) => {
+  const [isContinuing, setIsContinuing] = useState(false);
+
+  const handleContinue = async () => {
+    if (!onContinue || isContinuing) return;
+    setIsContinuing(true);
+    try {
+      await onContinue();
+    } finally {
+      setIsContinuing(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 mt-3 rounded-lg border border-border bg-muted/35 px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+            <Clock className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-foreground">
+              Maximum time limit for a prompt reached
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Engagement required to continue. Your chat history and current
+              project state are saved, so Freebuff can pick up from here.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleContinue}
+          disabled={!onContinue || isContinuing}
+          className="h-8 shrink-0"
+        >
+          {isContinuing ? (
+            <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 // Compact Paywall Component for in-chat display - matches CreditOverlay format
 const CompactPaywallBump: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1067,7 +1141,8 @@ const AgentMessageCard: React.FC<{
       >[0];
   adAfterUser?: PersistedAgentAd;
   onRollback?: () => Promise<void>;
-}> = ({ message, adAfterUser, onRollback }) => {
+  onContinueAfterTimeout?: () => void | Promise<unknown>;
+}> = ({ message, adAfterUser, onRollback, onContinueAfterTimeout }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   if (message.ad_payload) {
@@ -1075,8 +1150,15 @@ const AgentMessageCard: React.FC<{
   }
 
   const isStreaming = message.isStreaming;
-  const hasStream =
-    message.assistant_stream && message.assistant_stream.length > 0;
+  const assistantStream = (message.assistant_stream ??
+    []) as AssistantStreamItemType[];
+  const isPromptTimeLimit =
+    isPromptTimeLimitText(message.state_message) ||
+    assistantStream.some(isPromptTimeLimitItem);
+  const visibleAssistantStream = assistantStream.filter(
+    (item) => !isPromptTimeLimitItem(item),
+  );
+  const hasStream = visibleAssistantStream.length > 0;
 
   const hasCheckpoint =
     message.commit_hash &&
@@ -1198,7 +1280,7 @@ const AgentMessageCard: React.FC<{
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-1.5">
-          {groupStreamItems(message.assistant_stream!).map((group, index) =>
+          {groupStreamItems(visibleAssistantStream).map((group, index) =>
             group.kind === "text" ? (
               <TextGroup key={index} items={group.items} />
             ) : (
@@ -1213,14 +1295,21 @@ const AgentMessageCard: React.FC<{
         </div>
       ) : null}
 
+      {isPromptTimeLimit && (
+        <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
+      )}
+
       {/* Status and metadata at the bottom — compact and subtle */}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {isStreaming && hasStream && <ThinkingIndicator />}
-        {!isStreaming && (
+        {!isStreaming && !isPromptTimeLimit && (
           <MessageStateBadge
             state={message.state}
             stateMessage={message.state_message}
           />
+        )}
+        {!isStreaming && isPromptTimeLimit && (
+          <span className="text-muted-foreground">Waiting for you</span>
         )}
         {message.credits_deducted !== undefined &&
           message.credits_deducted > 0 && (
@@ -1245,7 +1334,7 @@ export const AgentChatMessages = forwardRef<
   AgentChatMessagesRef,
   AgentChatMessagesProps
 >(function AgentChatMessages(
-  { project, projectSemanticIdentifier, onRestoreMessage },
+  { project, projectSemanticIdentifier, onSendMessage, onRestoreMessage },
   ref,
 ) {
   // All hooks must be called unconditionally before any early returns
@@ -1641,6 +1730,9 @@ export const AgentChatMessages = forwardRef<
                       message={message}
                       adAfterUser={adBySourceMessageId.get(message._id)}
                       onRollback={rollbackCallbacks.get(message._id)}
+                      onContinueAfterTimeout={() =>
+                        onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
+                      }
                     />
                   ))}
                 </>
