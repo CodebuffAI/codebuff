@@ -42,19 +42,20 @@ export type AdSurface = 'waiting_room'
 export type GravityAdState = {
   ads: AdResponse[] | null
   isLoading: boolean
+  recordClick: (ad: AdResponse) => void
   recordImpression: (ad: AdResponse) => void
 }
 
 // Consolidated controller state for the ad rotation logic
 type GravityController = {
-  choiceCache: AdResponse[][] // Cache of choice ad sets (each entry is 4 ads)
+  choiceCache: AdResponse[][] // Cache of ad sets (choice or single-ad units)
   choiceCacheIndex: number
   impressionsFired: Set<string>
   adsShownSinceActivity: number
   tickInFlight: boolean
 }
 
-// Pure helper: add a choice ad set to the choice cache
+// Pure helper: add an ad set to the cache
 function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
   // ZeroClick offer responses must not be stored for later display. Keep them
   // out of the rotation cache and only render them for the live request.
@@ -67,7 +68,7 @@ function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
   ctrl.choiceCache.push(ads)
 }
 
-// Pure helper: get the next cached choice ad set
+// Pure helper: get the next cached ad set
 function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
   if (ctrl.choiceCache.length === 0) return null
   const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!
@@ -91,17 +92,14 @@ export const useGravityAd = (options?: {
   /** Skip the "wait for first user message" gate. Used by the freebuff
    *  waiting room, which has no conversation but still needs ads. */
   forceStart?: boolean
-  /** Primary ad network to query. Defaults to Gravity. */
+  /** Ad network to request first. The server owns fallback ordering. */
   provider?: AdProvider
-  /** Backup ad network to try when the primary returns no fill or errors. */
-  fallbackProvider?: AdProvider
   /** Product surface requesting the ad. The server maps this to placements. */
   surface?: AdSurface
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
-  const fallbackProvider = options?.fallbackProvider
   const surface = options?.surface
   const [ads, setAds] = useState<AdResponse[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -231,6 +229,35 @@ export const useGravityAd = (options?: {
     })
   }
 
+  const recordClick = (ad: AdResponse): void => {
+    const authToken = getAuthToken()
+    if (!authToken) {
+      logger.warn('[ads] No auth token, skipping ad click recording')
+      return
+    }
+
+    void fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+        'User-Agent': getCliAdRequestUserAgent(),
+      },
+      body: JSON.stringify({ impUrl: ad.impUrl, surface: surface ?? 'chat' }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          logger.debug(
+            { status: res.status },
+            '[ads] Failed to record ad click',
+          )
+        }
+      })
+      .catch((err) => {
+        logger.debug({ err }, '[ads] Failed to record ad click')
+      })
+  }
+
   type FetchAdResult = { ads: AdResponse[] } | null
 
   // Fetch an ad via web API
@@ -275,61 +302,56 @@ export const useGravityAd = (options?: {
       }
     }
 
-    const providersToTry =
-      fallbackProvider && fallbackProvider !== provider
-        ? [provider, fallbackProvider]
-        : [provider]
+    try {
+      const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'User-Agent': getCliAdRequestUserAgent(),
+        },
+        body: JSON.stringify({
+          provider,
+          messages: adMessages,
+          sessionId: useChatStore.getState().chatSessionId,
+          device: getDeviceInfo(),
+          ...(surface ? { surface } : {}),
+          // Carbon requires a real browser-ish useragent for targeting/fraud
+          // detection. Gravity ignores it. We source one centrally so every
+          // provider that needs it sees the same value.
+          userAgent: getAdUserAgent(),
+        }),
+      })
 
-    for (const providerToTry of providersToTry) {
-      try {
-        const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-            'User-Agent': getCliAdRequestUserAgent(),
-          },
-          body: JSON.stringify({
-            provider: providerToTry,
-            messages: adMessages,
-            sessionId: useChatStore.getState().chatSessionId,
-            device: getDeviceInfo(),
-            ...(surface ? { surface } : {}),
-            // Carbon requires a real browser-ish useragent for targeting/fraud
-            // detection. Gravity ignores it. We source one centrally so every
-            // provider that needs it sees the same value.
-            userAgent: getAdUserAgent(),
-          }),
-        })
-
-        if (!response.ok) {
-          logger.warn(
-            {
-              provider: providerToTry,
-              status: response.status,
-              response: await response.json(),
-            },
-            '[ads] Web API returned error',
-          )
-          continue
+      if (!response.ok) {
+        let responseBody: unknown
+        try {
+          const contentType = response.headers.get('content-type') ?? ''
+          responseBody = contentType.includes('application/json')
+            ? await response.json()
+            : await response.text()
+        } catch {
+          responseBody = 'Unable to parse error response'
         }
-
-        const data = await response.json()
-
-        if (Array.isArray(data.ads) && data.ads.length > 0) {
-          return {
-            ads: (data.ads as AdResponse[]).map((ad) => ({
-              ...ad,
-              provider: data.provider ?? providerToTry,
-            })),
-          }
-        }
-      } catch (err) {
-        logger.error(
-          { err, provider: providerToTry },
-          '[ads] Failed to fetch ad',
+        logger.warn(
+          { provider, status: response.status, response: responseBody },
+          '[ads] Web API returned error',
         )
+        return null
       }
+
+      const data = await response.json()
+
+      if (Array.isArray(data.ads) && data.ads.length > 0) {
+        return {
+          ads: (data.ads as AdResponse[]).map((ad) => ({
+            ...ad,
+            provider: data.provider ?? provider,
+          })),
+        }
+      }
+    } catch (err) {
+      logger.error({ err, provider }, '[ads] Failed to fetch ad')
     }
 
     return null
@@ -404,13 +426,14 @@ export const useGravityAd = (options?: {
     return () => {
       clearInterval(id)
     }
-  }, [shouldStart, shouldHideAds, provider, fallbackProvider, surface])
+  }, [shouldStart, shouldHideAds, provider, surface])
 
   // Don't return ads when ads should be hidden
   const visible = shouldStart && !shouldHideAds
   return {
     ads: visible ? ads : null,
     isLoading,
+    recordClick,
     recordImpression: recordImpressionOnce,
   }
 }

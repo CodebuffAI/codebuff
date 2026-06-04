@@ -1,5 +1,10 @@
 import { describe, test, expect } from 'bun:test'
 
+import {
+  getKeypadPrintableSequence,
+  isKeypadEnter,
+} from '../../utils/keypad-keys'
+
 /**
  * Tests for tab character cursor rendering in MultilineInput component.
  *
@@ -13,23 +18,23 @@ import { describe, test, expect } from 'bun:test'
 /**
  * Check if a key event represents printable character input (not a special key).
  * This mirrors the function in multiline-input.tsx for testing.
- * 
+ *
  * Uses a positive heuristic based on key.name length rather than a brittle deny-list.
  * Special keys have descriptive multi-character names (like 'backspace', 'up', 'f1')
  * while regular printable characters either have no name or a single-character name.
  */
 function isPrintableCharacterKey(key: { name?: string }): boolean {
   const name = key.name
-  
+
   // No name = likely multi-byte input (Chinese, Japanese, Korean, etc.)
   if (!name) return true
-  
+
   // Single character name = regular ASCII printable (a, b, 1, $, etc.)
   if (name.length === 1) return true
-  
+
   // Special case: space key has name 'space' but is printable
   if (name === 'space') return true
-  
+
   // Multi-char name = special key (up, f1, backspace, etc.)
   return false
 }
@@ -256,27 +261,42 @@ describe('MultilineInput - Chinese/IME character input', () => {
     meta?: boolean
     option?: boolean
   }): boolean {
+    return getPrintableKeySequence(key) !== null
+  }
+
+  function getPrintableKeySequence(key: {
+    sequence?: string
+    name?: string
+    ctrl?: boolean
+    meta?: boolean
+    option?: boolean
+  }): string | null {
     // Must have a sequence with at least one character
     if (!key.sequence || key.sequence.length < 1) {
-      return false
+      return null
     }
 
     // No modifier keys allowed
     if (key.ctrl || key.meta || key.option) {
-      return false
+      return null
+    }
+
+    const keypadValue = getKeypadPrintableSequence(key)
+    if (keypadValue !== null) {
+      return keypadValue
     }
 
     // Must not be a control character
     if (CONTROL_CHAR_REGEX.test(key.sequence)) {
-      return false
+      return null
     }
 
     // Must be a printable character key (not a special key like arrows, function keys, etc.)
     if (!isPrintableCharacterKey(key)) {
-      return false
+      return null
     }
 
-    return true
+    return key.sequence
   }
 
   test('accepts single Chinese character (你)', () => {
@@ -385,6 +405,42 @@ describe('MultilineInput - Chinese/IME character input', () => {
     }
 
     expect(shouldAcceptCharacterInput(key)).toBe(true)
+  })
+
+  test('accepts Kitty keyboard numpad digit names', () => {
+    const key = {
+      sequence: '\x1b[57400u',
+      name: 'kp1',
+      ctrl: false,
+      meta: false,
+      option: false,
+    }
+
+    expect(getPrintableKeySequence(key)).toBe('1')
+  })
+
+  test('accepts raw application keypad digit sequences', () => {
+    const key = {
+      sequence: '\x1bOq',
+      name: '',
+      ctrl: false,
+      meta: false,
+      option: false,
+    }
+
+    expect(getPrintableKeySequence(key)).toBe('1')
+  })
+
+  test('accepts raw application keypad operator sequences', () => {
+    const key = {
+      sequence: '\x1bOk',
+      name: '',
+      ctrl: false,
+      meta: false,
+      option: false,
+    }
+
+    expect(getPrintableKeySequence(key)).toBe('+')
   })
 
   test('rejects arrow key (up)', () => {
@@ -625,7 +681,9 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     hasBackslashBeforeCursor: boolean = false,
   ): 'newline' | 'submit' | 'ignore' {
     const lowerKeyName = (key.name ?? '').toLowerCase()
-    const isEnterKey = key.name === 'return' || key.name === 'enter'
+    const keypadEnter = isKeypadEnter(key)
+    const isEnterKey =
+      key.name === 'return' || key.name === 'enter' || keypadEnter
     // Ctrl+J is translated by the terminal to a linefeed character (0x0a)
     // So we detect it by checking for name === 'linefeed' rather than ctrl + j
     const isCtrlJ =
@@ -651,13 +709,13 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
       !key.meta &&
       !key.option &&
       !isAltLikeModifier &&
-      !hasEscapePrefix &&
-      key.sequence === '\r' &&
+      (!hasEscapePrefix || keypadEnter) &&
+      (key.sequence === '\r' || keypadEnter) &&
       !hasBackslashBeforeCursor
     const isShiftEnter =
       isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
     const isOptionEnter =
-      isEnterKey && (isAltLikeModifier || hasEscapePrefix)
+      isEnterKey && !keypadEnter && (isAltLikeModifier || hasEscapePrefix)
     const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
 
     const shouldInsertNewline =
@@ -891,6 +949,32 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     const key = {
       name: 'enter',
       sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  test('keypad Enter submits with Kitty keyboard key name', () => {
+    const key = {
+      name: 'kpenter',
+      sequence: '\x1b[57414u',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  test('keypad Enter submits with raw application keypad sequence', () => {
+    const key = {
+      name: '',
+      sequence: '\x1bOM',
       ctrl: false,
       meta: false,
       shift: false,

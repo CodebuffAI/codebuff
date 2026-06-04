@@ -17,11 +17,9 @@ const packageName = 'freebuff'
  * Terminal escape sequences to reset terminal state after the child process exits.
  * When the binary is SIGKILL'd, it can't clean up its own terminal state.
  * The wrapper (this process) survives and must reset these modes.
- *
- * Keep in sync with TERMINAL_RESET_SEQUENCES in cli/src/utils/renderer-cleanup.ts
  */
-const TERMINAL_RESET_SEQUENCES =
-  '\x1b[?1049l' + // Exit alternate screen buffer
+const EXIT_ALTERNATE_SCREEN_SEQUENCE = '\x1b[?1049l'
+const SAFE_TERMINAL_RESET_SEQUENCES =
   '\x1b[?1000l' + // Disable X10 mouse mode
   '\x1b[?1002l' + // Disable button event mouse mode
   '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
@@ -30,7 +28,12 @@ const TERMINAL_RESET_SEQUENCES =
   '\x1b[?2004l' + // Disable bracketed paste mode
   '\x1b[?25h' // Show cursor
 
-function resetTerminal() {
+const FULL_TERMINAL_RESET_SEQUENCES =
+  EXIT_ALTERNATE_SCREEN_SEQUENCE + SAFE_TERMINAL_RESET_SEQUENCES
+
+function resetTerminal(options = {}) {
+  const { exitAlternateScreen = false } = options
+
   try {
     if (process.stdin.isTTY && process.stdin.setRawMode) {
       process.stdin.setRawMode(false)
@@ -40,11 +43,43 @@ function resetTerminal() {
   }
   try {
     if (process.stdout.isTTY) {
-      process.stdout.write(TERMINAL_RESET_SEQUENCES)
+      // Exiting the alternate screen is only safe after an interactive child.
+      // Plain CLI paths like --help never enter it, and ?1049l can erase output.
+      process.stdout.write(
+        exitAlternateScreen
+          ? FULL_TERMINAL_RESET_SEQUENCES
+          : SAFE_TERMINAL_RESET_SEQUENCES,
+      )
     }
   } catch {
     // stdout may be closed
   }
+}
+
+function getUnsignedExitCode(code) {
+  return code != null && code < 0 ? (code >>> 0) : code
+}
+
+function isWindowsNativeCrashCode(code) {
+  const unsignedCode = getUnsignedExitCode(code)
+  return (
+    process.platform === 'win32' &&
+    (unsignedCode === 0xC000001D ||
+      unsignedCode === 0xC0000005 ||
+      unsignedCode === 0xC0000409)
+  )
+}
+
+function shouldExitAlternateScreen(code, signal) {
+  return Boolean(signal) || isWindowsNativeCrashCode(code)
+}
+
+function isIllegalInstructionExit(code, signal) {
+  const unsignedCode = getUnsignedExitCode(code)
+  return (
+    signal === 'SIGILL' ||
+    (process.platform === 'win32' && unsignedCode === 0xC000001D)
+  )
 }
 
 function createConfig(packageName) {
@@ -137,10 +172,17 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
 
 const PLATFORM_TARGETS = {
   'linux-x64': `${packageName}-linux-x64.tar.gz`,
+  'linux-x64-baseline': `${packageName}-linux-x64-baseline.tar.gz`,
   'linux-arm64': `${packageName}-linux-arm64.tar.gz`,
   'darwin-x64': `${packageName}-darwin-x64.tar.gz`,
   'darwin-arm64': `${packageName}-darwin-arm64.tar.gz`,
   'win32-x64': `${packageName}-win32-x64.tar.gz`,
+  'win32-x64-baseline': `${packageName}-win32-x64-baseline.tar.gz`,
+}
+
+const BASELINE_FALLBACK_TARGETS = {
+  'linux-x64': 'linux-x64-baseline',
+  'win32-x64': 'win32-x64-baseline',
 }
 
 const term = {
@@ -157,6 +199,84 @@ const term = {
     term.clearLine()
     process.stderr.write(text + '\n')
   },
+}
+
+function getPlatformKey() {
+  return `${process.platform}-${process.arch}`
+}
+
+function getTargetOverride() {
+  const envNames = [
+    `${packageName.toUpperCase()}_BINARY_TARGET`,
+    'CODEBUFF_BINARY_TARGET',
+    'CLI_BINARY_TARGET',
+  ]
+
+  for (const envName of envNames) {
+    const target = process.env[envName]
+    if (target && PLATFORM_TARGETS[target]) {
+      return target
+    }
+  }
+
+  return null
+}
+
+function linuxCpuHasAvx2() {
+  if (process.platform !== 'linux' || process.arch !== 'x64') {
+    return true
+  }
+
+  try {
+    return /\bavx2\b/i.test(fs.readFileSync('/proc/cpuinfo', 'utf8'))
+  } catch {
+    return true
+  }
+}
+
+function getDefaultTargetKey() {
+  const override = getTargetOverride()
+  if (override) {
+    return override
+  }
+
+  const platformKey = getPlatformKey()
+  if (platformKey === 'linux-x64' && !linuxCpuHasAvx2()) {
+    return 'linux-x64-baseline'
+  }
+
+  return platformKey
+}
+
+function getBaselineFallbackTargetKey() {
+  // Windows has no reliable plain-Node CPU feature check here, so we keep
+  // the fast x64 binary first and fall back after the native SIGILL code.
+  return BASELINE_FALLBACK_TARGETS[getPlatformKey()] || null
+}
+
+function isTargetAllowedForThisMachine(target) {
+  const override = getTargetOverride()
+  if (override) {
+    return target === override
+  }
+  return (
+    target === getDefaultTargetKey() ||
+    target === getBaselineFallbackTargetKey()
+  )
+}
+
+function getDownloadTargetKey() {
+  const override = getTargetOverride()
+  if (override) {
+    return override
+  }
+
+  const metadata = getCurrentMetadata()
+  if (metadata?.target && isTargetAllowedForThisMachine(metadata.target)) {
+    return metadata.target
+  }
+
+  return getDefaultTargetKey()
 }
 
 async function getLatestVersion() {
@@ -187,15 +307,30 @@ function streamToString(stream) {
 
 function getCurrentVersion() {
   try {
-    if (!fs.existsSync(CONFIG.metadataPath)) {
+    const metadata = getCurrentMetadata()
+    if (!metadata) {
       return null
     }
-    const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
     if (!fs.existsSync(CONFIG.binaryPath)) {
+      return null
+    }
+    const metadataTarget = metadata.target || getPlatformKey()
+    if (!isTargetAllowedForThisMachine(metadataTarget)) {
       return null
     }
     return metadata.version || null
   } catch (error) {
+    return null
+  }
+}
+
+function getCurrentMetadata() {
+  try {
+    if (!fs.existsSync(CONFIG.metadataPath)) {
+      return null
+    }
+    return JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+  } catch {
     return null
   }
 }
@@ -276,13 +411,12 @@ function createProgressBar(percentage, width = 30) {
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
-async function downloadBinary(version) {
-  const platformKey = `${process.platform}-${process.arch}`
-  const fileName = PLATFORM_TARGETS[platformKey]
+async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
+  const fileName = PLATFORM_TARGETS[targetKey]
 
   if (!fileName) {
     const error = new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
-    trackUpdateFailed(error.message, version, { stage: 'platform_check' })
+    trackUpdateFailed(error.message, version, { stage: 'platform_check', target: targetKey })
     throw error
   }
 
@@ -304,7 +438,7 @@ async function downloadBinary(version) {
   if (res.statusCode !== 200) {
     fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
     const error = new Error(`Download failed: HTTP ${res.statusCode}`)
-    trackUpdateFailed(error.message, version, { stage: 'http_download', statusCode: res.statusCode })
+    trackUpdateFailed(error.message, version, { stage: 'http_download', statusCode: res.statusCode, target: targetKey })
     throw error
   }
 
@@ -346,7 +480,7 @@ async function downloadBinary(version) {
     const error = new Error(
       `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
     )
-    trackUpdateFailed(error.message, version, { stage: 'extraction' })
+    trackUpdateFailed(error.message, version, { stage: 'extraction', target: targetKey })
     throw error
   }
 
@@ -396,7 +530,7 @@ async function downloadBinary(version) {
 
     fs.writeFileSync(
       CONFIG.metadataPath,
-      JSON.stringify({ version }, null, 2),
+      JSON.stringify({ version, target: targetKey }, null, 2),
     )
   } finally {
     if (fs.existsSync(CONFIG.tempDownloadDir)) {
@@ -472,26 +606,13 @@ async function checkForUpdates(runningProcess, exitListener) {
         }, 5000)
       })
 
-      resetTerminal()
+      resetTerminal({ exitAlternateScreen: true })
       console.log(`Update available: ${currentVersion} → ${latestVersion}`)
 
       await downloadBinary(latestVersion)
 
-      const newChild = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-        stdio: 'inherit',
-        detached: false,
-      })
-
-      newChild.on('exit', (code, signal) => {
-        resetTerminal()
-        printCrashDiagnostics(code, signal)
-        process.exit(signal ? 1 : (code || 0))
-      })
-
-      newChild.on('error', (err) => {
-        console.error('Failed to start freebuff:', err.message)
-        process.exit(1)
-      })
+      const newChild = spawnInstalledBinary({ detached: false })
+      attachExitHandler(newChild)
 
       return new Promise(() => {})
     }
@@ -502,10 +623,8 @@ async function checkForUpdates(runningProcess, exitListener) {
 
 function printCrashDiagnostics(code, signal) {
   // Windows NTSTATUS codes (unsigned DWORD)
-  const unsignedCode = code != null && code < 0 ? (code >>> 0) : code
-  const isIllegalInstruction =
-    signal === 'SIGILL' ||
-    (process.platform === 'win32' && unsignedCode === 0xC000001D)
+  const unsignedCode = getUnsignedExitCode(code)
+  const isIllegalInstruction = isIllegalInstructionExit(code, signal)
   const isAccessViolation =
     signal === 'SIGSEGV' ||
     (process.platform === 'win32' && unsignedCode === 0xC0000005)
@@ -548,25 +667,139 @@ function printCrashDiagnostics(code, signal) {
   console.error('')
 }
 
-async function main() {
-  await ensureBinaryExists()
+function getInstalledBinaryStatus() {
+  try {
+    const stats = fs.statSync(CONFIG.binaryPath)
+    return stats.isFile() ? `yes (${formatBytes(stats.size)})` : 'no'
+  } catch {
+    return 'no'
+  }
+}
+
+function printSpawnFailure(err) {
+  resetTerminal()
+  const code = err && err.code ? ` (${err.code})` : ''
+
+  console.error(`Failed to start ${packageName}: ${err.message}${code}`)
+  console.error('')
+  console.error('System info:')
+  console.error(`  Platform: ${process.platform} ${process.arch}`)
+  console.error(`  Node:     ${process.version}`)
+  console.error(`  Binary:   ${CONFIG.binaryPath}`)
+  console.error(`  Exists:   ${getInstalledBinaryStatus()}`)
+
+  if (process.platform === 'win32') {
+    console.error('')
+    console.error(
+      'On Windows, this can happen when Windows Security or antivirus blocks',
+    )
+    console.error(
+      'or quarantines the downloaded executable, or when the binary requires',
+    )
+    console.error('CPU instructions that are not available on this machine.')
+  }
+
+  console.error('')
+  console.error('Try deleting the downloaded files and running again:')
+  console.error(`  ${CONFIG.configDir}`)
+  console.error('')
+}
+
+function spawnInstalledBinary(options = {}) {
+  if (!fs.existsSync(CONFIG.binaryPath)) {
+    try {
+      if (fs.existsSync(CONFIG.metadataPath)) fs.unlinkSync(CONFIG.metadataPath)
+    } catch {
+      // best effort
+    }
+    const error = new Error(
+      `downloaded binary is missing at ${CONFIG.binaryPath}`,
+    )
+    error.code = 'BINARY_MISSING'
+    printSpawnFailure(error)
+    process.exit(1)
+  }
 
   const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
+    ...options,
   })
 
-  const exitListener = (code, signal) => {
-    resetTerminal()
+  child.on('error', (err) => {
+    printSpawnFailure(err)
+    process.exit(1)
+  })
+
+  return child
+}
+
+async function tryFallbackToBaseline(code, signal) {
+  if (!isIllegalInstructionExit(code, signal)) {
+    return false
+  }
+
+  const fallbackTarget = getBaselineFallbackTargetKey()
+  if (!fallbackTarget) {
+    return false
+  }
+
+  const metadata = getCurrentMetadata()
+  const currentTarget = metadata?.target || getDefaultTargetKey()
+  if (currentTarget === fallbackTarget) {
+    return false
+  }
+
+  const version = metadata?.version || (await getLatestVersion())
+  if (!version) {
+    return false
+  }
+
+  resetTerminal({
+    exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+  })
+  console.error('')
+  console.error(
+    `${packageName} is switching to the older-CPU binary for this machine.`,
+  )
+
+  try {
+    await downloadBinary(version, fallbackTarget)
+  } catch (error) {
+    term.clearLine()
+    console.error(`Failed to download ${fallbackTarget}: ${error.message}`)
+    return false
+  }
+
+  const child = spawnInstalledBinary({ detached: false })
+  attachExitHandler(child, false)
+  return true
+}
+
+function attachExitHandler(child, allowBaselineFallback = true) {
+  const exitListener = async (code, signal) => {
+    if (
+      allowBaselineFallback &&
+      (await tryFallbackToBaseline(code, signal))
+    ) {
+      return
+    }
+
+    resetTerminal({
+      exitAlternateScreen: shouldExitAlternateScreen(code, signal),
+    })
     printCrashDiagnostics(code, signal)
     process.exit(signal ? 1 : (code || 0))
   }
 
   child.on('exit', exitListener)
+  return exitListener
+}
 
-  child.on('error', (err) => {
-    console.error('Failed to start freebuff:', err.message)
-    process.exit(1)
-  })
+async function main() {
+  await ensureBinaryExists()
+
+  const child = spawnInstalledBinary()
+  const exitListener = attachExitHandler(child)
 
   setTimeout(() => {
     checkForUpdates(child, exitListener)

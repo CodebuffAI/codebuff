@@ -80,7 +80,7 @@ async function triggerWorkflow(versionType: string, checkoutRef: string) {
       -H "Accept: application/vnd.github.v3+json" \
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
-      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/freebuff-release.yml/dispatches \
+      https://api.github.com/repos/CodebuffAI/freebuff-private/actions/workflows/freebuff-release.yml/dispatches \
       -d '${payload}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
@@ -88,7 +88,7 @@ async function triggerWorkflow(versionType: string, checkoutRef: string) {
     if (response.includes('workflow_dispatch')) {
       log(`⚠️  Workflow dispatch failed: ${response}`)
       log(
-        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/freebuff-release.yml',
+        'Please manually trigger the workflow at: https://github.com/CodebuffAI/freebuff-private/actions/workflows/freebuff-release.yml',
       )
     } else {
       log('🎉 Freebuff release workflow triggered!')
@@ -97,7 +97,7 @@ async function triggerWorkflow(versionType: string, checkoutRef: string) {
     const message = err instanceof Error ? err.message : String(err)
     log(`⚠️  Failed to trigger workflow automatically: ${message}`)
     log(
-      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/freebuff-release.yml',
+      'You may need to trigger it manually at: https://github.com/CodebuffAI/freebuff-private/actions/workflows/freebuff-release.yml',
     )
   }
 }
@@ -118,7 +118,7 @@ async function main() {
 
   log('')
   log(
-    'Monitor progress at: https://github.com/CodebuffAI/codebuff/actions/workflows/freebuff-release.yml',
+    'Monitor progress at: https://github.com/CodebuffAI/freebuff-private/actions/workflows/freebuff-release.yml',
   )
 }
 

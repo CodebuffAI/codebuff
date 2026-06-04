@@ -1,1 +1,0 @@
-ALTER TABLE "subscription" ADD COLUMN "scheduled_tier" integer;

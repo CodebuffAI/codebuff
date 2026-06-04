@@ -17,6 +17,7 @@ export type ToolName =
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
+  | 'read_url'
   | 'render_ui'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
@@ -51,6 +52,7 @@ export interface ToolParamsMap {
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
+  read_url: ReadUrlParams
   render_ui: RenderUiParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
@@ -277,6 +279,16 @@ export interface ReadSubtreeParams {
 }
 
 /**
+ * Fetch a URL and extract readable text from the page.
+ */
+export interface ReadUrlParams {
+  /** The full http:// or https:// URL to fetch and extract readable text from. */
+  url: string
+  /** Maximum number of extracted text characters to return. Defaults to 20000. */
+  max_chars?: number
+}
+
+/**
  * Render a small interactive UI widget in the Codebuff CLI. Currently supports a button that opens a link.
  */
 export interface RenderUiParams {
@@ -398,7 +410,7 @@ export interface ThinkDeeplyParams {
 }
 
 /**
- * Search the web for current information using Linkup API.
+ * Search the web for current information using Serper API.
  */
 export interface WebSearchParams {
   /** The search query to find relevant web content */

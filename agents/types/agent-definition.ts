@@ -345,7 +345,7 @@ export type TerminalTools = 'run_terminal_command' | 'code_search'
 /**
  * Web and browser tools
  */
-export type WebTools = 'web_search' | 'read_docs'
+export type WebTools = 'web_search' | 'read_docs' | 'read_url'
 
 /**
  * Agent management tools
@@ -430,6 +430,12 @@ export type ModelName =
   | 'avian/glm-5'
   | 'avian/minimax-m2.5'
 
+  // Xiaomi MiMo
+  | 'mimo/mimo-v2.5'
+  | 'mimo-v2.5'
+  | 'mimo/mimo-v2.5-pro'
+  | 'mimo-v2.5-pro'
+
   // Other open source models
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'
@@ -444,6 +450,7 @@ export type ModelName =
   | 'z-ai/glm-4.7-flash:nitro'
   | 'minimax/minimax-m2.5'
   | 'minimax/minimax-m2.7'
+  | 'minimax/minimax-m3'
   | (string & {})
 
 import type { ToolName, GetToolParams } from './tools'

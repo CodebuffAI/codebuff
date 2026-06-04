@@ -20,12 +20,10 @@ import {
 import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
-} from '@codebuff/internal/openai-compatible/index'
+} from '@codebuff/llm-providers/openai-compatible'
 
 import { WEBSITE_URL } from '../constants'
-import {
-  getValidChatGptOAuthCredentials,
-} from '../credentials'
+import { getValidChatGptOAuthCredentials } from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import {
   createChatGptBackendFetch,
@@ -111,10 +109,12 @@ type OpenRouterUsageAccounting = {
  *
  * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
  * returns an OpenAI direct model. Otherwise, returns the Codebuff backend model.
- * 
+ *
  * This function is async because it may need to refresh the OAuth token.
  */
-export async function getModelForRequest(params: ModelRequestParams): Promise<ModelResult> {
+export async function getModelForRequest(
+  params: ModelRequestParams,
+): Promise<ModelResult> {
   const { apiKey, model, skipChatGptOAuth, costMode } = params
 
   // Check if we should use ChatGPT OAuth direct
@@ -138,7 +138,10 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
 
       if (chatGptOAuthCredentials) {
         return {
-          model: createOpenAIOAuthModel(model, chatGptOAuthCredentials.accessToken),
+          model: createOpenAIOAuthModel(
+            model,
+            chatGptOAuthCredentials.accessToken,
+          ),
           isChatGptOAuth: true,
         }
       }
@@ -163,7 +166,10 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
  * Create an OpenAI model that routes through the ChatGPT backend API (Codex endpoint).
  * Uses a custom fetch that transforms between Chat Completions and Responses API formats.
  */
-function createOpenAIOAuthModel(model: string, oauthToken: string): LanguageModel {
+function createOpenAIOAuthModel(
+  model: string,
+  oauthToken: string,
+): LanguageModel {
   const openAIModelId = toOpenAIModelId(model)
   const accountId = extractChatGptAccountId(oauthToken)
 

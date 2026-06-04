@@ -26,6 +26,8 @@ const downKey = createKey({ name: 'down' })
 const tabKey = createKey({ name: 'tab' })
 const shiftTabKey = createKey({ name: 'tab', shift: true })
 const enterKey = createKey({ name: 'return' })
+const keypadEnterKey = createKey({ name: 'kpenter', sequence: '\x1b[57414u' })
+const rawApplicationKeypadEnterKey = createKey({ sequence: '\x1bOM' })
 const backspaceKey = createKey({ name: 'backspace' })
 
 const defaultState = createDefaultChatKeyboardState()
@@ -530,6 +532,44 @@ describe('resolveChatKeyboardAction', () => {
     test('enter without active menu does nothing', () => {
       expect(resolveChatKeyboardAction(enterKey, defaultState)).toEqual({
         type: 'none',
+      })
+    })
+
+    test('keypad enter without active menu does nothing', () => {
+      expect(resolveChatKeyboardAction(keypadEnterKey, defaultState)).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('raw application keypad enter without active menu does nothing', () => {
+      expect(
+        resolveChatKeyboardAction(rawApplicationKeypadEnterKey, defaultState),
+      ).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('keypad enter selects an active slash menu item', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        slashMenuActive: true,
+        slashMatchesLength: 3,
+      }
+      expect(resolveChatKeyboardAction(keypadEnterKey, state)).toEqual({
+        type: 'slash-menu-select',
+      })
+    })
+
+    test('raw application keypad enter selects an active slash menu item', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        slashMenuActive: true,
+        slashMatchesLength: 3,
+      }
+      expect(
+        resolveChatKeyboardAction(rawApplicationKeypadEnterKey, state),
+      ).toEqual({
+        type: 'slash-menu-select',
       })
     })
 

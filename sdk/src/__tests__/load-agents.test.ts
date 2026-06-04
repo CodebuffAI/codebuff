@@ -1,8 +1,16 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { describe, expect, test, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { loadLocalAgents } from '../agents/load-agents'
 
@@ -45,7 +53,9 @@ describe('loadLocalAgents', () => {
 
   describe('without validation (backward compatible)', () => {
     test('returns empty object when agents directory does not exist', async () => {
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result).toEqual({})
     })
@@ -53,7 +63,9 @@ describe('loadLocalAgents', () => {
     test('returns empty object when agents directory is empty', async () => {
       mkdirSync(agentsDir, { recursive: true })
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result).toEqual({})
     })
@@ -73,16 +85,16 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       const agent: LoadedAgentDefinition | undefined = result['my-agent']
       expect(agent).toBeDefined()
       expect(agent!.id).toBe('my-agent')
       expect(agent!.displayName).toBe('My Agent')
       expect(agent!.model).toBe(MODEL_NAME)
-      expect(agent!._sourceFilePath).toBe(
-        path.join(agentsDir, 'my-agent.ts'),
-      )
+      expect(agent!._sourceFilePath).toBe(path.join(agentsDir, 'my-agent.ts'))
     })
 
     test('loads multiple agents from directory', async () => {
@@ -110,7 +122,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
       const agentIds: string[] = Object.keys(result)
 
       expect(agentIds).toHaveLength(2)
@@ -131,7 +145,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(Object.keys(result)).toHaveLength(0)
     })
@@ -149,7 +165,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(Object.keys(result)).toHaveLength(0)
     })
@@ -168,7 +186,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['dts-agent']).toBeUndefined()
     })
@@ -187,7 +207,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['test-file-agent']).toBeUndefined()
     })
@@ -207,7 +229,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['nested-agent']).toBeDefined()
     })
@@ -239,10 +263,113 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       expect(result['skill-agent']).toBeUndefined()
       expect(result['real-agent']).toBeDefined()
+    })
+
+    test('loads valid agent definitions that use shorthand required fields', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'shorthand-agent.ts',
+        `
+          const id = 'shorthand-agent'
+          const model = '${MODEL_NAME}'
+
+          export default {
+            id,
+            displayName: 'Shorthand Agent',
+            model
+          }
+        `,
+      )
+
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
+
+      expect(result['shorthand-agent']).toBeDefined()
+      expect(result['shorthand-agent']!.model).toBe(MODEL_NAME)
+    })
+
+    test('skips quarantined skill directories without importing executable scripts', async () => {
+      const quarantineScriptsDir = path.join(
+        agentsDir,
+        'skills-quarantine',
+        '2026-02-23',
+        'youtube-data',
+        'scripts',
+      )
+      mkdirSync(quarantineScriptsDir, { recursive: true })
+      const markerFile = path.join(tempDir, 'quarantine-side-effect')
+      writeAgentFile(
+        quarantineScriptsDir,
+        'tapi-auth.cjs',
+        `
+          const { writeFileSync } = require('fs')
+          writeFileSync(${JSON.stringify(markerFile)}, 'imported')
+          module.exports = {
+            id: 'quarantined-agent',
+            displayName: 'Quarantined Agent',
+            model: '${MODEL_NAME}'
+          }
+        `,
+      )
+      writeAgentFile(
+        agentsDir,
+        'real-agent.ts',
+        `
+          export default {
+            id: 'real-agent',
+            displayName: 'Real Agent',
+            model: '${MODEL_NAME}'
+          }
+        `,
+      )
+
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
+
+      expect(result['real-agent']).toBeDefined()
+      expect(result['quarantined-agent']).toBeUndefined()
+      expect(existsSync(markerFile)).toBe(false)
+    })
+
+    test('skips support directories without importing executable scripts', async () => {
+      const scriptsDir = path.join(agentsDir, 'scripts')
+      mkdirSync(scriptsDir, { recursive: true })
+      const markerFile = path.join(tempDir, 'scripts-side-effect')
+      writeAgentFile(
+        scriptsDir,
+        'exa-api.cjs',
+        `
+          const { writeFileSync } = require('fs')
+          writeFileSync(${JSON.stringify(markerFile)}, 'imported')
+        `,
+      )
+      writeAgentFile(
+        agentsDir,
+        'real-agent.ts',
+        `
+          export default {
+            id: 'real-agent',
+            displayName: 'Real Agent',
+            model: '${MODEL_NAME}'
+          }
+        `,
+      )
+
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
+
+      expect(result['real-agent']).toBeDefined()
+      expect(existsSync(markerFile)).toBe(false)
     })
 
     test('converts handleSteps function to string', async () => {
@@ -263,7 +390,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
       const agent: LoadedAgentDefinition | undefined = result['generator-agent']
 
       expect(agent).toBeDefined()
@@ -299,7 +428,9 @@ describe('loadLocalAgents', () => {
         `,
       )
 
-      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+      const result: LoadedAgents = await loadLocalAgents({
+        agentsPath: agentsDir,
+      })
 
       // Should still load the valid agent
       expect(result['valid-agent']).toBeDefined()
@@ -326,9 +457,7 @@ describe('loadLocalAgents', () => {
       await loadLocalAgents({ agentsPath: agentsDir, verbose: true })
 
       expect(consoleErrorSpy).toHaveBeenCalled()
-      const errorMessage: string = consoleErrorSpy.mock.calls
-        .flat()
-        .join(' ')
+      const errorMessage: string = consoleErrorSpy.mock.calls.flat().join(' ')
       expect(errorMessage).toContain('missing required attributes')
     })
   })

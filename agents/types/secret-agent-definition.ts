@@ -1,5 +1,6 @@
 import type { AgentDefinition } from './agent-definition'
 import type * as Tools from './tools'
+import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
 export type { Tools }
 
 export type AllToolNames =
@@ -9,9 +10,12 @@ export type AllToolNames =
   | 'create_plan'
   | 'spawn_agent_inline'
   | 'update_subgoal'
+  | ComposioMetaToolName
 
-export interface SecretAgentDefinition
-  extends Omit<AgentDefinition, 'toolNames'> {
+export interface SecretAgentDefinition extends Omit<
+  AgentDefinition,
+  'toolNames'
+> {
   /** Tools this agent can use. */
   toolNames?: AllToolNames[]
 }
@@ -23,6 +27,7 @@ export interface SecretAgentDefinition
 const placeholderNames = [
   'AGENT_NAME',
   'AGENTS_PROMPT',
+  'CURRENT_DATE',
   'FILE_TREE_PROMPT_SMALL',
   'FILE_TREE_PROMPT',
   'FILE_TREE_PROMPT_LARGE',

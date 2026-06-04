@@ -1,1 +1,0 @@
-CREATE INDEX IF NOT EXISTS "message_finished_at_idx" ON "message" USING btree ("finished_at");

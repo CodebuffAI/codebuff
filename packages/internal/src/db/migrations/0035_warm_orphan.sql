@@ -1,1 +1,0 @@
-ALTER TABLE "session" ADD COLUMN "created_at" timestamp NOT NULL DEFAULT now();

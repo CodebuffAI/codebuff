@@ -3,7 +3,11 @@ import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
-import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
+import {
+  getErrorObject,
+  promptAborted,
+  promptSuccess,
+} from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
@@ -26,7 +30,10 @@ import { refreshChatGptOAuthToken } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
 
 import type { ModelRequestParams } from './model-provider'
-import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
+import type {
+  OpenRouterProviderOptions,
+  OpenRouterProviderRoutingOptions,
+} from '@codebuff/common/types/agent-template'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
@@ -35,7 +42,6 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
-import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
 
@@ -283,12 +289,15 @@ export async function* promptAiSdkStream(
     chatGptOAuthRetried?: boolean
   },
 ): ReturnType<PromptAiSdkStreamFn> {
-  const {
-    providerOptions: originalProviderOptions,
-    ...streamParams
-  } = params
+  const { providerOptions: originalProviderOptions, ...streamParams } = params
 
-  const { logger, trackEvent, userId, userInputId, model: requestedModel } = params
+  const {
+    logger,
+    trackEvent,
+    userId,
+    userInputId,
+    model: requestedModel,
+  } = params
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
 
@@ -334,12 +343,12 @@ export async function* promptAiSdkStream(
     ...(isChatGptOAuth
       ? {}
       : {
-        providerOptions: getProviderOptions({
-          ...params,
-          providerOptions: originalProviderOptions,
-          agentProviderOptions: params.agentProviderOptions,
+          providerOptions: getProviderOptions({
+            ...params,
+            providerOptions: originalProviderOptions,
+            agentProviderOptions: params.agentProviderOptions,
+          }),
         }),
-      }),
     // Handle tool call errors gracefully by passing them through to our validation layer
     // instead of throwing (which would halt the agent). The only special case is when
     // the tool name matches a spawnable agent - transform those to spawn_agents calls.
@@ -516,7 +525,10 @@ export async function* promptAiSdkStream(
       })
 
       if (chatGptErrorPolicy === 'fallback-rate-limit') {
-        const rateLimitErrorDetails = chunkValue.error instanceof Error ? chunkValue.error.message : String(chunkValue.error)
+        const rateLimitErrorDetails =
+          chunkValue.error instanceof Error
+            ? chunkValue.error.message
+            : String(chunkValue.error)
         logger.warn(
           { error: getErrorObject(chunkValue.error) },
           'ChatGPT OAuth rate limited during stream',
@@ -568,14 +580,20 @@ export async function* promptAiSdkStream(
         if (!params.chatGptOAuthRetried) {
           const refreshed = await refreshChatGptOAuthToken()
           if (refreshed) {
-            logger.info({ model: requestedModel }, 'ChatGPT OAuth token refreshed, retrying request')
+            logger.info(
+              { model: requestedModel },
+              'ChatGPT OAuth token refreshed, retrying request',
+            )
             const retryResult = yield* promptAiSdkStream({
               ...params,
               chatGptOAuthRetried: true,
             })
             return retryResult
           }
-          logger.warn({ model: requestedModel }, 'ChatGPT OAuth token refresh failed, unable to recover')
+          logger.warn(
+            { model: requestedModel },
+            'ChatGPT OAuth token refresh failed, unable to recover',
+          )
         }
 
         // Refresh failed or already retried
@@ -609,11 +627,8 @@ export async function* promptAiSdkStream(
     if (chunkValue.type === 'reasoning-delta') {
       const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
         (p) =>
-          (
-            params.providerOptions?.[p] as
-            | OpenRouterProviderOptions
-            | undefined
-          )?.reasoning?.exclude,
+          (params.providerOptions?.[p] as OpenRouterProviderOptions | undefined)
+            ?.reasoning?.exclude,
       )
       if (!reasoningExcluded) {
         yield {

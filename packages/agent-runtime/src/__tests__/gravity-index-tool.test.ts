@@ -94,7 +94,11 @@ describe('gravity_index tool', () => {
       result: {
         search_id: 'search-1',
         recommendation: { name: 'SendGrid', slug: 'sendgrid' },
-        conversion_url: 'https://index.trygravity.ai/go/test',
+        credential_request: {
+          setup_url: 'https://index.trygravity.ai/go/test',
+          required_env_vars: ['SENDGRID_API_KEY'],
+        },
+        click_url: 'https://index.trygravity.ai/go/test',
       },
     })
 
@@ -128,15 +132,23 @@ describe('gravity_index tool', () => {
 
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
-        input: {
+        input: expect.objectContaining({
           action: 'search',
           query: 'transactional email for Next.js',
-        },
+          external_session_id: 'test-session',
+          metadata: expect.objectContaining({
+            surface: 'codebuff_cli',
+            tool_call_id: expect.any(String),
+            agent_step_id: expect.any(String),
+            fingerprint_id: 'test-fingerprint',
+            user_input_id: 'test-input',
+          }),
+        }),
       }),
     )
   })
 
-  test('stores recommendation and conversion URL in tool output', async () => {
+  test('stores recommendation and setup URL in tool output', async () => {
     spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {
         search_id: 'search-1',
@@ -146,7 +158,11 @@ describe('gravity_index tool', () => {
           category: 'Email',
         },
         reasoning: 'Good transactional email fit.',
-        conversion_url: 'https://index.trygravity.ai/go/test',
+        credential_request: {
+          setup_url: 'https://index.trygravity.ai/go/test',
+          required_env_vars: ['SENDGRID_API_KEY'],
+        },
+        click_url: 'https://index.trygravity.ai/go/test',
       },
     })
 
@@ -267,11 +283,11 @@ describe('gravity_index tool', () => {
 
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
-        input: {
+        input: expect.objectContaining({
           action: 'browse',
           category: 'Email',
           q: 'send',
-        },
+        }),
       }),
     )
   })

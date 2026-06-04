@@ -7,6 +7,7 @@ import { applyPatchParams } from './params/tool/apply-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
+import { composioMetaToolParams } from './params/tool/composio'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
@@ -19,6 +20,7 @@ import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { readSubtreeParams } from './params/tool/read-subtree'
+import { readUrlParams } from './params/tool/read-url'
 import { renderUIParams } from './params/tool/render-ui'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
@@ -59,6 +61,7 @@ export const toolParams = {
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_subtree: readSubtreeParams,
+  read_url: readUrlParams,
   render_ui: renderUIParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,
@@ -75,6 +78,7 @@ export const toolParams = {
   web_search: webSearchParams,
   write_file: writeFileParams,
   write_todos: writeTodosParams,
+  ...composioMetaToolParams,
 } satisfies {
   [K in ToolName]: $ToolParams<K>
 }
@@ -132,6 +136,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: toolParams.run_file_change_hooks.inputSchema,
   }),
   z.object({
+    toolName: z.literal('read_url'),
+    input: toolParams.read_url.inputSchema,
+  }),
+  z.object({
     toolName: z.literal('run_terminal_command'),
     input: toolParams.run_terminal_command.inputSchema.and(
       z.object({ mode: z.enum(['assistant', 'user']) }),
@@ -145,6 +153,22 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     toolName: z.literal('write_file'),
     input: FileChangeSchema,
   }),
+  z.object({
+    toolName: z.literal('composio_manage_connections'),
+    input: toolParams.composio_manage_connections.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('composio_multi_execute_tool'),
+    input: toolParams.composio_multi_execute_tool.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('composio_search_tools'),
+    input: toolParams.composio_search_tools.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('composio_get_tool_schemas'),
+    input: toolParams.composio_get_tool_schemas.inputSchema,
+  }),
 ])
 export const clientToolNames = clientToolCallSchema.def.options.map(
   (opt) => opt.shape.toolName.value,
@@ -157,4 +181,4 @@ export type ClientToolCall<T extends ClientToolName = ClientToolName> = Extract<
 > &
   Pick<ToolCallPart, 'toolCallId' | 'toolName' | 'input' | 'providerOptions'>
 
-export type PublishedClientToolName = ClientToolName & PublishedToolName
+export type PublishedClientToolName = Extract<ClientToolName, PublishedToolName>

@@ -62,6 +62,7 @@ const bareStringFieldRepairAllowlist: Partial<
   lookup_agent_info: ['agentId'],
   read_files: ['paths'],
   read_subtree: ['paths'],
+  read_url: ['url'],
   skill: ['name'],
   web_search: ['query'],
 }

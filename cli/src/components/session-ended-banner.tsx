@@ -11,6 +11,7 @@ import {
 import { useTheme } from '../hooks/use-theme'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { formatSessionUnits } from '../utils/format-session-units'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
@@ -47,17 +48,12 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const accessTier = useFreebuffSessionStore((s) =>
     s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
   )
-  const quotaLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const quotaLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const bannerTitle = premiumQuota
     ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
     : 'Session ended'
-  const landingButtonLabel =
-    accessTier === 'limited' ? 'Back to start' : 'Change model'
-  const landingPendingLabel =
-    accessTier === 'limited'
-      ? 'Opening start screen…'
-      : 'Opening model selection…'
+  const landingButtonLabel = 'Change model'
+  const landingPendingLabel = 'Opening model selection…'
 
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
@@ -89,7 +85,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     useCallback(
       (key: KeyEvent) => {
         if (!canRestart) return
-        if (key.name === 'return' || key.name === 'enter') {
+        if (isPlainEnterKey(key)) {
           key.preventDefault?.()
           startSameChatSession()
           return

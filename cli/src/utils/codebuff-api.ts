@@ -1,6 +1,4 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
-import { getSystemProcessEnv } from './env'
-
 import type {
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
@@ -104,13 +102,6 @@ export interface CodebuffApiClientConfig {
   defaultTimeoutMs?: number
   /** Default retry configuration */
   retry?: RetryConfig
-  /**
-   * Proxy URL to use for all requests.
-   * If not set, falls back to HTTPS_PROXY / https_proxy / HTTP_PROXY / http_proxy
-   * environment variables. Set to null to explicitly disable proxy even if env
-   * vars are present.
-   */
-  proxy?: string | null
 }
 
 /**
@@ -203,21 +194,53 @@ export interface CodebuffApiClient {
   feedback(req: FeedbackRequest): Promise<ApiResponse<FeedbackResponse>>
 }
 
-/**
- * Resolve the proxy URL from standard environment variables.
- * Priority: HTTPS_PROXY > https_proxy > HTTP_PROXY > http_proxy
- * Returns undefined when no proxy is configured.
- */
-export function resolveProxyUrl(
-  env: Record<string, string | undefined> = getSystemProcessEnv(),
-): string | undefined {
-  return (
-    env['HTTPS_PROXY'] ||
-    env['https_proxy'] ||
-    env['HTTP_PROXY'] ||
-    env['http_proxy'] ||
-    undefined
-  )
+const TLS_CERTIFICATE_ERROR_CODES = new Set([
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'CERT_HAS_EXPIRED',
+])
+
+function getTlsCertificateError(error: Error, depth = 0): Error | null {
+  const code =
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+      ? error.code
+      : undefined
+  const message = error.message.toLowerCase()
+  if (
+    (code && TLS_CERTIFICATE_ERROR_CODES.has(code)) ||
+    message.includes('self signed certificate') ||
+    message.includes('unable to verify the first certificate') ||
+    message.includes('certificate has expired') ||
+    message.includes('certificate verify failed')
+  ) {
+    return error
+  }
+
+  if (depth >= 2 || !(error.cause instanceof Error)) {
+    return null
+  }
+
+  return getTlsCertificateError(error.cause, depth + 1)
+}
+
+function formatNetworkErrorMessage(error: Error, method: string, url: string) {
+  const requestUrl = new URL(url)
+  const tlsCertificateError = getTlsCertificateError(error)
+
+  if (tlsCertificateError) {
+    return [
+      `TLS certificate verification failed for ${requestUrl.origin}.`,
+      'If your network intercepts HTTPS traffic, install its root certificate into your system trust store or use a network path that does not intercept TLS.',
+      `Original error: ${tlsCertificateError.message} (${method} ${url})`,
+    ].join(' ')
+  }
+
+  return `${error.message} (${method} ${url})`
 }
 
 /**
@@ -254,6 +277,9 @@ const isRetryableError = (error: unknown): boolean => {
     if (name === 'aborterror') {
       return false
     }
+    if (getTlsCertificateError(error)) {
+      return false
+    }
 
     return (
       name === 'timeouterror' ||
@@ -278,15 +304,7 @@ export function createCodebuffApiClient(
     fetch: fetchFn = fetch,
     defaultTimeoutMs = 30000,
     retry: defaultRetryConfig = {},
-    proxy: proxyConfig,
   } = config
-
-  // Resolve proxy: explicit config wins, then env vars, then no proxy.
-  // Pass proxy: null to explicitly disable even when env vars are set.
-  const proxyUrl: string | undefined =
-    proxyConfig === null
-      ? undefined
-      : (proxyConfig ?? resolveProxyUrl())
 
   const mergedDefaultRetry: Required<RetryConfig> = {
     ...DEFAULT_RETRY_CONFIG,
@@ -354,12 +372,7 @@ export function createCodebuffApiClient(
         const response = await fetchFn(url, {
           ...fetchOptions,
           signal: controller.signal,
-          // Bun supports a `proxy` option on fetch. When a proxy URL is
-          // resolved (from config or env vars) we pass it here so that all
-          // API calls are tunnelled through the proxy. The cast is required
-          // because the WhatWG RequestInit type does not include `proxy`.
-          ...(proxyUrl ? { proxy: proxyUrl } : {}),
-        } as RequestInit)
+        })
 
         clearTimeout(timeoutId)
 
@@ -430,7 +443,7 @@ export function createCodebuffApiClient(
         // Don't retry, throw the error with URL context
         if (error instanceof Error) {
           const enhancedError = new Error(
-            `${error.message} (${method} ${url})`,
+            formatNetworkErrorMessage(error, method, url),
           )
           enhancedError.name = error.name
           enhancedError.cause = error

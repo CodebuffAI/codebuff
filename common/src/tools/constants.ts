@@ -1,3 +1,5 @@
+import { COMPOSIO_META_TOOL_NAMES } from '../constants/composio'
+
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { Tool } from 'ai'
 
@@ -39,6 +41,7 @@ export const toolNames = [
   'read_docs',
   'read_files',
   'read_subtree',
+  'read_url',
   'render_ui',
   'run_file_change_hooks',
   'run_terminal_command',
@@ -55,6 +58,7 @@ export const toolNames = [
   'web_search',
   'write_file',
   'write_todos',
+  ...COMPOSIO_META_TOOL_NAMES,
 ] as const
 
 export const publishedTools = [
@@ -73,6 +77,7 @@ export const publishedTools = [
   'read_docs',
   'read_files',
   'read_subtree',
+  'read_url',
   'render_ui',
   'run_file_change_hooks',
   'run_terminal_command',

@@ -1,1 +1,0 @@
-ALTER TABLE "message" ADD COLUMN "byok" boolean DEFAULT false NOT NULL;

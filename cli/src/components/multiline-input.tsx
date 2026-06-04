@@ -16,8 +16,15 @@ import {
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import {
+  getKeypadPrintableSequence,
+  isKeypadEnter,
+} from '../utils/keypad-keys'
 import { clamp } from '../utils/math'
-import { isLinefeedActingAsEnter, markReturnKeySeen } from '../utils/terminal-enter-detection'
+import {
+  isLinefeedActingAsEnter,
+  markReturnKeySeenForKey,
+} from '../utils/terminal-enter-detection'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
@@ -91,25 +98,39 @@ const TAB_WIDTH = 4
 /**
  * Check if a key event represents printable character input (not a special key).
  * Uses a positive heuristic based on key.name length rather than a brittle deny-list.
- * 
+ *
  * The key insight is that OpenTUI's parser assigns descriptive multi-character names
  * to special keys (like 'backspace', 'up', 'f1') while regular printable characters
  * either have no name (multi-byte input like Chinese) or a single-character name.
  */
 function isPrintableCharacterKey(key: KeyEvent): boolean {
   const name = key.name
-  
+
   // No name = likely multi-byte input (Chinese, Japanese, Korean, etc.) - treat as printable
   if (!name) return true
-  
+
   // Single character name = regular ASCII printable (a, b, 1, $, etc.)
   if (name.length === 1) return true
-  
+
   // Special case: space key has name 'space' but is printable
   if (name === 'space') return true
-  
+
   // Multi-char name = special key (up, f1, backspace, etc.)
   return false
+}
+
+function getPrintableKeySequence(key: KeyEvent): string | null {
+  if (!key.sequence || key.sequence.length < 1) return null
+  if (key.ctrl || key.meta || key.option) return null
+
+  const keypadValue = getKeypadPrintableSequence(key)
+  if (keypadValue !== null) return keypadValue
+
+  if (!CONTROL_CHAR_REGEX.test(key.sequence) && isPrintableCharacterKey(key)) {
+    return key.sequence
+  }
+
+  return null
 }
 
 // Helper to convert render position (in tab-expanded string) to original text position
@@ -532,11 +553,11 @@ export const MultilineInput = forwardRef<
   const handleEnterKeys = useCallback(
     (key: KeyEvent): boolean => {
       const lowerKeyName = (key.name ?? '').toLowerCase()
-      const isReturnOrEnter = key.name === 'return' || key.name === 'enter'
+      const keypadEnter = isKeypadEnter(key)
+      const isReturnOrEnter =
+        key.name === 'return' || key.name === 'enter' || keypadEnter
 
-      if (isReturnOrEnter) {
-        markReturnKeySeen()
-      }
+      markReturnKeySeenForKey(key)
 
       const linefeedIsEnter = lowerKeyName === 'linefeed' && isLinefeedActingAsEnter()
       const isEnterKey = isReturnOrEnter || linefeedIsEnter
@@ -567,12 +588,12 @@ export const MultilineInput = forwardRef<
         !key.meta &&
         !key.option &&
         !isAltLikeModifier &&
-        !hasEscapePrefix &&
-        (key.sequence === '\r' || key.sequence === '\n') &&
+        (!hasEscapePrefix || keypadEnter) &&
+        (key.sequence === '\r' || key.sequence === '\n' || keypadEnter) &&
         !hasBackslashBeforeCursor
       const isShiftEnter = isEnterKey && Boolean(key.shift)
       const isOptionEnter =
-        isEnterKey && (isAltLikeModifier || hasEscapePrefix)
+        isEnterKey && !keypadEnter && (isAltLikeModifier || hasEscapePrefix)
       const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
 
       const shouldInsertNewline =
@@ -1003,18 +1024,10 @@ export const MultilineInput = forwardRef<
       }
 
       // Character input (including multi-byte characters from IME like Chinese, Japanese, Korean)
-      // Check for printable input: has a sequence, no modifier keys, and not a control character
-      if (
-        key.sequence &&
-        key.sequence.length >= 1 &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option &&
-        !CONTROL_CHAR_REGEX.test(key.sequence) &&
-        isPrintableCharacterKey(key)
-      ) {
+      const textToInsert = getPrintableKeySequence(key)
+      if (textToInsert !== null) {
         preventKeyDefault(key)
-        insertTextAtCursor(key.sequence)
+        insertTextAtCursor(textToInsert)
         return true
       }
 
