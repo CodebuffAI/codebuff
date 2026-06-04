@@ -49,7 +49,7 @@ export default function ToggleableChartLegend({
             key={key}
             onClick={() => onToggleMetric(key)}
             className={cn(
-              "group flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 transition-all hover:border-zinc-300 hover:bg-zinc-50",
+              "group flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 transition-all hover:border-border hover:bg-muted",
               isHidden && "opacity-50",
             )}
             type="button"
@@ -60,9 +60,9 @@ export default function ToggleableChartLegend({
             }
           >
             {isHidden ? (
-              <EyeOff className="h-3 w-3 text-zinc-400" />
+              <EyeOff className="h-3 w-3 text-muted-foreground" />
             ) : (
-              <Eye className="h-3 w-3 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100" />
+              <Eye className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             )}
             <div
               className="h-2 w-2 shrink-0 rounded-[2px] transition-colors"

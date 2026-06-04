@@ -26,6 +26,13 @@ import { toast } from "sonner";
 
 type ImportStage = "email" | "code" | "success";
 
+const SETTINGS_TABS = [
+  { id: "account", label: "Account" },
+  { id: "community-profile", label: "Community profile" },
+  { id: "transfer-projects", label: "Transfer projects" },
+  { id: "linked-github", label: "Linked GitHub" },
+];
+
 export default function GeneralSettingsPage() {
   const user = useQuery(api.users.viewer);
   const currentUserId = useQuery(api.community.getCurrentUserId);
@@ -201,8 +208,20 @@ export default function GeneralSettingsPage() {
       subtitle="General account and community settings"
     >
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="sticky top-0 z-10 -mx-4 mb-5 flex gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          {SETTINGS_TABS.map((tab) => (
+            <a
+              key={tab.id}
+              href={`#${tab.id}`}
+              className="flex h-8 flex-shrink-0 items-center rounded-full bg-muted/35 px-3 text-xs font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {tab.label}
+            </a>
+          ))}
+        </div>
         <div className="grid gap-5">
           <SettingsSection
+            id="account"
             title="Account"
             description="Basic account details for your signed-in Freebuff account."
           >
@@ -221,6 +240,7 @@ export default function GeneralSettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            id="community-profile"
             title="Community profile"
             description="These details are shown on your public community profile."
             action={
@@ -290,6 +310,7 @@ export default function GeneralSettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            id="transfer-projects"
             title="Transfer projects"
             description="Import projects from an older Freebuff account by verifying the old account email."
           >
@@ -392,6 +413,7 @@ export default function GeneralSettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            id="linked-github"
             title="Linked GitHub"
             description="Connect GitHub for repository sync and project publishing workflows."
           >
@@ -459,18 +481,20 @@ export default function GeneralSettingsPage() {
 }
 
 function SettingsSection({
+  id,
   title,
   description,
   action,
   children,
 }: {
+  id: string;
   title: string;
   description: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border/50 bg-muted/15 p-5">
+    <section id={id} className="scroll-mt-20 rounded-lg border border-border/50 bg-card p-5">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-foreground">{title}</h2>

@@ -212,7 +212,7 @@ export function WorkspaceDowngradeConfirmationDialog({
           <Button
             onClick={onConfirm}
             disabled={isLoading || hasExceededLimits}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 disabled:opacity-50"
+            className="bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
           >
             {isLoading ? (
               <>

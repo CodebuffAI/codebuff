@@ -31,7 +31,6 @@ import {
   Plug,
   Component,
   Maximize2,
-  History,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
@@ -117,7 +116,6 @@ const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'database', label: 'Data', Icon: Database },
   { id: 'logs', label: 'Logs', Icon: ScrollText },
   { id: 'editor', label: 'Editor', Icon: Code2 },
-  { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'ui-components', label: 'UI', Icon: Component },
@@ -144,9 +142,7 @@ export function ProjectIframeArea({
   const expandedSettingsHref =
     activeTab === 'database'
       ? `/web/project/${semanticIdentifier}/settings?section=database`
-      : activeTab === 'logs'
-        ? `/web/project/${semanticIdentifier}/settings?section=backend`
-        : null
+      : null
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
@@ -180,8 +176,8 @@ export function ProjectIframeArea({
             <a
               href={expandedSettingsHref}
               className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-              aria-label={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
-              title={`Open expanded ${activeTab === 'database' ? 'database' : 'logs'} view`}
+              aria-label="Open expanded database view"
+              title="Open expanded database view"
             >
               <Maximize2 className="h-4 w-4" />
             </a>
@@ -412,7 +408,7 @@ function ActiveSurface({
 
 function ViewSurface({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-full w-full overflow-y-auto bg-background px-4 py-12">
+    <div className="h-full w-full overflow-hidden bg-background px-3 pb-3 pt-12">
       {children}
     </div>
   )

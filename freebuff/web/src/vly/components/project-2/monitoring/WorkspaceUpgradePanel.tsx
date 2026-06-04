@@ -137,37 +137,15 @@ export default function WorkspaceUpgradePanel({
   return (
     <div
       ref={panelRef}
-      className="relative overflow-hidden rounded-2xl px-6 pb-6"
+      className="relative overflow-hidden rounded-lg border border-border bg-muted/15 p-4"
     >
-      {/* Glassmorphic background layer */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          background:
-            'linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          transform: 'translateZ(0)',
-          willChange: 'transform',
-        }}
-      />
-      {/* Subtle border highlight */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          boxShadow:
-            'inset 0px 1px 0px rgba(255,255,255,0.8), 0px 4px 24px rgba(200,200,200,0.15)',
-          transform: 'translateZ(0)',
-        }}
-      />
-
       {/* Content */}
-      <div className="relative z-10 space-y-3">
+      <div className="space-y-3">
         <div>
-          <h3 className="font-['PP_Cirka'] text-lg font-normal text-zinc-800">
+          <h3 className="font-sans text-lg font-normal text-foreground">
             Upgrade Workspace
           </h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Upgrade or downgrade your workspace resources
           </p>
         </div>
@@ -268,7 +246,7 @@ export default function WorkspaceUpgradePanel({
                   {/* Header */}
                   <div className="mb-2.5 flex items-center justify-between">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-semibold text-zinc-900">
+                      <h4 className="text-base font-semibold text-foreground">
                         {snapshot.name}
                       </h4>
                       {isCurrent && (
@@ -308,7 +286,7 @@ export default function WorkspaceUpgradePanel({
                   {/* Resource Specs and Usage */}
                   <div className="space-y-2">
                     {/* Specs Line */}
-                    <div className="flex items-center gap-3 text-xs text-zinc-600">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Cpu className="h-3 w-3" />
                         {snapshot.specs.cpu}
@@ -340,10 +318,10 @@ export default function WorkspaceUpgradePanel({
                     {/* Non-Current Sizes: Show Projections */}
                     {!isCurrent && currentUsage && (
                       <div className="rounded-lg bg-zinc-50 p-1.5">
-                        <div className="mb-1 text-xs font-medium text-zinc-700">
+                        <div className="mb-1 text-xs font-medium text-foreground">
                           Projected usage:
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-zinc-600">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span>RAM: {ramPercent.toFixed(0)}%</span>
                           <span>•</span>
                           <span>Disk: {diskPercent.toFixed(0)}%</span>
@@ -358,7 +336,7 @@ export default function WorkspaceUpgradePanel({
                   <div className="overflow-hidden duration-300 animate-in fade-in slide-in-from-top-2">
                     {!isAllowed || !hasQuota ? (
                       // No Access or No Quota - Show Upgrade CTA
-                      <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 backdrop-blur-sm duration-200 animate-in fade-in slide-in-from-top-1">
+                      <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-muted/20 p-4 backdrop-blur-sm duration-200 animate-in fade-in slide-in-from-top-1">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <ArrowUp className="h-4 w-4 text-amber-700" />
@@ -390,7 +368,7 @@ export default function WorkspaceUpgradePanel({
                         </div>
                         <Button
                           onClick={() => router.push('/web/dashboard')}
-                          className="ml-4 shrink-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700"
+                          className="ml-4 shrink-0 bg-primary text-white hover:bg-primary/90"
                         >
                           <ArrowUp className="mr-2 h-4 w-4" />
                           Upgrade Plan
@@ -420,23 +398,23 @@ export default function WorkspaceUpgradePanel({
                           <div
                             className={`flex items-center justify-between rounded-xl border p-4 backdrop-blur-sm duration-200 animate-in fade-in slide-in-from-top-1 ${
                               isMigrationUpgrade
-                                ? 'border-purple-200/50 bg-gradient-to-r from-purple-50/80 to-purple-100/60'
-                                : 'border-orange-200/50 bg-gradient-to-r from-orange-50/80 to-orange-100/60'
+                                ? 'border-primary/40 bg-primary/10'
+                                : 'border-orange-200/50 bg-muted/20'
                             }`}
                           >
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 {isMigrationUpgrade ? (
                                   <ArrowUp
-                                    className={`h-4 w-4 ${isMigrationUpgrade ? 'text-purple-700' : 'text-orange-700'}`}
+                                    className={`h-4 w-4 ${isMigrationUpgrade ? 'text-primary' : 'text-orange-700'}`}
                                   />
                                 ) : (
                                   <RefreshCw
-                                    className={`h-4 w-4 ${isMigrationUpgrade ? 'text-purple-700' : 'text-orange-700'}`}
+                                    className={`h-4 w-4 ${isMigrationUpgrade ? 'text-primary' : 'text-orange-700'}`}
                                   />
                                 )}
                                 <span
-                                  className={`text-sm font-semibold ${isMigrationUpgrade ? 'text-purple-900' : 'text-orange-900'}`}
+                                  className={`text-sm font-semibold ${isMigrationUpgrade ? 'text-primary' : 'text-orange-900'}`}
                                 >
                                   {isMigrationUpgrade
                                     ? `Upgrade to ${snapshot.name}`
@@ -444,7 +422,7 @@ export default function WorkspaceUpgradePanel({
                                 </span>
                               </div>
                               <p
-                                className={`mt-1 text-xs ${isMigrationUpgrade ? 'text-purple-700' : 'text-orange-700'}`}
+                                className={`mt-1 text-xs ${isMigrationUpgrade ? 'text-primary' : 'text-orange-700'}`}
                               >
                                 {isMigrationUpgrade ? (
                                   <>
@@ -490,8 +468,8 @@ export default function WorkspaceUpgradePanel({
                               disabled={isMigrating}
                               className={`ml-4 shrink-0 text-white ${
                                 isMigrationUpgrade
-                                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
-                                  : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                                  ? 'bg-primary hover:bg-primary/90'
+                                  : 'bg-primary hover:bg-primary/90'
                               }`}
                             >
                               {isMigrating ? (

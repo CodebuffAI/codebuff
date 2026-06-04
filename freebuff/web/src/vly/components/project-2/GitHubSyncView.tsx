@@ -466,13 +466,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
         </div>
       }
     >
-      <div className="space-y-6 px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">GitHub Sync</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create a GitHub repository for your project and keep it in sync
-          </p>
-        </div>
+      <div className="space-y-6 p-4">
 
         {/* GitHub Connection Status */}
         <Card className="border-border bg-card">

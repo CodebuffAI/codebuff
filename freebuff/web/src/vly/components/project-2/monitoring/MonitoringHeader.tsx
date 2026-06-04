@@ -25,7 +25,7 @@ export default function MonitoringHeader({
   setCustomEndDate,
 }: MonitoringHeaderProps) {
   return (
-    <div className="relative z-10 flex min-h-12 shrink-0 flex-col gap-3 border-b border-zinc-200/40 bg-gradient-to-b from-white/45 to-transparent px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:py-2">
+    <div className="relative z-10 flex min-h-12 shrink-0 flex-col gap-3 border-b border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Monitoring</h2>

@@ -38,8 +38,8 @@ export default function SandboxMetricsCharts({
     });
   };
   return (
-    <div className="space-y-3 border-t border-zinc-200/30 pt-5">
-      <h3 className="font-['PP_Cirka'] text-lg font-normal text-zinc-800">
+    <div className="space-y-3 border-t border-border pt-5">
+      <h3 className="font-sans text-lg font-normal text-foreground">
         Resource Usage Over Time
       </h3>
 
@@ -52,7 +52,7 @@ export default function SandboxMetricsCharts({
 
       {/* Error State */}
       {metricsError && !metricsLoading && (
-        <div className="rounded-2xl border border-red-300/50 bg-gradient-to-br from-red-50/80 to-red-100/60 p-4 shadow-sm backdrop-blur-md">
+        <div className="rounded-2xl border border-red-300/50 bg-destructive/10 p-4 shadow-sm backdrop-blur-md">
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-red-200/50 p-2">
               <ArrowUp className="h-4 w-4 text-red-700" />
@@ -74,10 +74,10 @@ export default function SandboxMetricsCharts({
         metricsHistory.timeSeries.length > 0 && (
           <div className="space-y-2">
             {/* Combined Resource Usage Chart */}
-            <h4 className="text-sm font-semibold text-zinc-700">
+            <h4 className="text-sm font-semibold text-foreground">
               CPU, Memory & Disk Usage
             </h4>
-            <div className="overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/30 p-4 shadow-sm backdrop-blur-sm">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm backdrop-blur-sm">
               {(() => {
                 const resourcesData = processSandboxResourcesData(
                   metricsHistory.timeSeries,

@@ -17,19 +17,16 @@ function DatabaseView({ project }: DatabaseViewProps) {
   const [deploymentType, setDeploymentType] = useState<"dev" | "prod">("dev");
 
   return (
-    <div className="flex h-full min-h-[640px] w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       <FeatureGate
         featureId="database_preview"
         fallback={
-          <div className="h-0 w-full flex-grow">
+          <div className="min-h-0 w-full flex-1 overflow-hidden">
             <UpgradePrompt featureId="database_preview" variant="compact" />
           </div>
         }
       >
-        <div className="relative z-10 flex min-h-12 shrink-0 flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:gap-4 sm:py-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">Database</h2>
-          </div>
+        <div className="relative z-10 flex min-h-12 shrink-0 flex-col gap-2 border-b border-border bg-background px-4 py-2 sm:flex-row sm:items-center sm:gap-4 sm:py-0">
           <div className="flex items-center justify-center gap-3 sm:justify-start">
             <Tabs
               className="flex h-12 items-center justify-center text-xs"
@@ -47,7 +44,7 @@ function DatabaseView({ project }: DatabaseViewProps) {
             {project?._id && <MigrateConvexButton projectId={project._id} />}
           </div>
         </div>
-        <div className="h-0 w-full flex-grow">
+        <div className="min-h-0 w-full flex-1 overflow-hidden">
           {project?._id && (
             <ConvexEmbed
               projectId={project._id}

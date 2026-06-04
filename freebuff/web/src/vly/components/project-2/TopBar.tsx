@@ -8,9 +8,6 @@ import {
   Share2,
   Settings,
   Activity,
-  LifeBuoy,
-  Phone,
-  Users as UsersIcon,
   Home,
   FolderKanban,
   Globe,
@@ -18,12 +15,12 @@ import {
   Rocket,
   Github,
   History,
+  User,
 } from 'lucide-react'
 import { FunctionReturnType } from 'convex/server'
 import { api } from '@/convex/_generated/api'
 import { InviteDialog } from './InviteDialog'
 import { DeploymentDialog } from './deployment/DeploymentDialog'
-import { FounderContactDialog } from './FounderContactDialog'
 import { EditableProjectName } from './EditableProjectName'
 import { BetaBadge } from '@/vly/components/app-shell/BetaBadge'
 import { toast } from 'sonner'
@@ -80,7 +77,6 @@ export function TopBar({
   void _onMobileSidebarToggle
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
-  const [founderContactOpen, setFounderContactOpen] = useState(false)
   const router = useRouter()
 
   const publishProject = useMutation(api.community.publishProject)
@@ -212,39 +208,15 @@ export function TopBar({
                 Usage
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=support`,
-                  )
-                }
-              >
-                <LifeBuoy className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                App &amp; Support
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
-                    `/web/project/${project.semantic_identifier}/settings?section=hire`,
-                  )
-                }
-              >
-                <UsersIcon className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Hire Developers
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() => setFounderContactOpen(true)}
-              >
-                <Phone className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Contact Founder
-              </DropdownMenuItem>
-
               <DropdownMenuSeparator className="bg-border/60" />
+
+              <DropdownMenuItem
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
+                onClick={() => router.push('/web/settings')}
+              >
+                <User className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                User settings
+              </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
@@ -351,10 +323,6 @@ export function TopBar({
         </div>
       </div>
 
-      <FounderContactDialog
-        open={founderContactOpen}
-        onOpenChange={setFounderContactOpen}
-      />
     </TooltipProvider>
   )
 }

@@ -57,7 +57,7 @@ export function WorkspaceUpgradeConfirmationDialog({
         <DialogHeader>
           <div className="mb-4 flex justify-center">
             <div className="rounded-full bg-purple-100 p-3">
-              <ArrowUp className="h-6 w-6 text-purple-600" />
+              <ArrowUp className="h-6 w-6 text-primary" />
             </div>
           </div>
           <DialogTitle className="text-center text-xl">
@@ -157,7 +157,7 @@ export function WorkspaceUpgradeConfirmationDialog({
           <Button
             onClick={onConfirm}
             disabled={isLoading}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700"
+            className="bg-primary text-white hover:bg-primary/90"
           >
             {isLoading ? (
               <>

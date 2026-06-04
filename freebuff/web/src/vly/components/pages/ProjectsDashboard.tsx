@@ -127,7 +127,7 @@ export default function ProjectsDashboard() {
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
         <section className="mb-10">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+            <h2 className="font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
               What do you want to build?
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
@@ -346,7 +346,7 @@ export default function ProjectsDashboard() {
                 <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                   No match
                 </p>
-                <h3 className="mt-3 font-['PP_Cirka'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
+                <h3 className="mt-3 font-['Geist'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
                   No projects found
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -358,7 +358,7 @@ export default function ProjectsDashboard() {
             <div className="flex min-h-[260px] w-full items-center justify-center">
               <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-muted/20 px-8 py-12 text-center">
                 <div className="flex flex-col items-center">
-                  <h3 className="mt-5 font-['PP_Cirka'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
+                  <h3 className="mt-5 font-['Geist'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
                     No projects yet
                   </h3>
                   <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
@@ -378,7 +378,7 @@ export default function ProjectsDashboard() {
       >
         <AlertDialogContent className="rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-['PP_Cirka'] text-2xl font-normal leading-tight text-foreground">
+            <AlertDialogTitle className="font-['Geist'] text-2xl font-normal leading-tight text-foreground">
               Delete project
             </AlertDialogTitle>
           </AlertDialogHeader>

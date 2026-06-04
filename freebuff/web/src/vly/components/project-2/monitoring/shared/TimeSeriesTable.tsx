@@ -25,13 +25,13 @@ export default function TimeSeriesTable({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-['PP_Cirka'] text-lg font-normal text-zinc-800">
+        <h3 className="font-sans text-lg font-normal text-foreground">
           Recent Activity
         </h3>
         {data.length > maxPreviewRows && (
           <button
             onClick={onToggleShowAll}
-            className="flex items-center gap-1.5 rounded-full border border-purple-200/50 bg-purple-50/60 px-3 py-1.5 text-xs font-medium text-purple-700 backdrop-blur-sm transition-colors duration-200 hover:border-purple-300/60 hover:bg-purple-100/70"
+            className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary backdrop-blur-sm transition-colors duration-200 hover:border-primary/50 hover:bg-purple-100/70"
           >
             {showAll ? "Show less" : `Show all (${data.length})`}
             <ChevronDown
@@ -42,7 +42,7 @@ export default function TimeSeriesTable({
       </div>
 
       {/* Compact Timeline Layout */}
-      <div className="overflow-x-auto rounded-2xl border border-white/60 bg-white/30 shadow-sm outline outline-1 outline-white/40 backdrop-blur-[80px]">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm  backdrop-blur-[80px]">
         {/* Mobile: Card Layout */}
         <div className="2xl:hidden">
           {displayData.map((dataPoint, idx) => (

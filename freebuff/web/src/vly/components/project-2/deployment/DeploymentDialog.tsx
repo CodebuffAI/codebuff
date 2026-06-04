@@ -130,7 +130,7 @@ function DeploymentPanel({
     <div
       className={cn(
         "flex min-h-0 flex-col bg-background text-foreground",
-        isSettings ? "w-full" : "max-h-[78vh]",
+        isSettings ? "h-full w-full" : "max-h-[78vh]",
         variant === "drawer" && "max-h-[82dvh]",
       )}
     >
@@ -208,7 +208,7 @@ function DeploymentPanel({
           value="deployments"
           className={cn(
             "min-h-0 overflow-y-auto pt-4",
-            isSettings ? "max-h-none" : "max-h-[55vh]",
+            isSettings ? "flex-1" : "max-h-[55vh]",
           )}
         >
           <DeployManager
@@ -221,7 +221,7 @@ function DeploymentPanel({
           value="domains"
           className={cn(
             "min-h-0 overflow-y-auto pt-4",
-            isSettings ? "max-h-none" : "max-h-[55vh]",
+            isSettings ? "flex-1" : "max-h-[55vh]",
           )}
         >
           <DomainManager projectId={projectId as Id<"project">} />

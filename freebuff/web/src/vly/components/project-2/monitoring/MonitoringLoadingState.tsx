@@ -13,7 +13,7 @@ export default function MonitoringLoadingState({
 }: MonitoringLoadingStateProps) {
   if (loading) {
     return (
-      <div className="w-full rounded-2xl border border-zinc-200/50 bg-white/40 shadow-sm backdrop-blur-sm">
+      <div className="w-full rounded-2xl border border-border bg-card shadow-sm backdrop-blur-sm">
         {/* Accordion Header Skeleton */}
         <div className="px-5 py-4">
           <Skeleton className="h-5 w-32" />
@@ -23,7 +23,7 @@ export default function MonitoringLoadingState({
         <div className="px-5 pb-5">
           <div className="space-y-5 pt-4">
             {/* Deployment Info Skeleton */}
-            <div className="rounded-2xl border border-zinc-200/50 bg-gradient-to-br from-white/70 via-white/50 to-zinc-50/60 p-4 shadow-sm backdrop-blur-md">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm backdrop-blur-md">
               <Skeleton className="mb-1.5 h-3 w-20" />
               <Skeleton className="h-4 w-56" />
               <Skeleton className="mt-2 h-3 w-44" />
@@ -34,9 +34,9 @@ export default function MonitoringLoadingState({
               {/* Cost Breakdown Skeleton */}
               <div className="space-y-3">
                 <Skeleton className="h-6 w-36" />
-                <div className="overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/30 shadow-sm backdrop-blur-sm">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm backdrop-blur-sm">
                   <div className="space-y-0">
-                    <div className="border-b border-zinc-200/40 bg-gradient-to-r from-zinc-50/80 to-zinc-100/50 p-3">
+                    <div className="border-b border-border bg-muted/20 p-3">
                       <div className="flex justify-between">
                         <Skeleton className="h-3 w-16" />
                         <Skeleton className="h-3 w-12" />
@@ -46,7 +46,7 @@ export default function MonitoringLoadingState({
                     {[...Array(5)].map((_, i) => (
                       <div
                         key={i}
-                        className="border-t border-zinc-200/20 bg-white/50 p-3"
+                        className="border-t border-border bg-card p-3"
                       >
                         <div className="flex items-center justify-between gap-4">
                           <Skeleton className="h-3 w-20" />
@@ -62,12 +62,12 @@ export default function MonitoringLoadingState({
               {/* Usage & Data Transfer Skeleton */}
               <div className="space-y-3">
                 <Skeleton className="h-6 w-52" />
-                <div className="overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/30 shadow-sm backdrop-blur-sm">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm backdrop-blur-sm">
                   <div className="space-y-0">
                     {[...Array(7)].map((_, i) => (
                       <div
                         key={i}
-                        className="border-b border-zinc-200/30 bg-white/50 p-3 last:border-b-0"
+                        className="border-b border-border bg-card p-3 last:border-b-0"
                       >
                         <div className="flex items-center justify-between">
                           <Skeleton className="h-3 w-20" />
@@ -83,9 +83,9 @@ export default function MonitoringLoadingState({
             {/* Recent Activity Skeleton */}
             <div className="space-y-3">
               <Skeleton className="h-6 w-32" />
-              <div className="overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/30 shadow-sm backdrop-blur-sm">
+              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm backdrop-blur-sm">
                 <div className="space-y-0">
-                  <div className="border-b border-zinc-200/40 bg-gradient-to-r from-zinc-50/90 to-zinc-100/80 p-3">
+                  <div className="border-b border-border bg-muted/20 p-3">
                     <div className="flex justify-between gap-4">
                       <Skeleton className="h-3 w-20" />
                       <Skeleton className="h-3 w-16" />
@@ -97,7 +97,7 @@ export default function MonitoringLoadingState({
                   {[...Array(3)].map((_, i) => (
                     <div
                       key={i}
-                      className="border-t border-zinc-200/20 bg-white/40 p-3"
+                      className="border-t border-border bg-card p-3"
                     >
                       <div className="flex justify-between gap-4">
                         <Skeleton className="h-3 w-24" />
@@ -119,7 +119,7 @@ export default function MonitoringLoadingState({
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-300/50 bg-gradient-to-br from-red-50/80 to-red-100/60 p-5 shadow-sm backdrop-blur-md">
+      <div className="rounded-2xl border border-red-300/50 bg-destructive/10 p-5 shadow-sm backdrop-blur-md">
         <div className="flex items-start gap-3">
           <div className="rounded-full bg-red-200/50 p-2">
             <Activity className="h-4 w-4 text-red-700" />

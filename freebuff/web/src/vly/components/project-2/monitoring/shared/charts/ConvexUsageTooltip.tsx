@@ -32,8 +32,8 @@ export default function ConvexUsageTooltip({
     data.devExecutions !== undefined && data.prodExecutions !== undefined;
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3 shadow-lg">
-      <p className="mb-2 text-xs font-semibold text-zinc-600">
+    <div className="rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+      <p className="mb-2 text-xs font-semibold text-muted-foreground">
         {data.timeRangeLabel || data.timeLabel}
       </p>
       <div className="space-y-1.5">
@@ -46,11 +46,11 @@ export default function ConvexUsageTooltip({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: "#8b5cf6" }}
                   />
-                  <span className="text-xs text-zinc-700">
+                  <span className="text-xs text-foreground">
                     Dev Function Calls
                   </span>
                 </div>
-                <span className="text-xs font-semibold text-zinc-900">
+                <span className="text-xs font-semibold text-foreground">
                   {data.devExecutions!.toFixed(0)}
                 </span>
               </div>
@@ -62,11 +62,11 @@ export default function ConvexUsageTooltip({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: "#3b82f6" }}
                   />
-                  <span className="text-xs text-zinc-700">
+                  <span className="text-xs text-foreground">
                     Prod Function Calls
                   </span>
                 </div>
-                <span className="text-xs font-semibold text-zinc-900">
+                <span className="text-xs font-semibold text-foreground">
                   {data.prodExecutions!.toFixed(0)}
                 </span>
               </div>
@@ -78,11 +78,11 @@ export default function ConvexUsageTooltip({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: METRIC_COLORS.executions }}
                   />
-                  <span className="text-xs text-zinc-700">
+                  <span className="text-xs text-foreground">
                     Total Function Calls
                   </span>
                 </div>
-                <span className="text-xs font-semibold text-zinc-900">
+                <span className="text-xs font-semibold text-foreground">
                   {data.executions.toFixed(0)}
                 </span>
               </div>
@@ -96,9 +96,9 @@ export default function ConvexUsageTooltip({
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: METRIC_COLORS.executions }}
                 />
-                <span className="text-xs text-zinc-700">Function Calls</span>
+                <span className="text-xs text-foreground">Function Calls</span>
               </div>
-              <span className="text-xs font-semibold text-zinc-900">
+              <span className="text-xs font-semibold text-foreground">
                 {data.executions.toFixed(0)}
               </span>
             </div>
@@ -110,9 +110,9 @@ export default function ConvexUsageTooltip({
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: METRIC_COLORS.compute }}
             />
-            <span className="text-xs text-zinc-700">Compute (GB-hrs)</span>
+            <span className="text-xs text-foreground">Compute (GB-hrs)</span>
           </div>
-          <span className="text-xs font-semibold text-zinc-900">
+          <span className="text-xs font-semibold text-foreground">
             {data.compute.toFixed(4)}
           </span>
         </div>
@@ -122,9 +122,9 @@ export default function ConvexUsageTooltip({
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: METRIC_COLORS.databaseBandwidth }}
             />
-            <span className="text-xs text-zinc-700">Database BW</span>
+            <span className="text-xs text-foreground">Database BW</span>
           </div>
-          <span className="text-xs font-semibold text-zinc-900">
+          <span className="text-xs font-semibold text-foreground">
             {(() => {
               const bytes = data.dbBandwidth * 1024 * 1024 * 1024;
               const formatted = formatBandwidthWithUnit(bytes);
@@ -138,9 +138,9 @@ export default function ConvexUsageTooltip({
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: METRIC_COLORS.fileBandwidth }}
             />
-            <span className="text-xs text-zinc-700">File BW</span>
+            <span className="text-xs text-foreground">File BW</span>
           </div>
-          <span className="text-xs font-semibold text-zinc-900">
+          <span className="text-xs font-semibold text-foreground">
             {(() => {
               const bytes = data.fileBandwidth * 1024 * 1024 * 1024;
               const formatted = formatBandwidthWithUnit(bytes);

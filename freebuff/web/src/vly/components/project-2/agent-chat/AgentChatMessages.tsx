@@ -1096,8 +1096,8 @@ const AgentMessageCard: React.FC<{
       {/* User Message — softer, theme-aware bubble */}
       {message.user_message && (
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-start gap-2 rounded-xl bg-muted/60 px-4 py-2.5">
-            <p className="text-sm leading-relaxed text-foreground">
+          <div className="flex min-w-0 flex-1 items-start gap-3 rounded-xl bg-muted/60 px-4 py-2.5">
+            <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
               {message.user_message}
             </p>
             {/* Restore stays inside the user message; no hover width animation. */}
@@ -1108,7 +1108,7 @@ const AgentMessageCard: React.FC<{
               >
                 <DialogTrigger asChild>
                   <button
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                    className="ml-auto mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/70 hover:text-foreground"
                     title="Restore to here"
                     aria-label="Restore to here"
                   >

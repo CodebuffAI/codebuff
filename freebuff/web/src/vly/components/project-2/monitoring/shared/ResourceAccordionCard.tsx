@@ -37,19 +37,19 @@ export default function ResourceAccordionCard({
     <Accordion type="multiple" className="w-full">
       <AccordionItem
         value={value}
-        className="overflow-hidden rounded-2xl border border-zinc-200/40 bg-white/80 shadow-sm backdrop-blur-md"
+        className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm backdrop-blur-md"
       >
         <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]]:pb-3">
           <div className="flex w-full items-start gap-3 pr-2">
             <div className="p-2">
-              <Icon className="h-3.5 w-3.5 text-purple-400/60" />
+              <Icon className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-zinc-700">
+                <span className="text-xs font-semibold text-foreground">
                   {label}
                 </span>
-                <span className="text-sm font-bold text-zinc-900">
+                <span className="text-sm font-bold text-foreground">
                   {usagePercent.toFixed(1)}%
                 </span>
               </div>
@@ -57,17 +57,17 @@ export default function ResourceAccordionCard({
               <div className="mt-1.5">
                 <ProgressBar percentage={usagePercent} />
               </div>
-              <div className="mt-1 text-[10px] text-zinc-500">{limitText}</div>
+              <div className="mt-1 text-[10px] text-muted-foreground">{limitText}</div>
             </div>
           </div>
         </AccordionTrigger>
         {topProcesses.length > 0 && (
           <AccordionContent className="px-4 pb-3 pt-0">
-            <div className="space-y-1 border-t border-zinc-200/30 pt-2">
+            <div className="space-y-1 border-t border-border pt-2">
               {topProcesses.slice(0, 3).map((proc, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between text-[10px] text-zinc-600"
+                  className="flex items-center justify-between text-[10px] text-muted-foreground"
                 >
                   <span className="truncate font-mono">{proc.command}</span>
                   <span className="ml-2 font-mono">

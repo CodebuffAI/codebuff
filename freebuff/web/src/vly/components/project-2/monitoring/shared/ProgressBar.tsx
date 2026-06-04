@@ -9,7 +9,7 @@ interface ProgressBarProps {
 export default function ProgressBar({
   percentage,
   className = "h-1 w-full",
-  barClassName = "bg-gradient-to-r from-purple-500 to-purple-600",
+  barClassName = "bg-primary",
 }: ProgressBarProps) {
   return (
     <div className={`overflow-hidden rounded-full bg-zinc-200/40 ${className}`}>

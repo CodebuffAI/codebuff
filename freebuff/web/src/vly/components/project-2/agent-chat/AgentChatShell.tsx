@@ -21,6 +21,8 @@ import {
   ChevronDown,
   Pencil,
   Plus,
+  History,
+  Github,
 } from "lucide-react";
 import {
   Tooltip,
@@ -145,6 +147,9 @@ interface AgentChatShellProps {
   onSelectOldThread?: (threadId: Id<"thread">) => void;
   isSelectingElement?: boolean;
   setIsSelectingElement?: (v: boolean) => void;
+  onOpenVersions?: () => void;
+  onOpenGitHub?: () => void;
+  githubActionLabel?: string;
 }
 
 export function AgentChatShell({
@@ -153,6 +158,9 @@ export function AgentChatShell({
   onSelectOldThread,
   isSelectingElement: externalIsSelectingElement,
   setIsSelectingElement: externalSetIsSelectingElement,
+  onOpenVersions,
+  onOpenGitHub,
+  githubActionLabel = "GitHub",
 }: AgentChatShellProps) {
   const vlyAgentDisplayName = "freebuff agent 2.0";
   // All hooks must be called unconditionally before any early returns
@@ -597,7 +605,32 @@ export function AgentChatShell({
                       )}
                     </div>
                   )}
-                  <div className="ml-1 flex shrink-0 items-center sm:ml-2">
+                  <div className="ml-1 flex shrink-0 items-center gap-0.5 sm:ml-2">
+                    {onOpenVersions && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenVersions();
+                            }}
+                            type="button"
+                            aria-label="Version history"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <History className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={6}
+                          className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                        >
+                          Version history
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -624,6 +657,31 @@ export function AgentChatShell({
                         New thread
                       </TooltipContent>
                     </Tooltip>
+                    {onOpenGitHub && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenGitHub();
+                            }}
+                            type="button"
+                            aria-label={githubActionLabel}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Github className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={6}
+                          className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                        >
+                          {githubActionLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
               </div>

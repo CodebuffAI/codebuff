@@ -316,9 +316,6 @@ function EnvVarsView({ project }: EnvVarsViewProps) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4">
         <div className="flex h-full w-full flex-col p-4">
-          <div className="mb-4 flex items-center justify-between border-b pb-2">
-            <h2 className="text-base font-semibold">API Keys</h2>
-          </div>
           <div className="flex w-full flex-col items-center gap-4">
             <div className="relative">
               <Loader className="h-6 w-6 animate-spin" />
@@ -336,9 +333,6 @@ function EnvVarsView({ project }: EnvVarsViewProps) {
 
   return (
     <div className="flex h-full w-full flex-col p-4">
-      <div className="mb-4 flex items-center justify-between border-b pb-2">
-        <h2 className="text-base font-semibold">API Keys</h2>
-      </div>
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as "frontend" | "backend")}
