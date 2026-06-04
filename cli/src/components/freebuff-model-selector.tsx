@@ -28,6 +28,7 @@ import {
   freebuffModelNavigationDirectionForKey,
   nextFreebuffModelId,
 } from '../utils/freebuff-model-navigation'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
@@ -311,8 +312,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         if (pending) return
         const name = key.name ?? ''
         const direction = freebuffModelNavigationDirectionForKey(key)
-        const isCommit =
-          name === 'return' || name === 'enter' || name === 'space'
+        // Use the shared Enter detector so the keypad Enter and the niche
+        // Linux terminals that send \n (linefeed) for Enter also commit; a
+        // raw name === 'return' check silently ignores those, which looks
+        // like a frozen menu (arrows move the highlight, Enter does nothing).
+        const isCommit = isPlainEnterKey(key) || name === 'space'
         if (isCommit) {
           if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
