@@ -24,6 +24,7 @@ import {
   getFreebuffPremiumResetAt,
 } from '../utils/freebuff-premium-reset'
 import { formatSessionUnits } from '../utils/format-session-units'
+import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import {
   FREEBUFF_ENABLE_STREAK_IN_UI,
@@ -153,7 +154,7 @@ const TakeoverPrompt: React.FC = () => {
     useCallback(
       (key: KeyEvent) => {
         const name = key.name ?? ''
-        const isConfirm = name === 'return' || name === 'enter'
+        const isConfirm = isPlainEnterKey(key)
         const isExit = name === 'escape' || name === 'esc'
         const isTab = name === 'tab'
         const isShiftTab = key.shift === true && isTab
