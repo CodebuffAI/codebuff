@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Settings as SettingsIcon,
   Activity,
-  Server,
   Database,
   KeyRound,
   Github,
@@ -24,9 +23,6 @@ import { TopBar } from "@/vly/components/project-2/TopBar";
 import { getDirectPreviewUrl } from "@/vly/lib/project-preview-url";
 
 const Monitoring = lazy(() => import("@/vly/components/project-2/Monitoring"));
-const BackendManagement = lazy(
-  () => import("@/vly/components/project-2/BackendManagement"),
-);
 const EnvVarsView = lazy(() => import("@/vly/components/project-2/EnvVarsView"));
 const DatabaseView = lazy(() => import("@/vly/components/project-2/DatabaseView"));
 const GitHubSyncView = lazy(() => import("@/vly/components/project-2/GitHubSyncView"));
@@ -39,7 +35,6 @@ const DeploymentSettingsPanel = lazy(() =>
 type Section =
   | "general"
   | "usage"
-  | "backend"
   | "database"
   | "env"
   | "github"
@@ -53,7 +48,6 @@ const SECTIONS: {
 }[] = [
   { id: "general", group: "Project", label: "General", Icon: SettingsIcon },
   { id: "usage", group: "Project", label: "Usage", Icon: Activity },
-  { id: "backend", group: "Infrastructure", label: "Backend", Icon: Server },
   { id: "deployments", group: "Infrastructure", label: "Deployments", Icon: Rocket },
   { id: "database", group: "Infrastructure", label: "Database", Icon: Database },
   { id: "env", group: "Infrastructure", label: "Environment vars", Icon: KeyRound },
@@ -73,7 +67,6 @@ function isSection(value: string | null): value is Section {
   return (
     value === "general" ||
     value === "usage" ||
-    value === "backend" ||
     value === "deployments" ||
     value === "database" ||
     value === "env" ||
@@ -128,13 +121,7 @@ export default function ProjectSettingsPage() {
     );
   }
 
-  const navGroups = Array.from(
-    new Set([
-      ...SECTIONS.map((s) => s.group),
-      ...EXTERNAL_LINKS.map((link) => link.group),
-    ]),
-  );
-  const fullWindowSection = section === "backend" || section === "database";
+  const fullWindowSection = section !== "general";
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
@@ -144,11 +131,7 @@ export default function ProjectSettingsPage() {
         <TopBar project={project} />
       </div>
 
-      {/* Mobile-only section selector. On small screens the sidebar
-          collapses into a horizontally scrollable chip strip so there's
-          always a one-tap path to any settings group without sacrificing
-          the iframe-style "no horizontal page scroll" rule. */}
-      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto bg-background/95 px-3 py-2 backdrop-blur lg:hidden">
+      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur">
         <button
           type="button"
           onClick={goBack}
@@ -191,80 +174,25 @@ export default function ProjectSettingsPage() {
         ))}
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* ── Desktop sidebar ────────────────────────────────────────── */}
-        <aside className="hidden h-full w-64 flex-shrink-0 flex-col bg-card/30 lg:flex">
-          <button
-            onClick={goBack}
-            className="m-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to project
-          </button>
-
-          <div className="flex-1 overflow-y-auto px-3 pb-4">
-            {navGroups.map((group) => (
-              <div key={group} className="mb-5">
-                <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                  {group}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {SECTIONS.filter((s) => s.group === group).map(
-                    ({ id, label, Icon }) => {
-                      const isActive = section === id;
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => setSection(id)}
-                          className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                            isActive
-                              ? "bg-primary/15 text-primary"
-                              : "text-foreground/85 hover:bg-muted hover:text-foreground"
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {label}
-                        </button>
-                      );
-                    },
-                  )}
-                  {EXTERNAL_LINKS.filter((link) => link.group === group).map(
-                    ({ label, href, Icon }) => (
-                      <a
-                        key={label}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </a>
-                    ),
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* ── Detail ─────────────────────────────────────────────────── */}
-        <main className="min-w-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <main className="h-full min-w-0 overflow-hidden">
           <div
             className={
               fullWindowSection
-                ? "flex h-full w-full flex-col px-4 py-4 sm:px-6"
+                ? "flex h-full w-full flex-col overflow-hidden p-3 sm:p-4"
                 : "mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-4 py-6 sm:px-6 sm:py-8"
             }
           >
-            <header className="mb-5 sm:mb-6">
-              <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
-                {SECTIONS.find((s) => s.id === section)?.label ?? "Settings"}
-              </h1>
-              <p className="mt-1 truncate text-sm text-muted-foreground">
-                {project.name || project.semantic_identifier}
-              </p>
-            </header>
+            {!fullWindowSection && (
+              <header className="mb-5 sm:mb-6">
+                <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+                  {SECTIONS.find((s) => s.id === section)?.label ?? "Settings"}
+                </h1>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {project.name || project.semantic_identifier}
+                </p>
+              </header>
+            )}
 
             <Suspense
               fallback={
@@ -282,7 +210,6 @@ export default function ProjectSettingsPage() {
               >
                 {section === "general" && <GeneralSection project={project} />}
                 {section === "usage" && <Monitoring project={project} />}
-                {section === "backend" && <BackendManagement project={project} />}
                 {section === "deployments" && (
                   <DeploymentSettingsPanel projectId={project._id} />
                 )}

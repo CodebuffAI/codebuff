@@ -31,18 +31,18 @@ export default function MonitoringSectionAccordion({
     >
       <AccordionItem
         value={value}
-        className="rounded-2xl border border-zinc-200/50 bg-white/40 shadow-sm backdrop-blur-sm"
+        className="rounded-lg border border-border bg-card"
       >
         <AccordionTrigger className="px-5 py-4 hover:no-underline">
           <div className="flex w-full items-center justify-between pr-2">
             <div className="flex items-center gap-2.5">
               {icon}
-              <span className="text-sm font-semibold text-zinc-800">
+              <span className="text-sm font-semibold text-foreground">
                 {title}
               </span>
             </div>
             {badge && (
-              <div className="rounded-[10px] border border-purple-400/60 bg-purple-100/60 px-3 py-1 text-base font-medium text-purple-800 outline outline-1 outline-purple-400/40 backdrop-blur-[80px]">
+              <div className="rounded-md border border-primary/45 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                 {badge}
               </div>
             )}

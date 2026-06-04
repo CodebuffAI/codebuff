@@ -101,7 +101,7 @@ export function ConvexEmbed({
   }, [deploymentUrl, deploymentDetails]);
 
   return (
-    <div className="m-0 flex min-h-0 w-full flex-grow flex-col p-0">
+    <div className="m-0 flex h-full min-h-0 w-full flex-col overflow-hidden p-0">
       {!deploymentDetails && (
         <div className="m-0 flex h-full w-full flex-col items-center justify-center p-0">
           <div className="relative">
@@ -114,7 +114,7 @@ export function ConvexEmbed({
         <iframe
           ref={iframeRef}
           className={cn(
-            "h-full min-h-0 w-full min-w-0 flex-grow border-0",
+            "h-full min-h-0 w-full min-w-0 flex-1 border-0",
             !authenticated && "hidden",
           )}
           src={"https://dashboard-embedded.convex.dev/data"}

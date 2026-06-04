@@ -256,6 +256,7 @@ export function CenterContent({
   const activeScreenshotTriggerRef = useRef<ScreenshotTrigger | null>(null);
   const autoScreenshotFailureCountRef = useRef(0);
   const [isIframeReactReady, setIsIframeReactReady] = useState(false);
+  const [hasIframeLoaded, setHasIframeLoaded] = useState(false);
   const projectId = project?._id;
 
   // Check if auto screenshot should be triggered (based on commit count)
@@ -279,6 +280,7 @@ export function CenterContent({
     activeEntryPoint,
     setActiveEntryPoint: () => {},
   });
+  const isDaytonaProject = project?.sandbox_id?.startsWith("daytona:") === true;
 
   React.useEffect(() => {
     clearActiveScreenshotRequest({
@@ -325,7 +327,21 @@ export function CenterContent({
 
   React.useEffect(() => {
     setIsIframeReactReady(false);
-  }, [navState.iframeKey, navState.iframeSrc]);
+    setHasIframeLoaded(false);
+
+    if (!isDaytonaProject || !navState.iframeSrc) {
+      return;
+    }
+
+    // Daytona previews are already public and loaded directly in the iframe.
+    // If the connection action lags behind the browser load, don't keep a
+    // full-screen cover over a preview the user can already see.
+    const timeoutId = window.setTimeout(() => {
+      setHasIframeLoaded(true);
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isDaytonaProject, navState.iframeKey, navState.iframeSrc]);
 
   const handleRefresh = React.useCallback(() => {
     const iframe = iframeRef.current;
@@ -385,6 +401,9 @@ export function CenterContent({
       }, 1000); // Small delay to ensure connection is fully established
     },
   });
+  const shouldShowConnectionOverlay =
+    isConnecting &&
+    !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady));
 
   // After changes are applied (processing -> non-processing), re-run the same
   // connection check used on page load to prevent preview disconnects.
@@ -926,7 +945,7 @@ export function CenterContent({
                 referrerPolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                 suppressHydrationWarning
-                onLoad={() => {}}
+                onLoad={() => setHasIframeLoaded(true)}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-slate-50">
@@ -935,7 +954,7 @@ export function CenterContent({
             )}
             {/* Connection loading overlay */}
             <AnimatePresence>
-              {isConnecting && (
+              {shouldShowConnectionOverlay && (
                 <motion.div
                   className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm"
                   initial={{ opacity: 0 }}

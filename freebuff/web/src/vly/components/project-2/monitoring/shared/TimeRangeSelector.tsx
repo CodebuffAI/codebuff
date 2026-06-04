@@ -23,14 +23,14 @@ export default function TimeRangeSelector({
     <div className="space-y-3">
       {/* Time Range Selector */}
       <div className="flex items-center gap-2">
-        <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
         <select
           value={timeRange}
           onChange={(e) => {
             e.stopPropagation();
             setTimeRange(e.target.value as TimeRange);
           }}
-          className="rounded-lg border border-zinc-200/50 bg-white/50 px-2.5 py-1.5 text-xs font-medium text-zinc-700 backdrop-blur-sm transition-colors hover:border-zinc-300 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200/50"
+          className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
           <option value="billing_cycle">Current Billing Cycle</option>
           <option value="5m">Last 5 Minutes</option>
@@ -51,7 +51,7 @@ export default function TimeRangeSelector({
               e.stopPropagation();
               setCustomStartDate(e.target.value);
             }}
-            className="flex-1 rounded-lg border border-zinc-200/50 bg-white/50 px-3 py-1.5 text-xs text-zinc-700 backdrop-blur-sm focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200/50"
+            className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground backdrop-blur-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             placeholder="Start time"
           />
           <input
@@ -61,7 +61,7 @@ export default function TimeRangeSelector({
               e.stopPropagation();
               setCustomEndDate(e.target.value);
             }}
-            className="flex-1 rounded-lg border border-zinc-200/50 bg-white/50 px-3 py-1.5 text-xs text-zinc-700 backdrop-blur-sm focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200/50"
+            className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground backdrop-blur-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             placeholder="End time"
           />
         </div>

@@ -41,12 +41,12 @@ export default function ConvexUsageSection({
     >
       {/* Usage & Data Transfer */}
       <div className="space-y-3">
-        <h3 className="font-['PP_Cirka'] text-lg font-normal text-zinc-800">
+        <h3 className="text-base font-semibold text-foreground">
           Usage & Data Transfer
         </h3>
         {/* Unified Card - Billable Metrics Emphasized */}
-        <div className="overflow-hidden rounded-2xl border border-zinc-200/40 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-          <div className="flex-1 space-y-0 divide-y divide-zinc-200/50">
+        <div className="overflow-hidden rounded-lg border border-border bg-muted/15 p-3">
+          <div className="flex-1 space-y-0 divide-y divide-border">
             {/* Function Calls */}
             <MetricRow
               icon={Zap}
@@ -96,10 +96,10 @@ export default function ConvexUsageSection({
       {/* Convex Usage Over Time Graph */}
       {metrics.timeSeries.length > 0 && (
         <div className="min-w-0 space-y-3">
-          <h3 className="font-['PP_Cirka'] text-lg font-normal text-zinc-800">
+          <h3 className="text-base font-semibold text-foreground">
             Usage Over Time
           </h3>
-          <div className="overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/30 p-4 shadow-sm backdrop-blur-sm">
+          <div className="overflow-hidden rounded-lg border border-border bg-muted/15 p-4">
             {(() => {
               // Use the time range values from the parent component (calculated by useTimeRange hook)
               // This ensures the chart X-axis matches the actual data fetched and displayed

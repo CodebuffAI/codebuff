@@ -47,7 +47,7 @@ export default function SandboxResourcesSection({
   return (
     <MonitoringSectionAccordion
       value="sandbox"
-      icon={<Box className="h-4 w-4 text-purple-600" />}
+      icon={<Box className="h-4 w-4 text-primary" />}
       title="Workspace Resources"
       badge={getSizeDisplayName(project?.sandbox_size)}
     >

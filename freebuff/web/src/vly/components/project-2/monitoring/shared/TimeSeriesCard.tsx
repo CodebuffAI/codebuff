@@ -16,15 +16,15 @@ export default function TimeSeriesCard({
   index,
 }: TimeSeriesCardProps) {
   const isEven = index % 2 === 0;
-  const bgClass = isEven ? "bg-transparent" : "bg-purple-50/40";
+  const bgClass = isEven ? "bg-transparent" : "bg-muted/20";
 
   return (
     <>
       {/* Mobile: Stacked Card Layout */}
       <div
-        className={`flex flex-col gap-2 px-3 py-2.5 transition-all duration-150 2xl:hidden ${bgClass} hover:bg-white/30`}
+        className={`flex flex-col gap-2 px-3 py-2.5 transition-all duration-150 2xl:hidden ${bgClass} hover:bg-card`}
       >
-        <div className="text-xs font-semibold text-zinc-700">
+        <div className="text-xs font-semibold text-foreground">
           {formatRelativeDateTime(dataPoint.timestamp)}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
@@ -53,12 +53,12 @@ export default function TimeSeriesCard({
 
       {/* Desktop: Grid Items (rendered as children of parent grid) */}
       <div
-        className={`col-span-1 hidden px-3 py-2.5 font-semibold text-zinc-700 transition-all duration-150 2xl:block ${bgClass} hover:bg-white/30`}
+        className={`col-span-1 hidden px-3 py-2.5 font-semibold text-foreground transition-all duration-150 2xl:block ${bgClass} hover:bg-card`}
       >
         {formatRelativeDateTime(dataPoint.timestamp)}
       </div>
       <div
-        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-white/30`}
+        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-card`}
       >
         <MetricItem
           icon={Zap}
@@ -67,7 +67,7 @@ export default function TimeSeriesCard({
         />
       </div>
       <div
-        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-white/30`}
+        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-card`}
       >
         <MetricItem
           icon={Cpu}
@@ -76,7 +76,7 @@ export default function TimeSeriesCard({
         />
       </div>
       <div
-        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-white/30`}
+        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-card`}
       >
         <MetricItem
           icon={Database}
@@ -85,7 +85,7 @@ export default function TimeSeriesCard({
         />
       </div>
       <div
-        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-white/30`}
+        className={`col-span-1 hidden px-3 py-2.5 transition-all duration-150 2xl:block ${bgClass} hover:bg-card`}
       >
         <MetricItem
           icon={FileText}
@@ -107,11 +107,11 @@ function MetricItem({ icon: Icon, label, value }: MetricItemProps) {
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       <Icon
-        className="h-3 w-3 flex-shrink-0 text-purple-600"
+        className="h-3 w-3 flex-shrink-0 text-primary"
         strokeWidth={2.5}
       />
-      <span className="font-medium text-purple-700/70">{label}</span>
-      <span className="font-mono font-semibold text-purple-900">{value}</span>
+      <span className="font-medium text-primary">{label}</span>
+      <span className="font-mono font-semibold text-primary">{value}</span>
     </span>
   );
 }

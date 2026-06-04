@@ -788,17 +788,6 @@ function ProjectWrapper({
             }`}
             style={isMobile ? undefined : { willChange: "width" }}
           >
-            {/* Floating chat toolbar — hidden on mobile (those actions
-                live in the project dropdown instead, to keep the chat
-                surface uncluttered for small screens). */}
-            {!isMobile && (
-              <ChatTopActions
-                semanticIdentifier={semanticIdentifier}
-                projectId={project._id}
-                syncStatus={syncStatus}
-              />
-            )}
-
             <ChatStorageProvider
               projectSemanticIdentifier={semanticIdentifier}
             >
@@ -813,6 +802,23 @@ function ProjectWrapper({
                   onSwitchToOldChat={undefined}
                   isSelectingElement={isSelectingElement}
                   setIsSelectingElement={setIsSelectingElement}
+                  onOpenVersions={() => setActiveTab("versions")}
+                  onOpenGitHub={() => {
+                    if (syncStatus) {
+                      window.open(
+                        `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    } else {
+                      router.push(
+                        `/web/project/${semanticIdentifier}/settings?section=github`,
+                      );
+                    }
+                  }}
+                  githubActionLabel={
+                    syncStatus ? "View on GitHub" : "Connect GitHub"
+                  }
                 />
               ) : (
                 <ChatShell
@@ -836,6 +842,23 @@ function ProjectWrapper({
                   syncStatus={syncStatus}
                   activeEntryPointId={activeEntryPoint}
                   onSwitchToNewAgent={undefined}
+                  onOpenVersions={() => setActiveTab("versions")}
+                  onOpenGitHub={() => {
+                    if (syncStatus) {
+                      window.open(
+                        `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    } else {
+                      router.push(
+                        `/web/project/${semanticIdentifier}/settings?section=github`,
+                      );
+                    }
+                  }}
+                  githubActionLabel={
+                    syncStatus ? "View on GitHub" : "Connect GitHub"
+                  }
                 />
               )}
             </ChatStorageProvider>
@@ -915,58 +938,6 @@ function ProjectLoadingScreen() {
         <Loader className="h-3.5 w-3.5 animate-spin text-primary" />
         <span>Loading project…</span>
       </div>
-    </div>
-  );
-}
-
-/**
- * Tiny floating toolbar overlaid on the top-right of the chat pane.
- * Provides quick access to version history and GitHub sync — both lazily
- * surfaced so we don't perturb the (very large) underlying ChatShell.
- */
-function ChatTopActions({
-  semanticIdentifier,
-  projectId,
-  syncStatus,
-}: {
-  semanticIdentifier: string;
-  projectId: Id<"project">;
-  syncStatus?: import("convex/server").FunctionReturnType<
-    typeof api.github.repositories.getProjectSyncStatus
-  >;
-}) {
-  const router = useRouter();
-  void projectId;
-  return (
-    <div className="pointer-events-none absolute right-2 top-2 z-30 flex gap-0.5">
-      <button
-        onClick={() => {
-          if (syncStatus) {
-            window.open(
-              `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`,
-              "_blank",
-              "noopener,noreferrer",
-            );
-          } else {
-            router.push(
-              `/web/project/${semanticIdentifier}/settings?section=github`,
-            );
-          }
-        }}
-        title={syncStatus ? "View on GitHub" : "Connect GitHub"}
-        aria-label="GitHub"
-        className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="currentColor"
-        >
-          <path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.6 1 .1-.8.4-1.4.8-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.3-.1-.3-.6-1.6.1-3.3 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 3 .1 3.3.8.9 1.3 2 1.3 3.3 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z" />
-        </svg>
-      </button>
     </div>
   );
 }

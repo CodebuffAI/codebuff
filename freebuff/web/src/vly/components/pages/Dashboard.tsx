@@ -205,7 +205,7 @@ export default function Dashboard() {
                   className="h-28 w-28"
                 />
                 <div className="flex flex-col items-center justify-start self-stretch">
-                  <div className="justify-start text-center font-['PP_Cirka'] text-3xl font-normal leading-tight text-black">
+                  <div className="justify-start text-center font-['Geist'] text-3xl font-normal leading-tight text-black">
                     {profileName || user?.fullName || "User"}
                   </div>
                   <div
@@ -243,7 +243,7 @@ export default function Dashboard() {
             <div className="flex w-full flex-col items-start justify-start gap-2 lg:flex-1">
               <div className="flex flex-col items-start justify-start gap-3.5 self-stretch">
                 <div className="inline-flex items-center justify-between self-stretch">
-                  <div className="justify-start font-['PP_Cirka'] text-3xl font-normal leading-loose text-black">
+                  <div className="justify-start font-['Geist'] text-3xl font-normal leading-loose text-black">
                     Pinned Sites
                   </div>
                   <div className="flex items-center justify-center gap-2.5">
@@ -516,7 +516,7 @@ export default function Dashboard() {
         <div className="flex flex-col items-start justify-start gap-4 self-stretch">
           <div className="flex w-full items-end justify-between gap-4">
             <div>
-              <h1 className="font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+              <h1 className="font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
                 My Projects
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
@@ -774,7 +774,7 @@ export default function Dashboard() {
                 <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
                   No match
                 </p>
-                <h3 className="mt-4 font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+                <h3 className="mt-4 font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
                   No projects found
                 </h3>
                 <p className="mt-4 text-sm leading-7 text-muted-foreground">
@@ -793,7 +793,7 @@ export default function Dashboard() {
                     <Sparkles className="h-6 w-6" />
                   </div>
 
-                  <h3 className="mt-6 font-['PP_Cirka'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+                  <h3 className="mt-6 font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
                     Create your first project
                   </h3>
 
@@ -842,7 +842,7 @@ export default function Dashboard() {
       >
         <AlertDialogContent className="w-[86.5vw] max-w-[1200px] rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
-            <AlertDialogTitle className="font-['PP_Cirka'] text-2xl font-normal leading-tight text-foreground">
+            <AlertDialogTitle className="font-['Geist'] text-2xl font-normal leading-tight text-foreground">
               Delete project
             </AlertDialogTitle>
             <button
@@ -895,7 +895,7 @@ export default function Dashboard() {
       <AlertDialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
         <AlertDialogContent className="w-[86.5vw] max-w-[1200px] rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur md:max-w-md">
           <AlertDialogHeader className="flex flex-row items-center justify-between">
-            <AlertDialogTitle className="flex items-center font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
+            <AlertDialogTitle className="flex items-center font-['Geist'] text-3xl font-normal leading-loose text-foreground">
               Edit Profile
             </AlertDialogTitle>
             <button
@@ -1002,7 +1002,7 @@ export default function Dashboard() {
           <div className="fixed left-1/2 top-1/2 z-[9999] flex h-[70vh] w-[86.5vw] max-w-[1200px] -translate-x-1/2 -translate-y-1/2 transform flex-col border border-border bg-card text-foreground shadow-2xl shadow-black/60">
             {/* Header with title and close button */}
             <div className="flex items-center justify-between px-7 pb-2 pt-[30px]">
-              <div className="justify-start font-['PP_Cirka'] text-3xl font-normal leading-loose text-foreground">
+              <div className="justify-start font-['Geist'] text-3xl font-normal leading-loose text-foreground">
                 Select Site
               </div>
               <button

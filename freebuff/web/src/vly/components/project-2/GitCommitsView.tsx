@@ -180,7 +180,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
       return {
         type: "revert",
         icon: Rewind,
-        color: "text-orange-600 bg-orange-50 border-orange-200",
+        color: "text-amber-300 bg-amber-500/10 border-amber-500/30",
         label: "Revert",
         tooltip: "Reverted to a previous state",
       };
@@ -190,7 +190,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
       return {
         type: "wip-save",
         icon: Hammer,
-        color: "text-amber-600 bg-amber-50 border-amber-200",
+        color: "text-amber-300 bg-amber-500/10 border-amber-500/30",
         label: "WIP Save",
         tooltip: "Work in progress automatically saved before reverting",
       };
@@ -200,7 +200,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
       return {
         type: "checkpoint",
         icon: MessageSquare,
-        color: "text-purple-600 bg-purple-50 border-purple-200",
+        color: "text-primary bg-primary/10 border-primary/30",
         label: "Pre-message",
         tooltip: "Automatic checkpoint before processing user message",
       };
@@ -210,7 +210,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
       return {
         type: "feature",
         icon: Plus,
-        color: "text-green-600 bg-green-50 border-green-200",
+        color: "text-primary bg-primary/10 border-primary/30",
         label: "Feature",
         tooltip: "New feature or functionality added",
       };
@@ -220,7 +220,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
       return {
         type: "fix",
         icon: Activity,
-        color: "text-blue-600 bg-blue-50 border-blue-200",
+        color: "text-blue-300 bg-blue-500/10 border-blue-500/30",
         label: "Fix",
         tooltip: "Bug fix or issue resolved",
       };
@@ -229,7 +229,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
     return {
       type: "other",
       icon: GitCommit,
-      color: "text-gray-600 bg-gray-50 border-gray-200",
+      color: "text-muted-foreground bg-muted/40 border-border",
       label: "Update",
       tooltip: "General update or change",
     };
@@ -251,14 +251,13 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* Enhanced Header */}
-      <div className="w-full overflow-hidden border-b bg-white p-4 sm:p-6">
+      <div className="w-full overflow-hidden border-b border-border bg-background p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
+            <h2 className="text-lg font-semibold text-foreground sm:text-xl">
               Version History
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Track all changes and checkpoint your project
             </p>
           </div>
@@ -266,22 +265,22 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
             {processedCommits && (
               <div className="flex gap-3 sm:gap-4">
                 <div className="text-center">
-                  <div className="text-base font-semibold text-slate-900 sm:text-lg">
+                  <div className="text-base font-semibold text-foreground sm:text-lg">
                     {commitStats.total}
                   </div>
-                  <div className="text-xs text-slate-500">Total</div>
+                  <div className="text-xs text-muted-foreground">Total</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-base font-semibold text-green-600 sm:text-lg">
+                  <div className="text-base font-semibold text-primary sm:text-lg">
                     {commitStats.features}
                   </div>
-                  <div className="text-xs text-slate-500">Features</div>
+                  <div className="text-xs text-muted-foreground">Features</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-base font-semibold text-orange-600 sm:text-lg">
+                  <div className="text-base font-semibold text-amber-300 sm:text-lg">
                     {commitStats.reverts}
                   </div>
-                  <div className="text-xs text-slate-500">Reverts</div>
+                  <div className="text-xs text-muted-foreground">Reverts</div>
                 </div>
               </div>
             )}
@@ -307,7 +306,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
             ))}
           </div>
         ) : (
-          <div className="w-full divide-y divide-slate-100 overflow-hidden">
+          <div className="w-full divide-y divide-border overflow-hidden">
             {processedCommits?.map((commit, index) => {
               const typeInfo = getCommitTypeInfo(commit);
               const Icon = typeInfo.icon;
@@ -318,31 +317,31 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
               return (
                 <div
                   key={commit.hash}
-                  className={`duration-2000 p-3 transition-colors hover:bg-slate-50/50 sm:p-4 ${isLatest && !isJustAdded ? "bg-blue-50/30" : ""} ${isReverting ? "animate-pulse bg-orange-100" : ""} ${isJustAdded ? "bg-orange-100" : ""} w-full overflow-hidden`}
+                  className={`duration-2000 p-3 transition-colors hover:bg-muted/30 sm:p-4 ${isLatest && !isJustAdded ? "bg-primary/5" : ""} ${isReverting ? "animate-pulse bg-amber-500/10" : ""} ${isJustAdded ? "bg-amber-500/10" : ""} w-full overflow-hidden`}
                 >
                   {confirmingRevert === commit.hash ? (
                     /* Confirmation Panel replacing row content */
                     <div
-                      className={`-m-3 flex w-full items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 sm:-m-4 sm:gap-4 sm:p-4 ${slidingOut ? "duration-300 animate-out slide-out-to-right-full" : "duration-300 animate-in slide-in-from-right-full"}`}
+                      className={`-m-3 flex w-full items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:-m-4 sm:gap-4 sm:p-4 ${slidingOut ? "duration-300 animate-out slide-out-to-right-full" : "duration-300 animate-in slide-in-from-right-full"}`}
                     >
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
-                        <Rewind className="h-4 w-4 text-orange-600" />
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+                        <Rewind className="h-4 w-4 text-amber-300" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="mb-2 text-sm font-medium leading-tight text-orange-900 sm:text-base">
+                        <p className="mb-2 text-sm font-medium leading-tight text-foreground sm:text-base">
                           Revert to "
-                          <span className="font-semibold text-green-600">
+                          <span className="font-semibold text-primary">
                             {stripRevertPrefix(commit.message)}
                           </span>
                           "?
                         </p>
-                        <div className="mt-2 flex flex-col gap-2 text-xs text-orange-800 sm:text-sm">
+                        <div className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground sm:text-sm">
                           <div className="flex items-center gap-1">
-                            <div className="h-1 w-1 flex-shrink-0 rounded-full bg-orange-600" />
+                            <div className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-300" />
                             <p>Creates commits undoing changes after this</p>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="h-1 w-1 flex-shrink-0 rounded-full bg-red-600" />
+                            <div className="h-1 w-1 flex-shrink-0 rounded-full bg-destructive" />
                             <p>Disables undo buttons in chat after this</p>
                           </div>
                         </div>
@@ -358,7 +357,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                               setSlidingOut(false);
                             }, 300);
                           }}
-                          className="h-7 whitespace-nowrap border-orange-300 px-2 text-xs text-orange-700 hover:bg-orange-100 sm:h-8 sm:px-3 sm:text-sm"
+                          className="h-7 whitespace-nowrap border-amber-500/40 px-2 text-xs text-amber-200 hover:bg-amber-500/15 sm:h-8 sm:px-3 sm:text-sm"
                         >
                           Cancel
                         </Button>
@@ -369,7 +368,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                               stripRevertPrefix(commit.message) || "checkpoint";
                             handleRevert(commit.hash, commitMessage);
                           }}
-                          className="h-7 whitespace-nowrap bg-orange-600 px-2 text-xs hover:bg-orange-700 sm:h-8 sm:px-3 sm:text-sm"
+                          className="h-7 whitespace-nowrap bg-amber-500 px-2 text-xs text-black hover:bg-amber-400 sm:h-8 sm:px-3 sm:text-sm"
                         >
                           Revert
                         </Button>
@@ -397,7 +396,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                         {isLatest && (
                           <Badge
                             variant="secondary"
-                            className="whitespace-nowrap bg-blue-100 px-1.5 py-0 text-xs text-blue-700 sm:px-2"
+                            className="whitespace-nowrap border border-primary/25 bg-primary/10 px-1.5 py-0 text-xs text-primary sm:px-2"
                           >
                             Latest
                           </Badge>
@@ -410,7 +409,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                           <div className="min-w-0 max-w-full flex-1 overflow-hidden">
                             {/* Message */}
                             <p
-                              className="overflow-hidden text-sm font-medium leading-tight text-slate-900 sm:text-base"
+                              className="overflow-hidden text-sm font-medium leading-tight text-foreground sm:text-base"
                               style={{
                                 wordBreak: "break-word",
                                 overflowWrap: "anywhere",
@@ -421,7 +420,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                             </p>
 
                             {/* Meta Info */}
-                            <div className="mt-2 flex flex-col gap-2 overflow-hidden text-xs text-slate-500 sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
+                            <div className="mt-2 flex flex-col gap-2 overflow-hidden text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
                               <div className="flex min-w-0 items-center gap-1 overflow-hidden">
                                 <User className="h-3 w-3 flex-shrink-0" />
                                 <span className="truncate">
@@ -436,7 +435,7 @@ function GitCommitsView({ project }: GitCommitsViewProps) {
                               </div>
                               <div className="flex flex-shrink-0 items-center gap-1">
                                 <Hash className="h-3 w-3" />
-                                <code className="break-all rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">
+                                <code className="break-all rounded bg-muted px-1 py-0.5 font-mono text-xs text-muted-foreground">
                                   {commit.hash.substring(0, 7)}
                                 </code>
                               </div>

@@ -48,7 +48,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 justify-start border-none bg-transparent font-['Geist'] text-sm font-medium leading-tight text-foreground outline-none placeholder:font-['Geist'] placeholder:text-sm placeholder:font-medium placeholder:leading-tight placeholder:text-muted-foreground"
+        className="flex-1 justify-start border-none bg-transparent font-sans text-sm font-medium leading-tight text-foreground outline-none placeholder:font-sans placeholder:text-sm placeholder:font-medium placeholder:leading-tight placeholder:text-muted-foreground"
       />
       {value && (
         <button

@@ -26,8 +26,14 @@ import { Id } from "@/convex/_generated/dataModel";
 import { insertAtTop, useAction, useMutation, useQuery } from "convex/react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import { FunctionReturnType } from "convex/server";
-import { X, ChevronLeft, Pencil, Loader, Plus } from "lucide-react";
+import { X, ChevronLeft, Pencil, Loader, Plus, History, Github } from "lucide-react";
 import { Input } from "@/vly/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/vly/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -114,6 +120,9 @@ interface ChatShellProps {
     typeof api.github.repositories.getProjectSyncStatus
   >;
   onSwitchToNewAgent?: () => void;
+  onOpenVersions?: () => void;
+  onOpenGitHub?: () => void;
+  githubActionLabel?: string;
 }
 
 export function ChatShell({
@@ -128,6 +137,9 @@ export function ChatShell({
   loadMoreThreadMessages,
   syncStatus,
   activeEntryPointId,
+  onOpenVersions,
+  onOpenGitHub,
+  githubActionLabel = "GitHub",
 }: ChatShellProps) {
   const [selectedAgentMode, setSelectedAgentMode] = useState<AgentMode>(() => {
     if (typeof window !== "undefined") {
@@ -900,19 +912,84 @@ ${message}`;
                     )}
                   </div>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleCreateNewThread();
-                  }}
-                  type="button"
-                  aria-label="New thread"
-                  disabled={isProcessing}
-                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                <TooltipProvider delayDuration={200}>
+                  <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                    {onOpenVersions && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenVersions();
+                            }}
+                            type="button"
+                            aria-label="Version history"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <History className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={6}
+                          className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                        >
+                          Version history
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCreateNewThread();
+                          }}
+                          type="button"
+                          aria-label="New thread"
+                          disabled={isProcessing}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="bottom"
+                        sideOffset={6}
+                        className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                      >
+                        New thread
+                      </TooltipContent>
+                    </Tooltip>
+                    {onOpenGitHub && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenGitHub();
+                            }}
+                            type="button"
+                            aria-label={githubActionLabel}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <Github className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={6}
+                          className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+                        >
+                          {githubActionLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </TooltipProvider>
               </div>
             </div>
 

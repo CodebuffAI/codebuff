@@ -15,16 +15,16 @@ export default function InfoCard({
   secondaryText,
 }: InfoCardProps) {
   return (
-    <div className="rounded-2xl border border-zinc-200/50 bg-gradient-to-br from-white/70 via-white/50 to-zinc-50/60 p-4 shadow-sm backdrop-blur-md">
-      <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <Icon className="h-3 w-3" />
         <span>{label}</span>
       </div>
-      <div className="mt-1.5 font-mono text-sm font-semibold text-zinc-900">
+      <div className="mt-1.5 font-mono text-sm font-semibold text-foreground">
         {primaryValue}
       </div>
       {secondaryText && (
-        <div className="mt-2 text-xs text-zinc-400">
+        <div className="mt-2 text-xs text-muted-foreground">
           <span>{secondaryText}</span>
         </div>
       )}
