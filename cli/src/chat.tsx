@@ -15,6 +15,7 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { ChoiceAdBanner } from './components/choice-ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -1412,6 +1413,9 @@ export const Chat = ({
         <TopBanner gitRoot={gitRoot} onSwitchToGitRoot={onSwitchToGitRoot} />
 
         {headerContent}
+        {IS_FREEBUFF && (
+          <FreebuffActiveSessionSummary session={freebuffSession} />
+        )}
         {hiddenMessageCount > 0 && (
           <LoadPreviousButton
             hiddenCount={hiddenMessageCount}

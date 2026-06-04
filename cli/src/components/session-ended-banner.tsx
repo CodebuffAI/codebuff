@@ -48,17 +48,12 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const accessTier = useFreebuffSessionStore((s) =>
     s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
   )
-  const quotaLabel =
-    accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const quotaLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const bannerTitle = premiumQuota
     ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
     : 'Session ended'
-  const landingButtonLabel =
-    accessTier === 'limited' ? 'Back to start' : 'Change model'
-  const landingPendingLabel =
-    accessTier === 'limited'
-      ? 'Opening start screen…'
-      : 'Opening model selection…'
+  const landingButtonLabel = 'Change model'
+  const landingPendingLabel = 'Opening model selection…'
 
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we

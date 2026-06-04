@@ -1,5 +1,6 @@
 import { buildArray } from '@codebuff/common/util/array'
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
+import { deepseekModels } from '@codebuff/common/constants/model-config'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -9,6 +10,7 @@ import {
 import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
 import {
   canFreebuffModelSpawnGeminiThinker,
+  FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -43,14 +45,13 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  // Lite (paid Codebuff) defaults to Kimi: no data-retention surface in the
-  // CLI today, so we don't want to silently route Codebuff prompts through a
-  // model whose provider trains on user data. Free (freebuff) defaults to
-  // MiniMax M2.7; Kimi and DeepSeek are separate free agent variants.
+  // Lite (paid Codebuff) defaults to DeepSeek V4 Flash. The unqualified
+  // base2-free agent still uses MiniMax for legacy callers; new Freebuff
+  // clients select explicit free variants from the model picker.
   const model =
     modelOverride ??
     (mode === 'lite'
-      ? 'moonshotai/kimi-k2.6'
+      ? deepseekModels.deepseekV4Flash
       : mode === 'free'
         ? FREEBUFF_MINIMAX_MODEL_ID
         : 'anthropic/claude-opus-4.7')
@@ -60,6 +61,8 @@ export function createBase2(
     isFree && canFreebuffModelSpawnGeminiThinker(model)
   const freeCodeReviewerAgentId =
     FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL[model] ?? 'code-reviewer-lite'
+  const contextPrunerMaxContextLength =
+    getBase2ContextPrunerMaxContextLength(model)
   const defaultProviderOptions = isFree
     ? {
         data_collection: 'deny' as const,
@@ -108,7 +111,8 @@ export function createBase2(
       'set_output',
       'list_directory',
       'glob',
-      ENABLE_COMPOSIO_TOOLS && COMPOSIO_META_TOOL_NAMES,
+      'render_ui',
+      ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -152,8 +156,12 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
     }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
-- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.${ENABLE_COMPOSIO_TOOLS ? `
-- **External apps:** When Composio tools are available and the user asks to work with connected apps or services like Gmail, Google Calendar, GitHub, Slack, Linear, or Notion, use them to search for the right app tools, help the user connect their account, and execute the requested action.` : ''}
+- **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.${
+      ENABLE_COMPOSIO_TOOLS
+        ? `
+- **External apps:** When Composio tools are available and the user asks to work with connected apps or services like Gmail, Google Calendar, GitHub, Slack, Linear, or Notion, use them to search for the right app tools, help the user connect their account (use the render_ui tool to show a button if the user needs to click a link), and execute the requested action.`
+        : ''
+    }
 
 # Code Editing Mandates
 
@@ -337,37 +345,154 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
     // handleSteps is serialized via .toString() and re-eval'd, so closure
     // variables like `isFree` are not in scope at runtime. Pick the right
     // literal-baked function here instead.
-    handleSteps: isFree
-      ? function* ({ params }) {
-          while (true) {
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'context-pruner',
-                params: { ...(params ?? {}), cacheExpiryMs: 10 * 60 * 1000 },
-              },
-              includeToolCall: false,
-            } as any
+    handleSteps: getBase2HandleSteps({
+      isFree: mode === 'free',
+      maxContextLength: contextPrunerMaxContextLength,
+    }),
+  }
+}
 
-            const { stepsComplete } = yield 'STEP'
-            if (stepsComplete) break
-          }
-        }
-      : function* ({ params }) {
-          while (true) {
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'context-pruner',
-                params: params ?? {},
-              },
-              includeToolCall: false,
-            } as any
+type Base2HandleSteps = NonNullable<SecretAgentDefinition['handleSteps']>
 
-            const { stepsComplete } = yield 'STEP'
-            if (stepsComplete) break
-          }
+function getBase2ContextPrunerMaxContextLength(
+  model: SecretAgentDefinition['model'],
+): 200_000 | 250_000 | 400_000 {
+  if (model === FREEBUFF_MINIMAX_MODEL_ID) return 200_000
+  if (model === FREEBUFF_KIMI_MODEL_ID) return 250_000
+  return 400_000
+}
+
+function getBase2HandleSteps({
+  isFree,
+  maxContextLength,
+}: {
+  isFree: boolean
+  maxContextLength: 200_000 | 250_000 | 400_000
+}): Base2HandleSteps {
+  if (isFree) {
+    if (maxContextLength === 200_000) return handleStepsFree200k
+    if (maxContextLength === 250_000) return handleStepsFree250k
+    return handleStepsFree400k
+  }
+  if (maxContextLength === 200_000) return handleSteps200k
+  if (maxContextLength === 250_000) return handleSteps250k
+  return handleSteps400k
+}
+
+const handleStepsFree200k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 200_000,
+          ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
         },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleStepsFree250k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 250_000,
+          ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleStepsFree400k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 400_000,
+          ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleSteps200k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 200_000,
+          ...(params ?? {}),
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleSteps250k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 250_000,
+          ...(params ?? {}),
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleSteps400k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 400_000,
+          ...(params ?? {}),
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
   }
 }
 

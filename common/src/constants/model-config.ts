@@ -7,6 +7,8 @@ export const ALLOWED_MODEL_PREFIXES = [
   'google',
   'x-ai',
   'deepseek',
+  'minimax',
+  'mimo',
 ] as const
 
 export const costModes = [
@@ -70,6 +72,19 @@ export const deepseekModels = {
 } as const
 export type DeepseekModel = (typeof deepseekModels)[keyof typeof deepseekModels]
 
+export const mimoModels = {
+  mimoV25Direct: 'mimo-v2.5',
+  mimoV25: 'mimo/mimo-v2.5',
+  mimoV25ProDirect: 'mimo-v2.5-pro',
+  mimoV25Pro: 'mimo/mimo-v2.5-pro',
+} as const
+export type MimoModel = (typeof mimoModels)[keyof typeof mimoModels]
+
+export const minimaxModels = {
+  minimaxM3: 'minimax/minimax-m3',
+} as const
+export type MiniMaxModel = (typeof minimaxModels)[keyof typeof minimaxModels]
+
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
@@ -100,6 +115,8 @@ export type FinetunedVertexModel =
 export const models = {
   ...openaiModels,
   ...deepseekModels,
+  ...mimoModels,
+  ...minimaxModels,
   ...openrouterModels,
   ...finetunedVertexModels,
 } as const
@@ -174,6 +191,8 @@ export const providerDomains = {
   anthropic: 'anthropic.com',
   openai: 'chatgpt.com',
   deepseek: 'deepseek.com',
+  minimax: 'minimax.io',
+  mimo: 'xiaomi.com',
   xai: 'x.ai',
 } as const
 
@@ -184,6 +203,10 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.openai
   else if (Object.values(deepseekModels).includes(modelName as DeepseekModel))
     domain = providerDomains.deepseek
+  else if (Object.values(minimaxModels).includes(modelName as MiniMaxModel))
+    domain = providerDomains.minimax
+  else if (Object.values(mimoModels).includes(modelName as MimoModel))
+    domain = providerDomains.mimo
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
 

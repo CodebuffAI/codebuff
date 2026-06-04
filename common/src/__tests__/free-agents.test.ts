@@ -6,7 +6,10 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '../constants/freebuff-models'
+import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
   getFreebuffRootAgentIdForModel,
@@ -15,8 +18,10 @@ import {
   shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
 
+const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
+
 describe('free mode agent model allowlist', () => {
-  test('maps selectable freebuff models to concrete root agents', () => {
+  test('maps supported freebuff models to concrete root agents', () => {
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       'base2-free',
     )
@@ -29,12 +34,21 @@ describe('free mode agent model allowlist', () => {
     expect(
       getFreebuffRootAgentIdForModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe('base2-free-deepseek-flash')
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_PRO_MODEL_ID)).toBe(
+      'base2-free-mimo-pro',
+    )
+    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(
+      'base2-free-mimo',
+    )
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
     expect(
       isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_MODEL_ID),
     ).toBe(true)
+    expect(isFreeModeAllowedAgentModel('base2-free', MINIMAX_M3_MODEL_ID)).toBe(
+      false,
+    )
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free',
@@ -57,6 +71,30 @@ describe('free mode agent model allowlist', () => {
       isFreeModeAllowedAgentModel(
         'base2-free-deepseek-flash',
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        FREEBUFF_MIMO_V25_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-mimo',
+        `${FREEBUFF_MIMO_V25_MODEL_ID}-20260527`,
       ),
     ).toBe(true)
   })
@@ -89,6 +127,18 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-mimo-pro',
+        FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-mimo',
+        FREEBUFF_MIMO_V25_MODEL_ID,
+      ),
+    ).toBe(true)
   })
 
   test('allows legacy code-reviewer-lite with freebuff reviewer models', () => {
@@ -98,6 +148,9 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_MINIMAX_MODEL_ID,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('code-reviewer-lite', MINIMAX_M3_MODEL_ID),
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-lite', FREEBUFF_KIMI_MODEL_ID),
     ).toBe(true)

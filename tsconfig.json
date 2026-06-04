@@ -1,33 +1,27 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true, // don't place JS everywhere while hacking
-    "baseUrl": ".", // Bun & editors see the aliases
+    "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@codebuff/common/*": ["./common/src/*"],
-      "@codebuff/web/*": ["./web/src/*"],
       "@codebuff/evals/*": ["./evals/*"],
       "@codebuff/sdk": ["./sdk/src/index.ts"],
       "@codebuff/sdk/*": ["./sdk/*"],
       "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
       "@codebuff/llm-providers/*": ["./packages/llm-providers/src/*"],
-      "@codebuff/billing/*": ["./packages/billing/src/*"],
-      "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
-      "@codebuff/internal/*": ["./packages/internal/src/*"],
       "@codebuff/code-map/*": ["./packages/code-map/*"]
     }
   },
   "files": [],
   "references": [
     { "path": "./common" },
-    { "path": "./web" },
-    { "path": "./evals" },
+    { "path": "./agents" },
     { "path": "./sdk" },
-    { "path": "./packages/billing" },
-    { "path": "./packages/bigquery" },
-    { "path": "./packages/llm-providers" },
-    { "path": "./packages/internal" },
+    { "path": "./cli" },
+    { "path": "./evals" },
+    { "path": "./packages/agent-runtime" },
     { "path": "./packages/code-map" },
-    { "path": "./scripts" }
+    { "path": "./packages/llm-providers" }
   ]
 }

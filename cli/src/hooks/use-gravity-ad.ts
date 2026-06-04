@@ -48,14 +48,14 @@ export type GravityAdState = {
 
 // Consolidated controller state for the ad rotation logic
 type GravityController = {
-  choiceCache: AdResponse[][] // Cache of choice ad sets (each entry is 4 ads)
+  choiceCache: AdResponse[][] // Cache of ad sets (choice or single-ad units)
   choiceCacheIndex: number
   impressionsFired: Set<string>
   adsShownSinceActivity: number
   tickInFlight: boolean
 }
 
-// Pure helper: add a choice ad set to the choice cache
+// Pure helper: add an ad set to the cache
 function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
   // ZeroClick offer responses must not be stored for later display. Keep them
   // out of the rotation cache and only render them for the live request.
@@ -68,7 +68,7 @@ function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
   ctrl.choiceCache.push(ads)
 }
 
-// Pure helper: get the next cached choice ad set
+// Pure helper: get the next cached ad set
 function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
   if (ctrl.choiceCache.length === 0) return null
   const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!

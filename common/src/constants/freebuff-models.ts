@@ -4,6 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
+import { mimoModels } from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -37,6 +38,17 @@ export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
+export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
+export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
+/** UI-only rollout switch. Backend support and free-mode allowlists remain
+ *  wired even when these models are hidden from the Freebuff picker. */
+export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
+/** UI-only rollout switch for the streak indicator in the waiting room. */
+export const FREEBUFF_ENABLE_STREAK_IN_UI = true
+/** Local/debug switch: force the localhost free-mode country bypass into
+ *  limited access so the limited Freebuff UX can be exercised without an env
+ *  var. */
+export const FREEBUFF_FORCE_LIMITED_MODE = false
 export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
@@ -44,7 +56,7 @@ export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
-/** Deprecated wire compatibility field. Premium usage now resets at midnight
+/** Deprecated wire compatibility field. Session usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24
 export const FREEBUFF_LIMITED_SESSION_WINDOW_HOURS =
@@ -72,64 +84,100 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
+const DEEPSEEK_V4_PRO_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  displayName: 'DeepSeek V4 Pro',
+  tagline: 'Smartest',
+  availability: 'always',
+  warning: 'Collects data for training',
+} as const satisfies FreebuffModelOption
+
+const MIMO_V25_PRO_MODEL = {
+  id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  displayName: 'MiMo 2.5 Pro',
+  tagline: 'Smartest & Slower',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const KIMI_MODEL = {
+  id: FREEBUFF_KIMI_MODEL_ID,
+  displayName: 'Kimi K2.6',
+  tagline: 'Balanced',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const MIMO_V25_MODEL = {
+  id: FREEBUFF_MIMO_V25_MODEL_ID,
+  displayName: 'MiMo 2.5',
+  tagline: 'Multimodal',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+const DEEPSEEK_V4_FLASH_MODEL = {
+  id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  displayName: 'DeepSeek V4 Flash',
+  tagline: 'Smart & Fast',
+  availability: 'always',
+  warning: 'Collects data for training',
+} as const satisfies FreebuffModelOption
+
+const MINIMAX_MODEL = {
+  id: FREEBUFF_MINIMAX_MODEL_ID,
+  displayName: 'MiniMax M2.7',
+  tagline: 'Fastest',
+  availability: 'always',
+} as const satisfies FreebuffModelOption
+
+export const SUPPORTED_FREEBUFF_MODELS = [
+  DEEPSEEK_V4_PRO_MODEL,
+  MIMO_V25_PRO_MODEL,
+  KIMI_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
+  MIMO_V25_MODEL,
+  MINIMAX_MODEL,
+] as const satisfies readonly FreebuffModelOption[]
+
 export const FREEBUFF_MODELS = [
-  {
-    id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    displayName: 'DeepSeek V4 Pro',
-    tagline: 'Smartest',
-    availability: 'always',
-    warning: 'Collects data for training',
-  },
-  {
-    id: FREEBUFF_KIMI_MODEL_ID,
-    displayName: 'Kimi K2.6',
-    tagline: 'Balanced',
-    availability: 'always',
-  },
-  {
-    id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    displayName: 'DeepSeek V4 Flash',
-    tagline: 'Most efficient',
-    availability: 'always',
-    warning: 'Collects data for training',
-  },
-  {
-    id: FREEBUFF_MINIMAX_MODEL_ID,
-    displayName: 'MiniMax M2.7',
-    tagline: 'Fastest',
-    availability: 'always',
-  },
+  DEEPSEEK_V4_PRO_MODEL,
+  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
+  KIMI_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
+  ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
+  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
-export const SUPPORTED_FREEBUFF_MODELS = FREEBUFF_MODELS
-
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
-export type SupportedFreebuffModelId = FreebuffModelId
+export type SupportedFreebuffModelId =
+  (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. MiniMax is the
- *  fastest always-available option and backs the default base2-free agent.
- *  Callers that need a guaranteed-available id for resolution / auto-fallbacks
- *  should use FALLBACK_FREEBUFF_MODEL_ID instead. */
+/** What new freebuff users see selected in the picker. Callers that need a
+ *  guaranteed-available id for resolution / auto-fallbacks should use
+ *  FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MINIMAX_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
  *  DEFAULT_FREEBUFF_MODEL_ID so a new user's "preferred default" can be the
  *  smartest model without auto-flipping anyone to a closed serverless model. */
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MINIMAX_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
-export const LIMITED_FREEBUFF_MODELS = FREEBUFF_MODELS.filter(
-  (model) => model.id === LIMITED_FREEBUFF_MODEL_ID,
+export const LIMITED_FREEBUFF_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+] as const
+export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
+  (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
 
 export type FreebuffAccessTier = 'full' | 'limited'
@@ -147,7 +195,7 @@ export function isFreebuffModelAllowedForAccessTier(
 ): boolean {
   if (!model) return false
   if (accessTier !== 'limited') return isSupportedFreebuffModelId(model)
-  return model === LIMITED_FREEBUFF_MODEL_ID
+  return LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
 }
 
 export function isFreebuffModelId(
@@ -167,7 +215,11 @@ export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
 ): SupportedFreebuffModelId {
-  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODEL_ID
+  if (accessTier === 'limited') {
+    return isFreebuffModelAllowedForAccessTier(id, accessTier)
+      ? (id as SupportedFreebuffModelId)
+      : LIMITED_FREEBUFF_MODEL_ID
+  }
   const resolved = resolveSupportedFreebuffModel(id)
   return isFreebuffModelAllowedForAccessTier(resolved, accessTier)
     ? resolved

@@ -32,16 +32,17 @@ import {
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
-// Section grouping: premium models share one quota pool, unlimited has none.
+// Section grouping: model rows keep their product/availability tiers, but all
+// selectable Freebuff models share the same daily session quota.
 // Putting the tier on a section header lets each row drop its redundant
 // "Premium"/"Unlimited" chip. The shared 0/5 counter lives in the page title
 // (rendered by the parent), not the section header — this picker is purely a
 // list of choices grouped by tier. Empty sections are filtered so a model set
 // with no premium (or no unlimited) entries doesn't render an orphan header.
 //
-// `label` may be empty: limited-tier users only ever see one section, so the
-// "LIMITED" header would just leak the internal tier name without organizing
-// anything. Renderer treats an empty label as "no header row".
+// `label` may be empty: limited-tier users only see the constrained model set,
+// so the "LIMITED" header would just leak the internal tier name without
+// organizing anything. Renderer treats an empty label as "no header row".
 type Section = {
   key: 'premium' | 'unlimited' | 'limited'
   label: string
@@ -107,14 +108,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     () => getFreebuffModelsForAccessTier(accessTier),
     [accessTier],
   )
-  // Limited tier only ever surfaces one model, so a comparative tagline
-  // ("Most efficient") reads as filler. Hide it; the warning (data-collection)
-  // is the row's real content.
-  const showTagline = accessTier !== 'limited'
-  const availableModelIds = useMemo(
-    () => availableModels.map((m) => m.id),
-    [availableModels],
-  )
+  // Single-model limited states don't need comparative taglines. When limited
+  // has multiple choices, keep the row shape aligned with the full picker.
+  const showTagline = accessTier !== 'limited' || availableModels.length > 1
   const sections = useMemo(() => {
     if (accessTier === 'limited') {
       return [
@@ -142,13 +138,18 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       ] satisfies readonly Section[]
     ).filter((section) => section.models.length > 0)
   }, [accessTier, availableModels])
+  const renderedModelIds = useMemo(
+    () =>
+      sections.flatMap((section) => section.models.map((model) => model.id)),
+    [sections],
+  )
   useEffect(() => {
     setFocusedId(
-      availableModelIds.includes(selectedModel)
+      renderedModelIds.includes(selectedModel)
         ? selectedModel
-        : availableModelIds[0]!,
+        : renderedModelIds[0]!,
     )
-  }, [availableModelIds, selectedModel])
+  }, [renderedModelIds, selectedModel])
 
   useEffect(() => {
     // Landing-screen safety net: if the in-memory selection becomes
@@ -158,12 +159,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // preference (e.g. Kimi or DeepSeek) is preserved for the next launch.
     if (
       (session?.status === 'none' || !session) &&
-      (!availableModelIds.includes(selectedModel) ||
+      (!renderedModelIds.includes(selectedModel) ||
         !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
-      setSelectedModel(availableModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
+      setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
     }
-  }, [availableModelIds, now, selectedModel, session, setSelectedModel])
+  }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
 
   const committedModelId = session?.status === 'queued' ? session.model : null
   const rateLimitsByModel = getRateLimitsByModel(session)
@@ -322,7 +323,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         }
         if (!direction) return
         const targetId = nextFreebuffModelId({
-          modelIds: availableModelIds,
+          modelIds: renderedModelIds,
           focusedId,
           direction,
         })
@@ -338,7 +339,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         focusedId,
         committedModelId,
         isJoinable,
-        availableModelIds,
+        renderedModelIds,
       ],
     ),
   )

@@ -1,46 +1,25 @@
 {
   "name": "@codebuff/evals",
   "version": "1.0.0",
-  "description": "Evaluation scripts for Codebuff",
+  "description": "Evaluation scripts for Codebuff (public buffbench subset)",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "types": "./src/index.ts"
-    }
-  },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun test",
-    "test:manifold": "bun test manifold.test.ts",
-    "test:pglite": "bun test pglite-demo.test.ts",
-    "test:swe-bench": "bun test swe-bench.test.ts",
-    "test:e2e-cat-app": "bun run e2e-cat-app-script.ts",
-    "gen-repo-eval": "bun run git-evals/gen-repo-eval.ts",
-    "run-single-eval": "bun run git-evals/run-single-eval.ts --eval-file git-evals/eval-manifold.json --commit-sha ebabf7796a92ce8ece8e2452b0f3f896a513ba0e",
-    "run-git-evals": "bun run git-evals/run-git-evals.ts",
-    "run-eval-set": "bun run git-evals/run-eval-set.ts",
-    "run-buffbench": "bun run buffbench/main.ts",
-    "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
-    "trigger-buffbench": "bun run scripts/trigger-buffbench.ts",
-    "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
+    "run-buffbench": "bun run buffbench/main.ts"
   },
   "sideEffects": false,
   "engines": {
     "bun": "1.3.11"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.0.56",
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
-    "@codebuff/internal": "workspace:*",
     "@codebuff/sdk": "workspace:*",
-    "@oclif/core": "^4.4.0",
-    "@oclif/parser": "^3.8.17",
     "async": "^3.2.6",
     "diff": "^8.0.2",
     "p-limit": "^6.2.0",
+    "pino": "^9.6.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {

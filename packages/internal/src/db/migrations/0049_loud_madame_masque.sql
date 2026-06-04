@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "session_cli_auth_code_idx" ON "session" USING btree ("fingerprint_id","cli_auth_hash") WHERE "session"."cli_auth_hash" IS NOT NULL;
