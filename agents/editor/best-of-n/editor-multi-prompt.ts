@@ -1608,31 +1608,66 @@ function* handleStepsMultiPrompt({
     context: string
     lastResult: ProposalResult | ProposalFailure | undefined
   }): boolean {
-    const fileHeaders = extractContextFileHeaders(params.context)
-    if (fileHeaders.length === 0) return false
+    const usableFileContextPaths = getUsableDirectFileContextPaths(
+      params.context,
+    )
+    if (usableFileContextPaths.length === 0) return false
 
-    const context = params.context.toLowerCase()
-    if (
-      context.includes('content omitted') ||
-      context.includes('truncated') ||
-      context.includes('file contents unavailable')
-    ) {
-      return false
-    }
+    const usablePathSet = new Set(
+      usableFileContextPaths.map((path) => normalizeProposalPath(path)),
+    )
 
     const unverifiedStrReplacePaths = getUnverifiedStrReplacePaths(
       params.lastResult,
     )
     if (unverifiedStrReplacePaths.length > 0) {
-      const knownPaths = new Set(
-        fileHeaders.map((path) => normalizeProposalPath(path)),
-      )
-      if (unverifiedStrReplacePaths.some((path) => !knownPaths.has(path))) {
+      if (
+        unverifiedStrReplacePaths.some((path) => !usablePathSet.has(path))
+      ) {
         return false
       }
     }
 
-    return true
+    // After a read-only attempt already failed to emit proposal tools, any
+    // exact file context it gathered is enough to switch to the no-read direct
+    // proposal agent. Requiring the global target hints to match here is too
+    // brittle for "continue" runs where the real task scope lives in strategy
+    // prompts or summarized history.
+    if (shouldRetryWithoutReadOnlyTools(params.lastResult)) return true
+
+    const expectedPaths = knownProposalPaths().map(normalizeProposalPath)
+    if (expectedPaths.length === 0) return true
+
+    return expectedPaths.some((path) => usablePathSet.has(path))
+  }
+
+  function getUsableDirectFileContextPaths(context: string): string[] {
+    return dedupeStrings(
+      extractDirectFileContextSections(context)
+        .filter((section) => !isInexactDirectFileContext(section.content))
+        .map((section) => normalizeProposalPath(section.path))
+        .filter(Boolean),
+    )
+  }
+
+  function extractDirectFileContextSections(
+    context: string,
+  ): Array<{ path: string; content: string }> {
+    const sections: Array<{ path: string; content: string }> = []
+    const pattern =
+      /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))\n([\s\S]*?)(?=\n\n(?:File:|Tool result from|All proposal strategies in this best-of-N run:|Context gathered by the previous proposal attempt|Proposal orchestration plan:)|$)/g
+
+    for (const match of context.matchAll(pattern)) {
+      sections.push({ path: match[1], content: match[2] ?? '' })
+    }
+
+    return sections
+  }
+
+  function isInexactDirectFileContext(content: string): boolean {
+    return /(?:\.\.\.\[truncated\]\.\.\.|content omitted|file contents unavailable)/i.test(
+      content,
+    )
   }
 
   function shouldRetryWithoutReadOnlyTools(

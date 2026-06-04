@@ -20,11 +20,6 @@ export function createThinkerBestOfN(
       : isOpus
         ? 'anthropic/claude-opus-4.7'
         : 'anthropic/claude-sonnet-4.5',
-    ...(isOpus && {
-      providerOptions: {
-        only: ['amazon-bedrock'],
-      },
-    }),
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Thinker'
       : isOpus

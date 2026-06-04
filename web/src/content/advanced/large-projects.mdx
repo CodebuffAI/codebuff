@@ -7,21 +7,21 @@ order: 4
 
 # Working with Large Projects
 
-Codebuff works on large repos (we test against VS Code). If it wanders or burns credits, try these.
+Openbuff works on large repos (we test against VS Code). Openbuff is an independent, local-first BYOK fork of Codebuff, so large-project usage depends on your configured providers rather than Codebuff-hosted credits. If it wanders or sends too much context to your provider, try these.
 
 ## Directory-Based Approach
 
-Start Codebuff in the part of the repo you care about:
+Start Openbuff in the part of the repo you care about:
 
 ```bash
     cd backend
-    codebuff
+    openbuff
 ```
 
 Or set `--cwd`:
 
 ```bash
-    codebuff --cwd backend
+    openbuff --cwd backend
 ```
 
 This keeps the context tight.
@@ -56,11 +56,11 @@ When asking for work in a large repo:
 - Point to exact paths
 - Mention related files up front
 - Break large changes into smaller requests
-- Use `--max` when you need Codebuff to load more files
+- Use `--max` when you need Openbuff to load more files
 
 ## Performance Tips
 
 - Trim noise with `.codebuffignore` and `.gitignore`
 - Start in the most relevant subdirectory
 - Split broad refactors into stages
-- Let Codebuff handle file discovery instead of pasting long file lists
+- Let Openbuff handle file discovery instead of pasting long file lists

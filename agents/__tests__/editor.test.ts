@@ -2923,6 +2923,82 @@ describe('editor agent', () => {
       )
     })
 
+    test('uses direct retry when failed exploration gathered exact file context', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: {
+          agents: [{ agent_type: 'editor-implementor-proposal-1' }],
+        },
+      })
+
+      const directRetry = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                value: {
+                  toolCalls: [],
+                  toolResults: [],
+                  unifiedDiffs: '',
+                  stopReason: 'noProposal',
+                  errorMessage:
+                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                  readOnlyContext:
+                    'Read-only context gathered by previous proposal attempt:\n\nFile: src/a.ts\nexport const current = true\n\nFile: src/huge.ts\nstart\n...[truncated]...\nend\n',
+                  proposalProgress: {
+                    stepsTaken: 4,
+                    readOnlyToolCallCount: 3,
+                    proposalToolCallCount: 0,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(directRetry.input.agents[0].agent_type).toBe(
+        'editor-implementor-proposal-direct',
+      )
+      expect(directRetry.input.agents[0].params?.allowReadOnlyTools).toBe(false)
+      expect(
+        directRetry.input.agents[0].params?.proposalRequirements,
+      ).toContain('Do not call read_files')
+      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+        'File: src/a.ts',
+      )
+      expect(directRetry.input.agents[0].params?.proposalContext).toContain(
+        'export const current = true',
+      )
+    })
+
     test('uses direct proposal mode when explicit file prefetch supplies exact content', () => {
       const multiPromptEditor = createMultiPromptEditor()
       const mockAgentState = createMockAgentState([

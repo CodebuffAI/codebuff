@@ -13,11 +13,6 @@ export const createGeneralAgent = (options: {
   return {
     publisher,
     model: isGpt5 ? 'openai/gpt-5.4' : 'anthropic/claude-opus-4.7',
-    ...(!isGpt5 && {
-      providerOptions: {
-        only: ['amazon-bedrock'],
-      },
-    }),
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high' as const,

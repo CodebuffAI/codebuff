@@ -61,9 +61,7 @@ export function createBase2(
     ? {
         data_collection: 'deny' as const,
       }
-    : {
-        only: ['amazon-bedrock'],
-      }
+    : undefined
 
   return {
     publisher,
