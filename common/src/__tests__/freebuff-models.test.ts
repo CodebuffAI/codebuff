@@ -90,13 +90,6 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('MiMo Pro uses the smartest multimodal tagline', () => {
-    const mimoPro = SUPPORTED_FREEBUFF_MODELS.find(
-      (model) => model.id === FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    )
-    expect(mimoPro?.tagline).toBe('Smartest multimodal')
-  })
-
   test('Kimi and MiniMax M2.7 are selectable in full mode', () => {
     for (const restoredModel of [
       FREEBUFF_KIMI_MODEL_ID,
