@@ -89,6 +89,7 @@ export function createBase2(
     includeMessageHistory: true,
     toolNames: buildArray(
       'spawn_agents',
+      'query_index',
       'read_files',
       'read_subtree',
       !isFast && 'write_todos',
@@ -190,7 +191,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Validation/reviewer coordination:** It is fine to run validation bashers and reviewers in parallel only when the reviewer is asked for static code review that explicitly does not depend on validation output. Always wait for both. Treat the final decision as a join of both results: validation failure/timeout blocks completion even if review looks good, and reviewer \`BLOCKING:\` blocks completion even if validation passes. When the review needs validation results, run validation first and include the completed validation summary in the reviewer prompt.
   ${buildArray(
-    '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
+    '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Do not rely on query_index alone for correctness.',
+    '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isFree &&
       'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
     hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
@@ -211,23 +213,23 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
-# Codebuff Meta-information
+# Openbuff Meta-information
 
 You are running on the ${model} model.
 
 Users send prompts to you in one of a few user-selected modes, like DEFAULT, MAX, or PLAN.
 
-Every prompt sent consumes the user's credits, which is calculated based on the API cost of the models used.
+Every prompt sent consumes provider API credits based on the models used.
 
-The user can use the "/usage" command to see how many credits they have used and have left, so you can tell them to check their usage this way.
+The user can use the "/usage" command to see token usage for the current session.
 
-For other questions, you can direct them to codebuff.com, or especially codebuff.com/docs for detailed information about the product.
+For other questions, you can direct them to openbuff.dev, or especially openbuff.dev/docs for detailed information about the product.
 
 # Other response guidelines
 
 ${buildArray(
   !isFast &&
-    '- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.',
+    '- Your goal is to produce the highest quality results, even if it comes at the cost of more provider API tokens used.',
   !isFast && '- Speed is important, but a secondary goal.',
   isFast &&
     '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
@@ -343,7 +345,17 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
     // variables like `isFree` are not in scope at runtime. Pick the right
     // literal-baked function here instead.
     handleSteps: isFree
-      ? function* ({ params }) {
+      ? function* ({ prompt, params }) {
+          if (shouldProactivelyQueryIndex(prompt)) {
+            yield {
+              toolName: 'query_index',
+              input: {
+                query: prompt,
+                limit: 20,
+              },
+            }
+          }
+
           while (true) {
             yield {
               toolName: 'spawn_agent_inline',
@@ -357,8 +369,26 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             const { stepsComplete } = yield 'STEP'
             if (stepsComplete) break
           }
+
+          function shouldProactivelyQueryIndex(value: unknown): value is string {
+            if (typeof value !== 'string') return false
+            const text = value.trim()
+            if (text.length < 12) return false
+            if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
+            return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
+          }
         }
-      : function* ({ params }) {
+      : function* ({ prompt, params }) {
+          if (shouldProactivelyQueryIndex(prompt)) {
+            yield {
+              toolName: 'query_index',
+              input: {
+                query: prompt,
+                limit: 20,
+              },
+            }
+          }
+
           while (true) {
             yield {
               toolName: 'spawn_agent_inline',
@@ -372,11 +402,19 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             const { stepsComplete } = yield 'STEP'
             if (stepsComplete) break
           }
+
+          function shouldProactivelyQueryIndex(value: unknown): value is string {
+            if (typeof value !== 'string') return false
+            const text = value.trim()
+            if (text.length < 12) return false
+            if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
+            return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
+          }
         },
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code searchers, bashers, and web/docs researchers to gather context as needed. Use the list_directory and glob tools directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful to find relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers and 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Then verify those candidates with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,

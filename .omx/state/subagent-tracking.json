@@ -405,15 +405,45 @@
     "019e9202-bce7-7190-b340-3e515c95e022": {
       "session_id": "019e9202-bce7-7190-b340-3e515c95e022",
       "leader_thread_id": "019e9202-bce7-7190-b340-3e515c95e022",
-      "updated_at": "2026-06-04T22:14:37.397Z",
+      "updated_at": "2026-06-05T07:01:55.874Z",
       "threads": {
         "019e9202-bce7-7190-b340-3e515c95e022": {
           "thread_id": "019e9202-bce7-7190-b340-3e515c95e022",
           "kind": "leader",
           "first_seen_at": "2026-06-04T09:55:43.660Z",
-          "last_seen_at": "2026-06-04T22:14:37.397Z",
-          "last_turn_id": "061be87a-6985-4733-9385-e5912571d022",
-          "turn_count": 18
+          "last_seen_at": "2026-06-05T07:01:55.874Z",
+          "last_turn_id": "81a6fc33-5f2a-420d-a79b-1163808d178f",
+          "turn_count": 20
+        }
+      }
+    },
+    "019e969b-bfeb-7741-8643-f84f04a69e23": {
+      "session_id": "019e969b-bfeb-7741-8643-f84f04a69e23",
+      "leader_thread_id": "019e969b-bfeb-7741-8643-f84f04a69e23",
+      "updated_at": "2026-06-05T07:20:32.169Z",
+      "threads": {
+        "019e969b-bfeb-7741-8643-f84f04a69e23": {
+          "thread_id": "019e969b-bfeb-7741-8643-f84f04a69e23",
+          "kind": "leader",
+          "first_seen_at": "2026-06-05T07:20:32.169Z",
+          "last_seen_at": "2026-06-05T07:20:32.169Z",
+          "last_turn_id": "16ac722a-bdb2-43aa-a5e9-dde391cbbc2d",
+          "turn_count": 1
+        }
+      }
+    },
+    "019e9770-d3fb-7cb1-a1b8-f54b6dfff5ff": {
+      "session_id": "019e9770-d3fb-7cb1-a1b8-f54b6dfff5ff",
+      "leader_thread_id": "019e9770-d3fb-7cb1-a1b8-f54b6dfff5ff",
+      "updated_at": "2026-06-05T11:06:26.282Z",
+      "threads": {
+        "019e9770-d3fb-7cb1-a1b8-f54b6dfff5ff": {
+          "thread_id": "019e9770-d3fb-7cb1-a1b8-f54b6dfff5ff",
+          "kind": "leader",
+          "first_seen_at": "2026-06-05T11:06:26.282Z",
+          "last_seen_at": "2026-06-05T11:06:26.282Z",
+          "last_turn_id": "019e9771-1b0b-7881-8138-95f29e57e3b6",
+          "turn_count": 1
         }
       }
     }

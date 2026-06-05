@@ -231,6 +231,38 @@ const providerSchema = z.union([
   chatGptOAuthProviderSchema,
 ])
 
+const DEFAULT_INDEXING_CONFIG = {
+  enabled: true,
+  cacheDir: '.codebuff-index',
+  exclude: [] as string[],
+  semantic: {
+    enabled: false,
+    model: undefined as string | undefined,
+  },
+}
+
+const indexingConfigSchema = z
+  .object({
+    /** Build a lightweight local repository index for faster file discovery. */
+    enabled: z.boolean().default(true),
+    /** Cache directory relative to the project root. */
+    cacheDir: z.string().min(1).default('.codebuff-index'),
+    /** Additional path patterns or directory names to exclude from indexing. */
+    exclude: z.array(z.string().min(1)).default([]),
+    /** Optional semantic indexing configuration. Reserved for future embedding support. */
+    semantic: z
+      .object({
+        enabled: z.boolean().default(false),
+        model: z.string().min(1).optional(),
+      })
+      .refine((value) => !value.enabled || Boolean(value.model), {
+        message: 'indexing.semantic.model is required when semantic indexing is enabled',
+        path: ['model'],
+      })
+      .default(DEFAULT_INDEXING_CONFIG.semantic),
+  })
+  .default(DEFAULT_INDEXING_CONFIG)
+
 function routableModelValueToModel(
   value: z.infer<typeof routableModelValueSchema> | undefined,
 ): string | undefined {
@@ -270,6 +302,8 @@ export const providerConfigFileSchema = z
       .optional(),
     /** Convenience routing for editor-multi-prompt best-of-N proposals. */
     editorMultiPrompt: editorMultiPromptSchema,
+    /** Local codebase indexing configuration. Enabled by default for metadata-only indexing. */
+    indexing: indexingConfigSchema,
   })
   .transform((config) => {
     const agents: Record<string, string> = {}
@@ -413,6 +447,7 @@ export const providerConfigFileSchema = z
         ...agents,
       },
       agentReasoningEfforts,
+      indexing: config.indexing,
       ...(config.editorMultiPrompt && {
         editorMultiPrompt: {
           ...config.editorMultiPrompt,
@@ -463,6 +498,15 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
   modeReasoningEfforts: {},
   agents: {},
   agentReasoningEfforts: {},
+  indexing: {
+    enabled: true,
+    cacheDir: '.codebuff-index',
+    exclude: [],
+    semantic: {
+      enabled: false,
+      model: undefined,
+    },
+  },
 })
 
 function readProviderConfigFile(configPath: string): ProviderConfigFile {
@@ -505,6 +549,7 @@ function mergeProviderConfigs(
       ...(override.agentReasoningEfforts ?? {}),
     },
     editorMultiPrompt: override.editorMultiPrompt ?? base.editorMultiPrompt,
+    indexing: override.indexing ?? base.indexing,
   }
 }
 
@@ -893,7 +938,7 @@ export type ResolvedAgentModelConfig = {
 
 export function resolveConfiguredAgentModelConfig(params: {
   agentId?: string
-  model: string
+  model?: string
   loadedConfig?: LoadedProviderConfig
 }): ResolvedAgentModelConfig {
   const { agentId, model, loadedConfig = loadProviderConfigSync() } = params
@@ -918,15 +963,23 @@ export function resolveConfiguredAgentModelConfig(params: {
     }
   }
 
+  const resolvedModel = loadedConfig.config.defaultModel ?? model
+  if (!resolvedModel) {
+    throw new Error(
+      `No model configured for agent '${agentId ?? 'unknown'}'. ` +
+        `Please set a defaultModel or agents['${agentId ?? 'unknown'}'] in your openbuff.json.`,
+    )
+  }
+
   return {
-    model: loadedConfig.config.defaultModel ?? model,
+    model: resolvedModel,
     reasoningEffort: loadedConfig.config.defaultReasoningEffort,
   }
 }
 
 export function resolveConfiguredAgentModel(params: {
   agentId?: string
-  model: string
+  model?: string
   loadedConfig?: LoadedProviderConfig
 }): string {
   return resolveConfiguredAgentModelConfig(params).model
@@ -1362,6 +1415,7 @@ export function writeProviderConfigFile(params: {
       },
       editorMultiPrompt:
         existingConfig.editorMultiPrompt ?? newConfig.editorMultiPrompt,
+      indexing: existingConfig.indexing ?? newConfig.indexing,
     }
 
     fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2) + '\n')

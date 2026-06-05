@@ -155,7 +155,7 @@ jobs:
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.OPENBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
           if [ "$ENV_OVERRIDES" != "{}" ]; then
             echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
           fi
@@ -310,7 +310,7 @@ jobs:
             to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
           ' >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.OPENBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
           if [ "$ENV_OVERRIDES" != "{}" ]; then
             echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
           fi

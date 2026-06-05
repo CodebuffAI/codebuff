@@ -32,8 +32,8 @@ jobs:
       - name: Calculate staging version
         id: bump_version
         env:
-          GITHUB_TOKEN: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
+          GITHUB_TOKEN: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
+          GITHUB_API_URL: https://api.github.com/repos/AnzoBenjamin/openbuff
         run: |
           cd cli/release-staging
 
@@ -44,7 +44,7 @@ jobs:
           RELEASES_JSON=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
             "${GITHUB_API_URL}/releases?per_page=100")
 
-          LATEST_TAG=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codebuff CLI v"))) | .tag_name' | sort -V | tail -n 1)
+          LATEST_TAG=$(echo "$RELEASES_JSON" | jq -r '.[] | select(.prerelease == true and (.name // "" | test("Codecane v"))) | .tag_name' | sort -V | tail -n 1)
 
           if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
             echo "No existing CLI prerelease found via releases, falling back to tags..."
@@ -137,12 +137,12 @@ jobs:
 
       - name: Clean up old CLI prereleases
         env:
-          GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff-community
+          GITHUB_API_URL: https://api.github.com/repos/AnzoBenjamin/openbuff
         run: |
           ONE_WEEK_AGO=$(date -d '7 days ago' -u +%Y-%m-%dT%H:%M:%SZ)
           echo "Removing CLI prereleases older than: $ONE_WEEK_AGO"
 
-          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.OPENBUFF_GITHUB_TOKEN }}" \
             "${GITHUB_API_URL}/releases?per_page=100")
 
           if echo "$RELEASES" | jq -e 'type == "array"' >/dev/null 2>&1; then
@@ -153,7 +153,7 @@ jobs:
               echo "$OLD"
               echo "$OLD" | while IFS=: read -r RELEASE_ID TAG_NAME; do
                 curl -s -X DELETE \
-                  -H "Authorization: token ${{ secrets.CODEBUFF_GITHUB_TOKEN }}" \
+                  -H "Authorization: token ${{ secrets.OPENBUFF_GITHUB_TOKEN }}" \
                   "${GITHUB_API_URL}/releases/$RELEASE_ID"
               done
             else
@@ -198,8 +198,8 @@ jobs:
             After downloading, extract the tarball, add the binary to your PATH, and run `codecane --help` for usage.
           files: |
             binaries/*/codecane-*
-          repository: CodebuffAI/codebuff-community
-          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+          repository: AnzoBenjamin/openbuff
+          token: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
   publish-staging-npm:
     needs:

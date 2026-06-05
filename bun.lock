@@ -46,9 +46,10 @@
       "name": "@codebuff/cli",
       "version": "1.0.0",
       "bin": {
-        "codebuff-tui": "./bin/codecane",
+        "openbuff": "./bin/openbuff",
       },
       "dependencies": {
+        "@codebuff/indexer": "workspace:*",
         "@codebuff/sdk": "workspace:*",
         "@gravity-ai/api": "^0.1.2",
         "@opentui/core": "0.2.2",
@@ -207,6 +208,14 @@
       "dependencies": {
         "@vscode/tree-sitter-wasm": "0.1.4",
         "web-tree-sitter": "0.25.10",
+      },
+    },
+    "packages/indexer": {
+      "name": "@codebuff/indexer",
+      "version": "1.0.0",
+      "dependencies": {
+        "@codebuff/code-map": "workspace:*",
+        "ignore": "^7.0.5",
       },
     },
     "packages/internal": {
@@ -499,6 +508,8 @@
     "@codebuff/freebuff": ["@codebuff/freebuff@workspace:freebuff"],
 
     "@codebuff/freebuff-web": ["@codebuff/freebuff-web@workspace:freebuff/web"],
+
+    "@codebuff/indexer": ["@codebuff/indexer@workspace:packages/indexer"],
 
     "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
 
@@ -3739,6 +3750,8 @@
     "@codebuff/common/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
     "@codebuff/freebuff-web/pino": ["pino@9.14.0", "", { "dependencies": { "@pinojs/redact": "^0.4.0", "atomic-sleep": "^1.0.0", "on-exit-leak-free": "^2.1.0", "pino-abstract-transport": "^2.0.0", "pino-std-serializers": "^7.0.0", "process-warning": "^5.0.0", "quick-format-unescaped": "^4.0.3", "real-require": "^0.2.0", "safe-stable-stringify": "^2.3.1", "sonic-boom": "^4.0.1", "thread-stream": "^3.0.0" }, "bin": { "pino": "bin.js" } }, "sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w=="],
+
+    "@codebuff/indexer/ignore": ["ignore@7.0.5", "", {}, "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg=="],
 
     "@codebuff/sdk/ignore": ["ignore@7.0.5", "", {}, "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg=="],
 

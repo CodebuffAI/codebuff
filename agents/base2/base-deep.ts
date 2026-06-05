@@ -28,6 +28,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
+  - For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Do not rely on query_index alone for correctness.
   - Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.
   - Spawn the thinker-gpt after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)
   - Implement code changes using direct file editing tools.
@@ -36,19 +37,19 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
-# Codebuff Meta-information
+# Openbuff Meta-information
 
 Users send prompts to you in one of a few user-selected modes, like DEFAULT, MAX, or PLAN.
 
-Every prompt sent consumes the user's credits, which is calculated based on the API cost of the models used.
+Every prompt sent consumes provider API credits based on the models used.
 
-The user can use the "/usage" command to see how many credits they have used and have left, so you can tell them to check their usage this way.
+The user can use the "/usage" command to see token usage for the current session.
 
-For other questions, you can direct them to codebuff.com, or especially codebuff.com/docs for detailed information about the product.
+For other questions, you can direct them to openbuff.dev, or especially openbuff.dev/docs for detailed information about the product.
 
 # Other response guidelines
 
-- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.
+- Your goal is to produce the highest quality results, even if it comes at the cost of more provider API tokens used.
 - Speed is important, but a secondary goal.
 
 # Response examples
@@ -128,9 +129,10 @@ Update these as you complete each step during implementation.
 
 Before asking questions or writing any code, gather broad context about the relevant parts of the codebase and any external knowledge needed:
 
-1. Spawn file-picker, code-searcher, and researcher (researcher-web / researcher-docs) agents IN PARALLEL to find all files relevant to the user's request and research any libraries, APIs, or technologies involved. Cast a wide net — spawn multiple file-pickers with different angles, multiple code-searcher queries, and researchers for any external docs or web resources that could inform the implementation.
-2. Read the relevant files returned by these agents using read_files. Also use read_subtree on key directories if you need to understand the structure.
-3. This context will help you ask better questions in the next phase and avoid building the wrong thing.
+1. Call query_index early yourself for broad codebase questions or tasks where relevant files are not already obvious. Use it to get indexed file candidates, not as a substitute for verification.
+2. Spawn file-picker, code-searcher, and researcher (researcher-web / researcher-docs) agents IN PARALLEL to find all files relevant to the user's request and research any libraries, APIs, or technologies involved. Cast a wide net — spawn multiple file-pickers with different angles, multiple code-searcher queries, and researchers for any external docs or web resources that could inform the implementation.
+3. Read the relevant files returned by query_index and these agents using read_files. Also use read_subtree on key directories if you need to understand the structure.
+4. This context will help you ask better questions in the next phase and avoid building the wrong thing.
 
 ## Phase 2 — Spec
 
@@ -281,6 +283,7 @@ export function createBaseDeep(options?: {
     includeMessageHistory: true,
     toolNames: buildArray(
       'spawn_agents',
+      'query_index',
       'read_files',
       'read_subtree',
       !noAskUser && 'suggest_followups',
@@ -309,7 +312,7 @@ export function createBaseDeep(options?: {
     stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
 
 **Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
-1. Context & Research — file-pickers + code-searchers + researchers in parallel, read results
+1. Context & Research — query_index + file-pickers + code-searchers + researchers in parallel, read results
 2. Spec — draft SPEC.md, ${noAskUser ? '' : 'iterative ask_user to refine (skip obvious Qs), open-ended final Q, '}thinker-gpt critique loop
 3. Plan — write PLAN.md, thinker-gpt critique loop
 
@@ -318,7 +321,17 @@ export function createBaseDeep(options?: {
 5. Review Loop — code-reviewer-gpt → fix → re-review until clean
 6. Validate — run tests + typechecks, add new tests, do E2E verification${noLearning ? '' : `
 7. Lessons — write LESSONS.md, update/create skills, iterative thinker-gpt brainstorm loop`}`,
-    handleSteps: function* ({ params }) {
+    handleSteps: function* ({ prompt, params }) {
+      if (shouldProactivelyQueryIndex(prompt)) {
+        yield {
+          toolName: 'query_index',
+          input: {
+            query: prompt,
+            limit: 20,
+          },
+        }
+      }
+
       while (true) {
         // Run context-pruner before each step.
         yield {
@@ -334,6 +347,14 @@ export function createBaseDeep(options?: {
 
         const { stepsComplete } = yield 'STEP'
         if (stepsComplete) break
+      }
+
+      function shouldProactivelyQueryIndex(value: unknown): value is string {
+        if (typeof value !== 'string') return false
+        const text = value.trim()
+        if (text.length < 12) return false
+        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
+        return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
       }
     },
   }

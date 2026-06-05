@@ -15,6 +15,7 @@ import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleProposeEditTransaction } from './tool/propose-edit-transaction'
 import { handleProposeStrReplace } from './tool/propose-str-replace'
 import { handleProposeWriteFile } from './tool/propose-write-file'
+import { handleQueryIndex } from './tool/query-index'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
 import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
@@ -67,6 +68,7 @@ export const codebuffToolHandlers = {
   propose_edit_transaction: handleProposeEditTransaction,
   propose_str_replace: handleProposeStrReplace,
   propose_write_file: handleProposeWriteFile,
+  query_index: handleQueryIndex,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
   read_proposal_workspace: handleReadProposalWorkspace,

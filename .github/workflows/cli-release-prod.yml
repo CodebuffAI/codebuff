@@ -131,8 +131,8 @@ jobs:
             - `openbuff-win32-x64.tar.gz` - Windows x64
           files: |
             binaries/*/openbuff-*
-          repository: CodebuffAI/codebuff-community
-          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+          repository: AnzoBenjamin/openbuff
+          token: ${{ secrets.OPENBUFF_GITHUB_TOKEN }}
 
   # Publish npm package
   publish-prod-npm:

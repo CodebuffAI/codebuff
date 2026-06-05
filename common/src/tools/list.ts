@@ -18,6 +18,7 @@ import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { proposeEditTransactionParams } from './params/tool/propose-edit-transaction'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
 import { proposeWriteFileParams } from './params/tool/propose-write-file'
+import { queryIndexParams } from './params/tool/query-index'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
 import { readProposalWorkspaceParams } from './params/tool/read-proposal-workspace'
@@ -62,6 +63,7 @@ export const toolParams = {
   propose_edit_transaction: proposeEditTransactionParams,
   propose_str_replace: proposeStrReplaceParams,
   propose_write_file: proposeWriteFileParams,
+  query_index: queryIndexParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
   read_proposal_workspace: readProposalWorkspaceParams,
@@ -156,6 +158,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('str_replace'),
     input: FileChangeSchema,
+  }),
+  z.object({
+    toolName: z.literal('query_index'),
+    input: toolParams.query_index.inputSchema,
   }),
   z.object({
     toolName: z.literal('write_file'),

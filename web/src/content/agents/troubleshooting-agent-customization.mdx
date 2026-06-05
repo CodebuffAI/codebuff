@@ -11,7 +11,7 @@ Quick fixes for common agent customization issues.
 
 ## Quick Fix Checklist
 
-1. **Restart Codebuff** to reload agent definitions
+1. **Restart Openbuff** to reload agent definitions
 2. **Check TypeScript syntax:** Run `bun run typecheck` in your `.agents/` directory
 3. **Verify file paths** are relative to project root
 4. **Ensure your agent exports a default definition**
@@ -120,15 +120,15 @@ export default definition
 1. Check override is properly applied:
 
 ```bash
-# Restart Codebuff to reload templates
-codebuff
+# Restart Openbuff to reload templates
+openbuff
 ```
 
 2. Verify override syntax:
 
 ```json
 {
-  "id": "CodebuffAI/reviewer", // ✅ Exact match required
+  "id": "openbuff/reviewer", // ✅ Exact match required
   "override": true, // ✅ Must be true for overrides
   "systemPrompt": {
     "type": "append", // ✅ Valid override type
@@ -251,7 +251,7 @@ Begin with minimal overrides and add complexity gradually:
 
 ```json
 {
-  "id": "CodebuffAI/reviewer",
+  "id": "openbuff/reviewer",
   "override": true,
   "model": "anthropic/claude-sonnet-4.5"
 }
@@ -265,10 +265,10 @@ Begin with minimal overrides and add complexity gradually:
 
 ### 3. Check Logs
 
-Restart Codebuff to see validation errors:
+Restart Openbuff to see validation errors:
 
 ```bash
-codebuff  # Look for error messages on startup
+openbuff  # Look for error messages on startup
 ```
 
 ### 4. Test Incrementally
@@ -293,7 +293,7 @@ git commit -m "Add custom reviewer agent"
 
 1. Check logs for error messages on startup
 2. Remove customizations until it works, then add back one at a time
-3. Join [Discord](https://codebuff.com/discord)
+3. Join [Discord](https://openbuff.dev/discord)
 4. See the [Agent Reference](/docs/agents/agent-reference)
 
 ## Quick Reference

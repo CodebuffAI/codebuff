@@ -448,7 +448,11 @@ export const runAgentStep = async (
     cacheDebugCorrelation: cacheDebugCorrelation
       ? serializeCacheDebugCorrelation(cacheDebugCorrelation)
       : undefined,
-    includeCacheControl: supportsCacheControl(agentTemplate.model),
+    // NOTE: llm.ts overrides this value using the post-resolution
+    // compatibility.stripCacheControl from getModelForRequest, so the model
+    // string here is informational only. Passing '' when model is undefined
+    // (deferred to openbuff.json) is safe for the same reason.
+    includeCacheControl: supportsCacheControl(agentTemplate.model ?? ''),
     messages: [systemMessage(system), ...agentState.messageHistory],
     onCacheDebugProviderRequestBuilt,
     onCacheDebugUsageReceived,

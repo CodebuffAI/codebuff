@@ -1,5 +1,6 @@
+import { IndexManager } from '@codebuff/indexer'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-import { CodebuffClient, LOCAL_MODE_API_KEY } from '@codebuff/sdk'
+import { CodebuffClient, LOCAL_MODE_API_KEY, loadProviderConfigSync } from '@codebuff/sdk'
 
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -84,6 +85,56 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
           {
             type: 'json',
             value: removeUndefinedValues(response),
+          },
+        ]
+      },
+      query_index: async (input: ClientToolCall<'query_index'>['input']) => {
+        const projectRoot = getProjectRoot()
+        const indexingConfig = loadProviderConfigSync().config.indexing
+        if (indexingConfig.enabled === false) {
+          return [
+            {
+              type: 'json',
+              value: {
+                results: [],
+                totalIndexed: 0,
+                indexAge: 0,
+                message:
+                  'Codebase indexing is disabled in openbuff.json; fall back to read_subtree, glob, or code_search.',
+              },
+            },
+          ]
+        }
+        const manager = IndexManager.getInstance(projectRoot, indexingConfig)
+        await manager.waitUntilReady(2_000)
+        const result = manager.query(input.query, {
+          limit: input.limit,
+          fileTypes: input.fileTypes,
+        })
+        const semanticNotice = indexingConfig.semantic?.enabled
+          ? ' Semantic indexing is configured but not implemented yet, so results are metadata-only.'
+          : ''
+        const results = result.results.map((item) => {
+          const output: Record<string, string | number | string[]> = {
+            path: item.path,
+            score: item.score,
+            matchedOn: item.matchedOn,
+          }
+          if (item.symbols) output.symbols = item.symbols
+          if (item.headings) output.headings = item.headings
+          return output
+        })
+        return [
+          {
+            type: 'json',
+            value: {
+              results,
+              totalIndexed: result.totalIndexed,
+              indexAge: result.indexAge,
+              message: result.ready
+                ? `Found ${result.results.length} indexed file result(s).${semanticNotice}`
+                : `Index is still building or unavailable; fall back to read_subtree, glob, or code_search.${semanticNotice}`,
+            },
           },
         ]
       },

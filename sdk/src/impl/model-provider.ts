@@ -87,8 +87,8 @@ export function resetChatGptOAuthRateLimit(): void {
 export interface ModelRequestParams {
   /** Historical Codebuff API key slot. Openbuff local provider routing does not require it. */
   apiKey: string
-  /** Model ID requested by an agent. Can be remapped by openbuff.json. */
-  model: string
+  /** Model ID requested by an agent. Can be remapped by openbuff.json. If omitted, resolved entirely from openbuff.json. */
+  model?: string
   /** Agent ID requesting this model. Used for per-agent model overrides. */
   agentId?: string
   /** If true, skip ChatGPT OAuth. */
@@ -111,6 +111,8 @@ export interface ModelResult {
   compatibility: ProviderCompatibility
   /** Optional reasoning effort selected by openbuff.json routing. */
   reasoningEffort?: OpenbuffReasoningEffort
+  /** The resolved effective model string after openbuff.json routing (e.g. for provider-options computation). */
+  effectiveModel: string
 }
 
 /**
@@ -156,6 +158,7 @@ export async function getModelForRequest(
         isChatGptOAuth: true,
         compatibility: configuredProviderModel.compatibility,
         reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+        effectiveModel,
       }
     }
 
@@ -169,6 +172,7 @@ export async function getModelForRequest(
       isChatGptOAuth: false,
       compatibility: configuredProviderModel.compatibility,
       reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+      effectiveModel,
     }
   }
 
@@ -202,6 +206,7 @@ export async function getModelForRequest(
             supportsRequiredToolChoice: true,
           },
           reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+          effectiveModel,
         }
       }
 

@@ -39,7 +39,7 @@ export type PromptAiSdkStreamFn = (
     messages: Message[]
     clientSessionId: string
     fingerprintId: string
-    model: Model
+    model?: Model
     userId: string | undefined
     chargeUser?: boolean
     thinkingBudget?: number
@@ -83,7 +83,7 @@ export type PromptAiSdkFn = (
     clientSessionId: string
     fingerprintId: string
     userInputId: string
-    model: Model
+    model?: Model
     userId: string | undefined
     chargeUser?: boolean
     agentId?: string
@@ -118,7 +118,8 @@ export type PromptAiSdkStructuredInput<T> = {
   clientSessionId: string
   fingerprintId: string
   userInputId: string
-  model: Model
+  /** Optional: if omitted, resolved from openbuff.json via agentId or defaultModel. */
+  model?: Model
   userId: string | undefined
   maxTokens?: number
   temperature?: number

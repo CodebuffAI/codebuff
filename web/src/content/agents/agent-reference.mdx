@@ -150,24 +150,24 @@ List of tools the agent can use.
 
 Other agents this agent can spawn. Use the fully qualified agent ID from the agent store (publisher/name@version) or the agent ID from a local agent file.
 
-> **⚠️ Important:** When referencing built-in agents, you **must** specify both publisher and version (e.g., `codebuff/reviewer@0.0.1`). Omit publisher/version only for local agents defined in your `.agents/` directory.
+> **⚠️ Important:** When referencing built-in agents, you **must** specify both publisher and version (e.g., `openbuff/reviewer@0.0.1`). Omit publisher/version only for local agents defined in your `.agents/` directory.
 
 **Referencing Agents:**
 
-- Published/built-in agents: `"codebuff/file-picker@0.0.1"` (publisher and version required!)
+- Published/built-in agents: `"openbuff/file-picker@0.0.1"` (publisher and version required!)
 - Local agents: `"my-custom-agent"` (just the agent ID)
 
 **Available Built-in Agents:**
 
-- [`codebuff/base`](/publishers/codebuff/agents/base) - Main coding assistant
-- [`codebuff/reviewer`](/publishers/codebuff/agents/reviewer) - Code review agent
-- [`codebuff/thinker`](/publishers/codebuff/agents/thinker) - Deep thinking agent
-- [`codebuff/researcher`](/publishers/codebuff/agents/researcher) - Research and documentation agent
-- [`codebuff/planner`](/publishers/codebuff/agents/planner) - Planning and architecture agent
-- [`codebuff/file-picker`](/publishers/codebuff/agents/file-picker) - File discovery agent
+- [`openbuff/base`](/publishers/openbuff/agents/base) - Main coding assistant
+- [`openbuff/reviewer`](/publishers/openbuff/agents/reviewer) - Code review agent
+- [`openbuff/thinker`](/publishers/openbuff/agents/thinker) - Deep thinking agent
+- [`openbuff/researcher`](/publishers/openbuff/agents/researcher) - Research and documentation agent
+- [`openbuff/planner`](/publishers/openbuff/agents/planner) - Planning and architecture agent
+- [`openbuff/file-picker`](/publishers/openbuff/agents/file-picker) - File discovery agent
 
 ```json
-"spawnableAgents": ["codebuff/researcher@0.0.1", "my-local-agent"]
+"spawnableAgents": ["openbuff/researcher@0.0.1", "my-local-agent"]
 ```
 
 ### Prompt Configuration
@@ -326,7 +326,7 @@ const definition: AgentDefinition = {
     "spawn_agents",
     "end_turn"
   ],
-  spawnableAgents: ["codebuff/researcher@0.0.1"],
+  spawnableAgents: ["openbuff/researcher@0.0.1"],
 
   inputSchema: {
     prompt: {

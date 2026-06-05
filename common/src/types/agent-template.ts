@@ -112,7 +112,7 @@ export type AgentTemplate<
 > = {
   id: AgentTemplateType
   displayName: string
-  model: Model
+  model?: Model
   reasoningOptions?: OpenRouterReasoningOptions
   providerOptions?: OpenRouterProviderRoutingOptions
 

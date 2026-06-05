@@ -289,11 +289,9 @@ Write out your complete implementation now. Do not write any final summary.`,
             break
           }
           if (readOnlyOnlySteps === maxReadOnlyOnlySteps) {
-            // PROPOSAL_RETRY resets the ledger attempt at the runtime layer, so
-            // stale failed artifacts can never leak into the next attempt.
-            yield buildProposalRetryToolCall({
+            yield buildProposalContinuationToolCall({
               messageHistory: agentState.messageHistory ?? [],
-              text: buildStopExploringPrompt(),
+              text: buildReadOnlyBudgetContinuationPrompt(),
             })
           }
           continue
@@ -729,8 +727,12 @@ Write out your complete implementation now. Do not write any final summary.`,
         // explicit param. Honor it as a FLOOR over the fragile text-regex
         // inference, which under-counts paths the implementor's own prompt does
         // not spell out (e.g. leading-dot directories like .codebuff-smoke/...).
-        const explicitParamFileCount = coerceExplicitFileCount(
-          params.params?.expectedTouchedFileCount,
+        const targetHintFileCount = countProposalTargetFileHints(params.params)
+        const explicitParamFileCount = Math.max(
+          targetHintFileCount,
+          coerceExplicitFileCount(
+            params.params?.expectedTouchedFileCount,
+          ),
         )
         const regexDerivedFilePathCount = Math.max(
           numericTouchedFileCount,
@@ -747,6 +749,9 @@ Write out your complete implementation now. Do not write any final summary.`,
           explicitParamFileCount > 1
         ) {
           evidence.push(`paramFileCount:${explicitParamFileCount}`)
+        }
+        if (targetHintFileCount > 0) {
+          evidence.push(`targetFileHints:${targetHintFileCount}`)
         }
         if (numericTouchedFileCount > 1) {
           evidence.push(`numericFileCount:${numericTouchedFileCount}`)
@@ -825,12 +830,18 @@ Write out your complete implementation now. Do not write any final summary.`,
           baseMaxProposalSteps,
           maxBundleProposalTurns + (canUseReadOnlyTools ? 4 : 2),
         )
+        const maxReadOnlyOnlySteps = canUseReadOnlyTools
+          ? getMaxReadOnlyOnlySteps({
+              complexity,
+              expectedTouchedFileCount,
+            })
+          : 0
         const expectsMultipleFiles =
           explicitFilePathCount > 1 || hasExplicitMultiFileSignal
 
         return {
           maxProposalSteps,
-          maxReadOnlyOnlySteps: canUseReadOnlyTools ? 3 : 0,
+          maxReadOnlyOnlySteps,
           maxBundleProposalTurns,
           expectedTouchedFileCount,
           hasExplicitExpectedTouchedFileCount: explicitParamFileCount > 0,
@@ -858,6 +869,22 @@ Write out your complete implementation now. Do not write any final summary.`,
 
       function coerceExplicitBoolean(value: unknown): boolean {
         return value === true || value === 'true'
+      }
+
+      function countProposalTargetFileHints(
+        params: Record<string, any> | undefined,
+      ): number {
+        const plan = params?.proposalOrchestrationPlan
+        if (!plan || typeof plan !== 'object') return 0
+        const hints = Array.isArray(plan.targetFileHints)
+          ? plan.targetFileHints
+          : []
+        return Math.min(
+          20,
+          new Set(
+            hints.filter((hint: unknown) => typeof hint === 'string'),
+          ).size,
+        )
       }
 
       function getMaxBundleProposalTurns(input: {
@@ -890,6 +917,23 @@ Write out your complete implementation now. Do not write any final summary.`,
         }
         if (complexity === 'standard') {
           return 5
+        }
+        return 3
+      }
+
+      function getMaxReadOnlyOnlySteps(input: {
+        complexity: 'simple' | 'standard' | 'complex'
+        expectedTouchedFileCount: number
+      }): number {
+        const targetDriven =
+          input.expectedTouchedFileCount > 1
+            ? input.expectedTouchedFileCount + 3
+            : 0
+        if (input.complexity === 'complex') {
+          return Math.min(12, Math.max(6, targetDriven))
+        }
+        if (input.complexity === 'standard') {
+          return Math.min(8, Math.max(3, targetDriven))
         }
         return 3
       }
@@ -1486,19 +1530,6 @@ Or:
 </codebuff_tool_call>`
       }
 
-      function buildStopExploringPrompt(): string {
-        return `You have gathered enough context. Stop exploring now and emit the full proposal edit bundle in your next response.
-
-Use propose_write_file for complete new files or major rewrites, and propose_str_replace only when you have exact current oldString text. The parent will validate/apply the proposal, so do not keep reading files unless a single exact oldString is still missing.
-
-If the implementation needs multiple files, emit multiple proposal tool calls before stopping. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is still missing.
-
-Emit valid XML proposal tool calls with no markdown fences:
-<codebuff_tool_call>
-{"cb_tool_name":"propose_write_file","path":"path/to/file","instructions":"what changed","content":"complete file content"}
-</codebuff_tool_call>`
-      }
-
       function buildIncompleteBundleContinuationPrompt(
         summary: LedgerSummary,
       ): string {
@@ -1517,6 +1548,22 @@ Emit valid XML proposal tool calls with no markdown fences:
         }.${missingHintText}
 
 Continue the same proposal bundle. Do not start over and do not summarize. Emit propose_str_replace/propose_write_file calls for the missing required file edits only, using read-only tools first if exact current context is still missing. Write PROPOSAL_BUNDLE_COMPLETE only after the bundle covers all ${requiredFileCount} required file(s).`
+      }
+
+      function buildReadOnlyBudgetContinuationPrompt(): string {
+        const targetHints = getProposalTargetFileHints()
+        const targetText =
+          targetHints.length > 0
+            ? ` The parent plan's target file hints are: ${targetHints.join(
+                ', ',
+              )}.`
+            : ''
+
+        return `You have used the read-only exploration budget for this proposal.${targetText}
+
+Use the exact context already gathered in this attempt and emit the complete proposal bundle now. Do not summarize. Emit propose_str_replace/propose_write_file calls for every required file whose exact current content you have verified.
+
+If exact current content for an existing-file edit is still missing, emit no proposal call for that file rather than guessing a path, import, API, or oldString. Do not continue broad exploration. Write PROPOSAL_BUNDLE_COMPLETE only after every required edit has been proposed.`
       }
 
       function getProposalTargetFileHints(): string[] {

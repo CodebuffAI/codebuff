@@ -24,6 +24,19 @@ describe('DynamicAgentDefinitionSchema', () => {
       expect(result.success).toBe(true)
     })
 
+    it('should validate template without model', () => {
+      const template: Partial<typeof validBaseTemplate> = {
+        ...validBaseTemplate,
+      }
+      delete template.model
+
+      const result = DynamicAgentDefinitionSchema.safeParse(template)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.model).toBeUndefined()
+      }
+    })
+
     it('should validate template with inputSchema', () => {
       const template = {
         ...validBaseTemplate,

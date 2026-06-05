@@ -136,7 +136,7 @@ describe('loadLocalAgents', () => {
       expect(Object.keys(result)).toHaveLength(0)
     })
 
-    test('skips agents missing required model field', async () => {
+    test('loads agents without a model field (model deferred to openbuff.json)', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(
         agentsDir,
@@ -151,7 +151,9 @@ describe('loadLocalAgents', () => {
 
       const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
 
-      expect(Object.keys(result)).toHaveLength(0)
+      expect(Object.keys(result)).toHaveLength(1)
+      expect(result['no-model-agent']).toBeDefined()
+      expect(result['no-model-agent']!.model).toBeUndefined()
     })
 
     test('skips .d.ts declaration files', async () => {
@@ -310,10 +312,9 @@ describe('loadLocalAgents', () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(
         agentsDir,
-        'no-model.ts',
+        'no-id.ts',
         `
           export default {
-            id: 'no-model',
             displayName: 'No Model'
           }
         `,
@@ -329,7 +330,7 @@ describe('loadLocalAgents', () => {
       const errorMessage: string = consoleErrorSpy.mock.calls
         .flat()
         .join(' ')
-      expect(errorMessage).toContain('missing required attributes')
+      expect(errorMessage).toContain('missing required attribute')
     })
   })
 
@@ -380,6 +381,29 @@ describe('loadLocalAgents', () => {
 
       expect(result.validationErrors).toHaveLength(0)
       expect(result.agents['valid-agent']).toBeDefined()
+    })
+
+    test('validates agents without a model field', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'no-model.ts',
+        `
+          export default {
+            id: 'no-model-agent',
+            displayName: 'No Model Agent'
+          }
+        `,
+      )
+
+      const result: LoadLocalAgentsResult = await loadLocalAgents({
+        agentsPath: agentsDir,
+        validate: true,
+      })
+
+      expect(result.validationErrors).toHaveLength(0)
+      expect(result.agents['no-model-agent']).toBeDefined()
+      expect(result.agents['no-model-agent']!.model).toBeUndefined()
     })
 
     test('returns validation errors for invalid agents', async () => {

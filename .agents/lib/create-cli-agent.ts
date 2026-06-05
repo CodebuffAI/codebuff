@@ -42,7 +42,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
   return {
     id: config.id,
     displayName: config.displayName,
-    model: config.model,
+    ...(config.model !== undefined ? { model: config.model } : {}),
     providerOptions: {
       ignore: ['Amazon Bedrock'],
     },

@@ -121,7 +121,7 @@ export const DynamicAgentDefinitionSchema = z.object({
 
   // Required fields for new agents
   displayName: z.string(),
-  model: z.string(),
+  model: z.string().optional(),
   reasoningOptions: z
     .object({
       enabled: z.boolean().optional(),

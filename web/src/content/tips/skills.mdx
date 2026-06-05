@@ -7,7 +7,7 @@ order: 5
 
 # Skills
 
-Skills are reusable instruction sets that Codebuff can load on-demand. They let you define domain-specific knowledge, workflows, and behaviors that the agent can invoke when needed.
+Skills are reusable instruction sets that Openbuff can load on-demand. They let you define domain-specific knowledge, workflows, and behaviors that the agent can invoke when needed.
 
 ## Why Use Skills?
 
@@ -98,7 +98,7 @@ This loads the skill's instructions into the conversation.
 
 ### Agent Tool Invocation
 
-Codebuff can also load skills automatically via the `skill` tool when it determines a skill is relevant. The agent sees available skills listed in its tool description and can call:
+Openbuff can also load skills automatically via the `skill` tool when it determines a skill is relevant. The agent sees available skills listed in its tool description and can call:
 
 ```typescript
 skill({ name: "my-skill" })
@@ -186,7 +186,7 @@ Each skill should have a single, clear purpose. Instead of one large "developmen
 
 ### Write Clear Descriptions
 
-The description is what Codebuff sees when deciding whether to load a skill. Make it specific:
+The description is what Openbuff sees when deciding whether to load a skill. Make it specific:
 
 **Good:** `Guidelines for creating Git releases with semantic versioning and changelog updates`
 
@@ -222,7 +222,7 @@ metadata:
 1. Check the directory structure: `project-root/.agents/skills/my-skill/SKILL.md`
 2. Verify the name in frontmatter matches the directory name
 3. Ensure the name follows validation rules (lowercase, hyphens only)
-4. Restart Codebuff to reload skills
+4. Restart Openbuff to reload skills
 
 ### Invalid Frontmatter
 

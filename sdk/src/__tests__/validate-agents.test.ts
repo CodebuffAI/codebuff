@@ -23,6 +23,21 @@ describe('validateAgents', () => {
         expect(result.errorCount).toBe(0)
       })
 
+      it('should validate an agent without a model', async () => {
+        const agents: AgentDefinition[] = [
+          {
+            id: 'no-model',
+            displayName: 'No Model Agent',
+          },
+        ]
+
+        const result = await validateAgents(agents)
+
+        expect(result.success).toBe(true)
+        expect(result.validationErrors).toEqual([])
+        expect(result.errorCount).toBe(0)
+      })
+
       it('should validate an agent with all common fields', async () => {
         const agents: AgentDefinition[] = [
           {
@@ -198,7 +213,7 @@ describe('validateAgents', () => {
         expect(result.validationErrors[0].message).toContain('displayName')
       })
 
-      it('should reject an agent with missing required field: model', async () => {
+      it('should allow an agent with missing model field', async () => {
         const agents: any[] = [
           {
             id: 'no-model',
@@ -208,9 +223,9 @@ describe('validateAgents', () => {
 
         const result = await validateAgents(agents)
 
-        expect(result.success).toBe(false)
-        expect(result.errorCount).toBeGreaterThan(0)
-        expect(result.validationErrors[0].message).toContain('model')
+        expect(result.success).toBe(true)
+        expect(result.validationErrors).toEqual([])
+        expect(result.errorCount).toBe(0)
       })
 
       it('should reject an agent with invalid id format (uppercase)', async () => {
@@ -376,12 +391,12 @@ describe('validateAgents', () => {
         const agents: any[] = [
           {
             id: 'bad-agent-1',
-            // Missing displayName and model
+            // Missing displayName
           },
           {
             id: 'bad-agent-2',
             displayName: 'Bad Agent 2',
-            // Missing model
+            model: 123,
           },
         ]
 

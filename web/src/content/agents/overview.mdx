@@ -9,7 +9,7 @@ order: 0
 
 ## Why Multiple Agents?
 
-Codebuff agents spawn other agents, share tools, and pass context between tasks:
+Openbuff agents spawn other agents, share tools, and pass context between tasks:
 
 - **Code Generation** - writes code
 - **Review** - catches bugs and style issues
@@ -23,20 +23,20 @@ Control agents with TypeScript generator functions. Orchestrate workflows, branc
 
 ## Built-in Agents
 
-- [`codebuff/base`](/publishers/codebuff/agents/base) - Main coding assistant (orchestrates other agents)
-- [`codebuff/editor`](/publishers/codebuff/agents/editor) - Code editing and file modifications
-- [`codebuff/reviewer`](/publishers/codebuff/agents/reviewer) - Code review and feedback
-- [`codebuff/thinker`](/publishers/codebuff/agents/thinker) - Deep thinking and problem analysis
-- [`codebuff/researcher`](/publishers/codebuff/agents/researcher) - Web search and documentation lookup
-- [`codebuff/file-picker`](/publishers/codebuff/agents/file-picker) - File discovery in your codebase
-- [`codebuff/basher`](/publishers/codebuff/agents/basher) - Terminal command execution in bash shell
-- [`codebuff/code-searcher`](/publishers/codebuff/agents/code-searcher) - Search patterns in code files
+- [`openbuff/base`](/publishers/openbuff/agents/base) - Main coding assistant (orchestrates other agents)
+- [`openbuff/editor`](/publishers/openbuff/agents/editor) - Code editing and file modifications
+- [`openbuff/reviewer`](/publishers/openbuff/agents/reviewer) - Code review and feedback
+- [`openbuff/thinker`](/publishers/openbuff/agents/thinker) - Deep thinking and problem analysis
+- [`openbuff/researcher`](/publishers/openbuff/agents/researcher) - Web search and documentation lookup
+- [`openbuff/file-picker`](/publishers/openbuff/agents/file-picker) - File discovery in your codebase
+- [`openbuff/basher`](/publishers/openbuff/agents/basher) - Terminal command execution in bash shell
+- [`openbuff/code-searcher`](/publishers/openbuff/agents/code-searcher) - Search patterns in code files
 
-Browse all available agents at the [Agent Store](https://codebuff.com/store).
+Browse all available agents at the [Agent Store](https://openbuff.dev/store).
 
 ## Agent Workflow
 
-A typical call to Codebuff may result in the following flow:
+A typical call to Openbuff may result in the following flow:
 
 ```mermaid
 flowchart TD
@@ -65,7 +65,7 @@ flowchart TD
 
 ### Example: Authentication System Refactoring
 
-If you ask "refactor this authentication system", Codebuff might:
+If you ask "refactor this authentication system", Openbuff might:
 
 1. **File Picker** finds auth-related files
 2. **Research** looks up best practices
@@ -79,10 +79,10 @@ Agents coordinate through the `spawnerPrompt` field, which tells others when to 
 
 ## Quick Start
 
-Start Codebuff and run the `/init` command to set up your project:
+Start Openbuff and run the `/init` command to set up your project:
 
 ```bash
-codebuff
+openbuff
 ```
 
 Then inside the CLI:

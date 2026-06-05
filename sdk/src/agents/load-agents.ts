@@ -224,10 +224,10 @@ export async function loadLocalAgents({
       }
       const agentDefinition = agentModule.default ?? agentModule
 
-      if (!agentDefinition?.id || !agentDefinition?.model) {
+      if (!agentDefinition?.id) {
         if (verbose) {
           console.error(
-            `Agent definition missing required attributes (id, model): ${fullPath}`,
+            `Agent definition missing required attribute (id): ${fullPath}`,
           )
         }
         continue

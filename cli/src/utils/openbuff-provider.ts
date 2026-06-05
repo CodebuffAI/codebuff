@@ -39,7 +39,7 @@ function asAgentId(agent: AgentDefinition | string, fallbackMode: AgentMode): st
 }
 
 function asAgentModel(agent: AgentDefinition | string): string {
-  return typeof agent === 'string' ? '' : agent.model
+  return typeof agent === 'string' ? '' : (agent.model ?? '')
 }
 
 const REASONING_EFFORTS = [

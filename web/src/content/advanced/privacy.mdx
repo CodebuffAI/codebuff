@@ -7,28 +7,24 @@ order: 8
 
 # Privacy
 
-Codebuff is designed with your privacy in mind. Here's how we handle your data.
+Openbuff is a local-first BYOK fork, meaning all LLM inference runs directly against your configured providers via `openbuff.json`. Here's how data is handled.
+
+## No Backend — Your Keys, Your Providers
+
+Openbuff routes requests directly from your machine to your configured model providers (e.g. Anthropic, OpenAI, Google). There is no Openbuff backend that sees your code or conversations.
 
 ## No 3rd-Party Training on Your Data
 
-We only use AI model providers that **do not train on your data**.
+Configure only AI model providers that **do not train on your data** (e.g. by using non-training API tiers).
 
-## Logging
+## Local Logging
 
-We store logs of your chat sessions for debugging and improving the Codebuff service. These logs help us diagnose issues and ensure reliability. They are kept secure and are not shared with third parties.
+Openbuff stores conversation history locally at `~/.config/manicode/projects/`. Nothing is sent to Openbuff servers — there are none.
 
-## Advertising
+## Provider Privacy
 
-For the ads we display, we only use information from your current session context and basic profile data.
-
-## How Codebuff Works
-
-Our backend acts as a thin router that forwards your requests to model providers (like Anthropic and OpenAI). We don't process or analyze your code beyond what's necessary to serve your requests.
-
-## Future: Full Privacy Mode
-
-We're working on a **Privacy Mode** that won't store any data at all. This will give users who need maximum privacy complete control over their data. Stay tuned for updates.
+Your data is subject to the privacy policies of whichever providers you configure in `openbuff.json`. We recommend reviewing each provider's data handling policies.
 
 ## Questions?
 
-If you have questions about our privacy practices, reach out to us at hello@codebuff.com.
+If you have questions about Openbuff's privacy approach, reach out to us at hello@openbuff.dev.

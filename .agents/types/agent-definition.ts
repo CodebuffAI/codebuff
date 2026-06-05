@@ -31,8 +31,13 @@ export interface AgentDefinition {
   /** Human-readable name for the agent */
   displayName: string
 
-  /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
-  model: ModelName
+  /**
+   * AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models
+   *
+   * Optional: if omitted, the model is resolved entirely from the user's openbuff.json via
+   * `agents[agentId]` or `defaultModel`. An error is thrown at runtime if neither is configured.
+   */
+  model?: ModelName
 
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens

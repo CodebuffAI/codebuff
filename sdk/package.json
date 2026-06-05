@@ -2,7 +2,7 @@
   "name": "@codebuff/sdk",
   "private": false,
   "version": "0.10.7",
-  "description": "Official SDK for Codebuff — AI coding agent & framework",
+  "description": "Official SDK for Openbuff — local-first BYOK AI coding agent & framework",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -41,7 +41,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "codebuff",
+    "openbuff",
     "ai",
     "code-editing",
     "assistant",
@@ -50,12 +50,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CodebuffAI/codebuff.git",
+    "url": "git+https://github.com/AnzoBenjamin/openbuff.git",
     "directory": "sdk"
   },
-  "homepage": "https://codebuff.com",
+  "homepage": "https://openbuff.dev",
   "bugs": {
-    "url": "https://github.com/CodebuffAI/codebuff/issues"
+    "url": "https://github.com/AnzoBenjamin/openbuff/issues"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.50",

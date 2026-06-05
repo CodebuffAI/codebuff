@@ -27,15 +27,16 @@ export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: [],
+  toolNames: ['query_index', 'read_subtree'],
   spawnableAgents: [],
 
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
   instructionsPrompt: `Instructions:
 - List out the full paths of 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path. Make sure that the file paths are exactly correct.
+- Prefer paths surfaced by the local codebase index when they are relevant, but also use the repository tree context to avoid missing obvious nearby files.
 - Do not write any introductory commentary.
 - Do not write any analysis or any English text at all.
-- Do not use any more tools. Do not call read_subtree again.
+- Do not use any more tools. Do not call query_index or read_subtree again.
 
 Here's an example response with made up file paths (these are not real file paths, just an example):
 <example_response>
@@ -56,8 +57,17 @@ README.md
 Again: Do not call any tools or write anything else other than the chosen file paths on new lines. Go.
 `.trim(),
 
-  handleSteps: function* ({ params }) {
+  handleSteps: function* ({ prompt, params }) {
     const directories = params?.directories ?? []
+    if (typeof prompt === 'string' && prompt.trim().length > 0) {
+      yield {
+        toolName: 'query_index',
+        input: {
+          query: prompt,
+          limit: 24,
+        },
+      }
+    }
     yield {
       toolName: 'read_subtree',
       input: {

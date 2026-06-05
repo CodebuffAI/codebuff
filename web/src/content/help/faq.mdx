@@ -7,51 +7,43 @@ order: 2
 
 # FAQ
 
-## What can Codebuff be used for?
+## What can Openbuff be used for?
 
 Software development: Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.
 
-## What model does Codebuff use?
+## What model does Openbuff use?
 
-Multiple. The orchestrator uses Claude Opus 4.7 in Default and Max modes, or Kimi K2.6 in Lite mode. Subagents are matched to their tasks: Claude Opus 4.7 and GPT-5.4 for deep reasoning and code review, and Gemini 3.1 Flash Lite for terminal commands, file discovery, and web/docs research. See [What models do you use?](/docs/advanced/what-models) for the full breakdown.
+Multiple. The orchestrator uses Claude Opus 4.7 in Default and Max modes, or Kimi K2.6 in Lite mode. Subagents are matched to their tasks: Claude Opus 4.7 and GPT-5.4 for deep reasoning and code review, and Gemini 3.1 Flash Lite for terminal commands, file discovery, and web/docs research. All models are routed through the providers you configure in `openbuff.json`. See [What models do you use?](/docs/advanced/what-models) for the full breakdown.
 
-## Can I use my Claude Pro or Max subscription with Codebuff?
+## Is Openbuff open source?
 
-UPDATE: Connecting to your Claude subscription is deprecated in Codebuff and will be removed on March 1st.
-
-We had reports of at least one user having their Anthropic account disabled after heavy usage via Codebuff.
-
-We recommend switching to a [Codebuff Strong subscription](/subscription) as an alternative — it includes generous usage limits across all models without needing to connect external subscriptions.
-
-## Is Codebuff open source?
-
-Yes. It's Apache 2.0 at [github.com/CodebuffAI/codebuff](https://github.com/CodebuffAI/codebuff).
+Yes. It's Apache 2.0 at [github.com/AnzoBenjamin/openbuff](https://github.com/AnzoBenjamin/openbuff).
 
 ## Do you store my data?
 
-We don't store your codebase. The server forwards requests to model providers. We keep small slices of chat logs for debugging.
+Openbuff does not have a backend — your code is sent only to the model providers you configure in `openbuff.json`. Openbuff itself never receives your codebase or chat data.
 
 ## Do you use model providers that train on my codebase or chat data?
 
-No, we don't choose providers that will train on your data in our standard modes.
+No. You configure your own providers via `openbuff.json`. Check the data policies of your chosen providers directly.
 
-## Can I trust Codebuff with full access to my terminal?
+## Can I trust Openbuff with full access to my terminal?
 
-If you want isolation, use the [Dockerfile](https://github.com/CodebuffAI/codebuff-community/tree/main/utils/docker) to run Codebuff against a scoped copy of your codebase.
+If you want isolation, use the [Dockerfile](https://github.com/AnzoBenjamin/openbuff/tree/main/utils/docker) to run Openbuff against a scoped copy of your codebase.
 
-## Can I specify custom instructions for Codebuff?
+## Can I specify custom instructions for Openbuff?
 
-Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Codebuff also reads `AGENTS.md` and `CLAUDE.md` if present. Per directory, it picks one: `knowledge.md` first, then `AGENTS.md`, then `CLAUDE.md`. Codebuff updates existing knowledge files but won't create them unless you ask.
+Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Openbuff also reads `AGENTS.md` and `CLAUDE.md` if present. Per directory, it picks one: `knowledge.md` first, then `AGENTS.md`, then `CLAUDE.md`. Openbuff updates existing knowledge files but won't create them unless you ask.
 
 You can also create a **home directory knowledge file** (`~/.knowledge.md`, `~/.AGENTS.md`, or `~/.CLAUDE.md`) for preferences that apply across all projects. File name matching is case-insensitive. See [Knowledge Files](/docs/tips/knowledge-files#home-directory-knowledge-files) for details.
 
-## Can I tell Codebuff to ignore certain files?
+## Can I tell Openbuff to ignore certain files?
 
-Codebuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file to specify additional files or folders to ignore.
+Openbuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file to specify additional files or folders to ignore.
 
-### What if I want Codebuff to not ignore some files in the `.gitignore`?
+### What if I want Openbuff to not ignore some files in the `.gitignore`?
 
-The `.codebuffignore` follows standard `.gitignore` negation rules as well! So to ignore a file from git but not from Codebuff:
+The `.codebuffignore` follows standard `.gitignore` negation rules as well! So to ignore a file from git but not from Openbuff:
 
 ```.gitignore
 path/to/file
@@ -74,18 +66,18 @@ Take note that if you want to negate something in a nested subdirectory, you nee
 !path/to/file
 ```
 
-The final set of files ignored by Codebuff are determined by the contents of `.gitignore`, followed by the contents of `.codebuffignore`.
+The final set of files ignored by Openbuff are determined by the contents of `.gitignore`, followed by the contents of `.codebuffignore`.
 
-## How does Codebuff work?
+## How does Openbuff work?
 
-Codebuff runs specialized models in parallel: one finds files, another reasons through the problem, another writes code, another reviews. A selector picks the best output. In Max mode, multiple implementations compete. [Benchmark comparison](https://x.com/jahooma/status/1894224663817195599).
+Openbuff runs specialized models in parallel: one finds files, another reasons through the problem, another writes code, another reviews. A selector picks the best output. In Max mode, multiple implementations compete. [Benchmark comparison](https://x.com/jahooma/status/1894224663817195599).
 
-## How does Codebuff compare to Claude Code?
+## How does Openbuff compare to Claude Code?
 
-See [Codebuff vs Claude Code](/docs/advanced/claude-code-comparison) for a detailed comparison. Short version: Codebuff is faster, cheaper, and handles large codebases better.
+See [Openbuff vs Claude Code](/docs/advanced/claude-code-comparison) for a detailed comparison. Short version: Openbuff is faster, cheaper, and handles large codebases better.
 
 ## I have more questions!
 
-Contact [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://codebuff.com/discord).
+Contact [support@openbuff.dev](mailto:support@openbuff.dev) or [join our Discord](https://openbuff.dev/discord).
 
 [Troubleshooting](/docs/advanced/troubleshooting)

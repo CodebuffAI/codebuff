@@ -28,7 +28,7 @@ Create specialized agents from scratch using TypeScript files in the `.agents/` 
 
 ## Basic Structure
 
-Create a new TypeScript file in `.agents/` directory. This example uses the [`researcher`](/publishers/codebuff/agents/researcher) as a spawnable subagent:
+Create a new TypeScript file in `.agents/` directory. This example uses the [`researcher`](/publishers/openbuff/agents/researcher) as a spawnable subagent:
 
 **.agents/my-custom-agent.ts**
 
@@ -46,7 +46,7 @@ const definition: AgentDefinition = {
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['read_files', 'write_file', 'end_turn'],
-  spawnableAgents: ['codebuff/researcher@0.0.1'], // Use full name for built-in agents
+  spawnableAgents: ['openbuff/researcher@0.0.1'], // Use full name for built-in agents
 
   inputSchema: {
     prompt: {
@@ -69,7 +69,7 @@ export default definition
 
 ### API Documentation Agent
 
-Writes REST and GraphQL docs with examples. Uses the [`researcher`](/publishers/codebuff/agents/researcher) for documentation lookup:
+Writes REST and GraphQL docs with examples. Uses the [`researcher`](/publishers/openbuff/agents/researcher) for documentation lookup:
 
 **.agents/api-documenter.ts**
 
@@ -94,7 +94,7 @@ const definition: AgentDefinition = {
     'spawn_agents',
     'end_turn',
   ],
-  spawnableAgents: ['codebuff/researcher@0.0.1'], // Use full name for built-in agents
+  spawnableAgents: ['openbuff/researcher@0.0.1'], // Use full name for built-in agents
 
   inputSchema: {
     prompt: {
@@ -116,7 +116,7 @@ export default definition
 
 ### Database Migration Agent
 
-Builds and reviews database migrations. Uses the [`reviewer`](/publishers/codebuff/agents/reviewer) for checking migrations:
+Builds and reviews database migrations. Uses the [`reviewer`](/publishers/openbuff/agents/reviewer) for checking migrations:
 
 **.agents/migration-specialist.ts**
 
@@ -141,7 +141,7 @@ const definition: AgentDefinition = {
     'run_terminal_command',
     'end_turn',
   ],
-  spawnableAgents: ['codebuff/reviewer@0.0.1'],
+  spawnableAgents: ['openbuff/reviewer@0.0.1'],
 
   systemPrompt:
     'You are a database migration specialist. Create reversible database migrations with proper indexing and rollback procedures.',
@@ -167,7 +167,7 @@ LLM-based agents cover many tasks. Programmatic agents add precise control over 
 
 ### How It Works
 
-Use TypeScript generator functions with the `handleSteps` field to control execution. This example spawns [`thinker`](/publishers/codebuff/agents/thinker) and [`reviewer`](/publishers/codebuff/agents/reviewer) subagents:
+Use TypeScript generator functions with the `handleSteps` field to control execution. This example spawns [`thinker`](/publishers/openbuff/agents/thinker) and [`reviewer`](/publishers/openbuff/agents/reviewer) subagents:
 
 **.agents/code-analyzer.ts**
 
@@ -181,7 +181,7 @@ const definition: AgentDefinition = {
   model: 'anthropic/claude-sonnet-4.5',
 
   toolNames: ['read_files', 'code_search', 'spawn_agents', 'write_file'],
-  spawnableAgents: ['codebuff/thinker@0.0.1', 'codebuff/reviewer@0.0.1'],
+  spawnableAgents: ['openbuff/thinker@0.0.1', 'openbuff/reviewer@0.0.1'],
 
   handleSteps: function* ({ agentState, prompt, params }) {
     // First, find relevant files

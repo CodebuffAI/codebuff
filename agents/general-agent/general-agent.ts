@@ -56,6 +56,7 @@ export const createGeneralAgent = (options: {
     ),
     toolNames: [
       'spawn_agents',
+      'query_index',
       'read_files',
       'read_subtree',
       'str_replace',
@@ -64,16 +65,25 @@ export const createGeneralAgent = (options: {
 
     instructionsPrompt: buildArray(
       `Use the spawn_agents tool to spawn agents to help you complete the user request.`,
+      `For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Do not rely on query_index alone for correctness.`,
       !isGpt5 && `If you need to find more information in the codebase, file-picker is really good at finding relevant files. You should spawn multiple agents in parallel when possible to speed up the process. (e.g. spawn 3 file-pickers + 1 code-searcher + 1 researcher-web in one spawn_agents call or 3 bashers in one spawn_agents call).`,
     ).join('\n'),
 
-    handleSteps: function* ({ params }) {
+    handleSteps: function* ({ prompt, params }) {
       const filePaths = params?.filePaths as string[] | undefined
 
       if (filePaths && filePaths.length > 0) {
         yield {
           toolName: 'read_files',
           input: { paths: filePaths },
+        }
+      } else if (shouldProactivelyQueryIndex(prompt)) {
+        yield {
+          toolName: 'query_index',
+          input: {
+            query: prompt,
+            limit: 20,
+          },
         }
       }
 
@@ -90,6 +100,14 @@ export const createGeneralAgent = (options: {
 
         const { stepsComplete } = yield 'STEP'
         if (stepsComplete) break
+      }
+
+      function shouldProactivelyQueryIndex(value: unknown): value is string {
+        if (typeof value !== 'string') return false
+        const text = value.trim()
+        if (text.length < 12) return false
+        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
+        return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
       }
     },
   }

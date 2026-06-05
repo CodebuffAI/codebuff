@@ -1,0 +1,32 @@
+{
+  "name": "@codebuff/indexer",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "bun": "./src/*.ts",
+      "import": "./src/*.ts",
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "sideEffects": false,
+  "engines": {
+    "bun": "1.3.11"
+  },
+  "dependencies": {
+    "@codebuff/code-map": "workspace:*",
+    "ignore": "^7.0.5"
+  }
+}

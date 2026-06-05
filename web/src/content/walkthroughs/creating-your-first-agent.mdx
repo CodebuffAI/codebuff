@@ -20,7 +20,7 @@ order: 1
 >
   <iframe
     src="https://www.youtube.com/embed/mR2OOHv5p_4"
-    title="Creating Your First Codebuff Agent"
+    title="Creating Your First Openbuff Agent"
     frameBorder="0"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowFullScreen
@@ -37,13 +37,13 @@ order: 1
 ## Install and Initialize
 
 ```bash
-npm install -g codebuff
+npm install -g openbuff
 ```
 
-In your project, start Codebuff and run the `/init` command:
+In your project, start Openbuff and run the `/init` command:
 
 ```bash
-codebuff
+openbuff
 ```
 
 Then inside the CLI:
@@ -54,7 +54,7 @@ Then inside the CLI:
 
 This creates:
 
-- `knowledge.md` - project context for Codebuff
+- `knowledge.md` - project context for Openbuff
 - `.agents/types/` - TypeScript type definitions for creating agents
 
 ## Create an Agent
@@ -78,8 +78,8 @@ const definition: AgentDefinition = {
   ],
 
   // Other agents this agent can spawn
-  // Browse https://www.codebuff.com/store to see available agents
-  spawnableAgents: ['codebuff/file-explorer@0.0.2'],
+  // Browse https://openbuff.dev/store to see available agents
+  spawnableAgents: ['openbuff/file-explorer@0.0.2'],
 
   // When should other agents spawn this one?
   spawnerPrompt: 'Spawn when you need to review local code changes',
@@ -100,12 +100,12 @@ Your job is to review code changes and provide helpful, constructive feedback.`,
 export default definition
 ```
 
-`@Bob the Agent Builder` in Codebuff can also help.
+`@Bob the Agent Builder` in Openbuff can also help.
 
 ## Test Locally
 
 ```bash
-codebuff
+openbuff
 ```
 
 Then:
@@ -118,7 +118,7 @@ Make some local changes first so it has something to inspect.
 
 ## Create a Publisher Profile
 
-[codebuff.com/publishers/new](https://www.codebuff.com/publishers/new)
+[openbuff.dev/publishers/new](https://openbuff.dev/publishers/new)
 
 Fill in your publisher name and ID.
 
@@ -142,7 +142,7 @@ const definition: AgentDefinition = {
 ## Publish
 
 ```bash
-codebuff publish simple-code-reviewer
+openbuff publish simple-code-reviewer
 ```
 
 
@@ -150,7 +150,7 @@ codebuff publish simple-code-reviewer
 ## Use Your Published Agent
 
 ```bash
-codebuff --agent your-publisher-id/simple-code-reviewer@0.0.1
+openbuff --agent your-publisher-id/simple-code-reviewer@0.0.1
 ```
 
 ## Advanced: Programmatic Control
@@ -179,10 +179,10 @@ const definition: AgentDefinition = {
   ],
 
   // Use fully qualified agent names with publisher and version
-  // Browse https://www.codebuff.com/store to see available agents
+  // Browse https://openbuff.dev/store to see available agents
   spawnableAgents: [
-    'codebuff/file-explorer@0.0.4',
-    'codebuff/deep-thinker@0.0.3',
+    'openbuff/file-explorer@0.0.4',
+    'openbuff/deep-thinker@0.0.3',
   ],
 
   instructionsPrompt: `Review code changes:
@@ -238,7 +238,7 @@ const definition: AgentDefinition = {
       input: {
         agents: [
           {
-            agent_type: 'codebuff/file-explorer@0.0.1',
+            agent_type: 'openbuff/file-explorer@0.0.1',
             prompt: 'Find files related to the changed code',
           },
         ],
@@ -278,7 +278,7 @@ Use `handleSteps` for complex workflows with branching logic. Use prompts-only f
 
 ```typescript
 spawnableAgents: [
-  'codebuff/file-explorer@0.0.4', // ✅ Correct
+  'openbuff/file-explorer@0.0.4', // ✅ Correct
   'john-smith/security-scanner@2.1.4', // ✅ Correct
 ]
 ```
@@ -289,7 +289,7 @@ spawnableAgents: [
 spawnableAgents: [
   'my-custom-reviewer', // ✅ Correct for local agent
   'database-migrator', // ✅ Correct for local agent
-  'codebuff/file-explorer@0.0.4', // ✅ Also correct: you can mix local and published agents.
+  'openbuff/file-explorer@0.0.4', // ✅ Also correct: you can mix local and published agents.
 ]
 ```
 

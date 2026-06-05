@@ -36,7 +36,7 @@ export interface CliAgentConfig {
   shortName: string
   startCommand: string
   permissionNote: string
-  model: string
+  model?: string
   /** Default mode when mode param is not specified. Defaults to 'work' */
   defaultMode?: CliAgentMode
   spawnerPromptExtras?: string

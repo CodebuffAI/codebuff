@@ -48,7 +48,7 @@ infisical secrets set --file .env.example
 infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
 ```
 
-### 5. Run Codebuff
+### 5. Run Openbuff
 ```bash
 bun run dev  # Secrets auto-sync to .env.local
 ```

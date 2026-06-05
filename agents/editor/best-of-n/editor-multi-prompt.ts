@@ -311,6 +311,20 @@ function* handleStepsMultiPrompt({
       if (shouldStopProposalRetries(lastResult)) {
         break
       }
+
+      if (
+        shouldRetryWithoutReadOnlyTools(lastResult) &&
+        !hasAdequateDirectProposalContext({
+          context: buildAttemptProposalContext({
+            requestContext: proposalRequestContextWithPlan,
+            attempt: attempt + 1,
+            lastResult,
+          }),
+          lastResult,
+        })
+      ) {
+        break
+      }
     }
 
     // Preserve any proposal that produced real ledger diffs - including mixed
@@ -1536,7 +1550,38 @@ function* handleStepsMultiPrompt({
     result: ProposalResult | ProposalFailure | undefined,
   ): boolean {
     const failure = summarizeProposalFailure(result).toLowerCase()
-    return failure.includes('run cancelled by user')
+    return (
+      failure.includes('run cancelled by user') ||
+      isProviderCapacityFailure(failure) ||
+      isFailedDirectProposalAttempt(result)
+    )
+  }
+
+  function isProviderCapacityFailure(failure: string): boolean {
+    return [
+      'resource exhausted',
+      'error-code-429',
+      'status code 429',
+      'too many requests',
+      'rate limit',
+      'rate_limit',
+      'quota exceeded',
+      'quota_exceeded',
+      'overloaded',
+    ].some((marker) => failure.includes(marker))
+  }
+
+  function isFailedDirectProposalAttempt(
+    result: ProposalResult | ProposalFailure | undefined,
+  ): boolean {
+    if (!isObject(result)) return false
+    const progress = isObject((result as any).proposalProgress)
+      ? (result as any).proposalProgress
+      : undefined
+    return (
+      progress?.canUseReadOnlyTools === false &&
+      getSuccessfulLedgerDiffResults(result).length === 0
+    )
   }
 
   /**
@@ -1634,21 +1679,7 @@ function* handleStepsMultiPrompt({
       return requiredPaths.every((path) => usablePathSet.has(path))
     }
 
-    // If the task has no explicit target path, stay conservative on recovery:
-    // direct no-read mode is only useful for a single exact file context. Larger
-    // or ambiguous retries should keep read-only tools so the model can verify
-    // missing files instead of editing unrelated context from memory.
-    if (shouldRetryWithoutReadOnlyTools(params.lastResult)) {
-      return (
-        proposalOrchestrationPlan.expectedTouchedFileCount <= 1 &&
-        usableFileContextPaths.length === 1
-      )
-    }
-
-    const expectedPaths = knownProposalPaths().map(normalizeProposalPath)
-    if (expectedPaths.length === 0) return true
-
-    return expectedPaths.some((path) => usablePathSet.has(path))
+    return false
   }
 
   function getRequiredDirectProposalContextPaths(): string[] {
@@ -1674,7 +1705,7 @@ function* handleStepsMultiPrompt({
   ): Array<{ path: string; content: string }> {
     const sections: Array<{ path: string; content: string }> = []
     const pattern =
-      /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))\n([\s\S]*?)(?=\n\n(?:File:|Tool result from|All proposal strategies in this best-of-N run:|Context gathered by the previous proposal attempt|Proposal orchestration plan:)|$)/g
+      /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))\n([\s\S]*?)(?=\n\n(?:File:|Tool result from|All proposal strategies in this best-of-N run:|Context gathered by the previous proposal attempt|Proposal orchestration plan:)|$)/g
 
     for (const match of context.matchAll(pattern)) {
       sections.push({ path: match[1], content: match[2] ?? '' })
@@ -2286,21 +2317,46 @@ function* handleStepsMultiPrompt({
       promptText,
       currentTaskText,
     ])
+    const explicitPathStemNames = extractLikelyPathStemNames([
+      promptText,
+      currentTaskText,
+    ])
     const editableExplicitTaskPaths =
       explicitTaskPaths.filter(isLikelyEditablePath)
+    const editableExplicitTaskPathStemSet = new Set(
+      editableExplicitTaskPaths
+        .map((path) => getPathStemName(path).toLowerCase())
+        .filter(Boolean),
+    )
+    const unresolvedExplicitPathStemNames = explicitPathStemNames.filter(
+      (stem) => !editableExplicitTaskPathStemSet.has(stem.toLowerCase()),
+    )
     const editableContextFileHints =
       contextFileHints.filter(isLikelyEditablePath)
     const bareMatchedContextFileHints = matchContextPathsByBareFileNames({
       fileNames: explicitBareTaskFileNames,
       contextPaths: editableContextFileHints,
     })
+    const stemMatchedContextFileHints = matchContextPathsByPathStems({
+      stems: unresolvedExplicitPathStemNames,
+      contextPaths: editableContextFileHints,
+    })
+    const broadDocumentationTask = isBroadDocumentationTask([
+      promptText,
+      currentTaskText,
+    ])
+    const documentationContextFileHints = broadDocumentationTask
+      ? editableContextFileHints.filter(isLikelyDocumentationPath)
+      : []
+    const broadDocumentationExpectedFileCount =
+      inferBroadDocumentationExpectedFileCount({
+        broadDocumentationTask,
+        documentationContextFileCount: documentationContextFileHints.length,
+      })
     const targetFileHints = dedupeStrings([
       ...bareMatchedContextFileHints,
+      ...stemMatchedContextFileHints,
       ...editableExplicitTaskPaths,
-      ...(editableExplicitTaskPaths.length === 0 &&
-      bareMatchedContextFileHints.length === 0
-        ? editableContextFileHints
-        : []),
     ]).slice(0, 18)
     const numericTouchedFileCount =
       inferExpectedTouchedFileCountFromText(currentTaskText)
@@ -2310,6 +2366,8 @@ function* handleStepsMultiPrompt({
         numericTouchedFileCount,
         editableExplicitTaskPaths.length,
         explicitBareTaskFileNames.length,
+        stemMatchedContextFileHints.length,
+        broadDocumentationExpectedFileCount,
       ),
     )
     const searchPatternCount = extractLikelySearchPatterns([
@@ -2334,9 +2392,17 @@ function* handleStepsMultiPrompt({
     if (explicitBareTaskFileNames.length > 0) {
       evidence.push(`bareTaskFiles:${explicitBareTaskFileNames.length}`)
     }
+    if (explicitPathStemNames.length > 0) {
+      evidence.push(`pathStemRefs:${explicitPathStemNames.length}`)
+    }
     if (bareMatchedContextFileHints.length > 0) {
       evidence.push(
         `bareMatchedContextFiles:${bareMatchedContextFileHints.length}`,
+      )
+    }
+    if (stemMatchedContextFileHints.length > 0) {
+      evidence.push(
+        `stemMatchedContextFiles:${stemMatchedContextFileHints.length}`,
       )
     }
     if (contextFileHints.length > 0) {
@@ -2344,6 +2410,19 @@ function* handleStepsMultiPrompt({
     }
     if (editableContextFileHints.length > 0) {
       evidence.push(`editableContextFiles:${editableContextFileHints.length}`)
+    }
+    if (broadDocumentationTask) {
+      evidence.push('broadDocumentationTask')
+    }
+    if (documentationContextFileHints.length > 0) {
+      evidence.push(
+        `documentationContextFiles:${documentationContextFileHints.length}`,
+      )
+    }
+    if (broadDocumentationExpectedFileCount > 0) {
+      evidence.push(
+        `broadDocumentationExpectedFiles:${broadDocumentationExpectedFileCount}`,
+      )
     }
     if (complexSignals > 0) {
       evidence.push(`complexSignals:${complexSignals}`)
@@ -2355,6 +2434,7 @@ function* handleStepsMultiPrompt({
     const isLarge =
       expectedTouchedFileCount >= 5 ||
       targetFileHints.length >= 6 ||
+      documentationContextFileHints.length >= 12 ||
       contextLength > 60_000 ||
       complexSignals >= 4
     const isSimple =
@@ -2448,11 +2528,45 @@ function* handleStepsMultiPrompt({
     ].filter((pattern) => pattern.test(text)).length
   }
 
+  function inferBroadDocumentationExpectedFileCount(params: {
+    broadDocumentationTask: boolean
+    documentationContextFileCount: number
+  }): number {
+    if (!params.broadDocumentationTask) return 0
+    if (params.documentationContextFileCount <= 1) return 0
+
+    return Math.min(
+      6,
+      Math.max(3, Math.ceil(params.documentationContextFileCount / 3)),
+    )
+  }
+
+  function isBroadDocumentationTask(texts: string[]): boolean {
+    const text = texts.join('\n')
+    const hasDocumentationSignal =
+      /\b(docs?|documentation|readmes?|markdown|mdx?)\b/i.test(text)
+    if (!hasDocumentationSignal) return false
+
+    const hasBroadDiscoverySignal =
+      /\b(any|all|other|every|across|remnants?|references?|mentions?|occurrences?|usages?|hardcoded|check|audit|find|search)\b/i.test(
+        text,
+      )
+    if (!hasBroadDiscoverySignal) return false
+
+    return /\b(migrate|migration|rename|rebrand|fork|byok|hosted|credits?|auth|providers?|configurable|rewrite|update|change|fix)\b/i.test(
+      text,
+    )
+  }
+
+  function isLikelyDocumentationPath(path: string): boolean {
+    return shouldPrefetchPath(path) && /\.mdx?$/i.test(path)
+  }
+
   function extractContextFileHeaders(text: string): string[] {
     return dedupeStrings(
       Array.from(
         text.matchAll(
-          /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))/g,
+          /(?:^|\n)File:\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|css|scss|yml|yaml|toml|txt|py|go|rs|java|kt|kts|cs|php|rb|swift|scala|lua|ex|exs|erl|clj|cljs|sh|bash|zsh))/g,
         ),
         (match) => normalizePrefetchPath(match[1]),
       ).filter(Boolean),
@@ -2483,6 +2597,134 @@ function* handleStepsMultiPrompt({
 
     return dedupeStrings(
       params.contextPaths.filter((path) => fileNameSet.has(getBaseName(path))),
+    )
+  }
+
+  function extractLikelyPathStemNames(texts: string[]): string[] {
+    const stems: string[] = []
+
+    for (const text of texts) {
+      for (const match of text.matchAll(
+        /(?:^|[\s`"'([{])([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+)(?:$|[\s`"',;:)\]}])/g,
+      )) {
+        const rawPath = match[1] ?? ''
+        if (/\.[A-Za-z0-9]+$/.test(rawPath)) continue
+        for (const segment of rawPath.split('/')) {
+          const stem = normalizePathStemName(segment)
+          if (isLikelyPathSegmentStemName(stem)) {
+            stems.push(stem)
+          }
+        }
+      }
+
+      for (const match of text.matchAll(/\bREADME(?:\.[A-Za-z0-9]+)?\b/gi)) {
+        const stem = normalizePathStemName(match[0])
+        if (stem) stems.push(stem)
+      }
+    }
+
+    return dedupeStrings(stems)
+  }
+
+  function extractLikelyPathStemGlobPatterns(params: {
+    texts: string[]
+    excludeStems?: Set<string>
+  }): string[] {
+    const patterns: string[] = []
+    const excludeStems = params.excludeStems ?? new Set<string>()
+
+    for (const stem of extractLikelyPathStemNames(params.texts)) {
+      if (excludeStems.has(stem.toLowerCase())) continue
+      if (stem.toLowerCase() === 'readme') {
+        patterns.push('README.md', '**/README.md')
+        continue
+      }
+
+      patterns.push(`**/${stem}.md`, `**/${stem}.mdx`)
+    }
+
+    return dedupeStrings(patterns)
+  }
+
+  function extractBroadDocumentationGlobPatterns(texts: string[]): string[] {
+    if (!isBroadDocumentationTask(texts)) return []
+    return [
+      'docs/**/*.md',
+      'docs/**/*.mdx',
+      '*.md',
+      '*.mdx',
+      '**/README.md',
+      '**/README.mdx',
+    ]
+  }
+
+  function rankDocumentationPrefetchPaths(params: {
+    paths: string[]
+    seedTexts: string[]
+  }): string[] {
+    const searchTerms = extractLikelySearchPatterns(params.seedTexts)
+      .map((term) => term.toLowerCase())
+      .filter((term) => term.length >= 3)
+
+    const scored = params.paths.map((path, index) => ({
+      path,
+      index,
+      score: scoreDocumentationPrefetchPath(path, searchTerms),
+    }))
+
+    return scored
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((entry) => entry.path)
+  }
+
+  function scoreDocumentationPrefetchPath(
+    path: string,
+    searchTerms: string[],
+  ): number {
+    const lowerPath = path.toLowerCase()
+    const baseName = getBaseName(lowerPath)
+    let score = 0
+
+    if (lowerPath.startsWith('docs/')) score += 80
+    if (baseName === 'readme.md' || baseName === 'readme.mdx') score += 60
+    if (path.split('/').length <= 2) score += 20
+    if (searchTerms.some((term) => lowerPath.includes(term))) score += 30
+
+    return score
+  }
+
+  function matchContextPathsByPathStems(params: {
+    stems: string[]
+    contextPaths: string[]
+  }): string[] {
+    const stemSet = new Set(params.stems.map((stem) => stem.toLowerCase()))
+    if (stemSet.size === 0) return []
+
+    return dedupeStrings(
+      params.contextPaths.filter((path) =>
+        stemSet.has(getPathStemName(path).toLowerCase()),
+      ),
+    )
+  }
+
+  function getPathStemName(path: string): string {
+    const baseName = getBaseName(path)
+    return normalizePathStemName(baseName.replace(/\.[^.]+$/, ''))
+  }
+
+  function normalizePathStemName(value: string): string {
+    return value
+      .trim()
+      .replace(/^['"`]+|['"`]+$/g, '')
+      .replace(/\.[A-Za-z0-9]+$/, '')
+  }
+
+  function isLikelyPathSegmentStemName(stem: string): boolean {
+    if (!stem) return false
+    if (stem.toLowerCase() === 'readme') return true
+    return (
+      /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(stem) ||
+      /^[a-z0-9][a-z0-9_.@-]{3,}$/.test(stem)
     )
   }
 
@@ -2570,15 +2812,7 @@ function* handleStepsMultiPrompt({
     any
   > {
     const { messageHistory, prompts } = params
-    const seedTexts = [
-      ...prompts,
-      ...messageHistory
-        .filter(
-          (message) =>
-            message?.role === 'user' && !isInternalBestOfNMessage(message),
-        )
-        .map((message) => formatUserRequest(message, 12_000)),
-    ].filter((text) => typeof text === 'string' && text.trim().length > 0)
+    const seedTexts = buildCurrentTaskSeedTexts({ messageHistory, prompts })
 
     if (seedTexts.length === 0) return []
 
@@ -2616,6 +2850,12 @@ function* handleStepsMultiPrompt({
     }
 
     const globDiscoveredPaths: string[] = []
+    const broadDocumentationTask = isBroadDocumentationTask(seedTexts)
+    const alreadyResolvedStemNames = new Set(
+      [...directPaths, ...existingContextPaths]
+        .map((path) => getPathStemName(path).toLowerCase())
+        .filter(Boolean),
+    )
     const bareFileNamesToResolve = extractLikelyBareFileNames(seedTexts)
       .filter(
         (fileName) =>
@@ -2636,10 +2876,46 @@ function* handleStepsMultiPrompt({
       )
     }
 
-    const globReadPaths = dedupeStrings(globDiscoveredPaths)
+    for (const pattern of extractLikelyPathStemGlobPatterns({
+      texts: seedTexts,
+      excludeStems: alreadyResolvedStemNames,
+    }).slice(0, 8)) {
+      const { toolResult } = yield {
+        toolName: 'glob',
+        input: { pattern },
+        includeToolCall: false,
+      } satisfies ToolCall<'glob'>
+      appendToolContextMessage(contextMessages, 'glob', toolResult)
+      globDiscoveredPaths.push(...extractFilePathsFromGlobResult(toolResult))
+    }
+
+    for (const pattern of extractBroadDocumentationGlobPatterns(seedTexts)) {
+      const { toolResult } = yield {
+        toolName: 'glob',
+        input: { pattern },
+        includeToolCall: false,
+      } satisfies ToolCall<'glob'>
+      appendToolContextMessage(contextMessages, 'glob', toolResult)
+      globDiscoveredPaths.push(...extractFilePathsFromGlobResult(toolResult))
+    }
+
+    const maxGlobReadPaths = broadDocumentationTask ? 18 : 8
+    const globPrefetchPaths = dedupeStrings(globDiscoveredPaths)
       .filter((path) => !readPaths.has(path))
       .filter(shouldPrefetchPath)
-      .slice(0, 8)
+    const globReadPaths = (
+      broadDocumentationTask
+        ? dedupeStrings([
+            ...globPrefetchPaths.filter(
+              (path) => !isLikelyDocumentationPath(path),
+            ),
+            ...rankDocumentationPrefetchPaths({
+              paths: globPrefetchPaths.filter(isLikelyDocumentationPath),
+              seedTexts,
+            }),
+          ])
+        : globPrefetchPaths
+    ).slice(0, maxGlobReadPaths)
 
     if (globReadPaths.length > 0) {
       const { toolResult } = yield {
@@ -2686,6 +2962,34 @@ function* handleStepsMultiPrompt({
     }
 
     return contextMessages
+  }
+
+  function buildCurrentTaskSeedTexts(params: {
+    messageHistory: any[]
+    prompts: string[]
+  }): string[] {
+    const userTexts = params.messageHistory
+      .filter(
+        (message) =>
+          message?.role === 'user' && !isInternalBestOfNMessage(message),
+      )
+      .map((message) => formatUserRequest(message, 12_000))
+      .filter((text) => text.trim().length > 0)
+    const latestUserText = userTexts.at(-1)
+    const userSeed =
+      latestUserText && !isContinuationOnlyRequest(latestUserText)
+        ? [latestUserText]
+        : userTexts.slice(-3)
+
+    return dedupeStrings([...params.prompts, ...userSeed]).filter(
+      (text) => text.trim().length > 0,
+    )
+  }
+
+  function isContinuationOnlyRequest(text: string): boolean {
+    return /^(?:continue|resume|go on|keep going|proceed|do it)\.?\s*$/i.test(
+      text.trim(),
+    )
   }
 
   function appendToolContextMessage(

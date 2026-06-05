@@ -268,6 +268,12 @@ describe('model-provider', () => {
             modeReasoningEfforts: {},
             agents: {},
             agentReasoningEfforts: {},
+            indexing: {
+              enabled: true,
+              cacheDir: '.codebuff-index',
+              exclude: [],
+              semantic: { enabled: false },
+            },
             providers: {
               'opencode-go': {
                 type: 'openai-compatible',
@@ -386,6 +392,12 @@ describe('model-provider', () => {
             modeReasoningEfforts: {},
             agents: {},
             agentReasoningEfforts: {},
+            indexing: {
+              enabled: true,
+              cacheDir: '.codebuff-index',
+              exclude: [],
+              semantic: { enabled: false },
+            },
             providers: {
               custom: {
                 type: 'openai-compatible',
@@ -416,6 +428,43 @@ describe('model-provider', () => {
       ).toBe(true)
     })
 
+    test('throws a clear error when no model is configured anywhere for an agent', () => {
+      const emptyConfig = {
+        sourceFilePaths: [],
+        config: {
+          defaultModel: undefined,
+          defaultReasoningEffort: undefined,
+          modes: {},
+          modeReasoningEfforts: {},
+          agents: {},
+          agentReasoningEfforts: {},
+          indexing: {
+            enabled: true,
+            cacheDir: '.codebuff-index',
+            exclude: [],
+            semantic: { enabled: false },
+          },
+          providers: {},
+        },
+      }
+
+      expect(() =>
+        resolveConfiguredAgentModelConfig({
+          agentId: 'notion-query-agent',
+          model: undefined,
+          loadedConfig: emptyConfig,
+        }),
+      ).toThrow("No model configured for agent 'notion-query-agent'")
+
+      expect(() =>
+        resolveConfiguredAgentModelConfig({
+          agentId: 'notion-query-agent',
+          model: undefined,
+          loadedConfig: emptyConfig,
+        }),
+      ).toThrow('openbuff.json')
+    })
+
     test('throws a clear error when a matched provider is missing its api key env var', () => {
       expect(() =>
         resolveConfiguredProviderModel({
@@ -430,6 +479,12 @@ describe('model-provider', () => {
               modeReasoningEfforts: {},
               agents: {},
               agentReasoningEfforts: {},
+              indexing: {
+                enabled: true,
+                cacheDir: '.codebuff-index',
+                exclude: [],
+                semantic: { enabled: false },
+              },
               providers: {
                 'opencode-go': {
                   type: 'openai-compatible',

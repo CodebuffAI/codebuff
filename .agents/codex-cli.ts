@@ -81,7 +81,6 @@ const baseDefinition = createCliAgent({
   startCommand: 'codex -a never -s danger-full-access',
   permissionNote:
     'Always use `-a never -s danger-full-access` when testing to avoid approval prompts that would block automated tests.',
-  model: 'anthropic/claude-opus-4.7',
   extraInputParams: {
     reviewType: {
       type: 'string',

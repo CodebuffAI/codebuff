@@ -37,16 +37,8 @@ import type { FileFilter } from './tools/read-files'
 import type { FileLineRange } from '@codebuff/common/types/contracts/client'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type {
-  PublishedToolName,
-  ToolName,
-} from '@codebuff/common/tools/constants'
-import type {
-  ClientToolCall,
-  ClientToolName,
-  CodebuffToolOutput,
-  PublishedClientToolName,
-} from '@codebuff/common/tools/list'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type { PublishedClientToolName } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -72,6 +64,16 @@ const wrapContentForUserMessage = (
   }
   // Delegate to the shared utility which handles wrapping correctly
   return buildUserMessageContent(undefined, undefined, content)
+}
+
+type ClientToolOverride = (input: never) => Promise<ToolResultOutput[]>
+
+type ClientToolOverrides = Partial<Record<PublishedClientToolName, ClientToolOverride>> & {
+  // Include read_files separately, since it has a different signature.
+  read_files?: (input: {
+    filePaths: string[]
+    ranges?: FileLineRange[]
+  }) => Promise<Record<string, string | null>>
 }
 
 export type CodebuffClientOptions = {
@@ -109,19 +111,7 @@ export type CodebuffClientOptions = {
   /** Optional filter to classify files before reading (runs before gitignore check) */
   fileFilter?: FileFilter
 
-  overrideTools?: Partial<
-    {
-      [K in ClientToolName & PublishedToolName]: (
-        input: ClientToolCall<K>['input'],
-      ) => Promise<CodebuffToolOutput<K>>
-    } & {
-      // Include read_files separately, since it has a different signature.
-      read_files: (input: {
-        filePaths: string[]
-        ranges?: FileLineRange[]
-      }) => Promise<Record<string, string | null>>
-    }
-  >
+  overrideTools?: ClientToolOverrides
   customToolDefinitions?: CustomToolDefinition[]
 
   fsSource?: Source<CodebuffFileSystem>
@@ -693,7 +683,7 @@ async function handleToolCall({
       // the union type of all possible tool inputs based on the dynamic toolName.
       // The input has been validated by clientToolCallSchema.parse above.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result = await override(input as any)
+      result = await override(input as never)
     } else if (toolName === 'end_turn') {
       result = [{ type: 'json', value: { message: 'Turn ended.' } }]
     } else if (toolName === 'write_file' || toolName === 'str_replace') {

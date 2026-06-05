@@ -6,9 +6,10 @@ import type { DynamicAgentDefinition } from '../dynamic-agent-template'
 
 type DynamicAgentDefinitionHandleSteps = Omit<
   DynamicAgentDefinition,
-  'handleSteps' | 'toolNames'
+  'handleSteps' | 'model' | 'toolNames'
 > & {
   handleSteps?: AgentDefinition['handleSteps']
+  model?: AgentDefinition['model']
   toolNames?: (typeof publishedTools | (string & {}))[number][]
 }
 // Don't remove these lines! And don't change the values away from true!

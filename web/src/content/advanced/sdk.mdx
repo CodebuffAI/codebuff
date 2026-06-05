@@ -7,32 +7,26 @@ order: 7
 
 # SDK & Programmatic Access
 
-Run Codebuff agents from your own code with `@codebuff/sdk`.
-
-## Installation
-
-```bash
-npm install @codebuff/sdk
-```
+Run Openbuff agents from your own code using the Openbuff SDK.
 
 ## Prerequisites
 
-API key: [codebuff.com/api-keys](https://www.codebuff.com/api-keys)
+Openbuff is a local BYOK CLI — no API key or account needed. Provider credentials are configured in your `openbuff.json` file.
 
 ## Quick Start
 
-Use the [`base`](/publishers/codebuff/agents/base) agent (or any agent from the [Agent Store](/store)) to run tasks:
+Load your local agents from `.agents/` and run a task:
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+const agents = await loadLocalAgents()
 
-const client = new CodebuffClient({
-  apiKey: process.env.CODEBUFF_API_KEY,
+const client = new OpenbuffClient({
   cwd: process.cwd(),
 })
 
 const result = await client.run({
-  agent: 'codebuff/base@0.0.16',
+  agent: 'codebuff-local-cli', // ID of a local agent defined in .agents/
+  agentDefinitions: Object.values(agents),
   prompt: 'Create a simple calculator class',
   handleEvent: (event) => {
     console.log('Event:', event.type)
@@ -45,15 +39,19 @@ const result = await client.run({
 Pass the previous run state to keep context:
 
 ```typescript
+const agents = await loadLocalAgents()
+
 // First run
 const run1 = await client.run({
-  agent: 'codebuff/base@0.0.16',
+  agent: 'codebuff-local-cli',
+  agentDefinitions: Object.values(agents),
   prompt: 'Create a calculator class',
 })
 
 // Continue the conversation
 const run2 = await client.run({
-  agent: 'codebuff/base@0.0.16',
+  agent: 'codebuff-local-cli',
+  agentDefinitions: Object.values(agents),
   prompt: 'Add unit tests for the calculator',
   previousRun: run1, // Maintains conversation context
 })
@@ -62,8 +60,6 @@ const run2 = await client.run({
 ## Custom Agents
 
 ```typescript
-import type { AgentDefinition } from '@codebuff/sdk'
-
 const myAgent: AgentDefinition = {
   id: 'my-custom-agent',
   model: 'anthropic/claude-sonnet-4.5',
@@ -83,7 +79,6 @@ await client.run({
 
 ```typescript
 import { z } from 'zod/v4'
-import { getCustomToolDefinition } from '@codebuff/sdk'
 
 const fetchTool = getCustomToolDefinition({
   toolName: 'fetch_api_data',
@@ -108,27 +103,26 @@ await client.run({
 
 ## Loading Local Agents
 
-```typescript
-import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
+All agents defined in your `.agents/` directory are available by their `id` field:
 
+```typescript
 const agents = await loadLocalAgents({ verbose: true })
 
-const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+const client = new OpenbuffClient()
 await client.run({
-  agent: 'my-local-agent',
+  agent: 'codebuff-local-cli', // matches the id field in .agents/codebuff-local-cli.ts
   agentDefinitions: Object.values(agents),
-  prompt: 'Hello',
+  prompt: 'Review the latest git diff',
 })
 ```
 
 ## API Reference
 
-### `CodebuffClient`
+### `OpenbuffClient`
 
 ```typescript
-const client = new CodebuffClient({
-  apiKey: string,        // Required: Your Codebuff API key
-  cwd?: string,          // Working directory for file operations
+const client = new OpenbuffClient({
+  cwd?: string,  // Working directory for file operations
 })
 ```
 
@@ -147,6 +141,7 @@ const client = new CodebuffClient({
 | `agentDefinitions` | `array` | Custom agent definitions |
 | `customToolDefinitions` | `array` | Custom tool definitions |
 | `maxAgentSteps` | `number` | Maximum steps before stopping (default: ~20) |
+| `openbuffConfig` | `object` | Override provider config (defaults to `openbuff.json`) |
 </MarkdownTable>
 
 ### Event Types
@@ -175,8 +170,6 @@ const client = new CodebuffClient({
 ### Test Generation
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
-
 const CODE_TO_TEST = `
 function add(a: number, b: number): number {
   return a + b;
@@ -189,12 +182,12 @@ function divide(a: number, b: number): number {
 `
 
 async function generateTests(code: string) {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
-  })
+  const agents = await loadLocalAgents()
+  const client = new OpenbuffClient()
 
   const { output } = await client.run({
-    agent: 'codebuff/base@latest',
+    agent: 'codebuff-local-cli',
+    agentDefinitions: Object.values(agents),
     prompt: `Generate unit tests for these functions using Jest:\n\n${code}`,
   })
 
@@ -204,18 +197,16 @@ async function generateTests(code: string) {
 
 ### Code Review in CI
 
-Use the [`reviewer`](/publishers/codebuff/agents/reviewer) agent for automated code review:
+Create a local reviewer agent in `.agents/my-reviewer.ts`, then reference it by ID:
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
-
 async function reviewPullRequest(diff: string) {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
-  })
+  const agents = await loadLocalAgents()
+  const client = new OpenbuffClient()
 
   const { output } = await client.run({
-    agent: 'codebuff/reviewer@latest',
+    agent: 'my-reviewer', // defined in .agents/my-reviewer.ts
+    agentDefinitions: Object.values(agents),
     prompt: `Review this code change for bugs, security issues, and best practices:\n\n${diff}`,
   })
 
@@ -226,14 +217,12 @@ async function reviewPullRequest(diff: string) {
 ### Batch Processing
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
 import * as fs from 'fs'
 import * as path from 'path'
 
 async function addDocstringsToFiles(filePaths: string[]) {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
-  })
+  const agents = await loadLocalAgents()
+  const client = new OpenbuffClient()
 
   const results = []
 
@@ -241,7 +230,8 @@ async function addDocstringsToFiles(filePaths: string[]) {
     const code = fs.readFileSync(filePath, 'utf-8')
 
     const { output } = await client.run({
-      agent: 'codebuff/base@latest',
+      agent: 'codebuff-local-cli',
+      agentDefinitions: Object.values(agents),
       prompt: `Add JSDoc comments to all functions in this file:\n\n${code}`,
     })
 
@@ -259,8 +249,6 @@ await addDocstringsToFiles(files)
 ### Code Refactoring
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
-
 const LEGACY_CODE = `
 function processData(data) {
   let result = [];
@@ -277,12 +265,12 @@ function processData(data) {
 `
 
 async function refactorCode(code: string) {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
-  })
+  const agents = await loadLocalAgents()
+  const client = new OpenbuffClient()
 
   const { output } = await client.run({
-    agent: 'codebuff/base@latest',
+    agent: 'codebuff-local-cli',
+    agentDefinitions: Object.values(agents),
     prompt: `Refactor this code to use modern JavaScript (arrow functions, 
              destructuring, array methods like filter/map):\n\n${code}`,
   })
@@ -294,13 +282,11 @@ async function refactorCode(code: string) {
 ### Providing Project Context
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
 import * as fs from 'fs'
 
 async function generateComponentWithContext() {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
-  })
+  const agents = await loadLocalAgents()
+  const client = new OpenbuffClient()
 
   // Provide existing files as context
   const projectFiles = {
@@ -309,7 +295,8 @@ async function generateComponentWithContext() {
   }
 
   const { output } = await client.run({
-    agent: 'codebuff/base@latest',
+    agent: 'codebuff-local-cli',
+    agentDefinitions: Object.values(agents),
     prompt: 'Create a new Card component that follows the same patterns as Button',
     projectFiles,
   })
@@ -341,12 +328,10 @@ jobs:
       - name: Run AI Review
         run: |
           npx ts-node scripts/ai-review.ts "${{ steps.diff.outputs.diff }}"
-        env:
-          CODEBUFF_API_KEY: ${{ secrets.CODEBUFF_API_KEY }}
 ```
 
 ## Resources
 
-- [GitHub](https://github.com/CodebuffAI/codebuff)
-- [Agent Store](https://codebuff.com/store)
-- [API Keys](https://codebuff.com/api-keys)
+- [GitHub](https://github.com/AnzoBenjamin/openbuff)
+- [Agent Store](https://openbuff.dev/store)
+- [Provider configuration](/docs/local-mode)

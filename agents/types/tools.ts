@@ -16,6 +16,7 @@ export type ToolName =
   | 'propose_edit_transaction'
   | 'propose_str_replace'
   | 'propose_write_file'
+  | 'query_index'
   | 'read_docs'
   | 'read_files'
   | 'read_proposal_workspace'
@@ -54,6 +55,7 @@ export interface ToolParamsMap {
   propose_edit_transaction: ProposeEditTransactionParams
   propose_str_replace: ProposeStrReplaceParams
   propose_write_file: ProposeWriteFileParams
+  query_index: QueryIndexParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_proposal_workspace: ReadProposalWorkspaceParams
@@ -414,6 +416,18 @@ export interface ProposeWriteFileParams {
   instructions: string
   /** Complete file content to write to the file. */
   content: string
+}
+
+/**
+ * Query the local codebase index to find relevant files by natural language or keyword.
+ */
+export interface QueryIndexParams {
+  /** Natural language query or keyword terms describing the files you are looking for. */
+  query: string
+  /** Maximum number of results to return. Defaults to 20. */
+  limit?: number
+  /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"]. */
+  fileTypes?: string[]
 }
 
 /**

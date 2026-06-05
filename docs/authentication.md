@@ -1,8 +1,16 @@
-# Authentication Flow for Codebuff
+# Authentication Flow (Legacy Codebuff Cloud)
+
+> **⚠️ Legacy documentation only.** This document describes the upstream Codebuff
+> cloud authentication flow. **Openbuff's local/BYOK mode does not require any
+> cloud authentication, API key, login, or browser-based OAuth.** All LLM
+> requests go directly from your terminal to your configured OpenAI-compatible
+> providers (see [Local/BYOK Provider Mode](./local-mode.md)). The flow below is
+> preserved for reference and for users who may still interact with the upstream
+> Codebuff hosted service.
 
 ## Overview
 
-Codebuff implements secure authentication between the CLI and web application using fingerprint-based device identification.
+Codebuff (upstream) implements secure authentication between the CLI and web application using fingerprint-based device identification.
 
 ## Core Authentication Flow
 
@@ -92,3 +100,10 @@ sequenceDiagram
 2. **Session Handling**: Sessions are tied to fingerprint_id and have expiration dates
 3. **Ownership Verification**: Check `sig_hash` matches or is null before allowing access
 4. **Error Handling**: Log security events for ownership conflicts and invalid attempts
+
+---
+
+> **Openbuff note:** None of the above database tables, sessions, fingerprints,
+> or OAuth flows are used when Openbuff runs in local/BYOK mode. The Openbuff
+> CLI skips authentication entirely and communicates directly with your
+> configured providers via `openbuff.json`.

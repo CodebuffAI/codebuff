@@ -94,7 +94,7 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
    npm install -g openbuff
    ```
 
-**Reference**: Issue [#294](https://github.com/CodebuffAI/codebuff/issues/294)
+**Reference**: Issue [#294](https://github.com/AnzoBenjamin/openbuff/issues/294)
 
 ---
 
@@ -129,7 +129,7 @@ Openbuff requires bash for command execution. This error appears when:
    set CODEBUFF_GIT_BASH_PATH=C:\path\to\bash.exe
    ```
 
-**Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
+**Reference**: Issue [#274](https://github.com/AnzoBenjamin/openbuff/issues/274)
 
 ---
 
@@ -152,7 +152,7 @@ Complex git commands may have issues with Windows path handling or shell escapin
    - Install: `wsl --install` in PowerShell (Admin)
    - Run openbuff inside WSL for best compatibility
 
-**Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
+**Reference**: Issue [#274](https://github.com/AnzoBenjamin/openbuff/issues/274)
 
 ---
 
@@ -176,7 +176,7 @@ When running Openbuff in Git Bash (MINGW64), the `start` command is not availabl
 
 1. **Manually open the login URL** (easiest):
    - Openbuff displays the login URL after the error
-   - Copy the full URL starting with `https://codebuff.com/login?auth_code=...`
+   - Copy the full URL from the terminal output
    - Paste into your browser
    - Complete login in browser
    - Return to terminal - login will succeed
@@ -195,7 +195,7 @@ When running Openbuff in Git Bash (MINGW64), the `start` command is not availabl
 
 > **Note:** Openbuff's local/BYOK mode (`openbuff.json` provider config) does not require browser login. This issue only applies when using the upstream Codebuff cloud authentication.
 
-**Reference**: Issue [#299](https://github.com/CodebuffAI/codebuff/issues/299)
+**Reference**: Issue [#299](https://github.com/AnzoBenjamin/openbuff/issues/299)
 
 ---
 
@@ -212,7 +212,7 @@ This is **not an error** - it's an informational message indicating:
 - If download fails, check your internet connection
 - If it persists, try the solutions in "Failed to determine latest version" above
 
-**Reference**: Issue [#299](https://github.com/CodebuffAI/codebuff/issues/299)
+**Reference**: Issue [#299](https://github.com/AnzoBenjamin/openbuff/issues/299)
 
 ---
 
@@ -220,8 +220,8 @@ This is **not an error** - it's an informational message indicating:
 
 If these solutions don't resolve your problem:
 
-1. **Search existing issues**: https://github.com/CodebuffAI/codebuff/issues
-2. **Open a new issue**: https://github.com/CodebuffAI/codebuff/issues/new
+1. **Search existing issues**: https://github.com/AnzoBenjamin/openbuff/issues
+2. **Open a new issue**: https://github.com/AnzoBenjamin/openbuff/issues/new
 3. **Join the community**: Participate via GitHub Discussions
 
 When reporting issues, please include:

@@ -1,27 +1,27 @@
 ---
-title: 'What Makes Codebuff Unique'
+title: 'What Makes Openbuff Unique'
 section: 'tips'
 tags: ['features', 'comparison', 'architecture']
 order: 1
 ---
 
-# What Makes Codebuff Unique
+# What Makes Openbuff Unique
 
-Codebuff is an open-source AI coding agent that coordinates specialized sub-agents instead of using one model for everything.
+Openbuff is an open-source, local-first, Bring Your Own Key (BYOK) fork of Codebuff — an AI coding agent that coordinates specialized sub-agents instead of using one model for everything. All LLM inference runs directly against your configured providers via `openbuff.json`, with no backend, credits, or subscriptions required.
 
  The result: better code quality and up to 3x faster performance than Claude Code, built on a deep agent framework continuously refined by our in-house evals
 
 ## 100+ Seconds Faster Than Claude Code
 
-Codebuff is dramatically faster—often completing features in 1/3 the time.
+Openbuff is dramatically faster—often completing features in 1/3 the time.
 
 {/* TODO: Add speed comparison image/video */}
 
 In real-world tests:
 - **Claude Code**: 19m 37s for a feature
-- **Codebuff**: 6m 45s for the same feature
+- **Openbuff**: 6m 45s for the same feature
 
-Further, in our evals, Codebuff is ~100 seconds faster on average per task.
+Further, in our evals, Openbuff is ~100 seconds faster on average per task.
 
 We achieve this through parallel agents, better file discovery (see below), and being willing to read all the related files in one go.
 
@@ -33,18 +33,18 @@ Claude Code can spend 5+ minutes grep-ing and reading file excerpts one at a tim
 
 {/* TODO: Add file picker screenshot */}
 
-Codebuff's approach:
+Openbuff's approach:
 1. **Parse your entire codebase**: We analyze all source files and extract function names, class names, and type names
 2. **Build a code tree**: This creates a compact tree of all directories, files, and symbols in your project
-3. **Grok 4.1 Fast scans the tree**: We feed this code tree to Grok 4.1 Fast, which identifies up to 12 relevant files in seconds
-4. **Gemini Flash summarizes**: Those 12 files are read and summarized by Gemini Flash
+3. **Configured file-picker agent scans the tree**: We feed this code tree to the configured file-picker model (set via `openbuff.json`), which identifies up to 12 relevant files in seconds
+4. **Fast summarizer agent summarizes**: Those 12 files are read and summarized by the configured summarizer model (also set via `openbuff.json`)
 5. **Main agent reads multiple files at once**: With the summaries, the main agent knows exactly what to read
 
 This entire process takes just a few seconds and efficiently conveys a lot of information to the agent. No more watching your agent slowly explore your codebase.
 
 ## Parallel Multi-Strategy Editing
 
-In MAX mode, Codebuff doesn't just try once—it tries three times in parallel with different strategies and picks the best result.
+In MAX mode, Openbuff doesn't just try once—it tries three times in parallel with different strategies and picks the best result.
 
 {/* TODO: Add multi-prompt editing diagram */}
 
@@ -58,7 +58,7 @@ This is remarkably efficient because all parallel agents share the cached conver
 
 ## Automatic Code Review
 
-Every prompt gets reviewed before Codebuff finishes.
+Every prompt gets reviewed before Openbuff finishes.
 
 {/* TODO: Add code review screenshot */}
 
@@ -75,17 +75,17 @@ Other tools show you "% context used" and make you worry about it.
 
 {/* TODO: Add context management diagram */}
 
-Codebuff handles context automatically:
+Openbuff handles context automatically:
 - **Smart compaction**: After the prompt cache expires (5 min idle), we automatically summarize the conversation—much more efficient for long sessions
 - **Non-lossy summaries**: 10-20 roundtrips preserved with full details
 - **Deterministic strategy**: User messages, assistant messages, tool calls—all kept
-- **Immediate re-reading**: Codebuff quickly re-reads any relevant files it needs after compaction
+- **Immediate re-reading**: Openbuff quickly re-reads any relevant files it needs after compaction
 
 You never think about context. It just works.
 
 ## Open Source Multi-Agent Framework
 
-Our entire agent framework is [open source](/docs/advanced/sdk). The same code that powers Codebuff powers your custom agents.
+Our entire agent framework is [open source](/docs/advanced/sdk). The same code that powers Openbuff powers your custom agents.
 
 {/* TODO: Add agent framework diagram */}
 
@@ -108,7 +108,7 @@ Spawned agents contribute only their final output, keeping the orchestrator's co
 
 ## Research-Driven Agent Development
 
-We built [BuffBench](https://github.com/CodebuffAI/codebuff/tree/main/evals)—our custom eval suite that tests agent configurations across 175+ real implementation tasks from open source repos.
+We built [BuffBench](https://github.com/AnzoBenjamin/openbuff/tree/main/evals)—our custom eval suite that tests agent configurations across 175+ real implementation tasks from open source repos.
 
 {/* TODO: Add BuffBench results chart */}
 
@@ -121,19 +121,9 @@ BuffBench takes a fundamentally different approach from benchmarks like SWE Benc
 
 Our research isn't theoretical—it's deployed in production, constantly refined by real-world testing.
 
-## Ad Revenue Share
-
-Codebuff optionally displays ads above the input box. Each impression earns you credits you can spend on more coding agent usage.
-
-{/* TODO: Add ad display screenshot */}
-
-- **Earn while you code**: Ad impressions convert directly to credits
-- **Completely optional**: Turn ads off at any time in settings
-- **Use credits for more prompts**: Earned credits work just like purchased credits
-
 ## Polished Terminal UI
 
-Codebuff's CLI is built on [OpenTUI](https://github.com/anomalyco/opentui)—a React-based terminal framework.
+Openbuff's CLI is built on [OpenTUI](https://github.com/anomalyco/opentui)—a React-based terminal framework.
 
 {/* TODO: Add CLI screenshot */}
 
@@ -143,17 +133,17 @@ Codebuff's CLI is built on [OpenTUI](https://github.com/anomalyco/opentui)—a R
 
 ## Clickable Follow-up Suggestions
 
-After every response, Codebuff suggests three follow-up prompts you can click to execute.
+After every response, Openbuff suggests three follow-up prompts you can click to execute.
 
 {/* TODO: Add follow-up suggestions screenshot */}
 
-- Codebuff often has ideas you didn't think of
+- Openbuff often has ideas you didn't think of
 - One click to continue building
-- A step toward Codebuff as a collaborative partner
+- A step toward Openbuff as a collaborative partner
 
 ## No Babysitting Required
 
-When you ask Codebuff to do something, it just does it. No permission prompts. No "Are you sure?" dialogs.
+When you ask Openbuff to do something, it just does it. No permission prompts. No "Are you sure?" dialogs.
 
 {/* TODO: Add comparison screenshot */}
 
@@ -162,7 +152,13 @@ You can step away and come back to finished work.
 ## Try It Now
 
 ```bash
-npm install -g codebuff
+npm install -g openbuff
 ```
 
-Then `cd` to your project and run `codebuff`. Experience the difference in seconds.
+Then `cd` to your project and run:
+
+```bash
+openbuff
+```
+
+Configure your providers in `openbuff.json` — see the local-mode docs in the repository for details.

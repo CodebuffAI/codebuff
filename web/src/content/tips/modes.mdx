@@ -7,7 +7,7 @@ order: 2
 
 # Modes
 
-Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` commands.
+Openbuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` commands.
 
 <MarkdownTable>
   | Mode | Model | Editor Agent | Code Review | | --- | --- | --- | --- | --- |
@@ -20,9 +20,9 @@ Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` co
 
 Standard mode with Claude Opus 4.7:
 
-- Spawns [file pickers](/publishers/codebuff/agents/file-picker) and [code searchers](/publishers/codebuff/agents/code-searcher) to gather context
-- Uses the [`editor`](/publishers/codebuff/agents/editor) agent for code changes
-- Spawns [`thinker`](/publishers/codebuff/agents/thinker) for complex problems
+- Spawns [file pickers](/publishers/openbuff/agents/file-picker) and [code searchers](/publishers/openbuff/agents/code-searcher) to gather context
+- Uses the [`editor`](/publishers/openbuff/agents/editor) agent for code changes
+- Spawns [`thinker`](/publishers/openbuff/agents/thinker) for complex problems
 - Runs code review after changes
 - Validates with typechecks and tests
 
@@ -33,9 +33,9 @@ Switch to this mode with `/mode:default`.
 Claude Opus 4.7 with best-of-N selection:
 
 - Reads 12-20+ files per task
-- Spawns multiple [editor](/publishers/codebuff/agents/editor) agents in parallel, each with a different strategy
+- Spawns multiple [editor](/publishers/openbuff/agents/editor) agents in parallel, each with a different strategy
 - A selector compares outputs and picks the best one
-- Spawns [`thinker-best-of-n-opus`](/publishers/codebuff/agents/thinker-best-of-n-opus) for hard problems
+- Spawns [`thinker-best-of-n-opus`](/publishers/openbuff/agents/thinker-best-of-n-opus) for hard problems
 - Spawns multiple reviewers with different focus areas
 - Runs typechecks and tests on both the changed files and the full project
 

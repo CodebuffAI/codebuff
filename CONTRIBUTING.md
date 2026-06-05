@@ -2,6 +2,8 @@
 
 Hey there! 👋 Thanks for contributing to Openbuff. Bug fixes, features, and documentation improvements are welcome.
 
+> **Openbuff is a local-first, BYOK (Bring Your Own Key) fork of Codebuff.** If you only want to use or develop the CLI with your own API keys, you do **not** need Docker, a database, GitHub OAuth credentials, or credits — just configure `openbuff.json` with your providers and run `bun start-cli`. The cloud infrastructure (web server, database, credit system) is only needed when developing the hosted web application.
+
 ## Getting Started
 
 ### Prerequisites
@@ -9,15 +11,15 @@ Hey there! 👋 Thanks for contributing to Openbuff. Bug fixes, features, and do
 Before you begin, you'll need to install a few tools:
 
 1. **Bun** (our primary package manager): Follow the [Bun installation guide](https://bun.sh/docs/installation)
-2. **Docker**: Required for the web server database
+2. **Docker**: Required for the hosted web server database (not needed for local BYOK CLI development)
 
 ### Setting Up Your Development Environment
 
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/CodebuffAI/codebuff.git
-   cd codebuff
+   git clone https://github.com/AnzoBenjamin/openbuff.git
+   cd openbuff
    ```
 
 2. **Set up environment variables**:
@@ -34,15 +36,17 @@ Before you begin, you'll need to install a few tools:
 
 The `.env.example` provides defaults. When you create ` .env.local` make sure to update the following important fields for local development:
 
-- **OPEN_ROUTER_API_KEY**: set to your OpenRouter key (used for LLM calls). Example:
+> **BYOK / local CLI only?** You do not need any of the cloud variables below. Instead, configure `openbuff.json` in your project root with your provider API keys and run `bun start-cli` directly.
+
+- **OPEN_ROUTER_API_KEY**: set to your OpenRouter key (used for LLM calls by the hosted web app). Example:
   - `OPEN_ROUTER_API_KEY=sk-or-v1-...`
 - **GRAVITY_API_KEY**: optional; use `test` for ad/analytics testing in dev.
 - **PORT**: the example defaults to `4242`. This repo commonly runs on `3000` during development — set `PORT=3000` if you want the web app on `http://localhost:3000`.
 - **NEXTAUTH_URL**: when using port 3000 set `NEXTAUTH_URL=http://localhost:3000` to ensure OAuth callbacks work.
-- **CODEBUFF_GITHUB_ID** / **CODEBUFF_GITHUB_SECRET**: your GitHub OAuth app credentials — required to sign in locally via GitHub.
-- **DATABASE_URL**: confirm this points to your local Docker Postgres (default is fine for the built-in Docker setup):
+- **CODEBUFF_GITHUB_ID** / **CODEBUFF_GITHUB_SECRET**: GitHub OAuth app credentials — only required when developing the hosted web app sign-in flow. Not needed for local BYOK CLI development.
+- **DATABASE_URL**: confirm this points to your local Docker Postgres (default is fine for the built-in Docker setup). Only needed for hosted web app development:
   - `DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
-- **CODEBUFF_API_KEY**: optional CLI fallback — you can `export CODEBUFF_API_KEY=<your-key>` for CLI commands.
+- **CODEBUFF_API_KEY**: optional CLI fallback for the legacy hosted Codebuff API — not required for Openbuff BYOK mode.
 
 Notes / gotchas:
 
@@ -97,7 +101,7 @@ Notes / gotchas:
 
    Edit your row in the `credit_ledger` table to set the `principal` to whatever you like and the `balance` to equal it.
 
-   Now, you should be able to run the CLI commands locally from within the `codebuff` directory.
+   Now, you should be able to run the CLI commands locally from within the `openbuff` directory.
 
 7. **Running in other directories**:
 
@@ -152,7 +156,7 @@ Not sure where to start? Here are some great ways to jump in:
 - **New here?** Look for issues labeled `good first issue` - they're perfect for getting familiar with the codebase
 - **Ready for more?** Check out `help wanted` issues where we could really use your expertise
 - **Have an idea?** Browse open issues or create a new one to discuss it
-- **Want to chat?** Open a [GitHub Issue](https://github.com/CodebuffAI/codebuff/issues) - the team loves discussing new ideas!
+- **Want to chat?** Open a [GitHub Issue](https://github.com/AnzoBenjamin/openbuff/issues) - the team loves discussing new ideas!
 
 ### Development Workflow
 
@@ -257,10 +261,10 @@ Improve `web/`: agent management, project templates, analytics.
 - **Using Infisical?** See the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for team secrets management
 - **Empty Agent Store in dev mode?** This is expected behavior - agents from `.agents/` directory need to be published to the database to appear in the marketplace
 
-**Questions?** Open a [GitHub Issue](https://github.com/CodebuffAI/codebuff/issues) - we're friendly and always happy to help!
+**Questions?** Open a [GitHub Issue](https://github.com/AnzoBenjamin/openbuff/issues) - we're friendly and always happy to help!
 
 ## Resources
 
 - **Documentation**: See the [docs/](./docs) directory and [AGENTS.md](./AGENTS.md)
-- **Community & Support**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
-- **Report issues**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+- **Community & Support**: [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
+- **Report issues**: [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)

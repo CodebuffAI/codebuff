@@ -1,7 +1,9 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { IndexManager } from '@codebuff/indexer'
 import {
   getChatGptOAuthCredentials,
   getValidChatGptOAuthCredentials,
+  loadProviderConfigSync,
 } from '@codebuff/sdk'
 import { enableMapSet } from 'immer'
 
@@ -38,6 +40,15 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   initializeThemeStore()
   enableManualThemeRefresh()
   initTimestampFormatter()
+
+  try {
+    const indexingConfig = loadProviderConfigSync().config.indexing
+    if (indexingConfig.enabled !== false) {
+      IndexManager.getInstance(baseCwd, indexingConfig).ensureBuilt()
+    }
+  } catch (error) {
+    console.debug('Failed to start codebase index:', error)
+  }
 
   // Compute the hardware-based fingerprint in the background so it's ready
   // by the time the user finishes reading the login prompt.

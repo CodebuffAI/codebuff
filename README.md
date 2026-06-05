@@ -8,13 +8,6 @@ Instead of using one model for everything, Openbuff coordinates specialized agen
 
 > **Fork & compatibility note:** Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. You provide your own keys for user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
 
-<div align="center">
-  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
-</div>
-
-Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
-
-
 ## How it works
 
 When you ask Openbuff to "add authentication to my API," it might invoke:
@@ -23,10 +16,6 @@ When you ask Openbuff to "add authentication to my API," it might invoke:
 2. A **Planner Agent** to plan which files need changes and in what order
 3. An **Editor Agent** to make precise edits
 4. A **Reviewer Agent** to validate changes
-
-<div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
-</div>
 
 This multi-agent approach gives you better context understanding, more accurate edits, and fewer errors compared to single-model tools.
 
@@ -248,7 +237,7 @@ Some ways you can help:
 - 🐛 **Fix bugs** or add features
 - 🤖 **Create specialized agents** and share reusable local templates
 - 📚 **Improve documentation** or write tutorials
-- 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+- 💡 **Share ideas** in our [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
 
 ## Get started
 
@@ -264,10 +253,7 @@ Some ways you can help:
 
 **Documentation**: See the [docs/](./docs) directory and [AGENTS.md](./AGENTS.md) for project docs.
 
-**Community & Support**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+**Community & Support**: [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
 
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)

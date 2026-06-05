@@ -16,9 +16,8 @@ Choose the mode you are using:
 
 ### Hosted Codebuff API (legacy)
 
-To call agents on the hosted Codebuff cloud (e.g. `codebuff/base@0.0.16`), you need a Codebuff API key:
+To call agents on the hosted Codebuff cloud (e.g. `codebuff/base@0.0.16`), you need a Codebuff API key from [codebuff.com](https://codebuff.com).
 
-- Create a Codebuff account and get your [Codebuff API key](https://www.codebuff.com/api-keys).
 - Set `CODEBUFF_API_KEY` in your environment or pass it to the constructor.
 
 ```typescript
@@ -52,7 +51,7 @@ async function main() {
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Openbuff Event', JSON.stringify(event))
     },
   })
 
@@ -62,7 +61,7 @@ async function main() {
     prompt: 'Add unit tests for the calculator',
     previousRun: runState1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Openbuff Event', JSON.stringify(event))
     },
   })
 }
@@ -138,7 +137,7 @@ async function main() {
 
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Openbuff Event', JSON.stringify(event))
     },
   })
 
@@ -213,7 +212,7 @@ for (const agent of Object.values(agents)) {
 }
 
 // Use the loaded agents with client.run()
-const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+const client = new CodebuffClient()
 const result = await client.run({
   agent: 'my-custom-agent',
   agentDefinitions: Object.values(agents),

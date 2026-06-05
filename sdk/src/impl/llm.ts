@@ -61,7 +61,7 @@ function calculateUsedCredits(params: { costDollars: number }): number {
 }
 
 export function getProviderOptions(params: {
-  model: string
+  model?: string
   runId: string
   clientSessionId: string
   providerOptions?: Record<string, JSONObject>
@@ -72,7 +72,7 @@ export function getProviderOptions(params: {
   extraCodebuffMetadata?: Record<string, string>
 }): { openbuff: JSONObject } {
   const {
-    model,
+    model = '',
     runId,
     clientSessionId,
     providerOptions,
@@ -532,7 +532,7 @@ export async function* promptAiSdkStream(
       aiSDKModel = modelResult.model
       isChatGptOAuth = modelResult.isChatGptOAuth
       compatibility = modelResult.compatibility
-      const reasoningEffort = modelResult.reasoningEffort
+      const { reasoningEffort, effectiveModel } = modelResult
 
       if (isChatGptOAuth && attempt === 0) {
         trackEvent({
@@ -555,6 +555,10 @@ export async function* promptAiSdkStream(
           ? providerOptionsWithReasoning
           : getProviderOptions({
             ...params,
+            // Use the resolved effective model (post-openbuff.json routing) so
+            // provider ordering and allow_fallbacks are based on the actual
+            // model being used, not the optional requested template field.
+            model: effectiveModel,
             providerOptions: providerOptionsWithReasoning,
             agentProviderOptions: params.agentProviderOptions,
           })
@@ -1053,7 +1057,7 @@ export async function promptAiSdk(
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
     localMode: params.localMode,
   }
-  const { model: aiSDKModel, compatibility, reasoningEffort } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelSdk } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
     (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
@@ -1063,6 +1067,7 @@ export async function promptAiSdk(
     ? providerOptionsWithReasoning
     : getProviderOptions({
       ...params,
+      model: effectiveModelSdk,
       providerOptions: providerOptionsWithReasoning,
       agentProviderOptions: params.agentProviderOptions,
       cacheDebugCorrelation: params.cacheDebugCorrelation,
@@ -1139,7 +1144,7 @@ export async function promptAiSdkStructured<T>(
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
     localMode: params.localMode,
   }
-  const { model: aiSDKModel, compatibility, reasoningEffort } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelStructured } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
     (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
@@ -1149,6 +1154,7 @@ export async function promptAiSdkStructured<T>(
     ? providerOptionsWithReasoning
     : getProviderOptions({
       ...params,
+      model: effectiveModelStructured,
       providerOptions: providerOptionsWithReasoning,
       agentProviderOptions: params.agentProviderOptions,
       cacheDebugCorrelation: params.cacheDebugCorrelation,

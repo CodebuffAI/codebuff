@@ -81,7 +81,7 @@ jobs:
           # Set default environment variables
           echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
 
-          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.OPENBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
           # Apply environment variable overrides
           if [ "$ENV_OVERRIDES" != "{}" ]; then

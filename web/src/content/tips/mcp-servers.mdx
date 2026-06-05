@@ -7,11 +7,11 @@ order: 4
 
 # MCP Servers
 
-The Model Context Protocol (MCP) is an open standard that lets you connect AI agents to external tools and data sources. Codebuff agents can use MCP servers to access APIs, databases, and other services.
+The Model Context Protocol (MCP) is an open standard that lets you connect AI agents to external tools and data sources. Openbuff agents can use MCP servers to access APIs, databases, and other services.
 
 ## Quick Start: Using mcp.json
 
-The easiest way to add MCP tools to Codebuff is with a `mcp.json` file in your `.agents/` directory. MCP servers configured here are automatically available to all base agents (base2, base2-max, etc.).
+The easiest way to add MCP tools to Openbuff is with a `mcp.json` file in your `.agents/` directory. MCP servers configured here are automatically available to all base agents (base2, base2-max, etc.).
 
 ### Example: Notion Integration
 
@@ -31,18 +31,18 @@ Create `.agents/mcp.json`:
 }
 ```
 
-That's it! Now Codebuff can query your Notion workspace. Just set your `NOTION_TOKEN` environment variable and start using Notion tools in any conversation.
+That's it! Now Openbuff can query your Notion workspace. Just set your `NOTION_TOKEN` environment variable and start using Notion tools in any conversation.
 
 ### Setup Steps
 
-1. Run `/init` within Codebuff to set up your `.agents` directory (if you haven't already)
+1. Run `/init` within Openbuff to set up your `.agents` directory (if you haven't already)
 2. Create `.agents/mcp.json` with your MCP server configuration
 3. Set any required environment variables (e.g., `export NOTION_TOKEN="your-token"`)
-4. Start Codebuff — the MCP tools are now available!
+4. Start Openbuff — the MCP tools are now available!
 
 ### Search Order
 
-Codebuff searches for `mcp.json` in these locations (later ones override earlier):
+Openbuff searches for `mcp.json` in these locations (later ones override earlier):
 
 1. `{cwd}/.agents/mcp.json` — Project-specific MCP servers
 2. `{cwd}/../.agents/mcp.json` — Parent directory (useful for monorepos)
@@ -285,7 +285,7 @@ Browse available MCP servers at:
 **MCP tools not appearing:**
 - Check that `mcp.json` is valid JSON (no trailing commas, proper quoting)
 - Verify the file is in `.agents/mcp.json` (not just `.agents/`)
-- Restart Codebuff after adding or modifying `mcp.json`
+- Restart Openbuff after adding or modifying `mcp.json`
 
 **Environment variable not found:**
 - Ensure the variable is exported in your shell
