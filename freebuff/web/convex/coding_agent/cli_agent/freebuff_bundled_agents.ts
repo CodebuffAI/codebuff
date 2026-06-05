@@ -1,10 +1,12 @@
-import base2Free from '../../../../../agents/base2/base2-free'
-import base2FreeDeepseek from '../../../../../agents/base2/base2-free-deepseek'
-import base2FreeDeepseekFlash from '../../../../../agents/base2/base2-free-deepseek-flash'
-import base2FreeKimi from '../../../../../agents/base2/base2-free-kimi'
+import { createBase2 } from '../../../../../agents/base2/base2'
 import basher from '../../../../../agents/basher'
 import browserUse from '../../../../../agents/browser-use/browser-use'
 import contextPruner from '../../../../../agents/context-pruner'
+import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
 import codeReviewerDeepseek from '../../../../../agents/reviewer/code-reviewer-deepseek'
 import codeReviewerDeepseekFlash from '../../../../../agents/reviewer/code-reviewer-deepseek-flash'
 import codeReviewerKimi from '../../../../../agents/reviewer/code-reviewer-kimi'
@@ -22,6 +24,39 @@ import thinkerWithFilesGemini from '../../../../../agents/thinker/thinker-with-f
 import tmuxCli from '../../../../../agents/tmux-cli'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
+const base2Free = {
+  ...createBase2('free', { noReview: true }),
+  id: 'base2-free',
+  displayName: 'Buffy the Free Orchestrator',
+}
+
+const base2FreeDeepseek = {
+  ...createBase2('free', {
+    model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-deepseek',
+  displayName: 'Buffy the DeepSeek Free Orchestrator',
+}
+
+const base2FreeDeepseekFlash = {
+  ...createBase2('free', {
+    model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-deepseek-flash',
+  displayName: 'Buffy the DeepSeek Flash Free Orchestrator',
+}
+
+const base2FreeKimi = {
+  ...createBase2('free', {
+    model: FREEBUFF_KIMI_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-kimi',
+  displayName: 'Buffy the Kimi Free Orchestrator',
+}
 
 export const bundledAgentDefinitions = [
   base2Free,

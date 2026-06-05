@@ -45,6 +45,8 @@ export type AdDeviceInfo = {
   locale?: string
 }
 
+export type GravityContext = Record<string, unknown>
+
 export type AdSurface = 'waiting_room'
 
 export type FetchAdInput = {
@@ -57,6 +59,8 @@ export type FetchAdInput = {
   userAgent?: string
   /** Product User-Agent header sent on provider HTTP requests. */
   requestUserAgent?: string
+  /** Client SDK context from Gravity-capable browser surfaces. */
+  gravityContext?: GravityContext
   device?: AdDeviceInfo
   /** Product surface requesting the ad. Providers may map this to placements. */
   surface?: AdSurface

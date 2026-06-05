@@ -59,6 +59,16 @@ async function readStoredRunState(
   return JSON.parse(await blob.text())
 }
 
+async function readRunStateFromStorage(
+  ctx: ActionCtx,
+  storageId: Id<'_storage'> | undefined,
+) {
+  if (!storageId) return undefined
+  const blob = await ctx.storage.get(storageId)
+  if (!blob) return undefined
+  return JSON.parse(await blob.text())
+}
+
 async function buildUserMessageWithImages(
   ctx: ActionCtx,
   userMessage: string,
@@ -177,6 +187,8 @@ type FreebuffRunEvent = {
     | 'reasoning_delta'
     | 'subagent_delta'
     | 'status'
+    | 'ask_user_pause'
+    | 'time_limit_pause'
     | 'error'
     | 'final'
   chunk?: string
@@ -184,6 +196,8 @@ type FreebuffRunEvent = {
   title?: string
   content?: string
   message?: string
+  questions?: AskUserQuestion[]
+  preserveThreadSession?: boolean
 }
 
 async function recordRunEvent(args: {
@@ -284,6 +298,73 @@ function asJson(value: unknown) {
   return [{ type: 'json', value }]
 }
 
+type AskUserOption = {
+  label: string
+  description?: string
+}
+
+type AskUserQuestion = {
+  question: string
+  header?: string
+  options: AskUserOption[]
+  multiSelect?: boolean
+}
+
+const ASK_USER_PAUSE_MESSAGE = 'Freebuff paused for user input.'
+
+function sanitizeAskUserQuestions(value: unknown): AskUserQuestion[] {
+  const rawQuestions =
+    value &&
+    typeof value === 'object' &&
+    'questions' in value &&
+    Array.isArray((value as { questions?: unknown }).questions)
+      ? (value as { questions: unknown[] }).questions
+      : []
+
+  return rawQuestions
+    .map((rawQuestion): AskUserQuestion | null => {
+      if (!rawQuestion || typeof rawQuestion !== 'object') return null
+
+      const record = rawQuestion as Record<string, unknown>
+      const question = String(record.question ?? '').trim()
+      const rawOptions = Array.isArray(record.options) ? record.options : []
+      const options = rawOptions
+        .map((rawOption): AskUserOption | null => {
+          if (!rawOption || typeof rawOption !== 'object') return null
+          const option = rawOption as Record<string, unknown>
+          const label = String(option.label ?? '').trim()
+          if (!label) return null
+          const description = String(option.description ?? '').trim()
+          return {
+            label,
+            ...(description ? { description } : {}),
+          }
+        })
+        .filter((option): option is AskUserOption => option !== null)
+
+      if (!question || options.length === 0) return null
+      const header = String(record.header ?? '').trim()
+      return {
+        question,
+        ...(header ? { header } : {}),
+        options,
+        multiSelect: record.multiSelect === true,
+      }
+    })
+    .filter((question): question is AskUserQuestion => question !== null)
+}
+
+function createAskUserPauseError(input: unknown) {
+  const error = new Error(ASK_USER_PAUSE_MESSAGE) as Error & {
+    codebuffRunPaused: true
+    askUserInput: unknown
+  }
+  error.name = 'CodebuffRunPausedError'
+  error.codebuffRunPaused = true
+  error.askUserInput = input
+  return error
+}
+
 function normalizePath(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
@@ -319,8 +400,23 @@ function parseCreateDiff(diff: string) {
     .join('\n')
 }
 
-function buildFreebuffOverrideTools(codebase: DaytonaCodebase) {
+function buildFreebuffOverrideTools(
+  codebase: DaytonaCodebase,
+  options: {
+    onAskUser?: (input: unknown) => never
+  } = {},
+) {
   return {
+    ask_user: async (input: any) => {
+      if (options.onAskUser) {
+        options.onAskUser(input)
+      }
+
+      return asJson({
+        errorMessage: 'Freebuff ask user handling is not available.',
+      })
+    },
+
     read_files: async (input: any) => {
       const filePaths = Array.isArray(input?.filePaths) ? input.filePaths : []
       const results: Record<string, string | null> = {}
@@ -364,9 +460,9 @@ function buildFreebuffOverrideTools(codebase: DaytonaCodebase) {
       assertProjectPath(filePath)
 
       if (input?.content !== undefined || input?.type === 'patch') {
-        return await (buildFreebuffOverrideTools(codebase) as any).write_file(
-          input,
-        )
+        return await (
+          buildFreebuffOverrideTools(codebase, options) as any
+        ).write_file(input)
       }
 
       const oldString = String(input?.old_str ?? input?.oldString ?? '')
@@ -508,6 +604,58 @@ function buildCommitMessage(userMessage: string): string {
   return trimmed ? `Freebuff: ${trimmed}` : 'Freebuff: update project files'
 }
 
+async function enqueueFreebuffReviewRun(args: {
+  ctx: ActionCtx
+  projectId: Id<'project'>
+  threadId: Id<'agent_thread'>
+  previousRunStateStorageId: Id<'_storage'> | undefined
+}) {
+  if (!args.previousRunStateStorageId) return
+
+  const runId = crypto.randomUUID()
+  const messageId = (await args.ctx.runMutation(
+    internal.coding_agent.cli_agent.agent_message.createAgentMessage,
+    {
+      threadId: args.threadId,
+      sessionId: runId,
+    },
+  )) as Id<'agent_message'>
+
+  await args.ctx.runMutation(
+    (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+      .createFreebuffAgentRun,
+    {
+      runId,
+      projectId: args.projectId,
+      threadId: args.threadId,
+      messageId,
+    },
+  )
+
+  const workId = await freebuffAgentWorkpool.enqueueAction(
+    args.ctx,
+    (internal as any).coding_agent.cli_agent.executeFreebuff
+      .runFreebuffReviewAgent,
+    {
+      runId,
+      projectId: args.projectId,
+      threadId: args.threadId,
+      messageId,
+      previousRunStateStorageId: args.previousRunStateStorageId,
+    },
+    { retry: false },
+  )
+
+  await args.ctx.runMutation(
+    (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+      .setFreebuffAgentRunWorkId,
+    {
+      runId,
+      workId: String(workId),
+    },
+  )
+}
+
 export const runFreebuffAgent = internalAction({
   args: {
     runId: v.string(),
@@ -526,6 +674,8 @@ export const runFreebuffAgent = internalAction({
 
     const eventBuffer = createRunEventBuffer({ ctx, ...args })
     await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
+    let pendingAskUserQuestions: AskUserQuestion[] | undefined
+    let sawCodeChangingTool = false
 
     const abortController = new AbortController()
     const timeoutHandle = setTimeout(() => {
@@ -559,7 +709,191 @@ export const runFreebuffAgent = internalAction({
         previousRun: await readStoredRunState(ctx, args.threadId),
         costMode: 'normal',
         signal: abortController.signal,
-        overrideTools: buildFreebuffOverrideTools(codebase) as any,
+        overrideTools: buildFreebuffOverrideTools(codebase, {
+          onAskUser: (input) => {
+            pendingAskUserQuestions = sanitizeAskUserQuestions(input)
+            throw createAskUserPauseError(input)
+          },
+        }) as any,
+        handleEvent: async (event: any) => {
+          if (event.type === 'tool_call') {
+            if (
+              ['apply_patch', 'str_replace', 'write_file'].includes(
+                String(event.toolName ?? ''),
+              )
+            ) {
+              sawCodeChangingTool = true
+            }
+            await eventBuffer.flush()
+            await recordRunEvent({
+              ctx,
+              ...args,
+              event: {
+                type: 'status',
+                title:
+                  event.toolName === 'ask_user'
+                    ? 'Ask user'
+                    : event.toolName ?? 'Tool',
+                content:
+                  event.toolName === 'ask_user'
+                    ? 'Waiting for your answer'
+                    : 'Running tool',
+              },
+            })
+          }
+        },
+        handleStreamChunk: async (chunk: any) => {
+          if (typeof chunk === 'string') {
+            eventBuffer.append({ type: 'text_delta', chunk })
+          } else if (chunk.type === 'reasoning_chunk') {
+            eventBuffer.append({
+              type: 'reasoning_delta',
+              chunk: chunk.chunk ?? '',
+            })
+          } else if (chunk.type === 'subagent_chunk') {
+            eventBuffer.append({
+              type: 'subagent_delta',
+              agentType: chunk.agentType,
+              chunk: chunk.chunk ?? '',
+            })
+          }
+        },
+      })
+
+      await eventBuffer.flush()
+
+      // Always persist run state (success or error) when sessionState exists,
+      // so a follow-up "continue" prompt can resume from the same history.
+      const runStateStorageId = runState.sessionState
+        ? await persistRunState(ctx, runState)
+        : undefined
+
+      if (runState.output?.type === 'error') {
+        if (
+          runState.output.message === ASK_USER_PAUSE_MESSAGE &&
+          pendingAskUserQuestions?.length
+        ) {
+          await recordRunEvent({
+            ctx,
+            ...args,
+            event: {
+              type: 'ask_user_pause',
+              questions: pendingAskUserQuestions,
+            },
+            runStateStorageId,
+          })
+          return null
+        }
+
+        const isLocalTimeout = abortController.signal.aborted
+        const message = isLocalTimeout
+          ? 'Freebuff stopped after 9 minutes. Type continue to resume from the current state.'
+          : runState.output.message
+        await recordRunEvent({
+          ctx,
+          ...args,
+          event: { type: isLocalTimeout ? 'time_limit_pause' : 'error', message },
+          runStateStorageId,
+        })
+        return null
+      }
+
+      try {
+        await ctx.runAction(internal.codesandbox.versionControl.commit, {
+          projectId: args.projectId,
+          message: buildCommitMessage(args.userMessage),
+        })
+      } catch (commitError) {
+        console.warn(
+          '[vly-freebuff-workpool] post-run commit failed',
+          commitError,
+        )
+        // Non-fatal: still mark the run as completed.
+      }
+
+      await recordRunEvent({
+        ctx,
+        ...args,
+        event: { type: 'final' },
+        runStateStorageId,
+      })
+
+      if (sawCodeChangingTool) {
+        try {
+          await enqueueFreebuffReviewRun({
+            ctx,
+            projectId: args.projectId,
+            threadId: args.threadId,
+            previousRunStateStorageId: runStateStorageId,
+          })
+        } catch (reviewError) {
+          console.warn(
+            '[vly-freebuff-workpool] failed to enqueue review run',
+            reviewError,
+          )
+        }
+      }
+
+      return null
+    } catch (error) {
+      await eventBuffer.flush()
+      await recordRunEvent({
+        ctx,
+        ...args,
+        event: {
+          type: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      })
+      throw error
+    } finally {
+      clearTimeout(timeoutHandle)
+    }
+  },
+})
+
+export const runFreebuffReviewAgent = internalAction({
+  args: {
+    runId: v.string(),
+    projectId: v.id('project'),
+    threadId: v.id('agent_thread'),
+    messageId: v.id('agent_message'),
+    previousRunStateStorageId: v.id('_storage'),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.runMutation(
+      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+        .markFreebuffAgentRunRunning,
+      { runId: args.runId },
+    )
+
+    const eventBuffer = createRunEventBuffer({ ctx, ...args })
+    await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
+
+    const abortController = new AbortController()
+    const timeoutHandle = setTimeout(() => {
+      abortController.abort(
+        new Error('Freebuff review exceeded 9-minute time limit'),
+      )
+    }, FREEBUFF_RUN_TIMEOUT_MS)
+
+    try {
+      installPromiseWithResolversPolyfill()
+
+      const runState = await run({
+        apiKey: requireEnv('CODEBUFF_API_KEY'),
+        fingerprintId: `${args.projectId}:review`,
+        agent: 'code-reviewer-lite',
+        agentDefinitions: bundledAgentDefinitions,
+        prompt:
+          'Review the completed Freebuff changes. Be concise. If there are no important issues, say it looks good in one sentence.',
+        previousRun: await readRunStateFromStorage(
+          ctx,
+          args.previousRunStateStorageId,
+        ),
+        costMode: 'normal',
+        signal: abortController.signal,
         handleEvent: async (event: any) => {
           if (event.type === 'tool_call') {
             await eventBuffer.flush()
@@ -594,44 +928,26 @@ export const runFreebuffAgent = internalAction({
 
       await eventBuffer.flush()
 
-      // Always persist run state (success or error) when sessionState exists,
-      // so a follow-up "continue" prompt can resume from the same history.
-      const runStateStorageId = runState.sessionState
-        ? await persistRunState(ctx, runState)
-        : undefined
-
       if (runState.output?.type === 'error') {
         const isLocalTimeout = abortController.signal.aborted
-        const message = isLocalTimeout
-          ? 'Freebuff stopped after 9 minutes. Type continue to resume from the current state.'
-          : runState.output.message
         await recordRunEvent({
           ctx,
           ...args,
-          event: { type: 'error', message },
-          runStateStorageId,
+          event: {
+            type: 'error',
+            message: isLocalTimeout
+              ? 'Freebuff review stopped after 9 minutes. The main run is still saved.'
+              : runState.output.message,
+            preserveThreadSession: true,
+          },
         })
         return null
-      }
-
-      try {
-        await ctx.runAction(internal.codesandbox.versionControl.commit, {
-          projectId: args.projectId,
-          message: buildCommitMessage(args.userMessage),
-        })
-      } catch (commitError) {
-        console.warn(
-          '[vly-freebuff-workpool] post-run commit failed',
-          commitError,
-        )
-        // Non-fatal: still mark the run as completed.
       }
 
       await recordRunEvent({
         ctx,
         ...args,
-        event: { type: 'final' },
-        runStateStorageId,
+        event: { type: 'final', preserveThreadSession: true },
       })
 
       return null
@@ -643,6 +959,7 @@ export const runFreebuffAgent = internalAction({
         event: {
           type: 'error',
           message: error instanceof Error ? error.message : String(error),
+          preserveThreadSession: true,
         },
       })
       throw error

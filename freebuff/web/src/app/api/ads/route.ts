@@ -13,6 +13,7 @@ const messageSchema = z.object({
 const bodySchema = z.object({
   messages: z.array(messageSchema).optional().default([]),
   sessionId: z.string().optional(),
+  gravity_context: z.record(z.string(), z.unknown()).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
       provider: 'gravity',
       messages: parsed.data.messages,
       sessionId: parsed.data.sessionId,
+      gravity_context: parsed.data.gravity_context,
       userAgent: request.headers.get('user-agent') ?? undefined,
     },
   })

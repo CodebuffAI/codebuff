@@ -98,4 +98,61 @@ describe('Gravity ad provider', () => {
       { placement: 'below_response', placement_id: 'waiting-room-4' },
     ])
   })
+
+  test('passes browser Gravity context with server-trusted user and device data', async () => {
+    const body = await fetchGravityRequestBody({
+      userId: 'server-user-id',
+      userEmail: 'User@Example.com',
+      sessionId: 'fallback-session',
+      clientIp: '203.0.113.10',
+      userAgent: 'Mozilla/5.0',
+      device: {
+        timezone: 'America/Los_Angeles',
+        locale: 'en-US',
+      },
+      gravityContext: {
+        sessionId: 'browser-session',
+        user: {
+          userId: 'browser-user-id',
+        },
+        device: {
+          screenWidth: 1440,
+          screenHeight: 900,
+          timezone: 'UTC',
+          locale: 'en-GB',
+        },
+      },
+    })
+
+    expect(body.sessionId).toBe('browser-session')
+    expect(body.gravity_context).toEqual({
+      sessionId: 'browser-session',
+      user: {
+        userId: 'browser-user-id',
+      },
+      device: {
+        screenWidth: 1440,
+        screenHeight: 900,
+        timezone: 'UTC',
+        locale: 'en-GB',
+      },
+    })
+    expect(body.device).toMatchObject({
+      ip: '203.0.113.10',
+      ua: 'Mozilla/5.0',
+      userAgent: 'Mozilla/5.0',
+      screenWidth: 1440,
+      screenHeight: 900,
+      timezone: 'America/Los_Angeles',
+      locale: 'en-US',
+    })
+    expect(body.user).toMatchObject({
+      id: 'server-user-id',
+      uid: 'server-user-id',
+      email: 'User@Example.com',
+      emailHash:
+        'b4c9a289323b21a01c3e940f150eb9b8c542587f1abfd8f0e1cc1ffc5e475514',
+      userId: 'browser-user-id',
+    })
+  })
 })

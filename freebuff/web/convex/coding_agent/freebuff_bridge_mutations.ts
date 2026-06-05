@@ -10,7 +10,12 @@ type AssistantStreamItem = {
   description?: string;
 };
 
-const TERMINAL_RUN_STATUSES = new Set(["completed", "error", "timed_out"]);
+const TERMINAL_RUN_STATUSES = new Set([
+  "completed",
+  "paused",
+  "error",
+  "timed_out",
+]);
 
 function appendOrMergeStreamItem(
   assistantStream: AssistantStreamItem[],
@@ -67,6 +72,15 @@ export const recordRunEvent = internalMutation({
         } else if (event.type === "final") {
           runPatch.status = "completed";
           runPatch.completed_at = now;
+        } else if (event.type === "ask_user_pause") {
+          runPatch.status = "paused";
+        } else if (event.type === "time_limit_pause") {
+          runPatch.status = "timed_out";
+          runPatch.timed_out_at = now;
+          runPatch.error = String(
+            event.message ??
+              "Maximum time limit for a prompt reached. Engagement required to continue.",
+          );
         } else if (event.type === "error") {
           runPatch.status = "error";
           runPatch.error = String(event.message ?? "Freebuff run failed");
@@ -119,6 +133,23 @@ export const recordRunEvent = internalMutation({
         title: event.title ?? event.status,
         content: String(event.content ?? event.status ?? ""),
       });
+    } else if (event.type === "ask_user_pause") {
+      assistantStream.push({
+        type: "ask_user",
+        title: "Question",
+        content: JSON.stringify({
+          questions: Array.isArray(event.questions) ? event.questions : [],
+        }),
+      });
+    } else if (event.type === "time_limit_pause") {
+      assistantStream.push({
+        type: "timeout_continue",
+        title: "Time limit reached",
+        content: String(
+          event.message ??
+            "Maximum time limit for a prompt reached. Engagement required to continue.",
+        ),
+      });
     } else if (event.type === "error") {
       assistantStream.push({
         type: "error",
@@ -138,19 +169,62 @@ export const recordRunEvent = internalMutation({
       patch.state = "Completed";
       patch.isStreaming = false;
       patch.session_id = event.runId;
-      await ctx.db.patch(threadId, {
-        active_session_id: event.runId,
-        active_freebuff_run_state_storage_id: args.runStateStorageId,
+      const threadPatch: Record<string, any> = {
         isProcessing: false,
         workflow_id: undefined,
         last_edited_timestamp: Date.now(),
-      } as any);
+      };
+      if (event.preserveThreadSession !== true) {
+        threadPatch.active_session_id = event.runId;
+        if (args.runStateStorageId !== undefined) {
+          threadPatch.active_freebuff_run_state_storage_id =
+            args.runStateStorageId;
+        }
+      }
+      await ctx.db.patch(threadId, threadPatch as any);
       await ctx.db.patch(thread.project_id, { state: "active" });
     } else if (event.type === "error") {
       patch.state = "Error";
       patch.state_message = String(event.message ?? "Freebuff run failed");
       patch.isStreaming = false;
       const threadPatch: Record<string, any> = {
+        isProcessing: false,
+        workflow_id: undefined,
+        last_edited_timestamp: Date.now(),
+      };
+      if (args.runStateStorageId) {
+        threadPatch.active_freebuff_run_state_storage_id =
+          args.runStateStorageId;
+      }
+      await ctx.db.patch(threadId, threadPatch as any);
+      await ctx.db.patch(thread.project_id, { state: "active" });
+    } else if (event.type === "time_limit_pause") {
+      patch.state = "Paused";
+      patch.state_message =
+        "Maximum time limit for a prompt reached. Engagement required to continue.";
+      patch.isStreaming = false;
+      patch.session_id = event.runId;
+      const threadPatch: Record<string, any> = {
+        isProcessing: false,
+        workflow_id: undefined,
+        last_edited_timestamp: Date.now(),
+      };
+      if (event.preserveThreadSession !== true) {
+        threadPatch.active_session_id = event.runId;
+      }
+      if (event.preserveThreadSession !== true && args.runStateStorageId) {
+        threadPatch.active_freebuff_run_state_storage_id =
+          args.runStateStorageId;
+      }
+      await ctx.db.patch(threadId, threadPatch as any);
+      await ctx.db.patch(thread.project_id, { state: "active" });
+    } else if (event.type === "ask_user_pause") {
+      patch.state = "Paused";
+      patch.state_message = "Waiting for your answer";
+      patch.isStreaming = false;
+      patch.session_id = event.runId;
+      const threadPatch: Record<string, any> = {
+        active_session_id: event.runId,
         isProcessing: false,
         workflow_id: undefined,
         last_edited_timestamp: Date.now(),

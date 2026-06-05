@@ -197,6 +197,7 @@ export default defineSchema(
         v.literal('queued'),
         v.literal('running'),
         v.literal('completed'),
+        v.literal('paused'),
         v.literal('error'),
         v.literal('timed_out'),
       ),
@@ -474,6 +475,7 @@ export default defineSchema(
       state: v.union(
         v.literal('Processing'),
         v.literal('Completed'),
+        v.literal('Paused'),
         v.literal('Cancelled'),
         v.literal('Error'),
       ), // Current state of the message

@@ -94,6 +94,37 @@ function useSingleAdUnit(userId: string): boolean {
   return hash[0] >= 128
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getStringField(
+  record: Record<string, unknown> | undefined,
+  names: string[],
+): string | undefined {
+  if (!record) return undefined
+
+  for (const name of names) {
+    const value = record[name]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+
+  return undefined
+}
+
+function omitUndefined(record: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value !== undefined),
+  )
+}
+
+function hashEmail(email: string | null): string | undefined {
+  const normalized = email?.trim().toLowerCase()
+  if (!normalized) return undefined
+
+  return createHash('sha256').update(normalized).digest('hex')
+}
+
 function getPlacementIds(input: FetchAdInput): string[] {
   if (input.surface === 'waiting_room') return WAITING_ROOM_PLACEMENT_IDS
 
@@ -113,6 +144,8 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         userEmail,
         sessionId,
         clientIp,
+        userAgent,
+        gravityContext,
         device,
         messages = [],
         testMode,
@@ -129,25 +162,53 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         placement_id: id,
       }))
 
-      const deviceBody = clientIp
-        ? {
-            ip: clientIp,
-            ...(device?.os ? { os: device.os } : {}),
-            ...(device?.timezone ? { timezone: device.timezone } : {}),
-            ...(device?.locale ? { locale: device.locale } : {}),
-          }
-        : undefined
+      const gravityDevice = isRecord(gravityContext?.device)
+        ? gravityContext.device
+        : {}
+      const gravityUser = isRecord(gravityContext?.user)
+        ? gravityContext.user
+        : {}
+      const emailHash =
+        getStringField(gravityUser, [
+          'emailHash',
+          'email_hash',
+          'hashedEmail',
+          'hashed_email',
+        ]) ?? hashEmail(userEmail)
+
+      const deviceBody = omitUndefined({
+        ...gravityDevice,
+        ip: clientIp,
+        ua: userAgent,
+        userAgent,
+        os: device?.os ?? gravityDevice.os,
+        timezone: device?.timezone ?? gravityDevice.timezone,
+        locale: device?.locale ?? gravityDevice.locale,
+      })
 
       const requestBody = {
         messages: filteredMessages,
-        sessionId: sessionId ?? userId,
+        sessionId:
+          getStringField(gravityContext, ['sessionId', 'session_id']) ??
+          sessionId ??
+          userId,
         placements,
         testAd: testMode,
         relevancy: 0,
-        ...(deviceBody ? { device: deviceBody } : {}),
+        ...(Object.keys(deviceBody).length > 0 ? { device: deviceBody } : {}),
+        ...(gravityContext ? { gravity_context: gravityContext } : {}),
         user: {
+          ...gravityUser,
           id: userId,
+          uid: userId,
           email: userEmail ?? undefined,
+          ...(emailHash
+            ? {
+                emailHash,
+                email_hash: emailHash,
+                hashed_email: emailHash,
+              }
+            : {}),
         },
       }
 

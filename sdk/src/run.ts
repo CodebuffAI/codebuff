@@ -80,6 +80,17 @@ type OverrideToolHandlers = {
   }) => Promise<Record<string, string | null>>
 }
 
+function isRunPauseError(error: unknown) {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (('codebuffRunPaused' in error &&
+      (error as { codebuffRunPaused?: unknown }).codebuffRunPaused === true) ||
+      ('name' in error &&
+        (error as { name?: unknown }).name === 'CodebuffRunPausedError'))
+  )
+}
+
 export type CodebuffClientOptions = {
   apiKey?: string
 
@@ -749,6 +760,10 @@ async function handleToolCall({
       )
     }
   } catch (error) {
+    if (isRunPauseError(error)) {
+      throw error
+    }
+
     result = [
       {
         type: 'json',

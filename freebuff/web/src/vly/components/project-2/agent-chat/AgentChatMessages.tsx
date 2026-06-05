@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import { api } from "@/convex/_generated/api";
+import { api } from '@/convex/_generated/api'
 import {
   ChevronDown,
   Loader,
@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Clock,
   Play,
-} from "lucide-react";
+} from 'lucide-react'
 import React, {
   useImperativeHandle,
   useMemo,
@@ -21,19 +21,19 @@ import React, {
   useState,
   useEffect,
   useRef,
-} from "react";
-import { useStickToBottom } from "use-stick-to-bottom";
+} from 'react'
+import { useStickToBottom } from 'use-stick-to-bottom'
 import {
   useQuery,
   usePaginatedQuery,
   useAction,
   useMutation,
-} from "convex/react";
+} from 'convex/react'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/vly/components/ui/collapsible";
+} from '@/vly/components/ui/collapsible'
 import {
   Dialog,
   DialogClose,
@@ -42,92 +42,92 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/vly/components/ui/dialog";
-import { Button } from "@/vly/components/ui/button";
-import { cn } from "@/vly/lib/utils";
-import { FunctionReturnType } from "convex/server";
-import { UpgradePrompt } from "@/vly/components/billing/FeatureGate";
-import { useCustomer } from "autumn-js/react";
-import { getActivePlan } from "@/vly/lib/billing";
+} from '@/vly/components/ui/dialog'
+import { Button } from '@/vly/components/ui/button'
+import { cn } from '@/vly/lib/utils'
+import { FunctionReturnType } from 'convex/server'
+import { UpgradePrompt } from '@/vly/components/billing/FeatureGate'
+import { useCustomer } from 'autumn-js/react'
+import { getActivePlan } from '@/vly/lib/billing'
 import {
   freePlan,
   oneTimeCreditPack,
   recurringCreditPack,
-} from "@/vly/autumn.config";
-import { PLAN_BASE_CREDITS, type TierName } from "@/vly/autumn/constants";
-import { useDirectPlanCheckout } from "@/vly/hooks/useDirectPlanCheckout";
-import { useCreditsBalance } from "@/vly/hooks/useCreditCheck";
+} from '@/vly/autumn.config'
+import { PLAN_BASE_CREDITS, type TierName } from '@/vly/autumn/constants'
+import { useDirectPlanCheckout } from '@/vly/hooks/useDirectPlanCheckout'
+import { useCreditsBalance } from '@/vly/hooks/useCreditCheck'
 import {
   formatCredits,
   getNextTier,
   getFormattedPriceWithPeriod,
-} from "@/vly/autumn/helpers";
-import { Coins, ArrowRight, Plus } from "lucide-react";
+} from '@/vly/autumn/helpers'
+import { Coins, ArrowRight, Plus } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/vly/components/ui/popover";
-import { toast } from "sonner";
+} from '@/vly/components/ui/popover'
+import { toast } from 'sonner'
 import {
   fetchGravityAd,
   type GravityAd,
   type GravityAdMessage,
-} from "./GravityAdSlot";
+} from './GravityAdSlot'
 
 // Helper function to format credits in thousands (10k, 100k, 1M)
 const formatCreditsDisplay = (credits: number): string => {
   if (credits < 1000) {
-    return `${credits} credits`;
+    return `${credits} credits`
   } else if (credits < 1000000) {
-    const k = credits / 1000;
+    const k = credits / 1000
     return k >= 100
       ? `${Math.round(k)}k credits`
-      : `${k.toFixed(1).replace(/\.0$/, "")}k credits`;
+      : `${k.toFixed(1).replace(/\.0$/, '')}k credits`
   } else {
-    const m = credits / 1000000;
-    return `${m.toFixed(1).replace(/\.0$/, "")}M credits`;
+    const m = credits / 1000000
+    return `${m.toFixed(1).replace(/\.0$/, '')}M credits`
   }
-};
+}
 
 // Map plan IDs to tier names
 const PLAN_ID_TO_TIER: Record<string, TierName> = {
-  free_plan: "free",
-  starter_plan: "starter",
-  hobby_plan: "hobby",
-  business_plan: "business",
-  scale_plan: "scale",
-  priority_plan: "priority",
-  ultra_plan: "ultra",
-  max_plan: "max",
-  unlimited_plan: "unlimited",
-  enterprise_plan: "unlimited",
+  free_plan: 'free',
+  starter_plan: 'starter',
+  hobby_plan: 'hobby',
+  business_plan: 'business',
+  scale_plan: 'scale',
+  priority_plan: 'priority',
+  ultra_plan: 'ultra',
+  max_plan: 'max',
+  unlimited_plan: 'unlimited',
+  enterprise_plan: 'unlimited',
   // Legacy mappings
-  hobby_custom_plan: "hobby",
-  pro_custom_plan: "business",
-  pro_plan: "business",
-  team_plan: "scale",
-  team_custom_plan: "scale",
-};
+  hobby_custom_plan: 'hobby',
+  pro_custom_plan: 'business',
+  pro_plan: 'business',
+  team_plan: 'scale',
+  team_custom_plan: 'scale',
+}
 
 // Credit pack options - one-time and recurring
 const ONE_TIME_CREDIT_PACK = {
   product: oneTimeCreditPack,
-  label: "15M Credits (One-Time)",
-  amount: "15,000,000 credits",
-  price: "$15",
+  label: '15M Credits (One-Time)',
+  amount: '15,000,000 credits',
+  price: '$15',
   isRecurring: false,
-};
+}
 
 const RECURRING_CREDIT_PACK = {
   product: recurringCreditPack,
-  label: "15M Credits (Monthly)",
-  amount: "15,000,000 credits/mo",
-  price: "$12/mo",
+  label: '15M Credits (Monthly)',
+  amount: '15,000,000 credits/mo',
+  price: '$12/mo',
   isRecurring: true,
-};
+}
 
-const CREDIT_PACK_OPTIONS = [RECURRING_CREDIT_PACK, ONE_TIME_CREDIT_PACK];
+const CREDIT_PACK_OPTIONS = [RECURRING_CREDIT_PACK, ONE_TIME_CREDIT_PACK]
 
 // Scroll to Bottom Button Component
 const ScrollToBottomButton: React.FC<{ onClick: () => void }> = ({
@@ -142,78 +142,78 @@ const ScrollToBottomButton: React.FC<{ onClick: () => void }> = ({
       <ChevronDown className="h-5 w-5" />
     </button>
   </div>
-);
+)
 
 export interface AgentChatMessagesRef {
-  scrollToBottom: () => void;
+  scrollToBottom: () => void
 }
 
 interface AgentChatMessagesProps {
-  project: FunctionReturnType<typeof api.project.getProjectData>;
-  projectSemanticIdentifier: string;
-  onSendMessage: (message: string) => void | Promise<unknown>;
-  onCreateNewThread?: () => void;
+  project: FunctionReturnType<typeof api.project.getProjectData>
+  projectSemanticIdentifier: string
+  onSendMessage: (message: string) => void | Promise<unknown>
+  onCreateNewThread?: () => void
   messagesStatus?:
-    | "LoadingFirstPage"
-    | "CanLoadMore"
-    | "LoadingMore"
-    | "Exhausted"
-    | undefined;
-  loadMoreThreadMessages?: (n: number) => void;
-  onRestoreMessage?: (message: string) => void;
+    | 'LoadingFirstPage'
+    | 'CanLoadMore'
+    | 'LoadingMore'
+    | 'Exhausted'
+    | undefined
+  loadMoreThreadMessages?: (n: number) => void
+  onRestoreMessage?: (message: string) => void
 }
 
 // Thinking Indicator with Accelerated Count-up Timer
 const ThinkingIndicator: React.FC = () => {
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const startTimeRef = useRef<number | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const startTimeRef = useRef<number | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     const updateTimer = () => {
-      if (startTimeRef.current === null) return;
-      const now = Date.now();
-      const elapsed = now - startTimeRef.current;
-      setElapsedMs(elapsed);
-      animationFrameRef.current = requestAnimationFrame(updateTimer);
-    };
+      if (startTimeRef.current === null) return
+      const now = Date.now()
+      const elapsed = now - startTimeRef.current
+      setElapsedMs(elapsed)
+      animationFrameRef.current = requestAnimationFrame(updateTimer)
+    }
 
-    startTimeRef.current = Date.now();
-    animationFrameRef.current = requestAnimationFrame(updateTimer);
+    startTimeRef.current = Date.now()
+    animationFrameRef.current = requestAnimationFrame(updateTimer)
 
     return () => {
       if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
+        cancelAnimationFrame(animationFrameRef.current)
       }
-    };
-  }, []);
+    }
+  }, [])
 
   // Format milliseconds with variable pacing
   // Counts quickly for 1 second, then counts very slowly for 1 second
   // Total displayed time always equals actual elapsed time
   const formatTime = (ms: number): string => {
-    const twoSecondCycle = ms % 2000; // 2-second cycles
-    const cycleNumber = Math.floor(ms / 2000);
+    const twoSecondCycle = ms % 2000 // 2-second cycles
+    const cycleNumber = Math.floor(ms / 2000)
 
-    let displayMs: number;
+    let displayMs: number
 
     if (twoSecondCycle < 1000) {
       // First second: count quickly (1990ms in 1000ms real time = 1.99x speed)
       // This balances with the slow second to total exactly 2000ms over 2 seconds
-      const fastProgress = twoSecondCycle / 1000; // 0 to 1 over 1000ms
-      const fastIncrement = 1990 * fastProgress; // Count 1990ms in 1000ms real time
-      displayMs = cycleNumber * 2000 + fastIncrement;
+      const fastProgress = twoSecondCycle / 1000 // 0 to 1 over 1000ms
+      const fastIncrement = 1990 * fastProgress // Count 1990ms in 1000ms real time
+      displayMs = cycleNumber * 2000 + fastIncrement
     } else {
       // Second second: count extremely slowly (10ms in 1000ms real time = 0.01x speed)
       // Total: 1990ms + 10ms = 2000ms over 2000ms real time (exact match)
-      const slowProgress = (twoSecondCycle - 1000) / 1000; // 0 to 1 over 1000ms
-      const slowIncrement = 10 * slowProgress; // Only add 10ms over the 1000ms slowdown
-      displayMs = cycleNumber * 2000 + 1990 + slowIncrement;
+      const slowProgress = (twoSecondCycle - 1000) / 1000 // 0 to 1 over 1000ms
+      const slowIncrement = 10 * slowProgress // Only add 10ms over the 1000ms slowdown
+      displayMs = cycleNumber * 2000 + 1990 + slowIncrement
     }
 
     // Always display in milliseconds format
-    return `${Math.floor(displayMs)}ms`;
-  };
+    return `${Math.floor(displayMs)}ms`
+  }
 
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -221,8 +221,8 @@ const ThinkingIndicator: React.FC = () => {
       <span className="animate-pulse font-normal">Thinking</span>
       <span className="font-mono tabular-nums">{formatTime(elapsedMs)}</span>
     </span>
-  );
-};
+  )
+}
 
 // Message State Badge Component - Compact and subtle
 const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
@@ -230,21 +230,27 @@ const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
   stateMessage,
 }) => {
   const stateColors = {
-    Processing: "text-primary",
-    Completed: "text-emerald-400",
-    Cancelled: "text-muted-foreground",
-    Error: "text-red-400",
-  };
+    Processing: 'text-primary',
+    Completed: 'text-emerald-400',
+    Paused: 'text-amber-300',
+    Cancelled: 'text-muted-foreground',
+    Error: 'text-red-400',
+  }
 
   // Show "Thinking" instead of "Processing"
-  const displayText = state === "Processing" ? "Thinking" : state;
+  const displayText =
+    state === 'Processing'
+      ? 'Thinking'
+      : state === 'Paused'
+        ? 'Waiting for you'
+        : state
 
   return (
     <span
       className={cn(
-        "text-xs font-normal",
+        'text-xs font-normal',
         stateColors[state as keyof typeof stateColors] ||
-          "text-muted-foreground",
+          'text-muted-foreground',
       )}
     >
       {displayText}
@@ -252,37 +258,119 @@ const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
         <span className="ml-1 opacity-70">({stateMessage})</span>
       )}
     </span>
-  );
-};
+  )
+}
 
 // Type for assistant stream item
 type AssistantStreamItemType = {
-  type: string;
-  title?: string;
-  status?: string;
-  content: string;
-  description?: string;
-};
+  type: string
+  title?: string
+  status?: string
+  content: string
+  description?: string
+}
 
-const TIME_LIMIT_CONTINUE_MESSAGE = "continue";
+const TIME_LIMIT_CONTINUE_MESSAGE = 'continue'
+
+type AskUserOption = {
+  label: string
+  description?: string
+}
+
+type AskUserQuestion = {
+  question: string
+  header?: string
+  options: AskUserOption[]
+  multiSelect?: boolean
+}
+
+type AskUserAnswer = {
+  selected: string[]
+  custom: string
+}
+
+function parseAskUserQuestions(content: string): AskUserQuestion[] {
+  try {
+    const parsed = JSON.parse(content)
+    const questions = Array.isArray(parsed) ? parsed : parsed?.questions
+    if (!Array.isArray(questions)) return []
+
+    return questions
+      .map((question: any): AskUserQuestion | null => {
+        const text = String(question?.question ?? '').trim()
+        const options = Array.isArray(question?.options)
+          ? question.options
+              .map((option: any): AskUserOption | null => {
+                const label = String(option?.label ?? '').trim()
+                if (!label) return null
+                const description = String(option?.description ?? '').trim()
+                return { label, ...(description ? { description } : {}) }
+              })
+              .filter((option: AskUserOption | null): option is AskUserOption =>
+                Boolean(option),
+              )
+          : []
+
+        if (!text || options.length === 0) return null
+        const header = String(question?.header ?? '').trim()
+        return {
+          question: text,
+          ...(header ? { header } : {}),
+          options,
+          multiSelect: question?.multiSelect === true,
+        }
+      })
+      .filter((question: AskUserQuestion | null): question is AskUserQuestion =>
+        Boolean(question),
+      )
+  } catch {
+    return []
+  }
+}
+
+function formatAskUserResumeMessage(
+  questions: AskUserQuestion[],
+  answers: Record<number, AskUserAnswer>,
+) {
+  const lines = [
+    'Here are my answers to your paused questions. Continue from the saved Freebuff run state.',
+    '',
+  ]
+
+  questions.forEach((question, index) => {
+    const answer = answers[index]
+    const selected = answer?.selected ?? []
+    const custom = answer?.custom.trim()
+    const parts = [
+      selected.length ? selected.join(', ') : '',
+      custom ? custom : '',
+    ].filter(Boolean)
+
+    lines.push(`${index + 1}. ${question.question}`)
+    lines.push(`Answer: ${parts.join(' | ') || 'No answer provided'}`)
+    lines.push('')
+  })
+
+  return lines.join('\n').trim()
+}
 
 function isPromptTimeLimitText(text?: string | null) {
-  if (!text) return false;
-  const normalized = text.toLowerCase();
+  if (!text) return false
+  const normalized = text.toLowerCase()
   return (
-    normalized.includes("timed out after 10 minutes") ||
-    normalized.includes("10 minute limit") ||
-    normalized.includes("10-minute limit") ||
-    normalized.includes("maximum time limit")
-  );
+    normalized.includes('timed out after 10 minutes') ||
+    normalized.includes('10 minute limit') ||
+    normalized.includes('10-minute limit') ||
+    normalized.includes('maximum time limit')
+  )
 }
 
 function isPromptTimeLimitItem(item: AssistantStreamItemType) {
   return (
-    item.type === "timeout_continue" ||
+    item.type === 'timeout_continue' ||
     isPromptTimeLimitText(item.title) ||
     isPromptTimeLimitText(item.content)
-  );
+  )
 }
 
 type AgentMessageForAd =
@@ -291,97 +379,97 @@ type AgentMessageForAd =
     >[0]
   | FunctionReturnType<
       typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
-    >[0];
+    >[0]
 
 function getAssistantTextForAd(message: AgentMessageForAd): string {
   return (message.assistant_stream ?? [])
     .filter(
       (item: AssistantStreamItemType) =>
-        item.type === "text" || item.type === "assistant",
+        item.type === 'text' || item.type === 'assistant',
     )
     .map((item: AssistantStreamItemType) => item.content)
-    .join("")
+    .join('')
     .trim()
-    .slice(0, 800);
+    .slice(0, 800)
 }
 
 function buildGravityMessagesForAgentAd(
   message: AgentMessageForAd,
 ): GravityAdMessage[] {
-  const messages: GravityAdMessage[] = [];
+  const messages: GravityAdMessage[] = []
   if (message.user_message?.trim()) {
     messages.push({
-      role: "user",
+      role: 'user',
       content: message.user_message.trim(),
-    });
+    })
   }
 
-  const assistantText = getAssistantTextForAd(message);
+  const assistantText = getAssistantTextForAd(message)
   if (assistantText) {
     messages.push({
-      role: "assistant",
+      role: 'assistant',
       content: assistantText,
-    });
+    })
   }
 
-  return messages;
+  return messages
 }
 
 function fireAdImpressionOnce(ad: GravityAd) {
-  if (typeof window === "undefined" || !ad.impUrl) return;
-  void fetch("/api/ads/impression", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  if (typeof window === 'undefined' || !ad.impUrl) return
+  void fetch('/api/ads/impression', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ impUrl: ad.impUrl }),
     keepalive: true,
   }).catch((error) => {
-    console.warn("[AgentChatMessages] Failed to record ad impression", error);
-  });
+    console.warn('[AgentChatMessages] Failed to record ad impression', error)
+  })
 }
 
 function recordAdClick(ad: { impUrl: string }) {
-  if (typeof window === "undefined" || !ad.impUrl) return;
-  void fetch("/api/ads/click", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  if (typeof window === 'undefined' || !ad.impUrl) return
+  void fetch('/api/ads/click', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ impUrl: ad.impUrl }),
     keepalive: true,
   }).catch((error) => {
-    console.warn("[AgentChatMessages] Failed to record ad click", error);
-  });
+    console.warn('[AgentChatMessages] Failed to record ad click', error)
+  })
 }
 
 // Lightweight markdown renderer - optimized for performance
 const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
   const elements = React.useMemo(() => {
-    const lines = text.split("\n");
-    const result: React.ReactNode[] = [];
-    let inCodeBlock = false;
-    let codeBlockLines: string[] = [];
-    let listItems: string[] = [];
-    let inList = false;
+    const lines = text.split('\n')
+    const result: React.ReactNode[] = []
+    let inCodeBlock = false
+    let codeBlockLines: string[] = []
+    let listItems: string[] = []
+    let inList = false
 
     const renderInline = (line: string): React.ReactNode => {
       // Simple inline parsing: bold and inline code
-      const parts: React.ReactNode[] = [];
-      let lastIndex = 0;
-      let key = 0;
+      const parts: React.ReactNode[] = []
+      let lastIndex = 0
+      let key = 0
 
       // Use regex to find all matches (bold and code)
-      const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
-      let match;
+      const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g
+      let match
 
       while ((match = regex.exec(line)) !== null) {
         // Add text before match
         if (match.index > lastIndex) {
-          parts.push(line.substring(lastIndex, match.index));
+          parts.push(line.substring(lastIndex, match.index))
         }
 
-        const matched = match[0];
-        if (matched.startsWith("**")) {
+        const matched = match[0]
+        if (matched.startsWith('**')) {
           // Bold
-          parts.push(<strong key={key++}>{matched.slice(2, -2)}</strong>);
-        } else if (matched.startsWith("`")) {
+          parts.push(<strong key={key++}>{matched.slice(2, -2)}</strong>)
+        } else if (matched.startsWith('`')) {
           // Inline code
           parts.push(
             <code
@@ -390,56 +478,56 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
             >
               {matched.slice(1, -1)}
             </code>,
-          );
+          )
         }
 
-        lastIndex = regex.lastIndex;
+        lastIndex = regex.lastIndex
       }
 
       // Add remaining text
       if (lastIndex < line.length) {
-        parts.push(line.substring(lastIndex));
+        parts.push(line.substring(lastIndex))
       }
 
-      return parts.length > 0 ? <>{parts}</> : line;
-    };
+      return parts.length > 0 ? <>{parts}</> : line
+    }
 
     lines.forEach((line, index) => {
       // Code blocks
-      if (line.trim().startsWith("```")) {
+      if (line.trim().startsWith('```')) {
         if (inCodeBlock) {
           result.push(
             <pre
               key={`code-${index}`}
               className="my-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed text-foreground/85"
             >
-              <code>{codeBlockLines.join("\n")}</code>
+              <code>{codeBlockLines.join('\n')}</code>
             </pre>,
-          );
-          codeBlockLines = [];
-          inCodeBlock = false;
+          )
+          codeBlockLines = []
+          inCodeBlock = false
         } else {
-          inCodeBlock = true;
+          inCodeBlock = true
         }
-        return;
+        return
       }
 
       if (inCodeBlock) {
-        codeBlockLines.push(line);
-        return;
+        codeBlockLines.push(line)
+        return
       }
 
       // Headers
-      const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
+      const headerMatch = line.match(/^(#{1,3})\s+(.+)$/)
       if (headerMatch) {
-        const level = headerMatch[1].length;
-        const content = headerMatch[2];
-        const Tag = `h${Math.min(level + 2, 6)}` as "h3" | "h4" | "h5" | "h6";
+        const level = headerMatch[1].length
+        const content = headerMatch[2]
+        const Tag = `h${Math.min(level + 2, 6)}` as 'h3' | 'h4' | 'h5' | 'h6'
         const sizes = {
-          1: "text-base font-semibold mt-3 mb-1",
-          2: "text-sm font-semibold mt-2.5 mb-1",
-          3: "text-sm font-medium mt-2 mb-0.5",
-        };
+          1: 'text-base font-semibold mt-3 mb-1',
+          2: 'text-sm font-semibold mt-2.5 mb-1',
+          3: 'text-sm font-medium mt-2 mb-0.5',
+        }
         result.push(
           <Tag
             key={index}
@@ -447,18 +535,18 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
           >
             {renderInline(content)}
           </Tag>,
-        );
-        return;
+        )
+        return
       }
 
       // Lists
-      const listMatch = line.match(/^[\s]*[-*+]\s+(.+)$/);
+      const listMatch = line.match(/^[\s]*[-*+]\s+(.+)$/)
       if (listMatch) {
         if (!inList) {
-          inList = true;
+          inList = true
         }
-        listItems.push(listMatch[1]);
-        return;
+        listItems.push(listMatch[1])
+        return
       }
 
       // End of list (empty line or non-list content)
@@ -477,19 +565,19 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
               </li>
             ))}
           </ul>,
-        );
-        listItems = [];
-        inList = false;
+        )
+        listItems = []
+        inList = false
         // Continue processing the current line if it's not empty
-        if (line.trim() === "") {
-          return;
+        if (line.trim() === '') {
+          return
         }
       }
 
       // Empty lines
-      if (line.trim() === "") {
-        result.push(<div key={index} className="h-1" />);
-        return;
+      if (line.trim() === '') {
+        result.push(<div key={index} className="h-1" />)
+        return
       }
 
       // Regular paragraph
@@ -500,23 +588,20 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
         >
           {renderInline(line)}
         </p>,
-      );
-    });
+      )
+    })
 
     // Flush any remaining list
     if (inList && listItems.length > 0) {
       result.push(
         <ul key="list-final" className="mb-2 ml-5 mt-1 list-disc space-y-1">
           {listItems.map((item, i) => (
-            <li
-              key={i}
-              className="text-sm leading-relaxed text-foreground/85"
-            >
+            <li key={i} className="text-sm leading-relaxed text-foreground/85">
               {renderInline(item)}
             </li>
           ))}
         </ul>,
-      );
+      )
     }
 
     // Flush any remaining code block
@@ -526,38 +611,38 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
           key="code-final"
           className="my-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed text-foreground/85"
         >
-          <code>{codeBlockLines.join("\n")}</code>
+          <code>{codeBlockLines.join('\n')}</code>
         </pre>,
-      );
+      )
     }
 
-    return result;
-  }, [text]);
+    return result
+  }, [text])
 
-  return <div>{elements}</div>;
-});
+  return <div>{elements}</div>
+})
 
-SimpleMarkdown.displayName = "SimpleMarkdown";
+SimpleMarkdown.displayName = 'SimpleMarkdown'
 
 // Assistant Stream Item Component - No background, just text
 const AssistantStreamItem: React.FC<{
-  item: AssistantStreamItemType;
+  item: AssistantStreamItemType
 }> = ({ item }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // For result/error/other/system/user types, show collapsed by default with expand option
   // For assistant/text types, always show content (these are the main responses)
   const isCollapsible =
-    item.type === "result" ||
-    item.type === "error" ||
-    item.type === "other" ||
-    item.type === "system" ||
-    item.type === "user" ||
-    item.type === "tool_use" ||
-    item.type === "tool_result" ||
-    item.type === "thinking";
-  const isTextType = item.type === "text" || item.type === "assistant";
-  const isThinkingType = item.type === "thinking";
+    item.type === 'result' ||
+    item.type === 'error' ||
+    item.type === 'other' ||
+    item.type === 'system' ||
+    item.type === 'user' ||
+    item.type === 'tool_use' ||
+    item.type === 'tool_result' ||
+    item.type === 'thinking'
+  const isTextType = item.type === 'text' || item.type === 'assistant'
+  const isThinkingType = item.type === 'thinking'
 
   // Handle thinking blocks - always collapsed by default
   if (isThinkingType) {
@@ -567,7 +652,7 @@ const AssistantStreamItem: React.FC<{
           <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground/80">
             <span className="font-normal">Thinking…</span>
             <ChevronDown
-              className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+              className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -579,7 +664,7 @@ const AssistantStreamItem: React.FC<{
           </CollapsibleContent>
         </Collapsible>
       </div>
-    );
+    )
   }
 
   // Always show text/assistant types, only collapse other types
@@ -593,26 +678,26 @@ const AssistantStreamItem: React.FC<{
         )}
         <SimpleMarkdown text={item.content} />
       </div>
-    );
+    )
   }
 
   // For collapsible types (result, error, other, system, user, tool_use)
   if (isCollapsible) {
     // Determine display title
-    let displayTitle = item.title || "Thinking...";
-    if (item.type === "result") {
-      displayTitle = "Result";
+    let displayTitle = item.title || 'Thinking...'
+    if (item.type === 'result') {
+      displayTitle = 'Result'
       if (item.status) {
-        displayTitle += ` (${item.status})`;
+        displayTitle += ` (${item.status})`
       }
-    } else if (item.type === "tool_use") {
-      displayTitle = item.title || "Tool Use";
-    } else if (item.type === "tool_result") {
-      displayTitle = "Tool Result";
-    } else if (item.type === "user") {
-      displayTitle = "User Message";
-    } else if (item.type === "system") {
-      displayTitle = "System";
+    } else if (item.type === 'tool_use') {
+      displayTitle = item.title || 'Tool Use'
+    } else if (item.type === 'tool_result') {
+      displayTitle = 'Tool Result'
+    } else if (item.type === 'user') {
+      displayTitle = 'User Message'
+    } else if (item.type === 'system') {
+      displayTitle = 'System'
     }
 
     return (
@@ -621,7 +706,7 @@ const AssistantStreamItem: React.FC<{
           <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground/80">
             <span>{displayTitle}</span>
             <ChevronDown
-              className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+              className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -633,7 +718,7 @@ const AssistantStreamItem: React.FC<{
           </CollapsibleContent>
         </Collapsible>
       </div>
-    );
+    )
   }
 
   // For other types, show content directly with title
@@ -648,8 +733,8 @@ const AssistantStreamItem: React.FC<{
         {item.content}
       </pre>
     </div>
-  );
-};
+  )
+}
 
 // ─── Cursor-style turn rendering ─────────────────────────────────────────────
 // Stream items split into two visual lanes:
@@ -659,39 +744,41 @@ const AssistantStreamItem: React.FC<{
 // Inside an expanded Activity, items still use AssistantStreamItem so each
 // individual entry stays expandable too.
 
-const TEXT_TYPES = new Set(["text", "assistant"]);
+const TEXT_TYPES = new Set(['text', 'assistant'])
 
 type StreamGroup =
-  | { kind: "text"; items: AssistantStreamItemType[] }
-  | { kind: "activity"; items: AssistantStreamItemType[] };
+  | { kind: 'text'; items: AssistantStreamItemType[] }
+  | { kind: 'ask_user'; items: AssistantStreamItemType[] }
+  | { kind: 'activity'; items: AssistantStreamItemType[] }
 
-const groupStreamItems = (
-  stream: AssistantStreamItemType[],
-): StreamGroup[] => {
-  const groups: StreamGroup[] = [];
+const groupStreamItems = (stream: AssistantStreamItemType[]): StreamGroup[] => {
+  const groups: StreamGroup[] = []
   for (const item of stream) {
-    const kind: StreamGroup["kind"] = TEXT_TYPES.has(item.type)
-      ? "text"
-      : "activity";
-    const last = groups[groups.length - 1];
+    const kind: StreamGroup['kind'] =
+      item.type === 'ask_user'
+        ? 'ask_user'
+        : TEXT_TYPES.has(item.type)
+          ? 'text'
+          : 'activity'
+    const last = groups[groups.length - 1]
     if (last && last.kind === kind) {
-      last.items.push(item);
+      last.items.push(item)
     } else {
-      groups.push({ kind, items: [item] });
+      groups.push({ kind, items: [item] })
     }
   }
-  return groups;
-};
+  return groups
+}
 
 const TextGroup: React.FC<{
-  items: AssistantStreamItemType[];
+  items: AssistantStreamItemType[]
 }> = React.memo(({ items }) => {
   const fullText = useMemo(
-    () => items.map((item) => item.content ?? "").join(""),
+    () => items.map((item) => item.content ?? '').join(''),
     [items],
-  );
+  )
 
-  const firstTitle = items.find((item) => item.title)?.title;
+  const firstTitle = items.find((item) => item.title)?.title
 
   return (
     <div className="mb-2">
@@ -702,80 +789,80 @@ const TextGroup: React.FC<{
       )}
       <SimpleMarkdown text={fullText} />
     </div>
-  );
-});
-TextGroup.displayName = "TextGroup";
+  )
+})
+TextGroup.displayName = 'TextGroup'
 
 const humanizeActivityLabel = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
+  const trimmed = value.trim()
+  if (!trimmed) return ''
 
   const normalized = trimmed
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .toLowerCase();
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
 
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-};
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
 
 const getActivityItemLabel = (item: AssistantStreamItemType) => {
-  if (item.type === "thinking") return "Reasoning";
-  if (item.type === "timeout_continue") return "Continue required";
-  if (item.type === "error") return "Error";
-  if (item.type === "result") {
-    return item.status ? `Result ${item.status}` : "Result";
+  if (item.type === 'thinking') return 'Reasoning'
+  if (item.type === 'timeout_continue') return 'Continue required'
+  if (item.type === 'error') return 'Error'
+  if (item.type === 'result') {
+    return item.status ? `Result ${item.status}` : 'Result'
   }
-  if (item.type === "tool_result") return "Tool result";
-  if (item.type === "system") return "System";
-  if (item.type === "user") return "User message";
+  if (item.type === 'tool_result') return 'Tool result'
+  if (item.type === 'system') return 'System'
+  if (item.type === 'user') return 'User message'
 
-  if (item.type === "tool_use") {
-    const title = item.title?.trim();
-    if (title && title !== "Tool Use" && title !== "Command Execution") {
-      return humanizeActivityLabel(title);
+  if (item.type === 'tool_use') {
+    const title = item.title?.trim()
+    if (title && title !== 'Tool Use' && title !== 'Command Execution') {
+      return humanizeActivityLabel(title)
     }
 
-    const descriptionHead = item.description?.split(":")[0]?.trim();
-    if (descriptionHead && descriptionHead !== "Command Execution") {
-      return humanizeActivityLabel(descriptionHead);
+    const descriptionHead = item.description?.split(':')[0]?.trim()
+    if (descriptionHead && descriptionHead !== 'Command Execution') {
+      return humanizeActivityLabel(descriptionHead)
     }
 
-    return title === "Command Execution" ? "Command" : "Tool";
+    return title === 'Command Execution' ? 'Command' : 'Tool'
   }
 
-  return humanizeActivityLabel(item.title || item.type || "Step");
-};
+  return humanizeActivityLabel(item.title || item.type || 'Step')
+}
 
 // Build a one-line summary describing a run of activity items so the user
 // knows what's hidden inside the collapsed group without expanding.
 const buildActivitySummary = (items: AssistantStreamItemType[]) => {
-  return items.map(getActivityItemLabel).filter(Boolean).join(", ");
-};
+  return items.map(getActivityItemLabel).filter(Boolean).join(', ')
+}
 
 // One collapsible group rendering a consecutive run of non-text stream items.
 // Collapsed by default; shows a wrench/sparkles icon, a one-line summary, and
 // a chevron. When expanded, falls back to <AssistantStreamItem> per child so
 // individual entries remain independently expandable.
 const ActivityGroup: React.FC<{
-  items: AssistantStreamItemType[];
+  items: AssistantStreamItemType[]
 }> = ({ items }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const summary = useMemo(() => buildActivitySummary(items), [items]);
-  const hasError = items.some((item) => item.type === "error");
+  const [isExpanded, setIsExpanded] = useState(false)
+  const summary = useMemo(() => buildActivitySummary(items), [items])
+  const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
-    (item) => item.type === "tool_use" || item.type === "tool_result",
-  );
-  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : SparklesIcon;
+    (item) => item.type === 'tool_use' || item.type === 'tool_result',
+  )
+  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : SparklesIcon
 
   return (
     <div className="mb-2">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger
           className={cn(
-            "flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors",
+            'flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors',
             hasError
-              ? "text-red-400 hover:text-red-300"
-              : "text-muted-foreground hover:text-foreground/80",
+              ? 'text-red-400 hover:text-red-300'
+              : 'text-muted-foreground hover:text-foreground/80',
           )}
         >
           <Icon className="h-3 w-3" />
@@ -784,8 +871,8 @@ const ActivityGroup: React.FC<{
           </span>
           <ChevronDown
             className={cn(
-              "h-3 w-3 shrink-0 transition-transform",
-              isExpanded ? "rotate-180" : "",
+              'h-3 w-3 shrink-0 transition-transform',
+              isExpanded ? 'rotate-180' : '',
             )}
           />
         </CollapsibleTrigger>
@@ -798,23 +885,23 @@ const ActivityGroup: React.FC<{
         </CollapsibleContent>
       </Collapsible>
     </div>
-  );
-};
+  )
+}
 
 const TimeLimitContinuePanel: React.FC<{
-  onContinue?: () => void | Promise<unknown>;
+  onContinue?: () => void | Promise<unknown>
 }> = ({ onContinue }) => {
-  const [isContinuing, setIsContinuing] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false)
 
   const handleContinue = async () => {
-    if (!onContinue || isContinuing) return;
-    setIsContinuing(true);
+    if (!onContinue || isContinuing) return
+    setIsContinuing(true)
     try {
-      await onContinue();
+      await onContinue()
     } finally {
-      setIsContinuing(false);
+      setIsContinuing(false)
     }
-  };
+  }
 
   return (
     <div className="mb-4 mt-3 rounded-lg border border-border bg-muted/35 px-4 py-3">
@@ -849,111 +936,285 @@ const TimeLimitContinuePanel: React.FC<{
         </Button>
       </div>
     </div>
-  );
-};
+  )
+}
+
+const AskUserPanel: React.FC<{
+  item: AssistantStreamItemType
+  isActive: boolean
+  onSubmit?: (message: string) => void | Promise<unknown>
+}> = ({ item, isActive, onSubmit }) => {
+  const questions = useMemo(
+    () => parseAskUserQuestions(item.content),
+    [item.content],
+  )
+  const [answers, setAnswers] = useState<Record<number, AskUserAnswer>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  if (questions.length === 0) return null
+
+  const updateAnswer = (index: number, next: Partial<AskUserAnswer>) => {
+    setAnswers((current) => ({
+      ...current,
+      [index]: {
+        selected: current[index]?.selected ?? [],
+        custom: current[index]?.custom ?? '',
+        ...next,
+      },
+    }))
+  }
+
+  const toggleOption = (
+    question: AskUserQuestion,
+    questionIndex: number,
+    label: string,
+  ) => {
+    const current = answers[questionIndex]?.selected ?? []
+    if (question.multiSelect) {
+      updateAnswer(questionIndex, {
+        selected: current.includes(label)
+          ? current.filter((value) => value !== label)
+          : [...current, label],
+      })
+    } else {
+      updateAnswer(questionIndex, { selected: [label] })
+    }
+  }
+
+  const hasEveryAnswer = questions.every((_, index) => {
+    const answer = answers[index]
+    return !!answer && (answer.selected.length > 0 || answer.custom.trim())
+  })
+
+  const handleSubmit = async () => {
+    if (!onSubmit || !isActive || !hasEveryAnswer || isSubmitting) return
+    setIsSubmitting(true)
+    try {
+      await onSubmit(formatAskUserResumeMessage(questions, answers))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSkip = async () => {
+    if (!onSubmit || !isActive || isSubmitting) return
+    setIsSubmitting(true)
+    try {
+      await onSubmit(
+        'I am skipping the paused questions. Make reasonable default choices and continue from the saved Freebuff run state.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-4 mt-2 rounded-lg border border-border bg-muted/25 px-4 py-3">
+      <div className="mb-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Freebuff needs your input
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Answer these questions to continue from the saved run state.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {questions.map((question, questionIndex) => {
+          const answer = answers[questionIndex] ?? {
+            selected: [],
+            custom: '',
+          }
+
+          return (
+            <div key={questionIndex} className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {question.header && (
+                  <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {question.header}
+                  </span>
+                )}
+                <div className="text-sm font-medium text-foreground">
+                  {question.question}
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {question.options.map((option) => {
+                  const selected = answer.selected.includes(option.label)
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      disabled={!isActive || isSubmitting}
+                      onClick={() =>
+                        toggleOption(question, questionIndex, option.label)
+                      }
+                      className={cn(
+                        'rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/15 text-foreground'
+                          : 'border-border bg-background/40 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground',
+                        (!isActive || isSubmitting) &&
+                          'cursor-not-allowed opacity-60',
+                      )}
+                    >
+                      <div className="font-medium">{option.label}</div>
+                      {option.description && (
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {option.description}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <input
+                value={answer.custom}
+                disabled={!isActive || isSubmitting}
+                onChange={(event) =>
+                  updateAnswer(questionIndex, { custom: event.target.value })
+                }
+                placeholder="Or type a custom answer..."
+                className="h-9 w-full rounded-md border border-border bg-background/50 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {!isActive && (
+          <span className="mr-auto self-center text-xs text-muted-foreground">
+            This question was answered or superseded by a later message.
+          </span>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!isActive || isSubmitting}
+          onClick={handleSkip}
+        >
+          Skip
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!isActive || !hasEveryAnswer || isSubmitting}
+          onClick={handleSubmit}
+        >
+          {isSubmitting && <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+          Continue
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 // Compact Paywall Component for in-chat display - matches CreditOverlay format
 const CompactPaywallBump: React.FC = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
-  const { customer, refetch } = useCustomer();
-  const { directPlanCheckout } = useDirectPlanCheckout();
-  const { planName, isLoading } = useCreditsBalance();
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+  const [isPurchasing, setIsPurchasing] = useState<string | null>(null)
+  const { customer, refetch } = useCustomer()
+  const { directPlanCheckout } = useDirectPlanCheckout()
+  const { planName, isLoading } = useCreditsBalance()
 
   // Get current tier from plan ID
   const getCurrentTier = (): TierName => {
-    if (!customer?.products) return "free";
-    const { planId } = getActivePlan(customer.products, customer, freePlan.id);
-    return PLAN_ID_TO_TIER[planId] || "free";
-  };
+    if (!customer?.products) return 'free'
+    const { planId } = getActivePlan(customer.products, customer, freePlan.id)
+    return PLAN_ID_TO_TIER[planId] || 'free'
+  }
 
-  const currentTier = getCurrentTier();
-  const nextTierDef = getNextTier(currentTier);
-  const isOnFreePlan = currentTier === "free";
-  const nextTierName = nextTierDef ? nextTierDef.name : null;
-  const nextTierPrice = nextTierDef ? nextTierDef.basePrice : 0;
-  const nextTierCredits = nextTierDef ? nextTierDef.creditsIncluded : 0;
+  const currentTier = getCurrentTier()
+  const nextTierDef = getNextTier(currentTier)
+  const isOnFreePlan = currentTier === 'free'
+  const nextTierName = nextTierDef ? nextTierDef.name : null
+  const nextTierPrice = nextTierDef ? nextTierDef.basePrice : 0
+  const nextTierCredits = nextTierDef ? nextTierDef.creditsIncluded : 0
 
   // Determine target tier for dialog - support all tiers including hidden ones
   const validTiers: (
-    | "Starter"
-    | "Hobby"
-    | "Business"
-    | "Scale"
-    | "Priority"
-    | "Ultra"
-    | "Max"
-    | "Unlimited"
+    | 'Starter'
+    | 'Hobby'
+    | 'Business'
+    | 'Scale'
+    | 'Priority'
+    | 'Ultra'
+    | 'Max'
+    | 'Unlimited'
   )[] = [
-    "Starter",
-    "Hobby",
-    "Business",
-    "Scale",
-    "Priority",
-    "Ultra",
-    "Max",
-    "Unlimited",
-  ];
+    'Starter',
+    'Hobby',
+    'Business',
+    'Scale',
+    'Priority',
+    'Ultra',
+    'Max',
+    'Unlimited',
+  ]
   const targetTier:
-    | "Starter"
-    | "Hobby"
-    | "Business"
-    | "Scale"
-    | "Priority"
-    | "Ultra"
-    | "Max"
-    | "Unlimited" = isOnFreePlan
-    ? "Starter"
+    | 'Starter'
+    | 'Hobby'
+    | 'Business'
+    | 'Scale'
+    | 'Priority'
+    | 'Ultra'
+    | 'Max'
+    | 'Unlimited' = isOnFreePlan
+    ? 'Starter'
     : nextTierName && validTiers.includes(nextTierName as any)
       ? (nextTierName as
-          | "Starter"
-          | "Hobby"
-          | "Business"
-          | "Scale"
-          | "Priority"
-          | "Ultra"
-          | "Max"
-          | "Unlimited")
-      : "Hobby";
+          | 'Starter'
+          | 'Hobby'
+          | 'Business'
+          | 'Scale'
+          | 'Priority'
+          | 'Ultra'
+          | 'Max'
+          | 'Unlimited')
+      : 'Hobby'
 
   const handleViewPlans = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    setIsDialogOpen(true);
-  };
+    e?.preventDefault()
+    e?.stopPropagation()
+    setIsDialogOpen(true)
+  }
 
   const handleBuyOneTimePack = async (productId: string) => {
-    setIsPurchasing(productId);
-    setIsPopoverOpen(false);
+    setIsPurchasing(productId)
+    setIsPopoverOpen(false)
 
     try {
       await directPlanCheckout({
         productId,
-        productName: "One-Time Credit Pack",
+        productName: 'One-Time Credit Pack',
         isSubscriptionUpgrade: false,
-      });
-      toast.success("Credits purchased successfully!");
-      await refetch();
+      })
+      toast.success('Credits purchased successfully!')
+      await refetch()
     } catch (error: any) {
       const redirectUrl =
-        error?.url || error?.data?.url || (error as any)?.checkout_url;
+        error?.url || error?.data?.url || (error as any)?.checkout_url
       if (redirectUrl) {
-        window.location.href = redirectUrl;
-        return;
+        window.location.href = redirectUrl
+        return
       }
       const errorMessage =
         error?.message ||
         error?.data?.message ||
-        "Failed to purchase credits. Please try again.";
-      toast.error(errorMessage);
+        'Failed to purchase credits. Please try again.'
+      toast.error(errorMessage)
     } finally {
-      setIsPurchasing(null);
+      setIsPurchasing(null)
     }
-  };
+  }
 
   if (isLoading) {
-    return null;
+    return null
   }
 
   return (
@@ -1060,10 +1321,10 @@ const CompactPaywallBump: React.FC = () => {
                 </Popover>
               </div>
               <div className="break-words text-[11px] leading-relaxed text-amber-600">
-                💡 Your work is saved -{" "}
+                💡 Your work is saved -{' '}
                 {nextTierDef
                   ? `upgrade to ${nextTierName} for ${formatCredits(nextTierCredits)} credits/month (better value) or `
-                  : ""}
+                  : ''}
                 buy a one-time pack
               </div>
             </div>
@@ -1082,7 +1343,7 @@ const CompactPaywallBump: React.FC = () => {
               requiredPlan={targetTier}
               message={
                 isOnFreePlan
-                  ? `You've used all your free credits (4M one-time). Upgrade to ${targetTier} plan (${getFormattedPriceWithPeriod("starter")}) to get ${formatCredits(PLAN_BASE_CREDITS.starter)} credits every month and continue building with AI assistance.`
+                  ? `You've used all your free credits (4M one-time). Upgrade to ${targetTier} plan (${getFormattedPriceWithPeriod('starter')}) to get ${formatCredits(PLAN_BASE_CREDITS.starter)} credits every month and continue building with AI assistance.`
                   : `Upgrade to ${targetTier} plan to get more credits and continue building with AI assistance.`
               }
               showUpgradeButton={true}
@@ -1093,61 +1354,98 @@ const CompactPaywallBump: React.FC = () => {
         </DialogContent>
       </Dialog>
     </>
-  );
-};
+  )
+}
 
-type PersistedAgentAd = NonNullable<AgentMessageForAd["ad_payload"]>;
+type PersistedAgentAd = NonNullable<AgentMessageForAd['ad_payload']>
 
 const AgentAdMessage: React.FC<{
-  ad: PersistedAgentAd;
-  className?: string;
+  ad: PersistedAgentAd
+  className?: string
 }> = ({ ad, className }) => {
-  const imageUrl = ad.imageUrl || ad.favicon;
-  const title = ad.title || ad.brandName || "Sponsored recommendation";
-  const cta = ad.cta || "Learn more";
+  const imageUrl = ad.imageUrl || ad.favicon
+  const title = ad.title || ad.brandName || 'Sponsored recommendation'
+  const cta = ad.cta || 'Learn more'
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const impressionFiredRef = useRef(false)
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root || impressionFiredRef.current) return
+
+    const fire = () => {
+      if (impressionFiredRef.current) return
+      impressionFiredRef.current = true
+      fireAdImpressionOnce(ad)
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      fire()
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          fire()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.5 },
+    )
+
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [ad])
 
   return (
     <div
-      className={cn(
-        "mb-4 w-full max-w-[min(100%,760px)] text-sm leading-relaxed",
-        className,
-      )}
+      ref={rootRef}
+      className={cn('mb-3 w-full max-w-[min(100%,680px)] text-sm', className)}
     >
       <a
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={() => recordAdClick(ad)}
-        className="group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline transition-colors hover:border-primary/40 hover:bg-muted/30"
+        className="group flex items-start gap-2.5 text-left no-underline"
       >
-        <span className="flex w-16 shrink-0 items-center justify-center overflow-hidden border-r border-border bg-muted text-xs font-semibold text-muted-foreground sm:w-20">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md text-xs font-semibold text-muted-foreground">
           {imageUrl ? (
-            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+            <img
+              src={imageUrl}
+              alt=""
+              className="h-10 w-10 object-contain"
+              loading="lazy"
+            />
           ) : (
             title.charAt(0).toUpperCase()
           )}
         </span>
-        <span className="min-w-0 flex-1 px-3 py-2.5">
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-            Sponsored
-          </span>
-          <span className="block truncate text-sm font-semibold text-foreground">
-            {title}
+        <span className="min-w-0 flex-1 pt-0.5">
+          <span className="mb-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
+            <span className="uppercase tracking-wide text-muted-foreground/70">
+              Sponsored
+            </span>
+            <span className="text-muted-foreground/45">·</span>
+            <span className="truncate font-semibold text-foreground/90">
+              {title}
+            </span>
           </span>
           {ad.adText && (
-            <span className="mt-0.5 block line-clamp-2 text-sm leading-snug text-muted-foreground">
+            <span className="block line-clamp-2 text-[13px] leading-snug text-muted-foreground">
               {ad.adText}
             </span>
           )}
-          <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-4 group-hover:text-primary group-hover:underline">
+          <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium leading-none text-muted-foreground/80 underline-offset-4 group-hover:text-primary group-hover:underline">
             {cta}
             <ExternalLink className="h-3 w-3 shrink-0" />
           </span>
         </span>
       </a>
     </div>
-  );
-};
+  )
+}
 
 // Agent Message Component - No card, just text with user message having google-doc outline
 const AgentMessageCard: React.FC<{
@@ -1157,40 +1455,50 @@ const AgentMessageCard: React.FC<{
       >[0]
     | FunctionReturnType<
         typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
-      >[0];
-  adAfterUser?: PersistedAgentAd;
-  onRollback?: () => Promise<void>;
-  onContinueAfterTimeout?: () => void | Promise<unknown>;
-}> = ({ message, adAfterUser, onRollback, onContinueAfterTimeout }) => {
-  const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
+      >[0]
+  adAfterUser?: PersistedAgentAd
+  isLatestMessage?: boolean
+  onRollback?: () => Promise<void>
+  onContinueAfterTimeout?: () => void | Promise<unknown>
+  onAskUserAnswer?: (message: string) => void | Promise<unknown>
+}> = ({
+  message,
+  adAfterUser,
+  isLatestMessage = false,
+  onRollback,
+  onContinueAfterTimeout,
+  onAskUserAnswer,
+}) => {
+  const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
   if (message.ad_payload) {
-    return <AgentAdMessage ad={message.ad_payload} />;
+    return <AgentAdMessage ad={message.ad_payload} />
   }
 
-  const isStreaming = message.isStreaming;
+  const isStreaming = message.isStreaming
   const assistantStream = (message.assistant_stream ??
-    []) as AssistantStreamItemType[];
+    []) as AssistantStreamItemType[]
   const isPromptTimeLimit =
     isPromptTimeLimitText(message.state_message) ||
-    assistantStream.some(isPromptTimeLimitItem);
+    assistantStream.some(isPromptTimeLimitItem)
   const visibleAssistantStream = assistantStream.filter(
     (item) => !isPromptTimeLimitItem(item),
-  );
-  const hasStream = visibleAssistantStream.length > 0;
+  )
+  const hasStream = visibleAssistantStream.length > 0
+  const isAskUserPaused = String(message.state) === 'Paused'
 
   const hasCheckpoint =
     message.commit_hash &&
-    message.commit_hash !== "creating" &&
-    message.commit_hash !== "failed";
+    message.commit_hash !== 'creating' &&
+    message.commit_hash !== 'failed'
 
-  const shouldShowUndo = !!onRollback;
+  const shouldShowUndo = !!onRollback
 
   // Check if this is an insufficient credits/paywall message
   const isPaywallMessage =
-    message.state === "Error" &&
+    message.state === 'Error' &&
     message.state_message &&
-    message.state_message.toLowerCase().includes("insufficient credits");
+    message.state_message.toLowerCase().includes('insufficient credits')
 
   return (
     <div className="mb-6 w-full max-w-full overflow-hidden">
@@ -1229,8 +1537,8 @@ const AgentMessageCard: React.FC<{
                             </div>
                             <div className="text-xs">
                               {hasCheckpoint
-                                ? "All code changes, file edits, and modifications made after this checkpoint will be undone."
-                                : "This message and all messages after it will be removed from the chat."}
+                                ? 'All code changes, file edits, and modifications made after this checkpoint will be undone.'
+                                : 'This message and all messages after it will be removed from the chat.'}
                             </div>
                           </div>
                         </div>
@@ -1260,16 +1568,16 @@ const AgentMessageCard: React.FC<{
                       variant="destructive"
                       disabled={isRestoring}
                       onClick={async () => {
-                        setIsRestoring(true);
+                        setIsRestoring(true)
                         try {
                           if (onRollback) {
-                            await onRollback();
+                            await onRollback()
                           }
-                          setIsRevertDialogOpen(false);
+                          setIsRevertDialogOpen(false)
                         } catch (error) {
-                          console.error("Failed to restore:", error);
+                          console.error('Failed to restore:', error)
                         } finally {
-                          setIsRestoring(false);
+                          setIsRestoring(false)
                         }
                       }}
                     >
@@ -1279,7 +1587,7 @@ const AgentMessageCard: React.FC<{
                           Restoring...
                         </>
                       ) : (
-                        "Restore"
+                        'Restore'
                       )}
                     </Button>
                   </DialogFooter>
@@ -1300,8 +1608,15 @@ const AgentMessageCard: React.FC<{
       {hasStream ? (
         <div className="space-y-1.5">
           {groupStreamItems(visibleAssistantStream).map((group, index) =>
-            group.kind === "text" ? (
+            group.kind === 'text' ? (
               <TextGroup key={index} items={group.items} />
+            ) : group.kind === 'ask_user' ? (
+              <AskUserPanel
+                key={index}
+                item={group.items[group.items.length - 1]}
+                isActive={isAskUserPaused && isLatestMessage}
+                onSubmit={onAskUserAnswer}
+              />
             ) : (
               <ActivityGroup key={index} items={group.items} />
             ),
@@ -1323,7 +1638,7 @@ const AgentMessageCard: React.FC<{
         {isStreaming && hasStream && <ThinkingIndicator />}
         {!isStreaming && !isPromptTimeLimit && (
           <MessageStateBadge
-            state={message.state}
+            state={String(message.state)}
             stateMessage={message.state_message}
           />
         )}
@@ -1346,8 +1661,8 @@ const AgentMessageCard: React.FC<{
       {/* Show compact paywall bump when insufficient credits */}
       {isPaywallMessage && <CompactPaywallBump />}
     </div>
-  );
-};
+  )
+}
 
 export const AgentChatMessages = forwardRef<
   AgentChatMessagesRef,
@@ -1359,16 +1674,16 @@ export const AgentChatMessages = forwardRef<
   // All hooks must be called unconditionally before any early returns
   const { scrollRef, contentRef, scrollToBottom, isAtBottom } =
     useStickToBottom({
-      initial: "smooth",
-      resize: "smooth",
-    });
+      initial: 'smooth',
+      resize: 'smooth',
+    })
 
   // Track if user has manually scrolled up
-  const [hasScrolledUp, setHasScrolledUp] = useState(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasScrolledUp, setHasScrolledUp] = useState(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Determine if we should query - only if there's an active thread
-  const hasActiveThread = !!project?.active_agent_thread;
+  const hasActiveThread = !!project?.active_agent_thread
 
   // Load thread messages with pagination - only if active thread exists
   const {
@@ -1379,101 +1694,106 @@ export const AgentChatMessages = forwardRef<
     api.coding_agent.cli_agent.queries.listAgentThreadMessages,
     hasActiveThread
       ? { semanticIdentifier: projectSemanticIdentifier }
-      : "skip",
+      : 'skip',
     { initialNumItems: 20 },
-  );
+  )
 
   // Get streamed messages - only query if project has active thread
   const streamedMessages = useQuery(
     api.coding_agent.cli_agent.queries.getStreamedAgentMessages,
     hasActiveThread
       ? { semanticIdentifier: projectSemanticIdentifier }
-      : "skip",
-  );
+      : 'skip',
+  )
 
   // Determine loading state - only show loading if there IS an active thread AND queries haven't returned yet
   // When skipped (no active thread), queries return undefined immediately - don't show loading
   const isLoading =
     hasActiveThread &&
-    (threadMessages === undefined || streamedMessages === undefined);
+    (threadMessages === undefined || streamedMessages === undefined)
 
   // Handle empty states - if no active thread, queries return undefined, treat as empty array
   // Filter deactivated messages client-side - move array creation inside useMemo
   const filteredThreadMessages = useMemo(() => {
-    const threadMessagesArray = threadMessages ?? [];
-    return threadMessagesArray.filter((msg: any) => msg.deactivated !== true);
-  }, [threadMessages]);
+    const threadMessagesArray = threadMessages ?? []
+    return threadMessagesArray.filter((msg: any) => msg.deactivated !== true)
+  }, [threadMessages])
 
   const filteredStreamedMessages = useMemo(() => {
-    const streamedMessagesArray = streamedMessages ?? [];
-    return streamedMessagesArray.filter((msg: any) => msg.deactivated !== true);
-  }, [streamedMessages]);
+    const streamedMessagesArray = streamedMessages ?? []
+    return streamedMessagesArray.filter((msg: any) => msg.deactivated !== true)
+  }, [streamedMessages])
 
   // Combine and sort messages (oldest first for rendering)
   const sortedMessages = useMemo(() => {
-    const allMessages = [
-      ...filteredThreadMessages,
-      ...filteredStreamedMessages,
-    ];
+    const allMessages = [...filteredThreadMessages, ...filteredStreamedMessages]
     // Sort by _creationTime (oldest first for bottom-up rendering)
-    return allMessages.sort((a, b) => a._creationTime - b._creationTime);
-  }, [filteredThreadMessages, filteredStreamedMessages]);
+    return allMessages.sort((a, b) => a._creationTime - b._creationTime)
+  }, [filteredThreadMessages, filteredStreamedMessages])
 
   const persistAgentAdMessage = useMutation(
     api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
-  );
-  const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set());
+  )
+  const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set())
 
   const adBySourceMessageId = useMemo(() => {
-    const ads = new Map<string, PersistedAgentAd>();
+    const ads = new Map<string, PersistedAgentAd>()
     sortedMessages.forEach((message) => {
       if (message.ad_source_message_id && message.ad_payload) {
-        ads.set(message.ad_source_message_id, message.ad_payload);
+        ads.set(message.ad_source_message_id, message.ad_payload)
       }
-    });
-    return ads;
-  }, [sortedMessages]);
+    })
+    return ads
+  }, [sortedMessages])
 
   const messagesForRendering = useMemo(() => {
     const visibleMessageIds = new Set(
       sortedMessages.map((message) => message._id),
-    );
+    )
 
     return sortedMessages.filter((message) => {
-      if (!message.ad_payload || !message.ad_source_message_id) return true;
-      return !visibleMessageIds.has(message.ad_source_message_id);
-    });
-  }, [sortedMessages]);
+      if (!message.ad_payload || !message.ad_source_message_id) return true
+      return !visibleMessageIds.has(message.ad_source_message_id)
+    })
+  }, [sortedMessages])
+
+  const latestRenderableMessageId = useMemo(() => {
+    for (let i = messagesForRendering.length - 1; i >= 0; i--) {
+      const message = messagesForRendering[i]
+      if (!message.ad_payload) return message._id
+    }
+    return undefined
+  }, [messagesForRendering])
 
   const sourceMessageForAd = useMemo(() => {
     const sourceIdsWithAds = new Set(
       sortedMessages
         .map((message) => message.ad_source_message_id)
         .filter(Boolean),
-    );
+    )
 
     for (let i = sortedMessages.length - 1; i >= 0; i--) {
-      const message = sortedMessages[i];
-      if (message.ad_payload) continue;
-      if (!message.user_message) continue;
-      if (sourceIdsWithAds.has(message._id)) continue;
-      return message;
+      const message = sortedMessages[i]
+      if (message.ad_payload) continue
+      if (!message.user_message) continue
+      if (sourceIdsWithAds.has(message._id)) continue
+      return message
     }
 
-    return null;
-  }, [sortedMessages]);
+    return null
+  }, [sortedMessages])
 
   useEffect(() => {
-    if (!project?.active_agent_thread || !sourceMessageForAd) return;
+    if (!project?.active_agent_thread || !sourceMessageForAd) return
 
-    const sourceMessageId = sourceMessageForAd._id;
-    if (attemptedAdSourceIdsRef.current.has(sourceMessageId)) return;
+    const sourceMessageId = sourceMessageForAd._id
+    if (attemptedAdSourceIdsRef.current.has(sourceMessageId)) return
 
-    const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd);
-    if (gravityMessages.length === 0) return;
+    const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd)
+    if (gravityMessages.length === 0) return
 
-    attemptedAdSourceIdsRef.current.add(sourceMessageId);
-    let cancelled = false;
+    attemptedAdSourceIdsRef.current.add(sourceMessageId)
+    let cancelled = false
 
     void fetchGravityAd(
       gravityMessages,
@@ -1481,13 +1801,12 @@ export const AgentChatMessages = forwardRef<
       false,
     )
       .then(async (ad) => {
-        if (cancelled || !ad) return;
+        if (cancelled || !ad) return
 
-        fireAdImpressionOnce(ad);
         await persistAgentAdMessage({
           sourceMessageId,
           ad: {
-            provider: ad.provider ?? "gravity",
+            provider: ad.provider ?? 'gravity',
             adText: ad.adText,
             title: ad.title,
             cta: ad.cta,
@@ -1498,56 +1817,52 @@ export const AgentChatMessages = forwardRef<
               : {}),
             clickUrl: ad.clickUrl,
             impUrl: ad.impUrl,
-            placementId: "agent-chat-below-response",
+            placementId: 'agent-chat-below-response',
             servedAt: Date.now(),
           },
-        });
+        })
       })
       .catch((error) => {
-        attemptedAdSourceIdsRef.current.delete(sourceMessageId);
-        console.warn("[AgentChatMessages] Failed to persist Gravity ad", error);
-      });
+        attemptedAdSourceIdsRef.current.delete(sourceMessageId)
+        console.warn('[AgentChatMessages] Failed to persist Gravity ad', error)
+      })
 
     return () => {
-      cancelled = true;
-    };
-  }, [
-    persistAgentAdMessage,
-    project?.active_agent_thread,
-    sourceMessageForAd,
-  ]);
+      cancelled = true
+    }
+  }, [persistAgentAdMessage, project?.active_agent_thread, sourceMessageForAd])
   // Rollback functionality
-  const revertToCommit = useAction(api.codesandbox.versionControl.revert);
+  const revertToCommit = useAction(api.codesandbox.versionControl.revert)
   const deactivateAgentMessageMutation = useAction(
     api.coding_agent.cli_agent.agent_message.deactivateAgentMessageAndAfter,
-  );
+  )
   const updateThreadSessionId = useAction(
     api.coding_agent.cli_agent.agent_thread
       .updateAgentThreadActiveSessionIdPublic,
-  );
+  )
 
   // Get latest external change timestamp for rollback filtering
   const latestExternalChangeTimestamp = useQuery(
     api.thread.getLatestExternalChangeTimestamp,
     { semanticIdentifier: projectSemanticIdentifier },
-  );
+  )
 
   // Get active thread to check agent type
   const activeThread = useQuery(
     api.coding_agent.cli_agent.agent_thread.getAgentThreadPublic,
     hasActiveThread && project?.active_agent_thread
       ? { threadId: project.active_agent_thread }
-      : "skip",
-  );
+      : 'skip',
+  )
 
   // Memoize rollback callbacks for all user messages
   const rollbackCallbacks = useMemo(() => {
-    const callbacks = new Map<string, () => Promise<void>>();
+    const callbacks = new Map<string, () => Promise<void>>()
 
     // Check if this is Codex or Gemini CLI agent type
     const isCodexOrGemini =
-      activeThread?.agent_type === "Codex" ||
-      activeThread?.agent_type === "Gemini CLI";
+      activeThread?.agent_type === 'Codex' ||
+      activeThread?.agent_type === 'Gemini CLI'
 
     // Create restore callbacks for all user messages
     sortedMessages.forEach((message) => {
@@ -1557,7 +1872,7 @@ export const AgentChatMessages = forwardRef<
           latestExternalChangeTimestamp &&
           message._creationTime < latestExternalChangeTimestamp
         ) {
-          return; // Don't add callback for this message
+          return // Don't add callback for this message
         }
 
         callbacks.set(message._id, async () => {
@@ -1565,47 +1880,47 @@ export const AgentChatMessages = forwardRef<
           // This will be the message we want to resume from
           const messageIndex = sortedMessages.findIndex(
             (m) => m._id === message._id,
-          );
-          let previousMessageWithSessionId: string | undefined = undefined;
+          )
+          let previousMessageWithSessionId: string | undefined = undefined
 
           if (messageIndex > 0) {
             // Look backwards through messages to find the last one with a session_id
             for (let i = messageIndex - 1; i >= 0; i--) {
               if (sortedMessages[i].session_id) {
-                previousMessageWithSessionId = sortedMessages[i].session_id;
-                break;
+                previousMessageWithSessionId = sortedMessages[i].session_id
+                break
               }
             }
           }
 
           // Restore message text to input
           if (onRestoreMessage && message.user_message) {
-            let restoreText = message.user_message;
+            let restoreText = message.user_message
 
             // For Codex and Gemini CLI, add previous message context
             if (isCodexOrGemini && messageIndex > 0) {
               // Find the previous user message before the one being reverted to
-              let previousUserMessage: string | undefined = undefined;
+              let previousUserMessage: string | undefined = undefined
               for (let i = messageIndex - 1; i >= 0; i--) {
                 if (sortedMessages[i].user_message) {
-                  previousUserMessage = sortedMessages[i].user_message;
-                  break;
+                  previousUserMessage = sortedMessages[i].user_message
+                  break
                 }
               }
 
               // Format restore text with previous message context
               if (previousUserMessage) {
-                restoreText = `Version has been reverted to the previous user message: "${previousUserMessage}"\n\nNew Prompt:\n${message.user_message}`;
+                restoreText = `Version has been reverted to the previous user message: "${previousUserMessage}"\n\nNew Prompt:\n${message.user_message}`
               }
             }
 
-            onRestoreMessage(restoreText);
+            onRestoreMessage(restoreText)
           }
 
           // Always deactivate messages from this point onwards (including the target message)
           await deactivateAgentMessageMutation({
             messageId: message._id,
-          });
+          })
 
           // Update thread's active_session_id to the message BEFORE the deactivated one
           // This ensures git sync works correctly by resuming from the right point
@@ -1613,26 +1928,26 @@ export const AgentChatMessages = forwardRef<
             await updateThreadSessionId({
               threadId: project.active_agent_thread,
               activeSessionId: previousMessageWithSessionId,
-            });
+            })
           }
 
           // If message has a valid checkpoint, also revert to it
           if (
             message.commit_hash &&
-            message.commit_hash !== "creating" &&
-            message.commit_hash !== "failed"
+            message.commit_hash !== 'creating' &&
+            message.commit_hash !== 'failed'
           ) {
             await revertToCommit({
               semanticIdentifier: projectSemanticIdentifier,
               commitHash: message.commit_hash,
-              source: "chat",
-            });
+              source: 'chat',
+            })
           }
-        });
+        })
       }
-    });
+    })
 
-    return callbacks;
+    return callbacks
   }, [
     sortedMessages,
     revertToCommit,
@@ -1643,54 +1958,54 @@ export const AgentChatMessages = forwardRef<
     updateThreadSessionId,
     project,
     activeThread?.agent_type,
-  ]);
+  ])
 
   // Track scroll position to detect manual scroll up
   useEffect(() => {
-    const el = scrollRef.current as unknown as HTMLElement | null;
-    if (!el) return;
+    const el = scrollRef.current as unknown as HTMLElement | null
+    if (!el) return
 
     const handleScroll = () => {
       // Clear existing timeout
       if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+        clearTimeout(scrollTimeoutRef.current)
       }
 
       // Check if user scrolled up (not at bottom)
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-      setHasScrolledUp(!atBottom);
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+      setHasScrolledUp(!atBottom)
 
       // Auto-enable scroll lock after a delay if user scrolls back to bottom
       if (atBottom) {
         scrollTimeoutRef.current = setTimeout(() => {
-          setHasScrolledUp(false);
-        }, 1000);
+          setHasScrolledUp(false)
+        }, 1000)
       }
-    };
+    }
 
-    el.addEventListener("scroll", handleScroll);
+    el.addEventListener('scroll', handleScroll)
     return () => {
-      el.removeEventListener("scroll", handleScroll);
+      el.removeEventListener('scroll', handleScroll)
       if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+        clearTimeout(scrollTimeoutRef.current)
       }
-    };
-  }, [scrollRef]);
+    }
+  }, [scrollRef])
 
   // Load more messages when reaching top
   useEffect(() => {
-    const el = scrollRef.current as unknown as HTMLElement | null;
-    if (!el || !loadMoreAgentMessages) return;
+    const el = scrollRef.current as unknown as HTMLElement | null
+    if (!el || !loadMoreAgentMessages) return
 
     const onScroll = () => {
-      if (el.scrollTop <= 8 && agentMessagesStatus === "CanLoadMore") {
-        loadMoreAgentMessages(20);
+      if (el.scrollTop <= 8 && agentMessagesStatus === 'CanLoadMore') {
+        loadMoreAgentMessages(20)
       }
-    };
+    }
 
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [scrollRef, loadMoreAgentMessages, agentMessagesStatus]);
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [scrollRef, loadMoreAgentMessages, agentMessagesStatus])
 
   // Expose scrollToBottom function to parent via ref
   useImperativeHandle(
@@ -1699,11 +2014,11 @@ export const AgentChatMessages = forwardRef<
       scrollToBottom,
     }),
     [scrollToBottom],
-  );
+  )
 
   // Show empty state if no active thread OR no messages
   const shouldShowEmptyState =
-    !hasActiveThread || (sortedMessages.length === 0 && !isLoading);
+    !hasActiveThread || (sortedMessages.length === 0 && !isLoading)
 
   // Early return if project is not loaded - AFTER all hooks
   if (!project) {
@@ -1711,7 +2026,7 @@ export const AgentChatMessages = forwardRef<
       <div className="flex h-full items-center justify-center">
         <div className="text-center text-zinc-500">Loading project...</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -1732,13 +2047,13 @@ export const AgentChatMessages = forwardRef<
                   </div>
                   <div className="mb-2 text-sm font-semibold text-slate-700">
                     {!hasActiveThread
-                      ? "No active thread"
-                      : "Start a new conversation"}
+                      ? 'No active thread'
+                      : 'Start a new conversation'}
                   </div>
                   <div className="mb-4 text-xs text-slate-500">
                     {!hasActiveThread
-                      ? "Create a new thread to begin chatting with Codex agent"
-                      : "Start typing what you want"}
+                      ? 'Create a new thread to begin chatting with Codex agent'
+                      : 'Start typing what you want'}
                   </div>
                 </div>
               ) : (
@@ -1748,10 +2063,12 @@ export const AgentChatMessages = forwardRef<
                       key={message._id}
                       message={message}
                       adAfterUser={adBySourceMessageId.get(message._id)}
+                      isLatestMessage={message._id === latestRenderableMessageId}
                       onRollback={rollbackCallbacks.get(message._id)}
                       onContinueAfterTimeout={() =>
                         onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
                       }
+                      onAskUserAnswer={onSendMessage}
                     />
                   ))}
                 </>
@@ -1768,7 +2085,7 @@ export const AgentChatMessages = forwardRef<
         <ScrollToBottomButton onClick={scrollToBottom} />
       )}
     </>
-  );
-});
+  )
+})
 
-AgentChatMessages.displayName = "AgentChatMessages";
+AgentChatMessages.displayName = 'AgentChatMessages'

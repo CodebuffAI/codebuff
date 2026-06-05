@@ -34,6 +34,8 @@ const deviceSchema = z.object({
   locale: z.string().optional(),
 })
 
+const gravityContextSchema = z.record(z.string(), z.unknown())
+
 const providerSchema = z
   .enum(['gravity', 'carbon', 'zeroclick'])
   .default('gravity')
@@ -44,6 +46,7 @@ const bodySchema = z.object({
   messages: z.array(messageSchema).optional().default([]),
   sessionId: z.string().optional(),
   device: deviceSchema.optional(),
+  gravity_context: gravityContextSchema.optional(),
   surface: surfaceSchema.optional(),
   /** Browser-like useragent passed through to providers that require it. */
   userAgent: z.string().optional(),
@@ -218,6 +221,7 @@ export async function postAds(params: {
         userAgent,
         requestUserAgent,
         device: parsedBody.device,
+        gravityContext: parsedBody.gravity_context,
         surface: parsedBody.surface,
         messages: parsedBody.messages,
         testMode: serverEnv.CB_ENVIRONMENT !== 'prod',

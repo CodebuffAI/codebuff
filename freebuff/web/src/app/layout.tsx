@@ -1,11 +1,9 @@
 import '@/styles/globals.css'
 
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 
-import {
-  OrganizationJsonLd,
-  WebSiteJsonLd,
-} from '@/components/blog/json-ld'
+import { OrganizationJsonLd, WebSiteJsonLd } from '@/components/blog/json-ld'
 import { Footer } from '@/components/footer'
 import { ReferrerTracker } from '@/components/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -90,6 +88,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const siteUrl = siteConfig.url()
+  const gravityPixelId = process.env.NEXT_PUBLIC_GRAVITY_PIXEL_ID
+  const gravityPixelIdJson = JSON.stringify(gravityPixelId)
   return (
     <html lang="en" suppressHydrationWarning>
       {/*
@@ -106,6 +106,21 @@ export default function RootLayout({
           fonts,
         )}
       >
+        {gravityPixelId && (
+          <Script
+            id="gravity-pixel"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                !function(w,d,t,u,n,a,m){w['GravityPixelObject']=n;w[n]=w[n]||function(){
+                (w[n].q=w[n].q||[]).push(arguments)},w[n].l=1*new Date();a=d.createElement(t),
+                m=d.getElementsByTagName(t)[0];a.async=1;a.src=u;m.parentNode.insertBefore(a,m)
+                }(window,document,'script','https://code.trygravity.ai/gr-pix.js','gravity');
+                gravity('init', ${gravityPixelIdJson});
+              `,
+            }}
+          />
+        )}
         <OrganizationJsonLd siteUrl={siteUrl} />
         <WebSiteJsonLd siteUrl={siteUrl} />
         <ThemeProvider attribute="class">

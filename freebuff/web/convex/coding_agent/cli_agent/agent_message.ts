@@ -160,6 +160,7 @@ export const updateAgentMessageState = internalMutation({
     state: v.union(
       v.literal("Processing"),
       v.literal("Completed"),
+      v.literal("Paused"),
       v.literal("Cancelled"),
       v.literal("Error"),
     ),
