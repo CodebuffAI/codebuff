@@ -263,11 +263,11 @@ export function GravityAdSlot({
     <div
       className={cn(
         "relative rounded-lg",
-        isFeatured && "mt-2.5 border border-zinc-200 bg-zinc-50/30 px-3 py-2",
-        isCompact && "mt-2 border border-zinc-200 bg-zinc-50/80 px-2 py-2",
+        isFeatured && "mt-2.5",
+        isCompact && "mt-2",
         !isFeatured &&
           !isCompact &&
-          "mt-3 border border-zinc-200 bg-zinc-50/80 px-3 py-2.5",
+          "mt-3",
         className,
       )}
     >
@@ -285,87 +285,79 @@ export function GravityAdSlot({
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className="block rounded text-left no-underline outline-none focus:ring-2 focus:ring-zinc-300 focus:ring-offset-1"
+        className="group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline outline-none transition-colors hover:border-primary/40 hover:bg-muted/30 focus:ring-2 focus:ring-primary/30"
       >
         <div
           className={cn(
-            "flex items-start gap-2",
-            isFeatured && "gap-2",
-            isCompact && "gap-1.5",
+            "relative flex shrink-0 items-center justify-center overflow-hidden border-r border-border bg-muted font-medium text-muted-foreground",
+            isFeatured && "w-14 text-xs sm:w-16",
+            isCompact && "w-10 text-[10px]",
+            !isFeatured && !isCompact && "w-12 text-xs",
           )}
         >
-          <div
+          {ad.favicon && !faviconError ? (
+            <img
+              src={ad.favicon}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={() => setFaviconError(true)}
+            />
+          ) : null}
+          <span
             className={cn(
-              "relative flex shrink-0 items-center justify-center overflow-hidden rounded font-medium",
-              isFeatured && "h-5 w-5 bg-zinc-100 text-[9px] text-zinc-500",
-              isCompact && "h-4 w-4 bg-zinc-200 text-[9px] text-zinc-600",
-              !isFeatured &&
-                !isCompact &&
-                "h-5 w-5 bg-zinc-200 text-[10px] text-zinc-600",
+              "relative z-[1]",
+              ad.favicon && !faviconError ? "invisible" : "",
             )}
           >
-            {ad.favicon && !faviconError ? (
-              <img
-                src={ad.favicon}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-                onError={() => setFaviconError(true)}
-              />
-            ) : null}
-            <span
+            {ad.brandName.charAt(0).toUpperCase() || "Ad"}
+          </span>
+        </div>
+        <div
+          className={cn(
+            "min-w-0 flex-1 overflow-hidden",
+            isFeatured && "px-3 py-2.5",
+            isCompact && "px-2 py-1.5",
+            !isFeatured && !isCompact && "px-3 py-2",
+          )}
+        >
+          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            Sponsored
+          </span>
+          <span
+            className={cn(
+              "block truncate font-semibold text-foreground",
+              isFeatured && "text-sm",
+              isCompact && "text-xs",
+              !isFeatured && !isCompact && "text-sm",
+            )}
+          >
+            {ad.title || ad.brandName}
+          </span>
+          <p
+            className={cn(
+              "mt-0.5 break-words leading-snug text-muted-foreground",
+              isFeatured && "line-clamp-2 text-sm",
+              isCompact && "line-clamp-2 text-[11px]",
+              !isFeatured && !isCompact && "line-clamp-2 text-xs",
+            )}
+          >
+            {ad.adText}
+          </p>
+          <span
+            className={cn(
+              "mt-2 inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 transition-colors group-hover:text-primary group-hover:underline",
+              isCompact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            {ad.cta || "Learn more"}
+            <ExternalLink
               className={cn(
-                "relative z-[1]",
-                ad.favicon && !faviconError ? "invisible" : "",
+                "shrink-0",
+                isCompact && "h-2.5 w-2.5",
+                !isCompact && "h-3 w-3",
               )}
-            >
-              {ad.brandName.charAt(0).toUpperCase() || "Ad"}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <span
-              className={cn(
-                "block font-medium",
-                !isCompact && "truncate",
-                isFeatured && "text-xs text-zinc-500",
-                isCompact && "line-clamp-2 text-[10px] text-zinc-700",
-                !isFeatured && !isCompact && "text-xs text-zinc-700",
-              )}
-            >
-              {ad.title || ad.brandName}
-            </span>
-            <p
-              className={cn(
-                "mt-0.5 line-clamp-3 break-words leading-snug",
-                isFeatured && "text-xs text-zinc-500",
-                isCompact &&
-                  "mt-0 line-clamp-5 text-[10px] leading-tight text-zinc-600",
-                !isFeatured && !isCompact && "text-xs text-zinc-600",
-              )}
-            >
-              {ad.adText}
-            </p>
-            <span
-              className={cn(
-                "mt-3 inline-flex items-center gap-1 rounded-md font-semibold transition-colors",
-                isFeatured &&
-                  "bg-zinc-800 px-2.5 py-1 text-[11px] text-white hover:bg-zinc-700",
-                isCompact &&
-                  "bg-zinc-800 px-2 py-0.5 text-[10px] text-white hover:bg-zinc-700",
-                !isFeatured &&
-                  !isCompact &&
-                  "bg-zinc-800 px-2.5 py-1 text-[11px] text-white hover:bg-zinc-700",
-              )}
-            >
-              {ad.cta || "Learn more"}
-              <ExternalLink
-                className={cn(
-                  "shrink-0",
-                  isCompact && "h-2.5 w-2.5",
-                  !isCompact && "h-3 w-3",
-                )}
-              />
-            </span>
-          </div>
+            />
+          </span>
         </div>
       </a>
     </div>

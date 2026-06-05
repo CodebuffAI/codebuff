@@ -14,7 +14,6 @@ import {
   LogOut,
   Rocket,
   Github,
-  History,
   User,
 } from 'lucide-react'
 import { FunctionReturnType } from 'convex/server'
@@ -188,18 +187,6 @@ export function TopBar({
                 className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
                 onClick={() =>
                   router.push(
-                    `/web/project/${project.semantic_identifier}?view=versions`,
-                  )
-                }
-              >
-                <History className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                Version history
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(
                     `/web/project/${project.semantic_identifier}/settings?section=usage`,
                   )
                 }
@@ -216,14 +203,6 @@ export function TopBar({
               >
                 <User className="mr-2.5 h-4 w-4 text-muted-foreground" />
                 User settings
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() => router.push('/web/dashboard')}
-              >
-                <FolderKanban className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                My Projects
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -257,6 +236,26 @@ export function TopBar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => router.push('/web/dashboard')}
+                aria-label="Project"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <FolderKanban className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={6}
+              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+            >
+              Project
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* ── Right: icon actions ──────────────────────────────────────── */}

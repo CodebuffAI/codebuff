@@ -261,6 +261,7 @@ type AssistantStreamItemType = {
   title?: string;
   status?: string;
   content: string;
+  description?: string;
 };
 
 const TIME_LIMIT_CONTINUE_MESSAGE = "continue";
@@ -705,39 +706,50 @@ const TextGroup: React.FC<{
 });
 TextGroup.displayName = "TextGroup";
 
+const humanizeActivityLabel = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const normalized = trimmed
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const getActivityItemLabel = (item: AssistantStreamItemType) => {
+  if (item.type === "thinking") return "Reasoning";
+  if (item.type === "timeout_continue") return "Continue required";
+  if (item.type === "error") return "Error";
+  if (item.type === "result") {
+    return item.status ? `Result ${item.status}` : "Result";
+  }
+  if (item.type === "tool_result") return "Tool result";
+  if (item.type === "system") return "System";
+  if (item.type === "user") return "User message";
+
+  if (item.type === "tool_use") {
+    const title = item.title?.trim();
+    if (title && title !== "Tool Use" && title !== "Command Execution") {
+      return humanizeActivityLabel(title);
+    }
+
+    const descriptionHead = item.description?.split(":")[0]?.trim();
+    if (descriptionHead && descriptionHead !== "Command Execution") {
+      return humanizeActivityLabel(descriptionHead);
+    }
+
+    return title === "Command Execution" ? "Command" : "Tool";
+  }
+
+  return humanizeActivityLabel(item.title || item.type || "Step");
+};
+
 // Build a one-line summary describing a run of activity items so the user
 // knows what's hidden inside the collapsed group without expanding.
 const buildActivitySummary = (items: AssistantStreamItemType[]) => {
-  const total = items.length;
-  const types = items.reduce<Record<string, number>>((acc, item) => {
-    acc[item.type] = (acc[item.type] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const toolUseCount = types["tool_use"] ?? 0;
-  const toolResultCount = types["tool_result"] ?? 0;
-  const thinkingCount = types["thinking"] ?? 0;
-  const errorCount = types["error"] ?? 0;
-  const onlyToolish =
-    total > 0 &&
-    toolUseCount + toolResultCount + thinkingCount + errorCount === total;
-
-  if (errorCount > 0 && total === errorCount) {
-    return errorCount === 1 ? "Error" : `Errors (${errorCount})`;
-  }
-  if (onlyToolish && toolUseCount > 0 && toolResultCount === 0) {
-    return toolUseCount === 1
-      ? "Used 1 tool"
-      : `Used ${toolUseCount} tools`;
-  }
-  if (onlyToolish && toolUseCount + toolResultCount > 0) {
-    const calls = toolUseCount + toolResultCount;
-    return calls === 1 ? "Tool activity" : `Used ${toolUseCount || calls} tools`;
-  }
-  if (thinkingCount > 0 && thinkingCount === total) {
-    return "Thinking…";
-  }
-  return total === 1 ? "Activity" : `Activity (${total} steps)`;
+  return items.map(getActivityItemLabel).filter(Boolean).join(", ");
 };
 
 // One collapsible group rendering a consecutive run of non-text stream items.
@@ -767,10 +779,12 @@ const ActivityGroup: React.FC<{
           )}
         >
           <Icon className="h-3 w-3" />
-          <span>{summary}</span>
+          <span className="min-w-0 truncate" title={summary}>
+            {summary}
+          </span>
           <ChevronDown
             className={cn(
-              "h-3 w-3 transition-transform",
+              "h-3 w-3 shrink-0 transition-transform",
               isExpanded ? "rotate-180" : "",
             )}
           />
@@ -1099,32 +1113,37 @@ const AgentAdMessage: React.FC<{
         className,
       )}
     >
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-        Sponsored
-      </div>
-      {ad.adText && (
-        <p className="mb-1.5 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
-          {ad.adText}
-        </p>
-      )}
       <a
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={() => recordAdClick(ad)}
-        className="inline-flex max-w-full items-center gap-1.5 text-sm text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+        className="group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline transition-colors hover:border-primary/40 hover:bg-muted/30"
       >
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+        <span className="flex w-16 shrink-0 items-center justify-center overflow-hidden border-r border-border bg-muted text-xs font-semibold text-muted-foreground sm:w-20">
           {imageUrl ? (
             <img src={imageUrl} alt="" className="h-full w-full object-cover" />
           ) : (
             title.charAt(0).toUpperCase()
           )}
         </span>
-        <span className="truncate font-medium">{title}</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="shrink-0 text-muted-foreground">{cta}</span>
-        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 px-3 py-2.5">
+          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            Sponsored
+          </span>
+          <span className="block truncate text-sm font-semibold text-foreground">
+            {title}
+          </span>
+          {ad.adText && (
+            <span className="mt-0.5 block line-clamp-2 text-sm leading-snug text-muted-foreground">
+              {ad.adText}
+            </span>
+          )}
+          <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-4 group-hover:text-primary group-hover:underline">
+            {cta}
+            <ExternalLink className="h-3 w-3 shrink-0" />
+          </span>
+        </span>
       </a>
     </div>
   );

@@ -581,6 +581,16 @@ const getMessageUsageSummary = (message: {
 const hasMeaningfulText = (value: string | undefined | null): boolean =>
   !!value?.trim();
 
+const humanizeActivityLabel = (value: string) => {
+  const normalized = value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
 const getActivityToolNames = (details: ExecutionDetails | undefined) => {
   const names: string[] = [];
 
@@ -622,47 +632,25 @@ const ActivitySummary: React.FC<{
 }> = ({ details, isActive }) => {
   const toolNames = React.useMemo(() => getActivityToolNames(details), [details]);
   const statusItems = [
-    details?.error_check ? "error check" : null,
-    details?.result ? "result" : null,
+    details?.error_check ? "Error check" : null,
+    details?.result ? "Result" : null,
   ].filter(Boolean) as string[];
-  const stepCount = Math.max(toolNames.length + statusItems.length, 1);
+  const activityLabels = details
+    ? [...toolNames.map(humanizeActivityLabel), ...statusItems]
+    : ["Loading details"];
+  const summary = activityLabels.length ? activityLabels.join(", ") : "Running";
 
   return (
     <div className="mt-2 flex max-w-full items-center gap-2 overflow-hidden text-xs text-zinc-500">
       <Code className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-      <span className="shrink-0 font-medium text-zinc-500">
-        Activity ({stepCount})
+      <span
+        className={`min-w-0 truncate font-medium text-zinc-500 ${
+          isActive ? "animate-pulse" : ""
+        }`}
+        title={summary}
+      >
+        {summary}
       </span>
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-0.5 scrollbar-hide">
-        {!details && (
-          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-500">
-            loading details
-          </span>
-        )}
-        {toolNames.map((name, index) => (
-          <span
-            key={`${name}-${index}`}
-            className={`rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-600 ${
-              isActive && index === toolNames.length - 1 ? "animate-pulse" : ""
-            }`}
-          >
-            {name}
-          </span>
-        ))}
-        {statusItems.map((item) => (
-          <span
-            key={item}
-            className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600"
-          >
-            {item}
-          </span>
-        ))}
-        {details && toolNames.length === 0 && statusItems.length === 0 && (
-          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-500">
-            running
-          </span>
-        )}
-      </div>
     </div>
   );
 };

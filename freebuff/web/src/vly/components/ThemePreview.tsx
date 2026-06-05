@@ -1626,41 +1626,47 @@ export function ThemeCard({
     <button
       type="button"
       disabled={isSubmitting}
-      className={`group relative overflow-hidden border border-gray-200/80 bg-white text-left transition-all duration-200 ${
+      aria-pressed={isSelected}
+      className={`group relative overflow-hidden border bg-card text-left transition-colors duration-150 ${
         isSelected
-          ? "border-gray-900 shadow-[0_0_0_2px_rgba(17,24,39,0.12),0_18px_36px_rgba(15,23,42,0.08)]"
-          : "shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:-translate-y-1 hover:border-gray-300 hover:shadow-[0_20px_42px_rgba(15,23,42,0.12)]"
-      } ${isCompact ? "rounded-xl" : "rounded-2xl"} ${
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-primary/60 hover:bg-muted/35"
+      } ${isCompact ? "rounded-lg" : "rounded-xl"} ${
         isSubmitting ? "cursor-not-allowed opacity-50" : ""
       }`}
       onClick={() => onSelect?.(theme)}
       onMouseEnter={() => onHover?.(theme)}
       onMouseLeave={() => onHover?.(null)}
     >
-      <div className="aspect-[4/3] w-full overflow-hidden">
+      {isSelected && (
+        <div className="absolute right-2 top-2 z-10 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+          Selected
+        </div>
+      )}
+
+      <div className={`w-full overflow-hidden ${isCompact ? "h-24" : "h-36"}`}>
         <ThemePreview theme={theme} isHovered={isHovered} size={size} />
       </div>
 
       <div
-        className={`border-t border-gray-100 bg-white ${isCompact ? "p-3" : "p-4"}`}
+        className={`border-t border-border bg-card ${isCompact ? "p-3" : "p-3.5"}`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-start gap-2">
               <span
-                className={`${isCompact ? "pt-0.5 text-[10px]" : "pt-0.5 text-xs"} text-gray-400`}
-              >
-                {metadata.icon}
-              </span>
+                className={`${isCompact ? "mt-1 h-2.5 w-2.5" : "mt-1 h-3 w-3"} flex-shrink-0 rounded-full border border-border`}
+                style={{ backgroundColor: metadata.colors.primary }}
+              />
 
               <div className="min-w-0">
                 <div
-                  className={`${isCompact ? "text-xs" : "text-sm"} font-semibold leading-snug text-gray-900`}
+                  className={`${isCompact ? "text-sm" : "text-base"} font-semibold leading-snug text-foreground`}
                 >
                   {theme}
                 </div>
                 <p
-                  className={`${isCompact ? "mt-1 text-[10px]" : "mt-1 text-xs"} leading-snug text-gray-500`}
+                  className={`${isCompact ? "mt-1 line-clamp-2 text-xs" : "mt-1 line-clamp-2 text-sm"} leading-snug text-muted-foreground`}
                 >
                   {isCompact ? metadata.vibe : metadata.description}
                 </p>
@@ -1668,7 +1674,7 @@ export function ThemeCard({
             </div>
 
             {isCompact ? (
-              <div className="mt-2 text-[10px] font-medium text-gray-400">
+              <div className="mt-2 text-[11px] font-medium text-muted-foreground">
                 {metadata.font}
               </div>
             ) : (
@@ -1676,7 +1682,7 @@ export function ThemeCard({
                 {metadata.tags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600"
+                    className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
                   >
                     {tag}
                   </span>
@@ -1687,10 +1693,10 @@ export function ThemeCard({
 
           {isSelected ? (
             <div
-              className={`flex items-center justify-center rounded-full border border-gray-900 bg-gray-900 ${isCompact ? "h-4 w-4" : "h-5 w-5"}`}
+              className={`flex flex-shrink-0 items-center justify-center rounded-full border border-primary bg-primary ${isCompact ? "h-4 w-4" : "h-5 w-5"}`}
             >
               <svg
-                className={`${isCompact ? "h-2.5 w-2.5" : "h-3 w-3"} text-white`}
+                className={`${isCompact ? "h-2.5 w-2.5" : "h-3 w-3"} text-primary-foreground`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -1702,7 +1708,7 @@ export function ThemeCard({
               </svg>
             </div>
           ) : !isCompact ? (
-            <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-500">
+            <span className="rounded-full border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground">
               {metadata.font}
             </span>
           ) : null}
