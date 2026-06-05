@@ -11,6 +11,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Token bucket: 20 tokens per hour, max capacity of 10 (burst protection)
   // Tokens refill gradually (~1 every 3 minutes) instead of all at once
   // This eliminates boundary issues and provides smoother rate limiting
+  // NOTE: Used by project creation and all non-Freebuff agent paths.
+  // Freebuff agent chat uses the separate freebuffMessages bucket below.
   userMessages: {
     kind: "token bucket",
     rate: 20, // Refill 20 tokens per hour
@@ -24,6 +26,16 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     kind: "fixed window",
     rate: FREEBUFF_PREMIUM_SESSION_LIMIT,
     period: DAY,
+  },
+  // Freebuff agent chat: 20 messages per 3 hours, full burst.
+  // Capacity equals rate so a fresh user can fire all 20 immediately,
+  // then must wait for the bucket to refill over 3 hours.
+  // Project creation and other agents are NOT counted against this bucket.
+  freebuffMessages: {
+    kind: "token bucket",
+    rate: 20, // Refill 20 tokens per period
+    period: 3 * HOUR,
+    capacity: 20, // Full burst allowed; no per-message pacing
   },
   // Fixed window: 1 request per 15 seconds for refine prompt
   refinePrompt: {
@@ -71,6 +83,15 @@ export const { getRateLimit: getPremiumModelRateLimit } = rateLimiter.hookAPI(
     key: getUserIdForRateLimit,
   },
 );
+// Hook API bound to the Freebuff-only bucket. Lets AgentChatShell (or any other
+// Freebuff-specific UI) display a proactive countdown that reflects the
+// 20-per-3-hours cap rather than the legacy userMessages bucket.
+export const {
+  getRateLimit: getFreebuffRateLimit,
+  getServerTime: getFreebuffServerTime,
+} = rateLimiter.hookAPI("freebuffMessages", {
+  key: getUserIdForRateLimit,
+});
 
 export type RateLimitResult =
   | { success: true }
@@ -179,6 +200,41 @@ export async function checkRefinePromptRateLimit(
         kind: "RateLimited",
         retryAfter: status.retryAfter,
         message: `Please wait ${Math.ceil(status.retryAfter / 1000)} seconds before refining another prompt.`,
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Check Freebuff-specific rate limit (20 messages per 3 hours, full burst).
+ * Used ONLY for the Freebuff agent chat path. Project creation and any other
+ * agent paths still use checkUserRateLimit so their behavior is unchanged.
+ * @param ctx - Convex mutation context
+ * @param userId - User ID to check rate limits for
+ * @returns RateLimitResult indicating success or rate limit error
+ */
+export async function checkFreebuffRateLimit(
+  ctx: MutationCtx,
+  userId: string,
+): Promise<RateLimitResult> {
+  const status = await rateLimiter.limit(ctx, "freebuffMessages", {
+    key: userId,
+    throws: false,
+  });
+
+  if (!status.ok) {
+    console.log(
+      `[RateLimit] User ${userId} hit Freebuff rate limit, retry after: ${status.retryAfter}ms`,
+    );
+    return {
+      success: false,
+      error: {
+        kind: "RateLimited",
+        retryAfter: status.retryAfter,
+        message:
+          "You've hit the Freebuff message limit (20 per 3 hours). Please wait before sending again.",
       },
     };
   }

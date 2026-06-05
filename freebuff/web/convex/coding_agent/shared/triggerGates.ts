@@ -3,7 +3,7 @@ import type { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
 import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
-import { checkUserRateLimit, checkPremiumModelRateLimit } from "../rateLimiter";
+import { checkUserRateLimit, checkPremiumModelRateLimit, checkFreebuffRateLimit } from "../rateLimiter";
 import { isFreebuffPremiumModelId } from "@codebuff/common/constants/freebuff-models";
 
 type User = NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
@@ -50,7 +50,14 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   const isPlatformAdmin = user.role === "god" || user.role === "admin";
 
   if (!args.skipRateLimitCheck) {
-    const rl = await checkUserRateLimit(args.ctx, user._id);
+    // Freebuff agent chat is gated by its own stricter bucket
+    // (20 messages / 3 hours, full burst). All other paths — project
+    // creation and the legacy/non-Freebuff agents — keep using the
+    // shared userMessages bucket so their behavior is unchanged.
+    const rl =
+      args.agentType === "Freebuff"
+        ? await checkFreebuffRateLimit(args.ctx, user._id)
+        : await checkUserRateLimit(args.ctx, user._id);
     if (!rl.success) return { ok: false, error: rl.error };
   }
 

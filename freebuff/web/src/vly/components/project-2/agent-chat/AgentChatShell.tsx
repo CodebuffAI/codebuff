@@ -10,6 +10,7 @@ import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { toast } from "sonner";
 import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
+import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
 import { AgentThreadList } from "./AgentThreadList";
 import { ChatInput } from "../ChatInput";
 import { CreditOverlay } from "../CreditOverlay";
@@ -342,9 +343,13 @@ export function AgentChatShell({
   );
 
   // Handler for sending messages
-  const handleSendMessage = useCallback(
+  // dispatchSend performs the actual mutation call and is what the message
+  // queue invokes when a queued message auto-fires after the current run
+  // completes. The public handleSendMessage below decides between sending
+  // immediately and enqueueing.
+  const dispatchSend = useCallback(
     async (message: string, images: Id<"_storage">[]): Promise<boolean> => {
-      if (!project || isProcessing) {
+      if (!project) {
         return false;
       }
 
@@ -413,10 +418,74 @@ export function AgentChatShell({
     },
     [
       project,
-      isProcessing,
       sendMessage,
       projectSemanticIdentifier,
       activeThread,
+      updateSelectedNodeInfo,
+    ],
+  );
+
+  // Client-side message queue: max 1 message can wait while a turn is in
+  // flight. When isProcessing flips false, the queue auto-fires the
+  // pending message via dispatchSend (which still passes through the
+  // server-side rate-limit gate).
+  const messageQueue = useMessageQueue({
+    onProcessMessage: async (message, images) => {
+      await dispatchSend(message, images);
+    },
+    isProcessing,
+  });
+
+  const MAX_QUEUED_MESSAGES = 1;
+
+  const handleSendMessage = useCallback(
+    async (message: string, images: Id<"_storage">[]): Promise<boolean> => {
+      if (!project) {
+        return false;
+      }
+
+      const hasContent =
+        message.trim().length > 0 ||
+        images.length > 0 ||
+        !!selectedNodeInfoRef.current?.image;
+
+      if (!hasContent) {
+        return false;
+      }
+
+      // While a turn is running, route the new message into the
+      // single-slot queue rather than rejecting it outright. The
+      // backend already rejects parallel sends on the same thread
+      // via the THREAD_PROCESSING gate, so this is purely a UX
+      // affordance that lets the user line up exactly one follow-up.
+      if (isProcessing) {
+        if (messageQueue.queue.length >= MAX_QUEUED_MESSAGES) {
+          toast.error("Only 1 message can be queued at a time.", {
+            duration: 4000,
+          });
+          return false;
+        }
+
+        messageQueue.addToQueue(message, images);
+        toast.success(
+          "Message queued. It will send when the current one finishes.",
+          { duration: 3000 },
+        );
+        // Clear any selected node attachment so it does not leak into
+        // a later, unrelated send.
+        if (selectedNodeInfoRef.current) {
+          updateSelectedNodeInfo(null);
+        }
+        return true;
+      }
+
+      return dispatchSend(message, images);
+    },
+    [
+      project,
+      isProcessing,
+      messageQueue,
+      dispatchSend,
       updateSelectedNodeInfo,
     ],
   );
@@ -516,10 +585,14 @@ export function AgentChatShell({
 
   // Handle terminating thread from ChatInput X button - cancels the currently streaming message
   const handleTerminateThread = useCallback(async () => {
+    // Drop any pending queued message first so it does not auto-fire
+    // after we cancel the currently streaming message.
+    messageQueue.clearQueue();
+
     if (currentStreamingMessage?.isStreaming && currentStreamingMessage._id) {
       await handleCancelMessage(currentStreamingMessage._id);
     }
-  }, [currentStreamingMessage, handleCancelMessage]);
+  }, [currentStreamingMessage, handleCancelMessage, messageQueue]);
 
   // Codex / Claude Code / Gemini integrations have been removed — Freebuff
   // is now the only available agent.
@@ -905,8 +978,8 @@ export function AgentChatShell({
                     setIsSelectingElement={setIsSelectingElement}
                     projectId={project?._id}
                     onOpenDivergenceDialog={() => {}}
-                    queuedMessages={[]}
-                    onRemoveQueuedMessage={() => {}}
+                    queuedMessages={messageQueue.queue}
+                    onRemoveQueuedMessage={messageQueue.removeFromQueue}
                     externalSelectedNodeInfo={selectedNodeInfo}
                     onSelectedNodeInfoChange={updateSelectedNodeInfo}
                     onUserInputChange={() => {}}

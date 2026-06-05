@@ -1315,10 +1315,9 @@ if (!hasIntegration) {
     sanitized = sanitized.trim();
 
     // Try to extract JSON if there's extra text around it
-    // Look for { or [ at the start of a line
-    const jsonMatch = sanitized.match(/^.*?(\{[\s\S]*\}|\[[\s\S]*\]).*?$/);
-    if (jsonMatch && jsonMatch[1]) {
-      return jsonMatch[1].trim();
+    const jsonMatch = sanitized.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return jsonMatch[0].trim();
     }
 
     return sanitized;
