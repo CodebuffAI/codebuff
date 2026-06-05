@@ -594,14 +594,14 @@ const AssistantStreamItem: React.FC<{
     return (
       <div className="mb-2">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground/80">
+          <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground/80">
             <span className="font-normal">Thinking…</span>
             <ChevronDown
-              className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-1 border-l-2 border-border/60 pl-3">
+            <div className="ml-1 mt-2 border-l-2 border-border/60 pl-3">
               <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                 {item.content}
               </p>
@@ -648,14 +648,14 @@ const AssistantStreamItem: React.FC<{
     return (
       <div className="mb-2">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground/80">
+          <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground/80">
             <span>{displayTitle}</span>
             <ChevronDown
-              className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-1 border-l-2 border-border/60 pl-3">
+            <div className="mt-2 border-l-2 border-border/60 pl-3">
               <pre className="whitespace-pre-wrap font-mono text-xs text-foreground/75">
                 {item.content}
               </pre>
@@ -838,10 +838,12 @@ const ActivityGroup: React.FC<{
   const usesTools = items.some(
     (item) => item.type === 'tool_use' || item.type === 'tool_result',
   )
-  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : Clock
+  // Only surface an icon for meaningful states (errors / tool runs). The
+  // generic clock icon was noisy, so it's intentionally omitted.
+  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : null
 
   return (
-    <div className="my-1">
+    <div className="my-2.5">
       <Collapsible
         open={hasDetails && isExpanded}
         onOpenChange={(open) => hasDetails && setIsExpanded(open)}
@@ -849,14 +851,14 @@ const ActivityGroup: React.FC<{
         <CollapsibleTrigger
           disabled={!hasDetails}
           className={cn(
-            'flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors',
+            'flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium transition-colors',
             hasError
               ? 'text-red-400 hover:text-red-300'
               : 'text-muted-foreground hover:text-foreground/80',
             !hasDetails && 'cursor-default hover:text-muted-foreground',
           )}
         >
-          <Icon className="h-3 w-3" />
+          {Icon && <Icon className="h-3 w-3 shrink-0" />}
           <span className="min-w-0 truncate" title={summary}>
             {summary}
           </span>
@@ -871,7 +873,7 @@ const ActivityGroup: React.FC<{
         </CollapsibleTrigger>
         {hasDetails && (
           <CollapsibleContent>
-            <div className="mt-1 border-l-2 border-border/60 pl-3">
+            <div className="ml-1 mt-2 space-y-2 border-l-2 border-border/60 pl-3">
               {detailedItems.map((item, index) => (
                 <AssistantStreamItem key={index} item={item} />
               ))}
@@ -1605,7 +1607,7 @@ const AgentMessageCard: React.FC<{
           thinking / system items group into a
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           {groupStreamItems(visibleAssistantStream).map((group, index) =>
             group.kind === 'text' ? (
               <TextGroup key={index} items={group.items} />
@@ -1633,7 +1635,7 @@ const AgentMessageCard: React.FC<{
       )}
 
       {/* Status and metadata at the bottom — compact and subtle */}
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {isStreaming && hasStream && <ThinkingIndicator />}
         {!isStreaming && !isPromptTimeLimit && (
           <MessageStateBadge
