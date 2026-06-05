@@ -27,6 +27,14 @@ export interface FreebuffModelOption {
    *  Rendered in the warning/secondary color so users spot it before
    *  picking the model. */
   warning?: string
+  /** Premium models carry a per-day usage limit
+   *  (FREEBUFF_PREMIUM_SESSION_LIMIT). Surfaced in the UI as a "Premium"
+   *  badge with the limit. Derived from FREEBUFF_PREMIUM_MODEL_IDS so the two
+   *  never drift. */
+  premium: boolean
+  /** Whether the model accepts image input. Drives whether uploaded images
+   *  are forwarded as real multimodal content vs. dropped/inlined as text. */
+  multimodal: boolean
 }
 
 /** Server-facing fallback copy for APIs and provider errors that can't know
@@ -90,6 +98,8 @@ const DEEPSEEK_V4_PRO_MODEL = {
   tagline: 'Smartest',
   availability: 'always',
   warning: 'Collects data for training',
+  premium: true,
+  multimodal: false,
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_PRO_MODEL = {
@@ -97,6 +107,8 @@ const MIMO_V25_PRO_MODEL = {
   displayName: 'MiMo 2.5 Pro',
   tagline: 'Smartest & Slow',
   availability: 'always',
+  premium: true,
+  multimodal: true,
 } as const satisfies FreebuffModelOption
 
 const KIMI_MODEL = {
@@ -104,6 +116,8 @@ const KIMI_MODEL = {
   displayName: 'Kimi K2.6',
   tagline: 'Balanced',
   availability: 'always',
+  premium: true,
+  multimodal: false,
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_MODEL = {
@@ -111,6 +125,8 @@ const MIMO_V25_MODEL = {
   displayName: 'MiMo 2.5',
   tagline: 'Multimodal',
   availability: 'always',
+  premium: false,
+  multimodal: true,
 } as const satisfies FreebuffModelOption
 
 const DEEPSEEK_V4_FLASH_MODEL = {
@@ -119,6 +135,8 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   tagline: 'Smart & Fast',
   availability: 'always',
   warning: 'Collects data for training',
+  premium: false,
+  multimodal: false,
 } as const satisfies FreebuffModelOption
 
 const MINIMAX_MODEL = {
@@ -126,6 +144,8 @@ const MINIMAX_MODEL = {
   displayName: 'MiniMax M2.7',
   tagline: 'Fastest',
   availability: 'always',
+  premium: false,
+  multimodal: false,
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -150,6 +170,13 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+] as const
+
+/** Models that accept image input. Used to decide whether uploaded images are
+ *  forwarded to the model as real multimodal content. */
+export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 ] as const
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
@@ -238,6 +265,13 @@ export function isFreebuffPremiumModelId(
 ): id is FreebuffPremiumModelId {
   if (!id) return false
   return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) => modelId === id)
+}
+
+export function isFreebuffMultimodalModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_MULTIMODAL_MODEL_IDS.some((modelId) => modelId === id)
 }
 
 export function resolveSupportedFreebuffModel(
