@@ -74,6 +74,7 @@ import {
   type GravityAd,
   type GravityAdMessage,
 } from './GravityAdSlot'
+import { ThinkingState } from '../ThinkingState'
 
 // Helper function to format credits in thousands (10k, 100k, 1M)
 const formatCreditsDisplay = (credits: number): string => {
@@ -163,65 +164,8 @@ interface AgentChatMessagesProps {
   onRestoreMessage?: (message: string) => void
 }
 
-// Thinking Indicator with Accelerated Count-up Timer
 const ThinkingIndicator: React.FC = () => {
-  const [elapsedMs, setElapsedMs] = useState(0)
-  const startTimeRef = useRef<number | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    const updateTimer = () => {
-      if (startTimeRef.current === null) return
-      const now = Date.now()
-      const elapsed = now - startTimeRef.current
-      setElapsedMs(elapsed)
-      animationFrameRef.current = requestAnimationFrame(updateTimer)
-    }
-
-    startTimeRef.current = Date.now()
-    animationFrameRef.current = requestAnimationFrame(updateTimer)
-
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [])
-
-  // Format milliseconds with variable pacing
-  // Counts quickly for 1 second, then counts very slowly for 1 second
-  // Total displayed time always equals actual elapsed time
-  const formatTime = (ms: number): string => {
-    const twoSecondCycle = ms % 2000 // 2-second cycles
-    const cycleNumber = Math.floor(ms / 2000)
-
-    let displayMs: number
-
-    if (twoSecondCycle < 1000) {
-      // First second: count quickly (1990ms in 1000ms real time = 1.99x speed)
-      // This balances with the slow second to total exactly 2000ms over 2 seconds
-      const fastProgress = twoSecondCycle / 1000 // 0 to 1 over 1000ms
-      const fastIncrement = 1990 * fastProgress // Count 1990ms in 1000ms real time
-      displayMs = cycleNumber * 2000 + fastIncrement
-    } else {
-      // Second second: count extremely slowly (10ms in 1000ms real time = 0.01x speed)
-      // Total: 1990ms + 10ms = 2000ms over 2000ms real time (exact match)
-      const slowProgress = (twoSecondCycle - 1000) / 1000 // 0 to 1 over 1000ms
-      const slowIncrement = 10 * slowProgress // Only add 10ms over the 1000ms slowdown
-      displayMs = cycleNumber * 2000 + 1990 + slowIncrement
-    }
-
-    // Always display in milliseconds format
-    return `${Math.floor(displayMs)}ms`
-  }
-
-  return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Loader className="h-3 w-3 animate-spin text-primary" />
-      <span className="animate-pulse font-normal">Thinking</span>
-      <span className="font-mono tabular-nums">{formatTime(elapsedMs)}</span>
-    </span>
-  )
+  return <ThinkingState />
 }
 
 // Message State Badge Component - Compact and subtle

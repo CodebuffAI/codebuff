@@ -50,6 +50,7 @@ import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
 import { recordChatCompletionTrace } from '@/llm-api/chat-completion-trace'
 import { createRequestAuditRecord } from '@/llm-api/helpers'
+import { normalizeToolSchemas } from '@/llm-api/tool-schema'
 import {
   CanopyWaveError,
   handleCanopyWaveNonStream,
@@ -318,7 +319,9 @@ export async function postChatCompletions(params: {
       )
     }
 
-    const typedBody = body as unknown as ChatCompletionRequestBody
+    const typedBody = normalizeToolSchemas(
+      body as unknown as ChatCompletionRequestBody,
+    )
     const bodyStream = typedBody.stream ?? false
     const runId = typedBody.codebuff_metadata?.run_id
 
