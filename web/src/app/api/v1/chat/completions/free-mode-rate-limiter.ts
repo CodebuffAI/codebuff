@@ -25,8 +25,8 @@ export const FREE_MODE_RATE_LIMITS = {
   PER_30_MINUTES: 250,
   /** Max requests per 5-hour window */
   PER_5_HOURS: 2_000,
-  /** Max requests per 7-day window */
-  PER_7_DAYS: 10_000,
+  /** Max requests per 1-day window */
+  PER_DAY: 4_000,
 } as const
 
 // ---------------------------------------------------------------------------
@@ -98,9 +98,9 @@ const RATE_WINDOWS: RateWindow[] = [
     maxRequests: FREE_MODE_RATE_LIMITS.PER_5_HOURS,
   },
   {
-    name: '7 days',
-    windowMs: 7 * DAY_MS,
-    maxRequests: FREE_MODE_RATE_LIMITS.PER_7_DAYS,
+    name: '1 day',
+    windowMs: 1 * DAY_MS,
+    maxRequests: FREE_MODE_RATE_LIMITS.PER_DAY,
   },
 ]
 

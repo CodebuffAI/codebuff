@@ -168,19 +168,25 @@ describe('free-mode-rate-limiter', () => {
       }
     })
 
-    it('limits when per-7-day limit is exceeded', () => {
+    it('limits when per-day limit is exceeded', () => {
       const perMinute = FREE_MODE_RATE_LIMITS.PER_MINUTE
       const per30Min = FREE_MODE_RATE_LIMITS.PER_30_MINUTES
       const per5Hours = FREE_MODE_RATE_LIMITS.PER_5_HOURS
-      const per7Days = FREE_MODE_RATE_LIMITS.PER_7_DAYS
+      const perDay = FREE_MODE_RATE_LIMITS.PER_DAY
 
-      // Spread requests across multiple 5-hour windows
+      // Spread requests across multiple 5-hour windows, staying within one day.
+      // Advances are boundary-aware so the whole sequence fits inside the
+      // 1-day window without the per-day counter resetting.
       let sent = 0
-      while (sent < per7Days) {
-        const batchFor5Hours = Math.min(per5Hours, per7Days - sent)
+      while (sent < perDay) {
+        const windowStart = fakeNow
+        const batchFor5Hours = Math.min(per5Hours, perDay - sent)
+        // Within each 5-hour window, spread across 30-minute windows
         let sentIn5Hr = 0
         while (sentIn5Hr < batchFor5Hours) {
+          const subWindowStart = fakeNow
           const batchFor30Min = Math.min(per30Min, batchFor5Hours - sentIn5Hr)
+          // Within each 30-min window, spread across 1-min windows
           let sentIn30Min = 0
           while (sentIn30Min < batchFor30Min) {
             const batch = Math.min(perMinute, batchFor30Min - sentIn30Min)
@@ -191,17 +197,24 @@ describe('free-mode-rate-limiter', () => {
             }
           }
           sentIn5Hr += sentIn30Min
-          advanceTime(30 * MINUTE_MS + 1)
+          if (sentIn5Hr < batchFor5Hours) {
+            // Advance just past the 30-min window boundary to reset it,
+            // accounting for time already elapsed in the inner loop
+            const elapsed = fakeNow - subWindowStart
+            advanceTime(30 * MINUTE_MS - elapsed + 1)
+          }
         }
         sent += sentIn5Hr
-        // Advance past the 5-hour window (stays within 7-day window)
-        advanceTime(5 * HOUR_MS + 1)
+        // Advance just past the 5-hour window boundary to reset it (and all
+        // smaller windows) while staying within the 1-day window
+        const elapsed = fakeNow - windowStart
+        advanceTime(5 * HOUR_MS - elapsed + 1)
       }
 
       const result = checkFreeModeRateLimit('user-1')
       expect(result.limited).toBe(true)
       if (result.limited) {
-        expect(result.windowName).toBe('7 days')
+        expect(result.windowName).toBe('1 day')
       }
     })
 
@@ -357,7 +370,7 @@ describe('free-mode-rate-limiter', () => {
         'free-mode-rate-limit:v1:user%20with%20spaces:60000',
         'free-mode-rate-limit:v1:user%20with%20spaces:1800000',
         'free-mode-rate-limit:v1:user%20with%20spaces:18000000',
-        'free-mode-rate-limit:v1:user%20with%20spaces:604800000',
+        'free-mode-rate-limit:v1:user%20with%20spaces:86400000',
       ])
       expect(callArgs[7]).toBe('5')
       expect(callArgs.slice(8, 11)).toEqual([
