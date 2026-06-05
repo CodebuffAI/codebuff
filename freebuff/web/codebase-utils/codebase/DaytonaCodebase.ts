@@ -29,6 +29,10 @@ const SANDBOX_IP_ERROR_PATTERNS = [
   "is the sandbox started",
 ];
 
+const ANSI_ESCAPE_REGEX =
+  /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g;
+
 function isSandboxIpResolutionError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
   const normalizedMessage = message.toLowerCase();
@@ -1300,27 +1304,243 @@ if (!hasIntegration) {
    */
   private sanitizeJsonOutput(output: string): string {
     // Remove ANSI escape codes
-    let sanitized = output.replace(
-      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-      "",
-    );
+    let sanitized = output.replace(ANSI_ESCAPE_REGEX, "");
 
     // Remove other common control characters but preserve newlines for multi-line JSON
-    sanitized = sanitized.replace(
-      /[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g,
-      "",
-    );
+    sanitized = sanitized.replace(CONTROL_CHAR_REGEX, "");
 
     // Trim whitespace
     sanitized = sanitized.trim();
 
-    // Try to extract JSON if there's extra text around it
-    const jsonMatch = sanitized.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return jsonMatch[0].trim();
+    // Try to extract JSON if there's extra text around it.
+    // Prefer object payloads first because bun/bunx logs often contain bracketed
+    // timing snippets (e.g. "[0.1ms]") that are valid arrays but not our data.
+    const objectMatch = sanitized.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      return objectMatch[0].trim();
+    }
+
+    const arrayMatch = sanitized.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      return arrayMatch[0].trim();
     }
 
     return sanitized;
+  }
+
+  private cleanCommandOutput(output: string): string {
+    return output.replace(ANSI_ESCAPE_REGEX, "").replaceAll("⠙", "").trim();
+  }
+
+  private looksLikeJsonPayload(output: string): boolean {
+    const trimmed = output.trim();
+    return trimmed.startsWith("{") || trimmed.startsWith("[");
+  }
+
+  private normalizeEnvObject(value: unknown): Record<string, string> | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, entryValue]) => typeof entryValue === "string",
+    ) as [string, string][];
+
+    return entries.length > 0 ? Object.fromEntries(entries) : null;
+  }
+
+  private normalizeEnvItemsArray(items: unknown): Record<string, string> | null {
+    if (!Array.isArray(items)) {
+      return null;
+    }
+
+    const envVars: Record<string, string> = {};
+    for (const item of items) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+
+      const record = item as Record<string, unknown>;
+      const name =
+        typeof record.name === "string"
+          ? record.name
+          : typeof record.key === "string"
+            ? record.key
+            : typeof record.variable === "string"
+              ? record.variable
+            : null;
+      const value = this.extractEnvValue(
+        record.value ??
+          record.val ??
+          record.resolvedValue ??
+          record.plaintextValue,
+      );
+
+      if (name && value !== null) {
+        envVars[name] = value;
+      }
+    }
+
+    return Object.keys(envVars).length > 0 ? envVars : null;
+  }
+
+  private extractEnvValue(value: unknown, depth: number = 0): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    if (depth >= 4 || typeof value !== "object") {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+
+    // Handle nested wrappers like { value: { value: "..." } }
+    if ("value" in record) {
+      return this.extractEnvValue(record.value, depth + 1);
+    }
+
+    if ("plaintext" in record) {
+      return this.extractEnvValue(record.plaintext, depth + 1);
+    }
+
+    if ("plainText" in record) {
+      return this.extractEnvValue(record.plainText, depth + 1);
+    }
+
+    if ("resolvedValue" in record) {
+      return this.extractEnvValue(record.resolvedValue, depth + 1);
+    }
+
+    return null;
+  }
+
+  private normalizeEnvObjectArray(items: unknown): Record<string, string> | null {
+    if (!Array.isArray(items)) {
+      return null;
+    }
+
+    const envVars: Record<string, string> = {};
+    for (const item of items) {
+      const normalized = this.normalizeEnvObject(item);
+      if (!normalized) {
+        continue;
+      }
+
+      Object.assign(envVars, normalized);
+    }
+
+    return Object.keys(envVars).length > 0 ? envVars : null;
+  }
+
+  private describeEnvJsonShape(value: unknown): string {
+    if (value === null) {
+      return "null";
+    }
+
+    if (Array.isArray(value)) {
+      const firstItem = value[0];
+      if (!firstItem || typeof firstItem !== "object") {
+        return `array(len=${value.length}, first=${typeof firstItem})`;
+      }
+
+      const firstKeys = Object.keys(firstItem as Record<string, unknown>).slice(
+        0,
+        6,
+      );
+      return `array(len=${value.length}, firstKeys=[${firstKeys.join(",") || "none"}])`;
+    }
+
+    if (typeof value === "object") {
+      const keys = Object.keys(value as Record<string, unknown>).slice(0, 10);
+      return `object(keys=[${keys.join(",") || "none"}])`;
+    }
+
+    return typeof value;
+  }
+
+  private normalizeEnvJson(value: unknown): Record<string, string> | null {
+    const directObject = this.normalizeEnvObject(value);
+    if (directObject) {
+      return directObject;
+    }
+
+    const objectArray = this.normalizeEnvObjectArray(value);
+    if (objectArray) {
+      return objectArray;
+    }
+
+    const directArray = this.normalizeEnvItemsArray(value);
+    if (directArray) {
+      return directArray;
+    }
+
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const environmentVariables = (value as { environmentVariables?: unknown })
+        .environmentVariables;
+      const fromEnvironmentVariables = this.normalizeEnvObject(
+        environmentVariables,
+      );
+      if (fromEnvironmentVariables) {
+        return fromEnvironmentVariables;
+      }
+
+      const parsed = (value as { parsed?: unknown }).parsed;
+      const fromParsed = this.normalizeEnvObject(parsed);
+      if (fromParsed) {
+        return fromParsed;
+      }
+
+      const keys = (value as { keys?: unknown }).keys;
+      const fromKeysObject = this.normalizeEnvObject(keys);
+      if (fromKeysObject) {
+        return fromKeysObject;
+      }
+
+      const fromKeys = this.normalizeEnvItemsArray(keys);
+      if (fromKeys) {
+        return fromKeys;
+      }
+
+      const items = (value as { items?: unknown }).items;
+      const fromItems = this.normalizeEnvItemsArray(items);
+      if (fromItems) {
+        return fromItems;
+      }
+    }
+
+    return null;
+  }
+
+  private parseBackendEnvFromText(output: string): Record<string, string> {
+    const envVars: Record<string, string> = {};
+
+    // Parse KEY=VALUE format, handling values that contain '=' characters
+    // (e.g., base64 encoded JWTs like "JWT_PRIVATE_KEY=eyJ...==")
+    for (const line of output.split("\n")) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      // Find the first '=' to split key from value
+      const eqIndex = trimmedLine.indexOf("=");
+      if (eqIndex > 0) {
+        const key = trimmedLine.substring(0, eqIndex);
+        const value = trimmedLine.substring(eqIndex + 1);
+        if (key && value) {
+          envVars[key] = value;
+        }
+      }
+    }
+
+    return envVars;
   }
 
   /**
@@ -1379,19 +1599,16 @@ if (!hasIntegration) {
       if (frontendEnvResult.exitCode === 0) {
         const sanitized = this.sanitizeJsonOutput(frontendEnvResult.output);
         const parsed = JSON.parse(sanitized);
+        const frontendShape = this.describeEnvJsonShape(parsed);
 
-        // Validate that the result is an object (not an array)
-        if (
-          typeof parsed !== "object" ||
-          parsed === null ||
-          Array.isArray(parsed)
-        ) {
+        const normalizedFrontend = this.normalizeEnvJson(parsed);
+        if (!normalizedFrontend) {
           console.warn(
-            `[DaytonaCodebase] dotenvx returned invalid format (expected object, got ${typeof parsed}${Array.isArray(parsed) ? " array" : ""}). Falling back to direct file read.`,
+            `[DaytonaCodebase] dotenvx returned unsupported format (${frontendShape}). Falling back to direct file read.`,
           );
           frontendEnv = await this.readEnvFileDirect(".env.local");
         } else {
-          frontendEnv = parsed as Record<string, string>;
+          frontendEnv = normalizedFrontend;
         }
       } else {
         console.warn(
@@ -1436,27 +1653,24 @@ if (!hasIntegration) {
           );
         }
       } else {
-        const backendEnvOutput = backendEnvResult.output
-          .replaceAll(
-            /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-            "",
-          )
-          .replaceAll("⠙", "");
+        const backendEnvOutput = this.cleanCommandOutput(backendEnvResult.output);
 
-        // Parse KEY=VALUE format, handling values that contain '=' characters
-        // (e.g., base64 encoded JWTs like "JWT_PRIVATE_KEY=eyJ...==")
-        for (const line of backendEnvOutput.split("\n")) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine) continue;
+        // Prefer KEY=VALUE parsing first. `convex env list` commonly returns
+        // line-based output, and values may contain JSON blobs (e.g. JWKS)
+        // which would confuse JSON extraction if parsed first.
+        backendEnv = this.parseBackendEnvFromText(backendEnvOutput);
+        if (Object.keys(backendEnv).length > 0) {
+          return { frontend: frontendEnv, backend: backendEnv };
+        }
 
-          // Find the first '=' to split key from value
-          const eqIndex = trimmedLine.indexOf("=");
-          if (eqIndex > 0) {
-            const key = trimmedLine.substring(0, eqIndex);
-            const value = trimmedLine.substring(eqIndex + 1);
-            if (key && value) {
-              backendEnv[key] = value;
-            }
+        // Convex can return either KEY=VALUE lines or JSON payloads
+        // (e.g. { items: [{ name, value, deploymentTypes }], pagination: ... }).
+        if (this.looksLikeJsonPayload(backendEnvOutput)) {
+          try {
+            const parsed = JSON.parse(this.sanitizeJsonOutput(backendEnvOutput));
+            backendEnv = this.normalizeEnvJson(parsed) ?? {};
+          } catch {
+            backendEnv = {};
           }
         }
       }
