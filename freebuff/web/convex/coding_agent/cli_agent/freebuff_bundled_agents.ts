@@ -6,6 +6,10 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
+  DEFAULT_FREEBUFF_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import codeReviewerDeepseek from '../../../../../agents/reviewer/code-reviewer-deepseek'
 import codeReviewerDeepseekFlash from '../../../../../agents/reviewer/code-reviewer-deepseek-flash'
@@ -58,11 +62,65 @@ const base2FreeKimi = {
   displayName: 'Buffy the Kimi Free Orchestrator',
 }
 
+const base2FreeMimo = {
+  ...createBase2('free', {
+    model: FREEBUFF_MIMO_V25_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-mimo',
+  displayName: 'Buffy the MiMo Free Orchestrator',
+}
+
+const base2FreeMimoPro = {
+  ...createBase2('free', {
+    model: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-mimo-pro',
+  displayName: 'Buffy the MiMo Pro Free Orchestrator',
+}
+
+const base2FreeMinimax = {
+  ...createBase2('free', {
+    model: FREEBUFF_MINIMAX_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-minimax',
+  displayName: 'Buffy the MiniMax Free Orchestrator',
+}
+
+/**
+ * Maps a Freebuff model id (as shown in the web/CLI model switcher) to the
+ * bundled base2-free agent that pins that model. Used by executeFreebuff to
+ * run the model the user selected. Models without an explicit variant fall
+ * back to `base2-free`.
+ */
+export const FREEBUFF_MODEL_TO_AGENT_ID: Record<string, string> = {
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
+  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
+  [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
+  [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
+  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
+  [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free-minimax',
+}
+
+/** Resolve a selected Freebuff model id to the bundled agent id to run. Falls
+ *  back to the default model's agent for unknown/undefined selections. */
+export function resolveFreebuffAgentId(modelId: string | undefined): string {
+  if (modelId && FREEBUFF_MODEL_TO_AGENT_ID[modelId]) {
+    return FREEBUFF_MODEL_TO_AGENT_ID[modelId]
+  }
+  return FREEBUFF_MODEL_TO_AGENT_ID[DEFAULT_FREEBUFF_MODEL_ID] ?? 'base2-free'
+}
+
 export const bundledAgentDefinitions = [
   base2Free,
   base2FreeDeepseek,
   base2FreeDeepseekFlash,
   base2FreeKimi,
+  base2FreeMimo,
+  base2FreeMimoPro,
+  base2FreeMinimax,
   basher,
   browserUse,
   contextPruner,

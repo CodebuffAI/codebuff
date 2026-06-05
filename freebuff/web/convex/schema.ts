@@ -441,6 +441,10 @@ export default defineSchema(
       workflow_id: v.optional(v.string()), // Workflow ID from Convex workflow component
       active_session_id: v.optional(v.string()), // Active session ID for resuming conversations
       active_freebuff_run_state_storage_id: v.optional(v.id('_storage')),
+      // Selected open-source Freebuff model id for this thread (drives which
+      // bundled base2-free agent runs). Defaults to DEFAULT_FREEBUFF_MODEL_ID
+      // when unset. Only meaningful for agent_type === 'Freebuff'.
+      selected_freebuff_model: v.optional(v.string()),
     }).index('by_project', ['project_id']),
 
     // New agent message format for Claude Code, Gemini CLI, and Codex

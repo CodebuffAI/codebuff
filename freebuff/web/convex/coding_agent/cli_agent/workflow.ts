@@ -154,6 +154,7 @@ export const cliAgentWorkflow = workflow.define({
           executingUserId: args.userId,
           userMessage: message.user_message || "",
           images: message.images, // Pass images from message
+          freebuffModel: thread.selected_freebuff_model, // Selected open-source model (Freebuff only)
         },
       );
 

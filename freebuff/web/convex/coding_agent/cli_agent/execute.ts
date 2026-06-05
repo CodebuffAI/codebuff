@@ -43,6 +43,7 @@ export const execute = internalAction({
     executingUserId: v.id("users"),
     userMessage: v.string(), // User message content
     images: v.optional(v.array(v.id("_storage"))), // Image storage IDs
+    freebuffModel: v.optional(v.string()), // Selected open-source model (Freebuff only)
   },
   returns: v.object({
     success: v.boolean(),
@@ -78,6 +79,7 @@ export const execute = internalAction({
         executingUserId: args.executingUserId,
         userMessage: args.userMessage,
         images: args.images,
+        freebuffModel: args.freebuffModel,
       });
     } else if (args.agentType === "Claude Code") {
       return await executeClaudeCode(ctx, codebase, {

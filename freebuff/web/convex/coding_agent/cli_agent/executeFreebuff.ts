@@ -5,12 +5,17 @@ import { run } from '@codebuff/sdk'
 import { applyPatch } from 'diff'
 import { v } from 'convex/values'
 
+import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff-models'
+
 import { components, internal } from '../../_generated/api'
 import { Id } from '!/_generated/dataModel'
 import { ActionCtx, internalAction } from '!/_generated/server'
 import { DaytonaCodebase } from '../../../codebase-utils/codebase/DaytonaCodebase'
 import { initializeCodebase } from '../../../codebase-utils/codebase/initializeCodebase'
-import { bundledAgentDefinitions } from './freebuff_bundled_agents'
+import {
+  bundledAgentDefinitions,
+  resolveFreebuffAgentId,
+} from './freebuff_bundled_agents'
 
 export interface ExecuteFreebuffArgs {
   projectId: Id<'project'>
@@ -21,6 +26,7 @@ export interface ExecuteFreebuffArgs {
   executingUserId: Id<'users'>
   userMessage: string
   images: Id<'_storage'>[] | undefined
+  freebuffModel: string | undefined
 }
 
 export interface ExecuteFreebuffResult {
@@ -69,7 +75,15 @@ async function readRunStateFromStorage(
   return JSON.parse(await blob.text())
 }
 
-async function buildUserMessageWithImages(
+type SdkImageContent = {
+  type: 'image'
+  image: string // base64-encoded image bytes
+  mediaType: string
+}
+
+/** Append uploaded image URLs to the prompt as text. Used as the fallback for
+ *  text-only models that can't accept real image input. */
+async function appendImageUrlsToMessage(
   ctx: ActionCtx,
   userMessage: string,
   images: Id<'_storage'>[] | undefined,
@@ -89,6 +103,34 @@ async function buildUserMessageWithImages(
     .join('\n')}`
 }
 
+/** Load uploaded images as base64 multimodal content for vision-capable
+ *  models. Skips anything that can't be read so a single bad upload doesn't
+ *  fail the whole run. */
+async function loadImageContents(
+  ctx: ActionCtx,
+  images: Id<'_storage'>[] | undefined,
+): Promise<SdkImageContent[]> {
+  if (!images?.length) return []
+
+  const contents: SdkImageContent[] = []
+  for (const imageId of images) {
+    try {
+      const blob = await ctx.storage.get(imageId)
+      if (!blob) continue
+      const arrayBuffer = await blob.arrayBuffer()
+      const base64 = Buffer.from(arrayBuffer).toString('base64')
+      contents.push({
+        type: 'image',
+        image: base64,
+        mediaType: blob.type || 'image/png',
+      })
+    } catch (error) {
+      console.warn('[vly-freebuff-workpool] failed to load image', error)
+    }
+  }
+  return contents
+}
+
 export async function executeFreebuff(
   ctx: ActionCtx,
   _codebase: DaytonaCodebase,
@@ -98,11 +140,15 @@ export async function executeFreebuff(
     requireEnv('CODEBUFF_API_KEY')
 
     const runId = crypto.randomUUID()
-    const userMessage = await buildUserMessageWithImages(
-      ctx,
-      args.userMessage,
-      args.images,
-    )
+    const agentId = resolveFreebuffAgentId(args.freebuffModel)
+    const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)
+
+    // Vision-capable models get real multimodal content (handled in the
+    // workpool action). Text-only models fall back to inlining image URLs so
+    // the model at least has a reference.
+    const userMessage = supportsImages
+      ? args.userMessage
+      : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
 
     await ctx.runMutation(
       (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
@@ -124,9 +170,23 @@ export async function executeFreebuff(
         threadId: args.threadId,
         messageId: args.messageId,
         userMessage,
+        agentId,
+        images: supportsImages ? args.images : undefined,
       },
       { retry: false },
     )
+
+    // Record which model this message ran on so the UI can display it.
+    if (args.freebuffModel) {
+      await ctx.runMutation(
+        (internal as any).coding_agent.cli_agent.agent_message
+          .updateAgentMessageModel,
+        {
+          messageId: args.messageId,
+          modelUsed: args.freebuffModel,
+        },
+      )
+    }
 
     await ctx.runMutation(
       (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
@@ -663,6 +723,8 @@ export const runFreebuffAgent = internalAction({
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
     userMessage: v.string(),
+    agentId: v.optional(v.string()),
+    images: v.optional(v.array(v.id('_storage'))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -700,12 +762,25 @@ export const runFreebuffAgent = internalAction({
         throw new Error('Freebuff requires a Daytona-backed project')
       }
 
+      const imageContents = await loadImageContents(ctx, args.images)
+      const multimodalContent =
+        imageContents.length > 0
+          ? [
+              { type: 'text' as const, text: args.userMessage },
+              ...imageContents,
+            ]
+          : undefined
+
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: args.projectId,
-        agent: 'base2-free',
-        agentDefinitions: bundledAgentDefinitions,
+        agent: args.agentId ?? 'base2-free',
+        // Cast bypasses a cross-package AgentDefinition type drift between
+        // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
+        // union). Runtime shape is identical.
+        agentDefinitions: bundledAgentDefinitions as any,
         prompt: args.userMessage,
+        ...(multimodalContent ? { content: multimodalContent } : {}),
         previousRun: await readStoredRunState(ctx, args.threadId),
         costMode: 'normal',
         signal: abortController.signal,
@@ -885,7 +960,10 @@ export const runFreebuffReviewAgent = internalAction({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: `${args.projectId}:review`,
         agent: 'code-reviewer-lite',
-        agentDefinitions: bundledAgentDefinitions,
+        // Cast bypasses a cross-package AgentDefinition type drift between
+        // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
+        // union). Runtime shape is identical.
+        agentDefinitions: bundledAgentDefinitions as any,
         prompt:
           'Review the completed Freebuff changes. Be concise. If there are no important issues, say it looks good in one sentence.',
         previousRun: await readRunStateFromStorage(

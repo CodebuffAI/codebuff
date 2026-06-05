@@ -38,6 +38,12 @@ import {
   CollapsibleTrigger,
 } from "@/vly/components/ui/collapsible";
 import { BuildErrors } from "@/vly/components/project-2/BuildErrors";
+import {
+  DEFAULT_FREEBUFF_MODEL_ID,
+  resolveFreebuffModel,
+} from "@codebuff/common/constants/freebuff-models";
+
+const FREEBUFF_MODEL_STORAGE_KEY = "freebuff:selectedModel";
 
 // Compact, subtle runtime errors component for agent chat
 const CompactRuntimeErrors: React.FC<{
@@ -298,6 +304,34 @@ export function AgentChatShell({
   // State to track message to restore to input
   const [messageToRestore, setMessageToRestore] = useState<string | null>(null);
 
+  // Selected open-source Freebuff model. Starts at the default for a stable
+  // first render, then hydrates from localStorage on mount so the user's last
+  // used model is restored without an SSR/hydration mismatch.
+  const [selectedFreebuffModel, setSelectedFreebuffModel] = useState<string>(
+    DEFAULT_FREEBUFF_MODEL_ID,
+  );
+  const selectedFreebuffModelRef = useRef(selectedFreebuffModel);
+  useEffect(() => {
+    selectedFreebuffModelRef.current = selectedFreebuffModel;
+  }, [selectedFreebuffModel]);
+
+  // Restore the last used model from localStorage once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(FREEBUFF_MODEL_STORAGE_KEY);
+    if (stored) {
+      setSelectedFreebuffModel(resolveFreebuffModel(stored));
+    }
+  }, []);
+
+  const handleFreebuffModelChange = useCallback((modelId: string) => {
+    const resolved = resolveFreebuffModel(modelId);
+    setSelectedFreebuffModel(resolved);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(FREEBUFF_MODEL_STORAGE_KEY, resolved);
+    }
+  }, []);
+
   // State for editing thread title
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
@@ -348,7 +382,15 @@ export function AgentChatShell({
           projectSemanticIdentifier,
           message: fullMessage,
           images: images.length > 0 ? images : undefined,
-          agentType: agentType as "Claude Code" | "Codex" | "Gemini CLI",
+          agentType: agentType as
+            | "Claude Code"
+            | "Codex"
+            | "Gemini CLI"
+            | "Freebuff",
+          freebuffModel:
+            agentType === "Freebuff"
+              ? selectedFreebuffModelRef.current
+              : undefined,
         });
 
         if (result && !result.success && result.error) {
@@ -870,6 +912,8 @@ export function AgentChatShell({
                     onUserInputChange={() => {}}
                     selectedAgentMode="POWERFUL"
                     onAgentModeChange={undefined}
+                    selectedFreebuffModel={selectedFreebuffModel}
+                    onFreebuffModelChange={handleFreebuffModelChange}
                     syncStatus={undefined}
                     activeEntryPointId={undefined}
                     restoreMessage={messageToRestore}

@@ -48,6 +48,7 @@ import { useAssetsCache } from "@/vly/hooks/useAssetsCache";
 import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import imageCompression from "browser-image-compression";
 import { AgentModeSelector } from "./AgentModeSelector";
+import { FreebuffModelSelector } from "./FreebuffModelSelector";
 import { ContextLengthSelector, ContextLength } from "./ContextLengthSelector";
 import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPresets";
 import { toast } from "sonner";
@@ -85,6 +86,9 @@ interface ChatInputProps {
   // Agent mode selection
   selectedAgentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
+  // Freebuff open-source model selection (Freebuff agent only)
+  selectedFreebuffModel?: string;
+  onFreebuffModelChange?: (modelId: string) => void;
   // Context length selection (Freebuff agent only)
   selectedContextLength?: ContextLength;
   onContextLengthChange?: (length: ContextLength) => void;
@@ -121,6 +125,8 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     onUserInputChange,
     selectedAgentMode = "POWERFUL",
     onAgentModeChange,
+    selectedFreebuffModel,
+    onFreebuffModelChange,
     selectedContextLength = DEFAULT_CONTEXT_LENGTH,
     onContextLengthChange,
     syncStatus,
@@ -889,6 +895,14 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                   >
                     {/* Left side - Agent Mode Selector, Context Length, and Switch Agent button */}
                     <div className="flex items-center gap-1.5">
+                      {onFreebuffModelChange && (
+                        <FreebuffModelSelector
+                          selectedModelId={selectedFreebuffModel ?? ""}
+                          onModelChange={onFreebuffModelChange}
+                          disabled={isProcessing}
+                          compact={compactMode}
+                        />
+                      )}
                       {onAgentModeChange && !compactMode && (
                         <AgentModeSelector
                           selectedMode={selectedAgentMode}

@@ -21,6 +21,10 @@ export const saveMessageAndStartWorkflow = mutation({
       v.literal("Codex"),
       v.literal("Freebuff"),
     ),
+    // Selected open-source Freebuff model id (only used for the Freebuff
+    // agent). Persisted on the thread so the workflow picks the matching
+    // bundled agent and follow-up messages keep the selection.
+    freebuffModel: v.optional(v.string()),
     _skipRateLimitCheck: v.optional(v.boolean()), // Internal use only
   },
   returns: v.union(
@@ -133,6 +137,14 @@ export const saveMessageAndStartWorkflow = mutation({
             message: "Failed to create or retrieve agent thread",
           },
         };
+      }
+
+      // Persist the selected Freebuff model on the thread so the workflow and
+      // any follow-up messages run the matching bundled agent.
+      if (args.agentType === "Freebuff" && args.freebuffModel) {
+        await ctx.db.patch(threadId, {
+          selected_freebuff_model: args.freebuffModel,
+        });
       }
 
       // Create agent message first (no session ID set here)

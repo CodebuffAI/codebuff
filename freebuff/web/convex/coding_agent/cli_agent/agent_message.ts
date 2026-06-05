@@ -251,6 +251,19 @@ export const updateAgentMessageUsage = internalMutation({
   },
 });
 
+// Record the model id used for a message (display only; does not touch usage)
+export const updateAgentMessageModel = internalMutation({
+  args: {
+    messageId: v.id("agent_message"),
+    modelUsed: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      model_used: args.modelUsed,
+    });
+  },
+});
+
 // Update credits deducted after credit tracking
 export const updateAgentMessageCreditsDeducted = internalMutation({
   args: {
