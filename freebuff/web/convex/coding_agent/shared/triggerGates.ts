@@ -3,7 +3,8 @@ import type { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
 import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
-import { checkUserRateLimit } from "../rateLimiter";
+import { checkUserRateLimit, checkPremiumModelRateLimit } from "../rateLimiter";
+import { isFreebuffPremiumModelId } from "@codebuff/common/constants/freebuff-models";
 
 type User = NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
 type Project = NonNullable<
@@ -32,6 +33,9 @@ interface GateArgs {
   projectId?: Id<"project">;
   skipRateLimitCheck?: boolean;
   agentType?: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff";
+  /** Selected open-source model id (Freebuff only). Premium ids carry an extra
+   *  daily quota on top of the normal per-message rate limit. */
+  freebuffModel?: string;
 }
 
 export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
@@ -95,6 +99,20 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
         },
       };
     }
+  }
+
+  // Premium open-source models carry a stricter daily quota. Enforced only for
+  // the Freebuff agent on a premium model, and skipped for platform admins /
+  // when rate limiting is bypassed. Done last so we only consume the premium
+  // allowance once the rest of the gates have passed.
+  if (
+    !args.skipRateLimitCheck &&
+    !isPlatformAdmin &&
+    args.agentType === "Freebuff" &&
+    isFreebuffPremiumModelId(args.freebuffModel)
+  ) {
+    const premium = await checkPremiumModelRateLimit(args.ctx, user._id);
+    if (!premium.success) return { ok: false, error: premium.error };
   }
 
   return { ok: true, user, project, isPlatformAdmin, isSelfHosted };

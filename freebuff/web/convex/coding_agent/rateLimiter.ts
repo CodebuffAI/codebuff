@@ -1,7 +1,10 @@
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
+import { FREEBUFF_PREMIUM_SESSION_LIMIT } from "@codebuff/common/constants/freebuff-models";
 import { components } from "../_generated/api";
 import type { MutationCtx, ActionCtx } from "../_generated/server";
 import type { GenericQueryCtx, GenericDataModel } from "convex/server";
+
+const DAY = 24 * HOUR;
 
 // Initialize rate limiter with token bucket for smooth rate limiting
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
@@ -13,6 +16,14 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     rate: 20, // Refill 20 tokens per hour
     period: HOUR,
     capacity: 10, // Maximum 10 tokens can be held (burst limit)
+  },
+  // Premium open-source models (DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6)
+  // share a stricter daily quota on top of the normal per-message limit.
+  // Fixed window so it behaves like a "N per day" allowance.
+  premiumModelMessages: {
+    kind: "fixed window",
+    rate: FREEBUFF_PREMIUM_SESSION_LIMIT,
+    period: DAY,
   },
   // Fixed window: 1 request per 15 seconds for refine prompt
   refinePrompt: {
@@ -47,6 +58,15 @@ async function getUserIdForRateLimit(
 // This allows the UI to proactively show rate limit status before attempting requests
 export const { getRateLimit, getServerTime } = rateLimiter.hookAPI(
   "userMessages",
+  {
+    key: getUserIdForRateLimit,
+  },
+);
+
+// Read-only hook for the premium-model daily quota so the UI can show how many
+// premium runs remain today without consuming any.
+export const { getRateLimit: getPremiumModelRateLimit } = rateLimiter.hookAPI(
+  "premiumModelMessages",
   {
     key: getUserIdForRateLimit,
   },
@@ -90,6 +110,40 @@ export async function checkUserRateLimit(
         kind: "RateLimited",
         retryAfter: status.retryAfter,
         message: "Rate limit exceeded. Please try again in a moment.",
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Check (and consume) the daily premium-model quota for a user. Call this only
+ * when the user is actually sending a message on a premium model so we don't
+ * burn the allowance on unlimited models.
+ * @param ctx - Convex mutation context
+ * @param userId - User ID to check premium limits for
+ * @returns RateLimitResult indicating success or a premium-limit error
+ */
+export async function checkPremiumModelRateLimit(
+  ctx: MutationCtx,
+  userId: string,
+): Promise<RateLimitResult> {
+  const status = await rateLimiter.limit(ctx, "premiumModelMessages", {
+    key: userId,
+    throws: false,
+  });
+
+  if (!status.ok) {
+    console.log(
+      `[RateLimit] User ${userId} hit premium model daily limit, retry after: ${status.retryAfter}ms`,
+    );
+    return {
+      success: false,
+      error: {
+        kind: "PremiumRateLimited",
+        retryAfter: status.retryAfter,
+        message: `You've used all ${FREEBUFF_PREMIUM_SESSION_LIMIT} premium model runs for today. Switch to an unlimited model or try again later.`,
       },
     };
   }

@@ -15,6 +15,13 @@ export function handleAgentSendError(error: AgentError): void {
         { duration: 5000 },
       );
       break;
+    case "PremiumRateLimited":
+      toast.error(
+        error.message ||
+          `Daily premium model limit reached. Try again in ${formatRetryTime(error.retryAfter || 0)} or switch to an unlimited model.`,
+        { duration: 6000 },
+      );
+      break;
     case "CONTENT_MODERATION":
       toast.error(error.message || "This content is not allowed.", {
         duration: 6000,

@@ -57,6 +57,7 @@ export const saveMessageAndStartWorkflow = mutation({
         projectId: args.projectId,
         skipRateLimitCheck: args._skipRateLimitCheck,
         agentType: args.agentType,
+        freebuffModel: args.freebuffModel,
       });
 
       if (!gates.ok) {
