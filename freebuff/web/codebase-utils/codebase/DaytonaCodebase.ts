@@ -41,6 +41,15 @@ function hasSandboxTarget(sandbox: Sandbox): boolean {
   return Boolean((sandbox as { target?: unknown }).target);
 }
 
+function hasConvexAuthError(output: string): boolean {
+  const normalized = output.toLowerCase();
+  return (
+    normalized.includes("401 unauthorized") ||
+    normalized.includes("authenticationfailed") ||
+    normalized.includes("authenticate with")
+  );
+}
+
 export class DaytonaCodebase
   implements
     Codebase,
@@ -773,6 +782,20 @@ if (!hasIntegration) {
         const envListResult = await this.runCommand(
           this.packageManager.run("convex env list"),
         );
+
+        if (envListResult.exitCode !== 0) {
+          if (hasConvexAuthError(envListResult.output)) {
+            console.warn(
+              "[DaytonaCodebase] Convex auth unavailable in sandbox, skipping backend integration env vars",
+            );
+            return;
+          }
+
+          throw new Error(
+            `[DaytonaCodebase] Failed to list Convex env vars: ${envListResult.output}`,
+          );
+        }
+
         const envListOutput = envListResult.output.toLowerCase();
         const hasIntegrationKey = envListOutput.includes("vly_integration_key");
         const hasIntegrationBaseUrl = envListOutput.includes(
@@ -799,6 +822,10 @@ if (!hasIntegration) {
       }
     } catch (error) {
       // Don't throw - template should have files anyway, and env vars can be set later
+      console.warn(
+        "[DaytonaCodebase] Failed to ensure integrations (non-critical):",
+        error,
+      );
     }
   }
 
@@ -1399,11 +1426,7 @@ if (!hasIntegration) {
 
       // Check if it's an authentication error
       if (backendEnvResult.exitCode !== 0) {
-        if (
-          backendEnvResult.output.includes("401 Unauthorized") ||
-          backendEnvResult.output.includes("AuthenticationFailed") ||
-          backendEnvResult.output.includes("Authenticate with")
-        ) {
+        if (hasConvexAuthError(backendEnvResult.output)) {
           console.warn(
             "Convex authentication not available in sandbox, skipping backend env vars",
           );
@@ -1470,11 +1493,7 @@ if (!hasIntegration) {
 
         // Check for authentication errors
         if (result.exitCode !== 0) {
-          if (
-            result.output.includes("401 Unauthorized") ||
-            result.output.includes("AuthenticationFailed") ||
-            result.output.includes("Authenticate with")
-          ) {
+          if (hasConvexAuthError(result.output)) {
             throw new Error(
               "Convex authentication not available in sandbox. Backend environment variables cannot be set from here.",
             );
@@ -1485,7 +1504,6 @@ if (!hasIntegration) {
           }
         }
       } catch (error) {
-        console.error(`Failed to set backend env var ${key}:`, error);
         throw error;
       }
     }
@@ -1629,8 +1647,6 @@ if (!hasIntegration) {
       // This ensures environment variables and directory changes persist
       const fullCommand = setup ? `${setup} && ${start}` : start;
 
-      console.log(`[${sessionId}] Starting: ${fullCommand}`);
-
       const startResult = await this.sandbox.process.executeSessionCommand(
         sessionId,
         {
@@ -1767,10 +1783,6 @@ if (!hasIntegration) {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-
-    console.warn(
-      `[waitForDeletion] Timeout waiting for: ${sessionIds.join(", ")}`,
-    );
   }
 
   /**
@@ -1793,8 +1805,6 @@ if (!hasIntegration) {
     // Combine setup and start commands to run in the same shell context
     // This ensures environment variables and directory changes persist
     const fullCommand = setup ? `${setup} && ${start}` : start;
-
-    console.log(`[${sessionId}] Starting: ${fullCommand}`);
 
     const startResult = await this.sandbox.process.executeSessionCommand(
       sessionId,

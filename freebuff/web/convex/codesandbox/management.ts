@@ -13,6 +13,7 @@ import { getAuthUser } from "../users";
 import { getConvexProdDeployKey } from "../../codebase-utils/prodDeployments";
 import {
   createDeployKey,
+  getConvexEnvironmentVariables,
   setConvexEnvironmentVariables,
 } from "../convex_management";
 import {
@@ -174,7 +175,46 @@ export const verifyProjectAccessAndConnect = action({
           now - warmState.integrationsEnsuredAt > INTEGRATIONS_ENSURE_TTL_MS;
 
         if (shouldEnsureIntegrations) {
-          await codebase.ensureIntegrations(integrationKey);
+          // Ensure integration files in the sandbox.
+          // Backend env vars are set via Convex Deployment API below because
+          // sandbox CLI auth can be unavailable even when server-side API auth exists.
+          await codebase.ensureIntegrations(null);
+
+          if (integrationKey) {
+            const { deploymentName, adminKey, deploymentUrl } =
+              await ctx.runAction(
+                api.database.convex.getConvexDeploymentNameAndAdminKey,
+                {
+                  projectId: project._id,
+                  type: "dev",
+                },
+              );
+
+            const existingBackendEnv = await getConvexEnvironmentVariables(
+              deploymentName,
+              adminKey,
+              deploymentUrl,
+            );
+
+            const envVarsToSet: Record<string, string> = {};
+            if (!existingBackendEnv.VLY_INTEGRATION_KEY) {
+              envVarsToSet.VLY_INTEGRATION_KEY = integrationKey;
+            }
+            if (!existingBackendEnv.VLY_INTEGRATION_BASE_URL) {
+              envVarsToSet.VLY_INTEGRATION_BASE_URL =
+                "https://integrations.vly.ai/";
+            }
+
+            if (Object.keys(envVarsToSet).length > 0) {
+              await setConvexEnvironmentVariables(
+                deploymentName,
+                adminKey,
+                envVarsToSet,
+                deploymentUrl,
+              );
+            }
+          }
+
           warmState.integrationsEnsuredAt = Date.now();
         } else {
         }
