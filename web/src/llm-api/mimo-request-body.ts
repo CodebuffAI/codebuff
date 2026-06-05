@@ -24,6 +24,15 @@ export function getMiMoModelId(openrouterModel: string): string {
   return MIMO_MODEL_IDS[openrouterModel] ?? openrouterModel
 }
 
+/** Only MiMo 2.5 is multimodal; MiMo 2.5 Pro does not accept image input, and
+ *  sending it an image errors. We strip images for unsupported models and leave
+ *  a note rather than failing the whole request. Allowlist by design: a new
+ *  MiMo model is treated as text-only until it is explicitly added here, so we
+ *  never silently send images to a model that can't handle them. */
+export function mimoModelSupportsImages(model: string): boolean {
+  return getMiMoModelId(model) === mimoModels.mimoV25Direct
+}
+
 function toMiMoReasoningEffort(effort: unknown): 'high' | 'max' {
   return effort === 'max' || effort === 'xhigh' ? 'max' : 'high'
 }
@@ -53,6 +62,7 @@ function getImageUrl(part: ChatCompletionContentPart): string | undefined {
 
 function contentPartsToMiMoContent(
   content: MiMoMessageContent,
+  supportsImages: boolean,
 ): MiMoMessageContent {
   if (!Array.isArray(content)) {
     return content
@@ -60,6 +70,7 @@ function contentPartsToMiMoContent(
 
   const textParts: string[] = []
   const compatibleParts: MiMoCompatibleContentPart[] = []
+  let imageCount = 0
   let fileCount = 0
   let unsupportedCount = 0
 
@@ -73,11 +84,13 @@ function contentPartsToMiMoContent(
         break
       }
       case 'image_url': {
+        // Drop the image when the model can't take one (or the url is empty);
+        // it's reported as an omitted image either way.
         const url = getImageUrl(part)
-        if (url) {
+        if (url && supportsImages) {
           compatibleParts.push({ type: 'image_url', image_url: { url } })
         } else {
-          unsupportedCount += 1
+          imageCount += 1
         }
         break
       }
@@ -93,6 +106,9 @@ function contentPartsToMiMoContent(
   }
 
   const notices: string[] = []
+  if (imageCount > 0) {
+    notices.push(unsupportedAttachmentNotice('image', imageCount))
+  }
   if (fileCount > 0) {
     notices.push(unsupportedAttachmentNotice('file', fileCount))
   }
@@ -117,13 +133,14 @@ export function normalizeMiMoRequestBody(
   body: ChatCompletionRequestBody,
   originalModel: string = body.model,
 ): ChatCompletionRequestBody {
+  const supportsImages = mimoModelSupportsImages(originalModel)
   const messages = Array.isArray(body.messages)
     ? body.messages.map((message) => ({
         ...message,
         content:
           message.content === undefined || message.content === null
             ? message.content
-            : contentPartsToMiMoContent(message.content),
+            : contentPartsToMiMoContent(message.content, supportsImages),
       }))
     : body.messages
 
