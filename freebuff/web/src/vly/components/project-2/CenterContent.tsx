@@ -167,7 +167,6 @@ function startScreenshotCapture({
     return;
   }
 
-  console.log("[Screenshot] Capturing project:", projectId);
   setIsCapturingScreenshot(true);
   if (trigger === "manual") {
     toast.info("📸 Capturing screenshot...");
@@ -529,12 +528,6 @@ export function CenterContent({
 
       // Log screenshot messages only
       if (type?.startsWith("vly-screenshot")) {
-        console.log("[Screenshot] Received message:", {
-          type,
-          requestId,
-          hasDataUrl: !!dataUrl,
-          error,
-        });
       }
 
       if (
@@ -591,7 +584,6 @@ export function CenterContent({
       // Only handle vly-screenshot-response messages
       if (type !== "vly-screenshot-response") return;
 
-      console.log("[Screenshot] Processing response...");
       const trigger = activeScreenshotTriggerRef.current;
 
       // Clear timeout since we got a response
@@ -619,7 +611,6 @@ export function CenterContent({
 
       try {
         // Convert base64 data URL to blob
-        console.log("[Screenshot] Converting base64 to blob...");
         const base64Data = dataUrl.split(",")[1];
         const byteCharacters = atob(base64Data);
         const byteNumbers = new Array(byteCharacters.length);
@@ -634,7 +625,6 @@ export function CenterContent({
         );
 
         // Upload directly to HTTP endpoint (which uploads to R2)
-        console.log("[Screenshot] Uploading to R2 via HTTP endpoint...");
         if (!projectId) {
           throw new Error("Project not available for screenshot upload");
         }

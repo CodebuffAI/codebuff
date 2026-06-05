@@ -210,7 +210,7 @@ export default function ProjectsDashboard() {
                   key={i}
                   className="flex flex-col gap-3 rounded-2xl bg-muted/30 p-3"
                 >
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted/40">
+                  <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/40">
                     <div className="absolute inset-0 animate-pulse bg-muted/30" />
                   </div>
                   <div className="flex flex-col gap-2 px-1 pb-1">
@@ -244,12 +244,12 @@ export default function ProjectsDashboard() {
                     }}
                     className="group flex cursor-pointer flex-col gap-3 rounded-2xl bg-muted/25 p-3 outline-none ring-0 transition-all duration-200 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-primary/60"
                   >
-                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted/40">
+                    <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/40">
                       {imageSrc ? (
                         <img
                           src={imageSrc}
                           alt={project.name || 'Project preview'}
-                          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                          className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-muted/45">

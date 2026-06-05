@@ -292,11 +292,9 @@ function ProjectWrapper({
 
           if (response.ok) {
             const data = await response.json();
-            console.log("allow_project response:", data);
           } else {
-            console.error("allow_project failed:", response.status);
           }
-        } catch (error) {        }
+        } catch (error) { }
       };
 
       checkProjectAccess();

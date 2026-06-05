@@ -1,6 +1,6 @@
 import type { AuthConfig } from 'convex/server'
 
-const issuer = 'https://freebuff.com'
+const issuer = process.env.VLY_CONVEX_AUTH_ISSUER ?? 'https://freebuff.com'
 
 export default {
   providers: [
