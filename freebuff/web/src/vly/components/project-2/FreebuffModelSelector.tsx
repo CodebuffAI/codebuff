@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/vly/components/ui/tooltip";
 import { ChevronDown, ImageIcon, AlertTriangle, Sparkles } from "lucide-react";
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import {
   FREEBUFF_MODELS,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
@@ -24,6 +25,7 @@ import {
   isFreebuffMultimodalModelId,
   type FreebuffModelOption,
 } from "@codebuff/common/constants/freebuff-models";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/vly/lib/utils";
 
 interface FreebuffModelSelectorProps {
@@ -40,10 +42,14 @@ const UNLIMITED_MODELS = FREEBUFF_MODELS.filter(
   (m) => !isFreebuffPremiumModelId(m.id),
 );
 
-const PremiumBadge: React.FC = () => (
+// `remaining` is the live count of premium runs left today (shared across all
+// premium models). Falls back to the static daily cap while the count loads.
+const PremiumBadge: React.FC<{ remaining: number | null }> = ({ remaining }) => (
   <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
     <Sparkles className="h-3 w-3" />
-    Premium · {FREEBUFF_PREMIUM_SESSION_LIMIT}/day
+    {remaining === null
+      ? `Premium · ${FREEBUFF_PREMIUM_SESSION_LIMIT}/day`
+      : `Premium · ${remaining}/${FREEBUFF_PREMIUM_SESSION_LIMIT} left today`}
   </span>
 );
 
@@ -51,7 +57,8 @@ const ModelRow: React.FC<{
   model: FreebuffModelOption;
   isSelected: boolean;
   onSelect: () => void;
-}> = ({ model, isSelected, onSelect }) => {
+  premiumRemaining: number | null;
+}> = ({ model, isSelected, onSelect, premiumRemaining }) => {
   const premium = isFreebuffPremiumModelId(model.id);
   const multimodal = isFreebuffMultimodalModelId(model.id);
 
@@ -83,7 +90,7 @@ const ModelRow: React.FC<{
         </span>
       </div>
       <div className="flex w-full flex-wrap items-center gap-2">
-        {premium && <PremiumBadge />}
+        {premium && <PremiumBadge remaining={premiumRemaining} />}
         {model.warning && (
           <span className="inline-flex items-center gap-1 text-[10px] text-amber-600">
             <AlertTriangle className="h-3 w-3" />
@@ -104,6 +111,17 @@ export function FreebuffModelSelector({
   const current =
     getFreebuffModel(selectedModelId) ?? getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID);
   const currentPremium = isFreebuffPremiumModelId(current.id);
+
+  // Live premium quota remaining (reactive). `check()` returns the current
+  // token value computed against server time; it's undefined until loaded.
+  const { check: checkPremiumLimit } = useRateLimit(
+    api.coding_agent.rateLimiter.getPremiumModelRateLimit,
+    { getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime },
+  );
+  const premiumStatus = checkPremiumLimit?.();
+  const premiumRemaining = premiumStatus
+    ? Math.max(0, Math.floor(premiumStatus.value))
+    : null;
 
   return (
     <DropdownMenu>
@@ -131,7 +149,9 @@ export function FreebuffModelSelector({
             <DropdownMenuLabel className="flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
               <span>Premium</span>
               <span className="font-normal normal-case">
-                {FREEBUFF_PREMIUM_SESSION_LIMIT}/day limit
+                {premiumRemaining === null
+                  ? `${FREEBUFF_PREMIUM_SESSION_LIMIT}/day limit`
+                  : `${premiumRemaining}/${FREEBUFF_PREMIUM_SESSION_LIMIT} left today`}
               </span>
             </DropdownMenuLabel>
             {PREMIUM_MODELS.map((model) => (
@@ -140,6 +160,7 @@ export function FreebuffModelSelector({
                 model={model}
                 isSelected={model.id === current.id}
                 onSelect={() => onModelChange(model.id)}
+                premiumRemaining={premiumRemaining}
               />
             ))}
             <DropdownMenuSeparator />
@@ -154,6 +175,7 @@ export function FreebuffModelSelector({
             model={model}
             isSelected={model.id === current.id}
             onSelect={() => onModelChange(model.id)}
+            premiumRemaining={premiumRemaining}
           />
         ))}
       </DropdownMenuContent>
