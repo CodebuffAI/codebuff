@@ -2,15 +2,23 @@ import z from 'zod/v4'
 
 import { jsonObjectSchema } from './json'
 
+// Shared field constraints reused by both the per-action schemas
+// (gravityIndexApiInputSchema) and the flat tool-facing schema below, so the
+// bounds and error messages stay in sync. Descriptions are applied per use
+// site because they differ between the two contexts (single-action vs. the
+// `For action "X":` prefixes the flat LLM schema needs).
+const queryField = z
+  .string()
+  .min(1, 'Query cannot be empty')
+  .max(1000, 'Query cannot exceed 1000 characters')
+const slugField = z.string().min(1, 'Slug cannot be empty')
+const integratedSlugField = z.string().min(1, 'integrated_slug cannot be empty')
+
 const searchInputSchema = z.object({
   action: z.literal('search').describe('Search for the best service.'),
-  query: z
-    .string()
-    .min(1, 'Query cannot be empty')
-    .max(1000, 'Query cannot exceed 1000 characters')
-    .describe(
-      `What the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app".`,
-    ),
+  query: queryField.describe(
+    `What the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app".`,
+  ),
   search_id: z
     .string()
     .optional()
@@ -48,10 +56,7 @@ const getServiceInputSchema = z.object({
   action: z
     .literal('get_service')
     .describe('Fetch full detail for a single service by slug.'),
-  slug: z
-    .string()
-    .min(1, 'Slug cannot be empty')
-    .describe('Service slug, e.g. supabase, stripe, sendgrid.'),
+  slug: slugField.describe('Service slug, e.g. supabase, stripe, sendgrid.'),
 })
 
 const reportIntegrationInputSchema = z.object({
@@ -62,10 +67,9 @@ const reportIntegrationInputSchema = z.object({
     .string()
     .min(1, 'search_id cannot be empty')
     .describe('search_id from the earlier search result.'),
-  integrated_slug: z
-    .string()
-    .min(1, 'integrated_slug cannot be empty')
-    .describe('Slug of the service that was actually integrated.'),
+  integrated_slug: integratedSlugField.describe(
+    'Slug of the service that was actually integrated.',
+  ),
 })
 
 const runtimeAttributionFields = {
@@ -82,14 +86,64 @@ const runtimeAttributionFields = {
     ),
 }
 
+// Tool-facing schema presented to the LLM provider. Native function-calling
+// providers require the top-level `parameters` to be a JSON Schema of
+// `type: "object"`, so this MUST be a flat `z.object` rather than a top-level
+// discriminated union (which serializes to `oneOf`/`anyOf` with no top-level
+// type). Per-action requiredness is enforced server-side by
+// `gravityIndexApiInputSchema` below.
 export const gravityIndexInputSchema = z
-  .discriminatedUnion('action', [
-    searchInputSchema,
-    browseInputSchema,
-    listCategoriesInputSchema,
-    getServiceInputSchema,
-    reportIntegrationInputSchema,
-  ])
+  .object({
+    action: z
+      .enum([
+        'search',
+        'browse',
+        'list_categories',
+        'get_service',
+        'report_integration',
+      ])
+      .describe(
+        'Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; report_integration: report a completed integration.',
+      ),
+    query: queryField
+      .optional()
+      .describe(
+        `For action "search": what the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app".`,
+      ),
+    search_id: z
+      .string()
+      .optional()
+      .describe(
+        'For action "search": continue a previous Gravity Index search as a follow-up. For action "report_integration": the search_id from the earlier search result (required).',
+      ),
+    context: jsonObjectSchema
+      .optional()
+      .describe(
+        'For action "search": optional structured JSON context about the project, stack, or constraints.',
+      ),
+    category: z
+      .string()
+      .optional()
+      .describe(
+        'For action "browse": optional category filter, e.g. Database, Auth, Payments, Hosting, Email, Cache, Monitoring, Analytics, AI, Storage, CMS, Search, Realtime, Background Jobs, Infrastructure, CRM, Support, Productivity, Commerce, Video, Webhooks, SMS.',
+      ),
+    q: z
+      .string()
+      .optional()
+      .describe(
+        'For action "browse": optional keyword filter, e.g. sendgrid or postgres.',
+      ),
+    slug: slugField
+      .optional()
+      .describe(
+        'For action "get_service": service slug, e.g. supabase, stripe, sendgrid (required).',
+      ),
+    integrated_slug: integratedSlugField
+      .optional()
+      .describe(
+        'For action "report_integration": slug of the service that was actually integrated (required).',
+      ),
+  })
   .describe(`Use the Gravity Index tool discovery and install API.`)
 
 export const gravityIndexApiInputSchema = z

@@ -112,6 +112,7 @@ export function createBase2(
       'list_directory',
       'glob',
       'render_ui',
+      'gravity_index',
       ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
     ),
     spawnableAgents: buildArray(
@@ -147,6 +148,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Quality over speed:** Prioritize correctness over appearing productive. Fewer, well-informed agents are better than many rushed ones.
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
 - **Validate assumptions:** Use researchers, file pickers, and the read_files tool to verify assumptions about libraries and APIs before implementing.
+- **Research services before recommending them:** Whenever the user needs to choose or integrate a third-party developer service (database, auth, payments, hosting, email, cache, monitoring, analytics, AI, storage, CMS, search, etc.), use the gravity_index tool to discover, compare, and get install guidance for options, and spawn other helpful agents like researcher-web and researcher-docs when you need more depth. Don't recommend or integrate a service from memory alone.
 - **Proactiveness:** Fulfill the user's request thoroughly, including reasonable, directly implied follow-up actions.
 - **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.${
       noAskUser
