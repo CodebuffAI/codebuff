@@ -1,49 +1,76 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getGravityIndexDescription } from '../gravity-index'
+import { getGravityIndexParts } from '../gravity-index'
 
-describe('getGravityIndexDescription', () => {
+describe('getGravityIndexParts', () => {
   test('describes search queries', () => {
     expect(
-      getGravityIndexDescription({
+      getGravityIndexParts({
         action: 'search',
         query: 'transactional email for a Next.js app',
       }),
-    ).toBe('Searching transactional email for a Next.js app')
+    ).toEqual({
+      name: 'Services · Search',
+      description: 'transactional email for a Next.js app',
+    })
   })
 
   test('describes browse category and keyword', () => {
     expect(
-      getGravityIndexDescription({
+      getGravityIndexParts({
         action: 'browse',
         category: 'Email',
         q: 'send',
       }),
-    ).toBe('Browsing Email for send')
+    ).toEqual({
+      name: 'Services · Browse',
+      description: 'Email · send',
+    })
   })
 
   test('describes service detail lookups', () => {
     expect(
-      getGravityIndexDescription({
+      getGravityIndexParts({
         action: 'get_service',
         slug: 'sendgrid',
       }),
-    ).toBe('Getting sendgrid')
+    ).toEqual({
+      name: 'Services · Fetch',
+      description: 'sendgrid',
+    })
   })
 
   test('describes completed integration reports', () => {
     expect(
-      getGravityIndexDescription({
+      getGravityIndexParts({
         action: 'report_integration',
         integrated_slug: 'sendgrid',
       }),
-    ).toBe('Reporting sendgrid integration')
+    ).toEqual({
+      name: 'Services · Report',
+      description: 'sendgrid integration',
+    })
   })
 
-  test('uses fallback text for unknown input', () => {
-    expect(getGravityIndexDescription({ action: 'unknown' })).toBe(
-      'Using service catalog',
-    )
-    expect(getGravityIndexDescription(null)).toBe('Using service catalog')
+  test('names the action even when the target is missing', () => {
+    expect(getGravityIndexParts({ action: 'search' })).toEqual({
+      name: 'Services · Search',
+      description: '',
+    })
+    expect(getGravityIndexParts({ action: 'list_categories' })).toEqual({
+      name: 'Services · Categories',
+      description: '',
+    })
+  })
+
+  test('falls back to the brand for unknown input', () => {
+    expect(getGravityIndexParts({ action: 'unknown' })).toEqual({
+      name: 'Services',
+      description: '',
+    })
+    expect(getGravityIndexParts(null)).toEqual({
+      name: 'Services',
+      description: '',
+    })
   })
 })

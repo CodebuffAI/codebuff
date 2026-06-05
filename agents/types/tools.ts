@@ -163,45 +163,31 @@ export interface GlobParams {
 }
 
 /**
- * Search, browse, inspect, or report integrations in the Gravity Index.
+ * Use the Gravity Index tool discovery and install API.
  */
-export type GravityIndexParams =
-  | {
-      /** Search for the best service recommendation. */
-      action: 'search'
-      /** What the user needs, including stack, constraints, and required capabilities when known. */
-      query: string
-      /** Continue a previous Gravity Index search as a follow-up. */
-      search_id?: string
-      /** Optional structured context about the project, stack, or constraints. */
-      context?: Record<string, any>
-    }
-  | {
-      /** Browse catalog services by category and/or keyword. */
-      action: 'browse'
-      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, AI. */
-      category?: string
-      /** Optional keyword filter, e.g. sendgrid or postgres. */
-      q?: string
-    }
-  | {
-      /** List every category with service counts. */
-      action: 'list_categories'
-    }
-  | {
-      /** Fetch full detail for a single service by slug. */
-      action: 'get_service'
-      /** Service slug, e.g. supabase, stripe, sendgrid. */
-      slug: string
-    }
-  | {
-      /** Report that an integration from a prior search was completed. */
-      action: 'report_integration'
-      /** search_id from the earlier search result. */
-      search_id: string
-      /** Slug of the service that was actually integrated. */
-      integrated_slug: string
-    }
+export interface GravityIndexParams {
+  /** Which Gravity Index operation to perform. search: recommend a provider; browse: list catalog services; list_categories: list categories with counts; get_service: full detail for a known slug; report_integration: report a completed integration. */
+  action:
+    | 'search'
+    | 'browse'
+    | 'list_categories'
+    | 'get_service'
+    | 'report_integration'
+  /** For action "search": what the user needs, including stack, constraints, and required capabilities. */
+  query?: string
+  /** For action "search": continue a previous search. For action "report_integration": the search_id from the earlier search result (required). */
+  search_id?: string
+  /** For action "search": optional structured JSON context about the project, stack, or constraints. */
+  context?: Record<string, any>
+  /** For action "browse": optional category filter, e.g. Database, Auth, Payments, Hosting, Email, AI. */
+  category?: string
+  /** For action "browse": optional keyword filter, e.g. sendgrid or postgres. */
+  q?: string
+  /** For action "get_service": service slug, e.g. supabase, stripe, sendgrid (required). */
+  slug?: string
+  /** For action "report_integration": slug of the service that was actually integrated (required). */
+  integrated_slug?: string
+}
 
 /**
  * List files and directories in the specified path. Returns separate arrays of file names and directory names.
