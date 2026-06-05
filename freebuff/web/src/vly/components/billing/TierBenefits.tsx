@@ -16,7 +16,7 @@ import {
   Unplug,
   Users,
   Crown,
-  Sparkles,
+  Globe,
 } from "lucide-react";
 import { VlyCoin } from "@/vly/components/ui/vly-coin";
 import { ConvexIcon } from "@/vly/components/billing/icons";
@@ -108,7 +108,7 @@ export function TierBenefits({ tierId, className }: TierBenefitsProps) {
 
           {/* Custom Domains */}
           <FeatureCard
-            icon={<Sparkles className="h-5 w-5 text-purple-600" />}
+            icon={<Globe className="h-5 w-5 text-purple-600" />}
             title="Custom Domains"
             description="Host projects on your own domain"
             isIncluded={currentTier.features.custom_domains}

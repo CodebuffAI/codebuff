@@ -12,7 +12,7 @@ import {
 } from "@/vly/components/ui/dialog";
 import { Button } from "@/vly/components/ui/button";
 import { Input } from "@/vly/components/ui/input";
-import { AlertTriangle, Sparkles, FolderX, Users, Trash2 } from "lucide-react";
+import { AlertTriangle, Crown, FolderX, Users, Trash2 } from "lucide-react";
 import { cn } from "@/vly/lib/utils";
 
 export type DowngradeCancelAction = "downgrade" | "cancel";
@@ -89,7 +89,7 @@ export function DowngradeCancelDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                <Sparkles className="h-5 w-5 text-amber-600" />
+                <Crown className="h-5 w-5 text-amber-600" />
               </div>
             </div>
             <div className="text-center">

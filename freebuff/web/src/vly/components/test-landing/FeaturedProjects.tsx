@@ -7,7 +7,6 @@ import { api } from '@/convex/_generated/api'
 import {
   Heart,
   ArrowRight,
-  Sparkles,
   Clock,
   FolderOpen,
   Gift,
@@ -179,7 +178,7 @@ const EarnCreditsSection: React.FC = () => {
               Unlimited referral spins
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-              <Sparkles className="h-3 w-3" />
+              <Star className="h-3 w-3" />
               Unlimited bounty rewards
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -235,7 +234,7 @@ export const FeaturedProjects: React.FC = () => {
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <Star className="h-4 w-4 text-primary" />
             <h3 className="text-base font-semibold text-foreground">
               Featured by the Community
             </h3>
@@ -272,7 +271,7 @@ export const FeaturedProjects: React.FC = () => {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-8 text-center">
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <Star className="h-5 w-5 text-primary" />
             </div>
             <h4 className="mb-1 text-sm font-medium text-foreground">
               No featured projects yet

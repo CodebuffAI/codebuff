@@ -23,7 +23,6 @@ import {
   Code,
   MessageCircle,
   ArrowRight,
-  Sparkles,
   Target,
   Loader,
 } from "lucide-react";
@@ -394,7 +393,7 @@ export default function HireDevelopersView() {
             <Card className="rounded-none border-4 border-black bg-purple-100 shadow-[6px_6px_0px_0px_#000000] transition-all hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0px_0px_#000000]">
               <CardHeader className="pb-2">
                 <div className="mb-3 w-fit rounded-none border-2 border-black bg-purple-500 p-2">
-                  <Sparkles className="h-8 w-8 text-white" />
+                  <Star className="h-8 w-8 text-white" />
                 </div>
                 <CardTitle className="text-2xl font-black uppercase text-black">
                   UNLIMITED AI

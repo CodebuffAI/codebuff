@@ -29,7 +29,6 @@ import {
   ExternalLink,
   Gift,
   Loader2,
-  Sparkles,
   Star,
   Trophy,
   Upload,
@@ -631,7 +630,7 @@ export default function EarnDashboard() {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <Gift className="mr-2 h-4 w-4" />
                       Grant test spin
                     </>
                   )}
@@ -771,7 +770,7 @@ export default function EarnDashboard() {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="mr-2 h-5 w-5" />
+                    <Gift className="mr-2 h-5 w-5" />
                     Spin The Wheel
                   </>
                 )}
@@ -1355,7 +1354,7 @@ export default function EarnDashboard() {
             <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/60 p-4">
               <div className="flex items-start gap-3">
                 <div className="rounded-lg bg-emerald-100 p-2 text-emerald-700">
-                  <Sparkles className="h-4 w-4" />
+                  <Trophy className="h-4 w-4" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-zinc-900">

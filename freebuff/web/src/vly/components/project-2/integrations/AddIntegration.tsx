@@ -10,7 +10,7 @@
 //   X,
 //   ChevronDown,
 //   ChevronUp,
-//   Sparkles,
+//   Star,
 //   Check,
 // } from "lucide-react";
 // import { cn } from "@/vly/lib/utils";
@@ -384,7 +384,7 @@
 //           {/* AI-Powered Form */}
 //           <div className="space-y-4">
 //             <div className="flex items-center gap-2">
-//               <Sparkles className="h-5 w-5 text-primary" />
+//               <Star className="h-5 w-5 text-primary" />
 //               <h2 className="text-lg font-semibold">AI-Powered Integration</h2>
 //             </div>
 //             <p className="text-sm text-muted-foreground">
@@ -546,7 +546,7 @@
 //           {isReviewMode && isManualFormExpanded && (
 //             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
 //               <div className="flex items-center gap-2">
-//                 <Sparkles className="h-4 w-4 text-amber-600" />
+//                 <Star className="h-4 w-4 text-amber-600" />
 //                 <h3 className="font-medium text-amber-800">
 //                   Review AI-Generated Integration
 //                 </h3>

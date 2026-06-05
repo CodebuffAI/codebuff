@@ -18,7 +18,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  Sparkles,
+  Pencil,
 } from "lucide-react";
 import { QueuedMessage } from "@/vly/hooks/useMessageQueue";
 import React, { useRef, useState, useMemo, useEffect } from "react";
@@ -850,7 +850,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                             {isRefining ? (
                               <Loader className="h-4 w-4 animate-spin text-gray-400 dark:text-zinc-300" />
                             ) : (
-                              <Sparkles className="h-4 w-4 text-gray-400 dark:text-zinc-300" />
+                              <Pencil className="h-4 w-4 text-gray-400 dark:text-zinc-300" />
                             )}
                           </button>
                         </TooltipTrigger>

@@ -4,7 +4,6 @@
  */
 
 import {
-  Sparkles,
   Rocket,
   Cpu,
   Database,
@@ -85,12 +84,12 @@ export function EmailIcon({ size = "md", className }: GradientIconProps) {
 }
 
 /**
- * AI icon - Purple gradient circle with Sparkles
+ * AI icon - Purple gradient circle with CPU glyph
  */
 export function AIIcon({ size = "md", className }: GradientIconProps) {
   return (
     <GradientIconContainer size={size} className={className}>
-      <Sparkles className="h-full w-full text-purple-600" />
+      <Cpu className="h-full w-full text-purple-600" />
     </GradientIconContainer>
   );
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Sparkles, Clock, Zap } from 'lucide-react'
+import { X, Clock, Zap } from 'lucide-react'
 import { Button } from '@/vly/components/ui/button'
 import {
   Dialog,
@@ -119,7 +119,7 @@ export function StarterUpgradePopup({
           <DialogHeader className="mb-3">
             <div className="flex items-center gap-2 pr-6">
               <div className="shrink-0 rounded-full bg-primary/10 p-1.5">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Zap className="h-4 w-4 text-primary" />
               </div>
               <DialogTitle className="text-base font-bold leading-tight text-foreground sm:text-lg">
                 Expiring offer: early users only
@@ -223,7 +223,7 @@ export function StarterUpgradePopup({
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Zap className="mr-2 h-4 w-4" />
                 Upgrade to Starter — ${price}/mo
               </>
             )}

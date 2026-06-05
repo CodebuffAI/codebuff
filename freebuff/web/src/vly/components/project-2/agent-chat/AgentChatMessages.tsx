@@ -9,7 +9,6 @@ import {
   CheckCircle,
   TriangleAlert,
   Wrench,
-  Sparkles as SparklesIcon,
   ExternalLink,
   Clock,
   Play,
@@ -324,6 +323,8 @@ type AgentMessageForAd =
   | FunctionReturnType<
       typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
     >[0]
+
+type AgentAdPlacement = 'agent-chat-after-user' | 'agent-chat-after-assistant'
 
 function getAssistantTextForAd(message: AgentMessageForAd): string {
   return (message.assistant_stream ?? [])
@@ -667,7 +668,7 @@ const AssistantStreamItem: React.FC<{
 
   // For other types, show content directly with title
   return (
-    <div className="mb-2">
+    <div className="mb-1">
       {item.title && (
         <div className="mb-1.5 text-xs font-medium text-muted-foreground">
           {item.title}
@@ -783,50 +784,100 @@ const buildActivitySummary = (items: AssistantStreamItemType[]) => {
   return items.map(getActivityItemLabel).filter(Boolean).join(', ')
 }
 
+const PLACEHOLDER_ACTIVITY_CONTENT = new Set([
+  '',
+  'running tool',
+  'waiting for your answer',
+])
+
+const hasMeaningfulActivityContent = (item: AssistantStreamItemType) => {
+  const content = (item.content ?? '').trim()
+  return !PLACEHOLDER_ACTIVITY_CONTENT.has(content.toLowerCase())
+}
+
+const isDetailedActivityItem = (item: AssistantStreamItemType) => {
+  if (!hasMeaningfulActivityContent(item)) return false
+
+  if (
+    item.type === 'reasoning' ||
+    item.type === 'thinking' ||
+    item.type === 'subagent' ||
+    item.type === 'error' ||
+    item.type === 'timeout_continue'
+  ) {
+    return true
+  }
+
+  if (item.type === 'tool_result') return true
+
+  if (item.type === 'result' || item.type === 'system' || item.type === 'other') {
+    return item.content.trim().length > 40 || item.content.includes('\n')
+  }
+
+  // Tool-call status rows usually only say "Running tool"; keep the dropdown
+  // reserved for comprehensive output such as reasoning, subagent notes, and
+  // terminal/tool results.
+  return false
+}
+
 // One collapsible group rendering a consecutive run of non-text stream items.
-// Collapsed by default; shows a wrench/sparkles icon, a one-line summary, and
-// a chevron. When expanded, falls back to <AssistantStreamItem> per child so
+// Collapsed by default; shows a compact status icon, a one-line summary, and a
+// chevron. When expanded, falls back to <AssistantStreamItem> per child so
 // individual entries remain independently expandable.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
 }> = ({ items }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
+  const detailedItems = useMemo(
+    () => items.filter(isDetailedActivityItem),
+    [items],
+  )
+  const hasDetails = detailedItems.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
     (item) => item.type === 'tool_use' || item.type === 'tool_result',
   )
-  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : SparklesIcon
+  const Icon = hasError ? TriangleAlert : usesTools ? Wrench : Clock
 
   return (
-    <div className="mb-2">
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+    <div className="my-1">
+      <Collapsible
+        open={hasDetails && isExpanded}
+        onOpenChange={(open) => hasDetails && setIsExpanded(open)}
+      >
         <CollapsibleTrigger
+          disabled={!hasDetails}
           className={cn(
             'flex w-full cursor-pointer items-center gap-1.5 text-xs font-medium transition-colors',
             hasError
               ? 'text-red-400 hover:text-red-300'
               : 'text-muted-foreground hover:text-foreground/80',
+            !hasDetails && 'cursor-default hover:text-muted-foreground',
           )}
         >
           <Icon className="h-3 w-3" />
           <span className="min-w-0 truncate" title={summary}>
             {summary}
           </span>
-          <ChevronDown
-            className={cn(
-              'h-3 w-3 shrink-0 transition-transform',
-              isExpanded ? 'rotate-180' : '',
-            )}
-          />
+          {hasDetails && (
+            <ChevronDown
+              className={cn(
+                'h-3 w-3 shrink-0 transition-transform',
+                isExpanded ? 'rotate-180' : '',
+              )}
+            />
+          )}
         </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="mt-1 border-l-2 border-border/60 pl-3">
-            {items.map((item, index) => (
-              <AssistantStreamItem key={index} item={item} />
-            ))}
-          </div>
-        </CollapsibleContent>
+        {hasDetails && (
+          <CollapsibleContent>
+            <div className="mt-1 border-l-2 border-border/60 pl-3">
+              {detailedItems.map((item, index) => (
+                <AssistantStreamItem key={index} item={item} />
+              ))}
+            </div>
+          </CollapsibleContent>
+        )}
       </Collapsible>
     </div>
   )
@@ -1302,6 +1353,7 @@ const CompactPaywallBump: React.FC = () => {
 }
 
 type PersistedAgentAd = NonNullable<AgentMessageForAd['ad_payload']>
+type AdsByPlacement = Partial<Record<AgentAdPlacement, PersistedAgentAd>>
 
 const AgentAdMessage: React.FC<{
   ad: PersistedAgentAd
@@ -1345,29 +1397,29 @@ const AgentAdMessage: React.FC<{
   return (
     <div
       ref={rootRef}
-      className={cn('mb-3 w-full max-w-[min(100%,680px)] text-sm', className)}
+      className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}
     >
       <a
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={() => recordAdClick(ad)}
-        className="group flex items-start gap-2.5 text-left no-underline"
+        className="group flex min-h-[92px] overflow-hidden rounded-xl border border-border/60 bg-muted/25 text-left no-underline transition-colors hover:bg-muted/35"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md text-xs font-semibold text-muted-foreground">
+        <span className="flex w-20 shrink-0 items-center justify-center border-r border-border/50 bg-background/50 text-xs font-semibold text-muted-foreground sm:w-24">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt=""
-              className="h-10 w-10 object-contain"
+              className="h-12 w-12 object-contain"
               loading="lazy"
             />
           ) : (
             title.charAt(0).toUpperCase()
           )}
         </span>
-        <span className="min-w-0 flex-1 pt-0.5">
-          <span className="mb-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
+        <span className="min-w-0 flex-1 px-4 py-3">
+          <span className="mb-1.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
             <span className="uppercase tracking-wide text-muted-foreground/70">
               Sponsored
             </span>
@@ -1381,7 +1433,7 @@ const AgentAdMessage: React.FC<{
               {ad.adText}
             </span>
           )}
-          <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium leading-none text-muted-foreground/80 underline-offset-4 group-hover:text-primary group-hover:underline">
+          <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium leading-none text-muted-foreground/80 underline-offset-4 group-hover:text-primary group-hover:underline">
             {cta}
             <ExternalLink className="h-3 w-3 shrink-0" />
           </span>
@@ -1400,14 +1452,14 @@ const AgentMessageCard: React.FC<{
     | FunctionReturnType<
         typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
       >[0]
-  adAfterUser?: PersistedAgentAd
+  ads?: AdsByPlacement
   isLatestMessage?: boolean
   onRollback?: () => Promise<void>
   onContinueAfterTimeout?: () => void | Promise<unknown>
   onAskUserAnswer?: (message: string) => void | Promise<unknown>
 }> = ({
   message,
-  adAfterUser,
+  ads,
   isLatestMessage = false,
   onRollback,
   onContinueAfterTimeout,
@@ -1542,8 +1594,11 @@ const AgentMessageCard: React.FC<{
         </div>
       )}
 
-      {adAfterUser && (
-        <AgentAdMessage ad={adAfterUser} className="-mt-1 mb-4" />
+      {ads?.['agent-chat-after-user'] && (
+        <AgentAdMessage
+          ad={ads['agent-chat-after-user']}
+          className="-mt-1 mb-4"
+        />
       )}
 
       {/* Assistant Stream Content - text rendered inline; tool calls /
@@ -1604,6 +1659,13 @@ const AgentMessageCard: React.FC<{
 
       {/* Show compact paywall bump when insufficient credits */}
       {isPaywallMessage && <CompactPaywallBump />}
+
+      {!isStreaming && ads?.['agent-chat-after-assistant'] && (
+        <AgentAdMessage
+          ad={ads['agent-chat-after-assistant']}
+          className="mt-4"
+        />
+      )}
     </div>
   )
 }
@@ -1680,11 +1742,17 @@ export const AgentChatMessages = forwardRef<
   )
   const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set())
 
-  const adBySourceMessageId = useMemo(() => {
-    const ads = new Map<string, PersistedAgentAd>()
+  const adsBySourceMessageId = useMemo(() => {
+    const ads = new Map<string, AdsByPlacement>()
     sortedMessages.forEach((message) => {
       if (message.ad_source_message_id && message.ad_payload) {
-        ads.set(message.ad_source_message_id, message.ad_payload)
+        const placementId =
+          message.ad_payload.placementId === 'agent-chat-after-assistant'
+            ? 'agent-chat-after-assistant'
+            : 'agent-chat-after-user'
+        const sourceAds = ads.get(message.ad_source_message_id) ?? {}
+        sourceAds[placementId] = message.ad_payload
+        ads.set(message.ad_source_message_id, sourceAds)
       }
     })
     return ads
@@ -1710,71 +1778,95 @@ export const AgentChatMessages = forwardRef<
   }, [messagesForRendering])
 
   const sourceMessageForAd = useMemo(() => {
-    const sourceIdsWithAds = new Set(
-      sortedMessages
-        .map((message) => message.ad_source_message_id)
-        .filter(Boolean),
-    )
-
     for (let i = sortedMessages.length - 1; i >= 0; i--) {
       const message = sortedMessages[i]
       if (message.ad_payload) continue
       if (!message.user_message) continue
-      if (sourceIdsWithAds.has(message._id)) continue
+      const sourceAds = adsBySourceMessageId.get(message._id)
+      if (
+        sourceAds?.['agent-chat-after-user'] &&
+        sourceAds?.['agent-chat-after-assistant']
+      ) {
+        continue
+      }
       return message
     }
 
     return null
-  }, [sortedMessages])
+  }, [adsBySourceMessageId, sortedMessages])
 
   useEffect(() => {
     if (!project?.active_agent_thread || !sourceMessageForAd) return
 
     const sourceMessageId = sourceMessageForAd._id
-    if (attemptedAdSourceIdsRef.current.has(sourceMessageId)) return
 
     const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd)
     if (gravityMessages.length === 0) return
 
-    attemptedAdSourceIdsRef.current.add(sourceMessageId)
+    const existingAds = adsBySourceMessageId.get(sourceMessageId) ?? {}
+    const placements: AgentAdPlacement[] = [
+      'agent-chat-after-user',
+      'agent-chat-after-assistant',
+    ]
+    const missingPlacements = placements.filter((placementId) => {
+      if (existingAds[placementId]) return false
+      return !attemptedAdSourceIdsRef.current.has(
+        `${sourceMessageId}:${placementId}`,
+      )
+    })
+
+    if (missingPlacements.length === 0) return
+
+    missingPlacements.forEach((placementId) => {
+      attemptedAdSourceIdsRef.current.add(`${sourceMessageId}:${placementId}`)
+    })
     let cancelled = false
 
-    void fetchGravityAd(
-      gravityMessages,
-      `${project.active_agent_thread}-${sourceMessageId}`,
-      false,
-    )
-      .then(async (ad) => {
-        if (cancelled || !ad) return
+    missingPlacements.forEach((placementId) => {
+      void fetchGravityAd(
+        gravityMessages,
+        `${project.active_agent_thread}-${sourceMessageId}-${placementId}`,
+        false,
+      )
+        .then(async (ad) => {
+          if (cancelled || !ad) return
 
-        await persistAgentAdMessage({
-          sourceMessageId,
-          ad: {
-            provider: ad.provider ?? 'gravity',
-            adText: ad.adText,
-            title: ad.title,
-            cta: ad.cta,
-            ...(ad.brandName ? { brandName: ad.brandName } : {}),
-            url: ad.url,
-            ...(ad.favicon
-              ? { favicon: ad.favicon, imageUrl: ad.favicon }
-              : {}),
-            clickUrl: ad.clickUrl,
-            impUrl: ad.impUrl,
-            placementId: 'agent-chat-below-response',
-            servedAt: Date.now(),
-          },
+          await persistAgentAdMessage({
+            sourceMessageId,
+            ad: {
+              provider: ad.provider ?? 'gravity',
+              adText: ad.adText,
+              title: ad.title,
+              cta: ad.cta,
+              ...(ad.brandName ? { brandName: ad.brandName } : {}),
+              url: ad.url,
+              ...(ad.favicon
+                ? { favicon: ad.favicon, imageUrl: ad.favicon }
+                : {}),
+              clickUrl: ad.clickUrl,
+              impUrl: ad.impUrl,
+              placementId,
+              servedAt: Date.now(),
+            },
+          })
         })
-      })
-      .catch((error) => {
-        attemptedAdSourceIdsRef.current.delete(sourceMessageId)
-        console.warn('[AgentChatMessages] Failed to persist Gravity ad', error)
-      })
+        .catch((error) => {
+          attemptedAdSourceIdsRef.current.delete(
+            `${sourceMessageId}:${placementId}`,
+          )
+          console.warn('[AgentChatMessages] Failed to persist Gravity ad', error)
+        })
+    })
 
     return () => {
       cancelled = true
     }
-  }, [persistAgentAdMessage, project?.active_agent_thread, sourceMessageForAd])
+  }, [
+    adsBySourceMessageId,
+    persistAgentAdMessage,
+    project?.active_agent_thread,
+    sourceMessageForAd,
+  ])
   // Rollback functionality
   const revertToCommit = useAction(api.codesandbox.versionControl.revert)
   const deactivateAgentMessageMutation = useAction(
@@ -2006,7 +2098,7 @@ export const AgentChatMessages = forwardRef<
                     <AgentMessageCard
                       key={message._id}
                       message={message}
-                      adAfterUser={adBySourceMessageId.get(message._id)}
+                      ads={adsBySourceMessageId.get(message._id)}
                       isLatestMessage={message._id === latestRenderableMessageId}
                       onRollback={rollbackCallbacks.get(message._id)}
                       onContinueAfterTimeout={() =>

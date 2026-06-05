@@ -88,7 +88,8 @@ export const persistAgentAdMessage = mutation({
       throw new Error("Project not found or access denied");
     }
 
-    const existing = await ctx.db
+    const requestedPlacementId = args.ad.placementId ?? "agent-chat-after-user";
+    const existingAds = await ctx.db
       .query("agent_message")
       .withIndex("by_thread_and_ad_source", (q) =>
         q
@@ -96,7 +97,12 @@ export const persistAgentAdMessage = mutation({
           .eq("ad_source_message_id", args.sourceMessageId),
       )
       .filter((q) => q.neq(q.field("deactivated"), true))
-      .first();
+      .collect();
+    const existing = existingAds.find(
+      (message) =>
+        (message.ad_payload?.placementId ?? "agent-chat-after-user") ===
+        requestedPlacementId,
+    );
 
     if (existing) {
       return { created: false, messageId: existing._id };

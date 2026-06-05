@@ -7,7 +7,7 @@ import {
   SignInButton,
 } from "@/vly/components/auth/AuthComponents";
 import { useMutation } from "convex/react";
-import { Loader, ArrowUp } from "lucide-react";
+import { Loader, ArrowUp, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, {
   useEffect,
@@ -794,12 +794,9 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
                 onMouseEnter={() => setHoverTheme(true)}
                 onMouseLeave={() => setHoverTheme(false)}
               >
-                <img
-                  src="/codicon_sparkle-filled.svg"
-                  alt="Sparkle"
-                  className="h-full w-full object-cover object-center"
-                  loading="lazy"
-                />
+                <span className="flex h-full w-full items-center justify-center rounded-full bg-[#7CFF3F] text-black">
+                  <Palette className="h-5 w-5" />
+                </span>
                 {selectedTheme && (
                   <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
                 )}
@@ -878,12 +875,9 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
                 className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
                 onClick={() => setIsThemePickerOpen(true)}
               >
-                <img
-                  src="/codicon_sparkle-filled.svg"
-                  alt="Sparkle"
-                  className="h-10 w-10 object-cover object-center"
-                  loading="lazy"
-                />
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] text-black">
+                  <Palette className="h-5 w-5" />
+                </span>
                 {selectedTheme && (
                   <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
                 )}

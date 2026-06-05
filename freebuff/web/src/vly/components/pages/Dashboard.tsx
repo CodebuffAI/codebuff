@@ -33,7 +33,7 @@ import {
   Loader,
   AlertTriangle,
   Plus,
-  Sparkles,
+  ImageIcon,
   ArrowUpRight,
   Trash2,
   ChevronDown,
@@ -667,10 +667,10 @@ export default function Dashboard() {
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/30 to-muted/60">
+                        <div className="flex h-full w-full items-center justify-center bg-muted/35">
                           <div className="text-center">
-                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-background/40 backdrop-blur-sm">
-                              <Sparkles className="h-5 w-5 text-muted-foreground" />
+                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-background/40">
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             </div>
                             <div className="text-xs font-medium text-muted-foreground">
                               Preview will appear after next deploy
@@ -786,11 +786,9 @@ export default function Dashboard() {
           ) : (
             <div className="flex min-h-[52vh] w-full items-center justify-center">
               <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl bg-muted/25 px-8 py-12 sm:px-12">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/10 to-transparent" />
-
                 <div className="relative flex flex-col items-center text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                    <Sparkles className="h-6 w-6" />
+                    <Plus className="h-6 w-6" />
                   </div>
 
                   <h3 className="mt-6 font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">

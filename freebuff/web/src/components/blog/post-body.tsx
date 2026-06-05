@@ -1,4 +1,4 @@
-import { ArrowRight, Check, CheckCircle2, Info, Quote, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, CheckCircle2, Info, Quote, X } from 'lucide-react'
 import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
@@ -111,7 +111,7 @@ function Block({ block }: { block: Block }) {
       )
     case 'callout': {
       const Icon =
-        block.tone === 'warning' ? Info : block.tone === 'success' ? CheckCircle2 : Sparkles
+        block.tone === 'warning' ? Info : block.tone === 'success' ? CheckCircle2 : Info
       const toneClasses =
         block.tone === 'warning'
           ? 'border-amber-500/30 bg-amber-500/[0.06] text-amber-200'

@@ -3,7 +3,7 @@
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import { SignedOut, SignInButton } from "@/vly/components/auth/AuthComponents";
 import { useMutation } from "convex/react";
-import { Loader, ArrowUp } from "lucide-react";
+import { Loader, ArrowUp, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler"
 
 // Preload critical icons
 const ICONS = {
-  sparkle: "/codicon_sparkle-filled.svg",
   photo: "/material-symbols_photo-rounded.svg",
 } as const;
 
@@ -436,16 +435,9 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
             onMouseEnter={() => setHoverTheme(true)}
             onMouseLeave={() => setHoverTheme(false)}
           >
-            <Image
-              src={ICONS.sparkle}
-              alt="Sparkle"
-              width={40}
-              height={40}
-              priority
-              sizes="40px"
-              className="h-full w-full"
-              style={{ objectFit: "contain" }}
-            />
+            <span className="flex h-full w-full items-center justify-center rounded-full bg-[#7CFF3F] text-black">
+              <Palette className="h-5 w-5" />
+            </span>
             {selectedTheme && (
               <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
             )}
@@ -526,16 +518,9 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
             className={`relative h-10 w-10 p-0 transition-transform hover:scale-110 active:scale-95 ${selectedTheme ? "rounded-full ring-2 ring-[#7CFF3F] ring-offset-2" : ""}`}
             onClick={() => setIsThemePickerOpen(true)}
           >
-            <Image
-              src={ICONS.sparkle}
-              alt="Sparkle"
-              width={40}
-              height={40}
-              priority
-              sizes="40px"
-              className="h-10 w-10"
-              style={{ objectFit: "contain" }}
-            />
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#7CFF3F] text-black">
+              <Palette className="h-5 w-5" />
+            </span>
             {selectedTheme && (
               <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#7CFF3F]"></div>
             )}

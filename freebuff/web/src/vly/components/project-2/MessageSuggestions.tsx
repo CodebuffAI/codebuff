@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 
 interface MessageSuggestionsProps {
   suggestions: string[];
@@ -135,7 +135,7 @@ export const MessageSuggestions: React.FC<MessageSuggestionsProps> = ({
             exit={{ opacity: 0, y: 5 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <Sparkles className="h-3 w-3 text-purple-400" />
+            <Lightbulb className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-medium text-zinc-500">
               Suggestions
             </span>

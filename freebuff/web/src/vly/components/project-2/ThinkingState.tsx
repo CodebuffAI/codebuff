@@ -1,32 +1,27 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { Spinner3D } from "./Spinner3D";
+import { Loader } from "lucide-react";
 
 const THINKING_STAGES = [
   {
-    label: "Reading your request",
-    detail: "Checking the project context and recent changes.",
+    label: "Reading context",
     startsAt: 0,
   },
   {
-    label: "Planning the change",
-    detail: "Choosing the smallest implementation path.",
-    startsAt: 3000,
+    label: "Planning",
+    startsAt: 4000,
   },
   {
-    label: "Working through the code",
-    detail: "Inspecting files and preparing edits.",
-    startsAt: 7000,
+    label: "Working",
+    startsAt: 9000,
   },
   {
-    label: "Verifying the result",
-    detail: "Looking for errors and edge cases.",
-    startsAt: 13000,
+    label: "Checking result",
+    startsAt: 18000,
   },
   {
     label: "Still working",
-    detail: "This is taking longer, but progress is continuing.",
-    startsAt: 22000,
+    startsAt: 32000,
   },
 ] as const;
 
@@ -39,7 +34,19 @@ function formatElapsed(ms: number) {
 
 function getSoftProgress(elapsedMs: number) {
   const seconds = elapsedMs / 1000;
-  return Math.min(96, Math.round(12 + (1 - Math.exp(-seconds / 14)) * 84));
+  return Math.min(94, Math.round(8 + (1 - Math.exp(-seconds / 24)) * 86));
+}
+
+function getEstimatedTokens(elapsedMs: number) {
+  const seconds = elapsedMs / 1000;
+  const base = 240;
+  const estimated = base + Math.floor(Math.log1p(seconds) * 520 + seconds * 22);
+  return Math.min(9800, estimated);
+}
+
+function formatTokenCount(tokens: number) {
+  if (tokens < 1000) return `${tokens.toLocaleString()} tokens`;
+  return `${(tokens / 1000).toFixed(1).replace(/\.0$/, "")}k tokens`;
 }
 
 export const ThinkingState: React.FC = React.memo(() => {
@@ -61,56 +68,41 @@ export const ThinkingState: React.FC = React.memo(() => {
   );
   const currentStage = THINKING_STAGES[Math.max(0, currentStageIndex)];
   const progress = useMemo(() => getSoftProgress(elapsedTime), [elapsedTime]);
-  const completedStageCount = Math.max(0, currentStageIndex);
+  const estimatedTokens = useMemo(
+    () => getEstimatedTokens(elapsedTime),
+    [elapsedTime],
+  );
 
   return (
-    <div className="my-3 w-full max-w-xl">
-      <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-        <div className="mb-3">
-          <div className="text-sm font-medium text-foreground">
-            {currentStage.label}
-          </div>
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">
-            {currentStage.detail}
-          </div>
+    <div className="my-2 w-full max-w-lg">
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+          <img
+            src="/logo-icon.png"
+            alt="Freebuff"
+            className="h-7 w-7 animate-pulse object-contain opacity-90"
+          />
+          <Loader className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-spin text-primary" />
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-background/60">
-            <Spinner3D size={42} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="truncate">
+              <span className="font-medium text-foreground/90">
+                {currentStage.label}
+              </span>
+              <span className="mx-1.5 text-muted-foreground/45">·</span>
+              <span>{formatTokenCount(estimatedTokens)}</span>
+            </span>
+            <span className="shrink-0 font-mono tabular-nums">
+              {formatElapsed(elapsedTime)}
+            </span>
           </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>Thinking</span>
-              <span className="font-mono">{formatElapsed(elapsedTime)}</span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {THINKING_STAGES.slice(0, 4).map((stage, index) => {
-                const isActive = index === currentStageIndex;
-                const isComplete = index < completedStageCount;
-                return (
-                  <span
-                    key={stage.label}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] ${
-                      isActive
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : isComplete
-                          ? "border-border bg-muted/50 text-foreground/70"
-                          : "border-border/70 text-muted-foreground"
-                    }`}
-                  >
-                    {stage.label}
-                  </span>
-                );
-              })}
-            </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/70">
+            <div
+              className="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       </div>

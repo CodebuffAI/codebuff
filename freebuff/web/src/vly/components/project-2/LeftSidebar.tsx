@@ -25,7 +25,7 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
-  Sparkles,
+  CheckCircle,
   Smartphone,
   GitBranch,
   Workflow,
@@ -616,7 +616,7 @@ export function LeftSidebar({
             className="flex w-full items-center justify-between rounded p-1 transition-colors hover:bg-slate-100/50 dark:hover:bg-[#282828]/90"
           >
             <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-purple-500 dark:text-[#b9a5cc]" />
+              <Package className="h-3 w-3 text-purple-500 dark:text-[#b9a5cc]" />
               <span className="text-xs font-semibold text-purple-700 dark:text-[#c5b2d8]">
                 Coming Soon to Pro
               </span>
@@ -892,7 +892,7 @@ export function LeftSidebar({
                           key={idx}
                           className="flex items-start gap-2 text-sm text-zinc-700"
                         >
-                          <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-purple-500" />
+                          <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-purple-500" />
                           <span>{benefit}</span>
                         </li>
                       ))}
@@ -928,7 +928,7 @@ export function LeftSidebar({
                       window.location.href = '/web/dashboard'
                     }}
                   >
-                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Get Pro Access
                   </Button>
                 </DialogFooter>
