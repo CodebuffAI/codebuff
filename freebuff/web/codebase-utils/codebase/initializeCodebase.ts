@@ -4,6 +4,7 @@ import { Codebase } from "./Codebase";
 import { CSBCodebase } from "./CSBCodebase";
 import { DaytonaCodebase } from "./DaytonaCodebase";
 import { PackageManagerType } from "../packageManager";
+import type { DaytonaServer } from "./DaytonaSdkManager";
 
 /**
  * Dynamically initializes a codebase based on the sandbox ID prefix.
@@ -38,12 +39,17 @@ import { PackageManagerType } from "../packageManager";
 export async function initializeCodebase(
   sandboxId: string,
   packageManager?: PackageManagerType,
+  daytonaServer: DaytonaServer = "legacy",
 ): Promise<Codebase> {
   // Check if the sandbox ID has a Daytona prefix
   if (sandboxId.startsWith("daytona:")) {
     // Remove the prefix and create DaytonaCodebase
     const daytonaSandboxId = sandboxId.slice("daytona:".length);
-    return await DaytonaCodebase.create(daytonaSandboxId, packageManager);
+    return await DaytonaCodebase.create(
+      daytonaSandboxId,
+      packageManager,
+      daytonaServer,
+    );
   }
 
   // Default to CSBCodebase for unprefixed IDs

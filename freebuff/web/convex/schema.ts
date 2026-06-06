@@ -157,6 +157,31 @@ export default defineSchema(
       .index('by_prod_deployment_slug', ['prod_deployment_slug'])
       .index('by_organization', ['organization_id']),
 
+    daytona_migration: defineTable({
+      project_id: v.id('project'),
+      daytona_server: v.optional(v.union(v.literal('legacy'), v.literal('new'))),
+      migration_status: v.optional(
+        v.union(
+          v.literal('idle'),
+          v.literal('queued'),
+          v.literal('copying'),
+          v.literal('validating'),
+          v.literal('cutting_over'),
+          v.literal('done'),
+          v.literal('failed'),
+        ),
+      ),
+      migration_error: v.optional(v.string()),
+      legacy_sandbox_id: v.optional(v.string()),
+      migration_target_sandbox_id: v.optional(v.string()),
+      migration_started_at: v.optional(v.number()),
+      migration_completed_at: v.optional(v.number()),
+      updated_at: v.optional(v.number()),
+    })
+      .index('by_project_id', ['project_id'])
+      .index('by_daytona_server', ['daytona_server'])
+      .index('by_migration_status', ['migration_status']),
+
     // DEPRECATED: Legacy thread format for old message-based system
     // Use agent_thread for new agent-based systems (Claude Code, Gemini CLI, Codex)
     thread: defineTable({

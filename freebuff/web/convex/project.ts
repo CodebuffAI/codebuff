@@ -13,6 +13,7 @@ import {
   internalMutation,
   internalQuery,
   mutation,
+  MutationCtx,
   query,
   QueryCtx,
 } from "./_generated/server";
@@ -115,6 +116,92 @@ type ThreadMessageForClientLight = ReturnType<
   typeof serializeThreadMessageLight
 >;
 
+type DaytonaServer = "legacy" | "new";
+type MigrationStatus =
+  | "idle"
+  | "queued"
+  | "copying"
+  | "validating"
+  | "cutting_over"
+  | "done"
+  | "failed";
+
+type ProjectWithDaytonaMigration = Doc<"project"> & {
+  daytona_server?: DaytonaServer;
+  migration_status?: MigrationStatus;
+  migration_error?: string;
+  legacy_sandbox_id?: string;
+  migration_target_sandbox_id?: string;
+  migration_started_at?: number;
+  migration_completed_at?: number;
+};
+
+async function getProjectDaytonaMigrationByProjectId(
+  ctx: QueryCtx | MutationCtx,
+  projectId: Id<"project">,
+) {
+  return await ctx.db
+    .query("daytona_migration")
+    .withIndex("by_project_id", (q) => q.eq("project_id", projectId))
+    .unique();
+}
+
+async function attachDaytonaMigrationFields(
+  ctx: QueryCtx | MutationCtx,
+  project: Doc<"project">,
+): Promise<ProjectWithDaytonaMigration> {
+  const migration = await getProjectDaytonaMigrationByProjectId(ctx, project._id);
+  if (!migration) {
+    return project as ProjectWithDaytonaMigration;
+  }
+
+  return {
+    ...project,
+    daytona_server: migration.daytona_server,
+    migration_status: migration.migration_status,
+    migration_error: migration.migration_error,
+    legacy_sandbox_id: migration.legacy_sandbox_id,
+    migration_target_sandbox_id: migration.migration_target_sandbox_id,
+    migration_started_at: migration.migration_started_at,
+    migration_completed_at: migration.migration_completed_at,
+  };
+}
+
+async function upsertProjectDaytonaMigration(
+  ctx: MutationCtx,
+  projectId: Id<"project">,
+  patch: {
+    daytona_server?: DaytonaServer;
+    migration_status?: MigrationStatus;
+    migration_error?: string;
+    legacy_sandbox_id?: string;
+    migration_target_sandbox_id?: string;
+    migration_started_at?: number;
+    migration_completed_at?: number;
+    updated_at?: number;
+  },
+): Promise<void> {
+  const existing = await getProjectDaytonaMigrationByProjectId(ctx, projectId);
+  if (existing) {
+    await ctx.db.patch(existing._id, patch);
+    return;
+  }
+
+  await ctx.db.insert("daytona_migration", {
+    project_id: projectId,
+    ...patch,
+  });
+}
+
+export const getProjectDaytonaMigration = internalQuery({
+  args: {
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    return await getProjectDaytonaMigrationByProjectId(ctx, args.projectId);
+  },
+});
+
 // Internal cacheable version - accepts userId to avoid JWT lookup on every call
 export const getProjectDataInternal = internalQuery({
   args: {
@@ -128,7 +215,11 @@ export const getProjectDataInternal = internalQuery({
       args.semanticIdentifier,
     );
 
-    return projectData;
+    if (!projectData) {
+      return null;
+    }
+
+    return await attachDaytonaMigrationFields(ctx, projectData);
   },
 });
 
@@ -140,7 +231,7 @@ export const getProjectData = query({
   },
 
   // Query implementation.
-  handler: async (ctx, args): Promise<Doc<"project"> | null> => {
+  handler: async (ctx, args): Promise<ProjectWithDaytonaMigration | null> => {
     // verify user
     const user = await getAuthUser(ctx);
 
@@ -178,7 +269,7 @@ export const getProjectDataById = query({
       return null;
     }
 
-    return projectData;
+    return await attachDaytonaMigrationFields(ctx, projectData);
   },
 });
 
@@ -604,7 +695,11 @@ export const getProject = internalQuery({
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.projectId);
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return null;
+    }
+    return await attachDaytonaMigrationFields(ctx, project);
   },
 });
 
@@ -723,7 +818,11 @@ export const getProjectFromIdentifier = internalQuery({
       )
       .unique();
 
-    return project;
+    if (!project) {
+      return null;
+    }
+
+    return await attachDaytonaMigrationFields(ctx, project);
   },
 });
 
@@ -1333,6 +1432,14 @@ export const deleteUninitializedProjects = internalMutation({
       .collect();
 
     for (const project of projects) {
+      const migrationRecord = await getProjectDaytonaMigrationByProjectId(
+        ctx,
+        project._id,
+      );
+      if (migrationRecord) {
+        await ctx.db.delete(migrationRecord._id);
+      }
+
       await ctx.db.delete(project._id);
 
       // Remove from aggregates
@@ -1396,10 +1503,100 @@ export const csbDaytonaMigrationUpdate = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       sandbox_id: `daytona:${args.daytonaSandboxId}`,
-      old_sandbox_id: project.sandbox_id,
       preview_url: args.previewUrl,
       template_id: args.templateId,
       ...(args.sandboxSize && { sandbox_size: args.sandboxSize }),
+    });
+
+    await upsertProjectDaytonaMigration(ctx, args.projectId, {
+      daytona_server: "legacy",
+      legacy_sandbox_id: project.sandbox_id,
+      updated_at: Date.now(),
+    });
+  },
+});
+
+export const updateDaytonaMigrationState = internalMutation({
+  args: {
+    projectId: v.id("project"),
+    migrationStatus: v.union(
+      v.literal("idle"),
+      v.literal("queued"),
+      v.literal("copying"),
+      v.literal("validating"),
+      v.literal("cutting_over"),
+      v.literal("done"),
+      v.literal("failed"),
+    ),
+    migrationError: v.optional(v.string()),
+    targetSandboxId: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    await upsertProjectDaytonaMigration(ctx, args.projectId, {
+      migration_status: args.migrationStatus,
+      migration_error: args.migrationError,
+      migration_target_sandbox_id: args.targetSandboxId,
+      migration_started_at: args.startedAt,
+      migration_completed_at: args.completedAt,
+      updated_at: Date.now(),
+    });
+  },
+});
+
+export const setProjectDaytonaServer = internalMutation({
+  args: {
+    projectId: v.id("project"),
+    daytonaServer: v.union(v.literal("legacy"), v.literal("new")),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    await upsertProjectDaytonaMigration(ctx, args.projectId, {
+      daytona_server: args.daytonaServer,
+      updated_at: Date.now(),
+    });
+  },
+});
+
+export const finalizeDaytonaServerMigration = internalMutation({
+  args: {
+    projectId: v.id("project"),
+    newSandboxId: v.string(),
+    previewUrl: v.string(),
+    templateId: v.optional(v.string()),
+    newServer: v.union(v.literal("legacy"), v.literal("new")),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      sandbox_id: `daytona:${args.newSandboxId}`,
+      packageManager: "bun",
+      preview_url: args.previewUrl,
+      template_id: args.templateId,
+    });
+
+    await upsertProjectDaytonaMigration(ctx, args.projectId, {
+      daytona_server: args.newServer,
+      migration_status: "done",
+      migration_error: undefined,
+      legacy_sandbox_id: project.sandbox_id,
+      migration_target_sandbox_id: args.newSandboxId,
+      migration_completed_at: Date.now(),
+      updated_at: Date.now(),
     });
   },
 });

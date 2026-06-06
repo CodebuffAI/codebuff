@@ -65,9 +65,15 @@ export const setupConvexProjectForSandboxAction = internalAction({
     }
 
     // Create sandbox instance and call the helper function
+    const migration = await ctx.runQuery(
+      internal.project.getProjectDaytonaMigration,
+      { projectId: project._id },
+    );
+
     const sandbox = await initializeCodebase(
       project.sandbox_id,
       project.packageManager,
+      migration?.daytona_server ?? "legacy",
     );
     const { convexProjectId, deploymentName } =
       await setupConvexProjectForSandbox(sandbox, project.semantic_identifier);
@@ -166,7 +172,11 @@ export const initializeUnassignedProject = internalAction({
 
       // Create the sandbox codebase - initially without specifying package manager
       // so it will be auto-detected from the template
-      const sandbox = await initializeCodebase("daytona:" + daytonaSandboxId);
+      const sandbox = await initializeCodebase(
+        "daytona:" + daytonaSandboxId,
+        undefined,
+        "new",
+      );
 
       await sandbox.runCommandThrow("rm -rf node_modules", 30_000);
 
@@ -192,6 +202,7 @@ export const initializeUnassignedProject = internalAction({
         {
           preview_url: previewUrl,
           sandbox_id: "daytona:" + daytonaSandboxId,
+          daytona_server: "new",
           github_url: "", //htmlUrl,
           template_id: process.env.DAYTONA_SNAPSHOT_ID,
           packageManager: detectedPackageManager,
