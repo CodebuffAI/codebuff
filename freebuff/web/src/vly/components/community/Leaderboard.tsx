@@ -14,12 +14,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
-import { Badge } from "@/vly/components/ui/badge";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/vly/components/ui/tabs";
 import ProjectCard from "./ProjectCard";
 import { cn } from "@/vly/lib/utils";
-import { CommunityBadge } from "./CommunityBadge";
 
 const getRankIcon = (rank: number) => {
   switch (rank) {
@@ -172,24 +170,8 @@ export default function Leaderboard() {
                           <h4 className="truncate font-medium text-foreground group-hover:text-primary">
                             {post.title}
                           </h4>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>by {post.userName}</span>
-                            {(post as any).communityBadgeTier &&
-                            (post as any).communityBadgeTier > 0 ? (
-                              <CommunityBadge
-                                communityBadgeTier={
-                                  (post as any).communityBadgeTier
-                                }
-                                size="sm"
-                              />
-                            ) : post.isPaidUser ? (
-                              <Badge
-                                variant="outline"
-                                className="h-4 border-border/60 bg-background/55 px-1 py-0 text-[10px] text-primary"
-                              >
-                                PRO
-                              </Badge>
-                            ) : null}
+                          <div className="text-sm text-muted-foreground">
+                            by {post.userName}
                           </div>
                         </div>
 
@@ -265,24 +247,9 @@ export default function Leaderboard() {
 
                     {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="truncate font-medium text-foreground group-hover:text-primary">
-                          {creator.name}
-                        </h4>
-                        {(creator as any).communityBadgeTier &&
-                        (creator as any).communityBadgeTier > 0 ? (
-                          <CommunityBadge
-                            communityBadgeTier={
-                              (creator as any).communityBadgeTier
-                            }
-                            size="sm"
-                          />
-                        ) : creator.isPaidUser ? (
-                          <Badge className="border border-border/60 bg-background/55 px-1.5 py-0 text-[10px] text-primary">
-                            PRO
-                          </Badge>
-                        ) : null}
-                      </div>
+                      <h4 className="truncate font-medium text-foreground group-hover:text-primary">
+                        {creator.name}
+                      </h4>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Folder className="h-3.5 w-3.5" />

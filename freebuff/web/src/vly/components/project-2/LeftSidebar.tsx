@@ -1,7 +1,5 @@
 import { UserButton } from '@/vly/components/auth/UserButton'
 
-import { useCommunityBadgeTierSync } from '@/vly/hooks/useCommunityBadgeTierSync'
-import { CommunityBadge } from '@/vly/components/community/CommunityBadge'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { useSignedInUser } from '@/vly/hooks/use-user'
@@ -54,16 +52,10 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { ActiveView } from '../pages/project-2'
 import { GodModeActions } from './GodModeActions'
 
-// Separate component for user section with badge sync
-function UserSectionWithBadge() {
-  const communityBadgeTier = useCommunityBadgeTierSync()
-
+function UserSection() {
   return (
     <div className="flex w-full min-w-0 items-center justify-start gap-2 overflow-hidden">
       <UserButton />
-      {communityBadgeTier > 0 && (
-        <CommunityBadge communityBadgeTier={communityBadgeTier} size="sm" />
-      )}
     </div>
   )
 }
@@ -682,7 +674,7 @@ export function LeftSidebar({
         <div className="flex-1"></div>
 
         {/* Compact User Section at Bottom */}
-        <UserSectionWithBadge />
+        <UserSection />
       </div>
 
       {/* Edit Page Modal */}

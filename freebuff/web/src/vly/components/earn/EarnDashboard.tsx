@@ -1,7 +1,6 @@
 "use client";
 
 import { SignInButton } from "@/vly/components/auth/AuthComponents";
-import { CommunityBadge } from "@/vly/components/community/CommunityBadge";
 import { PageLayout } from "@/vly/components/test-landing/PageLayout";
 import { Alert, AlertDescription } from "@/vly/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
@@ -804,10 +803,6 @@ export default function EarnDashboard() {
                               {referredUser.email || "No email available"}
                             </p>
                           </div>
-                          <CommunityBadge
-                            communityBadgeTier={referredUser.communityBadgeTier}
-                            size="sm"
-                          />
                         </div>
                         <div className="mt-2 grid gap-1 text-xs text-zinc-600 md:grid-cols-2">
                           <p>Joined: {formatDate(referredUser.joinedAt)}</p>
@@ -923,15 +918,9 @@ export default function EarnDashboard() {
                       >
                         {entry.name}
                       </Link>
-                      <div className="flex items-center gap-2">
-                        <CommunityBadge
-                          communityBadgeTier={entry.communityBadgeTier}
-                          size="sm"
-                        />
-                        <span className="flex items-center gap-0.5 text-xs text-zinc-500">
-                          <Users className="h-3 w-3" />
-                          {entry.followersCount}
-                        </span>
+                      <div className="flex items-center gap-0.5 text-xs text-zinc-500">
+                        <Users className="h-3 w-3" />
+                        {entry.followersCount}
                       </div>
                     </div>
                   </div>

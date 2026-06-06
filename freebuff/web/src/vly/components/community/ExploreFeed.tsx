@@ -17,7 +17,6 @@ import {
 } from "@/vly/components/ui/select";
 import ProjectCard from "./ProjectCard";
 import PublishProjectDialog from "./PublishProjectDialog";
-import { useCommunityBadgeTierSync } from "@/vly/hooks/useCommunityBadgeTierSync";
 
 type SortOption = "recent" | "popular" | "trending";
 
@@ -29,9 +28,6 @@ export default function ExploreFeed() {
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [showPublishDialog, setShowPublishDialog] = useState(false);
-
-  // Sync community badge tier for the current user
-  useCommunityBadgeTierSync();
 
   // Debounce search
   useEffect(() => {

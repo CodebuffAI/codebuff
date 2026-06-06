@@ -13,21 +13,17 @@ import {
   Users,
   Heart,
   UploadCloud,
+  User,
 } from "lucide-react";
 import { Button } from "@/vly/components/ui/button";
 import { Input } from "@/vly/components/ui/input";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import ProjectCard from "./ProjectCard";
 import PublishProjectDialog from "./PublishProjectDialog";
-import { CommunityBadge } from "./CommunityBadge";
-import { useCommunityBadgeTierSync } from "@/vly/hooks/useCommunityBadgeTierSync";
 
 export default function CommunityHome() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPublishDialog, setShowPublishDialog] = useState(false);
-
-  // Sync community badge tier for the current user
-  useCommunityBadgeTierSync();
 
   const featuredPosts = useQuery(api.community.getFeaturedPosts, { limit: 4 });
   const trendingPosts = useQuery(api.community.getTrendingPosts, { limit: 6 });
@@ -45,19 +41,45 @@ export default function CommunityHome() {
     <div className="min-h-full">
       {/* Compact intro + search. The shell already owns the page title and
           sub-nav, so this is just a focused search + quick actions row. */}
-      <div className="mx-auto max-w-6xl px-4 pb-6 pt-6 sm:px-6">
-        <div className="mx-auto max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            Community directory
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Search public Freebuff projects, creators, and tags. Use Explore for
-            the full project index and Leaderboard for ranked projects and
-            builders.
-          </p>
+      <div className="w-full px-4 pb-6 pt-6 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              Community directory
+            </h1>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
+              Search public Freebuff projects, creators, and tags.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {currentUserId && (
+              <Link
+                href={`/web/community/profile/${currentUserId}`}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+            )}
+            <a
+              href="https://discord.gg/yXG3w7wxfs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Discord
+            </a>
+            <button
+              onClick={() => setShowPublishDialog(true)}
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <UploadCloud className="h-4 w-4" />
+              Publish
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSearch} className="mx-auto mt-5 max-w-3xl">
+        <form onSubmit={handleSearch} className="mt-5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -68,60 +90,9 @@ export default function CommunityHome() {
             />
           </div>
         </form>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Link
-            href="/web/community/explore"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Browse all projects
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/web/community/leaderboard"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            View leaderboard
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          {currentUserId && (
-            <Link
-              href={`/web/community/profile/${currentUserId}`}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-            >
-              View profile
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          )}
-          <Link
-            href="/web/settings"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Settings
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <a
-            href="https://discord.gg/yXG3w7wxfs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/25 px-3 text-sm font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-            </svg>
-            Join Discord
-          </a>
-          <button
-            onClick={() => setShowPublishDialog(true)}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <UploadCloud className="h-4 w-4" />
-            Publish a project
-          </button>
-        </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <div className="w-full px-4 pb-16 sm:px-6 lg:px-8">
         {/* Featured Projects */}
         {featuredPosts && featuredPosts.length > 0 && (
           <section className="mb-16">
@@ -138,7 +109,7 @@ export default function CommunityHome() {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {featuredPosts.map((post) => (
                 <ProjectCard key={post._id} post={post} variant="featured" />
               ))}
@@ -172,7 +143,7 @@ export default function CommunityHome() {
             </div>
 
             {!trendingPosts ? (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[...Array(4)].map((_, i) => (
                   <Skeleton key={i} className="h-72 rounded-2xl bg-muted/40" />
                 ))}
@@ -194,7 +165,7 @@ export default function CommunityHome() {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {trendingPosts.slice(0, 4).map((post) => (
                   <ProjectCard key={post._id} post={post} />
                 ))}
@@ -278,25 +249,9 @@ export default function CommunityHome() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-medium text-foreground group-hover:text-primary">
-                            {creator.name}
-                          </span>
-                          {(creator as any).communityBadgeTier &&
-                          (creator as any).communityBadgeTier > 0 ? (
-                            <CommunityBadge
-                              communityBadgeTier={
-                                (creator as any).communityBadgeTier
-                              }
-                              size="sm"
-                              showIcon={false}
-                            />
-                          ) : creator.isPaidUser ? (
-                            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                              PRO
-                            </span>
-                          ) : null}
-                        </div>
+                        <span className="block truncate font-medium text-foreground group-hover:text-primary">
+                          {creator.name}
+                        </span>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Heart className="h-3 w-3" />
@@ -324,45 +279,6 @@ export default function CommunityHome() {
           </div>
         </div>
 
-        <section className="mt-12">
-          <div className="grid gap-3 border-t border-border/50 pt-6 sm:grid-cols-3">
-            <Link
-              href="/web/community/explore"
-              className="group rounded-lg border border-border/50 bg-muted/15 p-4 transition-colors hover:bg-muted/30"
-            >
-              <h3 className="font-medium text-foreground group-hover:text-primary">
-                Explore projects
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Search the full community index.
-              </p>
-            </Link>
-
-            <Link
-              href="/web/community/leaderboard"
-              className="group rounded-lg border border-border/50 bg-muted/15 p-4 transition-colors hover:bg-muted/30"
-            >
-              <h3 className="font-medium text-foreground group-hover:text-primary">
-                Leaderboard
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Compare top projects and creators.
-              </p>
-            </Link>
-
-            <Link
-              href="/web"
-              className="group rounded-lg border border-border/50 bg-muted/15 p-4 transition-colors hover:bg-muted/30"
-            >
-              <h3 className="font-medium text-foreground group-hover:text-primary">
-                Start Building
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create a project from the dashboard.
-              </p>
-            </Link>
-          </div>
-        </section>
       </div>
 
       <PublishProjectDialog

@@ -15,7 +15,6 @@ import {
   Share2,
   ArrowLeft,
   Trash2,
-  Star,
   MoreHorizontal,
   Edit3,
   Check,
@@ -32,7 +31,6 @@ import { Button } from "@/vly/components/ui/button";
 import { Input } from "@/vly/components/ui/input";
 import { Textarea } from "@/vly/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
-import { Badge } from "@/vly/components/ui/badge";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -511,12 +509,6 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
                       <Edit3 className="h-4 w-4 text-gray-500" />
                     </button>
                   )}
-                  {post.featured && (
-                    <Badge className="ml-2 border border-amber-400/35 bg-amber-500/10 text-amber-200">
-                      <Star className="mr-1 h-3 w-3" />
-                      Featured
-                    </Badge>
-                  )}
                 </div>
               )}
             </div>
@@ -637,19 +629,9 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">
-                        {post.userName}
-                      </span>
-                      {post.isPaidUser && (
-                        <Badge
-                          variant="outline"
-                          className="border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-600"
-                        >
-                          PRO
-                        </Badge>
-                      )}
-                    </div>
+                    <span className="font-medium text-gray-900">
+                      {post.userName}
+                    </span>
                   </div>
                 </Link>
               </div>
@@ -844,14 +826,6 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
                           >
                             {c.userName}
                           </Link>
-                          {c.isPaidUser && (
-                            <Badge
-                              variant="outline"
-                              className="h-4 border-violet-200 bg-violet-50 px-1 py-0 text-[10px] text-violet-600"
-                            >
-                              PRO
-                            </Badge>
-                          )}
                           <span className="text-xs text-gray-400">
                             {formatDistanceToNow(c.createdAt, {
                               addSuffix: true,

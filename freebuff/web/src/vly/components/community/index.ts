@@ -1,10 +1,4 @@
 export { default as CommunityHome } from "./CommunityHome";
-export {
-  CommunityBadge,
-  CommunityBadgeCompact,
-  getBadgeInfo,
-  getBadgeLabel,
-} from "./CommunityBadge";
 export { default as ExploreFeed } from "./ExploreFeed";
 export { default as ProjectCard } from "./ProjectCard";
 export { default as ProjectDetail } from "./ProjectDetail";

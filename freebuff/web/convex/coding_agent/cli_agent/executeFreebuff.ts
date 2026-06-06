@@ -425,6 +425,38 @@ function createAskUserPauseError(input: unknown) {
   return error
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function getAskUserPauseInput(error: unknown): unknown {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'askUserInput' in error
+  ) {
+    return (error as { askUserInput?: unknown }).askUserInput
+  }
+  return undefined
+}
+
+function isAskUserPauseMessage(message: string | undefined) {
+  return Boolean(message && message.includes(ASK_USER_PAUSE_MESSAGE))
+}
+
+function isAskUserPauseError(error: unknown) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'codebuffRunPaused' in error &&
+    (error as { codebuffRunPaused?: unknown }).codebuffRunPaused === true
+  ) {
+    return true
+  }
+
+  return isAskUserPauseMessage(getErrorMessage(error))
+}
+
 function normalizePath(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
@@ -845,7 +877,7 @@ export const runFreebuffAgent = internalAction({
 
       if (runState.output?.type === 'error') {
         if (
-          runState.output.message === ASK_USER_PAUSE_MESSAGE &&
+          isAskUserPauseMessage(runState.output.message) &&
           pendingAskUserQuestions?.length
         ) {
           await recordRunEvent({
@@ -862,7 +894,7 @@ export const runFreebuffAgent = internalAction({
 
         const isLocalTimeout = abortController.signal.aborted
         const message = isLocalTimeout
-          ? 'Freebuff stopped after 9 minutes. Type continue to resume from the current state.'
+          ? 'Maximum time limit for a prompt reached. Engagement required to continue.'
           : runState.output.message
         await recordRunEvent({
           ctx,
@@ -912,12 +944,44 @@ export const runFreebuffAgent = internalAction({
       return null
     } catch (error) {
       await eventBuffer.flush()
+      if (isAskUserPauseError(error)) {
+        const questions =
+          pendingAskUserQuestions?.length
+            ? pendingAskUserQuestions
+            : sanitizeAskUserQuestions(getAskUserPauseInput(error))
+
+        if (questions.length > 0) {
+          await recordRunEvent({
+            ctx,
+            ...args,
+            event: {
+              type: 'ask_user_pause',
+              questions,
+            },
+          })
+          return null
+        }
+      }
+
+      if (abortController.signal.aborted) {
+        await recordRunEvent({
+          ctx,
+          ...args,
+          event: {
+            type: 'time_limit_pause',
+            message:
+              'Maximum time limit for a prompt reached. Engagement required to continue.',
+          },
+        })
+        return null
+      }
+
       await recordRunEvent({
         ctx,
         ...args,
         event: {
           type: 'error',
-          message: error instanceof Error ? error.message : String(error),
+          message: getErrorMessage(error),
         },
       })
       throw error

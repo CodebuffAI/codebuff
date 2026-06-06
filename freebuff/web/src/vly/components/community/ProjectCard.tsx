@@ -8,17 +8,13 @@ import {
   MessageCircle,
   Eye,
   ExternalLink,
-  Lock,
   ImageIcon,
-  Star,
 } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/vly/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
-import { Badge } from "@/vly/components/ui/badge";
-import { CommunityBadge } from "./CommunityBadge";
 
 interface ProjectCardProps {
   post: {
@@ -148,22 +144,6 @@ export default function ProjectCard({
         </div>
       )}
 
-      {/* Featured/Private Badge */}
-      <div className="absolute right-3 top-3 z-10 flex flex-col gap-1">
-        {post.isPublic === false && (
-          <Badge className="border border-amber-400/35 bg-amber-500/15 text-amber-300">
-            <Lock className="mr-1 h-3 w-3" />
-            Private
-          </Badge>
-        )}
-        {post.featured && (
-          <Badge className="border border-amber-400/35 bg-amber-500/15 text-amber-300">
-            <Star className="mr-1 h-3 w-3" />
-            Featured
-          </Badge>
-        )}
-      </div>
-
       {/* Preview Image */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted/45">
         {post.screenshotUrl ? (
@@ -246,19 +226,6 @@ export default function ProjectCard({
             <span className="text-sm text-muted-foreground">
               {post.userName}
             </span>
-            {post.communityBadgeTier && post.communityBadgeTier > 0 ? (
-              <CommunityBadge
-                communityBadgeTier={post.communityBadgeTier}
-                size="sm"
-              />
-            ) : post.isPaidUser ? (
-              <Badge
-                variant="outline"
-                className="h-4 border-border/60 bg-background/55 px-1 py-0 text-[10px] text-primary"
-              >
-                PRO
-              </Badge>
-            ) : null}
           </button>
 
           <div className="flex items-center gap-3 text-sm text-muted-foreground">

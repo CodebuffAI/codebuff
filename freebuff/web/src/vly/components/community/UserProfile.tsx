@@ -21,11 +21,9 @@ import {
   Users,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
-import { Badge } from "@/vly/components/ui/badge";
 import { Button } from "@/vly/components/ui/button";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import ProjectCard from "./ProjectCard";
-import { CommunityBadge } from "./CommunityBadge";
 
 interface UserProfileProps {
   userId: Id<"users">;
@@ -119,22 +117,9 @@ export default function UserProfile({ userId }: UserProfileProps) {
               </Avatar>
 
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-                    {profile.name}
-                  </h1>
-                  {profile.communityBadgeTier &&
-                  profile.communityBadgeTier > 0 ? (
-                    <CommunityBadge
-                      communityBadgeTier={profile.communityBadgeTier}
-                      size="md"
-                    />
-                  ) : profile.isPaidUser ? (
-                    <Badge className="border border-border/60 bg-background/55 text-primary">
-                      PRO
-                    </Badge>
-                  ) : null}
-                </div>
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+                  {profile.name}
+                </h1>
 
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                   {profile.bio || "No bio yet"}
