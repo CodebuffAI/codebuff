@@ -17,7 +17,7 @@ import {
 import { InfoAccordion } from "./InfoAccordion";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import Link from "next/link";
 import { extractCustomerFeatures } from "@/vly/lib/billing";
 

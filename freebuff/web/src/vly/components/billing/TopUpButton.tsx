@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {

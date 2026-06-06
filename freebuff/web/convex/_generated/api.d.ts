@@ -19,7 +19,6 @@ import type * as admin_usage_backfill_actions from "../admin_usage_backfill_acti
 import type * as aggregates_admin_aggregates from "../aggregates/admin_aggregates.js";
 import type * as assets from "../assets.js";
 import type * as autumn from "../autumn.js";
-import type * as autumnRewards from "../autumnRewards.js";
 import type * as build_errors from "../build_errors.js";
 import type * as cleanup_deleteSandboxInstances from "../cleanup/deleteSandboxInstances.js";
 import type * as codebaseStructure from "../codebaseStructure.js";
@@ -228,7 +227,6 @@ declare const fullApi: ApiFromModules<{
   "aggregates/admin_aggregates": typeof aggregates_admin_aggregates;
   assets: typeof assets;
   autumn: typeof autumn;
-  autumnRewards: typeof autumnRewards;
   build_errors: typeof build_errors;
   "cleanup/deleteSandboxInstances": typeof cleanup_deleteSandboxInstances;
   codebaseStructure: typeof codebaseStructure;
@@ -452,7 +450,6 @@ export declare const components: {
   migrationWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"migrationWorkpool">;
   freebuffAgentWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"freebuffAgentWorkpool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
-  autumn: import("@useautumn/convex/_generated/component.js").ComponentApi<"autumn">;
   allUsersAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allUsersAggregate">;
   usersByRoleAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"usersByRoleAggregate">;
   usersByTierAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"usersByTierAggregate">;

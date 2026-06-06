@@ -26,7 +26,6 @@
       "!/*": ["./convex/*"],
       "@codebuff/sdk": ["../../sdk/src/index.ts"],
       "@codebuff/sdk/*": ["../../sdk/*"],
-      "autumn-js/react": ["./src/vly/lib/autumn-disabled-react.tsx"],
       "@/convex/*": ["./convex/*"],
       "@/lib/PostHogProvider": ["./src/lib/PostHogProvider.tsx"],
       "@/lib/SessionProvider": ["./src/lib/SessionProvider.tsx"],

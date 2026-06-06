@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Alert, AlertTitle, AlertDescription } from "@/vly/components/ui/alert";
 import { Button } from "@/vly/components/ui/button";
 import { AlertCircle, ArrowRight, X } from "lucide-react";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Popover,

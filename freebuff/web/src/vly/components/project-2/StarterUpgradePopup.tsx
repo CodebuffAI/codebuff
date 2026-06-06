@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/vly/components/ui/dialog'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { getActivePlan } from '@/vly/lib/billing'
 import { freePlan, starterPlan } from '@/vly/autumn.config'
 import { useDirectPlanCheckout } from '@/vly/hooks/useDirectPlanCheckout'

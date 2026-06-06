@@ -5,7 +5,7 @@ import { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import PaywallDialog from "@/vly/components/autumn/paywall-dialog";
 import { useMonitoringMetrics } from "@/vly/hooks/useMonitoringMetrics";
 import { useTimeRange } from "@/vly/hooks/useTimeRange";

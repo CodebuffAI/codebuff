@@ -32,7 +32,7 @@ import { useSignedInUser } from '@/vly/hooks/use-user'
 import { Label } from '@/vly/components/ui/label'
 import { Input } from '@/vly/components/ui/input'
 import { useMemo, useState } from 'react'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import {
   CollaboratorUpgradePrompt,
   FeatureGate,

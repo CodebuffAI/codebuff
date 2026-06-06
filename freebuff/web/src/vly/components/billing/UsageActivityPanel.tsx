@@ -14,7 +14,7 @@ import {
   Gift,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useAnalytics } from "autumn-js/react";
+import { useAnalytics } from "@/vly/lib/billing-disabled-react";
 import {
   FEATURE_CONFIG,
   formatFeatureValue,

@@ -29,7 +29,11 @@ async function checkoutUnavailable(
   return { data: null, error: null as any }
 }
 
-export function AutumnProvider({ children }: { children: ReactNode } & any) {
+export function BillingDisabledProvider({
+  children,
+}: {
+  children: ReactNode
+} & any) {
   return <>{children}</>
 }
 

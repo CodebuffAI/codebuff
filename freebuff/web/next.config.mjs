@@ -10,16 +10,6 @@ const FREEBUFF_PORT =
   process.env.PORT || process.env.NEXT_PUBLIC_WEB_PORT || '3002'
 const monorepoRoot = resolve(import.meta.dirname, '../../')
 
-// Two forms of the autumn shim path are needed because Webpack and Turbopack
-// disagree on what a `resolveAlias` value can be:
-//   - Webpack happily accepts absolute paths.
-//   - Turbopack treats values that start with `/` as server-relative URLs and
-//     errors with "server relative imports are not implemented yet". It wants
-//     either a bare module specifier or a project-relative path beginning with
-//     `./`.
-const autumnShimRelative = './src/vly/lib/autumn-disabled-react.tsx'
-const autumnShimAbsolute = resolve(import.meta.dirname, autumnShimRelative)
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: monorepoRoot,
@@ -60,15 +50,8 @@ const nextConfig = {
     // lockfile root makes local Vly dev crawl and cache the whole repo.
     root:
       process.env.NODE_ENV === 'production' ? monorepoRoot : import.meta.dirname,
-    resolveAlias: {
-      'autumn-js/react': autumnShimRelative,
-    },
   },
   webpack: (config) => {
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      'autumn-js/react': autumnShimAbsolute,
-    }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },

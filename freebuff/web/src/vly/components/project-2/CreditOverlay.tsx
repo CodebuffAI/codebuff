@@ -13,7 +13,7 @@ import {
 import { Button } from '@/vly/components/ui/button'
 import { useCreditsBalance } from '@/vly/hooks/useCreditCheck'
 import { useRouter } from 'next/navigation'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { getActivePlan } from '@/vly/lib/billing'
 
 import {

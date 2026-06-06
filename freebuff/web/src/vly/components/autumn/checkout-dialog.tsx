@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/vly/components/ui/dialog'
 import { getCheckoutContent } from '@/vly/lib/autumn/checkout-content'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { ArrowRight, ChevronDown, Loader2 } from 'lucide-react'
 // Note: Popover, PopoverContent, PopoverTrigger, and Input imports removed - no longer used after removing dropdown
 import type { CheckoutParams, CheckoutResult, ProductItem } from 'autumn-js'

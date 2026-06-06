@@ -29,7 +29,6 @@
     "@convex-dev/workpool": "^0.3.0",
     "@daytonaio/sdk": "^0.145.0",
     "@gravity-ai/api": "^0.1.2",
-    "@useautumn/convex": "^0.0.15",
     "@ai-sdk/amazon-bedrock": "^3.0.66",
     "@ai-sdk/anthropic": "^2.0.53",
     "@ai-sdk/cerebras": "^1.0.32",

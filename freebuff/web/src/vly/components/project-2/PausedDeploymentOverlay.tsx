@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Pause, ArrowRight } from "lucide-react";
 import { Button } from "@/vly/components/ui/button";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Popover,

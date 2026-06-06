@@ -8,7 +8,7 @@ import {
 } from "@/vly/components/ui/dialog";
 
 import { Button } from "@/vly/components/ui/button";
-import { usePaywall } from "autumn-js/react";
+import { usePaywall } from "@/vly/lib/billing-disabled-react";
 import { getPaywallContent } from "@/vly/lib/autumn/paywall-content";
 import { cn } from "@/vly/lib/utils";
 

@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUser } from "./users";
-import { internal } from "./_generated/api";
 
 // Internal mutation for granting referral rewards (called from users.ts signup flow)
 export const internalGrantReferralReward = internalMutation({
@@ -38,36 +37,8 @@ export const internalGrantReferralReward = internalMutation({
         status: "pending",
       });
 
-      // Grant the reward via Autumn
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.autumnRewards.grantReferralReward,
-          {
-            userId: args.userId,
-            rewardId,
-          },
-        );
-
-        await ctx.db.patch(rewardId, {
-          status: "granted",
-        });
-
-        return {
-          success: true,
-          rewardId,
-        };
-      } catch (error) {
-        console.error("Failed to grant reward via Autumn:", error);
-        await ctx.db.patch(rewardId, {
-          status: "failed",
-        });
-
-        return {
-          success: false,
-          error: "Failed to grant reward credits",
-        };
-      }
+      await ctx.db.patch(rewardId, { status: "granted" });
+      return { success: true, rewardId };
     } catch (error) {
       console.error("Failed to grant referral reward:", error);
       return {
@@ -113,36 +84,8 @@ export const grantReferralReward = mutation({
         status: "pending",
       });
 
-      // Grant the reward via Autumn (this will be called from the signup flow)
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.autumnRewards.grantReferralReward,
-          {
-            userId: args.userId,
-            rewardId,
-          },
-        );
-
-        await ctx.db.patch(rewardId, {
-          status: "granted",
-        });
-
-        return {
-          success: true,
-          rewardId,
-        };
-      } catch (error) {
-        console.error("Failed to grant reward via Autumn:", error);
-        await ctx.db.patch(rewardId, {
-          status: "failed",
-        });
-
-        return {
-          success: false,
-          error: "Failed to grant reward credits",
-        };
-      }
+      await ctx.db.patch(rewardId, { status: "granted" });
+      return { success: true, rewardId };
     } catch (error) {
       console.error("Failed to grant referral reward:", error);
       return {

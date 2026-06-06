@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { RefreshCw, Zap, Plus, Calendar, AlertTriangle } from 'lucide-react'
 import { Button } from '@/vly/components/ui/button'
 import {

@@ -17,7 +17,7 @@ import {
 import { useCallback, useState } from "react";
 import { DeleteDeploymentButton } from "./DeleteDeploymentButton";
 import { UpdateDeploymentSlugDialog } from "./UpdateDeploymentSlugDialog";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { getActivePlan } from "@/vly/lib/billing";
 import { freePlan } from "@/autumn.config";
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useConfetti } from '@/vly/hooks/use-confetti'

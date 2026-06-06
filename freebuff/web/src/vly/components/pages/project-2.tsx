@@ -20,7 +20,7 @@ import {
   startTransition,
   useMemo,
 } from "react";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
 import type { AutumnCustomer } from "@/vly/lib/billing/types";
 import type { SandboxSize } from "@/vly/lib/sandbox-specs";

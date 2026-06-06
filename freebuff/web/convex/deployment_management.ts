@@ -262,85 +262,23 @@ export const checkAllConvexResources = internalAction({
       error: string | null;
     }>;
   }> => {
-    // Get user's Clerk ID for Autumn billing
-    const user = await ctx.runQuery(internal.users.get, {
-      userId: args.userId,
-    });
-
-    if (!user?.clerk_id) {
-      throw new Error("User not found or missing Clerk ID");
-    }
-
-    const clerkId: string = user.clerk_id; // This is what Autumn uses for billing!
-
-    console.log(
-      `[checkAllConvexResources] Checking credits for clerkId: ${clerkId}`,
-    );
-
     const resources: Array<string> = [
       "convex_database_bw",
       "convex_compute",
       "convex_file_bw",
       "convex_function_calls",
     ];
-
-    // Check all resources in parallel
-    const checks = await Promise.all(
-      resources.map(
-        async (
-          featureId,
-        ): Promise<{
-          featureId: string;
-          available: boolean;
-          error: string | null;
-        }> => {
-          try {
-            // Use checkInternal to bypass auth context and pass Clerk ID directly
-            const checkResult = await ctx.runAction(
-              internal.autumn.checkInternal,
-              {
-                featureId,
-                clerkId,
-              },
-            );
-
-            const { data, error } = checkResult;
-
-            console.log(
-              `[checkAllConvexResources] Feature ${featureId}: allowed=${data?.allowed}, error=${error}, data=`,
-              JSON.stringify(data),
-            );
-
-            return {
-              featureId,
-              available: !error && data?.allowed === true,
-              error: error
-                ? typeof error === "string"
-                  ? error
-                  : error.message
-                : null,
-            };
-          } catch (error) {
-            console.log(
-              `[checkAllConvexResources] Feature ${featureId} threw error:`,
-              error,
-            );
-            return {
-              featureId,
-              available: false,
-              error: String(error),
-            };
-          }
-        },
-      ),
-    );
-
-    const depletedResources = checks.filter((c) => !c.available);
-    const allAvailable = depletedResources.length === 0;
+    void ctx;
+    void args;
+    const checks = resources.map((featureId) => ({
+      featureId,
+      available: true,
+      error: null,
+    }));
 
     return {
-      allAvailable,
-      depletedResources,
+      allAvailable: true,
+      depletedResources: [],
       checks,
     };
   },
@@ -545,26 +483,7 @@ export const checkAndUnpausePausedUsers = internalAction({
               };
             }
 
-            const checkResult = await ctx.runAction(
-              internal.autumn.checkInternal,
-              { featureId, clerkId: user.clerk_id },
-            );
-
-            const { data, error } = checkResult;
-
-            if (error) {
-              const errorMessage =
-                typeof error === "string" ? error : error.message;
-              return {
-                userId: pausedUser.userId,
-                pauseReason: pausedUser.pauseReason,
-                resourceChecked: featureId,
-                resourceAvailable: false,
-                unpauseAttempted: false,
-                unpauseSuccess: false,
-                message: `Error checking resource: ${errorMessage}`,
-              };
-            }
+            const data = { allowed: true };
 
             const resourceAvailable = data?.allowed === true;
 

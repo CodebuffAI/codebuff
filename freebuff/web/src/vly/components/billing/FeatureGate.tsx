@@ -1,6 +1,6 @@
 'use client'
 
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import {
   type BooleanFeatureId,
   FEATURE_DISPLAY_NAMES,
@@ -12,7 +12,6 @@ import {
   TIER_ORDER,
   type TierName,
 } from '@/vly/autumn/constants'
-import { hasFeatureAccess } from '@/vly/autumn/helpers'
 import { ReactNode, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAction } from 'convex/react'
@@ -87,27 +86,12 @@ export interface FeatureGateProps {
  * ```
  */
 export function FeatureGate({
-  featureId,
+  featureId: _featureId,
   children,
-  fallback = null,
-  loadingFallback = null,
+  fallback: _fallback = null,
+  loadingFallback: _loadingFallback = null,
 }: FeatureGateProps) {
-  const { customer, isLoading: isCustomerLoading } = useCustomer()
-
-  // Show loading fallback while data is loading
-  if (isCustomerLoading) {
-    return <>{loadingFallback}</>
-  }
-
-  // Check feature access directly from customer object
-  // This properly checks customer.features[featureId]?.has_access === true
-  const hasAccess = hasFeatureAccess(customer, featureId)
-
-  if (hasAccess) {
-    return <>{children}</>
-  }
-
-  return <>{fallback}</>
+  return <>{children}</>
 }
 
 export interface UpgradePromptProps {

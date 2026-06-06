@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { Plus, RefreshCw, Zap } from "lucide-react";
 import {
   Tooltip,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCustomer, usePricingTable } from 'autumn-js/react'
+import { useCustomer, usePricingTable } from '@/vly/lib/billing-disabled-react'
 import { lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 

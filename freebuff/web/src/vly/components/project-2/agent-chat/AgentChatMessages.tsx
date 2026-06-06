@@ -46,7 +46,7 @@ import { Button } from '@/vly/components/ui/button'
 import { cn } from '@/vly/lib/utils'
 import { FunctionReturnType } from 'convex/server'
 import { UpgradePrompt } from '@/vly/components/billing/FeatureGate'
-import { useCustomer } from 'autumn-js/react'
+import { useCustomer } from '@/vly/lib/billing-disabled-react'
 import { getActivePlan } from '@/vly/lib/billing'
 import {
   freePlan,

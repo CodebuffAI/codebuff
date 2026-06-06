@@ -20,7 +20,7 @@ import {
   getSizeDisplayName,
   type SandboxSize,
 } from "@/vly/lib/sandbox-specs";
-import { useCustomer } from "autumn-js/react";
+import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { getSandboxFeatureId } from "@/vly/lib/billing/workspace-quota-utils";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
