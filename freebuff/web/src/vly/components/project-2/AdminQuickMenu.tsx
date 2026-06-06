@@ -635,6 +635,16 @@ export function AdminQuickMenu({
                                     {deploymentDetails.project.sandbox_id}
                                   </span>
                                 </div>
+                                <div className="flex items-center justify-between border-t border-zinc-100 py-2">
+                                  <span className="font-medium text-zinc-600">
+                                    Daytona Server
+                                  </span>
+                                  <span className="font-semibold text-zinc-900">
+                                    {deploymentDetails.daytonaServer === "new"
+                                      ? "freebuff"
+                                      : "vly.ai"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
 

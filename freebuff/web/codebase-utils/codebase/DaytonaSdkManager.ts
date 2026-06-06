@@ -1,5 +1,7 @@
 import { Daytona } from "@daytonaio/sdk";
 
+export type DaytonaServer = "legacy" | "new";
+
 /**
  * Singleton manager for the Daytona SDK instance.
  * Ensures only one SDK instance is created and reused across all operations.
@@ -10,7 +12,7 @@ import { Daytona } from "@daytonaio/sdk";
  * - State inconsistencies if SDK manages internal caches or rate limits
  */
 class DaytonaSdkManager {
-  private static instance: Daytona | null = null;
+  private static instances: Partial<Record<DaytonaServer, Daytona>> = {};
 
   /**
    * Private constructor to prevent direct instantiation.
@@ -24,20 +26,40 @@ class DaytonaSdkManager {
    * @returns The shared Daytona SDK instance
    * @throws Error if DAYTONA_API_KEY environment variable is not set
    */
-  public static getDaytonaSDK(): Daytona {
-    if (!DaytonaSdkManager.instance) {
-      const apiKey = process.env.DAYTONA_API_KEY;
-
-      if (!apiKey) {
-        throw new Error(
-          "DAYTONA_API_KEY environment variable is not set. Cannot initialize Daytona SDK.",
-        );
-      }
-
-      DaytonaSdkManager.instance = new Daytona({ apiKey });
+  public static getDaytonaSDK(server: DaytonaServer = "legacy"): Daytona {
+    const existing = DaytonaSdkManager.instances[server];
+    if (existing) {
+      return existing;
     }
 
-    return DaytonaSdkManager.instance;
+    const apiKeyEnvName =
+      server === "new" ? "DAYTONA_API_KEY_NEW" : "DAYTONA_API_KEY_LEGACY";
+    const apiUrlEnvName =
+      server === "new" ? "DAYTONA_API_URL_NEW" : "DAYTONA_API_URL_LEGACY";
+
+    const apiKey = process.env[apiKeyEnvName] ?? process.env.DAYTONA_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        `${apiKeyEnvName} (or DAYTONA_API_KEY fallback) is not set. Cannot initialize Daytona SDK for ${server}.`,
+      );
+    }
+
+    const apiUrl = process.env[apiUrlEnvName];
+    console.log(
+      `[DaytonaSdkManager] Initializing SDK for server=${server} apiUrl=${apiUrl ?? "default"}`,
+    );
+    const sdk = apiUrl
+      ? new Daytona({ apiKey, serverUrl: apiUrl })
+      : new Daytona({ apiKey });
+
+    DaytonaSdkManager.instances[server] = sdk;
+    return sdk;
+  }
+
+  public static getFallbackServer(
+    preferredServer?: DaytonaServer,
+  ): DaytonaServer {
+    return preferredServer ?? "legacy";
   }
 
   /**
@@ -45,7 +67,7 @@ class DaytonaSdkManager {
    * In production, the instance should persist for the lifetime of the process.
    */
   public static clearInstance(): void {
-    DaytonaSdkManager.instance = null;
+    DaytonaSdkManager.instances = {};
   }
 }
 

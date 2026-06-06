@@ -20,6 +20,7 @@ export const createUnassignedProject = internalMutation({
     template_id: v.optional(v.string()),
     convex_url: v.optional(v.string()),
     packageManager: v.optional(v.union(v.literal("pnpm"), v.literal("bun"))),
+    daytona_server: v.optional(v.union(v.literal("legacy"), v.literal("new"))),
   },
   handler: async (ctx, args) => {
     const semanticIdentifier = await getUniqueProjectIdentifier(ctx);
@@ -34,6 +35,13 @@ export const createUnassignedProject = internalMutation({
       convex_url: args.convex_url,
       sandbox_size: "small", // All new projects start as small
       packageManager: args.packageManager ?? "bun", // Fallback to bun if not detected (should rarely happen)
+    });
+
+    await ctx.db.insert("daytona_migration", {
+      project_id: projectId,
+      daytona_server: args.daytona_server ?? "legacy",
+      migration_status: "idle",
+      updated_at: Date.now(),
     });
 
     // Update aggregates for new project

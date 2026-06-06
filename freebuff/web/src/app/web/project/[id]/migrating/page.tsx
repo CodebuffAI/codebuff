@@ -16,35 +16,57 @@ export default function MigratingPage() {
 
   // Subscribe to project updates in real-time
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+  const daytonaServer = project
+    ? (project as { daytona_server?: "legacy" | "new" }).daytona_server
+    : undefined;
   const migrateToDaytona = useAction(api.codesandbox.export.migrateToDaytona);
+  const migrateLegacyDaytonaToNew = useAction(
+    api.daytona_migration.management.migrateLegacyProjectToNewDaytona,
+  );
 
   // Trigger migration on mount
   useEffect(() => {
     if (!project || migrationStarted) return;
 
-    // Check if already on Daytona - if so, redirect immediately
-    if (project.sandbox_id?.startsWith("daytona:")) {
+    const isDaytona = project.sandbox_id?.startsWith("daytona:") === true;
+    const isOnNewDaytona = isDaytona && daytonaServer === "new";
+
+    // Already migrated to new Daytona
+    if (isOnNewDaytona) {
       router.push(`/web/project/${semanticIdentifier}`);
       return;
     }
 
     // Start migration
     setMigrationStarted(true);
-    migrateToDaytona({ projectId: project._id }).catch((err) => {
+    const migrationPromise = isDaytona
+      ? migrateLegacyDaytonaToNew({ projectId: project._id })
+      : migrateToDaytona({ projectId: project._id });
+
+    migrationPromise.catch((err: Error) => {
       console.error("Migration failed:", err);
       setError(err.message || "Failed to start migration");
     });
-  }, [project, migrationStarted, migrateToDaytona, router, semanticIdentifier]);
+  }, [
+    project,
+    migrationStarted,
+    migrateToDaytona,
+    migrateLegacyDaytonaToNew,
+    router,
+    semanticIdentifier,
+  ]);
 
   // Auto-redirect when migration completes
   useEffect(() => {
-    if (migrationStarted && project?.sandbox_id?.startsWith("daytona:")) {
+    const migrationDone =
+      project?.migration_status === "done" || daytonaServer === "new";
+    if (migrationStarted && migrationDone) {
       // Give a brief moment for the backend to fully settle
       setTimeout(() => {
         router.push(`/web/project/${semanticIdentifier}`);
       }, 1000);
     }
-  }, [project, migrationStarted, router, semanticIdentifier]);
+  }, [project, daytonaServer, migrationStarted, router, semanticIdentifier]);
 
   if (error) {
     return (
@@ -129,8 +151,8 @@ export default function MigratingPage() {
             <div>
               <div className="font-medium">How long will this take?</div>
               <div className="text-muted-foreground">
-                Usually 30-60 seconds. You'll be redirected automatically when
-                complete.
+                Usually 30-90 seconds. You'll be redirected automatically when
+                complete. Current step: {project?.migration_status ?? "queued"}.
               </div>
             </div>
           </div>

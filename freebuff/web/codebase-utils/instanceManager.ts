@@ -5,6 +5,7 @@ import axios from "axios";
 import { action } from "../convex/_generated/server";
 import { createRepository } from "./github";
 import { DaytonaSdkManager } from "./codebase/DaytonaSdkManager";
+import type { DaytonaServer } from "./codebase/DaytonaSdkManager";
 
 export async function openSandboxWithRetry(
   sdk: CodeSandbox,
@@ -50,6 +51,7 @@ export async function configProxy({
   slug: string;
   target: string;
 }) {
+  const key = slug.trim();
   // Remove https:// from target if it exists
   const cleanTarget = target.startsWith("https://")
     ? target.substring(8)
@@ -57,7 +59,7 @@ export async function configProxy({
 
   try {
     await axios.put(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDLFLARE_ACCOUNT_ID}/storage/kv/namespaces/${process.env.DOMAIN_PROXY_KV_NAMESPACE}/values/${slug} `,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDLFLARE_ACCOUNT_ID}/storage/kv/namespaces/${process.env.DOMAIN_PROXY_KV_NAMESPACE}/values/${encodeURIComponent(key)}`,
       cleanTarget,
       {
         headers: {
@@ -144,10 +146,13 @@ export async function createCodeSandbox() {
   }
 }
 
-export async function createDaytonaSandbox() {
+export async function createDaytonaSandbox(daytonaServer: DaytonaServer = "new") {
   try {
+    console.log(
+      `[createDaytonaSandbox] requested server=${daytonaServer} snapshot=${process.env.DAYTONA_SNAPSHOT_ID ?? "undefined"}`,
+    );
     // Use the singleton SDK instance instead of creating a new one
-    const daytona = DaytonaSdkManager.getDaytonaSDK();
+    const daytona = DaytonaSdkManager.getDaytonaSDK(daytonaServer);
 
     console.log(
       "Creating sandbox with snapshot:",

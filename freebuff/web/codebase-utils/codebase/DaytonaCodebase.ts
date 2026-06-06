@@ -18,6 +18,7 @@ import { BackupInfo, ExtendedGitOperations } from "./ExtendedGitOperations";
 import { IntegrityManager } from "../hooks/IntegrityManager";
 import type { IntegrityCheckRegistry } from "../hooks/types";
 import { DaytonaSdkManager } from "./DaytonaSdkManager";
+import type { DaytonaServer } from "./DaytonaSdkManager";
 import {
   PackageManager,
   PackageManagerType,
@@ -69,6 +70,7 @@ export class DaytonaCodebase
 
   private sdk: Daytona;
   private sandboxId: string;
+  private daytonaServer: DaytonaServer;
   private sandbox: Sandbox | null = null;
   allFilePaths: string[] = [];
   private filePathsCacheTime: number = 0;
@@ -131,10 +133,12 @@ export class DaytonaCodebase
     sandboxId: string,
     sdk?: Daytona,
     packageManagerType: PackageManagerType = "bun",
+    daytonaServer: DaytonaServer = "legacy",
   ) {
     this.sandboxId = sandboxId;
+    this.daytonaServer = daytonaServer;
     // Use provided SDK instance or get the singleton
-    this.sdk = sdk ?? DaytonaSdkManager.getDaytonaSDK();
+    this.sdk = sdk ?? DaytonaSdkManager.getDaytonaSDK(daytonaServer);
     // Initialize package manager (defaults to bun for new projects)
     this.packageManager = getPackageManager(packageManagerType);
     // Initialize with stats monitoring disabled by default (feature flag will be checked later)
@@ -149,11 +153,13 @@ export class DaytonaCodebase
   public static async create(
     sandboxId: string,
     packageManagerType?: PackageManagerType,
+    daytonaServer: DaytonaServer = "legacy",
   ) {
     const codebase = new DaytonaCodebase(
       sandboxId,
       undefined,
       packageManagerType,
+      daytonaServer,
     );
     await codebase.initialize();
     return codebase;
@@ -229,7 +235,10 @@ export class DaytonaCodebase
             console.log(
               "[DaytonaCodebase.withRetry] Sandbox target is missing, re-opening sandbox",
             );
-            this.sandbox = await openDaytonaSandboxWithRetry(this.sandboxId);
+            this.sandbox = await openDaytonaSandboxWithRetry(
+              this.sandboxId,
+              this.daytonaServer,
+            );
           }
         }
 
@@ -835,7 +844,10 @@ if (!hasIntegration) {
 
   // Codebase interface methods
   async initialize(): Promise<void> {
-    this.sandbox = await openDaytonaSandboxWithRetry(this.sandboxId);
+    this.sandbox = await openDaytonaSandboxWithRetry(
+      this.sandboxId,
+      this.daytonaServer,
+    );
     if (!this.sandbox) {
       throw new Error("Failed to initialize sandbox");
     }
@@ -3207,17 +3219,36 @@ if (!hasIntegration) {
   }
 }
 
-async function openDaytonaSandboxWithRetry(sandboxId: string) {
+async function openDaytonaSandboxWithRetry(
+  sandboxId: string,
+  daytonaServer: DaytonaServer = "legacy",
+) {
   const maxRetries = 10;
   let lastError: Error | null = null;
   let retryCount = 0;
 
-  // Get the singleton SDK instance
-  const sdk = DaytonaSdkManager.getDaytonaSDK();
+  const candidateServers: DaytonaServer[] =
+    daytonaServer === "legacy" ? ["legacy", "new"] : ["new", "legacy"];
 
   while (retryCount < maxRetries) {
     try {
-      let sandbox = await sdk.get(sandboxId);
+      let sandbox: Sandbox | null = null;
+      let sdk: Daytona | null = null;
+
+      for (const server of candidateServers) {
+        try {
+          const candidateSdk = DaytonaSdkManager.getDaytonaSDK(server);
+          sandbox = await candidateSdk.get(sandboxId);
+          sdk = candidateSdk;
+          break;
+        } catch {
+          continue;
+        }
+      }
+
+      if (!sandbox || !sdk) {
+        throw new Error(`Sandbox ${sandboxId} not found in any Daytona server`);
+      }
 
       if (sandbox.state === "error") {
         throw new Error(

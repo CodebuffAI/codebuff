@@ -1100,12 +1100,39 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
   args: {
     projectId: v.id("project"),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    hasConvex: boolean;
+    isSelfHosted: boolean;
+    daytonaServer?: "legacy" | "new";
+    project: {
+      name: string;
+      sandbox_id: string | null | undefined;
+      semantic_identifier: string;
+      packageManager: "pnpm" | "bun";
+    };
+    convex?: {
+      devDeploymentName: string;
+      prodDeploymentName: string | null;
+      convexProjectId: number;
+      devDeploymentUrl: string;
+      prodDeploymentUrl: string | null;
+    };
+  } | null> => {
     // Get project
     const project = await ctx.db.get(args.projectId);
     if (!project) {
       return null;
     }
+
+    const daytonaMigration: Doc<"daytona_migration"> | null = await ctx.runQuery(
+      internal.project.getProjectDaytonaMigration,
+      {
+        projectId: args.projectId,
+      },
+    );
 
     // Check if project is self-hosted
     const selfHostedConnection = await ctx.db
@@ -1125,6 +1152,7 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
       return {
         hasConvex: false,
         isSelfHosted,
+        daytonaServer: daytonaMigration?.daytona_server,
         project: {
           name: project.name || project.semantic_identifier,
           sandbox_id: project.sandbox_id,
@@ -1137,6 +1165,7 @@ export const getProjectDeploymentDetailsInternal = internalQuery({
     return {
       hasConvex: true,
       isSelfHosted,
+      daytonaServer: daytonaMigration?.daytona_server,
       project: {
         name: project.name || project.semantic_identifier,
         sandbox_id: project.sandbox_id,
@@ -1166,6 +1195,7 @@ export const getProjectDeploymentDetails = query({
   ): Promise<{
     hasConvex: boolean;
     isSelfHosted: boolean;
+    daytonaServer?: "legacy" | "new";
     project: {
       name: string;
       sandbox_id: string | null | undefined;

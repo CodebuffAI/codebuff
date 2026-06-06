@@ -17,9 +17,6 @@ export const deleteDaytonaSandboxes = internalAction({
     let deletedCount = 0;
     let errorCount = 0;
 
-    // Get the singleton Daytona SDK instance
-    const sdk = DaytonaSdkManager.getDaytonaSDK();
-
     // Fetch each project to get their sandbox IDs
     for (const projectId of args.projectIds) {
       const project = await ctx.runQuery(internal.project.getProject, {
@@ -32,6 +29,13 @@ export const deleteDaytonaSandboxes = internalAction({
       }
 
       const { _id, sandbox_id } = project;
+      const migration = await ctx.runQuery(
+        internal.project.getProjectDaytonaMigration,
+        {
+          projectId: project._id,
+        },
+      );
+      const projectServer = migration?.daytona_server ?? "legacy";
 
       // Only process Daytona sandboxes
       if (!sandbox_id || !sandbox_id.startsWith("daytona:")) {
@@ -49,8 +53,16 @@ export const deleteDaytonaSandboxes = internalAction({
           `Deleting Daytona sandbox ${daytonaSandboxId} for project ${_id}`,
         );
 
-        // Get the sandbox and delete it
-        const sandbox = await sdk.get(daytonaSandboxId);
+        // Get the sandbox from the preferred server, then fallback.
+        const preferredSdk = DaytonaSdkManager.getDaytonaSDK(projectServer);
+        let sandbox;
+        try {
+          sandbox = await preferredSdk.get(daytonaSandboxId);
+        } catch {
+          const fallbackServer = projectServer === "legacy" ? "new" : "legacy";
+          const fallbackSdk = DaytonaSdkManager.getDaytonaSDK(fallbackServer);
+          sandbox = await fallbackSdk.get(daytonaSandboxId);
+        }
 
         // Check current state
         console.log(
