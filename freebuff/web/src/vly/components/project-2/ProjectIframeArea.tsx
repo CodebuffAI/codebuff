@@ -36,7 +36,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@/convex/_generated/dataModel'
 import type { api } from '@/convex/_generated/api'
+import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import { CenterContent } from './CenterContent'
+import { GodModeActions } from './GodModeActions'
 import {
   FeatureGate,
   UpgradePrompt,
@@ -138,6 +140,7 @@ export function ProjectIframeArea({
   hideTabs = false,
   openInNewTab,
 }: ProjectIframeAreaProps) {
+  const { isPlatformAdmin } = useIsPlatformAdmin()
   const isNonPreviewTab = activeTab !== 'preview'
   const expandedSettingsHref =
     activeTab === 'database'
@@ -171,17 +174,16 @@ export function ProjectIframeArea({
                 </button>
               )
             })}
+            {isPlatformAdmin && (
+              <div className="hidden md:block">
+                <GodModeActions
+                  isExpanded={false}
+                  layout="horizontal"
+                  project={project}
+                />
+              </div>
+            )}
           </div>
-          {expandedSettingsHref && (
-            <a
-              href={expandedSettingsHref}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Open expanded database view"
-              title="Open expanded database view"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </a>
-          )}
         </div>
       )}
 

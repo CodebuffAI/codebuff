@@ -7,8 +7,13 @@ export interface ScreenshotMessage {
   quality?: number;
 }
 
-export function initScreenshotListener() {
+const CAPTURE_DELAY_MS = 10000;
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function initScreenshotListener() {
   // Load html2canvas-pro from CDN (supports modern CSS like oklch)
   if (typeof (window as any).html2canvas === 'undefined') {
     const script = document.createElement('script');
@@ -29,6 +34,8 @@ export function initScreenshotListener() {
         throw new Error('html2canvas not loaded yet');
       }
       const html2canvas = (window as any).html2canvas;
+
+      await delay(CAPTURE_DELAY_MS);
 
       // Capture screenshot
       const canvas = await html2canvas(document.body, {

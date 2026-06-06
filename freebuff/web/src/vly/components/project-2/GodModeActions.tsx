@@ -7,10 +7,12 @@ import Link from "next/link";
 import { useState } from "react";
 
 export function GodModeActions({
-  isExpanded: _isExpanded,
+  isExpanded = true,
+  layout = "vertical",
   project,
 }: {
-  isExpanded: boolean;
+  isExpanded?: boolean;
+  layout?: "vertical" | "horizontal";
   project: Doc<"project">;
 }) {
   const convexInstance = useQuery(api.project.getConvexInstance, {
@@ -25,6 +27,10 @@ export function GodModeActions({
 
   const [downloading, setDownloading] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const isHorizontal = layout === "horizontal";
+  const actionButtonClass = isHorizontal
+    ? "h-8 w-auto justify-start border-emerald-500/35 bg-zinc-900/80 px-2.5 text-left text-emerald-100 hover:bg-emerald-500/15 hover:border-emerald-400/50"
+    : "h-auto w-full justify-start border-emerald-500/35 bg-zinc-900/80 py-1.5 text-left text-emerald-100 hover:bg-emerald-500/15 hover:border-emerald-400/50";
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -66,64 +72,78 @@ export function GodModeActions({
   };
 
   return (
-    <div className="relative mb-3 rounded-md border border-amber-400/40 bg-gradient-to-br from-amber-50/50 to-yellow-50/30 p-2 shadow-sm">
+    <div
+      className={`relative rounded-md border border-emerald-500/35 bg-gradient-to-br from-zinc-950 to-zinc-900 shadow-sm shadow-black/30 ${
+        isHorizontal ? "flex items-center gap-1.5 p-1.5" : "p-2"
+      } ${
+        isExpanded ? "mb-3" : "mb-0"
+      }`}
+    >
       {/* Header */}
-      <div className="mb-2 flex items-center gap-1.5">
+      <div className={`${isHorizontal ? "mb-0 mr-1" : "mb-2"} flex items-center gap-1.5`}>
         <span className="text-sm">😎</span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-amber-900">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">
           God Mode
         </span>
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-1.5">
+      <div
+        className={
+          isHorizontal
+            ? "flex flex-row items-center gap-1 overflow-x-auto"
+            : "flex flex-col gap-1.5"
+        }
+      >
         <Button
           onClick={handleOpenAdminPanel}
           variant="outline"
-          className="h-auto w-full justify-start border-zinc-300 bg-white py-1.5 text-left hover:border-amber-400 hover:bg-amber-50"
+          className={actionButtonClass}
         >
-          <Settings className="mr-2 h-3.5 w-3.5 min-w-3.5 text-zinc-700" />
-          <div className="flex flex-1 items-center justify-between">
-            <span className="text-[11px] font-medium text-zinc-800">
-              Admin Actions
+          <Settings className="mr-2 h-3.5 w-3.5 min-w-3.5 text-emerald-300" />
+          <div className={isHorizontal ? "flex items-center" : "flex flex-1 items-center justify-between"}>
+            <span className="text-[11px] font-medium text-emerald-100">
+              {isHorizontal ? "Admin" : "Admin Actions"}
             </span>
-            <span className="text-[9px] font-medium text-zinc-500">⌘K</span>
+            {!isHorizontal && (
+              <span className="text-[9px] font-medium text-emerald-300/70">⌘K</span>
+            )}
           </div>
         </Button>
 
         <Link
           href={getSandboxUrl(project.sandbox_id)}
           target="_blank"
-          className="w-full"
+          className={isHorizontal ? "w-auto" : "w-full"}
         >
           <Button
             variant="outline"
-            className="h-auto w-full justify-start border-zinc-300 bg-white py-1.5 text-left hover:border-amber-400 hover:bg-amber-50"
+            className={actionButtonClass}
           >
-            <FileEdit className="mr-2 h-3.5 w-3.5 min-w-3.5 text-zinc-700" />
-            <span className="text-[11px] font-medium text-zinc-800">
-              Open Sandbox
+            <FileEdit className="mr-2 h-3.5 w-3.5 min-w-3.5 text-emerald-300" />
+            <span className="text-[11px] font-medium text-emerald-100">
+              {isHorizontal ? "Sandbox" : "Open Sandbox"}
             </span>
           </Button>
         </Link>
 
         {convexInstance?.devDeploymentName && (
           <Link
-            href={`https://web/dashboard.convex.dev/d/${convexInstance.devDeploymentName}/`}
+            href={`https://dashboard.convex.dev/d/${convexInstance.devDeploymentName}/`}
             target="_blank"
-            className="w-full"
+            className={isHorizontal ? "w-auto" : "w-full"}
           >
             <Button
               variant="outline"
-              className="h-auto w-full justify-start border-zinc-300 bg-white py-1.5 text-left hover:border-amber-400 hover:bg-amber-50"
+              className={actionButtonClass}
             >
               <img
                 src="/convex-color.svg"
                 alt="Convex"
                 className="mr-2 h-3.5 w-3.5 min-w-3.5"
               />
-              <span className="text-[11px] font-medium text-zinc-800">
-                Convex Dashboard
+              <span className="text-[11px] font-medium text-emerald-100">
+                {isHorizontal ? "Convex" : "Convex Dashboard"}
               </span>
             </Button>
           </Link>
@@ -133,11 +153,15 @@ export function GodModeActions({
           onClick={handleDownload}
           disabled={downloading}
           variant="outline"
-          className="h-auto w-full justify-start border-zinc-300 bg-white py-1.5 text-left hover:border-amber-400 hover:bg-amber-50"
+          className={actionButtonClass}
         >
-          <Download className="mr-2 h-3.5 w-3.5 min-w-3.5 text-zinc-700" />
-          <span className="text-[11px] font-medium text-zinc-800">
-            {downloading ? "Downloading..." : "Download Code"}
+          <Download className="mr-2 h-3.5 w-3.5 min-w-3.5 text-emerald-300" />
+          <span className="text-[11px] font-medium text-emerald-100">
+            {downloading
+              ? "Downloading..."
+              : isHorizontal
+                ? "Download"
+                : "Download Code"}
           </span>
         </Button>
 
@@ -162,11 +186,15 @@ export function GodModeActions({
             }}
             disabled={migrating}
             variant="outline"
-            className="h-auto w-full justify-start border-zinc-300 bg-white py-1.5 text-left hover:border-amber-400 hover:bg-amber-50"
+            className={actionButtonClass}
           >
-            <ArrowRight className="mr-2 h-3.5 w-3.5 min-w-3.5 text-zinc-700" />
-            <span className="text-[11px] font-medium text-zinc-800">
-              {migrating ? "Migrating..." : "Migrate to Daytona"}
+            <ArrowRight className="mr-2 h-3.5 w-3.5 min-w-3.5 text-emerald-300" />
+            <span className="text-[11px] font-medium text-emerald-100">
+              {migrating
+                ? "Migrating..."
+                : isHorizontal
+                  ? "Migrate"
+                  : "Migrate to Daytona"}
             </span>
           </Button>
         )}

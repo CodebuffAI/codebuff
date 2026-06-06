@@ -87,7 +87,7 @@ const AdminToolkit = ({ ticket }: { ticket: any }) => {
             onClick={() => {
               if (typeof window !== "undefined") {
                 window.open(
-                  `https://web/dashboard.convex.dev/dp/${convex_instance?.devDeploymentName}/settings`,
+                  `https://dashboard.convex.dev/dp/${convex_instance?.devDeploymentName}/settings`,
                   "_blank",
                 );
               }

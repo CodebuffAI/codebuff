@@ -114,9 +114,6 @@ export async function getConvexEnvironmentVariables(
       return {};
     }
 
-    console.log(
-      `Successfully fetched ${Object.keys(envVars).length} environment variables for ${deploymentName}`,
-    );
 
     return envVars;
   } catch (error) {
