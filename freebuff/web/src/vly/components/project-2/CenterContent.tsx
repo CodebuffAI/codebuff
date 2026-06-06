@@ -59,8 +59,57 @@ interface CenterContentProps {
 }
 
 type ScreenshotTrigger = "auto" | "manual";
+type PreviewConnectionStatus =
+  | "loading"
+  | "booting"
+  | "connected"
+  | "error"
+  | "idle"
+  | "paused"
+  | "restarting";
 
 const MAX_AUTO_SCREENSHOT_FAILURES = 3;
+
+const connectionStatusMeta: Record<
+  PreviewConnectionStatus,
+  {
+    label: string;
+    dotClassName: string;
+    pingClassName?: string;
+  }
+> = {
+  loading: {
+    label: "Loading connection status",
+    dotClassName: "bg-muted-foreground",
+    pingClassName: "bg-muted-foreground/50",
+  },
+  booting: {
+    label: "Booting preview",
+    dotClassName: "bg-amber-300",
+    pingClassName: "bg-amber-300/50",
+  },
+  connected: {
+    label: "Connected",
+    dotClassName: "bg-emerald-400",
+  },
+  error: {
+    label: "Connection error",
+    dotClassName: "bg-red-400",
+  },
+  idle: {
+    label: "Idle",
+    dotClassName: "bg-muted-foreground/70",
+  },
+  paused: {
+    label: "Paused",
+    dotClassName: "bg-yellow-400",
+  },
+  restarting: {
+    label: "Restarting computer",
+    dotClassName: "bg-amber-300",
+    pingClassName: "bg-amber-300/50",
+  },
+};
 
 function clearScreenshotTimeout(
   screenshotTimeoutRef: React.MutableRefObject<ReturnType<
@@ -389,7 +438,13 @@ export function CenterContent({
 
   // Use React Query for automatic project connection
   // React Query handles deduplication and prevents duplicate requests automatically
-  const { isConnecting, checkProjectConnection } = useProjectConnection({
+  const {
+    isConnecting,
+    isError: isConnectionError,
+    isSuccess: isConnectionSuccess,
+    fetchStatus: connectionFetchStatus,
+    checkProjectConnection,
+  } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
     onSuccess: () => {
       // Force refresh the iframe content after successful connection. Only
@@ -403,6 +458,22 @@ export function CenterContent({
   const shouldShowConnectionOverlay =
     isConnecting &&
     !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady));
+  const isPreviewLoaded = hasIframeLoaded || isIframeReactReady;
+  const connectionStatus: PreviewConnectionStatus = (() => {
+    if (!project) return "loading";
+    if (isRestarting) return "restarting";
+    if (connectionFetchStatus === "paused") return "paused";
+    if (isConnectionError) return "error";
+    if (isConnecting) return navState.iframeSrc ? "booting" : "loading";
+    if (isConnectionSuccess) return "connected";
+    if (project.state === "processing" || project.state === "initializing") {
+      return "booting";
+    }
+    if (isDaytonaProject && isPreviewLoaded) return "connected";
+    if (!project.semantic_identifier || !navState.iframeSrc) return "idle";
+    return "idle";
+  })();
+  const connectionStatusInfo = connectionStatusMeta[connectionStatus];
 
   // After changes are applied (processing -> non-processing), re-run the same
   // connection check used on page load to prevent preview disconnects.
@@ -823,6 +894,22 @@ export function CenterContent({
               )}
             </span>
             <div className="flex items-center gap-0.5">
+              <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
+                <div
+                  className="relative flex h-7 w-7 items-center justify-center rounded-md"
+                  aria-label={`Connection status: ${connectionStatusInfo.label}`}
+                  role="status"
+                >
+                  {connectionStatusInfo.pingClassName && (
+                    <span
+                      className={`absolute h-2.5 w-2.5 rounded-full ${connectionStatusInfo.pingClassName} animate-ping`}
+                    />
+                  )}
+                  <span
+                    className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
+                  />
+                </div>
+              </ToolbarTooltip>
               <ToolbarTooltip
                 label={
                   isRestarting

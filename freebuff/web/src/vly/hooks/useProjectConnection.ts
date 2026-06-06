@@ -98,6 +98,7 @@ export function useProjectConnection({
     isError: query.isError,
     error: query.error,
     isSuccess: query.isSuccess,
+    fetchStatus: query.fetchStatus,
     checkProjectConnection,
   };
 }
