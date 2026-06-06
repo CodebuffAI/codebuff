@@ -1874,6 +1874,32 @@ if (!hasIntegration) {
           `[${sessionId}] Command may not have started - no cmdId returned`,
         );
       }
+
+      if (sessionId === "dev") {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        try {
+          const previewUrl = await this.getPreviewUrl();
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            const response = await fetch(previewUrl);
+            if (response.ok) {
+              break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            if (attempt === 3) {
+              console.warn(
+                `[restartDevServer] Preview health check failed with status ${response.status} after 3 attempts`,
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "[restartDevServer] Failed to check preview URL after starting dev server:",
+            error,
+          );
+        }
+      }
     }
 
     console.info("Dev servers restarted");

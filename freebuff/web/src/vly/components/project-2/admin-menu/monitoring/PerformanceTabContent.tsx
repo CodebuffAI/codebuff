@@ -324,7 +324,7 @@ function MetricRankingCard({
                   <div className="flex items-center justify-between gap-2">
                     {showDeploymentLinks ? (
                       <a
-                        href={`https://web/dashboard.convex.dev/d/${item.label}/`}
+                        href={`https://dashboard.convex.dev/d/${item.label}/`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="truncate font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline"

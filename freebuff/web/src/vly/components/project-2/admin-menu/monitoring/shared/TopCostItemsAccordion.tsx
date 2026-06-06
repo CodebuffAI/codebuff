@@ -208,7 +208,7 @@ export function TopCostItemsAccordion({
                     <div className="flex items-center justify-between gap-2">
                       {showDeploymentLinks ? (
                         <a
-                          href={`https://web/dashboard.convex.dev/d/${item.functionPath}/`}
+                          href={`https://dashboard.convex.dev/d/${item.functionPath}/`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="min-w-0 flex-1 truncate font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline"
