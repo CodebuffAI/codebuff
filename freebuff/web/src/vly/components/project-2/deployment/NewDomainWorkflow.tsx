@@ -16,6 +16,8 @@ import { ArrowLeft, Check, Copy, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
+const DNS_REVERIFY_COOLDOWN_SECONDS = 10;
+
 const validateDomain = (
   domain: string,
 ): { isValid: boolean; error?: string } => {
@@ -295,7 +297,7 @@ const SetRecordsPage = ({
 
   const startCooldown = () => {
     setCooldownActive(true);
-    setCooldownTimeLeft(60);
+    setCooldownTimeLeft(DNS_REVERIFY_COOLDOWN_SECONDS);
 
     const interval = setInterval(() => {
       setCooldownTimeLeft((prev) => {
@@ -338,8 +340,8 @@ const SetRecordsPage = ({
         <p className="text-sm leading-6 text-muted-foreground">
           <strong>Note:</strong> DNS changes can take up to 48 hours to
           propagate globally, though most changes are visible within a few
-          minutes to an hour. If verification fails, please wait a few minutes
-          and try again.
+          minutes to an hour. Your domain is saved, so you can leave this page
+          while it propagates and verify it again later.
         </p>
       </div>
       <div className="w-full">
@@ -361,9 +363,16 @@ const SetRecordsPage = ({
       </div>
 
       {generateError && (
-        <span className="mt-8 block text-right text-sm text-red-400">
-          {generateError}
-        </span>
+        <div className="mt-4 rounded-md border border-border bg-muted/25 p-3 text-sm">
+          <p className="font-medium text-foreground">
+            DNS records are still propagating
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            You can leave this page while propagation continues. Come back and
+            verify again later.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{generateError}</p>
+        </div>
       )}
 
       <div className="mt-2 flex justify-end">

@@ -14,11 +14,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/vly/components/ui/tooltip";
-import { ChevronDown, ImageIcon, AlertTriangle, Sparkles } from "lucide-react";
+import { ChevronDown, ImageIcon, AlertTriangle, Check } from "lucide-react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import {
   FREEBUFF_MODELS,
-  FREEBUFF_PREMIUM_SESSION_LIMIT,
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
   getFreebuffModel,
   isFreebuffPremiumModelId,
@@ -35,31 +36,28 @@ interface FreebuffModelSelectorProps {
   compact?: boolean;
 }
 
-// Group the catalog into the same tiers the CLI uses so the web picker mirrors
-// it: premium models (daily-limited) up top, unlimited models below.
-const PREMIUM_MODELS = FREEBUFF_MODELS.filter((m) => isFreebuffPremiumModelId(m.id));
-const UNLIMITED_MODELS = FREEBUFF_MODELS.filter(
-  (m) => !isFreebuffPremiumModelId(m.id),
-);
+// Models still supported by the backend/CLI but intentionally hidden from the
+// web picker to keep the list short.
+const HIDDEN_MODEL_IDS = new Set<string>([
+  FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_MODEL_ID,
+]);
 
-// `remaining` is the live count of premium runs left today (shared across all
-// premium models). Falls back to the static daily cap while the count loads.
-const PremiumBadge: React.FC<{ remaining: number | null }> = ({ remaining }) => (
-  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-    <Sparkles className="h-3 w-3" />
-    {remaining === null
-      ? `Premium · ${FREEBUFF_PREMIUM_SESSION_LIMIT}/day`
-      : `Premium · ${remaining}/${FREEBUFF_PREMIUM_SESSION_LIMIT} left today`}
-  </span>
+const VISIBLE_MODELS = FREEBUFF_MODELS.filter(
+  (m) => !HIDDEN_MODEL_IDS.has(m.id),
+);
+const PREMIUM_MODELS = VISIBLE_MODELS.filter((m) =>
+  isFreebuffPremiumModelId(m.id),
+);
+const UNLIMITED_MODELS = VISIBLE_MODELS.filter(
+  (m) => !isFreebuffPremiumModelId(m.id),
 );
 
 const ModelRow: React.FC<{
   model: FreebuffModelOption;
   isSelected: boolean;
   onSelect: () => void;
-  premiumRemaining: number | null;
-}> = ({ model, isSelected, onSelect, premiumRemaining }) => {
-  const premium = isFreebuffPremiumModelId(model.id);
+}> = ({ model, isSelected, onSelect }) => {
   const multimodal = isFreebuffMultimodalModelId(model.id);
 
   return (
@@ -69,35 +67,36 @@ const ModelRow: React.FC<{
         onSelect();
       }}
       className={cn(
-        "flex cursor-pointer flex-col items-start gap-1 px-2 py-2",
+        "flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm",
         isSelected && "bg-accent",
       )}
     >
-      <div className="flex w-full items-center gap-2">
-        <span className="text-sm font-medium text-foreground">
-          {model.displayName}
-        </span>
-        {multimodal && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ImageIcon className="h-3.5 w-3.5 text-sky-500" />
-            </TooltipTrigger>
-            <TooltipContent>Accepts image input</TooltipContent>
-          </Tooltip>
+      <Check
+        className={cn(
+          "h-3.5 w-3.5 shrink-0 text-foreground",
+          isSelected ? "opacity-100" : "opacity-0",
         )}
-        <span className="ml-auto text-[11px] text-muted-foreground">
-          {model.tagline}
-        </span>
-      </div>
-      <div className="flex w-full flex-wrap items-center gap-2">
-        {premium && <PremiumBadge remaining={premiumRemaining} />}
-        {model.warning && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600">
-            <AlertTriangle className="h-3 w-3" />
-            {model.warning}
-          </span>
-        )}
-      </div>
+      />
+      <span className="font-medium text-foreground">{model.displayName}</span>
+      {multimodal && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+          </TooltipTrigger>
+          <TooltipContent>Accepts image input</TooltipContent>
+        </Tooltip>
+      )}
+      {model.warning && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500/70" />
+          </TooltipTrigger>
+          <TooltipContent>{model.warning}</TooltipContent>
+        </Tooltip>
+      )}
+      <span className="ml-auto pl-2 text-[11px] text-muted-foreground">
+        {model.tagline}
+      </span>
     </DropdownMenuItem>
   );
 };
@@ -109,8 +108,8 @@ export function FreebuffModelSelector({
   compact = false,
 }: FreebuffModelSelectorProps) {
   const current =
-    getFreebuffModel(selectedModelId) ?? getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID);
-  const currentPremium = isFreebuffPremiumModelId(current.id);
+    getFreebuffModel(selectedModelId) ??
+    getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID);
 
   // Live premium quota remaining (reactive). `check()` returns the current
   // token value computed against server time; it's undefined until loaded.
@@ -130,29 +129,26 @@ export function FreebuffModelSelector({
           type="button"
           disabled={disabled}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-            compact ? "px-2 py-1 text-xs" : "px-2.5 py-1.5 text-sm",
+            "inline-flex items-center gap-1 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+            compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm",
           )}
         >
           <span className="font-medium text-foreground">
             {current.displayName}
           </span>
-          {currentPremium && (
-            <Sparkles className="h-3 w-3 text-amber-500" />
-          )}
-          <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
+      <DropdownMenuContent align="start" className="w-56">
         {PREMIUM_MODELS.length > 0 && (
           <>
-            <DropdownMenuLabel className="flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+            <DropdownMenuLabel className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               <span>Premium</span>
-              <span className="font-normal normal-case">
-                {premiumRemaining === null
-                  ? `${FREEBUFF_PREMIUM_SESSION_LIMIT}/day limit`
-                  : `${premiumRemaining}/${FREEBUFF_PREMIUM_SESSION_LIMIT} left today`}
-              </span>
+              {premiumRemaining !== null && (
+                <span className="font-normal normal-case tabular-nums text-muted-foreground/70">
+                  {premiumRemaining} left today
+                </span>
+              )}
             </DropdownMenuLabel>
             {PREMIUM_MODELS.map((model) => (
               <ModelRow
@@ -160,22 +156,17 @@ export function FreebuffModelSelector({
                 model={model}
                 isSelected={model.id === current.id}
                 onSelect={() => onModelChange(model.id)}
-                premiumRemaining={premiumRemaining}
               />
             ))}
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Unlimited
-        </DropdownMenuLabel>
         {UNLIMITED_MODELS.map((model) => (
           <ModelRow
             key={model.id}
             model={model}
             isSelected={model.id === current.id}
             onSelect={() => onModelChange(model.id)}
-            premiumRemaining={premiumRemaining}
           />
         ))}
       </DropdownMenuContent>

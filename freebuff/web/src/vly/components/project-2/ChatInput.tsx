@@ -49,6 +49,10 @@ import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import imageCompression from "browser-image-compression";
 import { AgentModeSelector } from "./AgentModeSelector";
 import { FreebuffModelSelector } from "./FreebuffModelSelector";
+import {
+  isFreebuffMultimodalModelId,
+  getFreebuffModel,
+} from "@codebuff/common/constants/freebuff-models";
 import { ContextLengthSelector, ContextLength } from "./ContextLengthSelector";
 import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPresets";
 import { toast } from "sonner";
@@ -167,6 +171,17 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     const dropZoneRef = useRef<HTMLDivElement>(null);
     const isSubmittingRef = useRef(false);
     const editorContainerRef = useRef<HTMLDivElement>(null);
+
+    // Image input is only meaningful for the Freebuff agent when the selected
+    // open-source model is multimodal. For other agents (Claude Code, etc.) it
+    // is always allowed. `onFreebuffModelChange` being set means we're in the
+    // Freebuff agent picker.
+    const isFreebuffAgent = Boolean(onFreebuffModelChange);
+    const imagesAllowed =
+      !isFreebuffAgent || isFreebuffMultimodalModelId(selectedFreebuffModel);
+    const imageDisabledReason = isFreebuffAgent
+      ? `${getFreebuffModel(selectedFreebuffModel ?? "").displayName} doesn't support images. Switch to a model with the image icon.`
+      : "";
 
     // Check for user input and notify parent
     useEffect(() => {
@@ -372,6 +387,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     const handleDragEnter = (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!imagesAllowed) return;
       setIsDragOver(true);
     };
 
@@ -400,6 +416,10 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     };
 
     const handleFilesUpload = async (files: FileList) => {
+      if (!imagesAllowed) {
+        toast.error(imageDisabledReason, { duration: 4000 });
+        return;
+      }
       try {
         // Process images one by one
         for (const file of Array.from(files)) {
@@ -1021,8 +1041,8 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                            className={`flex items-center justify-center rounded-full disabled:opacity-50 ${
+                            disabled={isUploading || !imagesAllowed}
+                            className={`flex items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${
                               compactMode ? "h-6 w-6" : "h-8 w-8"
                             }`}
                             style={{
@@ -1048,7 +1068,11 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>
-                            {isUploading ? "Uploading..." : "Upload images"}
+                            {!imagesAllowed
+                              ? imageDisabledReason
+                              : isUploading
+                                ? "Uploading..."
+                                : "Upload images"}
                           </p>
                         </TooltipContent>
                       </Tooltip>
