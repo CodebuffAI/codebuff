@@ -3,13 +3,13 @@ import os from 'os'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient, getUserCredentials } from '@codebuff/sdk'
+import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
+import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
 
 import baseDeep from '../base2/base-deep'
-import thinkerCodex from '../thinker/thinker-gpt'
+import thinker from '../thinker/thinker'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
@@ -50,17 +50,7 @@ describe('Base Deep Agent Integration', () => {
     }
   }
 
-  const getApiKeyOrSkip = (): string | null => {
-    const apiKey =
-      process.env[API_KEY_ENV_VAR] ?? getUserCredentials()?.authToken
-    if (!apiKey) {
-      console.warn(
-        `${API_KEY_ENV_VAR} is not set; skipping base-deep integration test.`,
-      )
-      return null
-    }
-    return apiKey
-  }
+  const getApiKeyOrSkip = (): string => LOCAL_MODE_API_KEY
 
   const isAuthenticationError = (error: unknown) => {
     if (!(error instanceof Error)) return false
@@ -82,7 +72,7 @@ describe('Base Deep Agent Integration', () => {
         throw error
       }
       console.warn(
-        `${label}: authentication failed for ${API_KEY_ENV_VAR}; skipping base-deep integration test.`,
+        `${label}: BYOK provider authentication failed; skipping base-deep integration test.`,
       )
       return null
     }
@@ -108,7 +98,7 @@ describe('Base Deep Agent Integration', () => {
     let count = 0
     for (const event of events) {
       if (event.type !== 'tool_result') continue
-      if (!event.parentAgentId?.includes('thinker-codex')) continue
+      if (!event.parentAgentId?.includes('thinker')) continue
       for (const part of event.output) {
         if (part.type !== 'json') continue
         if (typeof part.value !== 'object' || part.value === null) continue
@@ -204,8 +194,8 @@ describe('Base Deep Agent Integration', () => {
     await fs.promises.mkdir(traceDir, { recursive: true })
   })
 
-  it(
-    'spawns thinker-codex when requested',
+  slowIt(
+    'spawns thinker when requested',
     async () => {
       const apiKey = getApiKeyOrSkip()
       if (!apiKey) return
@@ -213,11 +203,15 @@ describe('Base Deep Agent Integration', () => {
       const events: PrintModeEvent[] = []
       const client = new CodebuffClient({
         apiKey,
+        localMode: true,
         cwd: '/tmp/base-deep-thinker-test',
         projectFiles: {
-          'README.md': '# Base2 Codex Thinker Test\n',
+          'README.md': '# Base2 Thinker Test\n',
         },
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [
+          baseDeep as unknown as AgentDefinition,
+          thinker as unknown as AgentDefinition,
+        ],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -226,7 +220,7 @@ describe('Base Deep Agent Integration', () => {
           client.run({
             agent: baseDeep.id,
             prompt:
-              'Use @thinker-codex to think briefly about adding validation to a sum function, then answer in one sentence.',
+              'Use @thinker to think briefly about adding validation to a sum function, then answer in one sentence.',
             handleEvent: (event) => {
               events.push(event)
             },
@@ -237,13 +231,12 @@ describe('Base Deep Agent Integration', () => {
       expect(run.output.type).not.toEqual('error')
 
       const thinkerSpawned = events.some(
-        (event) =>
-          event.type === 'subagent_start' && event.agentType === 'thinker-codex',
+        (event) => event.type === 'subagent_start' && event.agentType === 'thinker',
       )
       expect(thinkerSpawned).toBe(true)
 
       await writeTrace({
-        testName: 'spawns thinker-codex when requested',
+        testName: 'spawns thinker when requested',
         events,
         runOutput: run.output,
         cwd: '/tmp/base-deep-thinker-test',
@@ -252,7 +245,7 @@ describe('Base Deep Agent Integration', () => {
     { timeout: 300_000 },
   )
 
-  it(
+  slowIt(
     'can edit a file with the base-deep agent',
     async () => {
       const apiKey = getApiKeyOrSkip()
@@ -267,7 +260,10 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: tmpDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [
+          baseDeep as unknown as AgentDefinition,
+          thinker as unknown as AgentDefinition,
+        ],
       })
       const events: PrintModeEvent[] = []
 
@@ -398,7 +394,10 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: tmpDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [
+          baseDeep as unknown as AgentDefinition,
+          thinker as unknown as AgentDefinition,
+        ],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -497,7 +496,10 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: cloneDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [
+          baseDeep as unknown as AgentDefinition,
+          thinker as unknown as AgentDefinition,
+        ],
       })
 
       const run = await runOrSkipOnAuthFailure(
@@ -506,7 +508,7 @@ describe('Base Deep Agent Integration', () => {
           client.run({
             agent: baseDeep.id,
             prompt:
-              'Commit-inspired task: add a new integration test file at agents/e2e/base-deep-clone-smoke.e2e.test.ts that verifies base-deep can spawn thinker-codex. Keep it concise and actually write the file.',
+              'Commit-inspired task: add a new integration test file at agents/e2e/base-deep-clone-smoke.e2e.test.ts that verifies base-deep can spawn thinker. Keep it concise and actually write the file.',
             handleEvent: (event) => {
               events.push(event)
             },
@@ -522,7 +524,7 @@ describe('Base Deep Agent Integration', () => {
       )
       const createdContent = await fs.promises.readFile(createdPath, 'utf-8')
       expect(createdContent).toContain('base-deep')
-      expect(createdContent).toContain('thinker-codex')
+      expect(createdContent).toContain('thinker')
 
       const diffStats = await getDiffLineStats(cloneDir)
 
@@ -552,7 +554,10 @@ describe('Base Deep Agent Integration', () => {
       const client = new CodebuffClient({
         apiKey,
         cwd: cloneDir,
-        agentDefinitions: [baseDeep, thinkerCodex],
+        agentDefinitions: [
+          baseDeep as unknown as AgentDefinition,
+          thinker as unknown as AgentDefinition,
+        ],
       })
 
       const initialRun = await runOrSkipOnAuthFailure(

@@ -8,8 +8,10 @@ describe('getModelForRequest free-mode guards', () => {
   const mockGetValidChatGptOAuthCredentials = mock(() =>
     Promise.resolve(null),
   )
+  let mockProviderModelResolved = false
 
   beforeEach(async () => {
+    mockProviderModelResolved = false
     // Mock CHATGPT_OAUTH_ENABLED to true so the ChatGPT OAuth path is entered.
     // Uses mockModule helper since this is an absolute package specifier.
     await mockModule('@codebuff/common/constants/chatgpt-oauth', () => ({
@@ -18,8 +20,59 @@ describe('getModelForRequest free-mode guards', () => {
 
     // Mock credentials directly with Bun's mock.module — the helper resolves
     // relative paths from common/src/testing/, not from this test file.
+    const actualCredentials = await import('../../credentials')
     mock.module('../../credentials', () => ({
+      ...actualCredentials,
       getValidChatGptOAuthCredentials: mockGetValidChatGptOAuthCredentials,
+    }))
+
+    mock.module('../../provider-config', () => ({
+      loadProviderConfigSync: () => ({
+        config: {
+          providers: {},
+          defaultModel: undefined,
+          defaultReasoningEffort: undefined,
+          modes: {},
+          modeReasoningEfforts: {},
+          agents: {},
+          agentReasoningEfforts: {},
+        },
+        sourceFilePaths: [],
+      }),
+      resolveConfiguredAgentModelConfig: (params: any) => ({
+        model: params.model,
+        reasoningEffort: undefined,
+      }),
+      resolveConfiguredProviderModel: (params: any) => {
+        if (mockProviderModelResolved && params.model === 'openai/gpt-5.3') {
+          return {
+            providerId: 'openai',
+            provider: {
+              type: 'openai-compatible',
+              baseURL: 'https://api.openai.com/v1',
+              models: ['gpt-5.3'],
+            },
+            requestedModel: 'openai/gpt-5.3',
+            providerModel: 'gpt-5.3',
+            apiKey: 'test-key',
+            compatibility: {
+              stripCacheControl: true,
+              stringifyTextContent: true,
+              supportsTools: true,
+              supportsRequiredToolChoice: true,
+              stripProviderMetadata: true,
+            },
+          }
+        }
+        return undefined
+      },
+      DEFAULT_PROVIDER_COMPATIBILITY: {
+        stripCacheControl: true,
+        stringifyTextContent: true,
+        supportsTools: true,
+        supportsRequiredToolChoice: true,
+        stripProviderMetadata: true,
+      },
     }))
 
     mockGetValidChatGptOAuthCredentials.mockReset()
@@ -68,6 +121,7 @@ describe('getModelForRequest free-mode guards', () => {
   })
 
   test('falls through to backend when rate-limited in non-free mode', async () => {
+    mockProviderModelResolved = true
     const { getModelForRequest, markChatGptOAuthRateLimited } =
       await importFresh()
 
@@ -83,6 +137,7 @@ describe('getModelForRequest free-mode guards', () => {
   })
 
   test('falls through to backend when credentials unavailable in non-free mode', async () => {
+    mockProviderModelResolved = true
     const { getModelForRequest } = await importFresh()
 
     mockGetValidChatGptOAuthCredentials.mockResolvedValue(null)

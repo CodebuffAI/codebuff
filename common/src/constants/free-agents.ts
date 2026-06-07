@@ -46,10 +46,10 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
 }
 
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
-  [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
-  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
+  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer',
+  [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer',
+  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer',
+  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer',
 }
 
 export function getFreebuffRootAgentIdForModel(model: string): string {
@@ -94,6 +94,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'tmux-cli': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
 
   // Code reviewer for free mode
+  'code-reviewer': new Set([
+    FREEBUFF_MINIMAX_MODEL_ID,
+    FREEBUFF_GLM_MODEL_ID,
+    FREEBUFF_KIMI_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  ]),
+  // Legacy freebuff clients spawned code-reviewer-lite or other variants under provider-specific
+  // free roots before those reviewer IDs existed. Keep mapping compatibility pointing to code-reviewer.
   'code-reviewer-minimax': new Set([
     FREEBUFF_MINIMAX_MODEL_ID,
     FREEBUFF_GLM_MODEL_ID,
@@ -103,8 +112,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
-  // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
-  // free roots before those reviewer IDs existed.
   'code-reviewer-lite': new Set([
     FREEBUFF_MINIMAX_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
@@ -112,7 +119,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
 
-  // Legacy: kept for the standalone gemini thinker agent if invoked directly.
+  // Free-mode semantic thinker runs are routed to the Gemini thinker model.
   [FREEBUFF_GEMINI_THINKER_AGENT_ID]: new Set([FREEBUFF_GEMINI_PRO_MODEL_ID]),
 }
 

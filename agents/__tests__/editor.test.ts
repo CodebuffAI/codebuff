@@ -132,8 +132,9 @@ describe('editor agent', () => {
       expect(editor.toolNames).toContain('read_files')
       expect(editor.toolNames).toContain('write_file')
       expect(editor.toolNames).toContain('str_replace')
+      expect(editor.toolNames).toContain('edit_transaction')
       expect(editor.toolNames).toContain('set_output')
-      expect(editor.toolNames).toHaveLength(4)
+      expect(editor.toolNames).toHaveLength(5)
     })
   })
 
@@ -225,13 +226,25 @@ describe('editor agent', () => {
     test('contains str_replace format example', () => {
       expect(editor.instructionsPrompt).toContain('str_replace')
       expect(editor.instructionsPrompt).toContain('replacements')
-      expect(editor.instructionsPrompt).toContain('old')
-      expect(editor.instructionsPrompt).toContain('new')
+      expect(editor.instructionsPrompt).toContain('"oldString"')
+      expect(editor.instructionsPrompt).toContain('"newString"')
+      expect(editor.instructionsPrompt).not.toContain('    },\n  ]')
     })
 
     test('contains write_file format example', () => {
       expect(editor.instructionsPrompt).toContain('write_file')
       expect(editor.instructionsPrompt).toContain('content')
+    })
+
+    test('contains edit_transaction format example', () => {
+      expect(editor.instructionsPrompt).toContain('"cb_tool_name": "edit_transaction"')
+      expect(editor.instructionsPrompt).toContain('preflighted and applied atomically')
+      expect(editor.instructionsPrompt).toContain('"edits"')
+      expect(editor.instructionsPrompt).toContain('"type": "str_replace"')
+      expect(editor.instructionsPrompt).toContain('"type": "structured"')
+      expect(editor.instructionsPrompt).toContain('"oldString"')
+      expect(editor.instructionsPrompt).toContain('"newString"')
+      expect(editor.instructionsPrompt).toContain('insert_import')
     })
 
     test('contains codebuff_tool_call format', () => {
@@ -2915,7 +2928,7 @@ describe('editor agent', () => {
                   unifiedDiffs: '',
                   stopReason: 'noProposal',
                   errorMessage:
-                    'Gathered context with code_search, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                    'Gathered context with code_search, but did not emit propose_str_replace/propose_write_file/propose_edit_transaction before the proposal step budget.',
                   readOnlyContext:
                     'Read-only context gathered by previous proposal attempt:\n\ncode_search result: packages/agent-runtime/src/tools/handlers/tool/read-docs.ts mentions const current = true\n',
                   proposalProgress: {
@@ -2936,7 +2949,7 @@ describe('editor agent', () => {
         'No proposal returned ledger-generated edit diffs',
       )
       expect(output.input.error).toContain(
-        'did not emit propose_str_replace/propose_write_file',
+        'did not emit propose_str_replace/propose_write_file/propose_edit_transaction',
       )
     })
 
@@ -3054,7 +3067,7 @@ describe('editor agent', () => {
                   unifiedDiffs: '',
                   stopReason: 'noProposal',
                   errorMessage:
-                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file/propose_edit_transaction before the proposal step budget.',
                   readOnlyContext:
                     'Read-only context gathered by previous proposal attempt:\n\nFile: src/a.ts\nexport const current = true\n\nFile: src/huge.ts\nstart\n...[truncated]...\nend\n',
                   proposalProgress: {
@@ -3141,7 +3154,7 @@ describe('editor agent', () => {
                   unifiedDiffs: '',
                   stopReason: 'noProposal',
                   errorMessage:
-                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file before the proposal step budget.',
+                    'Gathered context with read_files, but did not emit propose_str_replace/propose_write_file/propose_edit_transaction before the proposal step budget.',
                   readOnlyContext:
                     'Read-only context gathered by previous proposal attempt:\n\nFile: src/unrelated.ts\nexport const unrelated = true\n',
                   proposalProgress: {
@@ -3162,7 +3175,7 @@ describe('editor agent', () => {
         'No proposal returned ledger-generated edit diffs',
       )
       expect(output.input.error).toContain(
-        'did not emit propose_str_replace/propose_write_file',
+        'did not emit propose_str_replace/propose_write_file/propose_edit_transaction',
       )
     })
 
@@ -9119,6 +9132,125 @@ describe('editor agent', () => {
 
       expect(outputCall.toolName).toBe('set_output')
       expect((outputCall.input as any).error).toBeUndefined()
+    })
+
+    test('does not fall through to unsafe write_file when drifted write proposal has no smart patch', () => {
+      const multiPromptEditor = createMultiPromptEditor()
+      const mockAgentState = createMockAgentState([
+        { role: 'user', content: [{ type: 'text', text: 'Original task' }] },
+      ])
+      const generator = multiPromptEditor.handleSteps!({
+        agentState: mockAgentState,
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        } as any,
+        params: { prompts: ['minimal'] },
+      })
+
+      expect(
+        (generator.next().value as ToolCall<'set_messages'>).toolName,
+      ).toBe('set_messages')
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({ toolName: 'spawn_agents' })
+
+      const selectorSpawn = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [
+              {
+                agentName: 'Implementation Proposal 1',
+                agentType: 'editor-implementor-proposal-1',
+                value: {
+                  type: 'structuredOutput',
+                  value: {
+                    toolCalls: [
+                      {
+                        toolName: 'propose_write_file',
+                        input: {
+                          path: 'src/a.ts',
+                          instructions: 'Apply resolved proposal content',
+                          content: 'fresh resolved proposal content\n',
+                          __proposalFile: 'src/a.ts',
+                          __proposalFinalContent:
+                            'fresh resolved proposal content\n',
+                          __proposalBaseContent: 'proposal-time content\n',
+                          __proposalBaseContentHash: 'unused-when-base-present',
+                        },
+                      },
+                    ],
+                    toolResults: [{ file: 'src/a.ts', unifiedDiff: '@@ diff A' }],
+                    unifiedDiffs: '--- src/a.ts ---\n@@ diff A',
+                    proposalBudget: { recoveredFromLedger: true },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'spawn_agents'>
+
+      expect(selectorSpawn.input.agents[0].agent_type).toBe(
+        'best-of-n-selector2',
+      )
+
+      expect(
+        generator.next({
+          agentState: mockAgentState,
+          toolResult: [
+            {
+              type: 'json',
+              value: [{ value: { errorMessage: 'selector failed' } }],
+            },
+          ],
+          stepsComplete: false,
+        }).value as ToolCall<'spawn_agents'>,
+      ).toMatchObject({
+        input: { agents: [{ agent_type: 'best-of-n-selector2' }] },
+      })
+
+      const readBaseContent = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ value: { errorMessage: 'selector failed again' } }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'read_files'>
+
+      expect(readBaseContent).toMatchObject({
+        toolName: 'read_files',
+        input: { paths: ['src/a.ts'] },
+      })
+
+      const outputCall = generator.next({
+        agentState: mockAgentState,
+        toolResult: [
+          {
+            type: 'json',
+            value: [{ path: 'src/a.ts', content: 'current disk content\n' }],
+          },
+        ],
+        stepsComplete: false,
+      }).value as ToolCall<'set_output'>
+
+      expect(outputCall.toolName).toBe('set_output')
+      expect((outputCall.input as any).error).toContain(
+        'target file changed after the proposal was generated',
+      )
     })
 
     test('retries proposal tool calls that produced no generated diffs', () => {

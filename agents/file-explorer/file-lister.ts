@@ -33,7 +33,7 @@ export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
   instructionsPrompt: `Instructions:
 - List out the full paths of 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path. Make sure that the file paths are exactly correct.
-- Prefer paths surfaced by the local codebase index when they are relevant, but also use the repository tree context to avoid missing obvious nearby files.
+- Prefer paths surfaced by the local codebase graph index when they are relevant. Treat relatedFiles as useful adjacent context, but also use the repository tree context to avoid missing obvious nearby files.
 - Do not write any introductory commentary.
 - Do not write any analysis or any English text at all.
 - Do not use any more tools. Do not call query_index or read_subtree again.

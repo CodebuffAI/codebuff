@@ -233,6 +233,15 @@ export async function loadLocalAgents({
         continue
       }
 
+      if (agentDefinition.model === '') {
+        if (verbose) {
+          console.error(
+            `Agent definition has invalid empty model: ${fullPath}`,
+          )
+        }
+        continue
+      }
+
       const processedAgentDefinition: LoadedAgentDefinition = {
         ...agentDefinition,
         _sourceFilePath: fullPath,

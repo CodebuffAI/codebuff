@@ -1028,12 +1028,6 @@ describe('isImplementorAgent', () => {
       isImplementorAgent({ agentType: 'editor-implementor', blocks: [] }),
     ).toBe(true)
     expect(
-      isImplementorAgent({ agentType: 'editor-implementor-opus', blocks: [] }),
-    ).toBe(true)
-    expect(
-      isImplementorAgent({ agentType: 'editor-implementor-gpt-5', blocks: [] }),
-    ).toBe(true)
-    expect(
       isImplementorAgent({
         agentType: 'editor-implementor-proposal-1',
         blocks: [],
@@ -1058,13 +1052,8 @@ describe('isImplementorAgent', () => {
 })
 
 describe('getImplementorDisplayName', () => {
-  test('returns model names', () => {
-    expect(getImplementorDisplayName('editor-implementor')).toBe('Sonnet')
-    expect(getImplementorDisplayName('editor-implementor-opus')).toBe('Opus')
-    expect(getImplementorDisplayName('editor-implementor-gpt-5')).toBe('GPT-5')
-    expect(getImplementorDisplayName('editor-implementor-gemini')).toBe(
-      'Gemini',
-    )
+  test('returns semantic names', () => {
+    expect(getImplementorDisplayName('editor-implementor')).toBe('Implementor')
     expect(getImplementorDisplayName('editor-implementor-proposal-2')).toBe(
       'Proposal #2',
     )
@@ -1083,9 +1072,11 @@ describe('getImplementorDisplayName', () => {
   })
 
   test('adds index when provided', () => {
-    expect(getImplementorDisplayName('editor-implementor', 0)).toBe('Sonnet #1')
-    expect(getImplementorDisplayName('editor-implementor-opus', 2)).toBe(
-      'Opus #3',
+    expect(getImplementorDisplayName('editor-implementor', 0)).toBe(
+      'Implementor #1',
+    )
+    expect(getImplementorDisplayName('editor-implementor', 2)).toBe(
+      'Implementor #3',
     )
   })
 })
@@ -1142,20 +1133,20 @@ describe('getImplementorIndex', () => {
       status: 'complete',
       blocks: [],
     } as AgentContentBlock
-    const agent3 = {
+    const filePicker = {
       type: 'agent',
-      agentId: 'a3',
-      agentName: 'Impl 3',
-      agentType: 'editor-implementor-opus',
+      agentId: 'fp1',
+      agentName: 'File Picker',
+      agentType: 'file-picker',
       content: '',
       status: 'complete',
       blocks: [],
     } as AgentContentBlock
-    const siblings: ContentBlock[] = [agent1, agent2, agent3]
+    const siblings: ContentBlock[] = [agent1, agent2, filePicker]
 
     expect(getImplementorIndex(agent1, siblings)).toBe(0)
     expect(getImplementorIndex(agent2, siblings)).toBe(1)
-    expect(getImplementorIndex(agent3, siblings)).toBeUndefined()
+    expect(getImplementorIndex(filePicker, siblings)).toBeUndefined()
   })
 
   test('returns undefined for non-implementor', () => {
@@ -1353,8 +1344,8 @@ describe('groupConsecutiveImplementors', () => {
   test('groups consecutive implementor agents', () => {
     const blocks: ContentBlock[] = [
       createImplementorAgent('impl-1'),
-      createImplementorAgent('impl-2', 'editor-implementor-opus'),
-      createImplementorAgent('impl-3', 'editor-implementor-gpt-5'),
+      createImplementorAgent('impl-2', 'editor-implementor'),
+      createImplementorAgent('impl-3', 'editor-implementor'),
       createNonImplementorAgent('fp-1', 'file-picker'),
     ]
     const result = groupConsecutiveImplementors(blocks, 0)
@@ -1574,7 +1565,7 @@ describe('getMultiPromptProgress', () => {
       type: 'agent',
       agentId: id,
       agentName: 'Implementor',
-      agentType: 'editor-implementor-opus',
+      agentType: 'editor-implementor',
       content: '',
       status,
       blocks: [],
@@ -1700,7 +1691,7 @@ describe('getMultiPromptPreview', () => {
       type: 'agent',
       agentId: id,
       agentName: 'Implementor',
-      agentType: 'editor-implementor-opus',
+      agentType: 'editor-implementor',
       content: '',
       status,
       blocks: [],

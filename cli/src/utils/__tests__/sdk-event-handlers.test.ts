@@ -379,7 +379,7 @@ describe('sdk-event-handlers', () => {
         type: 'agent',
         agentId: 'tool-1-0',
         agentName: 'Thinker',
-        agentType: 'thinker-with-files-gemini',
+        agentType: 'thinker',
         content: '',
         status: 'running',
         blocks: [
@@ -408,7 +408,7 @@ describe('sdk-event-handlers', () => {
           type: 'json',
           value: [
             {
-              agentName: 'thinker-with-files-gemini',
+              agentName: 'thinker',
               value: {
                 type: 'lastMessage',
                 value: [

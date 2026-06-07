@@ -7,24 +7,11 @@ import type {
 } from '../../types/agent-definition'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
-export function createThinkerBestOfN(
-  model: 'sonnet' | 'gpt-5' | 'opus',
-): Omit<SecretAgentDefinition, 'id'> {
-  const isGpt5 = model === 'gpt-5'
-  const isOpus = model === 'opus'
-
+export function createThinkerBestOfN(): Omit<SecretAgentDefinition, 'id'> {
   return {
     publisher,
-    model: isGpt5
-      ? 'openai/gpt-5.5'
-      : isOpus
-        ? 'anthropic/claude-opus-4.7'
-        : 'anthropic/claude-sonnet-4.5',
-    displayName: isGpt5
-      ? 'Best-of-N GPT-5 Thinker'
-      : isOpus
-        ? 'Best-of-N Opus Thinker'
-        : 'Best-of-N Thinker',
+    model: 'anthropic/claude-sonnet-4.5',
+    displayName: 'Best-of-N Thinker',
     spawnerPrompt:
       'Generates deep thinking by orchestrating multiple thinker agents, selects the best thinking output. Use this to help solve a hard problem. You must first gather all the relevant context *BEFORE* spawning this agent, as it can only think.',
 
@@ -32,7 +19,7 @@ export function createThinkerBestOfN(
     inheritParentSystemPrompt: true,
 
     toolNames: ['spawn_agents'],
-    spawnableAgents: [isOpus ? 'thinker-selector-opus' : 'thinker-selector'],
+    spawnableAgents: ['thinker-selector'],
 
     inputSchema: {
       prompt: {
@@ -59,7 +46,7 @@ Use the <think> tag to think deeply about the user request.
 
 When satisfied, write out a brief response to the user's request. The parent agent will see your response -- no need to call any tools. In particular, do not use the spawn_agents tool or the set_output tool or any tools at all! `,
 
-    handleSteps: isOpus ? handleStepsOpus : handleStepsDefault,
+    handleSteps: handleStepsDefault,
   }
 }
 function* handleStepsDefault({
@@ -147,93 +134,9 @@ function* handleStepsDefault({
   }
 }
 
-function* handleStepsOpus({
-  agentState,
-  prompt,
-  params,
-}: AgentStepContext): ReturnType<
-  NonNullable<SecretAgentDefinition['handleSteps']>
-> {
-  const selectorAgentType = 'thinker-selector-opus'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
-
-  // Use GENERATE_N to generate n thinking outputs
-  const { nResponses = [] } = yield {
-    type: 'GENERATE_N',
-    n,
-  }
-
-  // Extract all the thinking outputs and strip <think> tags
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const thoughts = nResponses.map((content, index) => ({
-    id: letters[index],
-    content: content.replace(/<think>[\s\S]*?<\/think>/g, '').trim(),
-  }))
-
-  // Spawn selector with thoughts as params
-  const { toolResult: selectorResult } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: [
-        {
-          agent_type: selectorAgentType,
-          params: { thoughts },
-        },
-      ],
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
-
-  const selectorOutput = extractSpawnResults<{
-    thoughtId: string
-  }>(selectorResult)[0]
-
-  if ('errorMessage' in selectorOutput) {
-    yield {
-      type: 'STEP_TEXT',
-      text: selectorOutput.errorMessage,
-    } satisfies StepText
-    return
-  }
-  const { thoughtId } = selectorOutput
-  const chosenThought = thoughts.find((thought) => thought.id === thoughtId)
-  if (!chosenThought) {
-    yield {
-      type: 'STEP_TEXT',
-      text: 'Failed to find chosen thinking output.',
-    } satisfies StepText
-    return
-  }
-
-  yield {
-    type: 'STEP_TEXT',
-    text: chosenThought.content,
-  } satisfies StepText
-
-  function extractSpawnResults<T>(
-    results: any[] | undefined,
-  ): (T | { errorMessage: string })[] {
-    if (!results) return []
-    const spawnedResults = results
-      .filter((result) => result.type === 'json')
-      .map((result) => result.value)
-      .flat() as {
-        agentType: string
-        value: { value?: T; errorMessage?: string }
-      }[]
-    return spawnedResults.map(
-      (result) =>
-        result.value.value ??
-        ({
-          errorMessage:
-            result.value.errorMessage ?? 'Error extracting spawn results',
-        } as { errorMessage: string }),
-    )
-  }
-}
 
 const definition: SecretAgentDefinition = {
-  ...createThinkerBestOfN('sonnet'),
+  ...createThinkerBestOfN(),
   id: 'thinker-best-of-n',
 }
 

@@ -94,7 +94,7 @@ describe('processEditTransaction', () => {
           path: 'src/helper.test.ts',
           replacements: [
             {
-              oldString: 'expect(value).toBe(999)',
+              oldString: 'expect(value).toBe(999999999999999999999)',
               newString: 'expect(value).toBe(2)',
               allowMultiple: false,
             },

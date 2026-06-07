@@ -865,9 +865,13 @@ function test3() {
     }
   })
 
-  it('should reject a malformed readCapability token on large files', async () => {
+  it('should reject a malformed readCapability token on large files when oldString is ambiguous', async () => {
+    // oldString appears twice, so the malformed anchor cannot be auto-stripped
+    // (the loop-breaker only strips when oldString is uniquely matchable).
     const initialContent = Array.from({ length: 1_001 }, (_, index) =>
-      index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+      index === 300 || index === 700
+        ? 'const target = 1;'
+        : `const filler${index} = ${index};`,
     ).join('\n')
 
     const result = await processStrReplace({
@@ -1209,7 +1213,13 @@ function test3() {
   })
 
   describe('bogus basedOnRead rejection', () => {
-    it('rejects a placeholder "dummy" anchor even on small files', async () => {
+    // Anchored on an AMBIGUOUS oldString (two identical occurrences) so the
+    // bogus anchor cannot be auto-stripped: this is the case that must still
+    // hard-fail. When oldString is unique, the anchor is auto-stripped instead
+    // (covered by the 'bogus basedOnRead auto-strip' suite below).
+    const ambiguousContent = 'const y = 2;\nconst y = 2;\n'
+
+    it('rejects a placeholder "dummy" anchor when oldString is ambiguous', async () => {
       const result = await processStrReplace({
         path: 'test.ts',
         replacements: [
@@ -1220,7 +1230,7 @@ function test3() {
             basedOnRead: 'dummy' as any,
           },
         ],
-        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        initialContentPromise: Promise.resolve(ambiguousContent),
         logger,
       })
 
@@ -1231,7 +1241,7 @@ function test3() {
       }
     })
 
-    it('rejects other stub anchors regardless of case', async () => {
+    it('rejects other stub anchors regardless of case when oldString is ambiguous', async () => {
       for (const stub of ['TODO', 'cap.DUMMY', 'placeholder', 'undefined']) {
         const result = await processStrReplace({
           path: 'test.ts',
@@ -1243,16 +1253,14 @@ function test3() {
               basedOnRead: stub as any,
             },
           ],
-          initialContentPromise: Promise.resolve(
-            'const x = 1;\nconst y = 2;\n',
-          ),
+          initialContentPromise: Promise.resolve(ambiguousContent),
           logger,
         })
         expect('error' in result).toBe(true)
       }
     })
 
-    it('rejects a malformed (non-cap) string anchor on small files', async () => {
+    it('rejects a malformed (non-cap) string anchor when oldString is ambiguous', async () => {
       const result = await processStrReplace({
         path: 'test.ts',
         replacements: [
@@ -1263,13 +1271,14 @@ function test3() {
             basedOnRead: 'not-a-real-token' as any,
           },
         ],
-        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        initialContentPromise: Promise.resolve(ambiguousContent),
         logger,
       })
 
       expect('error' in result).toBe(true)
       if ('error' in result) {
         expect(result.error).toContain('basedOnRead')
+        expect(result.error).toContain('Do NOT resubmit the same basedOnRead literal')
       }
     })
 
@@ -1296,6 +1305,110 @@ function test3() {
       expect('content' in result).toBe(true)
       if ('content' in result) {
         expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+      }
+    })
+  })
+
+  describe('bogus basedOnRead auto-strip (loop-breaker)', () => {
+    // Regression: a model that loops by re-reading then resubmitting the SAME
+    // invalid anchor (e.g. basedOnRead: "/placeholder") must not be stuck. When
+    // the oldString is uniquely matchable the anchor is unnecessary, so it is
+    // auto-stripped and the edit applies as a naked edit with a warning.
+    it('auto-strips a path-like invalid anchor when oldString is unique (small file)', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: '/placeholder' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+        expect(
+          result.messages.some((msg) =>
+            msg.includes('an invalid basedOnRead anchor was ignored'),
+          ),
+        ).toBe(true)
+      }
+    })
+
+    it('auto-strips a stub anchor when oldString is unique', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: 'dummy' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve('const x = 1;\nconst y = 2;\n'),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('const x = 1;\nconst y = 3;\n')
+      }
+    })
+
+    it('auto-strips an invalid anchor on a large file when oldString is unique', async () => {
+      const lines = Array.from({ length: 1_001 }, (_, index) =>
+        index === 500 ? 'const target = 1;' : `const filler${index} = ${index};`,
+      )
+      const result = await processStrReplace({
+        path: 'large.ts',
+        replacements: [
+          {
+            oldString: 'const target = 1;',
+            newString: 'const target = 2;',
+            allowMultiple: false,
+            basedOnRead: '/placeholder' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve(lines.join('\n')),
+        logger,
+      })
+
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toContain('const target = 2;')
+        expect(result.content).not.toContain('const target = 1;')
+      }
+    })
+
+    it('does NOT auto-strip when oldString is ambiguous and gives loop-stopping guidance', async () => {
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'const y = 2;',
+            newString: 'const y = 3;',
+            allowMultiple: false,
+            basedOnRead: '/placeholder' as any,
+          },
+        ],
+        initialContentPromise: Promise.resolve(
+          'const y = 2;\nconst y = 2;\n',
+        ),
+        logger,
+      })
+
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain(
+          'Do NOT resubmit the same basedOnRead literal',
+        )
+        expect(result.error).toContain(recoveryGuidance)
       }
     })
   })

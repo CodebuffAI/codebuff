@@ -2,6 +2,8 @@
  * Test fixtures - sample code snippets and test data for e2e tests.
  */
 
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
 export const SAMPLE_CODE = {
   simpleFunction: `
 function add(a: number, b: number): number {
@@ -192,5 +194,17 @@ export const TEST_PROMPTS = {
   commitMessage: 'Generate a commit message for these changes',
 }
 
-export const DEFAULT_AGENT = 'base2'
+export const DEFAULT_AGENT = 'sdk-e2e-test-agent'
 export const DEFAULT_TIMEOUT = 120_000 // 2 minutes
+
+export const DEFAULT_AGENT_DEFINITION: AgentDefinition = {
+  id: DEFAULT_AGENT,
+  displayName: 'SDK E2E Test Agent',
+  model: 'anthropic/claude-haiku-4.5',
+  includeMessageHistory: true,
+  inheritParentSystemPrompt: false,
+  outputMode: 'last_message',
+  toolNames: [],
+  spawnableAgents: [],
+  instructionsPrompt: 'You are a deterministic test agent for SDK e2e tests.',
+}

@@ -4,6 +4,7 @@ import { CHANGES, FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
 import { applyPatchParams } from './params/tool/apply-patch'
+import { applySmartPatchParams } from './params/tool/apply-smart-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
@@ -12,7 +13,6 @@ import { editTransactionParams } from './params/tool/edit-transaction'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
-import { gravityIndexParams } from './params/tool/gravity-index'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { proposeEditTransactionParams } from './params/tool/propose-edit-transaction'
@@ -21,6 +21,8 @@ import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { queryIndexParams } from './params/tool/query-index'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
+import { readOutlineParams } from './params/tool/read-outline'
+import { readSlicesParams } from './params/tool/read-slices'
 import { readProposalWorkspaceParams } from './params/tool/read-proposal-workspace'
 import { readSubtreeParams } from './params/tool/read-subtree'
 import { replaceRangeParams } from './params/tool/replace-range'
@@ -49,6 +51,7 @@ export const toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   apply_patch: applyPatchParams,
+  apply_smart_patch: applySmartPatchParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
@@ -57,7 +60,6 @@ export const toolParams = {
   end_turn: endTurnParams,
   find_files: findFilesParams,
   glob: globParams,
-  gravity_index: gravityIndexParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
   propose_edit_transaction: proposeEditTransactionParams,
@@ -66,6 +68,8 @@ export const toolParams = {
   query_index: queryIndexParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
+  read_outline: readOutlineParams,
+  read_slices: readSlicesParams,
   read_proposal_workspace: readProposalWorkspaceParams,
   read_subtree: readSubtreeParams,
   replace_range: replaceRangeParams,
@@ -112,6 +116,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('apply_patch'),
     input: toolParams.apply_patch.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('apply_smart_patch'),
+    input: toolParams.apply_smart_patch.inputSchema,
   }),
   z.object({
     toolName: z.literal('ask_user'),

@@ -89,7 +89,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'setup',
     label: 'setup',
-    description: 'Create or inspect an Openbuff provider config',
+    description: 'Create or inspect a provider config',
   },
   {
     id: 'models',
@@ -99,7 +99,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'provider',
     label: 'provider',
-    description: 'Show, add, remove, connect, or disconnect Openbuff providers',
+    description: 'Show, add, remove, connect, or disconnect providers',
   },
   // {
   //   id: 'undo',
@@ -152,25 +152,15 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
-    id: 'agent:gpt-5',
-    label: 'agent:gpt-5',
-    description: 'Spawn the GPT-5 agent to help solve complex problems',
-    insertText: '@GPT-5 Agent ',
+    id: 'agent:general',
+    label: 'agent:general',
+    description: 'Spawn the general agent to help solve complex problems',
+    insertText: '@general-agent ',
   },
-  // {
-  //   id: 'agent:opus',
-  //   label: 'agent:opus',
-  //   description: 'Spawn the Opus agent to help solve any problem',
-  //   insertText: '@Opus Agent ',
-  // },
   {
     id: 'feedback',
     label: 'feedback',
-    description: IS_FREEBUFF
-      ? 'Share general feedback about Freebuff'
-      : isLocalMode()
-        ? 'Share general feedback about Openbuff'
-        : 'Share general feedback about Codebuff',
+    description: 'Share general feedback',
   },
   {
     id: 'bash',

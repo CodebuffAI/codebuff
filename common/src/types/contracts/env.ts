@@ -87,8 +87,6 @@ export type BaseEnv = {
  */
 export type CiEnv = BaseCiEnv & {
   CODEBUFF_GITHUB_TOKEN?: string
-  CODEBUFF_API_KEY?: string
-  OPENBUFF_API_KEY?: string
   CODEBUFF_CHATGPT_OAUTH_TOKEN?: string
   OPENBUFF_CHATGPT_OAUTH_TOKEN?: string
   EVAL_RESULTS_EMAIL?: string

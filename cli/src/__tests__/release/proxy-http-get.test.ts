@@ -17,12 +17,6 @@ const helperModules = [
       new URL('../../../release-staging/http.js', import.meta.url),
     ),
   },
-  {
-    name: 'freebuff release helper',
-    path: fileURLToPath(
-      new URL('../../../../freebuff/cli/release/http.js', import.meta.url),
-    ),
-  },
 ]
 
 function createResponse(statusCode: number, headers: Record<string, string>, body = '') {

@@ -5,7 +5,7 @@ export interface FreebuffSessionResult {
   error: string | null
 }
 
-/** Always returns null - stub for deleted Codebuff auth. */
+/** Always returns null - stub for deleted hosted auth. */
 export function useFreebuffSession(): FreebuffSessionResult {
   return { session: null, error: null }
 }

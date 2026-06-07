@@ -9,10 +9,11 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { CodebuffClient } from '../../src/client'
 import {
   EventCollector,
-  getApiKey,
+  getByokTestClientOptions,
   skipIfNoApiKey,
   SAMPLE_PROJECT_FILES,
   DEFAULT_AGENT,
+  DEFAULT_AGENT_DEFINITION,
   DEFAULT_TIMEOUT,
 } from '../utils'
 
@@ -21,7 +22,10 @@ describe('Features: Project Files', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new CodebuffClient({
+      ...getByokTestClientOptions(),
+      agentDefinitions: [DEFAULT_AGENT_DEFINITION],
+    })
   })
 
   test(

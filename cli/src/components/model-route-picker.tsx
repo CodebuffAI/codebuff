@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from './button'
 import { MultilineInput } from './multiline-input'
 import { SelectableList } from './selectable-list'
-import { useSearchableList } from '../hooks/use-searchable-list'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
+import { createTextPasteHandler } from '../utils/strings'
 import {
   getEditableConfig,
   getKnownModelOptions,
@@ -41,8 +41,7 @@ function displayModel(route: RoutableModelValue | undefined): string | undefined
   return route.model
 }
 
-// --- Reasoning effort types and options ---
-
+// --- Reasoning effort types and options ---\n
 type ReasoningChoice = Exclude<ReasoningEffortInput, undefined>
 
 interface ReasoningOption {
@@ -132,7 +131,8 @@ interface ModelRoutePickerProps {
   onConfigUpdated?: () => void
 }
 
-type PickerView = 'route-list' | 'model-select' | 'reasoning-select'
+type PickerPane = 'left' | 'right'
+type RightView = 'model-select' | 'reasoning-select'
 
 const isHeaderItem = (item: SelectableListItem | undefined): boolean =>
   item?.id.startsWith('section-') ?? false
@@ -142,9 +142,7 @@ const firstSelectableIndex = (items: SelectableListItem[]): number => {
   return index === -1 ? 0 : index
 }
 
-/**
- * Filter out section headers that have no visible child routes.
- */
+/** Filter out section headers that have no visible child routes. */
 function filterOrphanHeaders(filtered: SelectableListItem[]): SelectableListItem[] {
   const routeIds = new Set(
     filtered
@@ -195,20 +193,26 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   const theme = useTheme()
   const { terminalWidth, terminalHeight } = useTerminalLayout()
 
-  const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
   const isCompactMode = terminalHeight < LAYOUT.COMPACT_MODE_THRESHOLD
 
-  const [view, setView] = useState<PickerView>('route-list')
-  const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null)
+  // Master State: Dual-Pane split screen Dashboard
+  const [activePane, setActivePane] = useState<PickerPane>('left')
+  const [leftSearchQuery, setLeftSearchQuery] = useState('')
+  const [leftFocusedIndex, setLeftFocusedIndex] = useState(0)
+
+  const [rightView, setRightView] = useState<RightView>('model-select')
+  const [rightSearchQuery, setRightSearchQuery] = useState('')
+  const [rightFocusedIndex, setRightFocusedIndex] = useState(0)
+
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [selectedModelDiscovered, setSelectedModelDiscovered] = useState(false)
+
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const statusClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [configKey, setConfigKey] = useState(0) // Force refresh after writes
 
   // Load current config
   const config = useMemo(() => {
-    // Use configKey as dependency to force re-read after writes
     void configKey
     return getEditableConfig()
   }, [configKey])
@@ -310,7 +314,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
       isHeader: true,
     })
 
-    // Agent overrides (excluding editor multi-prompt agents)
+    // Agent overrides
     const editorAgentPrefixes = [
       'editor-implementor-proposal-',
       'best-of-n-selector2',
@@ -353,36 +357,26 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     [routeItems],
   )
 
-  // Filter routes by search query (matches label or secondary)
-  const filterRoutes = useCallback(
-    (item: SelectableListItem, query: string) => {
-      const q = query.toLowerCase()
+  const filteredRoutes = useMemo(() => {
+    const raw = selectableRouteItems.filter((item) => {
+      if (!leftSearchQuery.trim()) return true
+      const q = leftSearchQuery.toLowerCase()
       return (
         item.label.toLowerCase().includes(q) ||
         (item.secondary ?? '').toLowerCase().includes(q)
       )
-    },
-    [],
-  )
+    })
+    return filterOrphanHeaders(raw)
+  }, [selectableRouteItems, leftSearchQuery])
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    focusedIndex,
-    setFocusedIndex,
-    filteredItems: rawFilteredRoutes,
-    handleFocusChange,
-  } = useSearchableList({
-    items: selectableRouteItems,
-    filterFn: filterRoutes,
-  })
+  // Track currently highlighted Left Pane Route
+  const highlightedRoute = useMemo(() => {
+    const item = filteredRoutes[leftFocusedIndex]
+    if (!item) return null
+    return routeItems.find((r) => r.id === item.id) || null
+  }, [filteredRoutes, leftFocusedIndex, routeItems])
 
-  const filteredRoutes = useMemo(
-    () => filterOrphanHeaders(rawFilteredRoutes),
-    [rawFilteredRoutes],
-  )
-
-  // Available models for selection
+  // Right Pane Model Options
   const availableModels = useMemo(() => {
     void configKey
     return getKnownModelOptions()
@@ -400,26 +394,16 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     [availableModels],
   )
 
-  const filterModels = useCallback(
-    (item: SelectableListItem, query: string) =>
-      item.label.toLowerCase().includes(query.toLowerCase()),
-    [],
-  )
+  const filteredModels = useMemo(() => {
+    if (!rightSearchQuery.trim()) return selectableModelItems
+    const q = rightSearchQuery.toLowerCase()
+    return selectableModelItems.filter((item) =>
+      item.label.toLowerCase().includes(q),
+    )
+  }, [selectableModelItems, rightSearchQuery])
 
-  const {
-    searchQuery: modelSearchQuery,
-    setSearchQuery: setModelSearchQuery,
-    focusedIndex: modelFocusedIndex,
-    setFocusedIndex: setModelFocusedIndex,
-    filteredItems: filteredModels,
-    handleFocusChange: handleModelFocusChange,
-  } = useSearchableList({
-    items: selectableModelItems,
-    filterFn: filterModels,
-  })
-
-  // Reasoning options as selectable items, with current effort marked
-  const currentReasoningForRoute = selectedRoute?.currentReasoningEffort
+  // Right Pane Reasoning Effort Options
+  const currentReasoningForRoute = highlightedRoute?.currentReasoningEffort
   const selectableReasoningItems: SelectableListItem[] = useMemo(
     () =>
       REASONING_OPTIONS.map((option) => ({
@@ -433,59 +417,35 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     [currentReasoningForRoute],
   )
 
-  const filterReasoning = useCallback(
-    (item: SelectableListItem, query: string) =>
-      item.label.toLowerCase().includes(query.toLowerCase()) ||
-      (item.secondary ?? '').toLowerCase().includes(query.toLowerCase()),
-    [],
-  )
+  const filteredReasoningOptions = useMemo(() => {
+    if (!rightSearchQuery.trim()) return selectableReasoningItems
+    const q = rightSearchQuery.toLowerCase()
+    return selectableReasoningItems.filter((item) =>
+      item.label.toLowerCase().includes(q) ||
+      (item.secondary ?? '').toLowerCase().includes(q),
+    )
+  }, [selectableReasoningItems, rightSearchQuery])
 
-  const {
-    searchQuery: reasoningSearchQuery,
-    setSearchQuery: setReasoningSearchQuery,
-    focusedIndex: reasoningFocusedIndex,
-    setFocusedIndex: setReasoningFocusedIndex,
-    filteredItems: filteredReasoningOptions,
-    handleFocusChange: handleReasoningFocusChange,
-  } = useSearchableList({
-    items: selectableReasoningItems,
-    filterFn: filterReasoning,
-  })
+  // Right Pane Items & Empty Messages
+  const rightItems = useMemo(() => {
+    return rightView === 'model-select' ? filteredModels : filteredReasoningOptions
+  }, [rightView, filteredModels, filteredReasoningOptions])
 
-  // Reset focus when switching views
-  useEffect(() => {
-    if (view === 'route-list') {
-      setFocusedIndex(firstSelectableIndex(filteredRoutes))
-      setModelSearchQuery('')
-      setModelFocusedIndex(0)
-      setReasoningSearchQuery('')
-      setReasoningFocusedIndex(0)
-    } else if (view === 'model-select') {
-      setModelFocusedIndex(0)
-    } else if (view === 'reasoning-select') {
-      setReasoningFocusedIndex(0)
+  const rightEmptyMessage = useMemo(() => {
+    if (rightView === 'model-select') {
+      return rightSearchQuery ? 'No matching models' : 'No models available'
     }
-  }, [
-    view,
-    filteredRoutes,
-    setFocusedIndex,
-    setModelSearchQuery,
-    setModelFocusedIndex,
-    setReasoningSearchQuery,
-    setReasoningFocusedIndex,
-  ])
+    return 'No reasoning options'
+  }, [rightView, rightSearchQuery])
 
-  const handleRouteSelect = useCallback(
-    (item: SelectableListItem) => {
-      const route = routeItems.find((r) => r.id === item.id)
-      if (!route || route.isHeader || !route.target) return
-      setSelectedRoute(route)
-      setModelSearchQuery('')
-      setModelFocusedIndex(0)
-      setView('model-select')
-    },
-    [routeItems, setModelSearchQuery, setModelFocusedIndex],
-  )
+  // Bound indexes dynamically
+  useEffect(() => {
+    setLeftFocusedIndex((prev) => Math.min(Math.max(0, filteredRoutes.length - 1), prev))
+  }, [filteredRoutes])
+
+  useEffect(() => {
+    setRightFocusedIndex((prev) => Math.min(Math.max(0, rightItems.length - 1), prev))
+  }, [rightItems])
 
   useEffect(() => {
     return () => {
@@ -495,265 +455,152 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     }
   }, [])
 
-  const handleModelSelect = useCallback(
-    (item: SelectableListItem) => {
-      if (!selectedRoute?.target) return
-
-      // Find the KnownModelOption to check if it's a discovered model
-      const modelOption = availableModels.find((opt) => opt.model === item.id)
-      setSelectedModelId(item.id)
-      setSelectedModelDiscovered(modelOption?.discovered ?? false)
-      setReasoningSearchQuery('')
-      setReasoningFocusedIndex(0)
-      setView('reasoning-select')
-    },
-    [selectedRoute, availableModels, setReasoningSearchQuery, setReasoningFocusedIndex],
-  )
-
-  const handleReasoningSelect = useCallback(
-    (item: SelectableListItem) => {
-      if (!selectedRoute?.target || !selectedModelId) return
-
-      const reasoningChoice = item.id as ReasoningChoice
-
-      try {
-        // Persist discovered model to provider config if needed
-        if (selectedModelDiscovered) {
-          const slashIndex = selectedModelId.indexOf('/')
-          if (slashIndex > 0 && slashIndex < selectedModelId.length - 1) {
-            const providerId = selectedModelId.slice(0, slashIndex)
-            const modelId = selectedModelId.slice(slashIndex + 1)
-            persistModelToProviderConfig(providerId, modelId)
-          }
-        }
-
-        const editableConfig = getEditableConfig()
-        setRouteModel(editableConfig, selectedRoute.target, selectedModelId, reasoningChoice)
-        const configPath = writeMergedConfig(editableConfig)
-
-        const reasoningDisplay = reasoningChoice === 'default' ? 'default' : reasoningChoice
-        const msg = `✓ ${selectedRoute.label} → ${selectedModelId} (reasoning: ${reasoningDisplay})  (saved to ${configPath})`
-        setStatusMessage(msg)
-        if (statusClearTimerRef.current) {
-          clearTimeout(statusClearTimerRef.current)
-        }
-        statusClearTimerRef.current = setTimeout(() => {
-          setStatusMessage((current) => (current === msg ? null : current))
-        }, 4000)
-        setConfigKey((k) => k + 1)
-        setView('route-list')
-        setSelectedRoute(null)
-        setSelectedModelId(null)
-        setSelectedModelDiscovered(false)
-        onConfigUpdated?.()
-      } catch (error) {
-        setStatusMessage(
-          `✗ ${error instanceof Error ? error.message : String(error)}`,
-        )
-      }
-    },
-    [selectedRoute, selectedModelId, selectedModelDiscovered, onConfigUpdated],
-  )
-
+  // Core Keyboard Dashboard Navigation Interceptor
   const handleKeyIntercept = useCallback(
     (key: { name?: string; shift?: boolean; ctrl?: boolean }) => {
-      if (view === 'route-list') {
+      // Global exit key
+      if (key.name === 'c' && key.ctrl) {
+        onClose()
+        return true
+      }
+
+      if (activePane === 'left') {
         if (key.name === 'escape') {
-          if (searchQuery.length > 0) {
-            setSearchQuery('')
+          if (leftSearchQuery.length > 0) {
+            setLeftSearchQuery('')
             return true
           }
           onClose()
           return true
         }
         if (key.name === 'up') {
-          setFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, -1))
+          setLeftFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, -1))
           return true
         }
         if (key.name === 'down') {
-          setFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, 1))
+          setLeftFocusedIndex((prev) => nextSelectableIndex(filteredRoutes, prev, 1))
           return true
         }
-        if (key.name === 'return' || key.name === 'enter') {
-          const focused = filteredRoutes[focusedIndex]
+        if (
+          key.name === 'return' ||
+          key.name === 'enter' ||
+          key.name === 'right' ||
+          key.name === 'tab'
+        ) {
+          const focused = filteredRoutes[leftFocusedIndex]
           if (focused && !isHeaderItem(focused)) {
-            handleRouteSelect(focused)
+            setActivePane('right')
+            setRightView('model-select')
+            setRightSearchQuery('')
+            setRightFocusedIndex(0)
           }
           return true
         }
-      } else if (view === 'model-select') {
-        if (key.name === 'escape') {
-          if (modelSearchQuery.length > 0) {
-            setModelSearchQuery('')
+      } else if (activePane === 'right') {
+        if (key.name === 'escape' || key.name === 'left') {
+          if (rightSearchQuery.length > 0) {
+            setRightSearchQuery('')
             return true
           }
-          setView('route-list')
-          setSelectedRoute(null)
+          setActivePane('left')
+          return true
+        }
+        if (key.name === 'tab') {
+          setActivePane('left')
           return true
         }
         if (key.name === 'up') {
-          setModelFocusedIndex((prev) => Math.max(0, prev - 1))
+          setRightFocusedIndex((prev) => Math.max(0, prev - 1))
           return true
         }
         if (key.name === 'down') {
-          if (filteredModels.length === 0) return true
-          const maxIndex = filteredModels.length - 1
-          setModelFocusedIndex((prev) => Math.min(maxIndex, prev + 1))
+          setRightFocusedIndex((prev) => Math.min(rightItems.length - 1, prev + 1))
           return true
         }
         if (key.name === 'return' || key.name === 'enter') {
-          const focused = filteredModels[modelFocusedIndex]
-          if (focused) {
-            handleModelSelect(focused)
+          const focusedItem = rightItems[rightFocusedIndex]
+          if (!focusedItem) return true
+
+          if (rightView === 'model-select') {
+            // Model Selected! Progress to reasoning select
+            const modelOption = availableModels.find((opt) => opt.model === focusedItem.id)
+            setSelectedModelId(focusedItem.id)
+            setSelectedModelDiscovered(modelOption?.discovered ?? false)
+            setRightView('reasoning-select')
+            setRightSearchQuery('')
+            setRightFocusedIndex(0)
+          } else {
+            // Reasoning Selected! Commit config to disk
+            if (!highlightedRoute?.target || !selectedModelId) return true
+            const reasoningChoice = focusedItem.id as ReasoningChoice
+
+            try {
+              if (selectedModelDiscovered) {
+                const slashIndex = selectedModelId.indexOf('/')
+                if (slashIndex > 0 && slashIndex < selectedModelId.length - 1) {
+                  const providerId = selectedModelId.slice(0, slashIndex)
+                  const modelId = selectedModelId.slice(slashIndex + 1)
+                  persistModelToProviderConfig(providerId, modelId)
+                }
+              }
+
+              const editableConfig = getEditableConfig()
+              setRouteModel(editableConfig, highlightedRoute.target, selectedModelId, reasoningChoice)
+              const configPath = writeMergedConfig(editableConfig)
+
+              const reasoningDisplay = reasoningChoice === 'default' ? 'default' : reasoningChoice
+              const msg = `✓ Saved: ${highlightedRoute.label} → ${selectedModelId} (reasoning: ${reasoningDisplay})`
+              setStatusMessage(msg)
+
+              if (statusClearTimerRef.current) {
+                clearTimeout(statusClearTimerRef.current)
+              }
+              statusClearTimerRef.current = setTimeout(() => {
+                setStatusMessage((current) => (current === msg ? null : current))
+              }, 4000)
+
+              setConfigKey((k) => k + 1)
+              setActivePane('left')
+              setSelectedModelId(null)
+              setSelectedModelDiscovered(false)
+              onConfigUpdated?.()
+            } catch (error) {
+              setStatusMessage(`✗ ${error instanceof Error ? error.message : String(error)}`)
+            }
           }
           return true
         }
-      } else if (view === 'reasoning-select') {
-        if (key.name === 'escape') {
-          setView('model-select')
-          setSelectedModelId(null)
-          setSelectedModelDiscovered(false)
-          return true
-        }
-        if (key.name === 'up') {
-          setReasoningFocusedIndex((prev) => Math.max(0, prev - 1))
-          return true
-        }
-        if (key.name === 'down') {
-          if (filteredReasoningOptions.length === 0) return true
-          const maxIndex = filteredReasoningOptions.length - 1
-          setReasoningFocusedIndex((prev) => Math.min(maxIndex, prev + 1))
-          return true
-        }
-        if (key.name === 'return' || key.name === 'enter') {
-          const focused = filteredReasoningOptions[reasoningFocusedIndex]
-          if (focused) {
-            handleReasoningSelect(focused)
-          }
-          return true
-        }
-      }
-      if (key.name === 'c' && key.ctrl) {
-        onClose()
-        return true
       }
       return false
     },
     [
-      view,
-      searchQuery,
-      setSearchQuery,
-      onClose,
-      setFocusedIndex,
+      activePane,
+      leftSearchQuery,
       filteredRoutes,
-      focusedIndex,
-      handleRouteSelect,
-      modelSearchQuery,
-      setModelSearchQuery,
-      setModelFocusedIndex,
-      filteredModels,
-      modelFocusedIndex,
-      handleModelSelect,
-      reasoningSearchQuery,
-      setReasoningSearchQuery,
-      setReasoningFocusedIndex,
-      filteredReasoningOptions,
-      reasoningFocusedIndex,
-      handleReasoningSelect,
+      leftFocusedIndex,
+      rightSearchQuery,
+      rightItems,
+      rightFocusedIndex,
+      rightView,
+      selectedModelId,
+      selectedModelDiscovered,
+      highlightedRoute,
+      availableModels,
+      onClose,
+      onConfigUpdated,
     ],
   )
 
-  const title =
-    view === 'route-list'
-      ? 'Model Route Configuration'
-      : view === 'model-select'
-        ? `Select model for ${selectedRoute?.label ?? ''}`
-        : `Reasoning effort for ${selectedRoute?.label ?? ''} → ${selectedModelId ?? ''}`
+  const activeRouteLabel = highlightedRoute ? highlightedRoute.label : 'None'
+  const activeModelDisplay = highlightedRoute ? (highlightedRoute.currentModel || '(not set)') : '—'
+  const activeReasoningDisplay = highlightedRoute ? formatReasoning(highlightedRoute.currentReasoningEffort) : 'default'
 
   const helpText =
-    view === 'route-list'
-      ? '↑↓ navigate · Enter change · / search · Esc close'
-      : view === 'model-select'
-        ? '↑↓ navigate · Enter select · / search · Esc back'
-        : '↑↓ navigate · Enter select · Esc back to model'
-
-  const statusLine = statusMessage
-    ? `  ${statusMessage}`
-    : undefined
-
-  const items =
-    view === 'route-list'
-      ? filteredRoutes.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
-      : view === 'model-select'
-        ? filteredModels.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
-        : filteredReasoningOptions.slice(0, LAYOUT.MAX_RENDERED_ITEMS)
-
-  const currentFocusedIndex =
-    view === 'route-list'
-      ? focusedIndex
-      : view === 'model-select'
-        ? modelFocusedIndex
-        : reasoningFocusedIndex
-
-  const currentSetFocusedIndex =
-    view === 'route-list'
-      ? setFocusedIndex
-      : view === 'model-select'
-        ? setModelFocusedIndex
-        : setReasoningFocusedIndex
-
-  const currentOnSelect =
-    view === 'route-list'
-      ? handleRouteSelect
-      : view === 'model-select'
-        ? handleModelSelect
-        : handleReasoningSelect
-
-  // Search query management per view
-  const currentSearchQuery =
-    view === 'route-list'
-      ? searchQuery
-      : view === 'model-select'
-        ? modelSearchQuery
-        : reasoningSearchQuery
-
-  const currentSetSearchQuery =
-    view === 'route-list'
-      ? setSearchQuery
-      : view === 'model-select'
-        ? setModelSearchQuery
-        : setReasoningSearchQuery
-
-  const emptyMessage =
-    view === 'route-list'
-      ? searchQuery
-        ? 'No matching routes'
-        : 'No routes configured yet.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
-      : view === 'model-select'
-        ? modelSearchQuery
-          ? 'No matching models'
-          : availableModels.length === 0
-            ? 'No provider models configured.\n  /setup codex          — preset with ChatGPT/Codex subscription\n  /provider connect codex  — connect ChatGPT subscription (then use the preset)\n  /provider add         — add a provider manually'
-            : 'No models found'
-        : 'No reasoning options'
-
-  const handleRouteFocusChange = useCallback(
-    (index: number) => {
-      if (isHeaderItem(filteredRoutes[index])) {
-        setFocusedIndex(firstSelectableIndex(filteredRoutes))
-        return
-      }
-      handleFocusChange(index)
-    },
-    [filteredRoutes, handleFocusChange, setFocusedIndex],
-  )
-
-  const currentOnFocusChange =
-    view === 'route-list'
-      ? handleRouteFocusChange
-      : view === 'model-select'
-        ? handleModelFocusChange
-        : handleReasoningFocusChange
+    activePane === 'left'
+      ? '↑↓ Navigate routes · Tab/Enter Edit selected · Esc Close'
+      : activePane === 'right'
+        ? `Right Panel editing: ${rightView === 'model-select' ? 'Choose Model' : 'Choose Reasoning'} · Tab/Esc back`
+        : '↑↓ Navigate · Enter select'
 
   return (
     <box
@@ -765,99 +612,190 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
         flexDirection: 'column',
       }}
     >
-      {/* Main content area */}
+      {/* Header bar */}
+      {!isCompactMode && (
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingLeft: 2,
+            paddingRight: 2,
+            marginTop: 1,
+            marginBottom: 1,
+            flexShrink: 0,
+          }}
+        >
+          <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
+            Model Route & Agent Configuration Dashboard
+          </text>
+          {statusMessage && (
+            <text style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>
+              {statusMessage}
+            </text>
+          )}
+        </box>
+      )}
+
+      {/* Main Dual-Pane Dashboard Area */}
       <box
         style={{
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
+          flexDirection: 'row',
+          flexGrow: 1,
+          flexShrink: 1,
           width: '100%',
           paddingLeft: 2,
           paddingRight: 2,
-          paddingTop: isCompactMode ? 0 : 1,
-          paddingBottom: 0,
-          gap: 0,
-          flexGrow: 1,
-          flexShrink: 1,
+          gap: 1,
         }}
       >
-        {/* Title */}
-        {!isCompactMode && (
-          <box
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              marginBottom: 1,
-              marginTop: 1,
-              flexShrink: 0,
-            }}
-          >
-            <text
-              style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}
-            >
-              {title}
-            </text>
-          </box>
-        )}
-
-        {/* Search input */}
-        <box
-          style={{
-            width: contentWidth,
-            flexShrink: 0,
-            marginBottom: 0,
-          }}
-        >
-          <MultilineInput
-            value={currentSearchQuery}
-            onChange={({ text }) => currentSetSearchQuery(text)}
-            onSubmit={() => {}}
-            onPaste={() => {}}
-            onKeyIntercept={handleKeyIntercept}
-            placeholder="Search..."
-            focused={true}
-            maxHeight={1}
-            minHeight={1}
-            cursorPosition={currentSearchQuery.length}
-          />
-        </box>
-
-        {/* List - grows to fill remaining space */}
+        {/* LEFT PANEL: Routes list */}
         <box
           style={{
             flexDirection: 'column',
-            width: contentWidth,
-            borderStyle: 'single',
-            borderColor: theme.muted,
+            width: '45%',
             flexGrow: 1,
             flexShrink: 1,
-            overflow: 'hidden',
           }}
-          border={['top', 'bottom', 'left', 'right']}
         >
-          <SelectableList
-            items={items}
-            focusedIndex={currentFocusedIndex}
-            onSelect={currentOnSelect}
-            onFocusChange={currentOnFocusChange}
-            emptyMessage={emptyMessage}
-          />
+          <text style={{ fg: activePane === 'left' ? theme.primary : theme.muted, attributes: TextAttributes.BOLD, marginBottom: 0 }}>
+            {activePane === 'left' ? '▶ Route Targets' : '  Route Targets'}
+          </text>
+          
+          <box style={{ flexShrink: 0, marginBottom: 0 }}>
+            <MultilineInput
+              value={leftSearchQuery}
+              onChange={({ text }) => setLeftSearchQuery(text)}
+              onSubmit={() => {}}
+              onPaste={createTextPasteHandler(
+                leftSearchQuery,
+                leftSearchQuery.length,
+                ({ text }) => setLeftSearchQuery(text),
+              )}
+              onKeyIntercept={handleKeyIntercept}
+              placeholder="Search routes..."
+              focused={activePane === 'left'}
+              maxHeight={1}
+              minHeight={1}
+              cursorPosition={leftSearchQuery.length}
+            />
+          </box>
+
+          <box
+            style={{
+              flexDirection: 'column',
+              borderStyle: 'single',
+              borderColor: activePane === 'left' ? theme.primary : theme.border,
+              flexGrow: 1,
+              flexShrink: 1,
+              overflow: 'hidden',
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
+            <SelectableList
+              items={filteredRoutes.slice(0, LAYOUT.MAX_RENDERED_ITEMS)}
+              focusedIndex={leftFocusedIndex}
+              onSelect={() => {}}
+              onFocusChange={() => {}}
+              emptyMessage="No matching routes"
+            />
+          </box>
+        </box>
+
+        {/* RIGHT PANEL: Dynamic Config & Selection Panel */}
+        <box
+          style={{
+            flexDirection: 'column',
+            width: '55%',
+            flexGrow: 1,
+            flexShrink: 1,
+          }}
+        >
+          <text style={{ fg: activePane === 'right' ? theme.primary : theme.muted, attributes: TextAttributes.BOLD, marginBottom: 0 }}>
+            {activePane === 'right' ? '▶ Configuration Detail' : '  Configuration Detail'}
+          </text>
+
+          {/* Active Route Status Card */}
+          <box
+            style={{
+              flexDirection: 'column',
+              backgroundColor: theme.surface,
+              paddingLeft: 1,
+              paddingRight: 1,
+              borderStyle: 'single',
+              borderColor: theme.border,
+              flexShrink: 0,
+              marginBottom: 1,
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
+            <text style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>
+              Active Target: {activeRouteLabel}
+            </text>
+            <text style={{ fg: theme.foreground }}>
+              Model: <span style={{ fg: theme.primary }}>{activeModelDisplay}</span>
+            </text>
+            <text style={{ fg: theme.foreground }}>
+              Reasoning: <span style={{ fg: theme.primary }}>{activeReasoningDisplay}</span>
+            </text>
+          </box>
+
+          {/* Right Panel searchable list */}
+          {activePane === 'right' && (
+            <box style={{ flexShrink: 0, marginBottom: 0 }}>
+              <MultilineInput
+                value={rightSearchQuery}
+                onChange={({ text }) => setRightSearchQuery(text)}
+                onSubmit={() => {}}
+                onPaste={createTextPasteHandler(
+                  rightSearchQuery,
+                  rightSearchQuery.length,
+                  ({ text }) => setRightSearchQuery(text),
+                )}
+                onKeyIntercept={handleKeyIntercept}
+                placeholder={rightView === 'model-select' ? "Search models..." : "Search reasoning..."}
+                focused={activePane === 'right'}
+                maxHeight={1}
+                minHeight={1}
+                cursorPosition={rightSearchQuery.length}
+              />
+            </box>
+          )}
+
+          <box
+            style={{
+              flexDirection: 'column',
+              borderStyle: 'single',
+              borderColor: activePane === 'right' ? theme.primary : theme.border,
+              flexGrow: 1,
+              flexShrink: 1,
+              overflow: 'hidden',
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
+            <SelectableList
+              items={rightItems.slice(0, LAYOUT.MAX_RENDERED_ITEMS)}
+              focusedIndex={rightFocusedIndex}
+              onSelect={() => {}}
+              onFocusChange={() => {}}
+              emptyMessage={rightEmptyMessage}
+            />
+          </box>
         </box>
       </box>
 
-      {/* Bottom bar */}
+      {/* Footer bar */}
       <box
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
-          paddingTop: 0,
-          paddingBottom: 0,
           borderStyle: 'single',
           borderColor: theme.border,
           flexShrink: 0,
           backgroundColor: theme.surface,
+          marginTop: 1,
         }}
         border={['top']}
       >
@@ -866,34 +804,22 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            width: contentWidth,
+            width: terminalWidth - LAYOUT.CONTENT_PADDING,
           }}
         >
-          {/* Help text and status */}
-          <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: 'column' }}>
-            <text style={{ fg: theme.muted }}>{helpText}</text>
-            {statusLine && (
-              <text style={{ fg: theme.primary }}>{statusLine}</text>
-            )}
-          </box>
-
-          {/* Cancel button */}
-          <box style={{ flexDirection: 'row', gap: 1 }}>
-            <Button
-              onClick={onClose}
-              style={{
-                paddingLeft: 2,
-                paddingRight: 2,
-                paddingTop: 0,
-                paddingBottom: 0,
-                borderStyle: 'single',
-                borderColor: theme.muted,
-              }}
-              border={['top', 'bottom', 'left', 'right']}
-            >
-              <text style={{ fg: theme.muted }}>Close</text>
-            </Button>
-          </box>
+          <text style={{ fg: theme.muted }}>{helpText}</text>
+          <Button
+            onClick={onClose}
+            style={{
+              paddingLeft: 2,
+              paddingRight: 2,
+              borderStyle: 'single',
+              borderColor: theme.muted,
+            }}
+            border={['top', 'bottom', 'left', 'right']}
+          >
+            <text style={{ fg: theme.muted }}>Close</text>
+          </Button>
         </box>
       </box>
     </box>

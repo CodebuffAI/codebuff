@@ -6,6 +6,7 @@ import { MultilineInput } from './multiline-input'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { getSystemProcessEnv } from '../utils/env'
+import { createTextPasteHandler } from '../utils/strings'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -435,7 +436,17 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
                 setCustomCursor(cursorPosition)
               }}
               onSubmit={submitCustomValue}
-              onPaste={() => {}}
+              onPaste={createTextPasteHandler(
+                currentValue,
+                customCursor,
+                ({ text, cursorPosition }) => {
+                  setCustomProvider((provider) => ({
+                    ...provider,
+                    [currentField]: text,
+                  }))
+                  setCustomCursor(cursorPosition)
+                },
+              )}
               onKeyIntercept={handleCustomKey}
               placeholder={FIELD_LABELS[currentField]}
               focused={true}
@@ -491,7 +502,15 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
             setSelectedIndex(0)
           }}
           onSubmit={selectCurrentItem}
-          onPaste={() => {}}
+          onPaste={createTextPasteHandler(
+            query,
+            queryCursor,
+            ({ text, cursorPosition }) => {
+              setQuery(text)
+              setQueryCursor(cursorPosition)
+              setSelectedIndex(0)
+            },
+          )}
           onKeyIntercept={handlePickerKey}
           placeholder="Search providers..."
           focused={true}

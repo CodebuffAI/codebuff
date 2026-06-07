@@ -6,8 +6,7 @@ import type { AgentDefinition } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Note: You need to pass in your own API key.
-    // Get it here: https://www.codebuff.com/profile?tab=api-keys
+    // Required only for the legacy hosted compatibility API.
     apiKey: process.env.CODEBUFF_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
@@ -61,7 +60,7 @@ async function main() {
 
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('SDK Event', JSON.stringify(event))
     },
   })
 

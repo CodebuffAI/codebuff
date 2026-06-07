@@ -13,6 +13,7 @@ import {
   getApiKey,
   skipIfNoApiKey,
   DEFAULT_AGENT,
+  DEFAULT_AGENT_DEFINITION,
   DEFAULT_TIMEOUT,
 } from '../utils'
 
@@ -21,7 +22,10 @@ describe('Integration: Event Ordering', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new CodebuffClient({
+      apiKey: getApiKey(),
+      agentDefinitions: [DEFAULT_AGENT_DEFINITION],
+    })
   })
 
   test(

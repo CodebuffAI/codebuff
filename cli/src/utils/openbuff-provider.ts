@@ -1,3 +1,4 @@
+import path from 'path'
 import {
   OPENBUFF_PROVIDER_PRESETS,
   addDiscoveredModelToProviderConfig,
@@ -320,12 +321,14 @@ function setRouteReasoningEffort(
   }
 }
 
+export { loadProviderConfigSync }
+
 export function formatOpenbuffProviderStatus(): string {
   const loadedConfig = loadProviderConfigSync()
   const codexStatus = getChatGptOAuthStatus()
   const presetList = Object.values(OPENBUFF_PROVIDER_PRESETS)
     .map((preset) => `- ${preset.id}: ${preset.description}`)
-    .join('\n')
+    .join('\\n')
 
   return [
     'Openbuff provider status',
@@ -336,8 +339,16 @@ export function formatOpenbuffProviderStatus(): string {
     'Provider presets:',
     presetList,
     '',
-    'Use `/provider add` for the wizard, `/provider connect codex` for Codex OAuth, or `/setup <preset>` for a preset.',
-  ].join('\n')
+    'Use `/setup` (without args) or `/provider add` for the interactive wizard, `/provider connect codex` for Codex OAuth, or `/setup <preset>` for a preset.',
+  ].join('\\n')
+}
+
+function getRelativeConfigPath(filePath: string): string {
+  try {
+    return path.relative(process.cwd(), filePath)
+  } catch {
+    return filePath
+  }
 }
 
 export function formatOpenbuffModelStatus(): string {
@@ -350,8 +361,12 @@ export function formatOpenbuffModelStatus(): string {
       model: '(agent default)',
       loadedConfig,
     })
+    const sourceFile =
+      loadedConfig.sourceFiles?.routes?.modes?.[mode.toLowerCase()] ??
+      loadedConfig.sourceFiles?.routes?.agents?.[agentId]
+    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
     lines.push(
-      `${mode.toLowerCase()}: ${agentId} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}`,
+      `${mode.toLowerCase()}: ${agentId} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}${sourceSuffix}`,
     )
   }
 
@@ -365,8 +380,10 @@ export function formatOpenbuffModelStatus(): string {
           model,
           loadedConfig,
         })
+        const sourceFile = loadedConfig.sourceFiles?.routes?.editorMultiPrompt
+        const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
         lines.push(
-          `proposal #${index + 1}: editor-implementor-proposal-${index + 1} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}`,
+          `proposal #${index + 1}: editor-implementor-proposal-${index + 1} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}${sourceSuffix}`,
         )
       },
     )
@@ -376,12 +393,14 @@ export function formatOpenbuffModelStatus(): string {
         loadedConfig.config.editorMultiPrompt.selectorModel ?? '(agent default)',
       loadedConfig,
     })
+    const sourceFile = loadedConfig.sourceFiles?.routes?.editorMultiPrompt
+    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
     lines.push(
-      `selector: best-of-n-selector2 -> ${selectorRoute.model}${formatReasoningEffort(selectorRoute.reasoningEffort)}${formatCapabilitiesSuffix(selectorRoute.model, loadedConfig)}`,
+      `selector: best-of-n-selector2 -> ${selectorRoute.model}${formatReasoningEffort(selectorRoute.reasoningEffort)}${formatCapabilitiesSuffix(selectorRoute.model, loadedConfig)}${sourceSuffix}`,
     )
     lines.push('')
   }
-  lines.push(`Config files: ${loadedConfig.sourceFilePaths.join(', ') || 'not found'}`)
+  lines.push(`Config files: ${loadedConfig.sourceFilePaths.map(getRelativeConfigPath).join(', ') || 'not found'}`)
   lines.push(`Agent overrides: ${Object.keys(loadedConfig.config.agents ?? {}).length}`)
 
   const missing = getMissingProviderEnvVars({ loadedConfig })
@@ -390,7 +409,10 @@ export function formatOpenbuffModelStatus(): string {
     lines.push(`Missing env: ${missing.join(', ')}`)
   }
 
-  return lines.join('\n')
+  lines.push('')
+  lines.push('Tip: Run `/models configure` to configure routing interactively in a graphical menu, or `/models set default <model-id>` to quickly route your defaults.')
+
+  return lines.join('\\n')
 }
 
 export function writeMergedConfig(config: ProviderConfigFileInput): string {

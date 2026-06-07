@@ -12,6 +12,22 @@ import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/cli
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
+declare const Bun: {
+  Transpiler: new (options: { loader: BunTranspilerLoader }) => {
+    transformSync: (content: string) => string
+  }
+}
+
+type BunTranspilerLoader = 'js' | 'jsx' | 'ts' | 'tsx'
+
+function getBunTranspilerLoader(path: string): BunTranspilerLoader | null {
+  if (path.endsWith('.tsx')) return 'tsx'
+  if (path.endsWith('.jsx')) return 'jsx'
+  if (path.endsWith('.ts')) return 'ts'
+  if (path.endsWith('.js')) return 'js'
+  return null
+}
+
 export const handleEditTransaction = (async (
   params: {
     previousToolCallFinished: Promise<void>
@@ -83,6 +99,42 @@ export const handleEditTransaction = (async (
       fileProcessingState.failedEditRequiresReadByPath[
         transactionFile.path
       ] = true
+    }
+  }
+
+  // --- VIRTUAL COMPILE TRANSACTIONS: Preflight Syntax Validation ---
+  for (const file of transactionResult.files) {
+    const loader = getBunTranspilerLoader(file.path)
+    if (loader) {
+      try {
+        const transpiler = new Bun.Transpiler({ loader })
+        transpiler.transformSync(file.content)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        markAllTransactionPathsAsRequiringRead()
+        return {
+          output: [
+            {
+              type: 'json',
+              value: {
+                errorMessage: [
+                  `Preflight Syntax Validation Failed: Atomically rejected transaction due to syntax error in ${file.path}: ${errorMessage}`,
+                  'NO files were changed. Do NOT resubmit the same edit_transaction; it will fail the same way.',
+                  'Recovery: re-read the exact current lines of the broken file, then fix the specific syntax error with a small targeted edit.',
+                  'For import changes specifically, prefer structured insert_import/remove_import operations instead of rewriting an entire import block — generated multi-import rewrites are the most common cause of this error (e.g. an `import { ... }` left without a valid `from "..."`).',
+                ].join('\n'),
+                failures: [
+                  {
+                    editIndex: -1,
+                    path: file.path,
+                    errorMessage,
+                  },
+                ],
+              },
+            },
+          ],
+        }
+      }
     }
   }
 

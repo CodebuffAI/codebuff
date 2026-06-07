@@ -157,7 +157,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'subscribe',
   'image',
   'publish',
-  'gpt-5-agent',
+  'general-agent',
   'setup',
   'models',
   'provider',
@@ -290,6 +290,12 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommandWithArgs({
     name: 'setup',
     handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      if (!trimmedArgs) {
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return { openProviderPicker: true }
+      }
       try {
         params.setMessages((prev) => [
           ...prev,
@@ -312,8 +318,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'models',
     handler: (params, args) => {
       const trimmedArgs = args.trim()
-      if (trimmedArgs.match(/^(configure|wizard)$/)) {
-        params.saveToHistory(params.inputValue.trim())
+      if (!trimmedArgs || trimmedArgs.match(/^(configure|wizard)$/)) {
+        params.saveToHistory(params.inputValue.trim() || '/models')
         clearInput(params)
         return { openModelRoutePicker: true }
       }
@@ -340,8 +346,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'provider',
     handler: async (params, args) => {
       const trimmedArgs = args.trim()
-      if (trimmedArgs.match(/^(add|wizard)$/)) {
-        params.saveToHistory(params.inputValue.trim())
+      if (!trimmedArgs || trimmedArgs.match(/^(add|wizard)$/)) {
+        params.saveToHistory(params.inputValue.trim() || '/provider')
         clearInput(params)
         return { openProviderPicker: true }
       }
@@ -478,12 +484,12 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   defineCommand({
-    name: 'gpt-5-agent',
+    name: 'general-agent',
     handler: (params) => {
-      // Insert @ GPT-5 Agent into the input field (UI shortcut, not a real command)
+      // Insert @ General Agent into the input field (UI shortcut, not a real command)
       params.setInputValue({
-        text: '@GPT-5 Agent ',
-        cursorPosition: '@GPT-5 Agent '.length,
+        text: '@General Agent ',
+        cursorPosition: '@General Agent '.length,
         lastEditDueToNav: false,
       })
       params.inputRef.current?.focus()

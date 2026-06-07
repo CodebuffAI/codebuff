@@ -199,7 +199,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       }
       if (runId === 'run-gemini-thinker-child') {
         return {
-          agent_id: 'thinker-with-files-gemini',
+          agent_id: 'thinker',
           ancestor_run_ids: ['run-free'],
           status: 'running',
         }

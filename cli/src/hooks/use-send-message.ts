@@ -8,7 +8,6 @@ import { getCodebuffClient } from '../utils/codebuff-client'
 import {
   AGENT_MODE_TO_COST_MODE,
   IS_FREEBUFF,
-  isLocalMode,
 } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
@@ -365,16 +364,15 @@ export const useSendMessage = ({
       const client = await getCodebuffClient()
 
       if (!client) {
-        const brandName = IS_FREEBUFF ? 'Freebuff' : isLocalMode() ? 'Openbuff' : 'Codebuff'
         logger.error(
           {},
-          `[send-message] No ${brandName} client available. Please ensure you are authenticated.`,
+          '[send-message] No client available. Please check your provider configuration.',
         )
         // Show error to user instead of silently failing
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            `⚠️ Unable to connect to ${brandName}. Please check your authentication and try again.`,
+            '⚠️ Unable to connect. Please check your provider configuration and try again.',
           ),
         ])
         await yieldToEventLoop()

@@ -18,6 +18,18 @@ mock.module('../../components/chatgpt-connect-banner', () => ({
 
 mock.module('@codebuff/common/constants/chatgpt-oauth', () => ({
   CHATGPT_OAUTH_ENABLED: true,
+  CHATGPT_OAUTH_CLIENT_ID: 'test-client-id',
+  CHATGPT_OAUTH_AUTHORIZE_URL: 'https://auth.openai.com/oauth/authorize',
+  CHATGPT_OAUTH_TOKEN_URL: 'https://auth.openai.com/oauth/token',
+  CHATGPT_OAUTH_REDIRECT_URI: 'http://localhost:1455/auth/callback',
+  CHATGPT_BACKEND_BASE_URL: 'https://chatgpt.com/backend-api',
+  CHATGPT_OAUTH_TOKEN_ENV_VAR: 'CODEBUFF_CHATGPT_OAUTH_TOKEN',
+  OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR: 'OPENBUFF_CHATGPT_OAUTH_TOKEN',
+  OPENROUTER_TO_OPENAI_MODEL_MAP: {},
+  CHATGPT_OAUTH_OPENAI_MODEL_ALLOWLIST: [],
+  isOpenAIProviderModel: (model: string) => model.startsWith('openai/'),
+  isChatGptOAuthModelAllowed: () => false,
+  toOpenAIModelId: (model: string) => model,
 }))
 
 describe('routeUserPrompt connect:chatgpt mode', () => {

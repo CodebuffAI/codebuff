@@ -3,6 +3,7 @@
  */
 export type ToolName =
   | 'apply_patch'
+  | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
   | 'code_search'
@@ -10,7 +11,6 @@ export type ToolName =
   | 'edit_transaction'
   | 'find_files'
   | 'glob'
-  | 'gravity_index'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_edit_transaction'
@@ -42,6 +42,7 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   apply_patch: ApplyPatchParams
+  apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
   code_search: CodeSearchParams
@@ -49,7 +50,6 @@ export interface ToolParamsMap {
   edit_transaction: EditTransactionParams
   find_files: FindFilesParams
   glob: GlobParams
-  gravity_index: GravityIndexParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_edit_transaction: ProposeEditTransactionParams
@@ -256,47 +256,6 @@ export interface GlobParams {
 }
 
 /**
- * Use the Gravity Index catalog and conversion API.
- */
-export type GravityIndexParams =
-  | {
-      /** Search for the best service. */
-      action: 'search'
-      /** What the user needs, including stack, constraints, and required capabilities when known. Example: "serverless database with branching for a Next.js app". */
-      query: string
-      /** Continue a previous Gravity Index search as a follow-up. */
-      search_id?: string
-      /** Optional structured JSON context about the project, stack, or constraints. */
-      context?: any
-    }
-  | {
-      /** Browse catalog services by category and/or keyword. */
-      action: 'browse'
-      /** Optional category filter, e.g. Database, Auth, Payments, Hosting, Email, Cache, Monitoring, Analytics, AI, Storage, CMS, Search, Realtime, Background Jobs, Infrastructure, CRM, Support, Productivity, Commerce, Video, Webhooks, SMS. */
-      category?: string
-      /** Optional keyword filter, e.g. sendgrid or postgres. */
-      q?: string
-    }
-  | {
-      /** List every category with service counts. */
-      action: 'list_categories'
-    }
-  | {
-      /** Fetch full detail for a single service by slug. */
-      action: 'get_service'
-      /** Service slug, e.g. supabase, stripe, sendgrid. */
-      slug: string
-    }
-  | {
-      /** Report that an integration from a prior search was done. */
-      action: 'report_integration'
-      /** search_id from the earlier search result. */
-      search_id: string
-      /** Slug of the service that was actually integrated. */
-      integrated_slug: string
-    }
-
-/**
  * List files and directories in the specified path. Returns separate arrays of file names and directory names.
  */
 export interface ListDirectoryParams {
@@ -419,15 +378,21 @@ export interface ProposeWriteFileParams {
 }
 
 /**
- * Query the local codebase index to find relevant files by natural language or keyword.
+ * Query the local codebase graph index to find relevant files by natural language or keyword.
  */
 export interface QueryIndexParams {
-  /** Natural language query or keyword terms describing the files you are looking for. */
-  query: string
+  /** Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. */
+  query?: string
   /** Maximum number of results to return. Defaults to 20. */
   limit?: number
   /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"]. */
   fileTypes?: string[]
+  /** Graph query mode. search ranks files, neighbors returns adjacent graph files, path returns a graph path, and explain includes ranking rationale. */
+  mode?: 'search' | 'neighbors' | 'path' | 'explain'
+  /** Optional source file path for neighbors/path mode. */
+  from?: string
+  /** Optional target file path for path mode. */
+  to?: string
 }
 
 /**
@@ -583,7 +548,7 @@ export interface SpawnAgentsParams {
         /** Max results per file. Default 15 */
         maxResults?: number
       }[]
-      /** Relevant file paths to read (opus-agent, gpt-5-agent) */
+      /** Relevant file paths to read (general-agent) */
       filePaths?: string[]
       /** Directories to search within (file-picker) */
       directories?: string[]
@@ -599,6 +564,19 @@ export interface SpawnAgentsParams {
 /**
  * Replace strings in a file with new strings.
  */
+export interface ApplySmartPatchParams {
+  /** File path to apply the smart patch to, relative to the project root. */
+  path: string
+  /** Unified diff patch hunk(s) containing the changes. */
+  patch: string
+  /** Max lines of surrounding context displacement to allow when matching target patch region. */
+  fuzzFactor?: number
+  /** If true, auto-heal minor syntax formatting or closing/bracket mismatches when supported. */
+  autoHeal?: boolean
+  /** If true, run virtual preflight syntax checks before writing changes to disk. */
+  preflightCompile?: boolean
+}
+
 export interface StrReplaceParams {
   /** The path to the file to edit. */
   path: string
@@ -660,13 +638,19 @@ export interface ThinkDeeplyParams {
 }
 
 /**
- * Search the web for current information using Linkup API.
+ * Search the web for current information, or fetch the content of a specific URL.
  */
 export interface WebSearchParams {
-  /** The search query to find relevant web content */
-  query: string
-  /** Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'. */
+  /** The search query to find relevant web content. Required unless url is provided. */
+  query?: string
+  /** A specific URL to fetch and read the full text content of. When provided, fetches this page directly instead of searching. */
+  url?: string
+  /** Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'. Ignored when url is provided. */
   depth?: 'standard' | 'deep'
+  /** When fetching a URL, also extract and return links found on the page. Default: true. */
+  include_links?: boolean
+  /** Maximum number of links to extract when include_links is true. Default: 40. */
+  max_links?: number
 }
 
 /**

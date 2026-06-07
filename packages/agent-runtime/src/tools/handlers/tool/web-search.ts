@@ -1,8 +1,13 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { createRequire } from 'node:module'
-
 import { jsonToolResult } from '@codebuff/common/util/messages'
+
+import {
+  WEBSEARCH_TIMEOUT_MS,
+  executeWebSearch,
+  extractLinks,
+  resolveGitHubUrl,
+  resolveOpenWebsearchBin,
+  stripHtml,
+} from './web-search-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -11,27 +16,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const execFileAsync = promisify(execFile)
-
-const WEBSEARCH_TIMEOUT_MS = 30_000
-
-/**
- * Resolve the open-websearch binary from node_modules.
- * This avoids requiring a global install — it's resolved from the
- * @codebuff/agent-runtime package's own dependency tree.
- */
-const resolveOpenWebsearchBin = (logger?: Logger): string | null => {
-  try {
-    const require = createRequire(import.meta.url)
-    return require.resolve('open-websearch/build/index.js')
-  } catch (err) {
-    logger?.warn(
-      { error: err instanceof Error ? err.message : String(err) },
-      'Failed to resolve open-websearch binary',
-    )
-    return null
-  }
-}
+const MAX_FETCH_LENGTH = 50_000
 
 export const handleWebSearch = (async (params: {
   previousToolCallFinished: Promise<void>
@@ -60,12 +45,13 @@ export const handleWebSearch = (async (params: {
     userId,
     userInputId,
   } = params
-  const { query, depth } = toolCall.input
+  const { query, depth, url, include_links, max_links } = toolCall.input
 
-  const searchStartTime = Date.now()
-  const searchContext = {
+  const startTime = Date.now()
+  const logContext = {
     toolCallId: toolCall.toolCallId,
     query,
+    url,
     depth,
     userId,
     agentStepId,
@@ -79,99 +65,118 @@ export const handleWebSearch = (async (params: {
 
   const creditsUsed = 0
 
+  // URL-fetch branch: fetch the page content and return its text + links
+  if (url) {
+    try {
+      // GitHub repo URLs → fetch raw README directly for clean content
+      const rawUrl = resolveGitHubUrl(url)
+      const fetchUrl = rawUrl ?? url
+      const isRaw = rawUrl !== null
+
+      const response = await fetch(fetchUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (compatible; Codebuff/1.0; +https://openbuff.dev)',
+        },
+        signal: AbortSignal.timeout(WEBSEARCH_TIMEOUT_MS),
+      })
+
+      if (!response.ok) {
+        return {
+          output: jsonToolResult({
+            errorMessage: `Failed to fetch ${fetchUrl}: HTTP ${response.status} ${response.statusText}`,
+          }),
+          creditsUsed,
+        }
+      }
+
+      const contentType = response.headers.get('content-type') ?? ''
+      const rawHtml = await response.text()
+      const isHtml = !isRaw && contentType.includes('text/html')
+      const content = isHtml ? stripHtml(rawHtml) : rawHtml
+      const result =
+        content.length > MAX_FETCH_LENGTH
+          ? content.slice(0, MAX_FETCH_LENGTH) +
+            '\n\n[Content truncated — page exceeds 50,000 characters]'
+          : content
+
+      // Extract links from HTML pages (not raw text/markdown)
+      const shouldExtractLinks = include_links !== false && isHtml
+      const links = shouldExtractLinks
+        ? extractLinks(rawHtml, url, max_links ?? 40)
+        : undefined
+
+      logger.info(
+        {
+          ...logContext,
+          durationMs: Date.now() - startTime,
+          contentLength: content.length,
+          linkCount: links?.length ?? 0,
+          isRaw,
+        },
+        'URL fetch completed',
+      )
+      if (links !== undefined) {
+        return { output: jsonToolResult({ result, links }), creditsUsed }
+      }
+      return { output: jsonToolResult({ result }), creditsUsed }
+    } catch (error) {
+      const errorMessage = `Error fetching ${url}: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+      logger.error({ ...logContext, error, durationMs: Date.now() - startTime }, 'URL fetch failed')
+      return { output: jsonToolResult({ errorMessage }), creditsUsed }
+    }
+  }
+
+  // Search branch: use open-websearch binary
+  if (!query) {
+    return {
+      output: jsonToolResult({ errorMessage: 'Either query or url must be provided' }),
+      creditsUsed,
+    }
+  }
+
   try {
     const openWebsearchBin = resolveOpenWebsearchBin(logger)
     if (!openWebsearchBin) {
-      logger.error(
-        { ...searchContext },
-        'open-websearch binary not found in node_modules',
-      )
+      logger.error({ ...logContext }, 'open-websearch binary not found in node_modules')
       return {
         output: jsonToolResult({
-          errorMessage:
-            'open-websearch is not installed. Run: npm install open-websearch',
+          errorMessage: 'open-websearch is not installed. Run: npm install open-websearch',
         }),
         creditsUsed,
       }
     }
 
-    const limit = depth === 'deep' ? 10 : 5
-    const { stdout } = await execFileAsync('node', [
-      openWebsearchBin,
-      'search',
-      query,
-      '--limit',
-      String(limit),
-      '--engine',
-      'duckduckgo',
-      '--json',
-    ], { timeout: WEBSEARCH_TIMEOUT_MS })
+    const searchResult = await executeWebSearch(openWebsearchBin, query, depth ?? 'standard')
 
-    const parsed = JSON.parse(stdout) as {
-      status?: string
-      data?: {
-        results?: Array<{ title: string; url: string; description: string }>
-      }
-      error?: string
+    if ('error' in searchResult) {
+      logger.warn({ ...logContext, error: searchResult.error, durationMs: Date.now() - startTime }, 'open-websearch returned error')
+      return { output: jsonToolResult({ errorMessage: searchResult.error }), creditsUsed }
     }
 
-    if (parsed.error) {
-      const searchDuration = Date.now() - searchStartTime
-      logger.warn(
-        { ...searchContext, searchDuration, error: parsed.error },
-        'open-websearch returned error',
-      )
+    if (searchResult.results.length === 0) {
+      logger.warn({ ...logContext, durationMs: Date.now() - startTime }, 'open-websearch returned no results')
       return {
-        output: jsonToolResult({ errorMessage: parsed.error }),
+        output: jsonToolResult({ errorMessage: `No search results found for "${query}"` }),
         creditsUsed,
       }
     }
 
-    const results = parsed.data?.results ?? []
-    if (results.length === 0) {
-      const searchDuration = Date.now() - searchStartTime
-      logger.warn(
-        { ...searchContext, searchDuration },
-        'open-websearch returned no results',
-      )
-      return {
-        output: jsonToolResult({
-          errorMessage: `No search results found for "${query}"`,
-        }),
-        creditsUsed,
-      }
-    }
-
-    const searchDuration = Date.now() - searchStartTime
     logger.info(
-      {
-        ...searchContext,
-        searchDuration,
-        resultCount: results.length,
-        success: true,
-      },
+      { ...logContext, durationMs: Date.now() - startTime, resultCount: searchResult.results.length },
       'Search completed via open-websearch',
     )
-
     return {
-      output: jsonToolResult({
-        result: JSON.stringify(results, null, 2),
-      }),
+      output: jsonToolResult({ result: JSON.stringify(searchResult.results, null, 2) }),
       creditsUsed,
     }
   } catch (error) {
-    const searchDuration = Date.now() - searchStartTime
+    const durationMs = Date.now() - startTime
 
-    // Detect missing Node.js (ENOENT on the 'node' command)
-    if (
-      error instanceof Error &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    ) {
-      logger.error(
-        { ...searchContext, searchDuration },
-        'Node.js runtime not found',
-      )
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      logger.error({ ...logContext, durationMs }, 'Node.js runtime not found')
       return {
         output: jsonToolResult({
           errorMessage:
@@ -184,22 +189,7 @@ export const handleWebSearch = (async (params: {
     const errorMessage = `Error performing web search for "${query}": ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
-    logger.error(
-      {
-        ...searchContext,
-        error:
-          error instanceof Error
-            ? {
-                name: error.name,
-                message: error.message,
-                stack: error.stack,
-              }
-            : error,
-        searchDuration,
-        success: false,
-      },
-      'Search failed with error',
-    )
+    logger.error({ ...logContext, error, durationMs }, 'Search failed with error')
     return { output: jsonToolResult({ errorMessage }), creditsUsed }
   }
 }) satisfies CodebuffToolHandlerFunction<'web_search'>

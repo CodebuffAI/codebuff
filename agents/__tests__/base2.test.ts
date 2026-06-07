@@ -1,28 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
-
 import { createBase2 } from '../base2/base2'
-
-describe('base2 reviewer selection', () => {
-  test.each([
-    [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
-    [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
-    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
-    [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],
-  ])('uses matching reviewer for model %p', (model, expectedReviewer) => {
-    const base2 = createBase2('free', { model })
-
-    expect(base2.spawnableAgents).toContain(expectedReviewer)
-    expect(base2.instructionsPrompt).toContain(`Spawn a ${expectedReviewer}`)
-    expect(base2.stepPrompt).toContain(`spawn a ${expectedReviewer}`)
-  })
-})
 
 describe('base2 validation/reviewer coordination prompts', () => {
   test('requires joining parallel validation and review before finalizing', () => {
@@ -68,22 +46,6 @@ describe('base2 proactive index lookup', () => {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
-      },
-    })
-  })
-
-  test('free mode also starts codebase-oriented prompts with query_index', () => {
-    const base2 = createBase2('free')
-    const generator = base2.handleSteps!({
-      prompt: 'Find the config file for provider tests in this project',
-      params: {},
-    } as any)
-
-    expect(generator.next().value).toEqual({
-      toolName: 'query_index',
-      input: {
-        query: 'Find the config file for provider tests in this project',
-        limit: 20,
       },
     })
   })

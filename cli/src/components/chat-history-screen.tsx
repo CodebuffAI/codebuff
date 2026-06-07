@@ -12,6 +12,7 @@ import {
   formatRelativeTime,
   getAllChats,
 } from '../utils/chat-history'
+import { createTextPasteHandler } from '../utils/strings'
 
 import type { SelectableListItem } from './selectable-list'
 
@@ -270,7 +271,9 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             value={searchQuery}
             onChange={({ text }) => setSearchQuery(text)}
             onSubmit={() => {}}
-            onPaste={() => {}}
+            onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
+              setSearchQuery(text),
+            )}
             onKeyIntercept={handleKeyIntercept}
             placeholder="Search chats..."
             focused={true}

@@ -1,33 +1,26 @@
-import { E2E_MOCK_API_KEY, setupE2eMocks } from './e2e-mocks'
+import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 
-const shouldRunLiveE2e = process.env.RUN_CODEBUFF_E2E === 'true'
+import { setupE2eMocks } from './e2e-mocks'
 
 /**
- * Utility to load Codebuff API key from environment or user credentials.
- * Defaults to a mock key for deterministic local runs.
+ * Utility to provide the SDK's local/BYOK sentinel key for e2e tests.
+ * Openbuff has no hosted Codebuff/Openbuff API key; tests run against local
+ * mocked providers unless they explicitly configure a BYOK provider.
  */
 export function getApiKey(): string {
-  if (shouldRunLiveE2e) {
-    const apiKey = process.env.CODEBUFF_API_KEY
-    if (!apiKey) {
-      throw new Error(
-        'CODEBUFF_API_KEY environment variable is required for live e2e tests. ' +
-          'Get your API key at https://www.codebuff.com/api-keys',
-      )
-    }
-    return apiKey
-  }
-
   setupE2eMocks()
-  process.env.CODEBUFF_API_KEY = E2E_MOCK_API_KEY
-  return E2E_MOCK_API_KEY
+  return LOCAL_MODE_API_KEY
 }
 
 /**
- * E2E tests should always run; use mock mode when not opted-in.
+ * E2E tests should always run in local/BYOK mode.
  */
 export function skipIfNoApiKey(): boolean {
   return false
+}
+
+export function getByokTestClientOptions(): { apiKey: string; localMode: true } {
+  return { apiKey: getApiKey(), localMode: true }
 }
 
 /**

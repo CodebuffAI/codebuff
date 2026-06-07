@@ -11,9 +11,10 @@ const inputSchema = z
   .object({
     query: z
       .string()
-      .min(1)
+      .optional()
+      .default('')
       .describe(
-        `Natural language query or keyword terms describing the files you are looking for. For example: "authentication", "database migrations", "editor proposal logic", "React components".`,
+        `Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor proposal logic", "React components".`,
       ),
     limit: z
       .number()
@@ -28,19 +29,59 @@ const inputSchema = z
       .describe(
         `Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only.`,
       ),
+    mode: z
+      .enum(['search', 'neighbors', 'path', 'explain'])
+      .optional()
+      .default('search')
+      .describe(
+        'Graph query mode. search returns ranked files, neighbors returns adjacent graph files, path returns a graph path between files, and explain includes ranking rationale.',
+      ),
+    from: z
+      .string()
+      .optional()
+      .describe('Optional source file path for neighbors/path mode.'),
+    to: z
+      .string()
+      .optional()
+      .describe('Optional target file path for path mode.'),
+  })
+  .superRefine((input, ctx) => {
+    const mode = input.mode ?? 'search'
+    if ((mode === 'search' || mode === 'explain') && input.query.trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['query'],
+        message: 'query is required for search and explain modes',
+      })
+    }
+    if (mode === 'neighbors' && !input.from && input.query.trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['from'],
+        message: 'from or query is required for neighbors mode',
+      })
+    }
+    if (mode === 'path' && (!input.from || !input.to) && input.query.trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['query'],
+        message: 'query or both from/to paths are required for path mode',
+      })
+    }
   })
   .describe(
-    `Query the local codebase index to find relevant files ranked by symbol names, imports, headings, and path matching. The index is built automatically on startup.`,
+    `Query the local codebase graph index to find relevant files ranked by symbol names, imports, headings, paths, doc concepts, and graph relationships. The index is built automatically on startup.`,
   )
 
 const description = `
-Purpose: Query the local codebase index to find relevant files ranked by their relevance to your query. Use this as your first step when looking for files related to a concept, feature, or module.
+Purpose: Query the local codebase graph index to find relevant files ranked by their relevance to your query. Use this as your first step when looking for files related to a concept, feature, or module.
 
 The index tracks:
 - File paths and extensions
 - Exported/defined symbol names (functions, classes, types, constants)
 - Import paths and dependencies
-- Markdown headings (for .md/.mdx files)
+- Markdown headings and doc concepts (for .md/.mdx files)
+- Graph edges between files, symbols, imports, calls, headings, and concepts
 
 Query tips:
 - Use descriptive natural language: "user authentication", "database connection", "react hooks"
@@ -87,6 +128,17 @@ export const queryIndexParams = {
           matchedOn: z.array(z.string()),
           symbols: z.array(z.string()).optional(),
           headings: z.array(z.string()).optional(),
+          relatedFiles: z
+            .array(
+              z.object({
+                path: z.string(),
+                score: z.number(),
+                reason: z.string(),
+                via: z.string().optional(),
+              }),
+            )
+            .optional(),
+          explanation: z.string().optional(),
         }),
       ),
       totalIndexed: z.number(),

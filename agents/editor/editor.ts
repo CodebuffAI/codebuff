@@ -35,9 +35,15 @@ export const createCodeEditor = (options: {
     model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context.",
+      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
     outputMode: 'structured_output',
-    toolNames: ['read_files', 'write_file', 'str_replace', 'set_output'],
+    toolNames: [
+      'read_files',
+      'write_file',
+      'str_replace',
+      'edit_transaction',
+      'set_output',
+    ],
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -48,21 +54,22 @@ Your task is to write out ALL the code changes needed to complete the user's req
 
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
 - If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or fall back to write_file with the complete file content.
+- Use edit_transaction when edits across multiple files, dependent edits in one file, or import-only TypeScript edits must be preflighted together and applied atomically. Prefer str_replace for simple one-file text changes, and write_file for new files or major rewrites.
 - Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.
 - When every change has been made and all edits have applied successfully, stop: respond with a brief one-line confirmation and make no further tool calls.
 
-Important: You may call read_files only for exact files you need to edit or to recover after a failed/stale str_replace. You cannot search, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any unsupported tools!
+Important: You may call read_files only for exact files you need to edit or to recover after a failed/stale edit. You cannot search, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any unsupported tools!
 
 Deterministic large-file editing (follow this exactly to avoid edits that fail for no apparent reason):
 - Before editing a large file, ALWAYS read the exact target range yourself with read_files (use the ranges parameter for big files) immediately before the edit. Never reuse a basedOnRead capability token that came from the parent agent or from a read you did before any intervening edit — those are stale and will be rejected even though the file is readable.
-- Copy the basedOnRead readCapability token verbatim from the header of your own most recent read of that exact range, and put it on each replacement that touches a large file.
-- To make several edits to the same file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead). All replacements in a single call are validated against the same pre-edit file, so they will not invalidate each other.
-- Edit, get proof, edit again: after a successful str_replace on a large file, the result message may include a fresh anchor for the edited region, shown as a concrete readCapability token. For the next edit near that changed region, copy that exact echoed readCapability as basedOnRead instead of re-reading. This is the proof that the runtime minted from the post-edit file contents.
+- Copy the basedOnRead readCapability token verbatim from the header of your own most recent read of that exact range, and put it on each replacement that touches a large file, including replacements inside edit_transaction str_replace edits.
+- To make several edits to the same file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead), or use one edit_transaction when related edits must be preflighted atomically. All replacements in a single call are validated against the same pre-edit file, so they will not invalidate each other.
+- Edit, get proof, edit again: after a successful str_replace or edit_transaction on a large file, the result message may include a fresh anchor for the edited region, shown as a concrete readCapability token. For the next edit near that changed region, copy that exact echoed readCapability as basedOnRead instead of re-reading. This is the proof that the runtime minted from the post-edit file contents.
 - Only re-read after a successful edit when there is no echoed anchor for the region you need, when you need a different region, or when the previous edit failed/stale-anchor error tells you to re-read. Do NOT make repeated one-change calls to the same large file using old pre-edit anchors.
 - If an edit is rejected because the anchor/line count looks stale, do not retry from memory: re-read the exact current range first, then make one edit based on that fresh read.
 - If oldString appears multiple times, prefer occurrenceIndex (1-indexed) or a more specific oldString rather than re-reading solely to disambiguate; combine occurrenceIndex with a fresh basedOnRead when editing within an anchored large-file range.
 
-Write out what changes you would make using the tool call format below. Use this exact format for each file change:
+Write out what changes you would make using the tool call format below. Use this exact format for simple file changes:
 
 <codebuff_tool_call>
 {
@@ -76,7 +83,7 @@ Write out what changes you would make using the tool call format below. Use this
     {
       "oldString": "exact old code 2",
       "newString": "exact new code 2"
-    },
+    }
   ]
 }
 </codebuff_tool_call>
@@ -89,6 +96,34 @@ OR for new files or major rewrites:
   "path": "path/to/file",
   "instructions": "What the change does",
   "content": "Complete file content"
+}
+</codebuff_tool_call>
+
+OR when related edits should be preflighted and applied atomically:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "edit_transaction",
+  "edits": [
+    {
+      "type": "str_replace",
+      "path": "path/to/file",
+      "replacements": [
+        {
+          "oldString": "exact old code",
+          "newString": "exact new code"
+        }
+      ]
+    },
+    {
+      "type": "structured",
+      "path": "path/to/file",
+      "operation": {
+        "kind": "insert_import",
+        "importStatement": "import { helper } from './helper'"
+      }
+    }
+  ]
 }
 </codebuff_tool_call>
 

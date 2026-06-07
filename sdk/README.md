@@ -1,8 +1,8 @@
 # @codebuff/sdk
 
-SDK for the Openbuff fork and legacy Codebuff hosted API compatibility.
+SDK for local/BYOK workflows and legacy hosted API compatibility.
 
-Openbuff is a Codebuff fork focused on user-configured providers and local/BYOK workflows. The published package name (`@codebuff/sdk`), client class (`CodebuffClient`), hosted API key (`CODEBUFF_API_KEY`), and hosted base agent (`codebuff/base`) remain Codebuff-named compatibility surfaces while the fork transition is in progress.
+This SDK focuses on user-configured providers and local/BYOK workflows. The published package name (`@codebuff/sdk`), client class (`CodebuffClient`), hosted API key (`CODEBUFF_API_KEY`), and hosted base agent (`codebuff/base`) remain compatibility surfaces while the transition is in progress.
 
 ## Installation
 
@@ -14,11 +14,9 @@ npm install @codebuff/sdk
 
 Choose the mode you are using:
 
-### Hosted Codebuff API (legacy)
+### Hosted compatibility API (legacy)
 
-To call agents on the hosted Codebuff cloud (e.g. `codebuff/base@0.0.16`), you need a Codebuff API key from [codebuff.com](https://codebuff.com).
-
-- Set `CODEBUFF_API_KEY` in your environment or pass it to the constructor.
+To call hosted compatibility agents (e.g. `codebuff/base@0.0.16`), set `CODEBUFF_API_KEY` in your environment or pass it to the constructor.
 
 ```typescript
 const client = new CodebuffClient({
@@ -27,9 +25,9 @@ const client = new CodebuffClient({
 })
 ```
 
-### Local / BYOK mode (Openbuff)
+### Local / BYOK mode
 
-Openbuff's local/BYOK mode lets you bring your own LLM provider keys. In this mode **no Codebuff API key is needed**. Configure your own provider credentials with the Openbuff provider configuration used by your app/CLI.
+Local/BYOK mode lets you bring your own LLM provider keys. In this mode **no hosted API key is needed**. Configure your own provider credentials with the provider configuration used by your app/CLI.
 
 ## Usage
 
@@ -46,12 +44,12 @@ async function main() {
 
   // First run
   const runState1 = await client.run({
-    // Hosted Codebuff agent id from the store (https://codebuff.com/store)
+    // Hosted compatibility agent id.
     agent: 'codebuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Openbuff Event', JSON.stringify(event))
+      console.log('SDK Event', JSON.stringify(event))
     },
   })
 
@@ -61,7 +59,7 @@ async function main() {
     prompt: 'Add unit tests for the calculator',
     previousRun: runState1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log('Openbuff Event', JSON.stringify(event))
+      console.log('SDK Event', JSON.stringify(event))
     },
   })
 }
@@ -82,8 +80,8 @@ import type { AgentDefinition } from '@codebuff/sdk'
 
 async function main() {
   const client = new CodebuffClient({
-    // Required only when routing through the legacy hosted Codebuff API.
-    // Openbuff local/BYOK provider usage should use provider configuration instead.
+    // Required only when routing through the legacy hosted compatibility API.
+    // Local/BYOK provider usage should use provider configuration instead.
     apiKey: process.env.CODEBUFF_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
@@ -137,7 +135,7 @@ async function main() {
 
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Openbuff Event', JSON.stringify(event))
+      console.log('SDK Event', JSON.stringify(event))
     },
   })
 
@@ -247,7 +245,7 @@ Runs an agent with the specified options.
 
 #### Parameters
 
-- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, a hosted Codebuff agent such as `'codebuff/base@0.0.16'`, or a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
+- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, a hosted compatibility agent such as `'codebuff/base@0.0.16'`, or a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
 
 - **`prompt`** (string, required): The user prompt describing what you want the agent to do.
 

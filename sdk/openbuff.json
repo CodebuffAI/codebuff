@@ -19,5 +19,13 @@
   "modes": {},
   "modeReasoningEfforts": {},
   "agents": {},
-  "agentReasoningEfforts": {}
+  "agentReasoningEfforts": {},
+  "indexing": {
+    "enabled": true,
+    "cacheDir": ".codebuff-index",
+    "exclude": [],
+    "semantic": {
+      "enabled": false
+    }
+  }
 }

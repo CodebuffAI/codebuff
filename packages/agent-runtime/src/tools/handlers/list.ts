@@ -1,6 +1,7 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
 import { handleApplyPatch } from './tool/apply-patch'
+import { handleApplySmartPatch } from './tool/apply-smart-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
@@ -9,7 +10,6 @@ import { handleEditTransaction } from './tool/edit-transaction'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
-import { handleGravityIndex } from './tool/gravity-index'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleProposeEditTransaction } from './tool/propose-edit-transaction'
@@ -18,6 +18,8 @@ import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleQueryIndex } from './tool/query-index'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
+import { handleReadOutline } from './tool/read-outline'
+import { handleReadSlices } from './tool/read-slices'
 import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
 import { handleReadSubtree } from './tool/read-subtree'
 import { handleReplaceRange } from './tool/replace-range'
@@ -54,6 +56,7 @@ export const codebuffToolHandlers = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
   apply_patch: handleApplyPatch,
+  apply_smart_patch: handleApplySmartPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
@@ -62,7 +65,6 @@ export const codebuffToolHandlers = {
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
   glob: handleGlob,
-  gravity_index: handleGravityIndex,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
   propose_edit_transaction: handleProposeEditTransaction,
@@ -71,6 +73,8 @@ export const codebuffToolHandlers = {
   query_index: handleQueryIndex,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
+  read_outline: handleReadOutline,
+  read_slices: handleReadSlices,
   read_proposal_workspace: handleReadProposalWorkspace,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,

@@ -302,20 +302,10 @@ const definition: AgentDefinition = {
         case 'suggest_followups':
           return 'Suggested followups'
         case 'web_search': {
+          const url = input.url as string | undefined
           const query = input.query as string | undefined
-          return query
-            ? `web search for "${query}"`
-            : 'web search'
-        }
-        case 'gravity_index': {
-          const query = input.query as string | undefined
-          const action = input.action as string | undefined
-          if (query) {
-            return `Gravity Index ${action ?? 'search'} for "${query}"`
-          }
-          return action
-            ? `Gravity Index ${action}`
-            : 'Gravity Index use'
+          if (url) return `web fetch: ${url}`
+          return query ? `web search for "${query}"` : 'web search'
         }
         case 'read_docs': {
           const libraryTitle = input.libraryTitle as string | undefined

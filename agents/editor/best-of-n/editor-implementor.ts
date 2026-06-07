@@ -56,16 +56,16 @@ export const createBestOfNImplementor = (options: {
 
 You may use read_files, code_search, glob, and list_directory only to gather exact current context.
 After you have proposed any edit to a file, use read_proposal_workspace (NOT read_files) to re-read that file: it returns your own proposed changes for files you already edited, and the real disk content only for files you have not touched yet. This is how you avoid recreating edits you already made.
-You draft edits only with propose_str_replace and propose_write_file.
+You draft edits only with propose_str_replace, propose_write_file, and propose_edit_transaction.
 Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
-If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_write_file with complete updated file content when exact replacements would be brittle.
+If the supplied prompt already includes enough exact file content, propose the edits immediately. If the task is complex, multi-file, or exact oldString values are uncertain, first inspect with read-only tools, then emit complete propose_* tool calls. Prefer propose_str_replace for existing-file edits when you can identify old/new text: the parent will first attempt to apply it through apply_smart_patch's fuzzy unified-diff path, then fall back to exact str_replace if needed. Prefer propose_write_file only for new files or complete rewrites.
 For large-file propose_str_replace work, determinism matters: read the exact current target ranges yourself immediately before proposing edits, never reuse parent/old readCapability tokens in narration, and bundle all replacements for the same file into one propose_str_replace call so the parent can validate/apply them against one pre-edit file state. When a proposal failure or parent repair result includes a fresh echoed anchor for the edited region (shown as a concrete readCapability token), treat it as post-edit proof and reuse that exact echoed readCapability for the next nearby edit instead of re-reading the same region.`
       : `You are a strict implementation proposal generator.
 
 You do not have repository exploration tools in this phase because the parent only uses this mode after supplying exact current file context.
-Use the supplied proposalContext/current file context and draft edits only with propose_str_replace and propose_write_file.
+Use the supplied proposalContext/current file context and draft edits only with propose_str_replace, propose_write_file, and propose_edit_transaction.
 Never call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.
-Emit complete propose_* tool calls immediately. If exact replacement text is not available, prefer propose_write_file with complete file content from the supplied context over guessing stale oldString values. If the supplied context is insufficient for an existing-file edit, emit no proposal call rather than fabricating paths or oldString values.`,
+Emit complete propose_* tool calls immediately. If exact replacement text is available, prefer propose_str_replace for existing files because the parent can apply it through apply_smart_patch before falling back to exact str_replace. If exact replacement text is not available, prefer propose_write_file with complete file content from the supplied context over guessing stale oldString values. If the supplied context is insufficient for an existing-file edit, emit no proposal call rather than fabricating paths or oldString values.`,
 
     toolNames,
     spawnableAgents: [],
@@ -77,11 +77,13 @@ Emit complete propose_* tool calls immediately. If exact replacement text is not
     
 Your task is to write out ALL the code changes needed to complete the user's request.
 
-IMPORTANT: Your response must progress toward at least one propose_str_replace or propose_write_file tool call. Use those tools to draft edits without actually applying them - they will be reviewed first. ${
+For rename/overhaul tasks, propose explicit targeted file edits based on freshly read context. Do not generate or rely on broad one-off cleanup scripts across many files unless the user explicitly requested that approach.
+
+IMPORTANT: Your response must progress toward at least one propose_str_replace, propose_write_file, or propose_edit_transaction tool call. Use those tools to draft edits without actually applying them - they will be reviewed first. ${
       allowReadOnlyTools
         ? 'You may first use read_files, code_search, glob, or list_directory when exact current context is missing.'
         : 'You do not have read-only tools here; use the supplied proposalContext/current file context and emit proposal tool calls immediately only when that context is sufficient.'
-    } DO NOT use any mutating/control tools such as write_file, str_replace, spawn_agents, or set_output. Use your reasoning internally, keep visible narration short, and emit all needed proposal tool calls as soon as you have enough context. For existing-file edits, never guess stale oldString values; use propose_write_file when full file content is available, or withhold the proposal if context is insufficient.
+    } DO NOT use any mutating/control tools such as write_file, str_replace, spawn_agents, or set_output. Use your reasoning internally, keep visible narration short, and emit all needed proposal tool calls as soon as you have enough context. For existing-file edits, never guess stale oldString values; prefer propose_str_replace when old/new text is known because the parent applies it with apply_smart_patch first, then exact str_replace fallback. Use propose_write_file for new files or complete rewrites, or withhold the proposal if context is insufficient.
 
 For multi-file implementations, return a complete proposal bundle. Use multiple propose_* tool calls when needed, one per file or one propose_str_replace with multiple replacements for the same file. Do not stop after the first file if the requested implementation needs additional files.
 After you have emitted every required proposal tool call, write the exact marker PROPOSAL_BUNDLE_COMPLETE. If you cannot finish, do not write that marker.
@@ -123,6 +125,26 @@ OR for new files or major rewrites:
   "path": "path/to/file",
   "instructions": "What the change does",
   "content": "Complete file content"
+}
+</codebuff_tool_call>
+
+OR for related edits that must stay consistent across files:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "propose_edit_transaction",
+  "edits": [
+    {
+      "type": "str_replace",
+      "path": "path/to/file",
+      "replacements": [
+        {
+          "oldString": "exact old code",
+          "newString": "exact new code"
+        }
+      ]
+    }
+  ]
 }
 </codebuff_tool_call>
 ${
@@ -549,6 +571,9 @@ Write out your complete implementation now. Do not write any final summary.`,
           ...(typeof result.finalContent === 'string'
             ? { __proposalFinalContent: result.finalContent }
             : {}),
+          ...(typeof result.unifiedDiff === 'string'
+            ? { __proposalUnifiedDiff: result.unifiedDiff }
+            : {}),
           ...('baseContentHash' in result
             ? { __proposalBaseContentHash: result.baseContentHash ?? null }
             : {}),
@@ -681,6 +706,7 @@ Write out your complete implementation now. Do not write any final summary.`,
         const {
           __proposalFile: _proposalFile,
           __proposalFinalContent: _finalContent,
+          __proposalUnifiedDiff: _unifiedDiff,
           __proposalBaseContentHash: _baseContentHash,
           __proposalBaseContent: _baseContent,
           ...rest
@@ -1506,8 +1532,8 @@ Write out your complete implementation now. Do not write any final summary.`,
           ? 'Immediately gather exact context with read_files/code_search/glob/list_directory if needed, then emit every required file edit as valid XML proposal tool calls.'
           : 'Do not try to gather more context. Use the supplied proposalContext/current file context and emit every required file edit as valid XML proposal tool calls.'
         const staleTextInstruction = canUseReadOnlyTools
-          ? 'If a propose_str_replace oldString failed, inspect the current file/range and use exact current text. For large files, reuse any fresh echoed region anchor from the failure/repair result for the next nearby proposal; otherwise re-read the exact range immediately before the repaired proposal and batch all replacements for that file into one propose_str_replace call. If the full target file content is available and exact replacement remains brittle, use propose_write_file with the complete updated file content.'
-          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. For large files, do not reuse old/parent readCapability tokens or stale snippets; reuse a fresh echoed region anchor if one was supplied, otherwise prefer propose_write_file with complete updated file content from the supplied context when exact replacement remains brittle.'
+          ? 'If a propose_str_replace oldString failed, inspect the current file/range and use exact current text. For large files, reuse any fresh echoed region anchor from the failure/repair result for the next nearby proposal; otherwise re-read the exact range immediately before the repaired proposal and batch all replacements for that file into one propose_str_replace call. The parent applies propose_str_replace through apply_smart_patch first, so keep using it when you have exact old/new text; use propose_write_file only for new files or complete rewrites.'
+          : 'If a propose_str_replace oldString failed, use exact current text only when it appears in the supplied context. For large files, do not reuse old/parent readCapability tokens or stale snippets; reuse a fresh echoed region anchor if one was supplied. The parent applies propose_str_replace through apply_smart_patch first, so keep using it when exact replacement text is available; use propose_write_file only for complete updated file content from the supplied context.'
 
         return `Your previous response did not produce a clean proposal diff.${
           failureDetails
@@ -1517,7 +1543,7 @@ Write out your complete implementation now. Do not write any final summary.`,
 
 ${staleTextInstruction}
 
-For multi-file implementations, emit a complete proposal bundle with one propose_* call per edited file when needed. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if you still need more context or still have missing edits.
+For multi-file implementations, emit a complete proposal bundle with one propose_* call per edited file when needed, or one propose_edit_transaction when the edits should be preflighted/applied together. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if you still need more context or still have missing edits.
 
 Use this exact shape with valid JSON and no markdown fences:
 <codebuff_tool_call>
@@ -1527,6 +1553,11 @@ Use this exact shape with valid JSON and no markdown fences:
 Or:
 <codebuff_tool_call>
 {"cb_tool_name":"propose_write_file","path":"path/to/file","instructions":"what changed","content":"complete file content"}
+</codebuff_tool_call>
+
+Or:
+<codebuff_tool_call>
+{"cb_tool_name":"propose_edit_transaction","edits":[{"type":"str_replace","path":"path/to/file","replacements":[{"oldString":"exact old code","newString":"exact new code"}]}]}
 </codebuff_tool_call>`
       }
 
@@ -1547,7 +1578,7 @@ Or:
           proposedFiles.length > 0 ? proposedFiles.join(', ') : 'none'
         }.${missingHintText}
 
-Continue the same proposal bundle. Do not start over and do not summarize. Emit propose_str_replace/propose_write_file calls for the missing required file edits only, using read-only tools first if exact current context is still missing. Write PROPOSAL_BUNDLE_COMPLETE only after the bundle covers all ${requiredFileCount} required file(s).`
+Continue the same proposal bundle. Do not start over and do not summarize. Emit propose_str_replace/propose_write_file/propose_edit_transaction calls for the missing required file edits only, using read-only tools first if exact current context is still missing. Write PROPOSAL_BUNDLE_COMPLETE only after the bundle covers all ${requiredFileCount} required file(s).`
       }
 
       function buildReadOnlyBudgetContinuationPrompt(): string {
@@ -1561,7 +1592,7 @@ Continue the same proposal bundle. Do not start over and do not summarize. Emit 
 
         return `You have used the read-only exploration budget for this proposal.${targetText}
 
-Use the exact context already gathered in this attempt and emit the complete proposal bundle now. Do not summarize. Emit propose_str_replace/propose_write_file calls for every required file whose exact current content you have verified.
+Use the exact context already gathered in this attempt and emit the complete proposal bundle now. Do not summarize. Emit propose_str_replace/propose_write_file/propose_edit_transaction calls for every required file whose exact current content you have verified.
 
 If exact current content for an existing-file edit is still missing, emit no proposal call for that file rather than guessing a path, import, API, or oldString. Do not continue broad exploration. Write PROPOSAL_BUNDLE_COMPLETE only after every required edit has been proposed.`
       }
@@ -1711,8 +1742,8 @@ If exact current content for an existing-file edit is still missing, emit no pro
         return readOnlyTools.size > 0
           ? `Gathered context with ${[...readOnlyTools].join(
               ', ',
-            )}, but did not emit propose_str_replace/propose_write_file before the proposal step budget.`
-          : 'No propose_str_replace/propose_write_file call was produced.'
+            )}, but did not emit propose_str_replace/propose_write_file/propose_edit_transaction before the proposal step budget.`
+          : 'No propose_str_replace/propose_write_file/propose_edit_transaction call was produced.'
       }
 
       function getCanUseReadOnlyTools(input: {

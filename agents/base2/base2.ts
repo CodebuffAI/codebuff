@@ -1,15 +1,4 @@
 import { buildArray } from '@codebuff/common/util/array'
-import {
-  FREEBUFF_GEMINI_THINKER_AGENT_ID,
-  FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-  FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
-  FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-} from '@codebuff/common/constants/freebuff-gemini-thinker'
-import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
-import {
-  canFreebuffModelSpawnGeminiThinker,
-  FREEBUFF_MINIMAX_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from '../constants'
 import {
@@ -18,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
+  mode: 'default' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -37,36 +26,14 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
-  const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  // Lite (paid Codebuff) defaults to Kimi: no data-retention surface in the
-  // CLI today, so we don't want to silently route Codebuff prompts through a
-  // model whose provider trains on user data. Free (freebuff) defaults to
-  // MiniMax M2.7; Kimi and DeepSeek are separate free agent variants.
-  const model =
-    modelOverride ??
-    (mode === 'lite'
-      ? 'moonshotai/kimi-k2.6'
-      : mode === 'free'
-        ? FREEBUFF_MINIMAX_MODEL_ID
-        : 'anthropic/claude-opus-4.7')
-  // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
-  // reasoning. Fast MiniMax omits the extra round trip by construction.
-  const hasFreeGeminiThinker =
-    isFree && canFreebuffModelSpawnGeminiThinker(model)
-  const freeCodeReviewerAgentId =
-    FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL[model] ?? 'code-reviewer-lite'
-  const defaultProviderOptions = isFree
-    ? {
-        data_collection: 'deny' as const,
-      }
-    : undefined
+  const model = modelOverride ?? 'anthropic/claude-opus-4.7'
 
   return {
     publisher,
     model,
-    providerOptions: providerOptions ?? defaultProviderOptions,
+    providerOptions,
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -97,8 +64,8 @@ export function createBase2(
       'str_replace',
       'edit_transaction',
       'write_file',
-      !isFree && 'propose_str_replace',
-      !isFree && 'propose_write_file',
+      'propose_str_replace',
+      'propose_write_file',
       !noAskUser && 'ask_user',
       'skill',
       'set_output',
@@ -113,17 +80,14 @@ export function createBase2(
       'researcher-docs',
       'basher',
       isDefault && 'thinker',
-      (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
-      isMax && 'thinker-best-of-n-opus',
+      (isDefault || isMax) && 'general-agent',
+      isMax && 'thinker-best-of-n',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       'tmux-cli',
       'browser-use',
-      isFree && freeCodeReviewerAgentId,
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
-      hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
-      'thinker-gpt',
       'context-pruner',
     ),
 
@@ -170,6 +134,7 @@ export function createBase2(
 - **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
 - **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. Use structured operations like insert_import/remove_import for TypeScript import-only changes when available; use str_replace for simple one-file text changes.
+- **Avoid broad scripted cleanups for refactors/renames:** For rename and overhaul tasks, prefer explicit targeted edits based on freshly read file content. Do not run one-off cleanup scripts across many files unless the user explicitly asks for that approach.
 
 # Harness-enforced recovery workflow
 
@@ -193,17 +158,12 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
     '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Do not rely on query_index alone for correctness.',
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
-    isFree &&
-      'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
-    hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     (isDefault || isMax) &&
-      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
+      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n'} after gathering context to solve complex problems or when the user asks you to think about a problem. Use the semantic agent name rather than model-specific variants.`,
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
-    isFree &&
-      `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
@@ -263,7 +223,7 @@ ${buildArray(
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
-    : isFast || isFree
+    : isFast
       ? '[ You implement the changes using the str_replace or write_file tools ]'
       : '[ You implement the changes using the editor-multi-prompt agent ]'
 }
@@ -271,21 +231,17 @@ ${
 ${
   isDefault
     ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
-    : isFree
-      ? `[ You spawn a ${freeCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
-      : isMax
-        ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
-        : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
+    : isMax
+      ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
+      : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
 }
 
 ${
   isDefault
     ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
-    : isFree
-      ? `[ You fix the issues found by the ${freeCodeReviewerAgentId} and type/test errors ]`
-      : isMax
-        ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
-        : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
+    : isMax
+      ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
+      : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
 }
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
@@ -321,11 +277,8 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isDefault,
           isMax,
-          isFree,
-          hasFreeGeminiThinker,
           hasNoValidation,
           noAskUser,
-          freeCodeReviewerAgentId,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -335,107 +288,61 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           hasNoValidation,
           isSonnet,
-          isFree,
-          hasFreeGeminiThinker,
           noAskUser,
-          freeCodeReviewerAgentId,
         }),
 
-    // handleSteps is serialized via .toString() and re-eval'd, so closure
-    // variables like `isFree` are not in scope at runtime. Pick the right
-    // literal-baked function here instead.
-    handleSteps: isFree
-      ? function* ({ prompt, params }) {
-          if (shouldProactivelyQueryIndex(prompt)) {
-            yield {
-              toolName: 'query_index',
-              input: {
-                query: prompt,
-                limit: 20,
-              },
-            }
-          }
-
-          while (true) {
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'context-pruner',
-                params: { ...(params ?? {}), cacheExpiryMs: 10 * 60 * 1000 },
-              },
-              includeToolCall: false,
-            } as any
-
-            const { stepsComplete } = yield 'STEP'
-            if (stepsComplete) break
-          }
-
-          function shouldProactivelyQueryIndex(value: unknown): value is string {
-            if (typeof value !== 'string') return false
-            const text = value.trim()
-            if (text.length < 12) return false
-            if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
-            return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
-          }
+    handleSteps: function* ({ prompt, params }) {
+      if (shouldProactivelyQueryIndex(prompt)) {
+        yield {
+          toolName: 'query_index',
+          input: {
+            query: prompt,
+            limit: 20,
+          },
         }
-      : function* ({ prompt, params }) {
-          if (shouldProactivelyQueryIndex(prompt)) {
-            yield {
-              toolName: 'query_index',
-              input: {
-                query: prompt,
-                limit: 20,
-              },
-            }
-          }
+      }
 
-          while (true) {
-            yield {
-              toolName: 'spawn_agent_inline',
-              input: {
-                agent_type: 'context-pruner',
-                params: params ?? {},
-              },
-              includeToolCall: false,
-            } as any
+      while (true) {
+        yield {
+          toolName: 'spawn_agent_inline',
+          input: {
+            agent_type: 'context-pruner',
+            params: params ?? {},
+          },
+          includeToolCall: false,
+        } as any
 
-            const { stepsComplete } = yield 'STEP'
-            if (stepsComplete) break
-          }
+        const { stepsComplete } = yield 'STEP'
+        if (stepsComplete) break
+      }
 
-          function shouldProactivelyQueryIndex(value: unknown): value is string {
-            if (typeof value !== 'string') return false
-            const text = value.trim()
-            if (text.length < 12) return false
-            if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
-            return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
-          }
-        },
+      function shouldProactivelyQueryIndex(value: unknown): value is string {
+        if (typeof value !== 'string') return false
+        const text = value.trim()
+        if (text.length < 12) return false
+        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
+        return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
+      }
+    },
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Then verify those candidates with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, and mode: 'path' to connect two known files. Then verify the best candidates and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,
   isFast,
   isDefault,
   isMax,
-  isFree,
-  hasFreeGeminiThinker,
   hasNoValidation,
   noAskUser,
-  freeCodeReviewerAgentId,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   isMax: boolean
-  isFree: boolean
-  hasFreeGeminiThinker: boolean
   hasNoValidation: boolean
   noAskUser: boolean
-  freeCodeReviewerAgentId: string
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -449,11 +356,10 @@ ${buildArray(
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !noAskUser &&
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
-  (isDefault || isMax || isFree) &&
-    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
-  hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
   (isDefault || isMax) &&
-    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
+    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  (isDefault || isMax) &&
+    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
   isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&
@@ -466,8 +372,6 @@ ${buildArray(
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
-  isFree &&
-    `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
   !isFast &&
     !noAskUser &&
@@ -481,32 +385,23 @@ function buildImplementationStepPrompt({
   isMax,
   hasNoValidation,
   isSonnet,
-  isFree,
-  hasFreeGeminiThinker,
   noAskUser,
-  freeCodeReviewerAgentId,
 }: {
   isDefault: boolean
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
-  isFree: boolean
-  hasFreeGeminiThinker: boolean
   noAskUser: boolean
-  freeCodeReviewerAgentId: string
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
-    hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
       `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
-    isFree &&
-      `You must spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
       !noAskUser &&

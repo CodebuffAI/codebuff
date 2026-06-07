@@ -1,10 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import {
   CodebuffClient,
-  getUserCredentials,
+  LOCAL_MODE_API_KEY,
   loadLocalAgents,
 } from '@codebuff/sdk'
 import { createTwoFilesPatch } from 'diff'
@@ -233,7 +232,8 @@ async function main() {
   const { repoUrl, initCommand, evalCommits } = evalData
 
   const client = new CodebuffClient({
-    apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
+    apiKey: LOCAL_MODE_API_KEY,
+    localMode: true,
   })
 
   const agentsPath = path.join(__dirname, '../../.agents')

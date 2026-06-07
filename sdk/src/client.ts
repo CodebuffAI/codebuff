@@ -1,8 +1,6 @@
 import { LOCAL_MODE_API_KEY, isLocalModeEnabled } from '@codebuff/common/constants/local-mode'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
-
 import { WEBSITE_URL } from './constants'
-import { getCodebuffApiKeyFromEnv, getSdkEnv } from './env'
+import { getSdkEnv } from './env'
 import { run } from './run'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
@@ -20,10 +18,10 @@ export class CodebuffClient {
       localMode: options.localMode,
       env: getSdkEnv(),
     })
-    const foundApiKey = options.apiKey ?? getCodebuffApiKeyFromEnv()
+    const foundApiKey = options.apiKey
     if (!foundApiKey && !localMode) {
       throw new Error(
-        `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
+        'Openbuff runs in local/BYOK mode. Enable localMode or configure an OpenAI-compatible provider in openbuff.json.',
       )
     }
 

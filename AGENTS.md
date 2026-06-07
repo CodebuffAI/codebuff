@@ -29,6 +29,8 @@ Make an efficient learning agent that can do anything.
 
 - Never force-push `main` unless explicitly requested.
 - Run interactive git commands in tmux (anything that opens an editor or prompts).
+- Prefer retrieval-led context gathering: start broad codebase tasks with `query_index`, then verify selected files with `read_files`/`read_subtree` before editing.
+- `query_index` supports graph-aware modes: `search`, `explain`, `neighbors`, and `path`. Use `relatedFiles` and explanations to find adjacent implementation, test, and type files.
 
 ## Docs
 

@@ -123,10 +123,10 @@ function parseArgs(): ParsedArgs {
       .helpOption('-h, --help', 'Show this help message')
       .parse(process.argv)
   } else {
-    // Openbuff: local-first CLI with all options
+    // Local-first CLI with all options
     program
       .name('openbuff')
-      .description('Openbuff CLI - local/BYOK AI coding assistant')
+      .description('Local/BYOK AI coding assistant')
       .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
       .option(
         '--agent <agent-id>',
@@ -325,7 +325,7 @@ async function main(): Promise<void> {
 
   // Handle publish command before rendering the app
   if (isPublishCommand) {
-    logger.error(red('Agent publishing is disabled in Openbuff local mode.'))
+    logger.error(red('Agent publishing is disabled in local mode.'))
     process.exit(1)
   }
 

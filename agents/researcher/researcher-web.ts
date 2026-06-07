@@ -29,9 +29,15 @@ Then, write up a concise report that includes key findings for the user's prompt
 `.trim(),
 
   handleSteps: function* ({ agentState, prompt, params }) {
+    // Keep helpers inside handleSteps because built-in agents serialize this
+    // function without top-level lexical bindings.
+    const match = prompt?.match(/https?:\/\/[^\s)\]>"']+/)
+    const url = match?.[0].replace(/[.,;:!?]+$/, '')
     const { toolResult } = yield {
       toolName: 'web_search' as const,
-      input: { query: prompt || '', depth: 'standard' as const },
+      input: url
+        ? { url, include_links: true, max_links: 40 }
+        : { query: prompt || undefined, depth: 'standard' as const },
       includeToolCall: false,
     } satisfies ToolCall<'web_search'>
 
@@ -40,11 +46,18 @@ Then, write up a concise report that includes key findings for the user's prompt
       ?.map((r) => r.value)?.[0] ?? {}) as {
         result: string | undefined
         errorMessage: string | undefined
+        links?: Array<{ href: string; text: string }>
       }
+    const linkText =
+      results.links && results.links.length > 0
+        ? `\n\nLinks:\n${results.links
+            .map((link) => `- ${link.text ? `${link.text}: ` : ''}${link.href}`)
+            .join('\n')}`
+        : ''
 
     yield {
       type: 'STEP_TEXT',
-      text: results.result ?? results.errorMessage ?? '',
+      text: (results.result ?? results.errorMessage ?? '') + linkText,
     }
   },
 }

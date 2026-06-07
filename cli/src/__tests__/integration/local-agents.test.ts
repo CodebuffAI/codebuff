@@ -100,7 +100,7 @@ describe('Local Agent Integration', () => {
     expect(definitions.find((d) => d.id === 'no-meta')).toBeUndefined()
   })
 
-  test('excludes definitions missing required fields', async () => {
+  test('allows definitions with optional model under BYOK first-class support', async () => {
     mkdirSync(agentsDir, { recursive: true })
 
     writeAgentFile(
@@ -135,7 +135,7 @@ describe('Local Agent Integration', () => {
     )
     expect(
       definitions.find((agent) => agent.id === 'incomplete-agent'),
-    ).toBeUndefined()
+    ).toBeDefined()
   })
 
   test('last duplicate agent wins when same ID in multiple files', async () => {

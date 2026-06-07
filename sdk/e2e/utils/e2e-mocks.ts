@@ -239,6 +239,63 @@ function buildMockResponseText(params: {
   const lowerPrompt = normalized.toLowerCase()
   const lowerAll = allText.toLowerCase()
 
+  // File exploration: check BEFORE extractQuotedText to avoid grabbing JSON param keys
+  // (e.g. params like { directories: ["frontend"] } would otherwise return "directories")
+  const hasFileContext =
+    lowerAll.includes('.ts') ||
+    lowerAll.includes('.tsx') ||
+    lowerAll.includes('.js') ||
+    lowerAll.includes('.md')
+  const isFileQuery =
+    lowerPrompt.includes('find') ||
+    lowerPrompt.includes('relevant') ||
+    lowerPrompt.includes('related') ||
+    lowerPrompt.includes('search')
+
+  if (hasFileContext && isFileQuery) {
+    const fileRegex = /\b([\w][\w./-]*\.(?:ts|tsx|js|jsx|json|md))\b/g
+    const allFiles = [
+      ...new Set([...allText.matchAll(fileRegex)].map((m) => m[1])),
+    ].filter((f) => f.length < 60 && !f.includes('node_modules'))
+    if (allFiles.length > 0) {
+      const relevantFiles = allFiles
+        .filter((f) => {
+          const fl = f.toLowerCase()
+          if (lowerPrompt.includes('auth') || lowerPrompt.includes('user')) {
+            return (
+              fl.includes('user') ||
+              fl.includes('auth') ||
+              fl.includes('service')
+            )
+          }
+          if (lowerPrompt.includes('api')) {
+            return (
+              fl.includes('api') ||
+              fl.includes('server') ||
+              fl.includes('route') ||
+              fl.includes('core')
+            )
+          }
+          if (
+            lowerPrompt.includes('react') ||
+            lowerPrompt.includes('component')
+          ) {
+            return (
+              fl.includes('.tsx') ||
+              fl.includes('component') ||
+              fl.includes('frontend') ||
+              fl.includes('app')
+            )
+          }
+          return true
+        })
+        .slice(0, 5)
+      if (relevantFiles.length > 0) {
+        return `The relevant files are: ${relevantFiles.join(', ')}`
+      }
+    }
+  }
+
   const quoted = extractQuotedText(normalized)
   if (quoted) {
     return quoted

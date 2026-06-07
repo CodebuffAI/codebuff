@@ -56,7 +56,7 @@ export interface CodebuffApiClient {
 }
 
 // ============================================================================
-// Openbuff runs in local/BYOK mode — no cloud backend is needed.
+// Local/BYOK mode does not need a cloud backend.
 // The stub client always returns a no-op success response.
 // ============================================================================
 
@@ -97,7 +97,7 @@ let clientCreatedWithToken: string | undefined
 
 /**
  * Get or create the shared API client singleton.
- * Returns a no-op stub in Openbuff local/BYOK mode.
+ * Returns a no-op stub in local/BYOK mode.
  *
  * Note: Always call setApiClientAuthToken() before getApiClient() when you need
  * to ensure a specific auth token is used. The client is recreated whenever

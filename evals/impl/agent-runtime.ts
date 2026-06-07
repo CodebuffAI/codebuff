@@ -22,7 +22,6 @@ const evalsCiEnv: CiEnv = {
   RENDER: undefined,
   IS_PULL_REQUEST: undefined,
   CODEBUFF_GITHUB_TOKEN: undefined,
-  CODEBUFF_API_KEY: 'eval-api-key',
   EVAL_RESULTS_EMAIL: undefined,
   LINKUP_API_KEY: undefined,
 }

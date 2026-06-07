@@ -229,7 +229,10 @@ However, most of the time, the user will refer to files from their own cwd. You 
 
 All tools are very slow, with runtime scaling with the amount of text in the parameters. Prefer to write AS LITTLE TEXT AS POSSIBLE to accomplish the task.
 
-When using write_file, make sure to only include a few lines of context and not the entire file.
+- Prefer \`read_outline\` to get a fast structural summary (imports, classes, methods, and functions) of a large file instead of loading the whole file with \`read_files\`.
+- Prefer \`read_slices\` to read only the specific class, function, or method implementations you need, minimizing token overhead and latency.
+- Prefer \`apply_smart_patch\` instead of \`str_replace\` or \`write_file\` for applying edits. It uses fuzzy line alignment, AST-aware syntax auto-healing, and preflight compiler safety checks, preventing typical merge conflicts and syntax errors.
+- When using write_file, make sure to only include a few lines of context and not the entire file.
 
 ## Tool Results
 

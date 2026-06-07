@@ -91,7 +91,6 @@ export const testCiEnv = {
   RENDER: undefined,
   IS_PULL_REQUEST: undefined,
   CODEBUFF_GITHUB_TOKEN: undefined,
-  CODEBUFF_API_KEY: 'test-api-key',
 }
 
 /** @deprecated Use createTestAgentRuntimeParams() */

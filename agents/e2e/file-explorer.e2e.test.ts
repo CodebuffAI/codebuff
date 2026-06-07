@@ -1,6 +1,8 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient } from '@codebuff/sdk'
-import { describe, expect, it } from 'bun:test'
+import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
+import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
+import { beforeAll, describe, expect, it } from 'bun:test'
+
+import { setupE2eMocks } from '../../sdk/e2e/utils/e2e-mocks'
 
 import fileListerDefinition from '../file-explorer/file-lister'
 import filePickerDefinition from '../file-explorer/file-picker'
@@ -19,10 +21,13 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
  * - Testing file-lister directly verifies the core functionality
  */
 describe('File Lister Agent Integration - read_subtree tool', () => {
+  beforeAll(() => {
+    setupE2eMocks()
+  })
   it(
     'should find relevant files using read_subtree tool',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]!
+      const apiKey = LOCAL_MODE_API_KEY
 
       // Create mock project files that the file-lister should be able to find
       const projectFiles: Record<string, string> = {
@@ -93,8 +98,10 @@ export interface User {
 
       const client = new CodebuffClient({
         apiKey,
+        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
+        agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
       })
 
       const events: PrintModeEvent[] = []
@@ -139,7 +146,7 @@ export interface User {
   it(
     'should use the file tree from session state',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]!
+      const apiKey = LOCAL_MODE_API_KEY
 
       // Create a different set of project files with a specific structure
       const projectFiles: Record<string, string> = {
@@ -156,8 +163,10 @@ export interface User {
 
       const client = new CodebuffClient({
         apiKey,
+        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
+        agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
       })
 
       const events: PrintModeEvent[] = []
@@ -190,7 +199,7 @@ export interface User {
   it(
     'should respect directories parameter',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]!
+      const apiKey = LOCAL_MODE_API_KEY
 
       // Create project with multiple top-level directories
       const projectFiles: Record<string, string> = {
@@ -208,8 +217,10 @@ export interface User {
 
       const client = new CodebuffClient({
         apiKey,
+        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
+        agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
       })
 
       // Run file-lister with directories parameter to limit to frontend only
@@ -252,7 +263,7 @@ describe('File Picker Agent Integration - spawn_agents tool', () => {
   it.skip(
     'should spawn file-lister subagent and find relevant files',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]!
+      const apiKey = LOCAL_MODE_API_KEY
 
       // Create mock project files
       const projectFiles: Record<string, string> = {
@@ -289,9 +300,13 @@ export class AuthService {
 
       const client = new CodebuffClient({
         apiKey,
+        localMode: true,
         cwd: '/tmp/test-project-picker',
         projectFiles,
-        agentDefinitions: [localFilePickerDef, localFileListerDef],
+        agentDefinitions: [
+          localFilePickerDef as unknown as AgentDefinition,
+          localFileListerDef as unknown as AgentDefinition,
+        ],
       })
 
       const events: PrintModeEvent[] = []

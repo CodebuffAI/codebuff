@@ -15,6 +15,7 @@ import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { formatCwd } from '../utils/path-helpers'
 import { loadRecentProjects } from '../utils/recent-projects'
+import { createTextPasteHandler } from '../utils/strings'
 import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 
 import type { SelectableListItem } from './selectable-list'
@@ -354,7 +355,9 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             value={searchQuery}
             onChange={({ text }) => setSearchQuery(text)}
             onSubmit={() => {}} // Enter key handled by onKeyIntercept
-            onPaste={() => {}} // Paste not needed for path input
+            onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
+              setSearchQuery(text),
+            )}
             onKeyIntercept={handleSearchKeyIntercept}
             placeholder="Select project directory..."
             focused={true}

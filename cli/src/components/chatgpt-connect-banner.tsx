@@ -155,7 +155,7 @@ export const ChatGptConnectBanner = () => {
       : showAutoConfigError
         ? `✓ ChatGPT connected · ${autoConfigError}`
         : showAutoConfig
-          ? '✓ ChatGPT connected · Route Openbuff through Codex?'
+          ? '✓ ChatGPT connected · Route requests through Codex?'
           : '✓ ChatGPT connected'
 
     return (
@@ -275,7 +275,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     return {
       success: true,
       message:
-        `Successfully connected your ChatGPT subscription! ${isLocalMode() ? 'If needed, run /setup codex to route Openbuff through Codex, or click Use Codex preset if the banner is still open.' : 'Codebuff will use it for supported OpenAI streaming requests.'}`,
+        `Successfully connected your ChatGPT subscription! ${isLocalMode() ? 'If needed, run /setup codex to route requests through Codex, or click Use Codex preset if the banner is still open.' : 'It will be used for supported OpenAI streaming requests.'}`,
     }
   } catch (err) {
     return {

@@ -10,8 +10,6 @@ export const createTestCiEnv = (overrides: Partial<CiEnv> = {}): CiEnv => ({
   RENDER: undefined,
   IS_PULL_REQUEST: undefined,
   CODEBUFF_GITHUB_TOKEN: undefined,
-  CODEBUFF_API_KEY: 'test-api-key',
-  OPENBUFF_API_KEY: undefined,
   CODEBUFF_CHATGPT_OAUTH_TOKEN: undefined,
   OPENBUFF_CHATGPT_OAUTH_TOKEN: undefined,
   ...overrides,

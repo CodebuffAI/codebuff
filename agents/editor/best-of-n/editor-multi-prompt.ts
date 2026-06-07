@@ -1,4 +1,6 @@
 import { publisher } from '../../constants'
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
 import type { CandidateVerificationResult } from './editor-multi-prompt-ranking'
@@ -26,6 +28,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
       'code_search',
       'str_replace',
       'write_file',
+      'apply_smart_patch',
       'set_messages',
       'set_output',
       'run_terminal_command',
@@ -40,8 +43,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
       'editor-implementor-proposal-4',
       'editor-implementor-proposal-5',
       'editor-implementor-proposal-direct',
-      'editor-implementor-opus',
-      'editor-implementor-gpt-5',
+      'editor-implementor',
     ],
 
     inputSchema: {
@@ -67,6 +69,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
 function* handleStepsMultiPrompt({
   agentState,
   params,
+  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -1895,6 +1898,14 @@ function* handleStepsMultiPrompt({
     return Boolean(getEditResultFailureMessage(result))
   }
 
+  function shouldSkipRepairForEditResult(result: any): boolean {
+    return Boolean(
+      result &&
+        typeof result === 'object' &&
+        result.skipRepairForChangedProposal === true,
+    )
+  }
+
   function getEditResultFailureMessage(result: any): string {
     if (!result || typeof result !== 'object') return ''
     if (
@@ -2263,7 +2274,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context or read. If you need to import or use a utility or type, you MUST first verify its exact export/path/API using read-files, code_search, or glob tools. If you cannot find or verify its existence in the codebase, DO NOT invent it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content.'
+      'Produce a complete multi-file implementation proposal using the supplied proposalContext/current file context. If exact current code is missing, you may use read_files, code_search, glob, or list_directory for bounded read-only context gathering only. Then emit all required propose_str_replace/propose_write_file/propose_edit_transaction calls as one complete proposal bundle; use one propose_* call per edited file when needed, or one propose_edit_transaction when related edits should be preflighted together. Prefer unified-diff style proposals for existing-file edits when exact string replacement would be brittle, so the parent/runtime can apply them through apply_smart_patch before falling back to str_replace. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen/read, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context or read. If you need to import or use a utility or type, you MUST first verify its exact export/path/API using read-files, code_search, or glob tools. If you cannot find or verify its existence in the codebase, DO NOT invent it. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Never call write_file, str_replace, apply_smart_patch, spawn_agents, set_output, or any other mutating/control tool directly during proposal drafting. Keep visible narration short; use your reasoning internally. Use exact current text for propose_str_replace oldString values only when present in supplied/read context. If exact replacements are brittle or full target file content is available, prefer a unified diff or complete updated file content over fragile oldString matching.'
 
     const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
     const expectedScope =
@@ -2282,7 +2293,7 @@ function* handleStepsMultiPrompt({
     orchestrationPlan: ProposalOrchestrationPlan,
   ): string {
     const base =
-      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. This direct no-read mode is only used when the parent has supplied exact current file content; do not guess beyond it. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file calls as one complete proposal bundle; use one propose_* call per edited file when needed. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, do not fabricate an edit: emit no proposal calls rather than editing unrelated directories/languages. If exact replacements are brittle or full target file content is available, use propose_write_file with complete updated file content. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
+      'Produce a complete multi-file implementation proposal using only the supplied proposalContext/current file context. This direct no-read mode is only used when the parent has supplied exact current file content; do not guess beyond it. Do not call read_files, code_search, glob, list_directory, write_file, str_replace, apply_smart_patch, spawn_agents, set_output, or any other mutating/control tool. Emit all required propose_str_replace/propose_write_file/propose_edit_transaction calls as one complete proposal bundle; use one propose_* call per edited file when needed, or one propose_edit_transaction when related edits should be preflighted together. Prefer unified-diff style proposals for existing-file edits when exact string replacement would be brittle, so the parent/runtime can apply them through apply_smart_patch before falling back to str_replace. Prefer the existing repository paths and languages shown in proposalContext; do not invent a new unrelated source tree or switch implementation languages unless the user/context explicitly requests it. For edits to existing files using propose_str_replace, NEVER invent file paths — only edit existing files whose exact current content you have seen in proposalContext, and ensure oldString matches the file content exactly. For new files, you may freely use propose_write_file to create new files at logical paths. NEVER assume, guess, or hallucinate imports, file paths, helper functions, or APIs that you have not explicitly seen in the supplied context. If a utility or type is not explicitly present in the supplied proposalContext, DO NOT attempt to use or import it. If exact target context is still missing, do not fabricate an edit: emit no proposal calls rather than editing unrelated directories/languages. If exact replacements are brittle or full target file content is available, prefer a unified diff or complete updated file content over fragile oldString matching. After every required edit has been proposed, write the exact marker PROPOSAL_BUNDLE_COMPLETE. Do not write that marker if any requested edit is missing. Keep visible narration short; use your reasoning internally.'
 
     const targetHints = orchestrationPlan.targetFileHints.slice(0, 12)
     const expectedScope =
@@ -3720,11 +3731,12 @@ function* handleStepsMultiPrompt({
         return
       }
 
-      applyFailures.push(
-        `${candidateToApply.id}: ${summarizeAppliedToolResults(
-          appliedToolResults,
-        )}`,
-      )
+      const applyFailureSummary = summarizeAppliedToolResults(appliedToolResults)
+      applyFailures.push(`${candidateToApply.id}: ${applyFailureSummary}`)
+
+      if (appliedToolResults.some(shouldSkipRepairForEditResult)) {
+        continue
+      }
 
       const repairedImplementation = yield* repairFailedImplementation({
         failedImplementation: candidateToApply,
@@ -3850,7 +3862,7 @@ function* handleStepsMultiPrompt({
                 currentFileContext,
               }),
               proposalRequirements:
-                'Return one complete corrected proposal for the whole task. Include the useful captured edits from the partial proposal and add any missing edits. Use supplied current file context; if exact current code is still missing, use bounded read-only tools only. Emit one complete proposal bundle with all required propose_str_replace/propose_write_file calls, then write PROPOSAL_BUNDLE_COMPLETE only when every requested edit is covered. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.',
+                'Return one complete corrected proposal for the whole task. Include the useful captured edits from the partial proposal and add any missing edits. Use supplied current file context; if exact current code is still missing, use bounded read-only tools only. Emit one complete proposal bundle with all required propose_str_replace/propose_write_file/propose_edit_transaction calls, then write PROPOSAL_BUNDLE_COMPLETE only when every requested edit is covered. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.',
               previousFailure:
                 'The previous proposal was marked partial by the proposal collector. Do not assume it will be applied. Re-emit the complete final edit proposal.',
               allowReadOnlyTools: true,
@@ -3918,7 +3930,8 @@ function* handleStepsMultiPrompt({
     | ToolCall<'read_files'>
     | ToolCall<'str_replace'>
     | ToolCall<'write_file'>
-    | ToolCall<'edit_transaction'>,
+    | ToolCall<'edit_transaction'>
+    | ToolCall<'apply_smart_patch'>,
     any[],
     any
   > {
@@ -3986,6 +3999,18 @@ function* handleStepsMultiPrompt({
               }
             : toolCall.input,
         )
+
+        if (
+          realToolName === 'str_replace' &&
+          shouldTrySmartPatchForStrReplaceInput(input)
+        ) {
+          const smartPatchApply = yield* applyStrReplaceProposalAsSmartPatch(input)
+          if (smartPatchApply.handled && !isFailedEditResult(smartPatchApply.result)) {
+            appliedToolResults.push(smartPatchApply.result)
+            continue
+          }
+        }
+
         const { toolResult } = yield {
           toolName: realToolName,
           input,
@@ -4012,7 +4037,7 @@ function* handleStepsMultiPrompt({
   function* applyLedgerFinalContent(
     toolCall: ProposedToolCall,
   ): Generator<
-    ToolCall<'read_files'> | ToolCall<'write_file'>,
+    ToolCall<'read_files'> | ToolCall<'write_file'> | ToolCall<'apply_smart_patch'>,
     { handled: true; result: any } | { handled: false },
     any
   > {
@@ -4049,14 +4074,27 @@ function* handleStepsMultiPrompt({
         }
       } else if (typeof baseContent === 'string') {
         if (currentContent !== baseContent) {
-          return {
-            handled: true,
-            result: {
-              path,
-              errorMessage:
-                'Proposal final content was not applied because the target file changed after the proposal was generated.',
-            },
+          const smartPatchApply = yield* applyProposalUnifiedDiff(toolCall, path)
+          if (smartPatchApply.handled) {
+            if (!isFailedEditResult(smartPatchApply.result)) {
+              return smartPatchApply
+            }
+            if (toolCall.toolName === 'propose_write_file') {
+              return smartPatchApply
+            }
           }
+          if (toolCall.toolName === 'propose_write_file') {
+            return {
+              handled: true,
+              result: {
+                path,
+                errorMessage:
+                  'Proposal final content was not applied because the target file changed after the proposal was generated and no safe smart patch could be applied.',
+                skipRepairForChangedProposal: true,
+              },
+            }
+          }
+          return { handled: false }
         }
       }
     }
@@ -4084,11 +4122,182 @@ function* handleStepsMultiPrompt({
     return { handled: true, result: toolResult }
   }
 
+  function shouldTrySmartPatchForStrReplaceInput(input: any): boolean {
+    if (!isObject(input) || !Array.isArray(input.replacements)) return false
+    return input.replacements.some(
+      (replacement) =>
+        isObject(replacement) &&
+        typeof replacement.oldString === 'string' &&
+        typeof replacement.newString === 'string' &&
+        (replacement.oldString.includes('\n') ||
+          replacement.newString.includes('\n')),
+    )
+  }
+
+  function* applyStrReplaceProposalAsSmartPatch(
+    input: any,
+  ): Generator<
+    ToolCall<'apply_smart_patch'>,
+    { handled: true; result: any } | { handled: false },
+    any
+  > {
+    if (!isObject(input) || typeof input.path !== 'string') {
+      return { handled: false }
+    }
+    const replacements = Array.isArray(input.replacements)
+      ? input.replacements
+      : []
+    if (replacements.length === 0) return { handled: false }
+
+    const hunks = replacements
+      .map((replacement) => {
+        if (
+          !isObject(replacement) ||
+          typeof replacement.oldString !== 'string' ||
+          typeof replacement.newString !== 'string' ||
+          !replacement.oldString
+        ) {
+          return ''
+        }
+        return buildUnifiedDiffHunkFromReplacement(
+          replacement.oldString,
+          replacement.newString,
+        )
+      })
+      .filter(Boolean)
+    if (hunks.length !== replacements.length) return { handled: false }
+
+    return yield* applyUnifiedDiffPatch(input.path, hunks.join('\n'), 'str_replace_optimization')
+  }
+
+  function buildUnifiedDiffHunkFromReplacement(
+    oldString: string,
+    newString: string,
+  ): string {
+    const oldLines = oldString.replace(/\r\n/g, '\n').split('\n')
+    const newLines = newString.replace(/\r\n/g, '\n').split('\n')
+    return [
+      `@@ -1,${oldLines.length} +1,${newLines.length} @@`,
+      ...oldLines.map((line) => `-${line}`),
+      ...newLines.map((line) => `+${line}`),
+    ].join('\n')
+  }
+
+  function* applyProposalUnifiedDiff(
+    toolCall: ProposedToolCall,
+    path: string,
+  ): Generator<
+    ToolCall<'apply_smart_patch'>,
+    { handled: true; result: any } | { handled: false },
+    any
+  > {
+    if (!isObject(toolCall.input)) return { handled: false }
+    const patch = toolCall.input.__proposalUnifiedDiff
+    if (typeof patch !== 'string' || !patch.trim()) return { handled: false }
+
+    return yield* applyUnifiedDiffPatch(path, patch, 'drift_resolution')
+  }
+
+  function* applyUnifiedDiffPatch(
+    path: string,
+    patch: string,
+    type: 'drift_resolution' | 'str_replace_optimization',
+  ): Generator<
+    ToolCall<'apply_smart_patch'>,
+    { handled: true; result: any },
+    any
+  > {
+    const { toolResult } = yield {
+      toolName: 'apply_smart_patch',
+      input: {
+        path,
+        patch,
+        fuzzFactor: 8,
+        autoHeal: true,
+        preflightCompile: true,
+      },
+      includeToolCall: true,
+    } satisfies ToolCall<'apply_smart_patch'>
+
+    if (toolResult === undefined || toolResult === null) {
+      // Capture telemetry/analytics for missing toolResult
+      try {
+        trackEvent({
+          event: AnalyticsEvent.SMART_PATCH_RESULT,
+          userId: agentState.runId || 'system',
+          properties: {
+            type,
+            success: false,
+            path,
+            extension: path.split('.').pop() || '',
+            fuzzFactor: 8,
+            autoHeal: true,
+            errorMessage: 'apply_smart_patch did not return a tool result',
+            patchSizeChars: patch.length,
+            runId: agentState.runId,
+            agentId: agentState.agentId,
+          },
+          logger,
+        })
+      } catch (e) {
+        logger.warn({ error: e }, 'Failed to track smart patch result telemetry')
+      }
+
+      return {
+        handled: true,
+        result: {
+          path,
+          errorMessage:
+            'apply_smart_patch did not return a tool result while applying proposal unified diff; no edit was recorded.',
+        },
+      }
+    }
+
+    const success =
+      isObject(toolResult) &&
+      toolResult.applied === true
+
+    const errorMessage =
+      isObject(toolResult)
+        ? typeof toolResult.message === 'string' && toolResult.message
+          ? toolResult.message
+          : typeof toolResult.errorMessage === 'string' && toolResult.errorMessage
+            ? toolResult.errorMessage
+            : undefined
+        : undefined
+
+    // Capture telemetry/analytics
+    try {
+      trackEvent({
+        event: AnalyticsEvent.SMART_PATCH_RESULT,
+        userId: agentState.runId || 'system',
+        properties: {
+          type,
+          success,
+          path,
+          extension: path.split('.').pop() || '',
+          fuzzFactor: 8,
+          autoHeal: true,
+          errorMessage,
+          patchSizeChars: patch.length,
+          runId: agentState.runId,
+          agentId: agentState.agentId,
+        },
+        logger,
+      })
+    } catch (e) {
+      logger.warn({ error: e }, 'Failed to track smart patch result telemetry')
+    }
+
+    return { handled: true, result: toolResult }
+  }
+
   function sanitizeProposalApplyInput(input: any): any {
     if (!isObject(input)) return input
     const {
       __proposalFile: _proposalFile,
       __proposalFinalContent: _finalContent,
+      __proposalUnifiedDiff: _unifiedDiff,
       __proposalBaseContentHash: _baseContentHash,
       __proposalBaseContent: _baseContent,
       ...rest
@@ -4570,7 +4779,7 @@ function* handleStepsMultiPrompt({
                 currentFileContext,
               }),
               proposalRequirements:
-                'Return a complete corrected proposal for the failed implementation using the supplied current file context. If exact current code is still missing, use bounded read-only tools only. Then emit one complete proposal bundle with all required propose_str_replace/propose_write_file calls, and write PROPOSAL_BUNDLE_COMPLETE only when every requested edit is covered. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.',
+                'Return a complete corrected proposal for the failed implementation using the supplied current file context. If exact current code is still missing, use bounded read-only tools only. Then emit one complete proposal bundle with all required propose_str_replace/propose_write_file/propose_edit_transaction calls, and write PROPOSAL_BUNDLE_COMPLETE only when every requested edit is covered. Never call write_file, str_replace, spawn_agents, set_output, or any other mutating/control tool.',
               previousFailure: failureSummary,
               allowReadOnlyTools: true,
               proposalBundleMode: true,

@@ -15,6 +15,10 @@ const PROVIDER_CONFIG_FILE_NAME = 'openbuff.json'
 const LEGACY_PROVIDER_CONFIG_FILE_NAME = 'codebuff.json'
 const GLOBAL_PROVIDER_CONFIG_FILE_NAME = 'provider-config.json'
 
+const configFragmentPathsSchema = z
+  .union([z.string().min(1), z.array(z.string().min(1))])
+  .optional()
+
 const envVarNameSchema = z
   .string()
   .regex(
@@ -277,6 +281,12 @@ function routableModelValueToReasoningEffort(
 
 export const providerConfigFileSchema = z
   .object({
+    /** Base config fragment(s) loaded before this file. Relative paths resolve from the declaring file. */
+    extends: configFragmentPathsSchema,
+    /** Additional config fragment(s) loaded before this file. Relative paths resolve from the declaring file. */
+    include: configFragmentPathsSchema,
+    /** Alias for `include`, useful when a config is split into several peer files. */
+    includes: configFragmentPathsSchema,
     providers: z.record(z.string().min(1), providerSchema).optional(),
     provider: z.record(z.string().min(1), providerSchema).optional(),
     /** Model used for any agent without an explicit entry in `agents`. */
@@ -488,7 +498,19 @@ export type ResolvedProviderModel = {
 export type LoadedProviderConfig = {
   config: ProviderConfigFile
   sourceFilePaths: string[]
+  sourceFiles?: {
+    providers?: Record<string, string>
+    routes?: {
+      defaultModel?: string
+      modes?: Record<string, string>
+      agents?: Record<string, string>
+      editorMultiPrompt?: string
+    }
+    indexing?: string
+  }
 }
+
+type ProviderConfigLoadResult = LoadedProviderConfig
 
 const emptyProviderConfig = (): ProviderConfigFile => ({
   providers: {},
@@ -509,15 +531,196 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
   },
 })
 
-function readProviderConfigFile(configPath: string): ProviderConfigFile {
-  const rawConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+function normalizeConfigFragmentPaths(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function resolveConfigFragmentPath(configPath: string, fragmentPath: string): string {
+  return path.isAbsolute(fragmentPath)
+    ? fragmentPath
+    : path.resolve(path.dirname(configPath), fragmentPath)
+}
+
+function expandFragmentPaths(resolvedConfigPath: string, fragmentPaths: string[]): string[] {
+  const expanded: string[] = []
+  for (const fragmentPath of fragmentPaths) {
+    const resolvedPath = resolveConfigFragmentPath(resolvedConfigPath, fragmentPath)
+    if (!fs.existsSync(resolvedPath)) {
+      continue
+    }
+    const stat = fs.statSync(resolvedPath)
+    if (stat.isDirectory()) {
+      const files = fs.readdirSync(resolvedPath)
+        .filter(file => file.endsWith('.json'))
+        .sort()
+        .map(file => path.join(resolvedPath, file))
+      expanded.push(...files)
+    } else {
+      expanded.push(resolvedPath)
+    }
+  }
+  return expanded
+}
+
+function getSourceFilesFromRawConfig(
+  rawConfig: any,
+  resolvedConfigPath: string,
+): NonNullable<LoadedProviderConfig['sourceFiles']> {
+  const sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
+    providers: {},
+    routes: {
+      modes: {},
+      agents: {},
+    },
+  }
+
+  const providers = {
+    ...(rawConfig?.provider ?? {}),
+    ...(rawConfig?.providers ?? {}),
+  }
+  for (const providerId of Object.keys(providers)) {
+    sourceFiles.providers![providerId] = resolvedConfigPath
+  }
+
+  if (
+    rawConfig?.defaultModel !== undefined ||
+    rawConfig?.defaultReasoningEffort !== undefined
+  ) {
+    sourceFiles.routes!.defaultModel = resolvedConfigPath
+  }
+
+  if (rawConfig?.modes) {
+    for (const mode of Object.keys(rawConfig.modes)) {
+      sourceFiles.routes!.modes![mode] = resolvedConfigPath
+    }
+  }
+  if (rawConfig?.modeReasoningEfforts) {
+    for (const mode of Object.keys(rawConfig.modeReasoningEfforts)) {
+      sourceFiles.routes!.modes![mode] = resolvedConfigPath
+    }
+  }
+
+  if (rawConfig?.agents) {
+    for (const agentId of Object.keys(rawConfig.agents)) {
+      sourceFiles.routes!.agents![agentId] = resolvedConfigPath
+    }
+  }
+  if (rawConfig?.agentReasoningEfforts) {
+    for (const agentId of Object.keys(rawConfig.agentReasoningEfforts)) {
+      sourceFiles.routes!.agents![agentId] = resolvedConfigPath
+    }
+  }
+
+  if (rawConfig?.editorMultiPrompt !== undefined) {
+    sourceFiles.routes!.editorMultiPrompt = resolvedConfigPath
+  }
+
+  if (rawConfig?.indexing !== undefined) {
+    sourceFiles.indexing = resolvedConfigPath
+  }
+
+  return sourceFiles
+}
+
+function mergeSourceFiles(
+  base: NonNullable<LoadedProviderConfig['sourceFiles']>,
+  override: NonNullable<LoadedProviderConfig['sourceFiles']>,
+): NonNullable<LoadedProviderConfig['sourceFiles']> {
+  return {
+    providers: {
+      ...base.providers,
+      ...override.providers,
+    },
+    routes: {
+      defaultModel: override.routes?.defaultModel ?? base.routes?.defaultModel,
+      modes: {
+        ...(base.routes?.modes ?? {}),
+        ...(override.routes?.modes ?? {}),
+      },
+      agents: {
+        ...(base.routes?.agents ?? {}),
+        ...(override.routes?.agents ?? {}),
+      },
+      editorMultiPrompt:
+        override.routes?.editorMultiPrompt ?? base.routes?.editorMultiPrompt,
+    },
+    indexing: override.indexing ?? base.indexing,
+  }
+}
+
+function readProviderConfigFile(
+  configPath: string,
+  state: {
+    stack: Set<string>
+    cache: Map<string, ProviderConfigLoadResult>
+  } = { stack: new Set(), cache: new Map() },
+): ProviderConfigLoadResult {
+  const resolvedConfigPath = path.resolve(configPath)
+  const cached = state.cache.get(resolvedConfigPath)
+  if (cached) return cached
+  if (state.stack.has(resolvedConfigPath)) {
+    throw new Error(
+      `Provider config includes form a cycle at ${resolvedConfigPath}`,
+    )
+  }
+
+  state.stack.add(resolvedConfigPath)
+  const rawConfig = JSON.parse(fs.readFileSync(resolvedConfigPath, 'utf8'))
+  const fragmentPaths = [
+    ...normalizeConfigFragmentPaths(rawConfig?.extends),
+    ...normalizeConfigFragmentPaths(rawConfig?.include),
+    ...normalizeConfigFragmentPaths(rawConfig?.includes),
+  ]
+
+  // Automatically look for openbuff.d next to any config file (like openbuff.json)
+  const configDir = path.dirname(resolvedConfigPath)
+  const implicitDir = path.join(configDir, 'openbuff.d')
+  if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
+    if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
+      fragmentPaths.push('openbuff.d')
+    }
+  }
+
+  const expandedPaths = expandFragmentPaths(resolvedConfigPath, fragmentPaths)
+
+  let config = emptyProviderConfig()
+  const sourceFilePaths: string[] = []
+  let sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
+    providers: {},
+    routes: {
+      modes: {},
+      agents: {},
+    },
+  }
+
+  for (const resolvedPath of expandedPaths) {
+    const loadedFragment = readProviderConfigFile(resolvedPath, state)
+    config = mergeProviderConfigs(config, loadedFragment.config)
+    sourceFilePaths.push(...loadedFragment.sourceFilePaths)
+    sourceFiles = mergeSourceFiles(sourceFiles, loadedFragment.sourceFiles ?? {})
+  }
+
   const parseResult = providerConfigFileSchema.safeParse(rawConfig)
   if (!parseResult.success) {
     throw new Error(
-      `Invalid provider config at ${configPath}: ${parseResult.error.message}`,
+      `Invalid provider config at ${resolvedConfigPath}: ${parseResult.error.message}`,
     )
   }
-  return parseResult.data
+  config = mergeProviderConfigs(config, parseResult.data)
+
+  const currentSourceFiles = getSourceFilesFromRawConfig(rawConfig, resolvedConfigPath)
+  sourceFiles = mergeSourceFiles(sourceFiles, currentSourceFiles)
+
+  const result = {
+    config,
+    sourceFilePaths: Array.from(new Set([...sourceFilePaths, resolvedConfigPath])),
+    sourceFiles,
+  }
+  state.cache.set(resolvedConfigPath, result)
+  state.stack.delete(resolvedConfigPath)
+  return result
 }
 
 function mergeProviderConfigs(
@@ -602,6 +805,13 @@ export function loadProviderConfigSync(
 
   let config = emptyProviderConfig()
   const sourceFilePaths: string[] = []
+  let sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
+    providers: {},
+    routes: {
+      modes: {},
+      agents: {},
+    },
+  }
 
   for (const configPath of configPaths) {
     if (!fs.existsSync(configPath)) {
@@ -610,8 +820,9 @@ export function loadProviderConfigSync(
 
     try {
       const parsedConfig = readProviderConfigFile(configPath)
-      config = mergeProviderConfigs(config, parsedConfig)
-      sourceFilePaths.push(configPath)
+      config = mergeProviderConfigs(config, parsedConfig.config)
+      sourceFilePaths.push(...parsedConfig.sourceFilePaths)
+      sourceFiles = mergeSourceFiles(sourceFiles, parsedConfig.sourceFiles ?? {})
     } catch (error) {
       if (explicitConfigPath) {
         throw error
@@ -619,7 +830,7 @@ export function loadProviderConfigSync(
     }
   }
 
-  return { config, sourceFilePaths }
+  return { config, sourceFilePaths, sourceFiles }
 }
 
 function getModelMapping(
@@ -1360,6 +1571,129 @@ export function getProjectProviderConfigPath(cwd = process.cwd()): string {
   return path.join(cwd, PROVIDER_CONFIG_FILE_NAME)
 }
 
+function tryWriteFragmentedConfig(
+  rootPath: string,
+  newConfig: ProviderConfigFileInput,
+): boolean {
+  try {
+    if (!fs.existsSync(rootPath)) return false
+    const rawRoot = JSON.parse(fs.readFileSync(rootPath, 'utf8'))
+    const fragmentPaths = [
+      ...normalizeConfigFragmentPaths(rawRoot?.extends),
+      ...normalizeConfigFragmentPaths(rawRoot?.include),
+      ...normalizeConfigFragmentPaths(rawRoot?.includes),
+    ]
+    const rootDir = path.dirname(rootPath)
+    const implicitDir = path.join(rootDir, 'openbuff.d')
+    if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
+      if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
+        fragmentPaths.push('openbuff.d')
+      }
+    }
+
+    if (fragmentPaths.length === 0) return false
+
+    // Resolve and expand all fragment paths (including directory contents)
+    const expandedPaths = expandFragmentPaths(rootPath, fragmentPaths)
+    if (expandedPaths.length === 0) return false
+
+    const parsedFragments = new Map<string, any>()
+    const keyToPathMap = new Map<string, string>()
+
+    for (const resolvedFragmentPath of expandedPaths) {
+      if (fs.existsSync(resolvedFragmentPath)) {
+        try {
+          const rawFragment = JSON.parse(fs.readFileSync(resolvedFragmentPath, 'utf8'))
+          parsedFragments.set(resolvedFragmentPath, rawFragment)
+          for (const key of Object.keys(rawFragment)) {
+            keyToPathMap.set(key, resolvedFragmentPath)
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+    }
+
+    // Default target paths based on name heuristics or key maps
+    const providersPath = [...parsedFragments.keys()].find(
+      p => p.endsWith('providers.json') || p.endsWith('provider.json') || keyToPathMap.has('providers') || keyToPathMap.has('provider')
+    ) ?? expandedPaths.find(p => p.endsWith('providers.json') || p.endsWith('provider.json'))
+
+    const routesPath = [...parsedFragments.keys()].find(
+      p => p.endsWith('routes.json') || keyToPathMap.has('modes') || keyToPathMap.has('defaultModel') || keyToPathMap.has('agents')
+    ) ?? expandedPaths.find(p => p.endsWith('routes.json'))
+
+    const indexingPath = [...parsedFragments.keys()].find(
+      p => p.endsWith('indexing.json') || keyToPathMap.has('indexing')
+    ) ?? expandedPaths.find(p => p.endsWith('indexing.json'))
+
+    const fragmentPayloads = new Map<string, Record<string, any>>()
+    const getPayload = (resolvedPath: string): Record<string, any> => {
+      const payload = fragmentPayloads.get(resolvedPath)
+      if (!payload) {
+        const newPayload = { ...(parsedFragments.get(resolvedPath) ?? {}) }
+        fragmentPayloads.set(resolvedPath, newPayload)
+        return newPayload
+      }
+      return payload
+    }
+
+    const routeKey = (key: string, value: any, fallbackPath: string | undefined) => {
+      if (value === undefined) return
+      const targetPath = keyToPathMap.get(key) ?? fallbackPath
+      if (targetPath) {
+        const payload = getPayload(targetPath)
+        payload[key] = value
+      } else {
+        rawRoot[key] = value
+      }
+    }
+
+    if (newConfig.providers !== undefined) {
+      routeKey('providers', newConfig.providers, providersPath)
+    }
+    if (newConfig.provider !== undefined) {
+      routeKey('provider', newConfig.provider, providersPath)
+    }
+    if (newConfig.indexing !== undefined) {
+      routeKey('indexing', newConfig.indexing, indexingPath)
+    }
+
+    const routingKeys = [
+      'defaultModel',
+      'defaultReasoningEffort',
+      'modes',
+      'modeReasoningEfforts',
+      'agents',
+      'agentReasoningEfforts',
+      'editorMultiPrompt',
+    ]
+    for (const key of routingKeys) {
+      if ((newConfig as any)[key] !== undefined) {
+        routeKey(key, (newConfig as any)[key], routesPath)
+      }
+    }
+
+    // Write back updated fragments
+    for (const [resolvedPath, payload] of fragmentPayloads.entries()) {
+      fs.writeFileSync(resolvedPath, JSON.stringify(payload, null, 2) + '\n')
+    }
+
+    // Remove key-value routing fields from the root config so they are not duplicated
+    for (const key of ['providers', 'provider', 'indexing', ...routingKeys]) {
+      if (keyToPathMap.has(key) || (key === 'providers' && providersPath) || (key === 'provider' && providersPath) || (key === 'indexing' && indexingPath) || (routingKeys.includes(key) && routesPath)) {
+        delete rawRoot[key]
+      }
+    }
+
+    // Write back root
+    fs.writeFileSync(rootPath, JSON.stringify(rawRoot, null, 2) + '\n')
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 export function writeProviderConfigFile(params: {
   cwd?: string
   config: ProviderConfigFileInput
@@ -1379,7 +1713,7 @@ export function writeProviderConfigFile(params: {
   if (fs.existsSync(configPath) && !params.force) {
     let existingConfig: ProviderConfigFile
     try {
-      existingConfig = readProviderConfigFile(configPath)
+      existingConfig = readProviderConfigFile(configPath).config
     } catch (error) {
       throw new Error(
         `Cannot merge with existing config at ${configPath}: ${error instanceof Error ? error.message : String(error)}. Use --force to overwrite it.`,
@@ -1418,7 +1752,15 @@ export function writeProviderConfigFile(params: {
       indexing: existingConfig.indexing ?? newConfig.indexing,
     }
 
+    if (tryWriteFragmentedConfig(configPath, mergedConfig)) {
+      return configPath
+    }
+
     fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2) + '\n')
+    return configPath
+  }
+
+  if (tryWriteFragmentedConfig(configPath, newConfig)) {
     return configPath
   }
 
@@ -1448,6 +1790,14 @@ export function getMissingProviderEnvVars(
   return Array.from(missing).sort()
 }
 
+function getRelativeConfigPath(filePath: string): string {
+  try {
+    return path.relative(process.cwd(), filePath)
+  } catch {
+    return filePath
+  }
+}
+
 export function describeLoadedProviderConfig(
   loadedConfig = loadProviderConfigSync(),
 ): string {
@@ -1455,7 +1805,7 @@ export function describeLoadedProviderConfig(
   lines.push(
     `Config: ${
       loadedConfig.sourceFilePaths.length
-        ? loadedConfig.sourceFilePaths.join(', ')
+        ? loadedConfig.sourceFilePaths.map(getRelativeConfigPath).join(', ')
         : 'not found'
     }`,
   )
@@ -1485,11 +1835,13 @@ export function describeLoadedProviderConfig(
       : Object.entries(provider.models)
           .map(([from, to]) => `${from}->${to}`)
           .join(', ')
+    const sourceFile = loadedConfig.sourceFiles?.providers?.[providerId]
+    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
     if (provider.type === 'chatgpt-oauth') {
-      lines.push(`- ${providerId}: ChatGPT/Codex OAuth | models=${models}`)
+      lines.push(`- ${providerId}: ChatGPT/Codex OAuth | models=${models}${sourceSuffix}`)
     } else {
       lines.push(
-        `- ${providerId}: ${provider.baseURL} | env=${provider.apiKeyEnv ?? '(none)'} | models=${models}`,
+        `- ${providerId}: ${provider.baseURL} | env=${provider.apiKeyEnv ?? '(none)'} | models=${models}${sourceSuffix}`,
       )
     }
   }

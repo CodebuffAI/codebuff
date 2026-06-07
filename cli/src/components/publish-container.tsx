@@ -15,6 +15,7 @@ import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
 import { loadLocalAgents, loadAgentDefinitions } from '../utils/local-agent-registry'
+import { createTextPasteHandler } from '../utils/strings'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 
@@ -357,7 +358,9 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               value={searchQuery}
               onChange={({ text }) => setSearchQuery(text)}
               onSubmit={handleNext}
-              onPaste={() => {}}
+              onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
+                setSearchQuery(text),
+              )}
               onKeyIntercept={handleSearchKeyIntercept}
               placeholder="Type to search agents..."
               focused={inputFocused}

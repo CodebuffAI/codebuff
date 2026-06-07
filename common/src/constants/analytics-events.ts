@@ -19,6 +19,7 @@ export enum AnalyticsEvent {
 
   // Backend
   AGENT_STEP = 'backend.agent_step',
+  SMART_PATCH_RESULT = 'backend.smart_patch_result',
   CREDIT_GRANT = 'backend.credit_grant',
   CREDIT_CONSUMED = 'backend.credit_consumed',
   MALFORMED_TOOL_CALL_JSON = 'backend.malformed_tool_call_json',
@@ -123,11 +124,6 @@ export enum AnalyticsEvent {
   DOCS_SEARCH_VALIDATION_ERROR = 'api.docs_search_validation_error',
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
-
-  GRAVITY_INDEX_REQUEST = 'api.gravity_index_request',
-  GRAVITY_INDEX_AUTH_ERROR = 'api.gravity_index_auth_error',
-  GRAVITY_INDEX_VALIDATION_ERROR = 'api.gravity_index_validation_error',
-  GRAVITY_INDEX_ERROR = 'api.gravity_index_error',
 
   // Web - Feedback API
   FEEDBACK_SUBMITTED = 'api.feedback_submitted',

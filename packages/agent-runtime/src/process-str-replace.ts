@@ -216,12 +216,41 @@ export async function processStrReplace(params: {
   // does not decode) on EVERY file, large or small. This is the only basedOnRead
   // check that runs on small files; valid "cap...." tokens decode to objects and
   // are unaffected, and object-form anchors stay ignored on small files.
+  //
+  // Loop-breaker: when the supplied anchor is bogus but the replacement's
+  // oldString still uniquely identifies a spot in the current file, the anchor
+  // is unnecessary. Auto-strip it and apply as a naked edit instead of
+  // hard-failing. This prevents the failure loop where a model re-reads, then
+  // resubmits the SAME bogus anchor (e.g. basedOnRead: "/placeholder") after
+  // every recovery instruction, burning attempts without ever progressing.
+  let autoStrippedBogusAnchor = false
   for (let i = 0; i < replacements.length; i++) {
     const bogus = describeBogusReadCapability(
       replacements[i].basedOnRead,
       normalizedReplacements[i].basedOnRead,
     )
-    if (bogus) preflightErrors.push(bogus)
+    if (!bogus) continue
+
+    const normalizedOldStr = normalizeLineEndings({
+      str: replacements[i].oldString ?? '',
+    })
+    const uniquelyMatchable =
+      normalizedOldStr.length > 0 &&
+      normalizedInitialContent.split(normalizedOldStr).length - 1 === 1
+
+    if (uniquelyMatchable) {
+      normalizedReplacements[i].basedOnRead = undefined
+      autoStrippedBogusAnchor = true
+      continue
+    }
+
+    preflightErrors.push(
+      [
+        bogus,
+        'The bogus anchor could NOT be auto-stripped because this oldString is not uniquely matchable in the current file.',
+        'Do NOT resubmit the same basedOnRead literal. Either omit basedOnRead entirely and pass a longer, unique oldString, or read the exact target range with read_files and copy the readCapability token from the fresh header.',
+      ].join('\n'),
+    )
   }
 
   if (preflightErrors.length > 0) {
@@ -540,6 +569,15 @@ export async function processStrReplace(params: {
       [
         `Note: basedOnRead was ignored for ${path} because this file is below the large-file threshold (${LARGE_FILE_LINE_THRESHOLD.toLocaleString()} lines / ${LARGE_FILE_CHAR_THRESHOLD.toLocaleString()} chars).`,
         'Small files are edited by exact oldString matching; omit basedOnRead for them.',
+      ].join('\n'),
+    )
+  }
+
+  if (autoStrippedBogusAnchor) {
+    messages.push(
+      [
+        `Note: an invalid basedOnRead anchor was ignored for ${path} because the oldString was uniquely matchable, so the edit applied as a naked edit.`,
+        'Stop passing placeholder/invalid basedOnRead values. Omit basedOnRead when oldString is unique, or copy the readCapability token from a fresh read_files header.',
       ].join('\n'),
     )
   }
@@ -993,7 +1031,7 @@ const NEAR_MATCH_MIN_SIMILARITY = 0.92
 const NEAR_MATCH_MIN_MARGIN = 0.05
 const NEAR_MATCH_AMBIGUOUS_SECOND = 0.85
 // Short strings are too easy to match in the wrong place; require substance.
-const NEAR_MATCH_MIN_OLD_STR_LENGTH = 20
+const NEAR_MATCH_MIN_OLD_STR_LENGTH = 10
 
 /**
  * After exact and indentation matching fail, decide whether the closest
@@ -1011,7 +1049,6 @@ function tryNearMatchAutoCorrect(params: {
   const matches = findClosestMatches({ initialContent, oldStr, limit: 8 })
   const best = matches[0]
   if (!best) return null
-  if (best.similarity < NEAR_MATCH_MIN_SIMILARITY) return null
 
   // findClosestMatches intentionally considers nearby window sizes (L-3..L+3),
   // so the runner-up is often an overlapping slice of the SAME location. That
@@ -1021,13 +1058,29 @@ function tryNearMatchAutoCorrect(params: {
     (match) =>
       match.startLine > best.endLine || match.endLine < best.startLine,
   )
-  if (second) {
-    const margin = best.similarity - second.similarity
-    const ambiguous =
-      margin < NEAR_MATCH_MIN_MARGIN &&
-      second.similarity >= NEAR_MATCH_AMBIGUOUS_SECOND
-    if (ambiguous) return null
+
+  let isUnambiguous = false
+  if (best.similarity >= NEAR_MATCH_MIN_SIMILARITY) {
+    if (!second) {
+      isUnambiguous = true
+    } else {
+      const margin = best.similarity - second.similarity
+      const ambiguous =
+        margin < NEAR_MATCH_MIN_MARGIN &&
+        second.similarity >= NEAR_MATCH_AMBIGUOUS_SECOND
+      if (!ambiguous) {
+        isUnambiguous = true
+      }
+    }
+  } else if (best.similarity >= 0.80) {
+    // Adaptive: if the best match is at least 80% similar and there's absolutely
+    // no other candidate (second best similarity < 0.45), we can confidently autocorrect.
+    if (!second || second.similarity < 0.45) {
+      isUnambiguous = true
+    }
   }
+
+  if (!isUnambiguous) return null
 
   // The chosen block must be location-unique so replaceAll edits exactly the
   // intended spot. (It is also necessarily different from oldStr, since an

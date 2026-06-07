@@ -13,7 +13,6 @@ import type { BaseCiEnv } from '@codebuff/common/types/contracts/env'
  */
 export type EvalsCiEnv = BaseCiEnv & {
   CODEBUFF_GITHUB_TOKEN?: string
-  CODEBUFF_API_KEY?: string
   EVAL_RESULTS_EMAIL?: string
   LINKUP_API_KEY?: string
 }

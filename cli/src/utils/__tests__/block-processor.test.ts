@@ -398,8 +398,8 @@ describe('processBlocks', () => {
       const { handlers, calls } = createMockHandlers()
       const blocks: ContentBlock[] = [
         createImplementorAgent('impl-1', 'editor-implementor'),
-        createImplementorAgent('impl-2', 'editor-implementor-opus'),
-        createImplementorAgent('impl-3', 'editor-implementor-gpt-5'),
+        createImplementorAgent('impl-2', 'editor-implementor'),
+        createImplementorAgent('impl-3', 'editor-implementor'),
       ]
 
       const result = processBlocks(blocks, handlers)
@@ -627,7 +627,7 @@ describe('processBlocks', () => {
         createNonImplementorAgent('cs-1', 'code-searcher'),
         createTextBlock('Now I will make changes'),
         createImplementorAgent('impl-1', 'editor-implementor'),
-        createImplementorAgent('impl-2', 'editor-implementor-opus'),
+        createImplementorAgent('impl-2', 'editor-implementor'),
         createTextBlock('Changes complete'),
       ]
 

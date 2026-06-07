@@ -6,9 +6,6 @@ import type {
 
 export const IMPLEMENTOR_AGENT_IDS = [
   'editor-implementor',
-  'editor-implementor-opus',
-  'editor-implementor-gemini',
-  'editor-implementor-gpt-5',
   'editor-implementor-proposal-',
 ] as const
 
@@ -533,16 +530,7 @@ export const getImplementorDisplayName = (
     return `Proposal #${proposalMatch[1]}`
   }
 
-  let baseName = 'Implementor'
-  if (agentType.includes('editor-implementor-opus')) {
-    baseName = 'Opus'
-  } else if (agentType.includes('editor-implementor-gemini')) {
-    baseName = 'Gemini'
-  } else if (agentType.includes('editor-implementor-gpt-5')) {
-    baseName = 'GPT-5'
-  } else if (agentType.includes('editor-implementor')) {
-    baseName = 'Sonnet'
-  }
+  const baseName = 'Implementor'
 
   if (index !== undefined) {
     return `${baseName} #${index + 1}`

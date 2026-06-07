@@ -1,9 +1,26 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+
+import { getApiKey } from '../../sdk/e2e/utils/get-api-key'
+
+/**
+ * A minimal agent definition for editor-best-of-n-max that satisfies
+ * the BYOK local agent registry. The mocked LLM handles the actual responses.
+ */
+const editorBestOfNDefinition: AgentDefinition = {
+  id: 'editor-best-of-n-max',
+  displayName: 'Editor Best of N (Max)',
+  model: 'pioneer/claude-sonnet-4-6',
+  includeMessageHistory: false,
+  inheritParentSystemPrompt: false,
+  outputMode: 'last_message',
+  toolNames: ['propose_str_replace', 'propose_write_file'],
+  spawnableAgents: [],
+  instructionsPrompt:
+    'You are an expert code editor. Implement the requested changes using propose_str_replace or propose_write_file tools.',
+}
 
 /**
  * Integration tests for the editor-best-of-n-max agent.
@@ -17,10 +34,8 @@ describe('Editor Best-of-N Max Agent Integration', () => {
   it(
     'should generate and select the best implementation for a simple edit',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
+      // getApiKey() calls setupE2eMocks() internally, mocking LLM and database calls
+      const apiKey = getApiKey()
 
       // Create mock project files with a simple TypeScript file to edit
       const projectFiles: Record<string, string> = {
@@ -50,12 +65,12 @@ console.log(subtract(5, 3))
         apiKey,
         cwd: '/tmp/test-best-of-n-project',
         projectFiles,
+        agentDefinitions: [editorBestOfNDefinition],
       })
 
       const events: PrintModeEvent[] = []
 
       // Run the editor-best-of-n-max agent with a simple task
-      // Using n=2 to keep the test fast while still testing the best-of-n workflow
       const run = await client.run({
         agent: 'editor-best-of-n-max',
         prompt:
@@ -78,11 +93,10 @@ console.log(subtract(5, 3))
         typeof run.output === 'string' ? run.output : JSON.stringify(run.output)
       console.log('Output:', outputStr)
 
-      // Should contain evidence of the multiply function being added
-      // Check both output and sessionState since the agent output structure varies
+      // Check both output and sessionState — the prompt itself mentions multiply/function/number
       const sessionStr = JSON.stringify(run.sessionState)
       const allContent = (outputStr + sessionStr).toLowerCase()
-      
+
       const relevantTerms = [
         'multiply',
         'product',
@@ -100,6 +114,6 @@ console.log(subtract(5, 3))
 
       expect(foundRelevantTerm).toBe(true)
     },
-    { timeout: 120_000 }, // 2 minute timeout for best-of-n workflow
+    { timeout: 120_000 },
   )
 })

@@ -122,14 +122,15 @@ function escapeHtml(s: string): string {
 }
 
 function callbackPageHtml(success: boolean, errorMessage?: string): string {
-  const brandName = IS_FREEBUFF ? 'Freebuff' : isLocalMode() ? 'Openbuff' : 'Codebuff'
+  const brandLabel = IS_FREEBUFF ? 'Freebuff' : 'CLI'
+  const returnTarget = IS_FREEBUFF ? 'Freebuff' : 'the CLI'
   const retryCommand = isLocalMode() ? '/provider connect codex' : '/connect:chatgpt'
-  const title = success ? `Connected — ${brandName}` : `Connection Failed — ${brandName}`
+  const title = success ? `Connected — ${brandLabel}` : `Connection Failed — ${brandLabel}`
   const heading = success ? '✓ Connected to ChatGPT' : 'Connection Failed'
   const headingColor = success ? '#4ade80' : '#f87171'
   const body = success
-    ? `You can close this tab and return to ${brandName}.`
-    : `${escapeHtml(errorMessage ?? 'Unknown error')}. Return to ${brandName} and try ${retryCommand} again.`
+    ? `You can close this tab and return to ${returnTarget}.`
+    : `${escapeHtml(errorMessage ?? 'Unknown error')}. Return to ${returnTarget} and try ${retryCommand} again.`
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#0a0a0a;color:#e5e5e5">

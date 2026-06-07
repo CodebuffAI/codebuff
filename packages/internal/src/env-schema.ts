@@ -86,8 +86,7 @@ export type ServerInput = {
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 
 // CI-only env vars that are NOT in the typed schema
-// These are injected for SDK tests but should never be accessed via env.* in code
-export const ciOnlyEnvVars = ['CODEBUFF_API_KEY'] as const
+export const ciOnlyEnvVars = [] as const
 export type CiOnlyEnvVar = (typeof ciOnlyEnvVars)[number]
 
 // Bun will inject all these values, so we need to reference them individually (no for-loops)

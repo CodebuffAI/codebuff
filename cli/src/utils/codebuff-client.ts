@@ -8,6 +8,7 @@ import { getCliEnv, getSystemProcessEnv } from './env'
 import { logger } from './logger'
 
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { JSONObject } from '@codebuff/common/types/json'
 
 // Singleton instance of the SDK's CodebuffClient for reuse within the CLI
 let clientInstance: CodebuffClient | null = null
@@ -107,21 +108,36 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
         }
         const manager = IndexManager.getInstance(projectRoot, indexingConfig)
         await manager.waitUntilReady(2_000)
-        const result = manager.query(input.query, {
+        const result = manager.query(input.query ?? '', {
           limit: input.limit,
           fileTypes: input.fileTypes,
+          mode: input.mode,
+          from: input.from,
+          to: input.to,
         })
         const semanticNotice = indexingConfig.semantic?.enabled
           ? ' Semantic indexing is configured but not implemented yet, so results are metadata-only.'
           : ''
         const results = result.results.map((item) => {
-          const output: Record<string, string | number | string[]> = {
+          const output: JSONObject = {
             path: item.path,
             score: item.score,
             matchedOn: item.matchedOn,
           }
           if (item.symbols) output.symbols = item.symbols
           if (item.headings) output.headings = item.headings
+          if (item.relatedFiles) {
+            output.relatedFiles = item.relatedFiles.map((related) => {
+              const relatedOutput: JSONObject = {
+                path: related.path,
+                score: related.score,
+                reason: related.reason,
+              }
+              if (related.via) relatedOutput.via = related.via
+              return relatedOutput
+            })
+          }
+          if (item.explanation) output.explanation = item.explanation
           return output
         })
         return [

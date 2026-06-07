@@ -562,6 +562,131 @@ describe('read_files edit-state recovery', () => {
     }
   })
 
+  it('passes preflight for TSX content with import type statements', async () => {
+    // Regression: edit_transaction preflight must transpile .tsx files with the
+    // 'tsx' loader. With the wrong loader, valid `import type { X } from '...'`
+    // syntax (and JSX) was rejected as `Expected "from" but found "{"`.
+    const path = 'cli/src/components/example.tsx'
+    const diskContent = [
+      "import React from 'react'",
+      '',
+      'export function Example() {',
+      '  return <div>hello</div>',
+      '}',
+      '',
+    ].join('\n')
+    const fileProcessingState = createFileProcessingState()
+    let appliedPatch = ''
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'tsx-import-type-transaction',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: "import React from 'react'\n",
+                  newString:
+                    "import React from 'react'\nimport type { KeyEvent } from '@opentui/core'\n",
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatch = toolCall.input[0].content
+        return [
+          {
+            type: 'json' as const,
+            value: {
+              message: 'applied transaction batch',
+              files: toolCall.input.map(
+                (change: { path: string; content: string }) => ({
+                  path: change.path,
+                  patch: change.content,
+                  messages: [],
+                }),
+              ),
+            },
+          },
+        ]
+      },
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      expect(output.value).not.toHaveProperty('errorMessage')
+    }
+    expect(appliedPatch).toContain("import type { KeyEvent } from '@opentui/core'")
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
+  })
+
+  it('fails preflight and gives actionable guidance for malformed TSX imports', async () => {
+    // The malformed-import class of failure (an `import { ... }` left without a
+    // valid `from '...'`) must be rejected atomically AND the error must steer
+    // recovery toward structured import operations instead of a re-submit loop.
+    const path = 'cli/src/components/broken.tsx'
+    const diskContent = [
+      "import React from 'react'",
+      '',
+      'export const value = 1',
+      '',
+    ].join('\n')
+    const fileProcessingState = createFileProcessingState()
+
+    const transactionResult = await handleEditTransaction({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'tsx-malformed-import-transaction',
+        toolName: 'edit_transaction',
+        input: {
+          edits: [
+            {
+              type: 'str_replace',
+              path,
+              replacements: [
+                {
+                  oldString: "import React from 'react'\n",
+                  newString: "import React from 'react'\nimport { Broken } { Extra } from 'mod'\n",
+                  allowMultiple: false,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      fileProcessingState,
+      logger,
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      requestClientToolCall: async () => {
+        throw new Error('should not apply syntactically-invalid transaction')
+      },
+    } as any)
+
+    const output = transactionResult.output[0]
+    expect(output.type).toBe('json')
+    if (output.type === 'json') {
+      const value = output.value as { errorMessage?: string }
+      expect(value.errorMessage).toContain('Preflight Syntax Validation Failed')
+      expect(value.errorMessage).toContain('Do NOT resubmit the same edit_transaction')
+      expect(value.errorMessage).toContain('insert_import/remove_import')
+    }
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+  })
+
   it('marks all transaction paths as requiring re-read when client apply throws', async () => {
     const path = 'src/helper.ts'
     const otherPath = 'src/other.ts'

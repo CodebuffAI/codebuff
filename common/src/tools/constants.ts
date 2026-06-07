@@ -22,6 +22,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
 // List of all available tools
 export const toolNames = [
   'apply_patch',
+  'apply_smart_patch',
   'add_subgoal',
   'add_message',
   'ask_user',
@@ -32,7 +33,6 @@ export const toolNames = [
   'edit_transaction',
   'find_files',
   'glob',
-  'gravity_index',
   'list_directory',
   'lookup_agent_info',
   'propose_edit_transaction',
@@ -41,6 +41,8 @@ export const toolNames = [
   'query_index',
   'read_docs',
   'read_files',
+  'read_outline',
+  'read_slices',
   'read_proposal_workspace',
   'read_subtree',
   'replace_range',
@@ -64,6 +66,7 @@ export const toolNames = [
 
 export const publishedTools = [
   'apply_patch',
+  'apply_smart_patch',
   'add_message',
   'ask_user',
   'code_search',
@@ -71,7 +74,6 @@ export const publishedTools = [
   'edit_transaction',
   'find_files',
   'glob',
-  'gravity_index',
   'list_directory',
   'lookup_agent_info',
   'propose_edit_transaction',
@@ -80,6 +82,8 @@ export const publishedTools = [
   'query_index',
   'read_docs',
   'read_files',
+  'read_outline',
+  'read_slices',
   'read_proposal_workspace',
   'read_subtree',
   'replace_range',

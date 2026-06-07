@@ -4,10 +4,10 @@
  */
 
 // Base prompt for plan command - always gathers context first
-export const PLAN_BASE_PROMPT = 'Gather all the relevant context and then spawn @thinker-gpt Think about how to implement the following:'
+export const PLAN_BASE_PROMPT = 'Gather all the relevant context and then spawn @thinker Think about how to implement the following:'
 
 // Base prompt for review command - always gathers context first
-export const REVIEW_BASE_PROMPT = 'Please gather all relevant context and then spawn @thinker-gpt to review:'
+export const REVIEW_BASE_PROMPT = 'Please gather all relevant context and then spawn @thinker to review:'
 
 /**
  * Build a plan prompt from user input.

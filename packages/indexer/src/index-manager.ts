@@ -1,7 +1,7 @@
 import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
 import { isIndexReady, isIndexStale, loadIndex, saveIndex } from './index-store'
 import { queryIndex } from './query'
-import type { IndexingConfig, MetadataIndex, QueryIndexResult } from './types'
+import type { IndexingConfig, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
 
 export class IndexManager {
   private static instances = new Map<string, IndexManager>()
@@ -79,7 +79,7 @@ export class IndexManager {
    */
   query(
     query: string,
-    options: { limit?: number; fileTypes?: string[] } = {},
+    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string } = {},
   ): { results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number } {
     if (this.config.enabled === false) {
       return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
