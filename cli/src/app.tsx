@@ -3,11 +3,8 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
-import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
-import { WaitingRoomScreen } from './components/waiting-room-screen'
-import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useLogo } from './hooks/use-logo'
 import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
@@ -17,7 +14,6 @@ import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
-import { IS_FREEBUFF } from './utils/constants'
 import { findGitRoot } from './utils/git'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
@@ -202,7 +198,7 @@ export const App = ({
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
-          {IS_FREEBUFF ? 'Freebuff' : 'The CLI'} will run commands on your behalf to help you build.
+          The CLI will run commands on your behalf to help you build.
         </text>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
@@ -295,28 +291,6 @@ const AuthedSurface = ({
   onCancelChatHistory,
   onNewChat,
 }: AuthedSurfaceProps) => {
-  const { session, error: sessionError } = useFreebuffSession()
-
-  // Terminal state: a 409 from the gate means another CLI rotated our
-  // instance id. Show a dedicated screen and stop polling.
-  if (IS_FREEBUFF && session?.status === 'superseded') {
-    return <FreebuffSupersededScreen />
-  }
-
-  // Route every non-admitted state through the pre-chat screen
-  if (
-    IS_FREEBUFF &&
-    session &&
-    (session.status === 'queued' ||
-      session.status === 'none' ||
-      session.status === 'country_blocked' ||
-      session.status === 'banned' ||
-      session.status === 'rate_limited' ||
-      session.status === 'takeover_prompt')
-  ) {
-    return <WaitingRoomScreen session={session} error={sessionError} />
-  }
-
   // Chat history renders inside AuthedSurface
   if (showChatHistory) {
     return (
@@ -342,7 +316,6 @@ const AuthedSurface = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={onSwitchToGitRoot}
-      freebuffSession={session}
     />
   )
 }

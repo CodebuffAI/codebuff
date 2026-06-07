@@ -149,6 +149,9 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
     filterFn: filterByPrompt,
   })
 
+  // Track the input cursor so paste inserts at the cursor (not always the end).
+  const [searchCursor, setSearchCursor] = useState(0)
+
   const isCompactMode = terminalHeight < LAYOUT.COMPACT_MODE_THRESHOLD
   const isNarrowWidth = terminalWidth < LAYOUT.NARROW_WIDTH_THRESHOLD
 
@@ -269,17 +272,25 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
         >
           <MultilineInput
             value={searchQuery}
-            onChange={({ text }) => setSearchQuery(text)}
+            onChange={({ text, cursorPosition }) => {
+              setSearchQuery(text)
+              setSearchCursor(cursorPosition)
+            }}
             onSubmit={() => {}}
-            onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
-              setSearchQuery(text),
+            onPaste={createTextPasteHandler(
+              searchQuery,
+              Math.min(searchCursor, searchQuery.length),
+              ({ text, cursorPosition }) => {
+                setSearchQuery(text)
+                setSearchCursor(cursorPosition)
+              },
             )}
             onKeyIntercept={handleKeyIntercept}
             placeholder="Search chats..."
             focused={true}
             maxHeight={1}
             minHeight={1}
-            cursorPosition={searchQuery.length}
+            cursorPosition={Math.min(searchCursor, searchQuery.length)}
           />
         </box>
 

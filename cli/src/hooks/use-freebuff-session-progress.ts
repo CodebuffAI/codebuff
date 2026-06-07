@@ -1,5 +1,4 @@
 import { useNow } from './use-now'
-import { IS_FREEBUFF } from '../utils/constants'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
@@ -24,7 +23,7 @@ export function useFreebuffSessionProgress(
 
   const nowMs = useNow(1000, expiresAtMs !== null)
 
-  if (!IS_FREEBUFF || !expiresAtMs || !admittedAtMs) return null
+  if (!expiresAtMs || !admittedAtMs) return null
 
   const totalMs = expiresAtMs - admittedAtMs
   if (totalMs <= 0) return null

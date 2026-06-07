@@ -39,6 +39,8 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   const [nextButtonHovered, setNextButtonHovered] = useState(false)
   const [backButtonHovered, setBackButtonHovered] = useState(false)
   const [publishButtonHovered, setPublishButtonHovered] = useState(false)
+  // Track the input cursor so paste inserts at the cursor (not always the end).
+  const [searchCursor, setSearchCursor] = useState(0)
 
   const {
     publishMode,
@@ -356,10 +358,18 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
           <box style={{ paddingTop: 0, paddingBottom: 0 }}>
             <MultilineInput
               value={searchQuery}
-              onChange={({ text }) => setSearchQuery(text)}
+              onChange={({ text, cursorPosition }) => {
+                setSearchQuery(text)
+                setSearchCursor(cursorPosition)
+              }}
               onSubmit={handleNext}
-              onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
-                setSearchQuery(text),
+              onPaste={createTextPasteHandler(
+                searchQuery,
+                Math.min(searchCursor, searchQuery.length),
+                ({ text, cursorPosition }) => {
+                  setSearchQuery(text)
+                  setSearchCursor(cursorPosition)
+                },
               )}
               onKeyIntercept={handleSearchKeyIntercept}
               placeholder="Type to search agents..."
@@ -367,7 +377,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               maxHeight={1}
               minHeight={1}
               ref={inputRef}
-              cursorPosition={searchQuery.length}
+              cursorPosition={Math.min(searchCursor, searchQuery.length)}
             />
           </box>
           <Separator width={width} widthOffset={4} />

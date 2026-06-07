@@ -1,42 +1,42 @@
 {
-  "defaultModel": "pioneer/claude-opus-4-8",
+  "defaultModel": "freemodel/gpt-5.5",
   "modes": {
-    "default": "pioneer/claude-opus-4-8",
+    "default": "freemodel/gpt-5.5",
     "lite": "agent-platform/gemini-3.5-flash",
     "max": "codex/gpt5.5",
-    "plan": "pioneer/claude-opus-4-8"
+    "plan": "freemodel/gpt-5.5"
   },
   "modeReasoningEfforts": {
     "default": "high",
     "max": "high"
   },
   "agents": {
-    "editor-implementor-proposal-direct": "pioneer/claude-opus-4-8",
-    "base": "pioneer/claude-opus-4-8",
-    "base2": "pioneer/claude-opus-4-8",
+    "editor-implementor-proposal-direct": "freemodel/gpt-5.5",
+    "base": "freemodel/gpt-5.5",
+    "base2": "freemodel/gpt-5.5",
     "base2-lite": "agent-platform/gemini-3.5-flash",
     "base2-fast": "agent-platform/gemini-3.5-flash",
     "base2-fast-no-validation": "agent-platform/gemini-3.5-flash",
-    "base2-max": "pioneer/claude-opus-4-8",
-    "base2-plan": "pioneer/claude-opus-4-8",
-    "base-deep": "pioneer/claude-opus-4-8",
-    "thinker": "pioneer/claude-opus-4-8",
+    "base2-max": "freemodel/gpt-5.5",
+    "base2-plan": "freemodel/gpt-5.5",
+    "base-deep": "freemodel/gpt-5.5",
+    "thinker": "freemodel/gpt-5.5",
     "thinker-gpt": "agent-platform/gemini-3.5-flash",
     "thinker-gemini": "agent-platform/gemini-3.5-flash",
     "thinker-with-files-gemini": "agent-platform/gemini-3.5-flash",
     "thinker-best-of-n": "agentrouter/deepseek-v4-pro",
     "thinker-best-of-n-opus": "agent-platform/gemini-3.5-flash",
-    "thinker-selector": "pioneer/claude-opus-4-8",
+    "thinker-selector": "freemodel/gpt-5.5",
     "thinker-selector-opus": "agent-platform/gemini-3.5-flash",
-    "editor": "pioneer/claude-opus-4-8",
+    "editor": "freemodel/gpt-5.5",
     "editor-gpt-5": "agent-platform/gemini-3.5-flash",
-    "editor-implementor": "pioneer/claude-opus-4-8",
+    "editor-implementor": "freemodel/gpt-5.5",
     "editor-implementor-opus": "agent-platform/gemini-3.5-flash",
     "editor-implementor-gpt-5": "agent-platform/gemini-3.5-flash",
     "editor-multi-prompt": "codex/gpt-5.4",
     "best-of-n-selector": "codex/gpt-5.4",
-    "best-of-n-selector2": "pioneer/claude-opus-4-8",
-    "code-reviewer": "pioneer/claude-opus-4-8",
+    "best-of-n-selector2": "freemodel/gpt-5.5",
+    "code-reviewer": "freemodel/gpt-5.5",
     "code-reviewer-gpt": "agent-platform/gemini-3.5-flash",
     "code-reviewer-kimi": "agent-platform/gemini-3.5-flash",
     "code-reviewer-minimax": "agent-platform/gemini-3.5-flash",
@@ -60,7 +60,7 @@
     "researcher-docs": "agent-platform/gemini-3.5-flash",
     "librarian": "agent-platform/gemini-3.5-flash",
     "tmux-cli": "agent-platform/gemini-3.5-flash",
-    "gpt-5-agent": "pioneer/claude-opus-4-8",
+    "gpt-5-agent": "freemodel/gpt-5.5",
     "opus-agent": "codex/gpt5.5",
     "general-agent": "agent-platform/gemini-3.5-flash",
     "editor-implementor-proposal-1": "agentrouter/deepseek-v4-pro",
@@ -69,9 +69,9 @@
     "editor-implementor-proposal-4": "agent-platform/gemini-3.5-flash",
     "editor-implementor-proposal-5": "agent-platform/gemini-3.5-flash",
     "claude-code-cli": "codex/gpt5.5",
-    "codebuff-local-cli": "pioneer/claude-opus-4-8",
-    "codex-cli": "pioneer/claude-opus-4-8",
-    "gemini-cli": "pioneer/claude-opus-4-8",
+    "codebuff-local-cli": "freemodel/gpt-5.5",
+    "codex-cli": "freemodel/gpt-5.5",
+    "gemini-cli": "freemodel/gpt-5.5",
     "notion-query-agent": "agent-platform/gemini-3.5-flash",
     "notion-researcher": "agent-platform/gemini-3.5-flash"
   },
@@ -85,11 +85,11 @@
   },
   "editorMultiPrompt": {
     "proposalModels": [
-      "pioneer/claude-opus-4-8",
+      "freemodel/gpt-5.5",
       "codex/gpt-5.4",
       "agentrouter/deepseek-v4-pro",
       "agent-platform/gemini-3.5-flash",
-      "pioneer/claude-opus-4-8"
+      "freemodel/gpt-5.5"
     ],
     "proposalReasoningEfforts": [
       "high",
@@ -98,6 +98,6 @@
       null,
       "high"
     ],
-    "selectorModel": "pioneer/claude-opus-4-8"
+    "selectorModel": "freemodel/gpt-5.5"
   }
 }

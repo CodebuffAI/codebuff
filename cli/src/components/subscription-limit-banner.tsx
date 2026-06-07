@@ -1,5 +1,4 @@
 import { SUBSCRIPTION_TIERS } from '@codebuff/common/constants/subscription-plans'
-import { IS_FREEBUFF } from '../utils/constants'
 import { safeOpen } from '../utils/open-url'
 import React from 'react'
 
@@ -15,8 +14,6 @@ import { formatResetTime } from '../utils/time-format'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 export const SubscriptionLimitBanner = () => {
-  if (IS_FREEBUFF) return null
-
   const setInputMode = useChatStore((state) => state.setInputMode)
   const theme = useTheme()
 

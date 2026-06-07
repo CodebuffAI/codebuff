@@ -34,25 +34,25 @@ describe('router-utils', () => {
     test('extracts command from slashed input', () => {
       expect(parseCommand('/help')).toBe('help')
       expect(parseCommand('/logout')).toBe('logout')
-      expect(parseCommand('/usage')).toBe('usage')
+      expect(parseCommand('/info')).toBe('info')
     })
 
     test('returns empty string for unslashed input (not a slash command)', () => {
       expect(parseCommand('help')).toBe('')
       expect(parseCommand('logout')).toBe('')
-      expect(parseCommand('usage')).toBe('')
+      expect(parseCommand('info')).toBe('')
       expect(parseCommand('login to my database')).toBe('')
     })
 
     test('extracts first word as command when there are arguments', () => {
       expect(parseCommand('/help me')).toBe('help')
-      expect(parseCommand('/usage stats')).toBe('usage')
+      expect(parseCommand('/info stats')).toBe('info')
     })
 
     test('converts command to lowercase', () => {
       expect(parseCommand('/HELP')).toBe('help')
       expect(parseCommand('/LOGOUT')).toBe('logout')
-      expect(parseCommand('/UsAgE')).toBe('usage')
+      expect(parseCommand('/InFo')).toBe('info')
     })
 
     test('handles empty string', () => {
@@ -105,7 +105,7 @@ describe('router-utils', () => {
     })
 
     test('returns null for commands not configured for slashless invocation', () => {
-      expect(parseCommandInput('usage')).toBe(null)
+      expect(parseCommandInput('info')).toBe(null)
       expect(parseCommandInput('bash')).toBe(null)
       expect(parseCommandInput('feedback')).toBe(null)
     })
@@ -152,8 +152,6 @@ describe('router-utils', () => {
 
   describe('slash commands only work with / prefix', () => {
     const slashCommands = [
-      'usage',
-      'credits',
       'exit',
       'clear',
       'new',
@@ -198,16 +196,12 @@ describe('command-registry', () => {
       expect(help).toBeDefined()
       expect(help?.name).toBe('help')
 
-      const usage = findCommand('usage')
-      expect(usage).toBeDefined()
-      expect(usage?.name).toBe('usage')
+      const info = findCommand('info')
+      expect(info).toBeDefined()
+      expect(info?.name).toBe('info')
     })
 
     test('finds command by alias', () => {
-      const credits = findCommand('credits')
-      expect(credits).toBeDefined()
-      expect(credits?.name).toBe('usage')
-
       const status = findCommand('status')
       expect(status).toBeDefined()
       expect(status?.name).toBe('info')
@@ -219,10 +213,6 @@ describe('command-registry', () => {
       const quit = findCommand('quit')
       expect(quit).toBeDefined()
       expect(quit?.name).toBe('exit')
-
-      const signin = findCommand('credits')
-      expect(signin).toBeDefined()
-      expect(signin?.name).toBe('usage')
     })
 
     test('returns undefined for unknown command', () => {
@@ -232,8 +222,6 @@ describe('command-registry', () => {
 
     test('is case insensitive', () => {
       expect(findCommand('HELP')?.name).toBe('help')
-      expect(findCommand('UsAgE')?.name).toBe('usage')
-      expect(findCommand('CREDITS')?.name).toBe('usage')
       expect(findCommand('STATUS')?.name).toBe('info')
     })
   })

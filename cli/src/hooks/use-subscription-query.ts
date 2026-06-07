@@ -1,5 +1,4 @@
 import { useActivityQuery } from './use-activity-query'
-import { IS_FREEBUFF } from '../utils/constants'
 import { getApiClient } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
@@ -55,7 +54,7 @@ export function useSubscriptionQuery(deps: UseSubscriptionQueryDeps = {}) {
   return useActivityQuery({
     queryKey: subscriptionQueryKeys.current(),
     queryFn: () => fetchSubscriptionData(logger),
-    enabled: enabled && !IS_FREEBUFF,
+    enabled,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,

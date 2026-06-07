@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { IS_FREEBUFF } from '../utils/constants'
 import { getApiClient } from '../utils/codebuff-api'
 import { subscriptionQueryKeys } from './use-subscription-query'
 
@@ -19,8 +18,6 @@ export function useUpdatePreference(
 
   return useMutation({
     mutationFn: async (payload: UpdatePreferencePayload) => {
-      if (IS_FREEBUFF) return
-
       const client = getApiClient()
       const response = await client.patch('/api/user/preferences', payload, {
         includeCookie: true,

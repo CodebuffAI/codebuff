@@ -6,7 +6,7 @@ import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Separator } from './separator'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { IS_FREEBUFF, isLocalMode } from '../utils/constants'
+import { isLocalMode } from '../utils/constants'
 import { createTextPasteHandler } from '../utils/strings'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -44,10 +44,8 @@ const CATEGORY_OPTIONS = [
     label: 'App bug',
     shortLabel: 'Bug',
     highlightKey: 'warning',
-    placeholder: IS_FREEBUFF
-      ? 'Report a problem with Freebuff (crashes, errors, UI issues, etc.)'
-      : isLocalMode()
-        ? 'Report a problem with Openbuff (crashes, errors, UI issues, etc.)'
+    placeholder: isLocalMode()
+      ? 'Report a problem with Openbuff (crashes, errors, UI issues, etc.)'
       : 'Report a problem with Codebuff (crashes, errors, UI issues, etc.)',
   },
   {

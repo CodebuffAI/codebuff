@@ -73,7 +73,6 @@ export const getCliEnv = (): CliEnv => ({
   CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
   CODEBUFF_SCROLL_MULTIPLIER: process.env.CODEBUFF_SCROLL_MULTIPLIER,
   CODEBUFF_PERF_TEST: process.env.CODEBUFF_PERF_TEST,
-  FREEBUFF_MODE: process.env.FREEBUFF_MODE,
 })
 
 /**

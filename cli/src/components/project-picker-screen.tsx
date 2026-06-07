@@ -98,6 +98,9 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
     resetKey: currentPath,
   })
 
+  // Track the input cursor so paste inserts at the cursor (not always the end).
+  const [searchCursor, setSearchCursor] = useState(0)
+
   // Load recent projects, excluding the home directory
   const recentProjects = useMemo(() => {
     const homeDir = os.homedir()
@@ -216,10 +219,18 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
     onSelectProject(currentPath)
   }, [currentPath, onSelectProject])
 
+  const setSearchQueryWithCursorAtEnd = useCallback(
+    (query: string) => {
+      setSearchQuery(query)
+      setSearchCursor(query.length)
+    },
+    [setSearchQuery],
+  )
+
   // Tab completion for path input
   const { handleTabCompletion } = usePathTabCompletion({
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: setSearchQueryWithCursorAtEnd,
     currentPath,
     setCurrentPath,
     expandPath,
@@ -353,17 +364,25 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
         >
           <MultilineInput
             value={searchQuery}
-            onChange={({ text }) => setSearchQuery(text)}
+            onChange={({ text, cursorPosition }) => {
+              setSearchQuery(text)
+              setSearchCursor(cursorPosition)
+            }}
             onSubmit={() => {}} // Enter key handled by onKeyIntercept
-            onPaste={createTextPasteHandler(searchQuery, searchQuery.length, ({ text }) =>
-              setSearchQuery(text),
+            onPaste={createTextPasteHandler(
+              searchQuery,
+              Math.min(searchCursor, searchQuery.length),
+              ({ text, cursorPosition }) => {
+                setSearchQuery(text)
+                setSearchCursor(cursorPosition)
+              },
             )}
             onKeyIntercept={handleSearchKeyIntercept}
             placeholder="Select project directory..."
             focused={true}
             maxHeight={1}
             minHeight={1}
-            cursorPosition={searchQuery.length}
+            cursorPosition={Math.min(searchCursor, searchQuery.length)}
           />
         </box>
 

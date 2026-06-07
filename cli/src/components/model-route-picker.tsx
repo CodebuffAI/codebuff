@@ -198,10 +198,13 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
   // Master State: Dual-Pane split screen Dashboard
   const [activePane, setActivePane] = useState<PickerPane>('left')
   const [leftSearchQuery, setLeftSearchQuery] = useState('')
+  // Track the input cursor so paste inserts at the cursor (not always the end).
+  const [leftSearchCursor, setLeftSearchCursor] = useState(0)
   const [leftFocusedIndex, setLeftFocusedIndex] = useState(0)
 
   const [rightView, setRightView] = useState<RightView>('model-select')
   const [rightSearchQuery, setRightSearchQuery] = useState('')
+  const [rightSearchCursor, setRightSearchCursor] = useState(0)
   const [rightFocusedIndex, setRightFocusedIndex] = useState(0)
 
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
@@ -665,19 +668,25 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
           <box style={{ flexShrink: 0, marginBottom: 0 }}>
             <MultilineInput
               value={leftSearchQuery}
-              onChange={({ text }) => setLeftSearchQuery(text)}
+              onChange={({ text, cursorPosition }) => {
+                setLeftSearchQuery(text)
+                setLeftSearchCursor(cursorPosition)
+              }}
               onSubmit={() => {}}
               onPaste={createTextPasteHandler(
                 leftSearchQuery,
-                leftSearchQuery.length,
-                ({ text }) => setLeftSearchQuery(text),
+                Math.min(leftSearchCursor, leftSearchQuery.length),
+                ({ text, cursorPosition }) => {
+                  setLeftSearchQuery(text)
+                  setLeftSearchCursor(cursorPosition)
+                },
               )}
               onKeyIntercept={handleKeyIntercept}
               placeholder="Search routes..."
               focused={activePane === 'left'}
               maxHeight={1}
               minHeight={1}
-              cursorPosition={leftSearchQuery.length}
+              cursorPosition={Math.min(leftSearchCursor, leftSearchQuery.length)}
             />
           </box>
 
@@ -745,19 +754,25 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
             <box style={{ flexShrink: 0, marginBottom: 0 }}>
               <MultilineInput
                 value={rightSearchQuery}
-                onChange={({ text }) => setRightSearchQuery(text)}
+                onChange={({ text, cursorPosition }) => {
+                  setRightSearchQuery(text)
+                  setRightSearchCursor(cursorPosition)
+                }}
                 onSubmit={() => {}}
                 onPaste={createTextPasteHandler(
                   rightSearchQuery,
-                  rightSearchQuery.length,
-                  ({ text }) => setRightSearchQuery(text),
+                  Math.min(rightSearchCursor, rightSearchQuery.length),
+                  ({ text, cursorPosition }) => {
+                    setRightSearchQuery(text)
+                    setRightSearchCursor(cursorPosition)
+                  },
                 )}
                 onKeyIntercept={handleKeyIntercept}
                 placeholder={rightView === 'model-select' ? "Search models..." : "Search reasoning..."}
                 focused={activePane === 'right'}
                 maxHeight={1}
                 minHeight={1}
-                cursorPosition={rightSearchQuery.length}
+                cursorPosition={Math.min(rightSearchCursor, rightSearchQuery.length)}
               />
             </box>
           )}

@@ -1,5 +1,4 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { IS_FREEBUFF } from '../utils/constants'
 import { isChatGptOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import { safeOpen } from '../utils/open-url'
@@ -45,8 +44,6 @@ const formatRenewalDate = (dateStr: string | null): string => {
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
-  if (IS_FREEBUFF) return null
-
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
 

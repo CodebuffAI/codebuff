@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { getApiClient } from '../utils/codebuff-api'
-import { IS_FREEBUFF } from '../utils/constants'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { CodebuffApiClient } from '../utils/codebuff-api'
@@ -69,7 +68,7 @@ export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
         apiClient: providedApiClient,
         logger,
       }),
-    enabled: enabled && !IS_FREEBUFF,
+    enabled,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
