@@ -44,6 +44,10 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       id: 'user-no-credits',
       banned: false,
     },
+    'test-api-key-freebuff-web-service': {
+      id: 'freebuff-web-service-user',
+      banned: false,
+    },
     'test-api-key-blocked': {
       id: 'banned-user-id',
       banned: true,
@@ -561,6 +565,51 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.message).toContain('/usage.')
       expect(body.message).not.toContain(nextQuotaReset)
     })
+
+    it(
+      'lets the configured Freebuff Web service user bypass paid credit checks',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-freebuff-web-service',
+            },
+            body: JSON.stringify({
+              model: 'test/test-model',
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'freebuff-web-project-123',
+              },
+            }),
+          },
+        )
+        const ensureSubscriberBlockGrant = mock(async () => null)
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+          ensureSubscriberBlockGrant,
+          isFreebuffWebServiceUser: (userId) =>
+            userId === 'freebuff-web-service-user',
+        })
+
+        expect(response.status).toBe(200)
+        expect(mockGetUserUsageData).not.toHaveBeenCalled()
+        expect(ensureSubscriberBlockGrant).not.toHaveBeenCalled()
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
 
     it(
       'lets a new account with no paid relationship through for non-free mode',

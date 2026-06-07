@@ -1,22 +1,22 @@
-"use client";
+'use client'
 
-import { useState, useCallback } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useSignedInUser } from "@/vly/hooks/use-user";
-import { useRouter } from "next/navigation";
-import type { Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/vly/components/ui/button";
-import { Input } from "@/vly/components/ui/input";
-import { Badge } from "@/vly/components/ui/badge";
-import { Skeleton } from "@/vly/components/ui/skeleton";
+import { useState, useCallback } from 'react'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { useSignedInUser } from '@/vly/hooks/use-user'
+import { useRouter } from 'next/navigation'
+import type { Id } from '@/convex/_generated/dataModel'
+import { Button } from '@/vly/components/ui/button'
+import { Input } from '@/vly/components/ui/input'
+import { Badge } from '@/vly/components/ui/badge'
+import { Skeleton } from '@/vly/components/ui/skeleton'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/vly/components/ui/card";
+} from '@/vly/components/ui/card'
 import {
   Table,
   TableBody,
@@ -24,14 +24,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/vly/components/ui/table";
+} from '@/vly/components/ui/table'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/vly/components/ui/dialog";
+} from '@/vly/components/ui/dialog'
 import {
   Search,
   Users,
@@ -44,56 +44,54 @@ import {
   FolderKanban,
   Calendar,
   ArrowLeft,
-} from "lucide-react";
+} from 'lucide-react'
 
 function formatCredits(credits: number): string {
   if (credits >= 1_000_000_000) {
-    return `${(credits / 1_000_000_000).toFixed(1)}B`;
+    return `${(credits / 1_000_000_000).toFixed(1)}B`
   }
   if (credits >= 1_000_000) {
-    return `${(credits / 1_000_000).toFixed(1)}M`;
+    return `${(credits / 1_000_000).toFixed(1)}M`
   }
   if (credits >= 1_000) {
-    return `${(credits / 1_000).toFixed(1)}K`;
+    return `${(credits / 1_000).toFixed(1)}K`
   }
-  return credits.toLocaleString();
+  return credits.toLocaleString()
 }
 
 function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function formatDateTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 export default function ReferralLookupPage() {
-  const user = useSignedInUser();
-  const router = useRouter();
-  const isAdmin = user?.role === "god" || user?.role === "admin";
+  const user = useSignedInUser()
+  const router = useRouter()
+  const isAdmin = user?.role === 'god' || user?.role === 'admin'
 
-  const [emailInput, setEmailInput] = useState("");
-  const [searchEmail, setSearchEmail] = useState("");
-  const [cursor, setCursor] = useState<number | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<Array<number | null>>([]);
-  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(
-    null,
-  );
+  const [emailInput, setEmailInput] = useState('')
+  const [searchEmail, setSearchEmail] = useState('')
+  const [cursor, setCursor] = useState<number | null>(null)
+  const [cursorHistory, setCursorHistory] = useState<Array<number | null>>([])
+  const [selectedUserId, setSelectedUserId] = useState<Id<'users'> | null>(null)
 
   const referrerData = useQuery(
     api.adminReferralDashboard.lookupReferrer,
-    searchEmail ? { email: searchEmail } : "skip",
-  );
+    searchEmail ? { email: searchEmail } : 'skip',
+  )
 
   const referredUsersData = useQuery(
     api.adminReferralDashboard.getReferredUsersPage,
@@ -103,8 +101,8 @@ export default function ReferralLookupPage() {
           cursor,
           pageSize: 20,
         }
-      : "skip",
-  );
+      : 'skip',
+  )
 
   const selectedUserSpins = useQuery(
     api.adminReferralDashboard.getReferredUserSpins,
@@ -113,42 +111,42 @@ export default function ReferralLookupPage() {
           userId: selectedUserId,
           referrerUserId: referrerData.user._id,
         }
-      : "skip",
-  );
+      : 'skip',
+  )
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
-      e.preventDefault();
-      const trimmed = emailInput.trim().toLowerCase();
+      e.preventDefault()
+      const trimmed = emailInput.trim().toLowerCase()
       if (trimmed) {
-        setSearchEmail(trimmed);
-        setCursor(null);
-        setCursorHistory([]);
+        setSearchEmail(trimmed)
+        setCursor(null)
+        setCursorHistory([])
       }
     },
     [emailInput],
-  );
+  )
 
   const handleNextPage = useCallback(() => {
     if (referredUsersData?.nextCursor !== null && referredUsersData?.hasMore) {
-      setCursorHistory((prev) => [...prev, cursor]);
-      setCursor(referredUsersData.nextCursor);
+      setCursorHistory((prev) => [...prev, cursor])
+      setCursor(referredUsersData.nextCursor)
     }
-  }, [referredUsersData, cursor]);
+  }, [referredUsersData, cursor])
 
   const handlePrevPage = useCallback(() => {
     if (cursorHistory.length > 0) {
-      const prevCursor = cursorHistory[cursorHistory.length - 1];
-      setCursorHistory((prev) => prev.slice(0, -1));
-      setCursor(prevCursor ?? null);
+      const prevCursor = cursorHistory[cursorHistory.length - 1]
+      setCursorHistory((prev) => prev.slice(0, -1))
+      setCursor(prevCursor ?? null)
     }
-  }, [cursorHistory]);
+  }, [cursorHistory])
 
-  const currentPage = cursorHistory.length + 1;
+  const currentPage = cursorHistory.length + 1
 
   if (user && !isAdmin) {
-    router.push("/web");
-    return null;
+    router.push('/web')
+    return null
   }
 
   if (!user) {
@@ -161,7 +159,7 @@ export default function ReferralLookupPage() {
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -171,7 +169,7 @@ export default function ReferralLookupPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/web/admin/referrals")}
+            onClick={() => router.push('/web/admin/referrals')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Referrals
@@ -220,7 +218,7 @@ export default function ReferralLookupPage() {
               <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
               <p className="text-lg font-medium">No user found</p>
               <p className="text-sm text-muted-foreground">
-                No account exists with the email{" "}
+                No account exists with the email{' '}
                 <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
                   {searchEmail}
                 </code>
@@ -243,7 +241,7 @@ export default function ReferralLookupPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
-                      {referrerData.user.tier === "pro" ? "Pro" : "Free"}
+                      {referrerData.user.tier === 'pro' ? 'Pro' : 'Free'}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       Joined {formatDate(referrerData.user.joinedAt)}
@@ -268,7 +266,7 @@ export default function ReferralLookupPage() {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {referrerData.summary.activeCodes} active code
-                    {referrerData.summary.activeCodes !== 1 ? "s" : ""}
+                    {referrerData.summary.activeCodes !== 1 ? 's' : ''}
                   </p>
                 </CardContent>
               </Card>
@@ -285,8 +283,8 @@ export default function ReferralLookupPage() {
                     {referrerData.summary.totalReferralCodes}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {referrerData.referralCodes.map((c) => c.code).join(", ") ||
-                      "None"}
+                    {referrerData.referralCodes.map((c) => c.code).join(', ') ||
+                      'None'}
                   </p>
                 </CardContent>
               </Card>
@@ -303,7 +301,7 @@ export default function ReferralLookupPage() {
                     {referrerData.summary.totalSpins}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {referrerData.summary.referralSpins} from referrals,{" "}
+                    {referrerData.summary.referralSpins} from referrals,{' '}
                     {referrerData.summary.awardedSpins} awarded
                   </p>
                 </CardContent>
@@ -361,13 +359,13 @@ export default function ReferralLookupPage() {
                           {code.code}
                         </code>
                         <Badge
-                          variant={code.active ? "default" : "secondary"}
+                          variant={code.active ? 'default' : 'secondary'}
                           className="text-xs"
                         >
-                          {code.active ? "Active" : "Inactive"}
+                          {code.active ? 'Active' : 'Inactive'}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          {code.usesCount} use{code.usesCount !== 1 ? "s" : ""}
+                          {code.usesCount} use{code.usesCount !== 1 ? 's' : ''}
                         </span>
                       </div>
                     ))}
@@ -384,8 +382,8 @@ export default function ReferralLookupPage() {
                     <CardTitle>Referred Users</CardTitle>
                     <CardDescription>
                       {referredUsersData
-                        ? `${referredUsersData.totalCount} total referred user${referredUsersData.totalCount !== 1 ? "s" : ""}`
-                        : "Loading..."}
+                        ? `${referredUsersData.totalCount} total referred user${referredUsersData.totalCount !== 1 ? 's' : ''}`
+                        : 'Loading...'}
                     </CardDescription>
                   </div>
                   {referredUsersData && referredUsersData.totalCount > 0 && (
@@ -459,7 +457,7 @@ export default function ReferralLookupPage() {
                           </TableCell>
                           <TableCell>
                             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                              {referredUser.referralCodeUsed ?? "—"}
+                              {referredUser.referralCodeUsed ?? '—'}
                             </code>
                           </TableCell>
                           <TableCell>
@@ -490,13 +488,13 @@ export default function ReferralLookupPage() {
                           <TableCell className="text-center">
                             <Badge
                               variant={
-                                referredUser.tier === "pro"
-                                  ? "default"
-                                  : "secondary"
+                                referredUser.tier === 'pro'
+                                  ? 'default'
+                                  : 'secondary'
                               }
                               className="text-xs"
                             >
-                              {referredUser.tier === "pro" ? "Pro" : "Free"}
+                              {referredUser.tier === 'pro' ? 'Pro' : 'Free'}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -512,11 +510,11 @@ export default function ReferralLookupPage() {
                     <div className="mt-4 flex items-center justify-between border-t pt-4">
                       <p className="text-sm text-muted-foreground">
                         Showing {(currentPage - 1) * 20 + 1}
-                        {" - "}
+                        {' - '}
                         {Math.min(
                           currentPage * 20,
                           referredUsersData.totalCount,
-                        )}{" "}
+                        )}{' '}
                         of {referredUsersData.totalCount}
                       </p>
                       <div className="flex items-center gap-2">
@@ -595,13 +593,13 @@ export default function ReferralLookupPage() {
                         <TableCell>
                           <Badge
                             variant={
-                              spin.status === "awarded"
-                                ? "default"
-                                : spin.status === "available"
-                                  ? "secondary"
-                                  : spin.status === "failed"
-                                    ? "destructive"
-                                    : "outline"
+                              spin.status === 'awarded'
+                                ? 'default'
+                                : spin.status === 'available'
+                                  ? 'secondary'
+                                  : spin.status === 'failed'
+                                    ? 'destructive'
+                                    : 'outline'
                             }
                             className="text-xs"
                           >
@@ -620,7 +618,7 @@ export default function ReferralLookupPage() {
                         <TableCell className="text-right font-medium">
                           {spin.awardedCredits > 0
                             ? formatCredits(spin.awardedCredits)
-                            : "—"}
+                            : '—'}
                         </TableCell>
                         <TableCell className="text-sm">
                           {formatDateTime(spin.grantedAt)}
@@ -635,5 +633,5 @@ export default function ReferralLookupPage() {
         </Dialog>
       </div>
     </div>
-  );
+  )
 }

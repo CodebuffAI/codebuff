@@ -1,55 +1,61 @@
-"use client";
+'use client'
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSignedInUser } from "@/vly/hooks/use-user";
-import { cn } from "@/vly/lib/utils";
-import { Badge } from "@/vly/components/ui/badge";
+import type { ReactNode } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useSignedInUser } from '@/vly/hooks/use-user'
+import { cn } from '@/vly/lib/utils'
+import { Badge } from '@/vly/components/ui/badge'
 import {
   BarChart3,
+  Search,
   Shield,
   TrendingUp,
   type LucideIcon,
-} from "lucide-react";
+} from 'lucide-react'
 
 interface AdminShellProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 interface AdminNavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  matchExact?: boolean;
+  href: string
+  label: string
+  icon: LucideIcon
+  matchExact?: boolean
 }
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
-    href: "/web/admin",
-    label: "Overview",
+    href: '/web/admin',
+    label: 'Overview',
     icon: Shield,
     matchExact: true,
   },
   {
-    href: "/web/admin/referrals",
-    label: "Referrals",
+    href: '/web/admin/referrals',
+    label: 'Referrals',
     icon: TrendingUp,
   },
   {
-    href: "/web/admin/resource-usage",
-    label: "Platform Usage",
+    href: '/web/admin/referral-lookup',
+    label: 'Referral Lookup',
+    icon: Search,
+  },
+  {
+    href: '/web/admin/resource-usage',
+    label: 'Platform Usage',
     icon: BarChart3,
   },
-] as const;
+] as const
 
 export function AdminShell({ children }: AdminShellProps) {
-  const pathname = usePathname();
-  const user = useSignedInUser();
-  const isAdmin = user?.role === "god" || user?.role === "admin";
+  const pathname = usePathname()
+  const user = useSignedInUser()
+  const isAdmin = user?.role === 'god' || user?.role === 'admin'
 
   if (user === undefined) {
-    return <div className="min-h-screen bg-background" />;
+    return <div className="min-h-screen bg-background" />
   }
 
   if (!user) {
@@ -62,7 +68,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   if (!isAdmin) {
@@ -75,7 +81,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -89,35 +95,35 @@ export function AdminShell({ children }: AdminShellProps) {
             <h1 className="text-lg font-semibold">Control Center</h1>
           </div>
           <Badge variant="outline" className="text-xs">
-            {user.role === "god" ? "God Admin" : "Admin"}
+            {user.role === 'god' ? 'God Admin' : 'Admin'}
           </Badge>
         </div>
         <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-6 pb-4">
           {ADMIN_NAV_ITEMS.map((item) => {
             const isActive = item.matchExact
               ? pathname === item.href
-              : pathname?.startsWith(item.href);
-            const Icon = item.icon;
+              : pathname?.startsWith(item.href)
+            const Icon = item.icon
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
                   isActive
-                    ? "border-black bg-black text-white"
-                    : "border-border bg-white text-foreground hover:bg-muted",
+                    ? 'border-black bg-black text-white'
+                    : 'border-border bg-white text-foreground hover:bg-muted',
                 )}
               >
                 <Icon className="h-4 w-4" />
                 <span>{item.label}</span>
               </Link>
-            );
+            )
           })}
         </div>
       </header>
       <main>{children}</main>
     </div>
-  );
+  )
 }

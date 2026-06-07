@@ -159,7 +159,9 @@ export default defineSchema(
 
     daytona_migration: defineTable({
       project_id: v.id('project'),
-      daytona_server: v.optional(v.union(v.literal('legacy'), v.literal('new'))),
+      daytona_server: v.optional(
+        v.union(v.literal('legacy'), v.literal('new')),
+      ),
       migration_status: v.optional(
         v.union(
           v.literal('idle'),
@@ -215,6 +217,8 @@ export default defineSchema(
     freebuff_agent_runs: defineTable({
       run_id: v.string(),
       work_id: v.optional(v.string()),
+      // Optional for compatibility with runs created before usage tracking.
+      user_id: v.optional(v.id('users')),
       project_id: v.id('project'),
       thread_id: v.id('agent_thread'),
       message_id: v.id('agent_message'),
@@ -232,11 +236,22 @@ export default defineSchema(
       completed_at: v.optional(v.number()),
       timed_out_at: v.optional(v.number()),
       error: v.optional(v.string()),
+      metered_credits: v.optional(v.number()),
     })
       .index('by_run_id', ['run_id'])
       .index('by_status', ['status'])
-      .index('by_status_started_at', ['status', 'started_at'])
-      .index('by_message_id', ['message_id']),
+      .index('by_status_started_at', ['status', 'started_at']),
+    freebuff_daily_usage: defineTable({
+      user_id: v.id('users'),
+      day: v.string(),
+      run_count: v.number(),
+      metered_credits: v.number(),
+      error_count: v.number(),
+      timed_out_count: v.number(),
+      last_run_at: v.number(),
+    })
+      .index('by_user_day', ['user_id', 'day'])
+      .index('by_day_metered_credits', ['day', 'metered_credits']),
     temporary_stream: defineTable({
       content: v.string(),
       resolved: v.boolean(),
@@ -551,10 +566,7 @@ export default defineSchema(
     })
       .index('by_thread', ['thread_id'])
       .index('by_thread_active', ['thread_id', 'isStreaming', 'deactivated'])
-      .index('by_thread_and_ad_source', [
-        'thread_id',
-        'ad_source_message_id',
-      ])
+      .index('by_thread_and_ad_source', ['thread_id', 'ad_source_message_id'])
       .index('by_thread_and_commit', [
         'thread_id',
         'commit_hash',

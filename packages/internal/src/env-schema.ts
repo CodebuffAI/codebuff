@@ -40,6 +40,9 @@ export const serverEnvSchema = clientEnvSchema.extend({
   NEXTAUTH_URL: z.url().optional(),
   NEXTAUTH_FREEBUFF_URL: z.url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
+  // Dedicated Codebuff service user used by Freebuff Web's server-side
+  // Convex actions. This account is unmetered but still records usage.
+  FREEBUFF_WEB_SERVICE_USER_ID: z.string().uuid().optional(),
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
   STRIPE_TEAM_FEE_PRICE_ID: z.string().min(1),
@@ -126,6 +129,7 @@ export const serverProcessEnv: ServerInput = {
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   NEXTAUTH_FREEBUFF_URL: process.env.NEXTAUTH_FREEBUFF_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+  FREEBUFF_WEB_SERVICE_USER_ID: process.env.FREEBUFF_WEB_SERVICE_USER_ID,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
   STRIPE_TEAM_FEE_PRICE_ID: process.env.STRIPE_TEAM_FEE_PRICE_ID,

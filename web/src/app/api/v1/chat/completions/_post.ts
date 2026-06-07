@@ -122,6 +122,7 @@ import {
   getFreeModeRiskScore,
   shouldHardBlockFreeModeAccess,
 } from '@/server/free-mode-country'
+import { isFreebuffWebServiceUser } from '@/server/freebuff-web-service-account'
 
 import type { SessionGateResult } from '@/server/free-session/public-api'
 import type {
@@ -185,6 +186,7 @@ export type ResolveFreeModeCountryAccessFn = (
 export type RecordFreebuffUsageDayFn = (params: {
   userId: string
 }) => Promise<void>
+export type IsFreebuffWebServiceUserFn = (userId: string) => boolean
 
 const FREEBUFF_SUCCESS_SAMPLE_RATE = 0.01
 const SILICONFLOW_DIRECT_ROUTING_ENABLED = false
@@ -274,6 +276,9 @@ export async function postChatCompletions(params: {
   endFreebuffSession?: EndUserSessionFn
   /** Optional recorder for successful freebuff chat-completion ingress. */
   recordFreebuffUsageDay?: RecordFreebuffUsageDayFn
+  /** Optional service-account resolver. Tests inject this to avoid relying on
+   *  process environment. */
+  isFreebuffWebServiceUser?: IsFreebuffWebServiceUserFn
 }) {
   const {
     req,
@@ -291,6 +296,8 @@ export async function postChatCompletions(params: {
     resolveFreeModeCountryAccess,
     endFreebuffSession = endUserSession,
     recordFreebuffUsageDay,
+    isFreebuffWebServiceUser:
+      resolveIsFreebuffWebServiceUser = isFreebuffWebServiceUser,
   } = params
   let { logger } = params
   let { trackEvent } = params
@@ -379,7 +386,15 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
     const stripeCustomerId = userInfo.stripe_customer_id ?? null
+    const isUnmeteredServiceRequest = resolveIsFreebuffWebServiceUser(userId)
     let freebuffAccessTier: FreebuffAccessTier = 'full'
+
+    if (isUnmeteredServiceRequest) {
+      logger.info(
+        { userId },
+        'Processing unmetered Freebuff Web service-account request',
+      )
+    }
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -766,8 +781,14 @@ export async function postChatCompletions(params: {
     // When the function is provided, always include subscription credits in the balance:
     // error/null results mean subscription grants have 0 balance, so including them is harmless.
     const includeSubscriptionCredits =
-      !isFreeModeRequest && !!ensureSubscriberBlockGrant
-    if (!isFreeModeRequest && ensureSubscriberBlockGrant) {
+      !isFreeModeRequest &&
+      !isUnmeteredServiceRequest &&
+      !!ensureSubscriberBlockGrant
+    if (
+      !isFreeModeRequest &&
+      !isUnmeteredServiceRequest &&
+      ensureSubscriberBlockGrant
+    ) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({
           userId,
@@ -835,7 +856,7 @@ export async function postChatCompletions(params: {
 
     // Free-mode requests have already passed their model/session/rate gates
     // and should not touch paid billing/usage paths.
-    if (!isFreeModeRequest) {
+    if (!isFreeModeRequest && !isUnmeteredServiceRequest) {
       // Fetch user credit data (includes subscription credits when block grant was ensured)
       const {
         balance: { totalRemaining },

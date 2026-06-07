@@ -1,16 +1,21 @@
-"use client";
+'use client'
 
-import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
-import { useSignedInUser } from "@/vly/hooks/use-user";
-import { Card, CardContent, CardHeader, CardTitle } from "@/vly/components/ui/card";
-import { Badge } from "@/vly/components/ui/badge";
-import { Skeleton } from "@/vly/components/ui/skeleton";
-import { CountUp } from "@/vly/components/CountUp";
-import { Confetti } from "@/vly/components/Confetti";
-import { useCountCelebration } from "@/vly/hooks/use-count-celebration";
-import { useState, useEffect } from "react";
-import { Id } from "@/convex/_generated/dataModel";
+import { api } from '@/convex/_generated/api'
+import { useQuery } from 'convex/react'
+import { useSignedInUser } from '@/vly/hooks/use-user'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/vly/components/ui/card'
+import { Badge } from '@/vly/components/ui/badge'
+import { Skeleton } from '@/vly/components/ui/skeleton'
+import { CountUp } from '@/vly/components/CountUp'
+import { Confetti } from '@/vly/components/Confetti'
+import { useCountCelebration } from '@/vly/hooks/use-count-celebration'
+import { useState, useEffect } from 'react'
+import { Id } from '@/convex/_generated/dataModel'
 import {
   Users,
   FolderOpen,
@@ -22,32 +27,34 @@ import {
   Mail,
   UserPlus,
   Ticket,
-} from "lucide-react";
-import { AdminNavbar } from "@/vly/components/AdminNavbar";
-import { AdminProjectOwnershipManager } from "@/vly/components/admin/AdminProjectOwnershipManager";
-import { TicketsView } from "@/vly/components/pages/TicketsView";
-import { AdminIntegrationsView } from "@/vly/components/pages/AdminIntegrationsView";
-import TicketDetailDialog from "@/vly/components/TicketDetailDialog";
-import { IntegrationApprovalDialog } from "@/vly/components/IntegrationApprovalDialog";
-import TimeRangeSelector from "@/vly/components/project-2/monitoring/shared/TimeRangeSelector";
-import { useTimeRange } from "@/vly/hooks/useTimeRange";
+  BarChart3,
+  Search,
+} from 'lucide-react'
+import { AdminNavbar } from '@/vly/components/AdminNavbar'
+import { AdminProjectOwnershipManager } from '@/vly/components/admin/AdminProjectOwnershipManager'
+import { TicketsView } from '@/vly/components/pages/TicketsView'
+import { AdminIntegrationsView } from '@/vly/components/pages/AdminIntegrationsView'
+import TicketDetailDialog from '@/vly/components/TicketDetailDialog'
+import { IntegrationApprovalDialog } from '@/vly/components/IntegrationApprovalDialog'
+import TimeRangeSelector from '@/vly/components/project-2/monitoring/shared/TimeRangeSelector'
+import { useTimeRange } from '@/vly/hooks/useTimeRange'
 
 export default function AdminDashboard() {
-  const user = useSignedInUser();
-  const isAdmin = user?.role === "god" || user?.role === "admin";
+  const user = useSignedInUser()
+  const isAdmin = user?.role === 'god' || user?.role === 'admin'
   const [activeView, setActiveView] = useState<
-    "admin" | "tickets" | "integrations"
-  >("admin");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+    'admin' | 'tickets' | 'integrations'
+  >('admin')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [integrationStatusFilter, setIntegrationStatusFilter] =
-    useState<string>("pending");
+    useState<string>('pending')
   const [selectedTicketId, setSelectedTicketId] =
-    useState<Id<"tickets"> | null>(null);
+    useState<Id<'tickets'> | null>(null)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(
     null,
-  );
+  )
 
-  const timeRangeHook = useTimeRange("24h");
+  const timeRangeHook = useTimeRange('24h')
 
   const dashboardStats = useQuery(
     api.admin_stats.getDashboardStats,
@@ -56,8 +63,8 @@ export default function AdminDashboard() {
           startTime: timeRangeHook.timeRangeValues.startTime,
           endTime: timeRangeHook.timeRangeValues.endTime,
         }
-      : "skip",
-  );
+      : 'skip',
+  )
   const liveActivity = useQuery(
     api.admin_stats.getLiveActivityStream,
     isAdmin && timeRangeHook.timeRangeValues
@@ -65,34 +72,34 @@ export default function AdminDashboard() {
           startTime: timeRangeHook.timeRangeValues.startTime,
           endTime: timeRangeHook.timeRangeValues.endTime,
         }
-      : "skip",
-  );
+      : 'skip',
+  )
 
   // Celebration effects for project count changes
   const { showConfetti, resetConfetti } = useCountCelebration({
     projectCount: dashboardStats?.totals.projects,
     enabled: true,
-  });
+  })
 
   // Debug logging
   useEffect(() => {
-    console.log("Admin Dashboard - showConfetti:", showConfetti);
+    console.log('Admin Dashboard - showConfetti:', showConfetti)
     console.log(
-      "Admin Dashboard - projectCount:",
+      'Admin Dashboard - projectCount:',
       dashboardStats?.totals.projects,
-    );
-  }, [dashboardStats?.totals.users, dashboardStats?.totals.projects]);
+    )
+  }, [dashboardStats?.totals.users, dashboardStats?.totals.projects])
 
   // Handle tab change from navbar
   const handleTabChange = (tab: string) => {
-    if (tab === "tickets") {
-      setActiveView("tickets");
-    } else if (tab === "integrations") {
-      setActiveView("integrations");
+    if (tab === 'tickets') {
+      setActiveView('tickets')
+    } else if (tab === 'integrations') {
+      setActiveView('integrations')
     } else {
-      setActiveView("admin");
+      setActiveView('admin')
     }
-  };
+  }
 
   // Wait for user to load so role changes trigger a re-render
   if (user === undefined) {
@@ -105,7 +112,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   // Check if user has admin access
@@ -117,7 +124,7 @@ export default function AdminDashboard() {
           <p className="text-xl">Please sign in to continue</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (!isAdmin) {
@@ -129,7 +136,7 @@ export default function AdminDashboard() {
           <p className="text-xl">Admin Access Required</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (!dashboardStats) {
@@ -154,81 +161,81 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
+    return new Date(timestamp).toLocaleTimeString()
+  }
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case "user_signup":
-        return <UserPlus className="h-4 w-4" />;
-      case "ticket_created":
-        return <Ticket className="h-4 w-4" />;
-      case "email_blast_sent":
-        return <Mail className="h-4 w-4" />;
-      case "message":
-        return <Zap className="h-4 w-4" />;
+      case 'user_signup':
+        return <UserPlus className="h-4 w-4" />
+      case 'ticket_created':
+        return <Ticket className="h-4 w-4" />
+      case 'email_blast_sent':
+        return <Mail className="h-4 w-4" />
+      case 'message':
+        return <Zap className="h-4 w-4" />
       default:
-        return <Activity className="h-4 w-4" />;
+        return <Activity className="h-4 w-4" />
     }
-  };
+  }
 
   const getActivityColor = (type: string) => {
     switch (type) {
-      case "message":
-        return "bg-gray-50 text-black border-gray-200";
-      case "user_signup":
-        return "bg-blue-50 text-black border-blue-200";
-      case "ticket_created":
-        return "bg-amber-50 text-black border-amber-200";
-      case "email_blast_sent":
-        return "bg-gray-50 text-black border-gray-200";
+      case 'message':
+        return 'bg-gray-50 text-black border-gray-200'
+      case 'user_signup':
+        return 'bg-blue-50 text-black border-blue-200'
+      case 'ticket_created':
+        return 'bg-amber-50 text-black border-amber-200'
+      case 'email_blast_sent':
+        return 'bg-gray-50 text-black border-gray-200'
       default:
-        return "bg-gray-50 text-black border-gray-200";
+        return 'bg-gray-50 text-black border-gray-200'
     }
-  };
+  }
 
   const getActivityLabel = (type: string) => {
     switch (type) {
-      case "user_signup":
-        return "User Signup";
-      case "ticket_created":
-        return "Ticket Created";
-      case "email_blast_sent":
-        return "Email Blast Sent";
+      case 'user_signup':
+        return 'User Signup'
+      case 'ticket_created':
+        return 'Ticket Created'
+      case 'email_blast_sent':
+        return 'Email Blast Sent'
       default:
-        return type.replaceAll("_", " ");
+        return type.replaceAll('_', ' ')
     }
-  };
+  }
 
   const getActivityDescription = (activity: any) => {
-    if (activity.type === "user_signup") {
-      const name = activity.data?.name || "New user";
-      const email = activity.data?.email || "unknown";
-      return `${name} (${email})`;
+    if (activity.type === 'user_signup') {
+      const name = activity.data?.name || 'New user'
+      const email = activity.data?.email || 'unknown'
+      return `${name} (${email})`
     }
 
-    if (activity.type === "ticket_created") {
-      return `Project: ${activity.data?.projectId} • Status: ${activity.data?.status}`;
+    if (activity.type === 'ticket_created') {
+      return `Project: ${activity.data?.projectId} • Status: ${activity.data?.status}`
     }
 
-    if (activity.type === "email_blast_sent") {
-      return `${activity.data?.sentCount ?? 0}/${activity.data?.recipientCount ?? 0} delivered`;
+    if (activity.type === 'email_blast_sent') {
+      return `${activity.data?.sentCount ?? 0}/${activity.data?.recipientCount ?? 0} delivered`
     }
 
-    if (activity.type === "message") {
-      return `Project: ${activity.data?.project_id}`;
+    if (activity.type === 'message') {
+      return `Project: ${activity.data?.project_id}`
     }
 
-    return "";
-  };
+    return ''
+  }
 
   // Render different views based on activeView
   const renderContent = () => {
-    if (activeView === "tickets") {
+    if (activeView === 'tickets') {
       return (
         <div className="mx-auto max-w-7xl px-8 py-12">
           <TicketsView
@@ -237,10 +244,10 @@ export default function AdminDashboard() {
             setSelectedTicketId={setSelectedTicketId}
           />
         </div>
-      );
+      )
     }
 
-    if (activeView === "integrations") {
+    if (activeView === 'integrations') {
       return (
         <div className="mx-auto max-w-7xl px-8 py-12">
           <AdminIntegrationsView
@@ -249,7 +256,7 @@ export default function AdminDashboard() {
             setSelectedIntegration={setSelectedIntegration}
           />
         </div>
-      );
+      )
     }
 
     // Default Admin Stats View
@@ -272,6 +279,20 @@ export default function AdminDashboard() {
             >
               <TrendingUp className="h-4 w-4" />
               Manage Referrals
+            </a>
+            <a
+              href="/web/admin/referral-lookup"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+            >
+              <Search className="h-4 w-4" />
+              Referral Lookup
+            </a>
+            <a
+              href="/web/admin/resource-usage"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Platform Usage
             </a>
           </div>
           <div className="mt-4 flex justify-center">
@@ -430,13 +451,13 @@ export default function AdminDashboard() {
         {/* Confetti overlay */}
         <Confetti active={showConfetti} onComplete={resetConfetti} />
       </div>
-    );
-  };
+    )
+  }
 
   return (
-    <div key={user?.role ?? "unknown"} className="min-h-screen bg-white">
+    <div key={user?.role ?? 'unknown'} className="min-h-screen bg-white">
       <AdminNavbar
-        activeTab={activeView === "admin" ? undefined : activeView}
+        activeTab={activeView === 'admin' ? undefined : activeView}
         onTabChange={handleTabChange}
       />
       {renderContent()}
@@ -450,9 +471,9 @@ export default function AdminDashboard() {
         open={selectedIntegration !== null}
         onOpenChange={(open) => !open && setSelectedIntegration(null)}
         onUpdate={() => {
-          setSelectedIntegration(null);
+          setSelectedIntegration(null)
         }}
       />
     </div>
-  );
+  )
 }

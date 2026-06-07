@@ -1,6 +1,6 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 
 import type {
   GetUserInfoFromApiKeyInput,
@@ -30,7 +30,12 @@ export async function getUserInfoFromApiKey<T extends UserColumn>({
     .select({ user: userSelection }) // <-- important: nest under 'user'
     .from(schema.user)
     .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .where(eq(schema.session.sessionToken, apiKey))
+    .where(
+      and(
+        eq(schema.session.sessionToken, apiKey),
+        gt(schema.session.expires, new Date()),
+      ),
+    )
     .limit(1)
 
   // Drizzle returns { user: ..., session: ... }, we return only the user part

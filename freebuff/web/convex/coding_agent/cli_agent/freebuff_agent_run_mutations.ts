@@ -5,6 +5,7 @@ import { internalMutation } from '!/_generated/server'
 export const createFreebuffAgentRun = internalMutation({
   args: {
     runId: v.string(),
+    userId: v.id('users'),
     projectId: v.id('project'),
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
@@ -13,6 +14,7 @@ export const createFreebuffAgentRun = internalMutation({
     const now = Date.now()
     await ctx.db.insert('freebuff_agent_runs', {
       run_id: args.runId,
+      user_id: args.userId,
       project_id: args.projectId,
       thread_id: args.threadId,
       message_id: args.messageId,

@@ -11,6 +11,7 @@ import {
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import { createRequestAuditRecord } from './request-audit'
+import { isFreebuffWebServiceUser } from '@/server/freebuff-web-service-account'
 
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -163,11 +164,20 @@ export async function consumeCreditsForMessage(params: {
   // This is separate from FREE mode and helps with BYOK users
   // Also validates publisher to prevent spoofing attacks
   const isFreeAgentSmallRequest = isFreeAgent(agentId) && initialCredits < 5
+  const isUnmeteredServiceRequest = isFreebuffWebServiceUser(userId)
 
   const credits =
-    isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
+    isFreeModeAndAllowed || isFreeAgentSmallRequest || isUnmeteredServiceRequest
+      ? 0
+      : initialCredits
 
-  if (isFreeModeAndAllowed) {
+  if (isFreeModeAndAllowed || isUnmeteredServiceRequest) {
+    if (isUnmeteredServiceRequest) {
+      logger.info(
+        { userId, messageId, agentId, model, cost: usageData.cost },
+        'Recording unmetered Freebuff Web service-account usage',
+      )
+    }
     await recordMessageWithoutBilling({
       messageId,
       userId,
@@ -190,7 +200,9 @@ export async function consumeCreditsForMessage(params: {
       logger,
       ttftMs: ttftMs ?? null,
     })
-    return 0
+    // The service account is not charged, but returning the metered usage lets
+    // the SDK and Freebuff Web track per-run consumption for abuse detection.
+    return isUnmeteredServiceRequest ? initialCredits : 0
   }
 
   await consumeCreditsAndAddAgentStep({

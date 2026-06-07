@@ -155,6 +155,7 @@ export async function executeFreebuff(
         .createFreebuffAgentRun,
       {
         runId,
+        userId: args.executingUserId,
         projectId: args.projectId,
         threadId: args.threadId,
         messageId: args.messageId,
@@ -166,6 +167,7 @@ export async function executeFreebuff(
       (internal as any).coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
       {
         runId,
+        userId: args.executingUserId,
         projectId: args.projectId,
         threadId: args.threadId,
         messageId: args.messageId,
@@ -258,6 +260,7 @@ type FreebuffRunEvent = {
   message?: string
   questions?: AskUserQuestion[]
   preserveThreadSession?: boolean
+  meteredCredits?: number
 }
 
 async function recordRunEvent(args: {
@@ -430,11 +433,7 @@ function getErrorMessage(error: unknown) {
 }
 
 function getAskUserPauseInput(error: unknown): unknown {
-  if (
-    error &&
-    typeof error === 'object' &&
-    'askUserInput' in error
-  ) {
+  if (error && typeof error === 'object' && 'askUserInput' in error) {
     return (error as { askUserInput?: unknown }).askUserInput
   }
   return undefined
@@ -532,7 +531,10 @@ function buildFreebuffOverrideTools(
         const oldContent = await codebase.readFile(filePath)
         const newContent = applyPatch(oldContent, content)
         if (newContent === false) {
-          return asJson({ file: filePath, errorMessage: 'Failed to apply patch.' })
+          return asJson({
+            file: filePath,
+            errorMessage: 'Failed to apply patch.',
+          })
         }
         await codebase.writeFile(filePath, newContent)
         return asJson({
@@ -571,7 +573,10 @@ function buildFreebuffOverrideTools(
         })
       }
 
-      await codebase.writeFile(filePath, oldContent.replace(oldString, newString))
+      await codebase.writeFile(
+        filePath,
+        oldContent.replace(oldString, newString),
+      )
       return asJson({
         file: filePath,
         message: 'Replaced string through Vly Daytona tools.',
@@ -692,12 +697,14 @@ async function persistRunState(
 
 function buildCommitMessage(userMessage: string): string {
   const firstLine = userMessage.split(/\r?\n/)[0]?.trim() ?? ''
-  const trimmed = firstLine.length > 60 ? `${firstLine.slice(0, 57)}...` : firstLine
+  const trimmed =
+    firstLine.length > 60 ? `${firstLine.slice(0, 57)}...` : firstLine
   return trimmed ? `Freebuff: ${trimmed}` : 'Freebuff: update project files'
 }
 
 async function enqueueFreebuffReviewRun(args: {
   ctx: ActionCtx
+  userId: Id<'users'>
   projectId: Id<'project'>
   threadId: Id<'agent_thread'>
   previousRunStateStorageId: Id<'_storage'> | undefined
@@ -718,6 +725,7 @@ async function enqueueFreebuffReviewRun(args: {
       .createFreebuffAgentRun,
     {
       runId,
+      userId: args.userId,
       projectId: args.projectId,
       threadId: args.threadId,
       messageId,
@@ -730,6 +738,7 @@ async function enqueueFreebuffReviewRun(args: {
       .runFreebuffReviewAgent,
     {
       runId,
+      userId: args.userId,
       projectId: args.projectId,
       threadId: args.threadId,
       messageId,
@@ -751,6 +760,7 @@ async function enqueueFreebuffReviewRun(args: {
 export const runFreebuffAgent = internalAction({
   args: {
     runId: v.string(),
+    userId: v.id('users'),
     projectId: v.id('project'),
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
@@ -840,7 +850,7 @@ export const runFreebuffAgent = internalAction({
                 title:
                   event.toolName === 'ask_user'
                     ? 'Ask user'
-                    : event.toolName ?? 'Tool',
+                    : (event.toolName ?? 'Tool'),
                 content:
                   event.toolName === 'ask_user'
                     ? 'Waiting for your answer'
@@ -883,11 +893,13 @@ export const runFreebuffAgent = internalAction({
           await recordRunEvent({
             ctx,
             ...args,
+            runStateStorageId,
             event: {
               type: 'ask_user_pause',
               questions: pendingAskUserQuestions,
+              meteredCredits:
+                runState.sessionState?.mainAgentState.creditsUsed ?? 0,
             },
-            runStateStorageId,
           })
           return null
         }
@@ -899,7 +911,12 @@ export const runFreebuffAgent = internalAction({
         await recordRunEvent({
           ctx,
           ...args,
-          event: { type: isLocalTimeout ? 'time_limit_pause' : 'error', message },
+          event: {
+            type: isLocalTimeout ? 'time_limit_pause' : 'error',
+            message,
+            meteredCredits:
+              runState.sessionState?.mainAgentState.creditsUsed ?? 0,
+          },
           runStateStorageId,
         })
         return null
@@ -921,7 +938,11 @@ export const runFreebuffAgent = internalAction({
       await recordRunEvent({
         ctx,
         ...args,
-        event: { type: 'final' },
+        event: {
+          type: 'final',
+          meteredCredits:
+            runState.sessionState?.mainAgentState.creditsUsed ?? 0,
+        },
         runStateStorageId,
       })
 
@@ -929,6 +950,7 @@ export const runFreebuffAgent = internalAction({
         try {
           await enqueueFreebuffReviewRun({
             ctx,
+            userId: args.userId,
             projectId: args.projectId,
             threadId: args.threadId,
             previousRunStateStorageId: runStateStorageId,
@@ -945,10 +967,9 @@ export const runFreebuffAgent = internalAction({
     } catch (error) {
       await eventBuffer.flush()
       if (isAskUserPauseError(error)) {
-        const questions =
-          pendingAskUserQuestions?.length
-            ? pendingAskUserQuestions
-            : sanitizeAskUserQuestions(getAskUserPauseInput(error))
+        const questions = pendingAskUserQuestions?.length
+          ? pendingAskUserQuestions
+          : sanitizeAskUserQuestions(getAskUserPauseInput(error))
 
         if (questions.length > 0) {
           await recordRunEvent({
@@ -994,6 +1015,7 @@ export const runFreebuffAgent = internalAction({
 export const runFreebuffReviewAgent = internalAction({
   args: {
     runId: v.string(),
+    userId: v.id('users'),
     projectId: v.id('project'),
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
@@ -1081,6 +1103,8 @@ export const runFreebuffReviewAgent = internalAction({
               ? 'Freebuff review stopped after 9 minutes. The main run is still saved.'
               : runState.output.message,
             preserveThreadSession: true,
+            meteredCredits:
+              runState.sessionState?.mainAgentState.creditsUsed ?? 0,
           },
         })
         return null
@@ -1089,7 +1113,12 @@ export const runFreebuffReviewAgent = internalAction({
       await recordRunEvent({
         ctx,
         ...args,
-        event: { type: 'final', preserveThreadSession: true },
+        event: {
+          type: 'final',
+          preserveThreadSession: true,
+          meteredCredits:
+            runState.sessionState?.mainAgentState.creditsUsed ?? 0,
+        },
       })
 
       return null
