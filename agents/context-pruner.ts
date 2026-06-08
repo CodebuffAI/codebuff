@@ -136,10 +136,36 @@ const definition: AgentDefinition = {
       switch (toolName) {
         case 'read_files': {
           const paths = input.paths as string[] | undefined
+          const ranges = input.ranges as
+            | Array<{ path?: string; startLine?: number; endLine?: number }>
+            | undefined
+          const symbols = input.symbols as
+            | Array<{ path?: string; names?: string[] }>
+            | undefined
+          const parts: string[] = []
           if (paths && paths.length > 0) {
-            return `inspected files: ${paths.join(', ')}`
+            parts.push(`inspected files: ${paths.join(', ')}`)
           }
-          return 'inspected files'
+          if (ranges && ranges.length > 0) {
+            parts.push(
+              `ranges: ${ranges
+                .map((r) => `${r.path}:${r.startLine ?? ''}-${r.endLine ?? ''}`)
+                .join(', ')}`,
+            )
+          }
+          if (symbols && symbols.length > 0) {
+            parts.push(
+              `symbols: ${symbols
+                .map((s) => `${s.path}#${(s.names ?? []).join('|')}`)
+                .join(', ')}`,
+            )
+          }
+          if (parts.length === 0) return 'inspected files'
+          // File bodies are dropped from this summary; the path/range/symbol
+          // pointer lets the agent cheaply re-fetch the exact content via
+          // read_files (or read_outline) instead of relying on the lossy
+          // summary.
+          return `${parts.join('; ')} (re-fetch with read_files if needed)`
         }
         case 'write_file': {
           const path = input.path as string | undefined
