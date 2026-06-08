@@ -43,12 +43,12 @@ describe('getProviderOptions — codebuff_metadata', () => {
   it('cost_mode passes through alongside extra metadata', () => {
     const opts = getProviderOptions({
       ...baseParams,
-      costMode: 'free',
+      costMode: 'normal',
       extraCodebuffMetadata: { freebuff_instance_id: 'uuid-xyz' },
     })
     const meta = (opts.openbuff as any).codebuff_metadata
     expect(meta).toMatchObject({
-      cost_mode: 'free',
+      cost_mode: 'normal',
       freebuff_instance_id: 'uuid-xyz',
     })
   })
@@ -56,7 +56,7 @@ describe('getProviderOptions — codebuff_metadata', () => {
   it('extraCodebuffMetadata does not overwrite reserved keys', () => {
     const opts = getProviderOptions({
       ...baseParams,
-      costMode: 'free',
+      costMode: 'normal',
       extraCodebuffMetadata: {
         // These are intentionally the same keys the function already sets —
         // make sure a misuse doesn't let callers override server-trusted

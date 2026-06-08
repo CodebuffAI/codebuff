@@ -162,7 +162,6 @@ async function main() {
       'process.env.CODEBUFF_CLI_TARGET',
       `"${targetInfo.platform}-${targetInfo.arch}"`,
     ],
-    ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
     ...nextPublicEnvVars,
   ]
 

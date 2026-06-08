@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
@@ -773,13 +772,8 @@ export async function* promptAiSdkStream(
 
             markChatGptOAuthRateLimited()
 
-            // In free mode, don't fall back to Codebuff backend — fail instead
-            if (isFreeMode(params.costMode)) {
-              throw new Error(
-                `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
-              )
-            }
-
+            // ChatGPT OAuth is rate-limited: re-resolve the model through the
+            // configured openbuff.json providers instead.
             // Prevent parent retry while delegating to child stream
             anyContentYielded = true
             const fallbackResult = yield* promptAiSdkStream({
@@ -821,14 +815,8 @@ export async function* promptAiSdkStream(
               logger.warn({ model: requestedModel }, 'ChatGPT OAuth token refresh failed, unable to recover')
             }
 
-            // Refresh failed or already retried
-            // In free mode, don't fall back to Codebuff backend — fail instead
-            if (isFreeMode(params.costMode)) {
-              throw new Error(
-                'ChatGPT OAuth authentication failed. Please reconnect with /connect:chatgpt and try again.',
-              )
-            }
-
+            // Refresh failed or already retried: re-resolve the model through
+            // the configured openbuff.json providers instead.
             // Prevent parent retry while delegating to child stream
             anyContentYielded = true
             const fallbackResult = yield* promptAiSdkStream({

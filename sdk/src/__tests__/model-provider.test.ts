@@ -10,6 +10,7 @@ import {
   resetChatGptOAuthRateLimit,
   getModelForRequest,
   applyConfiguredProviderRequestCompatibility,
+  normalizeAnthropicBaseURL,
 } from '../impl/model-provider'
 import {
   LEGACY_PROVIDER_CONFIG_ENV_VAR,
@@ -274,6 +275,7 @@ describe('model-provider', () => {
               exclude: [],
               semantic: { enabled: false },
             },
+            fileChangeHooks: [],
             providers: {
               'opencode-go': {
                 type: 'openai-compatible',
@@ -398,6 +400,7 @@ describe('model-provider', () => {
               exclude: [],
               semantic: { enabled: false },
             },
+            fileChangeHooks: [],
             providers: {
               custom: {
                 type: 'openai-compatible',
@@ -444,6 +447,7 @@ describe('model-provider', () => {
             exclude: [],
             semantic: { enabled: false },
           },
+          fileChangeHooks: [],
           providers: {},
         },
       }
@@ -485,6 +489,7 @@ describe('model-provider', () => {
                 exclude: [],
                 semantic: { enabled: false },
               },
+              fileChangeHooks: [],
               providers: {
                 'opencode-go': {
                   type: 'openai-compatible',
@@ -563,6 +568,186 @@ describe('model-provider', () => {
       expect(result.isChatGptOAuth).toBe(false)
       expect((result.model as any).provider).toBe('local')
       expect((result.model as any).modelId).toBe('llama3.1')
+    })
+
+    test('accepts an anthropic-compatible provider block', () => {
+      const result = providerConfigFileSchema.safeParse({
+        providers: {
+          freemodel: {
+            type: 'anthropic-compatible',
+            baseURL: 'https://cc.freemodel.dev',
+            apiKeyEnv: 'FREEMODEL_API_KEY',
+            models: ['claude-sonnet-4-5'],
+          },
+        },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        const provider = result.data.providers.freemodel
+        expect(provider?.type).toBe('anthropic-compatible')
+        // Anthropic-compatible defaults keep prompt caching and provider
+        // metadata enabled, unlike the OpenAI-compatible defaults.
+        expect(provider?.compatibility.stripCacheControl).toBe(false)
+        expect(provider?.compatibility.stripProviderMetadata).toBe(false)
+      }
+    })
+
+    test('defaults anthropic-compatible baseURL to the official Anthropic API', () => {
+      const result = providerConfigFileSchema.safeParse({
+        providers: {
+          anthropic: {
+            type: 'anthropic-compatible',
+            apiKeyEnv: 'ANTHROPIC_API_KEY',
+            models: ['claude-sonnet-4-5'],
+          },
+        },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        const provider = result.data.providers.anthropic
+        expect(provider?.type).toBe('anthropic-compatible')
+        if (provider?.type === 'anthropic-compatible') {
+          expect(provider.baseURL).toBe('https://api.anthropic.com')
+        }
+      }
+    })
+
+    test('resolves an anthropic-compatible model and reads its api key env', () => {
+      const resolved = resolveConfiguredProviderModel({
+        model: 'freemodel/claude-sonnet-4-5',
+        env: { FREEMODEL_API_KEY: 'fm-secret' },
+        loadedConfig: {
+          sourceFilePaths: [],
+          config: {
+            defaultModel: undefined,
+            defaultReasoningEffort: undefined,
+            modes: {},
+            modeReasoningEfforts: {},
+            agents: {},
+            agentReasoningEfforts: {},
+            indexing: {
+              enabled: true,
+              cacheDir: '.codebuff-index',
+              exclude: [],
+              semantic: { enabled: false },
+            },
+            fileChangeHooks: [],
+            providers: {
+              freemodel: {
+                type: 'anthropic-compatible',
+                baseURL: 'https://cc.freemodel.dev',
+                apiKeyEnv: 'FREEMODEL_API_KEY',
+                models: ['claude-sonnet-4-5'],
+                compatibility: {
+                  stripCacheControl: false,
+                  stringifyTextContent: false,
+                  supportsTools: true,
+                  supportsRequiredToolChoice: true,
+                  stripProviderMetadata: false,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      expect(resolved?.providerId).toBe('freemodel')
+      expect(resolved?.providerModel).toBe('claude-sonnet-4-5')
+      expect(resolved?.apiKey).toBe('fm-secret')
+    })
+
+    test('throws when an anthropic-compatible provider is missing its api key env', () => {
+      expect(() =>
+        resolveConfiguredProviderModel({
+          model: 'freemodel/claude-sonnet-4-5',
+          env: {},
+          loadedConfig: {
+            sourceFilePaths: [],
+            config: {
+              defaultModel: undefined,
+              defaultReasoningEffort: undefined,
+              modes: {},
+              modeReasoningEfforts: {},
+              agents: {},
+              agentReasoningEfforts: {},
+              indexing: {
+                enabled: true,
+                cacheDir: '.codebuff-index',
+                exclude: [],
+                semantic: { enabled: false },
+              },
+              fileChangeHooks: [],
+              providers: {
+                freemodel: {
+                  type: 'anthropic-compatible',
+                  baseURL: 'https://cc.freemodel.dev',
+                  apiKeyEnv: 'FREEMODEL_API_KEY',
+                  models: ['claude-sonnet-4-5'],
+                  compatibility: {
+                    stripCacheControl: false,
+                    stringifyTextContent: false,
+                    supportsTools: true,
+                    supportsRequiredToolChoice: true,
+                    stripProviderMetadata: false,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ).toThrow("Missing environment variable 'FREEMODEL_API_KEY'")
+    })
+
+    test('getModelForRequest builds an anthropic-compatible model with a /v1 base url', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-anthropic-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          providers: {
+            freemodel: {
+              type: 'anthropic-compatible',
+              baseURL: 'https://cc.freemodel.dev',
+              apiKeyEnv: 'FREEMODEL_API_KEY',
+              models: ['claude-sonnet-4-5'],
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+      process.env.FREEMODEL_API_KEY = 'fm-secret'
+
+      const result = await getModelForRequest({
+        apiKey: 'codebuff-key',
+        model: 'freemodel/claude-sonnet-4-5',
+      })
+
+      expect(result.isChatGptOAuth).toBe(false)
+      expect(result.compatibility.stripCacheControl).toBe(false)
+      expect((result.model as any).provider).toBe('freemodel')
+      expect((result.model as any).modelId).toBe('claude-sonnet-4-5')
+      expect((result.model as any).config.baseURL).toBe(
+        'https://cc.freemodel.dev/v1',
+      )
+    })
+
+    test('normalizeAnthropicBaseURL appends /v1 only for bare hosts', () => {
+      expect(normalizeAnthropicBaseURL('https://cc.freemodel.dev')).toBe(
+        'https://cc.freemodel.dev/v1',
+      )
+      expect(normalizeAnthropicBaseURL('https://cc.freemodel.dev/')).toBe(
+        'https://cc.freemodel.dev/v1',
+      )
+      expect(normalizeAnthropicBaseURL('https://api.anthropic.com/v1')).toBe(
+        'https://api.anthropic.com/v1',
+      )
+      expect(
+        normalizeAnthropicBaseURL('https://gateway.example.com/anthropic/v1'),
+      ).toBe('https://gateway.example.com/anthropic/v1')
     })
 
     test('discovers openbuff.json in an ancestor directory', () => {

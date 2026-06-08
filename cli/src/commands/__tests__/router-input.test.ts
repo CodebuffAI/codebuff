@@ -290,16 +290,16 @@ describe('command-registry', () => {
       }
     })
 
-    test('connect command is not available in codebuff (freebuff-only)', () => {
+    test('connect command is available (ChatGPT OAuth BYOK flow)', () => {
       const hasConnectSlashCommand = SLASH_COMMANDS.some(
         (cmd) => cmd.id === 'connect',
       )
-      expect(hasConnectSlashCommand).toBe(false)
+      expect(hasConnectSlashCommand).toBe(true)
     })
 
-    test('connect:chatgpt command is not available in codebuff (freebuff-only)', () => {
+    test('connect:chatgpt command resolves to connect', () => {
       const command = findCommand('connect:chatgpt')
-      expect(command).toBeUndefined()
+      expect(command).toBeDefined()
     })
   })
 })

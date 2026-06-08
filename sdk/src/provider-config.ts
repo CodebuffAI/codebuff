@@ -84,6 +84,19 @@ export const DEFAULT_PROVIDER_COMPATIBILITY = {
   stripProviderMetadata: true,
 } as const
 
+// Anthropic Messages API speaks the real protocol: it accepts cache_control
+// provider metadata, structured tool content, and provider metadata.
+// Defaulting these to the Anthropic-friendly values turns on prompt caching
+// and avoids the OpenAI-compatible downgrades. Used by any endpoint flagged
+// `anthropic-compatible` (the official API or a compatible gateway).
+export const DEFAULT_ANTHROPIC_COMPATIBILITY = {
+  stripCacheControl: false,
+  stringifyTextContent: false,
+  supportsTools: true,
+  supportsRequiredToolChoice: true,
+  stripProviderMetadata: false,
+} as const
+
 const providerCompatibilitySchema = z
   .object({
     /** Remove prompt-cache provider metadata that strict OpenAI-compatible APIs reject. */
@@ -230,9 +243,62 @@ const chatGptOAuthProviderSchema = z.object({
   discovery: providerDiscoverySchema.optional(),
 })
 
+const anthropicCompatibilitySchema = z
+  .object({
+    stripCacheControl: z.boolean().default(false),
+    stringifyTextContent: z.boolean().default(false),
+    supportsTools: z.boolean().default(true),
+    supportsRequiredToolChoice: z.boolean().default(true),
+    stripProviderMetadata: z.boolean().default(false),
+  })
+  .default(DEFAULT_ANTHROPIC_COMPATIBILITY)
+
+const anthropicProviderSchema = z
+  .object({
+    type: z.literal('anthropic-compatible'),
+    /**
+     * API root. A bare host (e.g. https://cc.freemodel.dev) is treated as the
+     * root and requests go to <baseURL>/v1/messages (Claude Code convention).
+     * Defaults to the official Anthropic API.
+     */
+    baseURL: z
+      .string()
+      .url()
+      .refine((value) => {
+        const protocol = new URL(value).protocol
+        return protocol === 'https:' || protocol === 'http:'
+      }, 'baseURL must use http or https')
+      .default('https://api.anthropic.com'),
+    apiKeyEnv: envVarNameSchema.optional(),
+    models: z.union([z.array(z.string().min(1)), modelMapSchema]),
+    compatibility: anthropicCompatibilitySchema,
+    /** Default context window in tokens for all models in this provider. */
+    contextWindowTokens: positiveIntSchema.optional(),
+    /** Per-model context window overrides (model id -> tokens). */
+    modelContextWindowTokens: z
+      .record(z.string().min(1), positiveIntSchema)
+      .optional(),
+    /** Provider-level default capability metadata. */
+    defaultCapabilities: modelCapabilitiesSchema.optional(),
+    /** Per-model capability metadata keyed by requested or provider model id. */
+    modelCapabilities: modelCapabilitiesByModelSchema.optional(),
+  })
+  .refine(
+    (provider) =>
+      !provider.apiKeyEnv || new URL(provider.baseURL).protocol === 'https:',
+    'Providers with apiKeyEnv must use https baseURL',
+  )
+  .refine(
+    (provider) =>
+      new URL(provider.baseURL).protocol !== 'http:' ||
+      isLocalHttpUrl(provider.baseURL),
+    'http baseURL is only allowed for local providers',
+  )
+
 const providerSchema = z.union([
   openAICompatibleProviderSchema,
   chatGptOAuthProviderSchema,
+  anthropicProviderSchema,
 ])
 
 const DEFAULT_INDEXING_CONFIG = {
@@ -314,6 +380,20 @@ export const providerConfigFileSchema = z
     editorMultiPrompt: editorMultiPromptSchema,
     /** Local codebase indexing configuration. Enabled by default for metadata-only indexing. */
     indexing: indexingConfigSchema,
+    /**
+     * Commands run by the run_file_change_hooks tool after the agent edits files
+     * (e.g. typecheck/lint/test) — the verification gate. Each hook runs when its
+     * optional filePattern (glob) matches a changed file, or always if omitted.
+     */
+    fileChangeHooks: z
+      .array(
+        z.object({
+          name: z.string().min(1).optional(),
+          command: z.string().min(1),
+          filePattern: z.string().min(1).optional(),
+        }),
+      )
+      .default([]),
   })
   .transform((config) => {
     const agents: Record<string, string> = {}
@@ -458,6 +538,7 @@ export const providerConfigFileSchema = z
       },
       agentReasoningEfforts,
       indexing: config.indexing,
+      fileChangeHooks: config.fileChangeHooks,
       ...(config.editorMultiPrompt && {
         editorMultiPrompt: {
           ...config.editorMultiPrompt,
@@ -484,6 +565,10 @@ export type OpenAICompatibleProviderConfig = Extract<
 export type ChatGptOAuthProviderConfig = Extract<
   ProviderConfig,
   { type: 'chatgpt-oauth' }
+>
+export type AnthropicProviderConfig = Extract<
+  ProviderConfig,
+  { type: 'anthropic-compatible' }
 >
 
 export type ResolvedProviderModel = {
@@ -529,6 +614,7 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
       model: undefined,
     },
   },
+  fileChangeHooks: [],
 })
 
 function normalizeConfigFragmentPaths(value: unknown): string[] {
@@ -753,6 +839,9 @@ function mergeProviderConfigs(
     },
     editorMultiPrompt: override.editorMultiPrompt ?? base.editorMultiPrompt,
     indexing: override.indexing ?? base.indexing,
+    fileChangeHooks: override.fileChangeHooks?.length
+      ? override.fileChangeHooks
+      : base.fileChangeHooks,
   }
 }
 
@@ -1213,15 +1302,14 @@ export function resolveConfiguredProviderModel(params: {
       continue
     }
 
+    const providerHasApiKeyEnv =
+      provider.type === 'openai-compatible' ||
+      provider.type === 'anthropic-compatible'
     const apiKey =
-      provider.type === 'openai-compatible' && provider.apiKeyEnv
+      providerHasApiKeyEnv && provider.apiKeyEnv
         ? env[provider.apiKeyEnv]
         : undefined
-    if (
-      provider.type === 'openai-compatible' &&
-      provider.apiKeyEnv &&
-      !apiKey
-    ) {
+    if (providerHasApiKeyEnv && provider.apiKeyEnv && !apiKey) {
       throw new Error(
         `Missing environment variable '${provider.apiKeyEnv}' required for configured provider '${providerId}' and model '${model}'.`,
       )
@@ -1546,6 +1634,44 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       },
     },
   },
+  anthropic: {
+    id: 'anthropic',
+    label: 'Anthropic API',
+    description:
+      'Native Anthropic Messages API. Works with api.anthropic.com or a compatible gateway (set baseURL, e.g. https://cc.freemodel.dev). Enables real prompt caching.',
+    envHelp: 'export ANTHROPIC_API_KEY="your_anthropic_api_key"',
+    config: {
+      defaultModel: 'anthropic/claude-sonnet-4-5',
+      modes: {
+        default: 'anthropic/claude-sonnet-4-5',
+        lite: 'anthropic/claude-haiku-4-5',
+        max: 'anthropic/claude-opus-4-5',
+        plan: 'anthropic/claude-sonnet-4-5',
+      },
+      editorMultiPrompt: {
+        proposalModels: [
+          'anthropic/claude-sonnet-4-5',
+          'anthropic/claude-opus-4-5',
+          'anthropic/claude-haiku-4-5',
+        ],
+        selectorModel: 'anthropic/claude-opus-4-5',
+      },
+      providers: {
+        anthropic: {
+          type: 'anthropic-compatible',
+          baseURL: 'https://api.anthropic.com',
+          apiKeyEnv: 'ANTHROPIC_API_KEY',
+          models: [
+            'claude-opus-4-5',
+            'claude-sonnet-4-5',
+            'claude-haiku-4-5',
+            'claude-opus-4-1',
+            'claude-sonnet-4-0',
+          ],
+        },
+      },
+    },
+  },
 } satisfies Record<string, OpenbuffProviderPreset>
 
 export function createProviderPresetConfig(
@@ -1750,6 +1876,9 @@ export function writeProviderConfigFile(params: {
       editorMultiPrompt:
         existingConfig.editorMultiPrompt ?? newConfig.editorMultiPrompt,
       indexing: existingConfig.indexing ?? newConfig.indexing,
+      fileChangeHooks: existingConfig.fileChangeHooks?.length
+        ? existingConfig.fileChangeHooks
+        : newConfig.fileChangeHooks,
     }
 
     if (tryWriteFragmentedConfig(configPath, mergedConfig)) {
@@ -1780,7 +1909,8 @@ export function getMissingProviderEnvVars(
   const missing = new Set<string>()
   for (const provider of Object.values(loadedConfig.config.providers)) {
     if (
-      provider.type === 'openai-compatible' &&
+      (provider.type === 'openai-compatible' ||
+        provider.type === 'anthropic-compatible') &&
       provider.apiKeyEnv &&
       !env[provider.apiKeyEnv]
     ) {
@@ -1840,8 +1970,10 @@ export function describeLoadedProviderConfig(
     if (provider.type === 'chatgpt-oauth') {
       lines.push(`- ${providerId}: ChatGPT/Codex OAuth | models=${models}${sourceSuffix}`)
     } else {
+      const kindSuffix =
+        provider.type === 'anthropic-compatible' ? ' [anthropic]' : ''
       lines.push(
-        `- ${providerId}: ${provider.baseURL} | env=${provider.apiKeyEnv ?? '(none)'} | models=${models}${sourceSuffix}`,
+        `- ${providerId}: ${provider.baseURL} | env=${provider.apiKeyEnv ?? '(none)'} | models=${models}${kindSuffix}${sourceSuffix}`,
       )
     }
   }

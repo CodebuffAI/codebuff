@@ -3,12 +3,13 @@
  *
  * This module handles:
  * - OpenAI-compatible providers configured in openbuff.json
+ * - Anthropic-compatible providers (native Messages API: api.anthropic.com or
+ *   any gateway speaking the same protocol, e.g. https://cc.freemodel.dev)
  * - Optional ChatGPT/Codex OAuth direct requests for allowlisted OpenAI models
  *
  * Openbuff intentionally has no Codebuff hosted inference fallback.
  */
 
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
   CHATGPT_BACKEND_BASE_URL,
   CHATGPT_OAUTH_ENABLED,
@@ -20,6 +21,7 @@ import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/internal/openai-compatible/index'
+import { createAnthropic } from '@ai-sdk/anthropic'
 
 import { getValidChatGptOAuthCredentials } from '../credentials'
 import {
@@ -93,7 +95,8 @@ export interface ModelRequestParams {
   agentId?: string
   /** If true, skip ChatGPT OAuth. */
   skipChatGptOAuth?: boolean
-  /** Cost mode (e.g. 'free') — affects ChatGPT OAuth error wording. */
+  /** Routing cost mode ('lite' | 'normal' | 'max' | …). Accepted for caller
+   *  compatibility; does not affect BYOK provider resolution. */
   costMode?: string
   /** Deprecated; Openbuff always avoids hosted Codebuff inference. */
   localMode?: boolean
@@ -128,7 +131,7 @@ export interface ModelResult {
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
-  const { model, agentId, skipChatGptOAuth, costMode } = params
+  const { model, agentId, skipChatGptOAuth } = params
   const loadedProviderConfig = loadProviderConfigSync()
   const effectiveAgentModelConfig = resolveConfiguredAgentModelConfig({
     agentId,
@@ -162,6 +165,16 @@ export async function getModelForRequest(
       }
     }
 
+    if (configuredProviderModel.provider.type === 'anthropic-compatible') {
+      return {
+        model: createConfiguredAnthropicModel(configuredProviderModel),
+        isChatGptOAuth: false,
+        compatibility: configuredProviderModel.compatibility,
+        reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+        effectiveModel,
+      }
+    }
+
     const isProposalAgent = Boolean(agentId && /^editor-implementor-proposal-\d+$/.test(agentId))
 
     return {
@@ -185,11 +198,9 @@ export async function getModelForRequest(
     isChatGptOAuthModelAllowed(effectiveModel)
   ) {
     if (isChatGptOAuthRateLimited()) {
-      if (isFreeMode(costMode)) {
-        throw new Error(
-          'ChatGPT rate limit reached. Please wait a few minutes and try again.',
-        )
-      }
+      throw new Error(
+        'ChatGPT rate limit reached. Please wait a few minutes and try again.',
+      )
     } else {
       const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
 
@@ -210,11 +221,9 @@ export async function getModelForRequest(
         }
       }
 
-      if (isFreeMode(costMode)) {
-        throw new Error(
-          'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
-        )
-      }
+      throw new Error(
+        'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
+      )
     }
   }
 
@@ -274,6 +283,47 @@ function createConfiguredOpenAICompatibleModel(
     supportsStructuredOutputs: provider.supportsStructuredOutputs,
     stringifyTextContent: resolvedModel.compatibility.stringifyTextContent,
   })
+}
+
+/**
+ * Normalize an Anthropic baseURL to the path the AI SDK expects.
+ *
+ * The AI SDK posts to `<baseURL>/messages`, while the Claude Code convention
+ * (ANTHROPIC_BASE_URL) treats a bare host as the root and posts to
+ * `<host>/v1/messages`. So when the configured URL has no version path
+ * (e.g. https://cc.freemodel.dev), append `/v1`. If it already carries a path
+ * segment (e.g. .../v1, .../anthropic/v1), leave it untouched.
+ */
+export function normalizeAnthropicBaseURL(baseURL: string): string {
+  const trimmed = baseURL.replace(/\/+$/, '')
+  const url = new URL(trimmed)
+  const hasPathSegment = url.pathname !== '' && url.pathname !== '/'
+  return hasPathSegment ? trimmed : `${trimmed}/v1`
+}
+
+function createConfiguredAnthropicModel(
+  resolvedModel: ResolvedProviderModel,
+): LanguageModel {
+  const { providerId, provider, providerModel, apiKey } = resolvedModel
+  if (provider.type !== 'anthropic-compatible') {
+    throw new Error(
+      `Provider '${providerId}' is not an Anthropic-compatible provider.`,
+    )
+  }
+
+  const anthropic = createAnthropic({
+    baseURL: normalizeAnthropicBaseURL(provider.baseURL),
+    // Sent as the `x-api-key` header. Pass an empty string rather than letting
+    // the SDK fall back to ANTHROPIC_API_KEY when no key is configured for a
+    // local gateway.
+    apiKey: apiKey ?? '',
+    headers: {
+      'user-agent': `ai-sdk/anthropic/${VERSION}/openbuff-custom-provider`,
+    },
+    name: providerId,
+  })
+
+  return anthropic(providerModel)
 }
 
 function shouldDisableThinkingForProviderModel(providerModel: string): boolean {
