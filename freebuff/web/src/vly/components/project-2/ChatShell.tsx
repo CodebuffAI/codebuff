@@ -3,16 +3,11 @@
 import { AgentMode } from "!/utils/registry_validators";
 import { ContextLength } from "./ContextLengthSelector";
 import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPresets";
-import { ChatInput } from "@/vly/components/project-2/ChatInput";
-import { MessageSuggestions } from "@/vly/components/project-2/MessageSuggestions";
-import { RuntimeErrors } from "@/vly/components/project-2/RuntimeErrors";
 import { AgentThreadList } from "./agent-chat/AgentThreadList";
-import { BuildErrors } from "@/vly/components/project-2/BuildErrors";
 import DivergenceResolutionDialog from "@/vly/components/project-2/DivergenceResolutionDialog";
 import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
 import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import { useCreditCheck } from "@/vly/hooks/useCreditCheck";
-import { CreditOverlay } from "./CreditOverlay";
 import {
   ModelDisclaimerDialog,
   hasAcknowledgedDisclaimer,
@@ -644,6 +639,25 @@ ${message}`;
     [project, isProcessing, createThreadAfterAcknowledgment],
   );
 
+  // Legacy chats are read-only. The only action available is to spin up a fresh
+  // thread on the Freebuff agent (which swaps this shell for AgentChatShell).
+  const [isStartingFreebuff, setIsStartingFreebuff] = useState(false);
+  const handleStartFreebuffAgent = useCallback(async () => {
+    if (!projectSemanticIdentifier || isStartingFreebuff) return;
+    setIsStartingFreebuff(true);
+    try {
+      await createNewAgentThread({
+        projectSemanticIdentifier,
+        agentType: "Freebuff",
+      });
+      // On success the project's active_agent_thread is set and project-2
+      // re-renders AgentChatShell, unmounting this component.
+    } catch {
+      toast.error("Failed to start Freebuff agent");
+      setIsStartingFreebuff(false);
+    }
+  }, [projectSemanticIdentifier, isStartingFreebuff, createNewAgentThread]);
+
   // Handle disclaimer acknowledgment
   const handleDisclaimerAcknowledged = useCallback(() => {
     if (pendingModelSelection) {
@@ -1134,68 +1148,9 @@ ${message}`;
               </div>
             )}
 
-            {/* ai suggestions after the last completed assistant message */}
-            {(() => {
-              // Don't render suggestions if processing
-              if (isProcessing) {
-                return null;
-              }
-
-              const sortedMessages = [...threadMessages].sort(
-                (a, b) => b.date - a.date,
-              );
-
-              // Find the MOST RECENT assistant message with valid suggestions that is complete (not streaming)
-              // Only show suggestions from the absolute latest completed message
-              const lastAssistantMessage = sortedMessages.find(
-                (msg) =>
-                  msg.role === "assistant" &&
-                  !msg.streaming && // Message must not be streaming
-                  (!msg.message_state ||
-                    msg.message_state.status === "complete") && // Message must be complete
-                  msg.suggestions &&
-                  msg.suggestions.length > 0 &&
-                  msg.suggestions.some((s) => s && s.trim().length > 0),
-              );
-
-              // Filter out empty suggestions
-              const validSuggestions =
-                lastAssistantMessage?.suggestions?.filter(
-                  (s) => s && s.trim().length > 0,
-                ) || [];
-
-              // Only show if we have valid suggestions and not processing
-              // The backend already clears old suggestions when a new message starts
-              if (validSuggestions.length === 0 || isProcessing) {
-                return null;
-              }
-
-              return (
-                <MessageSuggestions
-                  suggestions={validSuggestions}
-                  onSuggestionClick={(suggestion) => {
-                    // send the suggestion as a new user message
-                    handleSendMessageWithNode(suggestion, []);
-                  }}
-                  isVisible={
-                    !!shouldShowSuggestions && validSuggestions.length > 0
-                  }
-                />
-              );
-            })()}
-
-            {project && (
-              <>
-                <RuntimeErrors
-                  project={project}
-                  sendMessage={sendAutomatedAgentMessage}
-                />
-                <BuildErrors
-                  project={project}
-                  sendMessage={sendAutomatedAgentMessage}
-                />
-              </>
-            )}
+            {/* Legacy chats are read-only: suggestion chips and the automated
+                runtime/build error fixers are intentionally not rendered here so
+                nothing can dispatch work to the retired agent. */}
 
             {/* Credit warning banner - shows when credits are low but not empty */}
             {/* COMMENTED OUT: If users are on plans with overage pricing, they should be able to continue using the service even when below threshold */}
@@ -1209,47 +1164,32 @@ ${message}`;
         />
       )} */}
 
-            {/* Chat Input gating:
-               - Not self-hosted + (Convex paused OR no agent credits) → CreditOverlay
-               - Self-hosted + no agent credits → CreditOverlay
-               - Otherwise → show ChatInput */}
-            {(isSelfHosted === false && isConvexPaused) ||
-            (!canUseAgent && !creditCheckLoading) ? (
-              <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
-                <CreditOverlay
-                  onUpgradeClick={() => {
-                    window.open("/web/dashboard", "_blank");
-                  }}
-                  reason={
-                    isSelfHosted === false && isConvexPaused
-                      ? "convex_paused"
-                      : "no_agent_credits"
-                  }
-                />
+            {/* Legacy chats are read-only. The original "vly agent 2.0" has been
+                retired, so we remove the input entirely and offer a single
+                action: start a fresh thread on the Freebuff agent. */}
+            <div className="flex-shrink-0 border-t border-border/40 bg-transparent px-4 py-4">
+              <div className="mb-3 flex items-start justify-center gap-2 text-center text-xs leading-5 text-muted-foreground">
+                <History className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <span>
+                  This is a legacy chat and is read-only. The original agent has
+                  been retired — start a new thread to keep building with the
+                  Freebuff agent.
+                </span>
               </div>
-            ) : (
-              <ChatInput
-                isProcessing={isProcessing}
-                handleSendMessage={handleSendMessageWithNode}
-                projectSemanticIdentifier={projectSemanticIdentifier}
-                terminateThread={terminateThread}
-                isSelectingElement={isSelectingElement}
-                setIsSelectingElement={setIsSelectingElement}
-                projectId={project?._id}
-                onOpenDivergenceDialog={handleOpenDivergenceDialog}
-                queuedMessages={messageQueue.queue}
-                onRemoveQueuedMessage={messageQueue.removeFromQueue}
-                externalSelectedNodeInfo={selectedNodeInfo}
-                onSelectedNodeInfoChange={updateSelectedNodeInfo}
-                onUserInputChange={setHasUserInput}
-                selectedAgentMode={selectedAgentMode}
-                onAgentModeChange={setSelectedAgentMode}
-                selectedContextLength={selectedContextLength}
-                onContextLengthChange={setSelectedContextLength}
-                syncStatus={syncStatus}
-                activeEntryPointId={activeEntryPointId}
-              />
-            )}
+              <button
+                type="button"
+                onClick={handleStartFreebuffAgent}
+                disabled={isStartingFreebuff}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isStartingFreebuff ? (
+                  <Loader className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Start Freebuff agent
+              </button>
+            </div>
 
             {/* Divergence Resolution Dialog */}
             {project && divergenceInfo && (

@@ -89,6 +89,18 @@ export const saveMessageAndStartWorkflow = mutation({
     }),
   ),
   handler: async (ctx, args) => {
+    // Legacy chats are retired and read-only. The UI no longer renders an input
+    // for these threads; this is the server-side enforcement so the deprecated
+    // agent can never be invoked, even via a direct/stale client call.
+    return {
+      success: false as const,
+      error: {
+        kind: "LEGACY_AGENT_DISABLED",
+        message:
+          "This chat uses the retired legacy agent and is now read-only. Start a new thread on the Freebuff agent to continue.",
+      },
+    };
+
     const gates = await runTriggerGates({
       ctx,
       message: args.message,

@@ -8,9 +8,10 @@ import {
   useSearchParams,
   useRouter,
 } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { MigrationOverlay } from "@/vly/components/project-2/MigrationOverlay";
 
 function useParentRouteSync() {
   const pathname = usePathname();
@@ -64,10 +65,11 @@ export default function ProjectPage() {
     });
   }, [project, resolveAttempted, resolveProjectDaytonaServer]);
 
-  useEffect(() => {
-    if (!project || !project.sandbox_id) {
-      return;
-    }
+  // Whether the project still lives on legacy infrastructure and needs to be
+  // migrated to the new Daytona server. Instead of redirecting to a separate
+  // full-screen route, we render a non-closable popup over the project page.
+  const needsMigration = useMemo(() => {
+    if (!project || !project.sandbox_id) return false;
 
     const isLegacyCodeSandbox = !project.sandbox_id.startsWith("daytona:");
     const isLegacyDaytona =
@@ -75,19 +77,8 @@ export default function ProjectPage() {
       daytonaServer === "legacy" &&
       project.migration_status !== "done";
 
-    console.log("[ProjectPage] migration gate", {
-      projectId: project._id,
-      sandboxId: project.sandbox_id,
-      daytonaServer,
-      migrationStatus: project.migration_status,
-      isLegacyCodeSandbox,
-      isLegacyDaytona,
-    });
-
-    if (isLegacyCodeSandbox || isLegacyDaytona) {
-      router.push(`/web/project/${semanticIdentifier}/migrating`);
-    }
-  }, [project, daytonaServer, router, semanticIdentifier]);
+    return isLegacyCodeSandbox || isLegacyDaytona;
+  }, [project, daytonaServer]);
 
   // Remove publish param from URL after deployment dialog is triggered
   useEffect(() => {
@@ -104,6 +95,9 @@ export default function ProjectPage() {
   return (
     <ProjectErrorBoundary semanticIdentifier={semanticIdentifier}>
       <Project2 shouldShowPublicModel={shouldShowPublicModel} />
+      {needsMigration && (
+        <MigrationOverlay semanticIdentifier={semanticIdentifier} />
+      )}
     </ProjectErrorBoundary>
   );
 }

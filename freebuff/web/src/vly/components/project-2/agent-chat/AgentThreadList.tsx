@@ -3,9 +3,9 @@
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ChevronLeft, Plus, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronDown, Plus, Loader2, Archive } from "lucide-react";
 import { cn } from "@/vly/lib/utils";
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 
 interface AgentThreadListProps {
   projectSemanticIdentifier: string;
@@ -83,6 +83,10 @@ export function AgentThreadList({
   onBack,
   isProcessing,
 }: AgentThreadListProps) {
+  // Archived (legacy) threads are collapsed by default so the list focuses on
+  // active Freebuff threads.
+  const [showArchived, setShowArchived] = useState(false);
+
   // Skip query if projectSemanticIdentifier is empty/invalid to prevent server errors
   const threadsWithPreview = useQuery(
     api.coding_agent.cli_agent.queries.getUnifiedThreadsWithPreview,
@@ -101,7 +105,16 @@ export function AgentThreadList({
     );
   }
 
-  const categories = categorizeThreads(threadsWithPreview);
+  // Legacy threads (old "vly agent 2.0" chats) are read-only and tucked into an
+  // Archived section; only new Freebuff agent threads show in the main list.
+  const activeThreads = threadsWithPreview.filter(
+    (item) => item.thread.threadType === "agent_thread",
+  );
+  const archivedThreads = threadsWithPreview.filter(
+    (item) => item.thread.threadType === "thread",
+  );
+
+  const categories = categorizeThreads(activeThreads);
   const sections = [
     { label: "Today", items: categories.today },
     { label: "Yesterday", items: categories.yesterday },
@@ -126,7 +139,7 @@ export function AgentThreadList({
     const agentLabel =
       item.thread.threadType === "agent_thread"
         ? item.thread.agent_type || "Freebuff"
-        : "Classic";
+        : "Legacy";
     const processing =
       "isProcessing" in item.thread && Boolean(item.thread.isProcessing);
 
@@ -251,6 +264,47 @@ export function AgentThreadList({
                 <div className="space-y-1">{section.items.map(renderThreadRow)}</div>
               </section>
             ))}
+
+            {activeThreads.length === 0 && archivedThreads.length > 0 && (
+              <p className="px-1 text-sm text-muted-foreground">
+                No active threads yet. Start a new Freebuff thread, or browse
+                your archived legacy chats below.
+              </p>
+            )}
+
+            {/* Archived (legacy) threads — collapsed, harder to reach on purpose */}
+            {archivedThreads.length > 0 && (
+              <section
+                className={cn(sections.length > 0 && "border-t border-border/40 pt-4")}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((v) => !v)}
+                  aria-expanded={showArchived}
+                  className="mb-2 flex w-full items-center gap-2 px-1 text-left"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                      !showArchived && "-rotate-90",
+                    )}
+                  />
+                  <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Archived
+                  </h3>
+                  <span className="rounded-full bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                    {archivedThreads.length}
+                  </span>
+                  <div className="h-px flex-1 bg-border/30" />
+                </button>
+                {showArchived && (
+                  <div className="space-y-1">
+                    {archivedThreads.map(renderThreadRow)}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         )}
       </div>
