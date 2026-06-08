@@ -12,22 +12,18 @@ import { Id } from "!/_generated/dataModel";
 import { getVerifiedAccessProject } from "../../project";
 import { getAuthUser } from "../../users";
 
-const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
-
 // Create a new agent thread
 export async function createAgentThread(
   ctx: MutationCtx,
   projectId: Id<"project">,
   agentType: "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff",
 ): Promise<Id<"agent_thread">> {
-  if (agentType === "Gemini CLI") {
-    throw new Error(GEMINI_CLI_MAINTENANCE_MESSAGE);
-  }
+  void agentType;
 
   const threadId = await ctx.db.insert("agent_thread", {
     project_id: projectId,
     isProcessing: false,
-    agent_type: agentType as any,
+    agent_type: "Freebuff",
     last_edited_timestamp: Date.now(),
   });
 
@@ -191,12 +187,8 @@ export const createNewAgentThread = mutation({
       throw new Error("Project not found or access denied");
     }
 
-    if (args.agentType === "Gemini CLI") {
-      throw new Error(GEMINI_CLI_MAINTENANCE_MESSAGE);
-    }
-
     // Create new thread
-    const threadId = await createAgentThread(ctx, project._id, args.agentType);
+    const threadId = await createAgentThread(ctx, project._id, "Freebuff");
 
     // Set as active thread
     await ctx.db.patch(project._id, {
@@ -204,6 +196,130 @@ export const createNewAgentThread = mutation({
     });
 
     return threadId;
+  },
+});
+
+export const migrateAgentThreadsToFreebuffBatch = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    cursor: v.optional(v.string()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("agent_thread")
+      .paginate({
+        numItems: args.batchSize ?? 200,
+        cursor: args.cursor ?? null,
+      });
+
+    let updated = 0;
+    for (const thread of page.page) {
+      if (thread.agent_type === "Freebuff") {
+        continue;
+      }
+
+      updated += 1;
+      if (!args.dryRun) {
+        await ctx.db.patch(thread._id, {
+          agent_type: "Freebuff",
+          active_session_id: undefined,
+          active_freebuff_run_state_storage_id: undefined,
+          last_edited_timestamp: Date.now(),
+        });
+      }
+    }
+
+    return {
+      scanned: page.page.length,
+      updated,
+      cursor: page.isDone ? undefined : page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+type MigrateAgentThreadsBatchResult = {
+  scanned: number;
+  updated: number;
+  cursor?: string;
+  isDone: boolean;
+};
+
+type MigrateAgentThreadsResult = {
+  scanned: number;
+  updated: number;
+  batches: number;
+  isDone: boolean;
+  nextCursor?: string;
+};
+
+export const migrateAllAgentThreadsToFreebuff = action({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+    maxBatches: v.optional(v.number()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    batches: v.number(),
+    isDone: v.boolean(),
+    nextCursor: v.optional(v.string()),
+  }),
+  handler: async (ctx, args): Promise<MigrateAgentThreadsResult> => {
+    const user = await getAuthUser(ctx);
+    if (!user || user.role !== "god") {
+      throw new Error("Unauthorized: God role required");
+    }
+
+    let cursor: string | undefined = undefined;
+    let scanned = 0;
+    let updated = 0;
+    let batches = 0;
+    const maxBatches = args.maxBatches ?? 1000;
+
+    while (batches < maxBatches) {
+      const result: MigrateAgentThreadsBatchResult = await ctx.runMutation(
+        internal.coding_agent.cli_agent.agent_thread
+          .migrateAgentThreadsToFreebuffBatch,
+        {
+          cursor,
+          batchSize: args.batchSize,
+          dryRun: args.dryRun,
+        },
+      );
+
+      scanned += result.scanned;
+      updated += result.updated;
+      batches += 1;
+
+      if (result.isDone) {
+        return {
+          scanned,
+          updated,
+          batches,
+          isDone: true,
+          nextCursor: undefined,
+        };
+      }
+
+      cursor = result.cursor;
+    }
+
+    return {
+      scanned,
+      updated,
+      batches,
+      isDone: false,
+      nextCursor: cursor,
+    };
   },
 });
 

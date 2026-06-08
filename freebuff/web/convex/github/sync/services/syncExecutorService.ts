@@ -438,6 +438,12 @@ export const executeGitHubToProjectSync = internalAction({
         errorMessage: pullResult.success ? undefined : pullResult.message,
       });
 
+      if (pullResult.success && pullResult.status === "synced") {
+        await ctx.runMutation(internal.project.setStateDone, {
+          projectId: args.projectId,
+        });
+      }
+
       // Mark external change if successful
       if (
         pullResult.success &&
@@ -644,6 +650,10 @@ export const executeProjectToGitHubSync = internalAction({
         projectId: args.projectId,
         status: "synced",
         lastSyncTime: Date.now(),
+      });
+
+      await ctx.runMutation(internal.project.setStateDone, {
+        projectId: args.projectId,
       });
 
       return result;

@@ -8,7 +8,7 @@ import { Migrations } from "@convex-dev/migrations";
 import { v } from "convex/values";
 import { getRootDomain } from "../lib/utils.js";
 import { components, internal } from "./_generated/api.js";
-import { DataModel } from "./_generated/dataModel.js";
+import type { DataModel, Id } from "./_generated/dataModel.js";
 import {
   allUsers,
   usersByRole,
@@ -279,19 +279,38 @@ export const migrateDeployKeys = internalAction({
 
 export const migrateDeployKeysPublic = action({
   args: {
-    project: v.object({
-      _id: v.id("project"),
-      _creationTime: v.string(),
-      semantic_identifier: v.string(),
-      sandbox_id: v.string(),
-      convex_url: v.optional(v.string()),
-    }),
+    projectId: v.optional(v.id("project")),
+    project: v.optional(v.any()),
     skipSave: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Bridge: call the internal function
-    await ctx.runAction(internal.migrations.migrateDeployKeys, args);
+    const projectId =
+      args.projectId ??
+      (args.project as { _id?: Id<"project"> } | undefined)?._id;
+
+    if (!projectId) {
+      throw new Error("projectId (or project._id) is required");
+    }
+
+    const project = await ctx.runQuery(internal.project.getProject, {
+      projectId,
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    await ctx.runAction(internal.migrations.migrateDeployKeys, {
+      project: {
+        _id: project._id,
+        _creationTime: String(project._creationTime),
+        semantic_identifier: project.semantic_identifier,
+        sandbox_id: project.sandbox_id,
+        convex_url: project.convex_url,
+      },
+      skipSave: args.skipSave,
+    });
     return null;
   },
 });

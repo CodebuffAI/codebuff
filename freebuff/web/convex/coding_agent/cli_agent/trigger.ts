@@ -6,8 +6,6 @@ import { createAgentThread } from "./agent_thread";
 import { workflow } from "./workflow";
 import { runTriggerGates } from "../shared/triggerGates";
 
-const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
-
 // Main entry point for CLI agent - saves message and starts workflow
 export const saveMessageAndStartWorkflow = mutation({
   args: {
@@ -40,15 +38,7 @@ export const saveMessageAndStartWorkflow = mutation({
   ),
   handler: async (ctx, args) => {
     try {
-      if (args.agentType === "Gemini CLI") {
-        return {
-          success: false as const,
-          error: {
-            kind: "AGENT_UNAVAILABLE",
-            message: GEMINI_CLI_MAINTENANCE_MESSAGE,
-          },
-        };
-      }
+      const normalizedAgentType = "Freebuff" as const;
 
       const gates = await runTriggerGates({
         ctx,
@@ -56,7 +46,7 @@ export const saveMessageAndStartWorkflow = mutation({
         projectSemanticIdentifier: args.projectSemanticIdentifier,
         projectId: args.projectId,
         skipRateLimitCheck: args._skipRateLimitCheck,
-        agentType: args.agentType,
+        agentType: normalizedAgentType,
         freebuffModel: args.freebuffModel,
       });
 
@@ -88,7 +78,7 @@ export const saveMessageAndStartWorkflow = mutation({
 
       if (!threadId) {
         // Create new thread (no active_session_id)
-        threadId = await createAgentThread(ctx, project._id, args.agentType);
+        threadId = await createAgentThread(ctx, project._id, normalizedAgentType);
 
         // Update project with active thread
         await ctx.db.patch(project._id, {
@@ -129,7 +119,7 @@ export const saveMessageAndStartWorkflow = mutation({
       if (!threadId) {
         console.error("[CLIAgent] Failed to create or retrieve agent thread", {
           projectId: project._id,
-          agentType: args.agentType,
+          agentType: normalizedAgentType,
         });
         return {
           success: false as const,
@@ -142,7 +132,7 @@ export const saveMessageAndStartWorkflow = mutation({
 
       // Persist the selected Freebuff model on the thread so the workflow and
       // any follow-up messages run the matching bundled agent.
-      if (args.agentType === "Freebuff" && args.freebuffModel) {
+      if (args.freebuffModel) {
         await ctx.db.patch(threadId, {
           selected_freebuff_model: args.freebuffModel,
         });
@@ -202,7 +192,7 @@ export const saveMessageAndStartWorkflow = mutation({
           threadId,
           projectId: project._id,
           userId: user._id,
-          agentType: args.agentType,
+          agentType: normalizedAgentType,
         },
         {
           onComplete:
@@ -212,7 +202,7 @@ export const saveMessageAndStartWorkflow = mutation({
             messageId,
             projectId: project._id,
             userId: user._id,
-            agentType: args.agentType,
+            agentType: normalizedAgentType,
           },
         },
       );

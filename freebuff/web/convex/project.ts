@@ -1201,6 +1201,7 @@ export const setStateDone = internalMutation({
   },
   handler: async (ctx, args) => {
     return await ctx.db.patch(args.projectId, {
+      terminated: false,
       state: "active",
       active_workflow_id: undefined,
     });
