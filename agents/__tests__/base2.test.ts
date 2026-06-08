@@ -51,14 +51,8 @@ describe('base2 proactive index lookup', () => {
   })
 })
 
-describe('base2 verification gate + best-of-N escalation', () => {
-  test('default mode can spawn editor-multi-prompt for escalation', () => {
-    const base2 = createBase2('default')
-    expect(base2.spawnableAgents).toContain('editor')
-    expect(base2.spawnableAgents).toContain('editor-multi-prompt')
-  })
-
-  test('failed verification hooks reopen the turn and suggest escalation', () => {
+describe('base2 verification gate', () => {
+  test('failed verification hooks reopen the turn so failures get fixed', () => {
     const base2 = createBase2('default')
     const gen = base2.handleSteps!({
       prompt: 'Make the requested change now please',
@@ -93,7 +87,6 @@ describe('base2 verification gate + best-of-N escalation', () => {
     })
     const text = (afterHooks.value as any).input.content as string
     expect(text).toContain('Verification gate')
-    expect(text).toContain('editor-multi-prompt')
   })
 
   test('passing verification hooks let the turn complete', () => {
