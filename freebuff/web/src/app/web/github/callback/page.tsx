@@ -43,10 +43,10 @@ export default function GitHubCallbackPage() {
         return;
       }
 
-      if (!installationId || !state) {
+      if (!installationId) {
         setResult({
           success: false,
-          message: "Missing installation ID or state parameter",
+          message: "Missing installation ID parameter",
         });
         setIsProcessing(false);
         return;
@@ -56,7 +56,7 @@ export default function GitHubCallbackPage() {
         const callbackResult = await handleCallback({
           installation_id: installationId,
           setup_action: setupAction || undefined,
-          state,
+          state: state || undefined,
         });
 
         setResult(callbackResult);
