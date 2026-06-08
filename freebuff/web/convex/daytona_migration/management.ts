@@ -89,16 +89,19 @@ function getInstallCommand(packageManager: ProjectPackageManager): string {
 }
 
 function getRemoveCrudDependencyCommand(): string {
+  const sanitizeScript =
+    "const fs=require('fs');const path='package.json';const pkg=JSON.parse(fs.readFileSync(path,'utf8'));const sections=['dependencies','devDependencies','peerDependencies','optionalDependencies'];const removed=[];for(const section of sections){const deps=pkg[section];if(deps&&Object.prototype.hasOwnProperty.call(deps,'crud')){delete deps.crud;removed.push(section);}}if(removed.length){fs.writeFileSync(path, JSON.stringify(pkg,null,2)+'\\n');console.log('removed crud from '+removed.join(','));}else{console.log('crud not found in package.json');}";
+
   return [
     "if command -v bun >/dev/null 2>&1; then",
-    "  bun -e \"const fs=require('fs');const path='package.json';const pkg=JSON.parse(fs.readFileSync(path,'utf8'));const sections=['dependencies','devDependencies','peerDependencies','optionalDependencies'];const removed=[];for(const section of sections){const deps=pkg[section];if(deps&&Object.prototype.hasOwnProperty.call(deps,'crud')){delete deps.crud;removed.push(section);}}if(removed.length){fs.writeFileSync(path, JSON.stringify(pkg,null,2)+'\\n');console.log('removed crud from '+removed.join(','));}else{console.log('crud not found in package.json');}\"",
+    `  bun -e ${JSON.stringify(sanitizeScript)}`,
     "elif command -v node >/dev/null 2>&1; then",
-    "  node -e \"const fs=require('fs');const path='package.json';const pkg=JSON.parse(fs.readFileSync(path,'utf8'));const sections=['dependencies','devDependencies','peerDependencies','optionalDependencies'];const removed=[];for(const section of sections){const deps=pkg[section];if(deps&&Object.prototype.hasOwnProperty.call(deps,'crud')){delete deps.crud;removed.push(section);}}if(removed.length){fs.writeFileSync(path, JSON.stringify(pkg,null,2)+'\\n');console.log('removed crud from '+removed.join(','));}else{console.log('crud not found in package.json');}\"",
+    `  node -e ${JSON.stringify(sanitizeScript)}`,
     "else",
-    "  echo 'Neither bun nor node is available to sanitize package.json'",
+    "  echo \"Neither bun nor node is available to sanitize package.json\"",
     "  exit 1",
     "fi",
-  ].join(" ");
+  ].join("\n");
 }
 
 async function detectDaytonaServerForSandboxId(
