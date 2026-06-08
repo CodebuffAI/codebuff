@@ -568,23 +568,68 @@ export class DaytonaCodebase
         return;
       }
 
-      // 2. Check if vlyPlugin already exists
-      if (viteConfig.includes("vlyPlugin")) {
-        return;
+      let updatedConfig = viteConfig;
+      let changed = false;
+
+      // 2. Ensure vlyPlugin import exists
+      const importLine = 'import { vlyPlugin } from "@vly-ai/integrations";';
+      if (!updatedConfig.includes(importLine)) {
+        updatedConfig = importLine + "\n" + updatedConfig;
+        changed = true;
       }
 
-      // 3. Add import at the top of the file
-      const importLine = 'import { vlyPlugin } from "@vly-ai/integrations";';
-      let updatedConfig = importLine + "\n" + viteConfig;
+      // 3. Ensure vlyPlugin() exists in plugins array
+      if (!updatedConfig.includes("vlyPlugin")) {
+        const withPlugin = updatedConfig.replace(
+          /plugins:\s*\[/,
+          "plugins: [vlyPlugin(), ",
+        );
+        if (withPlugin !== updatedConfig) {
+          updatedConfig = withPlugin;
+          changed = true;
+        }
+      }
 
-      // 4. Add vlyPlugin() to plugins array (as first plugin)
-      updatedConfig = updatedConfig.replace(
-        /plugins:\s*\[/,
-        "plugins: [vlyPlugin(), ",
+      // 4. Ensure server.hmr is fully disabled
+      const hasHmrDisabled = /server\s*:\s*\{[\s\S]*?hmr\s*:\s*false/.test(
+        updatedConfig,
       );
 
-      // 5. Write updated config
-      await this.writeFile("vite.config.ts", updatedConfig);
+      if (!hasHmrDisabled) {
+        if (/server\s*:\s*\{[\s\S]*?hmr\s*:\s*\{/.test(updatedConfig)) {
+          const withHmrDisabled = updatedConfig.replace(
+            /hmr\s*:\s*\{[\s\S]*?\}/,
+            "hmr: false",
+          );
+          if (withHmrDisabled !== updatedConfig) {
+            updatedConfig = withHmrDisabled;
+            changed = true;
+          }
+        } else if (/server\s*:\s*\{/.test(updatedConfig)) {
+          const withHmrDisabled = updatedConfig.replace(
+            /server\s*:\s*\{/,
+            "server: {\n    hmr: false,",
+          );
+          if (withHmrDisabled !== updatedConfig) {
+            updatedConfig = withHmrDisabled;
+            changed = true;
+          }
+        } else {
+          const withServerConfig = updatedConfig.replace(
+            /defineConfig\(\s*\{/,
+            "defineConfig({\n  server: {\n    hmr: false,\n  },",
+          );
+          if (withServerConfig !== updatedConfig) {
+            updatedConfig = withServerConfig;
+            changed = true;
+          }
+        }
+      }
+
+      // 5. Write only if changed
+      if (changed) {
+        await this.writeFile("vite.config.ts", updatedConfig);
+      }
     } catch (error) {
       console.warn(
         "[DaytonaCodebase] Could not ensure vlyPlugin in vite.config (non-critical):",
