@@ -4,7 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { mimoModels } from './model-config'
+import { mimoModels, minimaxModels } from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -46,6 +46,8 @@ export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
+/** Premium tier; routes to MiniMax's official API (distinct from the m2.7 id). */
+export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
@@ -148,10 +150,20 @@ const MINIMAX_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
+const MINIMAX_M3_MODEL = {
+  id: FREEBUFF_MINIMAX_M3_MODEL_ID,
+  displayName: 'MiniMax M3',
+  tagline: 'Frontier',
+  availability: 'always',
+  premium: true,
+  multimodal: false,
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
   KIMI_MODEL,
+  MINIMAX_M3_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
   MINIMAX_MODEL,
@@ -161,6 +173,7 @@ export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   KIMI_MODEL,
+  MINIMAX_M3_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   MINIMAX_MODEL,
@@ -170,6 +183,7 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
 ] as const
 
 /** Models that accept image input. Used to decide whether uploaded images are
