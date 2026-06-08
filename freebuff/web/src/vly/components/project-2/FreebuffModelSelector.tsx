@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/vly/components/ui/tooltip";
-import { ChevronDown, ImageIcon, AlertTriangle, Check } from "lucide-react";
+import { ChevronDown, ImageIcon, Check, Sparkles } from "lucide-react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import {
   FREEBUFF_MODELS,
@@ -67,36 +67,34 @@ const ModelRow: React.FC<{
         onSelect();
       }}
       className={cn(
-        "flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm",
+        "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2",
         isSelected && "bg-accent",
       )}
     >
       <Check
         className={cn(
-          "h-3.5 w-3.5 shrink-0 text-foreground",
+          "h-4 w-4 shrink-0 text-primary",
           isSelected ? "opacity-100" : "opacity-0",
         )}
       />
-      <span className="font-medium text-foreground">{model.displayName}</span>
-      {multimodal && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-          </TooltipTrigger>
-          <TooltipContent>Accepts image input</TooltipContent>
-        </Tooltip>
-      )}
-      {model.warning && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500/70" />
-          </TooltipTrigger>
-          <TooltipContent>{model.warning}</TooltipContent>
-        </Tooltip>
-      )}
-      <span className="ml-auto pl-2 text-[11px] text-muted-foreground">
-        {model.tagline}
-      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-sm font-medium text-foreground">
+            {model.displayName}
+          </span>
+          {multimodal && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ImageIcon className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+              </TooltipTrigger>
+              <TooltipContent>Accepts image input</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        <span className="truncate text-xs text-muted-foreground">
+          {model.tagline}
+        </span>
+      </div>
     </DropdownMenuItem>
   );
 };
@@ -139,13 +137,16 @@ export function FreebuffModelSelector({
           <ChevronDown className="h-3.5 w-3.5 opacity-60" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-72 p-1.5">
         {PREMIUM_MODELS.length > 0 && (
           <>
-            <DropdownMenuLabel className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              <span>Premium</span>
+            <DropdownMenuLabel className="flex items-center justify-between px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                Premium
+              </span>
               {premiumRemaining !== null && (
-                <span className="font-normal normal-case tabular-nums text-muted-foreground/70">
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tabular-nums text-amber-600">
                   {premiumRemaining} left today
                 </span>
               )}
@@ -158,9 +159,12 @@ export function FreebuffModelSelector({
                 onSelect={() => onModelChange(model.id)}
               />
             ))}
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-1.5" />
           </>
         )}
+        <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Unlimited
+        </DropdownMenuLabel>
         {UNLIMITED_MODELS.map((model) => (
           <ModelRow
             key={model.id}

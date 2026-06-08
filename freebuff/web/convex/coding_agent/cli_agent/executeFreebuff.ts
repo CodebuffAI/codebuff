@@ -706,6 +706,38 @@ function buildCommitMessage(userMessage: string): string {
   return trimmed ? `Freebuff: ${trimmed}` : 'Freebuff: update project files'
 }
 
+// Marker on the abort reason so the run handler can tell a user cancellation
+// apart from the 9-minute time-limit abort.
+const CANCELLED_BY_USER = 'freebuff_cancelled_by_user'
+
+// Cancel an in-flight Freebuff run when the user terminates the thread. Marks
+// the run ledger as cancelled (which the running action polls to abort itself)
+// and best-effort cancels the underlying workpool item so a queued run never
+// starts.
+export const cancelFreebuffRun = internalAction({
+  args: {
+    runId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { workId } = await ctx.runMutation(
+      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+        .cancelFreebuffAgentRunByRunId,
+      { runId: args.runId },
+    )
+
+    if (workId) {
+      try {
+        await freebuffAgentWorkpool.cancel(ctx, workId as any)
+      } catch (error) {
+        console.warn('[vly-freebuff-workpool] failed to cancel work', error)
+      }
+    }
+
+    return null
+  },
+})
+
 export const runFreebuffAgent = internalAction({
   args: {
     runId: v.string(),
@@ -725,6 +757,26 @@ export const runFreebuffAgent = internalAction({
       { runId: args.runId },
     )
 
+    // If the user already cancelled before this work item started, bail out
+    // before doing any work.
+    const initialStatus = await ctx.runQuery(
+      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+        .getFreebuffAgentRunStatus,
+      { runId: args.runId },
+    )
+    if (initialStatus === 'cancelled') {
+      await ctx.runMutation(
+        (internal as any).coding_agent.freebuff_bridge_mutations
+          .recordFreebuffCancellationState,
+        {
+          threadId: args.threadId,
+          projectId: args.projectId,
+          runId: args.runId,
+        },
+      )
+      return null
+    }
+
     const eventBuffer = createRunEventBuffer({ ctx, ...args })
     await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
     let pendingAskUserQuestions: AskUserQuestion[] | undefined
@@ -735,6 +787,31 @@ export const runFreebuffAgent = internalAction({
         new Error('Freebuff run exceeded 9-minute time limit'),
       )
     }, FREEBUFF_RUN_TIMEOUT_MS)
+
+    // Cooperative cancellation: the running SDK call can't be force-killed, so
+    // we poll the run ledger (set to 'cancelled' when the user terminates the
+    // thread) from the stream/event callbacks and abort the run ourselves.
+    let cancelledByUser = false
+    let lastCancelCheck = 0
+    const checkCancelled = async () => {
+      if (abortController.signal.aborted) return
+      const now = Date.now()
+      if (now - lastCancelCheck < 1500) return
+      lastCancelCheck = now
+      try {
+        const status = await ctx.runQuery(
+          (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+            .getFreebuffAgentRunStatus,
+          { runId: args.runId },
+        )
+        if (status === 'cancelled' && !abortController.signal.aborted) {
+          cancelledByUser = true
+          abortController.abort(new Error(CANCELLED_BY_USER))
+        }
+      } catch (error) {
+        console.warn('[vly-freebuff-workpool] cancel check failed', error)
+      }
+    }
 
     try {
       installPromiseWithResolversPolyfill()
@@ -781,6 +858,7 @@ export const runFreebuffAgent = internalAction({
           },
         }) as any,
         handleEvent: async (event: any) => {
+          await checkCancelled()
           if (event.type === 'tool_call') {
             await eventBuffer.flush()
             await recordRunEvent({
@@ -801,6 +879,7 @@ export const runFreebuffAgent = internalAction({
           }
         },
         handleStreamChunk: async (chunk: any) => {
+          await checkCancelled()
           if (typeof chunk === 'string') {
             eventBuffer.append({ type: 'text_delta', chunk })
           } else if (chunk.type === 'reasoning_chunk') {
@@ -825,6 +904,22 @@ export const runFreebuffAgent = internalAction({
       const runStateStorageId = runState.sessionState
         ? await persistRunState(ctx, runState)
         : undefined
+
+      // User terminated the thread mid-run. Save partial state cleanly and bail
+      // before committing — the message is already marked Cancelled.
+      if (cancelledByUser) {
+        await ctx.runMutation(
+          (internal as any).coding_agent.freebuff_bridge_mutations
+            .recordFreebuffCancellationState,
+          {
+            threadId: args.threadId,
+            projectId: args.projectId,
+            runId: args.runId,
+            runStateStorageId,
+          },
+        )
+        return null
+      }
 
       if (runState.output?.type === 'error') {
         if (
@@ -890,6 +985,21 @@ export const runFreebuffAgent = internalAction({
       return null
     } catch (error) {
       await eventBuffer.flush()
+
+      // User cancellation takes precedence over any other abort/error path.
+      if (cancelledByUser) {
+        await ctx.runMutation(
+          (internal as any).coding_agent.freebuff_bridge_mutations
+            .recordFreebuffCancellationState,
+          {
+            threadId: args.threadId,
+            projectId: args.projectId,
+            runId: args.runId,
+          },
+        )
+        return null
+      }
+
       if (isAskUserPauseError(error)) {
         const questions = pendingAskUserQuestions?.length
           ? pendingAskUserQuestions

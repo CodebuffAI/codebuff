@@ -1,6 +1,15 @@
 import { v } from 'convex/values'
 
-import { internalMutation } from '!/_generated/server'
+import { internalMutation, internalQuery } from '!/_generated/server'
+
+// Statuses that mean the run is finished and must not be transitioned again.
+const TERMINAL_RUN_STATUSES = new Set([
+  'completed',
+  'paused',
+  'error',
+  'timed_out',
+  'cancelled',
+])
 
 export const createFreebuffAgentRun = internalMutation({
   args: {
@@ -56,5 +65,46 @@ export const markFreebuffAgentRunRunning = internalMutation({
       started_at: now,
       last_event_at: now,
     })
+  },
+})
+
+// Mark a run as cancelled (user terminated the thread). Returns the work_id so
+// the caller can best-effort cancel the underlying workpool item. No-op if the
+// run is already in a terminal state.
+export const cancelFreebuffAgentRunByRunId = internalMutation({
+  args: {
+    runId: v.string(),
+  },
+  returns: v.object({ workId: v.optional(v.string()) }),
+  handler: async (ctx, args) => {
+    const runDoc = await ctx.db
+      .query('freebuff_agent_runs')
+      .withIndex('by_run_id', (q) => q.eq('run_id', args.runId))
+      .unique()
+    if (!runDoc) return { workId: undefined }
+    if (!TERMINAL_RUN_STATUSES.has(runDoc.status)) {
+      await ctx.db.patch(runDoc._id, {
+        status: 'cancelled',
+        completed_at: Date.now(),
+        last_event_at: Date.now(),
+      })
+    }
+    return { workId: runDoc.work_id }
+  },
+})
+
+// Lightweight status read used by the running agent action to cooperatively
+// abort itself when the user cancels.
+export const getFreebuffAgentRunStatus = internalQuery({
+  args: {
+    runId: v.string(),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const runDoc = await ctx.db
+      .query('freebuff_agent_runs')
+      .withIndex('by_run_id', (q) => q.eq('run_id', args.runId))
+      .unique()
+    return runDoc?.status ?? null
   },
 })

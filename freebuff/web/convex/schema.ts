@@ -229,6 +229,7 @@ export default defineSchema(
         v.literal('paused'),
         v.literal('error'),
         v.literal('timed_out'),
+        v.literal('cancelled'),
       ),
       queued_at: v.number(),
       started_at: v.optional(v.number()),

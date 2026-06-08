@@ -73,6 +73,7 @@ import {
   type GravityAd,
   type GravityAdMessage,
 } from './GravityAdSlot'
+import { ThinkingState } from '../ThinkingState'
 
 // Map plan IDs to tier names
 const PLAN_ID_TO_TIER: Record<string, TierName> = {
@@ -1331,7 +1332,16 @@ const AgentMessageCard: React.FC<{
     message.state_message.toLowerCase().includes('insufficient credits')
 
   return (
-    <div className="mb-6 w-full max-w-full overflow-hidden">
+    <div
+      className={cn(
+        'w-full max-w-full overflow-hidden',
+        // Only messages that begin a new turn (they include a user prompt) get
+        // generous separation from the content above. Assistant-only
+        // continuation messages sit close to the previous one so consecutive
+        // tool-call sections don't show a large gap between them.
+        message.user_message ? 'mt-6 first:mt-0' : 'mt-2',
+      )}
+    >
       {/* User Message — softer, theme-aware bubble */}
       {message.user_message && (
         <div className="mb-4 flex items-center gap-2">
@@ -1449,6 +1459,13 @@ const AgentMessageCard: React.FC<{
           )}
         </div>
       ) : null}
+
+      {/* Animated thinking indicator while the agent is working. Shows on its
+          own before the first stream output, and below the stream while it
+          continues. Hidden once streaming ends or the time-limit panel shows. */}
+      {isStreaming && !isPromptTimeLimit && (
+        <ThinkingState activityKey={message._id} />
+      )}
 
       {isPromptTimeLimit && (
         <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
@@ -1960,7 +1977,7 @@ export const AgentChatMessages = forwardRef<
   return (
     <>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div ref={contentRef} className="px-4 py-3">
+        <div ref={contentRef} className="px-4 pb-6 pt-3">
           {isLoading ? (
             <div className="flex justify-center py-4">
               <Loader className="h-6 w-6 animate-spin text-zinc-400" />

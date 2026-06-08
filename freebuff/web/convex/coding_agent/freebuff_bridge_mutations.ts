@@ -15,6 +15,7 @@ const TERMINAL_RUN_STATUSES = new Set([
   'paused',
   'error',
   'timed_out',
+  'cancelled',
 ])
 
 const RUN_TRACKING_EVENT_TYPES = new Set([
@@ -173,6 +174,13 @@ export const recordRunEvent = internalMutation({
     const message = await ctx.db.get(messageId)
     if (!message) throw new Error('Agent message not found')
 
+    // Once a message is cancelled (user terminated the thread), ignore any
+    // late events from the in-flight run so they can't resurrect the message
+    // back into a streaming/completed state.
+    if (message.state === 'Cancelled') {
+      return { ignored: true, reason: 'cancelled' }
+    }
+
     const threadId = event.threadId as Id<'agent_thread'>
     const thread = await ctx.db.get(threadId)
     if (!thread || message.thread_id !== threadId) {
@@ -315,6 +323,54 @@ export const recordRunEvent = internalMutation({
     }
 
     await ctx.db.patch(messageId, patch)
+  },
+})
+
+// Finalize a user-cancelled Freebuff run from the (still-running) agent action.
+// Persists partial run state on the thread so a follow-up prompt can resume,
+// and clears processing flags — without touching the already-Cancelled message.
+export const recordFreebuffCancellationState = internalMutation({
+  args: {
+    threadId: v.id('agent_thread'),
+    projectId: v.id('project'),
+    runId: v.string(),
+    runStateStorageId: v.optional(v.id('_storage')),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now()
+
+    // Defensively ensure the run ledger is marked cancelled.
+    const runDoc = await ctx.db
+      .query('freebuff_agent_runs')
+      .withIndex('by_run_id', (q) => q.eq('run_id', args.runId))
+      .unique()
+    if (runDoc && !TERMINAL_RUN_STATUSES.has(runDoc.status)) {
+      await ctx.db.patch(runDoc._id, {
+        status: 'cancelled',
+        completed_at: now,
+        last_event_at: now,
+      })
+    }
+
+    const thread = await ctx.db.get(args.threadId)
+    if (thread) {
+      const threadPatch: Record<string, any> = {
+        isProcessing: false,
+        workflow_id: undefined,
+        last_edited_timestamp: now,
+      }
+      // Preserve conversation continuity: if we captured partial run state,
+      // point the thread at it so the next message resumes from here.
+      if (args.runStateStorageId !== undefined) {
+        threadPatch.active_session_id = args.runId
+        threadPatch.active_freebuff_run_state_storage_id =
+          args.runStateStorageId
+      }
+      await ctx.db.patch(args.threadId, threadPatch as any)
+      await ctx.db.patch(thread.project_id, { state: 'active' })
+    }
+
+    return null
   },
 })
 

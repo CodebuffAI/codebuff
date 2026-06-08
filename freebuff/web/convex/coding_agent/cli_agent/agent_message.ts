@@ -496,6 +496,21 @@ export const cancelAgentMessage = action({
       }
     }
 
+    // For Freebuff threads the real work runs in a workpool action that the
+    // workflow does not await, so workflow.cancel above can't stop it. Mark the
+    // run cancelled (the running action polls this and aborts itself) and
+    // best-effort cancel the workpool item. session_id holds the Freebuff runId.
+    if (thread.agent_type === 'Freebuff' && message.session_id) {
+      try {
+        await ctx.runAction(
+          internal.coding_agent.cli_agent.executeFreebuff.cancelFreebuffRun,
+          { runId: message.session_id },
+        )
+      } catch (error) {
+        console.error('Failed to cancel Freebuff run:', error)
+      }
+    }
+
     // Update message, thread, and project state
     // This handles the state cleanup regardless of whether workflow.cancel succeeded
     // Pass data we already have to avoid redundant queries
