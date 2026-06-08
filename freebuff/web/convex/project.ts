@@ -1576,6 +1576,7 @@ export const finalizeDaytonaServerMigration = internalMutation({
     previewUrl: v.string(),
     templateId: v.optional(v.string()),
     newServer: v.union(v.literal("legacy"), v.literal("new")),
+    packageManager: v.union(v.literal("bun"), v.literal("pnpm")),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -1585,7 +1586,7 @@ export const finalizeDaytonaServerMigration = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       sandbox_id: `daytona:${args.newSandboxId}`,
-      packageManager: "bun",
+      packageManager: args.packageManager,
       preview_url: args.previewUrl,
       template_id: args.templateId,
     });

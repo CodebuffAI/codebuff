@@ -84,7 +84,24 @@ function getTarCommand(packageManager: ProjectPackageManager): string {
 }
 
 function getInstallCommand(packageManager: ProjectPackageManager): string {
-  return packageManager === "pnpm" ? "pnpm install" : "bun install";
+  void packageManager;
+  return "bun install";
+}
+
+function getRemoveCrudDependencyCommand(): string {
+  const sanitizeScript =
+    "const fs=require('fs');const path='package.json';const pkg=JSON.parse(fs.readFileSync(path,'utf8'));const sections=['dependencies','devDependencies','peerDependencies','optionalDependencies'];const removed=[];for(const section of sections){const deps=pkg[section];if(deps&&Object.prototype.hasOwnProperty.call(deps,'crud')){delete deps.crud;removed.push(section);}}if(removed.length){fs.writeFileSync(path, JSON.stringify(pkg,null,2)+'\\n');console.log('removed crud from '+removed.join(','));}else{console.log('crud not found in package.json');}";
+
+  return [
+    "if command -v bun >/dev/null 2>&1; then",
+    `  bun -e ${JSON.stringify(sanitizeScript)}`,
+    "elif command -v node >/dev/null 2>&1; then",
+    `  node -e ${JSON.stringify(sanitizeScript)}`,
+    "else",
+    "  echo \"Neither bun nor node is available to sanitize package.json\"",
+    "  exit 1",
+    "fi",
+  ].join("\n");
 }
 
 async function detectDaytonaServerForSandboxId(
@@ -375,6 +392,27 @@ export const migrateLegacyProjectToNewDaytona = action({
         targetSandboxId,
       });
 
+      if (packageManager === "pnpm") {
+        console.log(
+          "[DaytonaMigration] pnpm source detected, removing legacy 'crud' dependency before archiving",
+        );
+        const sanitizeResult = await sourceSandbox.process.executeCommand(
+          getRemoveCrudDependencyCommand(),
+          DAYTONA_CODEBASE_PATH,
+        );
+        if (sanitizeResult.exitCode !== 0) {
+          console.log(
+            `[DaytonaMigration] failed to sanitize package.json exitCode=${sanitizeResult.exitCode} output=${sanitizeResult.result}`,
+          );
+          throw new Error(
+            `Failed to sanitize pnpm package.json before migration: ${sanitizeResult.result}`,
+          );
+        }
+        console.log(
+          `[DaytonaMigration] package.json sanitized output=${sanitizeResult.result}`,
+        );
+      }
+
       const sourceArchiveCommand = getTarCommand(packageManager);
       console.log(
         `[DaytonaMigration] creating source archive command=${sourceArchiveCommand}`,
@@ -477,6 +515,7 @@ export const migrateLegacyProjectToNewDaytona = action({
         previewUrl,
         templateId: process.env.DAYTONA_SNAPSHOT_ID,
         newServer: "new",
+        packageManager: targetPackageManager,
       });
       console.log(
         `[DaytonaMigration] finalizeDaytonaServerMigration complete newSandboxId=${targetSandboxId}`,
