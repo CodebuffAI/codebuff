@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to Google\u2019s Gemini CLI. Use a real CLI coding agent with frontier models, 9 subagents, and zero API setup. No Google account required.',
   category: 'Comparisons',
   publishedAt: '2026-05-14',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'freebuff-team',
   keywords: [
@@ -25,7 +26,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         'Gemini CLI is great, free during preview, and locked to one model family — Google Gemini.',
-        'Freebuff is also free, supports many models (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 via BYOK), and ships 9 specialized subagents.',
+        'Freebuff is also free, supports many models (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, and GPT-5.4 through a connected ChatGPT subscription), and ships 9 specialized subagents.',
         'Gemini CLI requires a Google Cloud / Gemini API key. Freebuff requires nothing.',
         'Both run locally and edit files in your terminal.',
       ],
@@ -41,11 +42,11 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: 'Free during preview; rate-limited' },
         { feature: 'API key required', freebuff: 'No', competitor: 'Yes — Gemini API key' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (BYOK)', competitor: 'Gemini 3.x family only' },
+        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x family only' },
         { feature: 'Choose model per task', freebuff: '`/model` switch', competitor: 'Locked' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent' },
         { feature: 'Browser-use', freebuff: 'Built-in', competitor: 'No native support' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'No (Google account only)' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No (Google account only)' },
         { feature: 'Codebase indexing', freebuff: 'Local + free', competitor: 'Local + free' },
       ],
     },
@@ -63,7 +64,7 @@ export const post: Post = {
       type: 'ul',
       items: [
         '**You don\u2019t want a Google account on file**.',
-        '**You want model choice** — sometimes Kimi is the right call, sometimes DeepSeek, sometimes BYOK GPT-5.4.',
+        '**You want model choice** — sometimes Kimi is the right call, sometimes DeepSeek, sometimes connected GPT-5.4.',
         '**You want browser-use, code review, and deep-thinking subagents** in the box.',
       ],
     },

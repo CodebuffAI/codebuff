@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to Google\u2019s Antigravity IDE. Get a free CLI coding agent with cascade-style autonomy, subagents, and model choice that runs in any editor you already love.',
   category: 'Comparisons',
   publishedAt: '2026-05-15',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'james-grugett',
   keywords: [
@@ -40,11 +41,11 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free (permanent, ad-supported)', competitor: 'Free at launch; future pricing TBD' },
         { feature: 'Editor', freebuff: 'Use any editor', competitor: 'Antigravity IDE (forked editor)' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (BYOK)', competitor: 'Gemini 3.x only' },
+        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x only' },
         { feature: 'Model choice per task', freebuff: 'Yes', competitor: 'Locked to Gemini' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: 'One general agent' },
         { feature: 'Browser-use', freebuff: 'Built-in subagent', competitor: 'Yes (built-in)' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'No (Google account only)' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No (Google account only)' },
         { feature: 'Privacy posture', freebuff: 'Local-first, no training on your code', competitor: 'Google Cloud cloud-by-default' },
       ],
     },

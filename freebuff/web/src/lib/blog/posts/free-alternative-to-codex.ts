@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to OpenAI Codex and the Codex CLI. Get a CLI coding agent with subagents and model choice, with no ChatGPT Plus required.',
   category: 'Comparisons',
   publishedAt: '2026-03-25',
+  updatedAt: '2026-06-08',
   readingMinutes: 7,
   authorId: 'james-grugett',
   keywords: [
@@ -28,7 +29,7 @@ export const post: Post = {
       items: [
         'Freebuff is the free alternative to OpenAI Codex and the Codex CLI.',
         'Codex requires ChatGPT Plus ($20/mo) or higher to run the cloud agent.',
-        'Freebuff runs locally, ships with 9 subagents, and lets you BYOK ChatGPT to layer GPT-5.4 in for free.',
+        'Freebuff runs locally, ships with 9 subagents, and can use a connected ChatGPT subscription for GPT-5.4 deep thinking.',
         'Same shape: read repo, plan, edit, run, verify, PR.',
       ],
     },
@@ -48,9 +49,9 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: 'ChatGPT Plus ($20+/mo) required' },
         { feature: 'Execution location', freebuff: 'Local — your machine, your filesystem', competitor: 'OpenAI cloud sandbox' },
-        { feature: 'Model choice', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (BYOK)', competitor: 'GPT-5.x family only' },
+        { feature: 'Model choice', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'GPT-5.x family only' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent only' },
-        { feature: 'Bring-your-own ChatGPT', freebuff: 'Yes', competitor: 'You are already paying' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'You are already paying' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'Limited' },
         { feature: 'Run on a private repo', freebuff: 'No upload required', competitor: 'Cloud sandbox uploads' },
       ],
@@ -76,8 +77,8 @@ export const post: Post = {
     {
       type: 'callout',
       tone: 'success',
-      title: 'BYOK ChatGPT is the trick',
-      text: 'If you already pay for ChatGPT Plus, Freebuff lets you use that subscription to power its deep-thinking subagent with GPT-5.4. Same model Codex uses, but routed through your own subscription — free inside Freebuff.',
+      title: 'Connected ChatGPT for deep thinking',
+      text: 'If you already pay for ChatGPT Plus, Freebuff lets you connect that subscription to power its deep-thinking subagent with GPT-5.4.',
     },
     { type: 'h2', text: 'Migrating from Codex CLI' },
     {
@@ -101,7 +102,7 @@ export const post: Post = {
       items: [
         {
           q: 'Does Freebuff use GPT-5?',
-          a: 'Yes, via BYOK. Connect your ChatGPT subscription with `/connect-chatgpt` and Freebuff routes its deep-thinking subagent through GPT-5.4 on your account.',
+          a: 'Yes. Connect your ChatGPT subscription with `/connect-chatgpt` and Freebuff routes its deep-thinking subagent through GPT-5.4 on your account.',
         },
         {
           q: 'Will Freebuff open a PR for me like Codex?',

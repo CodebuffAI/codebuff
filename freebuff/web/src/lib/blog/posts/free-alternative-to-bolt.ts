@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff Web is the free alternative to Bolt.new. Generate, run, and deploy full-stack apps from a single prompt with no token meter.',
   category: 'Comparisons',
   publishedAt: '2026-04-16',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'victor-cheng',
   keywords: [
@@ -64,7 +65,7 @@ export const post: Post = {
         '**No token meter.** Iterate as many times as you want.',
         '**Database + auth + storage out of the box** — no Supabase setup walk-through.',
         '**The Freebuff CLI for big refactors.** Eject to GitHub and keep going in your terminal.',
-        '**BYOK ChatGPT for deep thinking.**',
+        '**A paired CLI for deep thinking and large refactors.**',
       ],
     },
     {

@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff Web is the free alternative to VibeCode. Prompt → deployed full-stack app, with auth, database, file storage, and hosting included, and no per-prompt credit meter.',
   category: 'Comparisons',
   publishedAt: '2026-05-16',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'victor-cheng',
   keywords: [
@@ -44,7 +45,6 @@ export const post: Post = {
         { feature: 'Deployed URL per change', freebuff: 'Yes', competitor: 'Yes' },
         { feature: 'Eject to GitHub', freebuff: 'One click, repo is yours', competitor: 'Limited / paid' },
         { feature: 'Paired CLI agent', freebuff: 'Yes (Freebuff CLI)', competitor: 'No' },
-        { feature: 'BYOK ChatGPT for deep thinking', freebuff: 'Yes', competitor: 'No' },
       ],
     },
     { type: 'h2', text: 'What you keep' },

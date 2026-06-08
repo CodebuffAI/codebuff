@@ -1,5 +1,4 @@
 import { post as bestFreeCliCodingAgents2026 } from './posts/best-free-cli-coding-agents-2026'
-import { post as byokChatgptWithFreebuff } from './posts/byok-chatgpt-with-freebuff'
 import { post as codingAgentBenchmarksWhatTheyMiss } from './posts/coding-agent-benchmarks-what-they-miss'
 import { post as freeAlternativeToA0Dev } from './posts/free-alternative-to-a0-dev'
 import { post as freeAlternativeToAntigravity } from './posts/free-alternative-to-antigravity'
@@ -72,7 +71,6 @@ const allPosts: Post[] = [
   // Guides
   bestFreeCliCodingAgents2026,
   switchFromCursorToFreebuff,
-  byokChatgptWithFreebuff,
 
   // Research
   stateOfFreeAiCoding2026,

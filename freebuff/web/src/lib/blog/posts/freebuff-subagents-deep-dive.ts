@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff ships with 9 specialized subagents — file-picker, code-reviewer, browser-use, thinker-gpt, and more. Here is what each one does and when it runs.',
   category: 'Engineering',
   publishedAt: '2026-05-06',
+  updatedAt: '2026-06-08',
   readingMinutes: 9,
   authorId: 'james-grugett',
   keywords: [
@@ -105,7 +106,7 @@ export const post: Post = {
         },
         {
           q: 'Does each subagent use a different model?',
-          a: 'Yes by default. File-picker uses Gemini Flash Lite for speed; thinker-gpt uses GPT-5.4 via BYOK; the rest pick the model that best matches the task shape.',
+          a: 'Yes by default. File-picker uses Gemini Flash Lite for speed; thinker-gpt can use GPT-5.4 through a connected ChatGPT subscription; the rest pick the model that best matches the task shape.',
         },
       ],
     },

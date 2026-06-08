@@ -65,16 +65,6 @@ async function readStoredRunState(
   return JSON.parse(await blob.text())
 }
 
-async function readRunStateFromStorage(
-  ctx: ActionCtx,
-  storageId: Id<'_storage'> | undefined,
-) {
-  if (!storageId) return undefined
-  const blob = await ctx.storage.get(storageId)
-  if (!blob) return undefined
-  return JSON.parse(await blob.text())
-}
-
 type SdkImageContent = {
   type: 'image'
   image: string // base64-encoded image bytes
@@ -702,61 +692,6 @@ function buildCommitMessage(userMessage: string): string {
   return trimmed ? `Freebuff: ${trimmed}` : 'Freebuff: update project files'
 }
 
-async function enqueueFreebuffReviewRun(args: {
-  ctx: ActionCtx
-  userId: Id<'users'>
-  projectId: Id<'project'>
-  threadId: Id<'agent_thread'>
-  previousRunStateStorageId: Id<'_storage'> | undefined
-}) {
-  if (!args.previousRunStateStorageId) return
-
-  const runId = crypto.randomUUID()
-  const messageId = (await args.ctx.runMutation(
-    internal.coding_agent.cli_agent.agent_message.createAgentMessage,
-    {
-      threadId: args.threadId,
-      sessionId: runId,
-    },
-  )) as Id<'agent_message'>
-
-  await args.ctx.runMutation(
-    (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-      .createFreebuffAgentRun,
-    {
-      runId,
-      userId: args.userId,
-      projectId: args.projectId,
-      threadId: args.threadId,
-      messageId,
-    },
-  )
-
-  const workId = await freebuffAgentWorkpool.enqueueAction(
-    args.ctx,
-    (internal as any).coding_agent.cli_agent.executeFreebuff
-      .runFreebuffReviewAgent,
-    {
-      runId,
-      userId: args.userId,
-      projectId: args.projectId,
-      threadId: args.threadId,
-      messageId,
-      previousRunStateStorageId: args.previousRunStateStorageId,
-    },
-    { retry: false },
-  )
-
-  await args.ctx.runMutation(
-    (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-      .setFreebuffAgentRunWorkId,
-    {
-      runId,
-      workId: String(workId),
-    },
-  )
-}
-
 export const runFreebuffAgent = internalAction({
   args: {
     runId: v.string(),
@@ -779,7 +714,6 @@ export const runFreebuffAgent = internalAction({
     const eventBuffer = createRunEventBuffer({ ctx, ...args })
     await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
     let pendingAskUserQuestions: AskUserQuestion[] | undefined
-    let sawCodeChangingTool = false
 
     const abortController = new AbortController()
     const timeoutHandle = setTimeout(() => {
@@ -834,13 +768,6 @@ export const runFreebuffAgent = internalAction({
         }) as any,
         handleEvent: async (event: any) => {
           if (event.type === 'tool_call') {
-            if (
-              ['apply_patch', 'str_replace', 'write_file'].includes(
-                String(event.toolName ?? ''),
-              )
-            ) {
-              sawCodeChangingTool = true
-            }
             await eventBuffer.flush()
             await recordRunEvent({
               ctx,
@@ -946,23 +873,6 @@ export const runFreebuffAgent = internalAction({
         runStateStorageId,
       })
 
-      if (sawCodeChangingTool) {
-        try {
-          await enqueueFreebuffReviewRun({
-            ctx,
-            userId: args.userId,
-            projectId: args.projectId,
-            threadId: args.threadId,
-            previousRunStateStorageId: runStateStorageId,
-          })
-        } catch (reviewError) {
-          console.warn(
-            '[vly-freebuff-workpool] failed to enqueue review run',
-            reviewError,
-          )
-        }
-      }
-
       return null
     } catch (error) {
       await eventBuffer.flush()
@@ -1003,134 +913,6 @@ export const runFreebuffAgent = internalAction({
         event: {
           type: 'error',
           message: getErrorMessage(error),
-        },
-      })
-      throw error
-    } finally {
-      clearTimeout(timeoutHandle)
-    }
-  },
-})
-
-export const runFreebuffReviewAgent = internalAction({
-  args: {
-    runId: v.string(),
-    userId: v.id('users'),
-    projectId: v.id('project'),
-    threadId: v.id('agent_thread'),
-    messageId: v.id('agent_message'),
-    previousRunStateStorageId: v.id('_storage'),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.runMutation(
-      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-        .markFreebuffAgentRunRunning,
-      { runId: args.runId },
-    )
-
-    const eventBuffer = createRunEventBuffer({ ctx, ...args })
-    await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
-
-    const abortController = new AbortController()
-    const timeoutHandle = setTimeout(() => {
-      abortController.abort(
-        new Error('Freebuff review exceeded 9-minute time limit'),
-      )
-    }, FREEBUFF_RUN_TIMEOUT_MS)
-
-    try {
-      installPromiseWithResolversPolyfill()
-
-      const runState = await run({
-        apiKey: requireEnv('CODEBUFF_API_KEY'),
-        fingerprintId: `${args.projectId}:review`,
-        agent: 'code-reviewer-lite',
-        // Cast bypasses a cross-package AgentDefinition type drift between
-        // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
-        // union). Runtime shape is identical.
-        agentDefinitions: bundledAgentDefinitions as any,
-        prompt:
-          'Review the completed Freebuff changes. Be concise. If there are no important issues, say it looks good in one sentence.',
-        previousRun: await readRunStateFromStorage(
-          ctx,
-          args.previousRunStateStorageId,
-        ),
-        costMode: 'normal',
-        signal: abortController.signal,
-        handleEvent: async (event: any) => {
-          if (event.type === 'tool_call') {
-            await eventBuffer.flush()
-            await recordRunEvent({
-              ctx,
-              ...args,
-              event: {
-                type: 'status',
-                title: event.toolName ?? 'Tool',
-                content: 'Running tool',
-              },
-            })
-          }
-        },
-        handleStreamChunk: async (chunk: any) => {
-          if (typeof chunk === 'string') {
-            eventBuffer.append({ type: 'text_delta', chunk })
-          } else if (chunk.type === 'reasoning_chunk') {
-            eventBuffer.append({
-              type: 'reasoning_delta',
-              chunk: chunk.chunk ?? '',
-            })
-          } else if (chunk.type === 'subagent_chunk') {
-            eventBuffer.append({
-              type: 'subagent_delta',
-              agentType: chunk.agentType,
-              chunk: chunk.chunk ?? '',
-            })
-          }
-        },
-      })
-
-      await eventBuffer.flush()
-
-      if (runState.output?.type === 'error') {
-        const isLocalTimeout = abortController.signal.aborted
-        await recordRunEvent({
-          ctx,
-          ...args,
-          event: {
-            type: 'error',
-            message: isLocalTimeout
-              ? 'Freebuff review stopped after 9 minutes. The main run is still saved.'
-              : runState.output.message,
-            preserveThreadSession: true,
-            meteredCredits:
-              runState.sessionState?.mainAgentState.creditsUsed ?? 0,
-          },
-        })
-        return null
-      }
-
-      await recordRunEvent({
-        ctx,
-        ...args,
-        event: {
-          type: 'final',
-          preserveThreadSession: true,
-          meteredCredits:
-            runState.sessionState?.mainAgentState.creditsUsed ?? 0,
-        },
-      })
-
-      return null
-    } catch (error) {
-      await eventBuffer.flush()
-      await recordRunEvent({
-        ctx,
-        ...args,
-        event: {
-          type: 'error',
-          message: error instanceof Error ? error.message : String(error),
-          preserveThreadSession: true,
         },
       })
       throw error

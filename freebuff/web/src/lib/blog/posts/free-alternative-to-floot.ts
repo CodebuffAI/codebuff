@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff Web is the free alternative to Floot. Build agentic web apps from a prompt, get a real GitHub repo, and skip the paid tier. Free auth, free DB, free deploys.',
   category: 'Comparisons',
   publishedAt: '2026-05-19',
+  updatedAt: '2026-06-08',
   readingMinutes: 5,
   authorId: 'victor-cheng',
   keywords: [
@@ -37,7 +38,6 @@ export const post: Post = {
         { feature: 'Deployed URL', freebuff: 'Free, per change', competitor: 'Free during preview' },
         { feature: 'GitHub eject', freebuff: 'One click', competitor: 'Limited' },
         { feature: 'Paired CLI agent', freebuff: 'Yes (Freebuff CLI)', competitor: 'No' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'No' },
       ],
     },
     {

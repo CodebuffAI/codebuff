@@ -8,6 +8,7 @@ export const post: Post = {
     'A look at why every category of AI coding tool — from CLI agents to in-browser app builders — now has a free, frontier-quality option in 2026, and what that means for developers.',
   category: 'Research',
   publishedAt: '2026-04-08',
+  updatedAt: '2026-06-08',
   readingMinutes: 10,
   authorId: 'freebuff-research',
   featured: true,
@@ -98,7 +99,7 @@ export const post: Post = {
       items: [
         {
           q: 'Are the free models really at parity with Claude / GPT?',
-          a: 'For coding, yes. DeepSeek V4 Pro, Kimi K2.6, and GPT-5.4 (via BYOK) match Claude on most coding-specific benchmarks. The "best for everything" debate is messier; the "best for coding" question is mostly settled.',
+          a: 'For coding, yes. DeepSeek V4 Pro, Kimi K2.6, and GPT-5.4 through a connected ChatGPT subscription match Claude on most coding-specific benchmarks. The "best for everything" debate is messier; the "best for coding" question is mostly settled.',
         },
         {
           q: 'Why would anyone still pay for Cursor / Claude Code / Lovable?',

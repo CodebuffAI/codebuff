@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff Web is the free alternative to Emergent. Generate and deploy full-stack apps with auth, database, and hosting, without the $99/mo subscription.',
   category: 'Comparisons',
   publishedAt: '2026-04-30',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'victor-cheng',
   keywords: [
@@ -45,7 +46,6 @@ export const post: Post = {
         { feature: 'Deployed URL', freebuff: 'Yes, free', competitor: 'Yes' },
         { feature: 'Eject to GitHub', freebuff: 'One click, repo is yours', competitor: 'Yes (paid plans)' },
         { feature: 'Paired CLI agent', freebuff: 'Yes', competitor: 'No' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'No' },
       ],
     },
     { type: 'h2', text: 'When Emergent is still the right call' },

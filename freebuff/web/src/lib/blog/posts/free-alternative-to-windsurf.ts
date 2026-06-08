@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to Windsurf — a CLI coding agent with cascade-style autonomy, subagents, and model choice. Pairs with VS Code, JetBrains, and any terminal.',
   category: 'Comparisons',
   publishedAt: '2026-04-23',
+  updatedAt: '2026-06-08',
   readingMinutes: 6,
   authorId: 'freebuff-team',
   keywords: [
@@ -40,10 +41,10 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$15+/mo per seat' },
         { feature: 'Editor lock-in', freebuff: 'None — works anywhere', competitor: 'Windsurf IDE (Codeium)' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (BYOK)', competitor: 'Codeium-curated set' },
+        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Codeium-curated set' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General Cascade agent' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'No' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'No' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No' },
         { feature: 'Codebase indexing', freebuff: 'Local + free', competitor: 'Cloud + metered' },
       ],
     },

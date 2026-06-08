@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to Cursor — a CLI coding agent with subagents, model choice, and zero subscription. Use it inside VS Code, JetBrains, or any terminal.',
   category: 'Comparisons',
   publishedAt: '2026-03-21',
+  updatedAt: '2026-06-08',
   readingMinutes: 7,
   authorId: 'freebuff-team',
   keywords: [
@@ -52,10 +53,10 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$20/mo (Pro), $200/mo (Ultra)' },
         { feature: 'Editor lock-in', freebuff: 'None — works anywhere', competitor: 'Cursor-only' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (BYOK)', competitor: 'Curated set; Auto by default' },
+        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Curated set; Auto by default' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent only' },
         { feature: 'Browser use', freebuff: 'Built-in', competitor: 'Beta / MCP' },
-        { feature: 'Bring your own ChatGPT', freebuff: 'Yes', competitor: 'No' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No' },
         { feature: 'Codebase indexing', freebuff: 'Local + free', competitor: 'Cloud + metered' },
       ],
     },
@@ -75,7 +76,7 @@ export const post: Post = {
         '**You use multiple editors.** Freebuff goes wherever your terminal goes.',
         '**You want big, agentic tasks.** `/interview` → `/plan` → implement → `/review` is faster and cheaper than driving a chat panel through the same task.',
         '**You want to control which model touches your code.** Pick per-task with `/model`.',
-        '**You bring your own ChatGPT subscription.** Freebuff piggybacks on it for deep thinking, free.',
+        '**You use ChatGPT for deep thinking.** Connect your existing ChatGPT subscription to Freebuff.',
       ],
     },
     {

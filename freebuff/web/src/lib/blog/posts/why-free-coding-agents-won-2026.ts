@@ -5,9 +5,10 @@ export const post: Post = {
   title: 'Why free coding agents won in 2026',
   subtitle: 'Four forces that collapsed paid AI coding tools — and what comes next.',
   description:
-    'A research piece on why free AI coding agents — Freebuff, OpenCode, Gemini CLI, Aider — captured the developer market in 2026. Model commodification, BYOK normalization, ad-supported tooling, and the death of per-seat AI pricing.',
+    'A research piece on why free AI coding agents — Freebuff, OpenCode, Gemini CLI, Aider — captured the developer market in 2026. Model commodification, direct model billing, ad-supported tooling, and the death of per-seat AI pricing.',
   category: 'Research',
   publishedAt: '2026-05-22',
+  updatedAt: '2026-06-08',
   readingMinutes: 11,
   authorId: 'freebuff-research',
   keywords: [
@@ -25,7 +26,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         '**Model commodification:** open-weight models matched frontier on coding by Q1 2026.',
-        '**BYOK normalization:** users prefer paying their model bill directly over per-seat SaaS.',
+        '**Direct model billing normalized:** users prefer transparent model costs over per-seat SaaS.',
         '**Ad-supported tooling works** when ads are devtool-relevant and CLI-native.',
         '**Per-seat AI pricing died** — the unit economics never matched developer churn.',
       ],
@@ -49,10 +50,10 @@ export const post: Post = {
         { feature: 'Latency p50', freebuff: '350 \u2013 600 ms first token', competitor: '500 ms first token' },
       ],
     },
-    { type: 'h2', text: '2. BYOK normalization' },
+    { type: 'h2', text: '2. Direct model billing normalized' },
     {
       type: 'p',
-      text: 'Developers got tired of paying $20/mo to a SaaS that paid the model provider $3/mo on their behalf. BYOK ChatGPT, BYOK Anthropic, and BYOK OpenRouter became table-stakes. The middle layer collapsed.',
+      text: 'Developers got tired of paying $20/mo to a SaaS that paid the model provider $3/mo on their behalf. Direct OpenAI, Anthropic, and OpenRouter billing became table-stakes for open-source tools. The middle layer collapsed.',
     },
     { type: 'h2', text: '3. Ad-supported devtools work' },
     {

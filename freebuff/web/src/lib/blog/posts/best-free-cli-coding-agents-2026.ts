@@ -8,6 +8,7 @@ export const post: Post = {
     'A hands-on review of the best free CLI coding agents in 2026 — Freebuff, Aider, Continue, OpenCode, and more. We test each on the same task and rank the results.',
   category: 'Guides',
   publishedAt: '2026-04-01',
+  updatedAt: '2026-06-08',
   readingMinutes: 12,
   authorId: 'james-grugett',
   keywords: [
@@ -48,7 +49,7 @@ export const post: Post = {
     {
       type: 'ul',
       items: [
-        '**Strengths:** Speed, subagents, model choice, browser-use, BYOK ChatGPT.',
+        '**Strengths:** Speed, subagents, model choice, browser-use.',
         '**Weaknesses:** Newer ecosystem; ad-supported (text ads in CLI).',
         '**Install:** `npm install -g freebuff`.',
       ],
@@ -105,7 +106,6 @@ export const post: Post = {
         { feature: 'Browser-use', freebuff: 'Built-in', competitor: 'No' },
         { feature: 'Model bill', freebuff: 'Free', competitor: 'Pay-per-token (BYOK)' },
         { feature: 'Out-of-box autonomy', freebuff: 'High', competitor: 'Medium' },
-        { feature: 'BYOK ChatGPT', freebuff: 'Yes', competitor: 'Mixed' },
       ],
     },
     { type: 'h2', text: 'Our recommendations' },

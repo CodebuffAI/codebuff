@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff Web is the free alternative to Replit Agent — generate full-stack apps with auth, database, and hosting from a single prompt. No Core subscription.',
   category: 'Comparisons',
   publishedAt: '2026-04-12',
+  updatedAt: '2026-06-08',
   readingMinutes: 7,
   authorId: 'freebuff-team',
   keywords: [
@@ -51,7 +52,7 @@ export const post: Post = {
         { feature: 'Deployed URL on every change', freebuff: 'Yes', competitor: 'Yes' },
         { feature: 'Eject to GitHub', freebuff: 'One click, repo is yours', competitor: 'Yes (export)' },
         { feature: 'Paired CLI agent for refactors', freebuff: 'Yes (Freebuff CLI)', competitor: 'No' },
-        { feature: 'Bring your own ChatGPT', freebuff: 'Yes (GPT-5.4 deep thinking)', competitor: 'No' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes (GPT-5.4 deep thinking)', competitor: 'No' },
         { feature: 'In-browser shell', freebuff: 'Yes', competitor: 'Yes' },
       ],
     },
@@ -70,7 +71,7 @@ export const post: Post = {
       items: [
         '**You want to ship a real app without paying $25/mo.**',
         '**You want a CLI agent that can keep editing the same project after you eject.**',
-        '**You want to use your own ChatGPT subscription to layer in GPT-5.4 for the hard turns.**',
+        '**You want to connect ChatGPT to layer in GPT-5.4 for the hard turns.**',
       ],
     },
     {

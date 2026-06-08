@@ -5,9 +5,10 @@ export const post: Post = {
   title: 'The free alternative to OpenCode',
   subtitle: 'Open-source CLI agent + your own API keys vs $0, batteries-included.',
   description:
-    'Freebuff vs OpenCode: a free, batteries-included CLI coding agent vs the BYOK open-source option. Models, subagents, browser-use, BYOK ChatGPT, and zero spend on day one.',
+    'Freebuff vs OpenCode: a free, batteries-included CLI coding agent vs the BYOK open-source option. Models, subagents, browser-use, and zero spend on day one.',
   category: 'Comparisons',
   publishedAt: '2026-05-11',
+  updatedAt: '2026-06-08',
   readingMinutes: 7,
   authorId: 'james-grugett',
   keywords: [
@@ -25,7 +26,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         'OpenCode is a great open-source CLI agent, but you bring (and pay for) the model API keys.',
-        'Freebuff bundles frontier models in the free tier — DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, plus BYOK GPT-5.4.',
+        'Freebuff bundles frontier models in the free tier — DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, plus GPT-5.4 through a connected ChatGPT subscription.',
         '9 specialized subagents ship in the box; OpenCode is one general agent.',
         'Browser-use is built in on Freebuff; OpenCode needs MCP + extra setup.',
         'If you already self-host Ollama + open weights, OpenCode is the closer fit. Otherwise Freebuff is faster to value.',
@@ -42,7 +43,7 @@ export const post: Post = {
       rows: [
         { feature: 'Per-run cost', freebuff: 'Free', competitor: 'Pay your model provider per token' },
         { feature: 'Model bundle', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7 included', competitor: 'BYOK — OpenAI, Anthropic, OpenRouter, Ollama' },
-        { feature: 'BYOK ChatGPT (GPT-5.4)', freebuff: 'Yes, free inside Freebuff', competitor: 'BYOK, you pay OpenAI' },
+        { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'Not applicable; OpenCode uses API keys' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: '1 general agent' },
         { feature: 'Browser-use', freebuff: 'Built-in', competitor: 'MCP + setup' },
         { feature: 'Slash commands shipped', freebuff: '/interview, /plan, /review, /pr, /deploy, more', competitor: 'Minimal default set' },
@@ -90,7 +91,7 @@ export const post: Post = {
         },
         {
           q: 'Can Freebuff use the same models OpenCode uses?',
-          a: 'Yes for OpenAI (via BYOK ChatGPT) and Gemini. Direct Anthropic Claude BYOK is on the Freebuff roadmap; in the meantime, the included DeepSeek V4 Pro and Kimi K2.6 match Claude on most coding benchmarks.',
+          a: 'Freebuff does not support BYOK. It includes DeepSeek V4 Pro and Kimi K2.6, uses Gemini for file finding, and can use GPT-5.4 through a connected ChatGPT subscription.',
         },
       ],
     },

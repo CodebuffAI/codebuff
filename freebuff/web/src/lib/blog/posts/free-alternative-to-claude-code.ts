@@ -8,6 +8,7 @@ export const post: Post = {
     'Freebuff is a free alternative to Claude Code — a CLI coding agent with subagents, slash commands, and frontier models. No Claude Pro or Max subscription required.',
   category: 'Comparisons',
   publishedAt: '2026-03-17',
+  updatedAt: '2026-06-08',
   readingMinutes: 8,
   authorId: 'james-grugett',
   featured: true,
@@ -29,8 +30,8 @@ export const post: Post = {
         'Freebuff is a free alternative to Claude Code with the same CLI-first agent loop.',
         'Claude Code Pro is $20/mo, Max is $200/mo. Freebuff is $0.',
         'You get 9 specialized subagents in the box: code-reviewer, browser-use, file-picker, and more.',
-        'Frontier model options (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7) plus GPT-5.4 via BYOK.',
-        'Bring your own ChatGPT subscription to layer in GPT-5.4 deep thinking — free.',
+        'Frontier model options (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7) plus GPT-5.4 through a connected ChatGPT subscription.',
+        'Connect your ChatGPT subscription to layer in GPT-5.4 deep thinking.',
       ],
     },
     {
@@ -52,7 +53,7 @@ export const post: Post = {
         { feature: 'Model choice per task', freebuff: 'Yes via `/model`', competitor: 'Limited' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: 'Generic delegation' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'MCP setup required' },
-        { feature: 'Deep thinking with GPT-5.4', freebuff: 'BYOK ChatGPT subscription', competitor: 'Not available' },
+        { feature: 'Deep thinking with GPT-5.4', freebuff: 'Connected ChatGPT subscription', competitor: 'Not available' },
         { feature: 'Slash command palette', freebuff: '/interview, /plan, /review, /deploy, more', competitor: 'Smaller default set' },
         { feature: 'Available globally', freebuff: 'Yes (limited mode covers VPNs + other countries)', competitor: 'Region-restricted' },
       ],
@@ -73,7 +74,7 @@ export const post: Post = {
       items: [
         '**Choice of frontier model.** Switch models mid-conversation. Each task can use the model best suited to it.',
         '**Built-in browser-use subagent.** The agent can drive a real browser to verify the app it just shipped.',
-        '**Bring-your-own ChatGPT.** Layer GPT-5.4 on top for the deepest reasoning, without paying twice.',
+        '**Connected ChatGPT.** Layer GPT-5.4 on top for the deepest reasoning.',
         '**Slash commands shaped around shipping.** `/interview` flushes out requirements, `/plan` produces a written spec, `/review` runs the code-reviewer subagent.',
         '**Free.** The big one.',
       ],
@@ -111,11 +112,11 @@ export const post: Post = {
       items: [
         {
           q: 'Can Freebuff use Claude under the hood?',
-          a: 'Not directly today — Freebuff defaults to DeepSeek, Kimi, MiniMax, and Gemini. You can connect ChatGPT to layer in GPT-5.4. Claude support via BYOK is on the roadmap.',
+          a: 'Not directly today — Freebuff defaults to DeepSeek, Kimi, MiniMax, and Gemini. You can connect ChatGPT to layer in GPT-5.4.',
         },
         {
           q: 'Will the quality match Claude Code?',
-          a: 'For typical agentic coding (read, plan, edit, run tests), DeepSeek V4 Pro and Kimi K2.6 are at parity with Claude on most benchmarks. For the hardest reasoning, BYOK GPT-5.4 closes the gap.',
+          a: 'For typical agentic coding (read, plan, edit, run tests), DeepSeek V4 Pro and Kimi K2.6 are at parity with Claude on most benchmarks. For the hardest reasoning, connected GPT-5.4 closes the gap.',
         },
         {
           q: 'How does the ad-supported model work?',
