@@ -25,6 +25,10 @@ export const terminalCommandOutputSchema = z.union([
     command: z.string(),
     processId: z.number(),
     backgroundProcessStatus: z.enum(['running', 'completed', 'error']),
+    /** Job id to poll/follow with the check_job tool. */
+    jobId: z.string().optional(),
+    /** Temp file the background job streams its combined output to. */
+    logFile: z.string().optional(),
   }),
   z.object({
     command: z.string(),
@@ -108,7 +112,7 @@ const inputSchema = z
       .enum(['SYNC', 'BACKGROUND'])
       .default('SYNC')
       .describe(
-        `Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC`,
+        `Either SYNC (waits, returns output) or BACKGROUND (starts a detached job and returns immediately with a jobId — poll/follow it with check_job). Use BACKGROUND for long-running or never-exiting processes (dev servers, watchers, log tails) so you don't block the turn. Default SYNC`,
       ),
     cwd: z
       .string()
@@ -152,6 +156,7 @@ Do:
 Notes:
 - If the user references a specific file, it could be either from their cwd or from the project root. You **must** determine which they are referring to (either infer or ask). Then, you must specify the path relative to the project root (or use the cwd parameter)
 - Commands can succeed without giving any output, e.g. if no type errors were found.
+- For long-running or never-exiting commands (dev servers, watchers, \`tail -f\`), set process_type: BACKGROUND. It returns a jobId immediately; read new output (and wait for a readiness pattern) with check_job instead of blocking the turn.
 
 ${gitCommitGuidePrompt}
 

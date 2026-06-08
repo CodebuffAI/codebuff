@@ -30,6 +30,7 @@ import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFileForEdit, getFiles } from './tools/read-files'
 import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
+import { checkJob } from './tools/check-job'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -756,6 +757,8 @@ async function handleToolCall({
         cwd: requireCwd(cwd, 'run_file_change_hooks'),
         env,
       })
+    } else if (toolName === 'check_job') {
+      result = await checkJob(input as Parameters<typeof checkJob>[0])
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

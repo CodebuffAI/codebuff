@@ -6,6 +6,7 @@ export type ToolName =
   | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
+  | 'check_job'
   | 'code_search'
   | 'end_turn'
   | 'edit_transaction'
@@ -48,6 +49,7 @@ export interface ToolParamsMap {
   apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
+  check_job: CheckJobParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   edit_transaction: EditTransactionParams
@@ -171,6 +173,18 @@ export interface AskUserParams {
       patternError?: string
     }
   }[]
+}
+
+/**
+ * Poll or follow a background job started by run_terminal_command: returns the output produced since the last check plus the job status and exit code. Use it to observe a long-running process without blocking the turn. To watch an arbitrary log file, start a `tail -f <file>` BACKGROUND job and check_job it with a wait_for pattern.
+ */
+export interface CheckJobParams {
+  /** The jobId returned by run_terminal_command with process_type: BACKGROUND. */
+  jobId: string
+  /** Optional substring to wait for in the new output before returning (follow mode). Returns early as soon as it appears (e.g. "Listening on" / "compiled successfully"). */
+  wait_for?: string
+  /** Max seconds to wait for new output / the wait_for pattern. 0 (default) returns immediately with whatever new output exists (poll mode); >0 blocks up to this long (follow mode). */
+  timeout_seconds?: number
 }
 
 /**
@@ -552,7 +566,7 @@ export interface RunFileChangeHooksParams {
 export interface RunTerminalCommandParams {
   /** CLI command valid for user's OS. */
   command: string
-  /** Either SYNC (waits, returns output) or BACKGROUND (runs in background). Default SYNC */
+  /** Either SYNC (waits, returns output) or BACKGROUND (starts a detached job and returns immediately with a jobId — poll/follow it with check_job). Use BACKGROUND for long-running or never-exiting processes (dev servers, watchers, log tails) so you don't block the turn. Default SYNC */
   process_type?: 'SYNC' | 'BACKGROUND'
   /** The working directory to run the command in. Default is the project root. */
   cwd?: string

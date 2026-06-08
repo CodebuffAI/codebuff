@@ -74,6 +74,7 @@ export function createBase2(
       'set_output',
       'list_directory',
       'glob',
+      'check_job',
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -172,6 +173,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
+    '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
     isMax &&

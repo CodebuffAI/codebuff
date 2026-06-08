@@ -7,6 +7,7 @@ import { applyPatchParams } from './params/tool/apply-patch'
 import { applySmartPatchParams } from './params/tool/apply-smart-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
+import { checkJobParams } from './params/tool/check-job'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
 import { editTransactionParams } from './params/tool/edit-transaction'
@@ -55,6 +56,7 @@ export const toolParams = {
   apply_smart_patch: applySmartPatchParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
+  check_job: checkJobParams,
   code_search: codeSearchParams,
   create_plan: createPlanParams,
   edit_transaction: editTransactionParams,
@@ -130,6 +132,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
     input: toolParams.browser_logs.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('check_job'),
+    input: toolParams.check_job.inputSchema,
   }),
   z.object({
     toolName: z.literal('code_search'),

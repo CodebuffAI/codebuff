@@ -30,6 +30,11 @@ const basher: AgentDefinition = {
           type: 'number',
           description: 'Set to -1 for no timeout. Default 30',
         },
+        process_type: {
+          type: 'string',
+          description:
+            'SYNC (default, waits and returns output) or BACKGROUND (starts a detached job and returns a jobId immediately). Use BACKGROUND for long-running or never-exiting commands (dev servers, watchers, log tails); poll/follow the returned jobId with the check_job tool.',
+        },
       },
       required: ['command'],
     },
@@ -69,6 +74,10 @@ Do not use any tools! Only analyze the output of the command.`,
 
     const timeout_seconds = params?.timeout_seconds as number | undefined
     const what_to_summarize = params?.what_to_summarize as string | undefined
+    const process_type = params?.process_type as
+      | 'SYNC'
+      | 'BACKGROUND'
+      | undefined
 
     // Run the command. When a follow-up LLM summary is requested, do not replay
     // this programmatic call as provider-native tool history: Gemini Agent
@@ -77,6 +86,7 @@ Do not use any tools! Only analyze the output of the command.`,
       toolName: 'run_terminal_command',
       input: {
         command,
+        ...(process_type !== undefined && { process_type }),
         ...(timeout_seconds !== undefined && { timeout_seconds }),
       },
       ...(what_to_summarize && { includeToolCall: false }),

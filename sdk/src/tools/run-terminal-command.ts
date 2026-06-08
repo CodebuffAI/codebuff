@@ -8,6 +8,7 @@ import {
   truncateStringWithMessage,
 } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
+import { startBackgroundJob } from './background-jobs'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -130,7 +131,46 @@ export function runTerminalCommand({
   env?: Record<string, string | undefined>
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
-    throw new Error('BACKGROUND process_type not implemented')
+    const isWindows = os.platform() === 'win32'
+    const processEnv = {
+      ...getSystemProcessEnv(),
+      ...(env ?? {}),
+    } as NodeJS.ProcessEnv
+
+    let shell: string
+    let shellArgs: string[]
+    if (isWindows) {
+      const bashPath = findWindowsBash(processEnv)
+      if (!bashPath) {
+        return Promise.reject(createWindowsBashNotFoundError())
+      }
+      shell = bashPath
+      shellArgs = ['-c']
+    } else {
+      shell = 'bash'
+      shellArgs = ['-c']
+    }
+
+    const job = startBackgroundJob({
+      command,
+      shell,
+      shellArgs,
+      cwd: path.resolve(cwd),
+      env: processEnv,
+    })
+
+    return Promise.resolve([
+      {
+        type: 'json',
+        value: {
+          command,
+          processId: job.child.pid ?? -1,
+          backgroundProcessStatus: 'running',
+          jobId: job.jobId,
+          logFile: job.logFile,
+        },
+      },
+    ])
   }
 
   return new Promise((resolve, reject) => {
