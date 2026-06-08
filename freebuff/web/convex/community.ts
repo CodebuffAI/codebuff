@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { signedInUser } from "!/users";
 
 // Helper function to get the screenshot URL for a post
 // Prefers fresh URL from storage ID, falls back to stored URL
@@ -47,10 +48,15 @@ export const publishProject = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
+    let user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
       .unique();
+
+    if (!user) {
+      const userId = await signedInUser(ctx);
+      user = await ctx.db.get(userId);
+    }
 
     if (!user) {
       throw new Error("User not found");
