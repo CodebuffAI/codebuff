@@ -700,7 +700,7 @@ const TextGroup: React.FC<{
   const firstTitle = items.find((item) => item.title)?.title
 
   return (
-    <div className="mb-2">
+    <div>
       {firstTitle && (
         <div className="mb-1.5 text-xs font-medium text-muted-foreground">
           {firstTitle}
@@ -804,9 +804,7 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
 // individual entries remain independently expandable.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
-  isAfterActivity?: boolean
-  isBeforeActivity?: boolean
-}> = ({ items, isAfterActivity = false, isBeforeActivity = false }) => {
+}> = ({ items }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
   const detailedItems = useMemo(
@@ -823,13 +821,7 @@ const ActivityGroup: React.FC<{
   const Icon = hasError ? TriangleAlert : usesTools ? Wrench : null
 
   return (
-    <div
-      className="my-2.5"
-      style={{
-        ...(isAfterActivity ? { marginTop: 0 } : {}),
-        ...(isBeforeActivity ? { marginBottom: 0 } : {}),
-      }}
-    >
+    <div>
       <Collapsible
         open={hasDetails && isExpanded}
         onOpenChange={(open) => hasDetails && setIsExpanded(open)}
@@ -1317,7 +1309,12 @@ const AgentMessageCard: React.FC<{
       item.type !== 'ask_user' &&
       !isAskUserStatusItem(item) &&
       !isPromptTimeLimitItem(item) &&
-      !isSuggestFollowupsItem(item),
+      !isSuggestFollowupsItem(item) &&
+      // Drop empty/whitespace-only text deltas. Otherwise they form their own
+      // text group between two tool-call runs, which both splits one logical
+      // activity section into two and stacks extra margins (the big gap).
+      // Removing them lets consecutive activity runs merge into one group.
+      !(TEXT_TYPES.has(item.type) && !(item.content ?? '').trim()),
   )
   const hasStream = visibleAssistantStream.length > 0
   const hasCheckpoint =
@@ -1442,19 +1439,13 @@ const AgentMessageCard: React.FC<{
           thinking / system items group into a
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
-        <div className="space-y-3">
-          {groupStreamItems(visibleAssistantStream).map(
-            (group, index, groups) =>
-              group.kind === 'text' ? (
-                <TextGroup key={index} items={group.items} />
-              ) : (
-                <ActivityGroup
-                  key={index}
-                  items={group.items}
-                  isAfterActivity={groups[index - 1]?.kind === 'activity'}
-                  isBeforeActivity={groups[index + 1]?.kind === 'activity'}
-                />
-              ),
+        <div className="space-y-2">
+          {groupStreamItems(visibleAssistantStream).map((group, index) =>
+            group.kind === 'text' ? (
+              <TextGroup key={index} items={group.items} />
+            ) : (
+              <ActivityGroup key={index} items={group.items} />
+            ),
           )}
         </div>
       ) : null}

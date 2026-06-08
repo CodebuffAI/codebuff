@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader } from "lucide-react";
+import { Check, ChevronDown, Loader } from "lucide-react";
 import { Button } from "@/vly/components/ui/button";
 import { cn } from "@/vly/lib/utils";
 import {
@@ -22,11 +22,15 @@ export function AskUserComposer({
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, AskUserAnswer>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Expanded descriptions, keyed by `${questionIndex}:${label}` so each
+  // question tracks its own expansions. Toggled explicitly by click (no hover).
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const questionsKey = useMemo(() => JSON.stringify(questions), [questions]);
 
   useEffect(() => {
     setQuestionIndex(0);
     setAnswers({});
+    setExpanded({});
     setIsSubmitting(false);
   }, [questionsKey]);
 
@@ -58,6 +62,14 @@ export function AskUserComposer({
     } else {
       updateAnswer({ selected: [label] });
     }
+  };
+
+  const isExpanded = (label: string) =>
+    !!expanded[`${questionIndex}:${label}`];
+
+  const toggleExpanded = (label: string) => {
+    const key = `${questionIndex}:${label}`;
+    setExpanded((current) => ({ ...current, [key]: !current[key] }));
   };
 
   const handleContinue = async () => {
@@ -98,35 +110,82 @@ export function AskUserComposer({
         {question.question}
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+      <div className="mt-3 flex flex-col gap-1.5">
         {question.options.map((option) => {
           const selected = answer.selected.includes(option.label);
+          const hasDescription = !!option.description?.trim();
+          const optionExpanded = hasDescription && isExpanded(option.label);
           return (
-            <button
+            <div
               key={option.label}
-              type="button"
-              title={option.description}
-              disabled={isSubmitting}
-              onClick={() => toggleOption(option.label)}
               className={cn(
-                "group flex min-h-8 items-center rounded-full px-2.5 text-left text-sm transition-colors",
+                "rounded-lg border text-left",
                 selected
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
+                  ? "border-primary/50 bg-primary/10"
+                  : "border-border/40 bg-background/30",
               )}
             >
-              <span className="whitespace-nowrap">{option.label}</span>
-              {option.description && (
-                <span className="max-w-0 overflow-hidden whitespace-nowrap pl-0 text-xs opacity-0 transition-all duration-200 group-hover:max-w-80 group-hover:pl-2 group-hover:opacity-60">
-                  {option.description}
-                </span>
-              )}
-            </button>
+              <div className="flex items-start gap-2 px-3 py-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => toggleOption(option.label)}
+                  aria-pressed={selected}
+                  className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border",
+                      question.multiSelect ? "rounded" : "rounded-full",
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border/70",
+                    )}
+                  >
+                    {selected && <Check className="h-3 w-3" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className="shrink-0 text-sm font-medium text-foreground">
+                        {option.label}
+                      </span>
+                      {hasDescription && !optionExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      )}
+                    </span>
+                    {optionExpanded && (
+                      <span className="mt-1 block whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                        {option.description}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {hasDescription && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => toggleExpanded(option.label)}
+                    aria-label={optionExpanded ? "Show less" : "Learn more"}
+                    aria-expanded={optionExpanded}
+                    className="-mr-1 mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        optionExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
 
-      <div className="mt-2 flex items-end gap-2">
+      <div className="mt-3 flex items-end gap-2">
         <input
           value={answer.custom}
           disabled={isSubmitting}
@@ -135,7 +194,6 @@ export function AskUserComposer({
             if (event.key === "Enter") void handleContinue();
           }}
           placeholder="Or type an answer"
-          autoFocus
           className="h-9 min-w-0 flex-1 border-0 border-b border-border/50 bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/70"
         />
         <Button
