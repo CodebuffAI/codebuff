@@ -119,7 +119,7 @@ const KIMI_MODEL = {
   tagline: 'Balanced',
   availability: 'always',
   premium: true,
-  multimodal: false,
+  multimodal: true,
 } as const satisfies FreebuffModelOption
 
 const MIMO_V25_MODEL = {
@@ -153,10 +153,10 @@ const MINIMAX_MODEL = {
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
-  tagline: 'Frontier',
+  tagline: 'Smartest & multimodal',
   availability: 'always',
   premium: true,
-  multimodal: false,
+  multimodal: true,
 } as const satisfies FreebuffModelOption
 
 export const SUPPORTED_FREEBUFF_MODELS = [
@@ -191,6 +191,8 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
 export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_KIMI_MODEL_ID,
 ] as const
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
